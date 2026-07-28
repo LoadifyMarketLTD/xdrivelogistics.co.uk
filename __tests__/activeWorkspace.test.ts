@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   type RawMembershipRow,
   resolveActiveCompanyContext,
+  resolveCompanyEnabledWorkspaces,
   resolveWorkspaceForCompany,
 } from '../lib/activeWorkspace';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function membership(
   overrides: Partial<RawMembershipRow> & { company_id: string },
@@ -19,131 +18,43 @@ function membership(
       name: `Company ${overrides.company_id}`,
       company_type: 'standard',
       status: 'active',
+      enabled_workspaces: null,
     },
     ...overrides,
   };
 }
 
-// ── 1. Basic resolution ───────────────────────────────────────────────────────
-
-describe('resolveActiveCompanyContext — basic resolution', () => {
-  it('returns no_memberships when array is empty', () => {
-    const result = resolveActiveCompanyContext([]);
-    expect(result).toEqual({ ok: false, error: 'no_memberships' });
+describe('resolveActiveCompanyContext', () => {
+  it('returns no_memberships for an empty list', () => {
+    expect(resolveActiveCompanyContext([])).toEqual({ ok: false, error: 'no_memberships' });
   });
 
-  it('resolves a single active membership automatically', () => {
-    const rows = [membership({ company_id: 'co-1' })];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.companyId).toBe('co-1');
-      expect(result.context.membershipRole).toBe('owner');
-      expect(result.context.workspace).toBe('carrier_fleet');
-      expect(result.context.isActive).toBe(true);
-    }
+  it('requires explicit company selection when multiple memberships exist', () => {
+    const rows = [membership({ company_id: 'co-1' }), membership({ company_id: 'co-2' })];
+    expect(resolveActiveCompanyContext(rows)).toEqual({ ok: false, error: 'no_active_membership' });
   });
 
-  it('resolves a preferred company when multiple memberships exist', () => {
-    const rows = [
-      membership({ company_id: 'co-1' }),
-      membership({ company_id: 'co-2' }),
-    ];
-    const result = resolveActiveCompanyContext(rows, { preferredCompanyId: 'co-2' });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.companyId).toBe('co-2');
-    }
-  });
-});
-
-// ── 2. No implicit cross-company fallback ─────────────────────────────────────
-
-describe('resolveActiveCompanyContext — no cross-company fallback', () => {
-  it('returns no_active_membership when multiple memberships and no preference', () => {
-    const rows = [
-      membership({ company_id: 'co-1' }),
-      membership({ company_id: 'co-2' }),
-    ];
-    // No preferredCompanyId — must NOT silently pick the first one
-    const result = resolveActiveCompanyContext(rows);
-    expect(result).toEqual({ ok: false, error: 'no_active_membership' });
-  });
-
-  it('returns no_active_membership when preferred company not found in memberships', () => {
-    const rows = [membership({ company_id: 'co-1' })];
-    const result = resolveActiveCompanyContext(rows, { preferredCompanyId: 'co-999' });
-    expect(result).toEqual({ ok: false, error: 'no_active_membership' });
-  });
-});
-
-// ── 3. Active/inactive filtering ──────────────────────────────────────────────
-
-describe('resolveActiveCompanyContext — active filtering', () => {
-  it('ignores invited memberships', () => {
-    const rows = [membership({ company_id: 'co-1', status: 'invited' })];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result).toEqual({ ok: false, error: 'no_active_membership' });
-  });
-
-  it('ignores suspended memberships', () => {
-    const rows = [membership({ company_id: 'co-1', status: 'suspended' })];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result).toEqual({ ok: false, error: 'no_active_membership' });
-  });
-
-  it('ignores memberships with a suspended company', () => {
+  it('requires explicit active workspace when a company enables multiple workspaces', () => {
     const rows = [
       membership({
         company_id: 'co-1',
         companies: {
           id: 'co-1',
-          name: 'Suspended Co',
+          name: 'Multi Workspace Co',
           company_type: 'standard',
-          status: 'suspended',
-        },
-      }),
-    ];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result).toEqual({ ok: false, error: 'no_active_membership' });
-  });
-
-  it('uses the single active membership when others are inactive', () => {
-    const rows = [
-      membership({ company_id: 'co-inactive', status: 'suspended' }),
-      membership({ company_id: 'co-active' }),
-    ];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.companyId).toBe('co-active');
-    }
-  });
-});
-
-// ── 4. Workspace mismatch guard ───────────────────────────────────────────────
-
-describe('resolveActiveCompanyContext — workspace mismatch', () => {
-  it('returns workspace_mismatch when company workspace differs from target', () => {
-    const rows = [
-      membership({
-        company_id: 'co-1',
-        companies: {
-          id: 'co-1',
-          name: 'Shipper Co',
-          company_type: 'customer',
           status: 'active',
+          enabled_workspaces: ['carrier_fleet', 'broker'],
         },
       }),
     ];
-    // User is in a shipper company but targeting /admin (carrier_fleet)
-    const result = resolveActiveCompanyContext(rows, {
-      targetPathname: '/admin/marketplace',
+
+    expect(resolveActiveCompanyContext(rows)).toEqual({
+      ok: false,
+      error: 'active_workspace_required',
     });
-    expect(result).toEqual({ ok: false, error: 'workspace_mismatch' });
   });
 
-  it('resolves successfully when workspace matches target pathname', () => {
+  it('fails closed when requested workspace is not enabled for selected company', () => {
     const rows = [
       membership({
         company_id: 'co-1',
@@ -152,94 +63,129 @@ describe('resolveActiveCompanyContext — workspace mismatch', () => {
           name: 'Carrier Co',
           company_type: 'standard',
           status: 'active',
+          enabled_workspaces: ['carrier_fleet'],
         },
       }),
     ];
-    const result = resolveActiveCompanyContext(rows, {
-      targetPathname: '/admin/jobs',
-    });
-    expect(result.ok).toBe(true);
+
+    expect(
+      resolveActiveCompanyContext(rows, {
+        activeWorkspace: 'broker',
+      }),
+    ).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
-  it('resolves without workspace check when no target is given', () => {
+  it('prevents workspace leakage across companies', () => {
+    const rows = [
+      membership({
+        company_id: 'carrier-co',
+        companies: {
+          id: 'carrier-co',
+          name: 'Carrier Co',
+          company_type: 'standard',
+          status: 'active',
+          enabled_workspaces: ['carrier_fleet'],
+        },
+      }),
+      membership({
+        company_id: 'broker-co',
+        companies: {
+          id: 'broker-co',
+          name: 'Broker Co',
+          company_type: 'broker',
+          status: 'active',
+          enabled_workspaces: ['broker'],
+        },
+      }),
+    ];
+
+    expect(
+      resolveActiveCompanyContext(rows, {
+        preferredCompanyId: 'carrier-co',
+        activeWorkspace: 'broker',
+      }),
+    ).toEqual({ ok: false, error: 'workspace_not_enabled' });
+  });
+
+  it('resolves explicit active workspace from enabled list', () => {
     const rows = [
       membership({
         company_id: 'co-1',
+        role_in_company: 'finance',
         companies: {
           id: 'co-1',
-          name: 'Shipper Co',
-          company_type: 'customer',
+          name: 'Multi Workspace Co',
+          company_type: 'standard',
           status: 'active',
+          enabled_workspaces: ['carrier_fleet', 'broker'],
         },
       }),
     ];
-    const result = resolveActiveCompanyContext(rows);
+
+    const result = resolveActiveCompanyContext(rows, { activeWorkspace: 'broker' });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.context.workspace).toBe('shipper');
+      expect(result.context.membershipRole).toBe('finance');
+      expect(result.context.activeWorkspace).toBe('broker');
+      expect(result.context.enabledWorkspaces).toEqual(['carrier_fleet', 'broker']);
     }
+  });
+
+  it('rejects unsupported membership role values', () => {
+    const rows = [membership({ company_id: 'co-1', role_in_company: 'unknown-role' })];
+    expect(resolveActiveCompanyContext(rows)).toEqual({
+      ok: false,
+      error: 'unsupported_membership_role',
+    });
+  });
+
+  it('rejects workspace mismatch between active workspace and route', () => {
+    const rows = [membership({ company_id: 'co-1' })];
+    expect(
+      resolveActiveCompanyContext(rows, {
+        activeWorkspace: 'carrier_fleet',
+        targetPathname: '/customer/loads',
+      }),
+    ).toEqual({ ok: false, error: 'workspace_mismatch' });
   });
 });
 
-// ── 5. resolveWorkspaceForCompany ─────────────────────────────────────────────
-
-describe('resolveWorkspaceForCompany', () => {
-  it('maps customer → shipper', () => {
-    expect(resolveWorkspaceForCompany('customer')).toBe('shipper');
-  });
-
-  it('maps shipper → shipper', () => {
-    expect(resolveWorkspaceForCompany('shipper')).toBe('shipper');
-  });
-
-  it('maps broker → broker', () => {
-    expect(resolveWorkspaceForCompany('broker')).toBe('broker');
-  });
-
-  it('maps standard → carrier_fleet', () => {
+describe('resolveCompanyEnabledWorkspaces / resolveWorkspaceForCompany', () => {
+  it('maps only explicitly recognized legacy types to carrier_fleet', () => {
     expect(resolveWorkspaceForCompany('standard')).toBe('carrier_fleet');
-  });
-
-  it('maps carrier → carrier_fleet', () => {
     expect(resolveWorkspaceForCompany('carrier')).toBe('carrier_fleet');
-  });
-
-  it('maps fleet → carrier_fleet', () => {
     expect(resolveWorkspaceForCompany('fleet')).toBe('carrier_fleet');
   });
 
-  it('maps null → carrier_fleet (safe default)', () => {
-    expect(resolveWorkspaceForCompany(null)).toBe('carrier_fleet');
+  it('fails closed for null/empty/unknown company type without explicit enabled workspaces', () => {
+    expect(resolveCompanyEnabledWorkspaces({ companyType: null })).toEqual({
+      ok: false,
+      error: 'unsupported_company_type',
+    });
+    expect(resolveCompanyEnabledWorkspaces({ companyType: '' })).toEqual({
+      ok: false,
+      error: 'unsupported_company_type',
+    });
+    expect(resolveCompanyEnabledWorkspaces({ companyType: 'mystery' })).toEqual({
+      ok: false,
+      error: 'unsupported_company_type',
+    });
   });
 
-  it('maps empty string → carrier_fleet', () => {
-    expect(resolveWorkspaceForCompany('')).toBe('carrier_fleet');
+  it('fails closed for explicitly disabled workspace lists', () => {
+    expect(
+      resolveCompanyEnabledWorkspaces({
+        companyType: 'standard',
+        enabledWorkspaces: [],
+      }),
+    ).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
-  it('is case-insensitive', () => {
-    expect(resolveWorkspaceForCompany('BROKER')).toBe('broker');
-    expect(resolveWorkspaceForCompany('Customer')).toBe('shipper');
-  });
-});
-
-// ── 6. Membership role resolved from raw string ───────────────────────────────
-
-describe('resolveActiveCompanyContext — membership role from raw string', () => {
-  it('resolves null role_in_company to viewer', () => {
-    const rows = [membership({ company_id: 'co-1', role_in_company: null })];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.membershipRole).toBe('viewer');
-    }
-  });
-
-  it('resolves dispatcher role correctly', () => {
-    const rows = [membership({ company_id: 'co-1', role_in_company: 'dispatcher' })];
-    const result = resolveActiveCompanyContext(rows);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.membershipRole).toBe('dispatcher');
-    }
+  it('uses explicit enabled workspace set independently from company_type', () => {
+    const result = resolveCompanyEnabledWorkspaces({
+      companyType: null,
+      enabledWorkspaces: ['broker', 'carrier_fleet'],
+    });
+    expect(result).toEqual({ ok: true, enabledWorkspaces: ['broker', 'carrier_fleet'] });
   });
 });

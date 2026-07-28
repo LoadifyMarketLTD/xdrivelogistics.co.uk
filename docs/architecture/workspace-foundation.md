@@ -2,8 +2,7 @@
 
 ## Purpose
 
-This document maps every required multi-role concept to the existing entity or file it
-reuses, identifies gaps, and records whether each gap requires a migration or is deferred.
+This document maps required multi-role concepts to the current foundation contracts and records explicit deferred gaps.
 
 ---
 
@@ -11,11 +10,12 @@ reuses, identifies gaps, and records whether each gap requires a migration or is
 
 | Required concept | Existing entity / file | Reused as-is | Gap | Migration needed |
 |---|---|---|---|---|
-| `BusinessWorkspace` type | `lib/businessWorkspace.ts` (new) | — | None | No |
-| `MembershipRole` type | `lib/membershipRole.ts` (new) | maps DB `company_role` ENUM | `finance`, `compliance`, `driver` not in DB enum | Later migration |
-| Workspace registry | `lib/workspaceRegistry.ts` (new) | — | None | No |
-| Active-company context | `lib/activeWorkspace.ts` (new) | reads `companies` + `company_memberships` | None | No |
-| Route-boundary helpers | `lib/workspaceBoundary.ts` (new) | complements `lib/roleCapabilities.ts` | None | No |
+| `BusinessWorkspace` type | `lib/businessWorkspace.ts` | ✅ | None | No |
+| App-domain `MembershipRole` | `lib/membershipRole.ts` | ✅ | `finance`, `compliance`, `driver` are app-domain only for now | Later migration |
+| DB subset `PersistedCompanyRole` | `lib/membershipRole.ts` | ✅ | DB enum still excludes planned roles | Later migration |
+| Workspace registry | `lib/workspaceRegistry.ts` + `lib/protectedRouteRequirements.ts` | ✅ | None | No |
+| Active-company context | `lib/activeWorkspace.ts` | ✅ | company_type still free-text | Later migration |
+| Typed permission resolver | `lib/workspacePermissionResolver.ts` | ✅ | Server/RLS enforcement wiring deferred | Later approved phase |
 
 ---
 
@@ -23,87 +23,78 @@ reuses, identifies gaps, and records whether each gap requires a migration or is
 
 | Required concept | Existing DB table | Notes |
 |---|---|---|
-| Organisation / company | `public.companies` | Free-text `company_type`; no ENUM constraint yet |
-| Organisation member | `public.company_memberships` | `role_in_company` uses `company_role` ENUM |
-| Membership role values | `public.company_role` ENUM | `owner`, `admin`, `dispatcher`, `member`, `viewer` |
+| Organisation / company | `public.companies` | `company_type` is free-text; `enabled_workspaces` contract is frontend/domain-only in this phase |
+| Organisation member | `public.company_memberships` | `role_in_company` uses `company_role` ENUM subset |
+| Membership role persisted values | `public.company_role` ENUM | `owner`, `admin`, `dispatcher`, `member`, `viewer` |
 | Membership status | `public.membership_status` ENUM | `invited`, `active`, `suspended` |
-| Job lifecycle | `public.jobs` | `status` uses `job_status` ENUM (12 values) |
-| Job status values | `public.job_status` ENUM | `draft`, `posted`, `quoted`, `awarded`, `allocated`, `collected`, `in_transit`, `delivered`, `invoiced`, `paid`, `cancelled`, `disputed` |
-| Bids / quotes | `public.job_bids` | `status` CHECK: `submitted`, `accepted`, `rejected`, `withdrawn` |
 
-Do **not** create `organisations` or `organisation_members` tables. Use `companies` and
-`company_memberships` — they are already the authoritative source.
+Do **not** create `organisations` or `organisation_members` tables in this phase.
 
 ---
 
-## Workspace → route mapping
+## Explicit workspace resolution contract
 
-| `BusinessWorkspace` | Route prefix | Existing route | Notes |
-|---|---|---|---|
-| `owner_operator` | `/driver` | ✅ existing | Owner-driver workspace |
-| `shipper` | `/customer` | ✅ existing | Customer / shipper workspace |
-| `broker` | `/broker` | ✅ existing | Freight broker workspace |
-| `carrier_fleet` | `/admin` | ✅ existing | Carrier / fleet company workspace |
+`resolveCompanyEnabledWorkspaces` and `resolveActiveCompanyContext` now enforce:
 
-**The `/admin` prefix is the legacy carrier-fleet surface and must not be renamed to
-`/customer` or repurposed as the shipper workspace.** The real shipper workspace lives at
-`/customer`.
+1. Company membership must be active.
+2. Enabled workspaces come from explicit workspace set when provided.
+3. `activeWorkspace` is independently selected and must be within enabled workspaces.
+4. Route workspace boundary must match selected workspace.
+5. Unknown, null, empty, malformed company type fails closed when no explicit enabled set exists.
 
----
+Typed fail-closed reasons include:
 
-## MembershipRole → DB ENUM gap analysis
+- `unsupported_company_type`
+- `workspace_not_enabled`
+- `active_workspace_required`
+- `workspace_mismatch`
 
-| `MembershipRole` value | In DB `company_role` ENUM | Action |
-|---|---|---|
-| `owner` | ✅ yes | reused as-is |
-| `admin` | ✅ yes | reused as-is |
-| `dispatcher` | ✅ yes | reused as-is |
-| `member` | ✅ yes (added in migration 064) | reused as-is |
-| `viewer` | ✅ yes | reused as-is |
-| `finance` | ❌ not in DB | planned; requires `ALTER TYPE company_role ADD VALUE 'finance'` |
-| `compliance` | ❌ not in DB | planned; requires `ALTER TYPE company_role ADD VALUE 'compliance'` |
-| `driver` | ❌ not in DB | planned; driver members are currently managed via the separate `public.drivers` table |
+Recognized legacy company types mapping to `carrier_fleet` is restricted to:
 
-Until a migration adds the missing values, `finance`, `compliance` and `driver` must not
-be persisted in `company_memberships.role_in_company`.
+- `standard`
+- `carrier`
+- `fleet`
+
+There is no fallback default for null/empty/unknown types.
 
 ---
 
-## company.company_type gap
+## Protected-route authorization contract
 
-`public.companies.company_type` is a free-text column (not an ENUM) in the current
-schema. `lib/activeWorkspace.ts::resolveWorkspaceForCompany` normalises known values:
+`lib/protectedRouteRequirements.ts` defines the canonical protected-route registry.
 
-| `company_type` value | Resolves to |
-|---|---|
-| `customer`, `shipper` | `shipper` |
-| `broker` | `broker` |
-| `standard`, `carrier`, `fleet`, _(empty)_ | `carrier_fleet` |
+`lib/workspacePermissionResolver.ts` is fail-closed and returns typed allow/deny:
 
-**Gap**: a future migration should constrain `company_type` to a proper ENUM or a CHECK
-constraint to prevent free-text drift. No migration is created in this PR.
+- denies unknown protected routes with `unmapped_route`
+- denies cross-workspace access with `route_workspace_mismatch`
+- denies disabled/not-permitted workspace selection
+- denies URL manipulation/path traversal with `malformed_route`
 
 ---
 
-## Existing UI/navigation boundaries
+## Schema gap: app-domain roles vs DB enum
 
-| UI concept | File | Notes |
-|---|---|---|
-| `WorkspaceRole` (UI resolver) | `lib/workspaceRole.ts` | coarse-grained role for nav/shell; not the same as `MembershipRole` |
-| `WorkspaceCapability` | `lib/workspaceRole.ts` | capability strings shared with `lib/roleCapabilities.ts` |
-| Route access guard | `lib/roleCapabilities.ts` | `isCapabilityAllowedForPath` — drives middleware |
-| Nav shell | `app/admin/AdminPlatformShell.tsx` | unchanged in this PR |
+App-domain `MembershipRole` includes:
 
-**CarrierDashboard** (`app/components/workspace/RoleDashboards.tsx`) remains the
-carrier/company dashboard label for `/admin`. The shipper-facing label "Customer
-Dashboard" belongs to `/customer` (`app/customer/page.tsx`).
+- `owner | admin | dispatcher | finance | compliance | driver | member | viewer`
+
+DB-persisted `PersistedCompanyRole` remains:
+
+- `owner | admin | dispatcher | member | viewer`
+
+`finance`, `compliance`, and `driver` identities are preserved in the frontend/domain contract and are **not** silently coerced to `viewer`.
+
+A later approved DB migration is required before persisting those values in `company_memberships.role_in_company`.
 
 ---
 
-## Explicitly out of scope for this PR
+## Deferred server enforcement phase (no migration in this PR)
 
-- Renaming CarrierDashboard to CustomerDashboard.
-- Rebuilding Marketplace, Commercial, Jobs, Operations Centre or any dashboard UI.
-- Redirecting My Quotes / Won Work to a new implementation.
-- Supabase migrations or RLS changes.
-- Production changes, merge or deploy.
+The frontend/domain resolver contract must be mirrored later by:
+
+1. API/middleware validation using the same route registry and typed deny reasons.
+2. Server-side active company + active workspace resolution from authenticated membership rows.
+3. Supabase RLS policies enforcing company scope, membership status, and workspace capability boundaries.
+4. Optional schema hardening of `companies.company_type` and persisted workspace settings.
+
+This PR does **not** add Supabase migrations, RLS changes, route migrations, deployment, or merge actions.
