@@ -94,6 +94,11 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUserContext: () => Promise<{
+    success: boolean;
+    user?: ResolvedAuthUser;
+    error?: string;
+  }>;
   isLoading: boolean;
   hasSupabaseSession: boolean;
 }
@@ -133,12 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetAuthState = useCallback(() => {
     setUser(null);
+    userRef.current = null;
     setHasSupabaseSession(false);
     clearRouteAuthCookie();
   }, []);
 
   const setPasswordSetupSessionState = useCallback(() => {
     setUser(null);
+    userRef.current = null;
     setHasSupabaseSession(true);
   }, []);
 
@@ -165,11 +172,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
       if (!result.user) {
         setUser(null);
+        userRef.current = null;
         setHasSupabaseSession(true);
         return result;
       }
 
       setUser(result.user);
+      userRef.current = result.user;
       setHasSupabaseSession(true);
       return result;
     })();
@@ -183,6 +192,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  const refreshUserContext = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      resetAuthState();
+      return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
+    }
+
+    setIsLoading(true);
+    hydrationRef.current = null;
+
+    try {
+      const sessionResult = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+      if (sessionResult.error) throw sessionResult.error;
+
+      const session = sessionResult.data.session;
+      if (!session?.user) {
+        resetAuthState();
+        return { success: false, error: 'Your session has expired. Please sign in again.' };
+      }
+
+      syncRouteAuthCookie(session);
+
+      // Clear every previously resolved company/driver/capability fact before the
+      // authoritative re-resolution. The session remains valid while access facts
+      // are rebuilt from the newly persisted company context.
+      setUser(null);
+      userRef.current = null;
+      setHasSupabaseSession(true);
+
+      const result = await withTimeout(
+        resolveAuthenticatedUser(session.user),
+        LOGIN_TIMEOUT_MS,
+      );
+
+      if (!result.user) {
+        setUser(null);
+        userRef.current = null;
+        setHasSupabaseSession(true);
+        return {
+          success: false,
+          error: authFailureReasonToMessage(
+            result.reason,
+            result.reason === 'db_error' ? result.dbError : null,
+          ),
+        };
+      }
+
+      setUser(result.user);
+      userRef.current = result.user;
+      setHasSupabaseSession(true);
+      return { success: true, user: result.user };
+    } catch (error) {
+      console.error('AuthContext forced refresh failed', error);
+      setUser(null);
+      userRef.current = null;
+      if (isServiceUnavailableError(error)) {
+        setHasSupabaseSession(true);
+        return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
+      }
+      resetAuthState();
+      return { success: false, error: 'Unable to refresh account access.' };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [resetAuthState, syncRouteAuthCookie]);
 
   useEffect(() => {
     let isMounted = true;
@@ -247,13 +321,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-    syncRouteAuthCookie(session);
+      syncRouteAuthCookie(session);
 
-    // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
-    // Profile, role, and company context are unchanged — re-running the full
-    // database hydration would fire 4+ unnecessary Supabase queries and can
-    // cascade into repeated dashboard/driver page reloads.
-    if (event === 'TOKEN_REFRESHED' && userRef.current) {
+      // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
+      // Profile, role, and company context are unchanged — re-running the full
+      // database hydration would fire 4+ unnecessary Supabase queries and can
+      // cascade into repeated dashboard/driver page reloads.
+      if (event === 'TOKEN_REFRESHED' && userRef.current) {
         return;
       }
 
@@ -378,7 +452,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, resetPassword, isLoading, hasSupabaseSession }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        resetPassword,
+        refreshUserContext,
+        isLoading,
+        hasSupabaseSession,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
