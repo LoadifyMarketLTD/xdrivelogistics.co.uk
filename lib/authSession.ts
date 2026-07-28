@@ -100,9 +100,7 @@ const resolveFinanceAccess = (
   if (membershipRole === 'finance') return 'full';
 
   const explicitFinanceFlag =
-    readMetadataFlag(sessionUser.user_metadata, 'finance_view') ||
     readMetadataFlag(sessionUser.app_metadata, 'finance_view') ||
-    readMetadataFlag(sessionUser.user_metadata, 'dispatcher_finance_access') ||
     readMetadataFlag(sessionUser.app_metadata, 'dispatcher_finance_access');
 
   if (explicitFinanceFlag || membershipRole === 'dispatcher') return 'limited';

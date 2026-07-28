@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './app/api/_lib/supabaseAdmin';
 import { getPostLoginRoute } from './lib/authSession';
+import { resolveActiveCompanyContext, type RawMembershipRow } from './lib/activeWorkspace';
 import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
+import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
 import { resolveWorkspaceRole, type WorkspaceRole } from './lib/workspaceRole';
@@ -36,6 +38,27 @@ type RouteAuthResult =
       accountStatus: string | null;
       companyStatus: string | null;
     };
+
+type MembershipQueryRow = {
+  company_id?: string | null;
+  user_id?: string | null;
+  role_in_company?: string | null;
+  status?: string | null;
+  companies?:
+    | {
+        id?: string | null;
+        name?: string | null;
+        company_type?: string | null;
+        status?: string | null;
+      }
+    | Array<{
+        id?: string | null;
+        name?: string | null;
+        company_type?: string | null;
+        status?: string | null;
+      }>
+    | null;
+};
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
   const url = request.nextUrl.clone();
@@ -83,74 +106,41 @@ const buildLoginRedirect = (request: NextRequest, reason?: string) => {
   return response;
 };
 
+const normalizeMembershipRows = (rows: MembershipQueryRow[]): RawMembershipRow[] => {
+  const normalized: RawMembershipRow[] = [];
+
+  for (const row of rows) {
+    const companiesValue = Array.isArray(row.companies)
+      ? row.companies[0] ?? null
+      : row.companies ?? null;
+
+    const companyId = row.company_id ?? null;
+    const userId = row.user_id ?? null;
+    const companyName = companiesValue?.name ?? null;
+
+    if (!companyId || !userId || !companiesValue?.id || !companyName) {
+      continue;
+    }
+
+    normalized.push({
+      company_id: companyId,
+      user_id: userId,
+      role_in_company: row.role_in_company ?? null,
+      status: row.status ?? null,
+      companies: {
+        id: companiesValue.id,
+        name: companyName,
+        company_type: companiesValue.company_type ?? null,
+        status: companiesValue.status ?? null,
+      },
+    });
+  }
+
+  return normalized;
+};
+
 const readFallbackRole = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
-
-const readMetadataRole = (metadata: Record<string, unknown> | null | undefined, key: string) => {
-  const value = metadata?.[key];
-  return typeof value === 'string' && value.trim().length > 0 ? value : null;
-};
-
-const readMetadataFlag = (metadata: Record<string, unknown> | null | undefined, key: string) => {
-  const value = metadata?.[key];
-  if (typeof value === 'boolean') return value;
-  if (typeof value !== 'string') return false;
-  const normalized = value.toLowerCase().trim();
-  return normalized === 'true' || normalized === '1' || normalized === 'yes';
-};
-
-const isOwnerDriverWorkspaceRequested = (
-  userMetadata: Record<string, unknown> | null | undefined,
-  appMetadata: Record<string, unknown> | null | undefined
-) => {
-  const tags = [
-    readMetadataRole(userMetadata, 'account_type'),
-    readMetadataRole(userMetadata, 'workspace_mode'),
-    readMetadataRole(userMetadata, 'requested_role'),
-    readMetadataRole(userMetadata, 'role'),
-    readMetadataRole(appMetadata, 'account_type'),
-    readMetadataRole(appMetadata, 'workspace_mode'),
-    readMetadataRole(appMetadata, 'requested_role'),
-    readMetadataRole(appMetadata, 'role'),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase().trim());
-
-  return (
-    readMetadataFlag(userMetadata, 'owner_driver_workspace') ||
-    readMetadataFlag(appMetadata, 'owner_driver_workspace') ||
-    tags.some((value) =>
-      value === 'owner_driver' ||
-      value === 'owner-driver' ||
-      value === 'owner_operator' ||
-      value === 'owner-operator' ||
-      value === 'self_employed' ||
-      value === 'self-employed' ||
-      value === 'self_employed_driver' ||
-      value === 'sole_trader'
-    )
-  );
-};
-
-const isOwnerDriverExecutionModeRequested = (
-  userMetadata: Record<string, unknown> | null | undefined,
-  appMetadata: Record<string, unknown> | null | undefined
-) => {
-  const tags = [
-    readMetadataRole(userMetadata, 'workspace_mode'),
-    readMetadataRole(userMetadata, 'execution_mode'),
-    readMetadataRole(appMetadata, 'workspace_mode'),
-    readMetadataRole(appMetadata, 'execution_mode'),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.toLowerCase().trim());
-
-  return (
-    readMetadataFlag(userMetadata, 'owner_driver_execution_mode') ||
-    readMetadataFlag(appMetadata, 'owner_driver_execution_mode') ||
-    tags.some((value) => value === 'driver' || value === 'driver_mode' || value === 'execution')
-  );
-};
 
 const isServiceFailure = (message: string | null | undefined) => {
   const normalized = (message ?? '').toLowerCase();
@@ -202,7 +192,7 @@ const buildCanonicalHostRedirect = (request: NextRequest) => {
   return NextResponse.redirect(redirectUrl, 308);
 };
 
-const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> => {
+export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> => {
   const accessToken = request.cookies.get(ROUTE_AUTH_COOKIE_NAME)?.value?.trim();
   if (!accessToken || !supabaseValidator) {
     return { kind: 'unauthenticated' };
@@ -217,51 +207,31 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   }
 
   const fallbackRole = readFallbackRole(authData.user.app_metadata?.role);
-  const ownerDriverWorkspace = isOwnerDriverWorkspaceRequested(
-    authData.user.user_metadata as Record<string, unknown> | null | undefined,
+  const ownerDriverWorkspaceRequested = isDriverProviderWorkspaceRequested(
+    null,
     authData.user.app_metadata as Record<string, unknown> | null | undefined
   );
-  const ownerDriverExecutionMode = isOwnerDriverExecutionModeRequested(
-    authData.user.user_metadata as Record<string, unknown> | null | undefined,
+  const ownerDriverExecutionModeRequested = isDriverExecutionModeRequested(
+    null,
     authData.user.app_metadata as Record<string, unknown> | null | undefined
   );
 
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    const role = mapAppRole(fallbackRole);
-    return role
-      ? {
-          kind: 'authenticated',
-          role,
-          rawRole: fallbackRole,
-          workspaceRole: resolveWorkspaceRole({ role, rawRole: fallbackRole, ownerDriverWorkspace }),
-          mustChangePassword: false,
-          appAccess: null,
-          ownerDriverWorkspace,
-          ownerDriverExecutionMode,
-          canAccessDriverMode: ownerDriverWorkspace && role === 'driver',
-          membershipRole: null,
-          driverId: null,
-          canCommercialBid: null,
-          driverStatus: null,
-          accountStatus: null,
-          companyStatus: null,
-        }
-      : { kind: 'forbidden' };
+    return { kind: 'service_unavailable' };
   }
 
-  const [profileRes, membershipRes, driverRes, creatorCompanyRes] = await Promise.all([
+  const [profileRes, membershipsRes, driverRes, creatorCompanyRes] = await Promise.all([
     supabaseAdmin
       .from('profiles')
-      .select('role, status, is_driver')
+      .select('role, status, is_driver, company_id')
       .eq('user_id', authData.user.id)
       .maybeSingle(),
     supabaseAdmin
       .from('company_memberships')
-      .select('role_in_company')
+      .select('company_id, user_id, role_in_company, status, companies(id, name, company_type, status)')
       .eq('user_id', authData.user.id)
       .eq('status', 'active')
-      .limit(1)
-      .maybeSingle(),
+      .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('drivers')
       .select('id, app_access, must_change_password, status, can_commercial_bid')
@@ -276,41 +246,72 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
       .maybeSingle(),
   ]);
 
-  const profile = profileRes.error
-    ? null
-    : (profileRes.data as { role?: string | null; status?: string | null; is_driver?: boolean | null } | null);
-  const membership = membershipRes.error
-    ? null
-    : (membershipRes.data as { role_in_company?: string | null } | null);
-  const driver = driverRes.error
-    ? null
-    : (driverRes.data as {
-        id?: string | null;
-        app_access?: boolean | null;
-        must_change_password?: boolean | null;
-        status?: string | null;
-        can_commercial_bid?: boolean | null;
-      } | null);
-  const creatorCompany = creatorCompanyRes.error
-    ? null
-    : (creatorCompanyRes.data as { company_type?: string | null } | null);
-
   if (
     isServiceFailure(profileRes.error?.message) ||
-    isServiceFailure(membershipRes.error?.message) ||
+    isServiceFailure(membershipsRes.error?.message) ||
     isServiceFailure(driverRes.error?.message) ||
     isServiceFailure(creatorCompanyRes.error?.message)
   ) {
     return { kind: 'service_unavailable' };
   }
 
-  const profileStatus = profile?.status?.toLowerCase();
-  if (profileStatus === 'pending' || profileStatus === 'blocked' || profileStatus === 'suspended' || profileStatus === 'inactive') {
+  if (profileRes.error || membershipsRes.error || driverRes.error || creatorCompanyRes.error) {
     return { kind: 'forbidden' };
   }
 
+  const profile = profileRes.data as {
+    role?: string | null;
+    status?: string | null;
+    is_driver?: boolean | null;
+    company_id?: string | null;
+  } | null;
+  const memberships = normalizeMembershipRows((membershipsRes.data ?? []) as MembershipQueryRow[]);
+  const driver = driverRes.data as {
+    id?: string | null;
+    app_access?: boolean | null;
+    must_change_password?: boolean | null;
+    status?: string | null;
+    can_commercial_bid?: boolean | null;
+  } | null;
+  const creatorCompany = creatorCompanyRes.data as { company_type?: string | null } | null;
+
+  if (!profile) {
+    return { kind: 'forbidden' };
+  }
+
+  const profileStatus = profile?.status?.toLowerCase() ?? null;
+  if (profileStatus !== 'active') {
+    return { kind: 'forbidden' };
+  }
+
+  const activeCompany = resolveActiveCompanyContext(memberships, {
+    preferredCompanyId: profile.company_id ?? null,
+    targetPathname: request.nextUrl.pathname,
+  });
+  if (!activeCompany.ok) {
+    return { kind: 'forbidden' };
+  }
+
+  const selectedMembership = memberships.find(
+    (membership) =>
+      membership.company_id === activeCompany.context.companyId &&
+      membership.role_in_company === activeCompany.context.membershipRole
+  );
+  if (!selectedMembership?.companies) {
+    return { kind: 'forbidden' };
+  }
+
+  const membershipRole = selectedMembership.role_in_company ?? null;
+  const companyStatus = selectedMembership.companies.status?.toLowerCase() ?? null;
+  if (companyStatus !== 'active') {
+    return { kind: 'forbidden' };
+  }
+  const ownerDriverWorkspace =
+    ownerDriverWorkspaceRequested && (membershipRole === 'owner' || membershipRole === 'admin');
+  const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
+
   const role = resolveAuthoritativeRole({
-    membershipRole: membership?.role_in_company ?? null,
+    membershipRole,
     profileRole: profile?.role ?? null,
     isDriver: driver != null || profile?.is_driver === true,
     hasCreatedCompany: creatorCompany != null,
@@ -336,7 +337,7 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
   const workspaceRole = resolveWorkspaceRole({
     role,
     rawRole,
-    membershipRole: membership?.role_in_company ?? null,
+    membershipRole,
     ownerDriverWorkspace,
   });
 
@@ -350,12 +351,12 @@ const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> 
     ownerDriverWorkspace,
     ownerDriverExecutionMode,
     canAccessDriverMode,
-    membershipRole: membership?.role_in_company ?? null,
+    membershipRole,
     driverId: driver?.id ?? null,
     canCommercialBid: driver?.can_commercial_bid ?? null,
     driverStatus: driver?.status ?? null,
     accountStatus: profileStatus ?? null,
-    companyStatus: 'active',
+    companyStatus,
   };
 };
 
@@ -392,6 +393,10 @@ export async function middleware(request: NextRequest) {
   const driverModeActive = auth.role === 'driver' || (auth.canAccessDriverMode && driverRouteRequested);
 
   if (driverModeActive) {
+    if (!auth.driverId || auth.driverStatus?.toLowerCase() !== 'active') {
+      return buildRedirect(request, FORBIDDEN_PATH);
+    }
+
     if (auth.appAccess === false) {
       return buildRedirect(request, FORBIDDEN_PATH);
     }
