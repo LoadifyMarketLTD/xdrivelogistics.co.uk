@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
     error: null as null | { message: string },
   },
   updatedProfileResult: {
-    data: { company_id: '11111111-1111-4111-8111-111111111111' },
+    data: { company_id: '11111111-1111-4111-8111-111111111111' } as { company_id: string } | null,
     error: null as null | { message: string },
   },
   updatePayloads: [] as Array<Record<string, unknown>>,
