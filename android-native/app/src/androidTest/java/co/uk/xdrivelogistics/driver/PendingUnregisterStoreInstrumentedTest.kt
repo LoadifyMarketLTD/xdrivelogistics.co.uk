@@ -109,8 +109,9 @@ class PendingUnregisterStoreInstrumentedTest {
     @Test
     fun pruneExpiredRemovesEntriesOlderThanMaxAge() {
         store.add("owner-a", "token-1")
-        // Pass a nowMs that is MAX_AGE_MS + 1 second beyond addedAtMs (0).
-        val futureNowMs = PendingUnregisterStore.MAX_AGE_MS + 1_000
+        // Pass a nowMs that is MAX_AGE_MS + 1 second beyond the current wall-clock time
+        // (i.e. the entry appears 7 days + 1 second old).
+        val futureNowMs = System.currentTimeMillis() + PendingUnregisterStore.MAX_AGE_MS + 1_000
         store.pruneExpired(nowMs = futureNowMs)
         assertTrue(store.readAllForOwner("owner-a").isEmpty())
     }
