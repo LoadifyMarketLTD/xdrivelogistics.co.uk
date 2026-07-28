@@ -191,6 +191,8 @@ export type RouteAccessContext = {
   membershipRole?: string | null;
   financeAccess?: 'full' | 'limited' | 'hidden' | null;
   ownerDriverWorkspace?: boolean | null;
+  rawRole?: string | null;
+  workspaceRole?: string | null;
 };
 
 const ADMIN_ROUTE_CAPABILITIES: Array<{ prefix: string; capability: keyof RoleCapabilities }> = [
