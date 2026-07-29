@@ -27,7 +27,7 @@ export const brokerPayloadSchema = z
     company_name: z.string().trim().min(1),
     trading_name: z.string().trim().min(1),
     company_number: z.string().trim().min(1),
-    vat_number: z.string().trim().min(1),
+    vat_number: z.string().trim().optional().default(''),
     billing_address: z.string().trim().min(1),
     trading_address: z.string().trim().min(1),
     contact_person: z.string().trim().min(1),
@@ -42,7 +42,7 @@ export const fleetPayloadSchema = z
     legal_company_name: z.string().trim().min(1),
     trading_name: z.string().trim().min(1),
     company_number: z.string().trim().min(1),
-    vat_number: z.string().trim().min(1),
+    vat_number: z.string().trim().optional().default(''),
     registered_address: z.string().trim().min(1),
     trading_address: z.string().trim().min(1),
     contact_person: z.string().trim().min(1),
@@ -88,10 +88,11 @@ const normalizeDateOnly = (rawValue: string): string | null => {
 
 const driverIdentityRecordSchema = z.record(z.string(), z.unknown());
 
-// Individual drivers do not create a carrier company or provide owner-operator
-// vehicle/business details. Compliance still reviews identity and right-to-work
-// evidence, while passthrough document markers are preserved.
-export const individualDriverPayloadSchema = driverIdentityRecordSchema.superRefine((payload, context) => {
+// Company Drivers do not create a carrier company or provide owner-operator
+// vehicle/business details. Compliance still reviews identity, driving and
+// right-to-work evidence. The database retains `individual_driver` only as the
+// historical persisted value for this invitation-only account type.
+export const companyDriverPayloadSchema = driverIdentityRecordSchema.superRefine((payload, context) => {
   for (const key of ['full_name', 'address', 'phone', 'email']) {
     const value = payload[key];
     if (typeof value !== 'string' || !value.trim()) {
@@ -108,6 +109,9 @@ export const individualDriverPayloadSchema = driverIdentityRecordSchema.superRef
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['email'], message: 'A valid email is required.' });
   }
 });
+
+// Backward-compatible export used by the existing route folder.
+export const individualDriverPayloadSchema = companyDriverPayloadSchema;
 
 // Owner-driver applications are reviewed by compliance after submission.
 // The API must preserve every field/document marker and must not block a real
@@ -128,9 +132,12 @@ export const fleetPatchSchema = onboardingPatchBaseSchema.extend({
   payload: fleetPayloadSchema.partial().optional(),
 });
 
-export const individualDriverPatchSchema = onboardingPatchBaseSchema.extend({
+export const companyDriverPatchSchema = onboardingPatchBaseSchema.extend({
   payload: driverIdentityRecordSchema.optional(),
 });
+
+// Backward-compatible export used by the existing route folder.
+export const individualDriverPatchSchema = companyDriverPatchSchema;
 
 export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
   payload: ownerDriverRecordSchema.optional(),
@@ -139,7 +146,8 @@ export const ownerDriverPatchSchema = onboardingPatchBaseSchema.extend({
 export type CustomerPayload = z.infer<typeof customerPayloadSchema>;
 export type BrokerPayload = z.infer<typeof brokerPayloadSchema>;
 export type FleetPayload = z.infer<typeof fleetPayloadSchema>;
-export type IndividualDriverPayload = z.infer<typeof individualDriverPayloadSchema>;
+export type CompanyDriverPayload = z.infer<typeof companyDriverPayloadSchema>;
+export type IndividualDriverPayload = CompanyDriverPayload;
 export type OwnerDriverPayload = z.infer<typeof ownerDriverPayloadSchema>;
 
 export const parseOwnerDriverDate = (value: string) => {
