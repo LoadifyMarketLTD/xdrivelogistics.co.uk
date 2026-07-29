@@ -1,8 +1,8 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { StatusBadgeTone } from '../app/components/workspace/WorkspaceUI';
-import { STATUS_BADGE_COLORS, StatusBadge } from '../app/components/workspace/WorkspaceUI';
+import type { SemanticStatusBadgeTone, StatusBadgeTone } from '../app/components/workspace/WorkspaceUI';
+import { SEMANTIC_STATUS_BADGE_COLORS, SemanticStatusBadge, STATUS_BADGE_COLORS, StatusBadge } from '../app/components/workspace/WorkspaceUI';
 
 /**
  * StatusBadge primitives — rendered-output assertions.
@@ -193,5 +193,124 @@ describe('StatusBadge — tone inference for backward compatibility', () => {
   it('falls back to blue for unrecognised values', () => {
     const html = render(React.createElement(StatusBadge, { value: 'xyzunknown' }));
     expect(html).toContain(STATUS_BADGE_COLORS.blue.bg);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SEMANTIC_STATUS_BADGE_COLORS — exported palette contract
+// ---------------------------------------------------------------------------
+
+describe('SEMANTIC_STATUS_BADGE_COLORS — palette contract', () => {
+  it('covers exactly five semantic tones', () => {
+    const tones: SemanticStatusBadgeTone[] = ['neutral', 'info', 'success', 'warning', 'danger'];
+    expect(new Set(tones).size).toBe(5);
+    tones.forEach((tone) => {
+      expect(SEMANTIC_STATUS_BADGE_COLORS[tone]).toBeDefined();
+    });
+  });
+
+  it('each palette entry has bg, color and border fields', () => {
+    const tones: SemanticStatusBadgeTone[] = ['neutral', 'info', 'success', 'warning', 'danger'];
+    tones.forEach((tone) => {
+      const palette = SEMANTIC_STATUS_BADGE_COLORS[tone];
+      expect(typeof palette.bg).toBe('string');
+      expect(typeof palette.color).toBe('string');
+      expect(typeof palette.border).toBe('string');
+      expect(palette.bg.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('all five tones have distinct bg values', () => {
+    const tones: SemanticStatusBadgeTone[] = ['neutral', 'info', 'success', 'warning', 'danger'];
+    const bgs = tones.map((t) => SEMANTIC_STATUS_BADGE_COLORS[t].bg);
+    expect(new Set(bgs).size).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SemanticStatusBadge — semantic independence (tone, never label text)
+// ---------------------------------------------------------------------------
+
+describe('SemanticStatusBadge — semantic independence from label text', () => {
+  it('label "delivered" with tone="danger" renders danger palette, not success', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'delivered', tone: 'danger' }));
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.danger.bg);
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.danger.color);
+    expect(html).not.toContain(SEMANTIC_STATUS_BADGE_COLORS.success.bg);
+  });
+
+  it('label "failed" with tone="success" renders success palette, not danger', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'failed', tone: 'success' }));
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.success.bg);
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.success.color);
+    expect(html).not.toContain(SEMANTIC_STATUS_BADGE_COLORS.danger.bg);
+  });
+
+  it('unrecognised label with omitted tone renders neutral (not colour-inferred)', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'xyzunknown' }));
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.neutral.bg);
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.neutral.color);
+    // must not use success/warning/danger palette
+    expect(html).not.toContain(SEMANTIC_STATUS_BADGE_COLORS.success.bg);
+    expect(html).not.toContain(SEMANTIC_STATUS_BADGE_COLORS.warning.bg);
+    expect(html).not.toContain(SEMANTIC_STATUS_BADGE_COLORS.danger.bg);
+  });
+
+  it('label "active" with omitted tone also resolves to neutral', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'active' }));
+    expect(html).toContain(SEMANTIC_STATUS_BADGE_COLORS.neutral.bg);
+    expect(html).not.toContain(SEMANTIC_STATUS_BADGE_COLORS.success.bg);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SemanticStatusBadge — each tone renders its correct palette
+// ---------------------------------------------------------------------------
+
+describe('SemanticStatusBadge — explicit tone palette rendering', () => {
+  const tones: SemanticStatusBadgeTone[] = ['neutral', 'info', 'success', 'warning', 'danger'];
+  tones.forEach((tone) => {
+    it(`renders the ${tone} palette when tone="${tone}" is supplied`, () => {
+      const html = render(React.createElement(SemanticStatusBadge, { label: 'Any label', tone }));
+      const palette = SEMANTIC_STATUS_BADGE_COLORS[tone];
+      expect(html).toContain(palette.bg);
+      expect(html).toContain(palette.color);
+      expect(html).toContain(palette.border);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SemanticStatusBadge — label text preserved verbatim
+// ---------------------------------------------------------------------------
+
+describe('SemanticStatusBadge — label text preserved verbatim', () => {
+  it('renders the supplied label string unchanged', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'In Transit', tone: 'info' }));
+    expect(html).toContain('In Transit');
+  });
+
+  it('does not title-case or transform the supplied label', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'raw_label', tone: 'neutral' }));
+    expect(html).toContain('raw_label');
+    expect(html).not.toContain('Raw Label');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SemanticStatusBadge — ariaLabel accessibility
+// ---------------------------------------------------------------------------
+
+describe('SemanticStatusBadge — ariaLabel accessibility', () => {
+  it('renders aria-label attribute when ariaLabel prop is supplied', () => {
+    const html = render(
+      React.createElement(SemanticStatusBadge, { label: 'active', tone: 'success', ariaLabel: 'Account is active' }),
+    );
+    expect(html).toContain('aria-label="Account is active"');
+  });
+
+  it('does not render aria-label attribute when ariaLabel prop is omitted', () => {
+    const html = render(React.createElement(SemanticStatusBadge, { label: 'active', tone: 'success' }));
+    expect(html).not.toContain('aria-label');
   });
 });
