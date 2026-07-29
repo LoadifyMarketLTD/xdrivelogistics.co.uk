@@ -302,6 +302,23 @@ class DeepLinkContractTest {
         )
     }
 
+    @Test
+    fun `job link with one extra path segment is rejected`() {
+        // xdrivedriver://job/abc/extra has two path segments — must fall back to Messages.
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/abc-123/extra")),
+        )
+    }
+
+    @Test
+    fun `job link with multiple extra path segments is rejected`() {
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/abc/x/y/z")),
+        )
+    }
+
     // ── Notification pending intents use canonical scheme ─────────────────────
 
     @Test

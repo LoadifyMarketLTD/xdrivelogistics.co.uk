@@ -66,6 +66,9 @@ jobs:
           PLAYWRIGHT_BASE_URL: https://example.com
         run: npx playwright test e2e/mobile-api-contract.spec.ts --grep "@ci-messages-contract" --project=chromium
 
+      - name: Mobile web deep-link contract tests
+        run: npx vitest run __tests__/mobileDeepLinkContract.test.ts
+
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}

@@ -241,6 +241,19 @@ class DeepLinkIntentInstrumentedTest {
         assertEquals(DeepLinkDestination.Messages, parseIntent(intent))
     }
 
+    @Test
+    fun jobIntentWithExtraPathSegmentIsRejected() {
+        // xdrivedriver://job/abc/extra — strict: exactly one path segment required.
+        val intent = deepLinkIntent("xdrivedriver://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1/extra")
+        assertEquals(DeepLinkDestination.Messages, parseIntent(intent))
+    }
+
+    @Test
+    fun jobIntentWithMultipleExtraSegmentsIsRejected() {
+        val intent = deepLinkIntent("xdrivedriver://job/abc/x/y/z")
+        assertEquals(DeepLinkDestination.Messages, parseIntent(intent))
+    }
+
     // ── 7. Routing is fail-closed ─────────────────────────────────────────────
 
     @Test

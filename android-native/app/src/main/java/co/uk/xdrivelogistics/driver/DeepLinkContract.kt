@@ -112,9 +112,16 @@ object XDriveDeepLink {
         val host = uri.host ?: return DeepLinkDestination.Messages
         return when (host) {
             "job" -> {
-                val jobId = uri.pathSegments.firstOrNull()
-                    ?: uri.getQueryParameter("id")
-                    ?: return DeepLinkDestination.Messages
+                val segs = uri.pathSegments
+                // Strict: exactly one path segment (the job ID) or no path segments with a
+                // query-parameter fallback. Extra path segments are rejected to prevent
+                // path-traversal or ambiguous link formats.
+                val jobId: String = when {
+                    segs.size == 1 -> segs[0]
+                    segs.isEmpty() -> uri.getQueryParameter("id")
+                        ?: return DeepLinkDestination.Messages
+                    else -> return DeepLinkDestination.Messages
+                }
                 if (isValidJobId(jobId)) DeepLinkDestination.Job(jobId) else DeepLinkDestination.Messages
             }
             "notification", "messages" -> DeepLinkDestination.Messages
