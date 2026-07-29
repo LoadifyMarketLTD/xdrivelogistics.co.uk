@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   getBearerToken: vi.fn(),
   from: vi.fn(),
+  driverFromCallCount: 0,
   profileResult: {
     data: {
       user_id: 'user-1',
@@ -13,15 +14,19 @@ const mocks = vi.hoisted(() => ({
       status: 'active',
       is_driver: false,
     },
-    error: null as null | { message: string },
+    error: null as null | { message: string; code?: string },
   },
   membershipsResult: {
     data: [] as unknown[],
-    error: null as null | { message: string },
+    error: null as null | { message: string; code?: string },
   },
   driversResult: {
-    data: [] as unknown[],
-    error: null as null | { message: string },
+    data: [] as unknown[] | null,
+    error: null as null | { message: string; code?: string },
+  },
+  driversLegacyResult: {
+    data: [] as unknown[] | null,
+    error: null as null | { message: string; code?: string },
   },
   updatedProfileResult: {
     data: { company_id: '11111111-1111-4111-8111-111111111111' } as { company_id: string } | null,
@@ -88,6 +93,7 @@ beforeEach(() => {
   mocks.getBearerToken.mockReset();
   mocks.from.mockReset();
   mocks.updatePayloads.length = 0;
+  mocks.driverFromCallCount = 0;
 
   mocks.profileResult = {
     data: {
@@ -104,6 +110,7 @@ beforeEach(() => {
     error: null,
   };
   mocks.driversResult = { data: [], error: null };
+  mocks.driversLegacyResult = { data: [], error: null };
   mocks.updatedProfileResult = {
     data: { company_id: COMPANY_A },
     error: null,
@@ -147,9 +154,12 @@ beforeEach(() => {
     }
 
     if (table === 'drivers') {
+      mocks.driverFromCallCount += 1;
+      const result =
+        mocks.driverFromCallCount > 1 ? mocks.driversLegacyResult : mocks.driversResult;
       return {
         select: () => ({
-          eq: async () => mocks.driversResult,
+          eq: async () => result,
         }),
       };
     }
@@ -411,5 +421,150 @@ describe('POST /api/auth/context', () => {
         canAccessDriverMode: true,
       }),
     );
+  });
+});
+
+describe('42703 driver schema compatibility', () => {
+  const pg42703DriverType = {
+    message: 'column drivers.driver_type does not exist',
+    code: '42703',
+  };
+  const pg42703CommercialBid = {
+    message: 'column drivers.can_commercial_bid does not exist',
+    code: '42703',
+  };
+  const legacyDriverRow = {
+    id: 'driver-1',
+    user_id: 'user-1',
+    company_id: COMPANY_A,
+    status: 'active',
+    app_access: true,
+    must_change_password: false,
+  };
+
+  it('GET succeeds through 42703 driver_type fallback and retries exactly once', async () => {
+    mocks.driversResult = { data: null, error: pg42703DriverType };
+    mocks.driversLegacyResult = { data: [legacyDriverRow], error: null };
+
+    const response = await GET(request({ token: 'valid-token' }));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.staleSelectionCleared).toBe(false);
+    // drivers table queried twice: initial (failed) + legacy retry
+    expect(mocks.driverFromCallCount).toBe(2);
+  });
+
+  it('GET succeeds through 42703 can_commercial_bid fallback and retries exactly once', async () => {
+    mocks.driversResult = { data: null, error: pg42703CommercialBid };
+    mocks.driversLegacyResult = { data: [legacyDriverRow], error: null };
+
+    const response = await GET(request({ token: 'valid-token' }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.driverFromCallCount).toBe(2);
+  });
+
+  it('POST succeeds through 42703 fallback and returns the approved route', async () => {
+    mocks.driversResult = { data: null, error: pg42703DriverType };
+    mocks.driversLegacyResult = { data: [], error: null };
+
+    const response = await POST(
+      request({
+        method: 'POST',
+        token: 'valid-token',
+        body: { companyId: COMPANY_A, workspace: 'carrier_fleet' },
+      }),
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.landingRoute).toBe('/admin');
+    expect(mocks.driverFromCallCount).toBe(2);
+  });
+
+  it('can_commercial_bid is false in 42703 fallback even when legacy row would otherwise allow it', async () => {
+    // Driver membership so the resolver checks driver evidence.
+    mocks.membershipsResult = {
+      data: [
+        {
+          id: `membership-driver-${COMPANY_A}`,
+          company_id: COMPANY_A,
+          user_id: 'user-1',
+          role_in_company: 'driver',
+          status: 'active',
+          companies: {
+            id: COMPANY_A,
+            name: `Company ${COMPANY_A}`,
+            company_type: 'standard',
+            status: 'active',
+          },
+        },
+      ],
+      error: null,
+    };
+    mocks.driversResult = { data: null, error: pg42703CommercialBid };
+    // Legacy row has no commercial columns — normalization must keep them fail-closed.
+    mocks.driversLegacyResult = {
+      data: [legacyDriverRow],
+      error: null,
+    };
+    mocks.profileResult = {
+      data: {
+        user_id: 'user-1',
+        company_id: COMPANY_A,
+        role: 'driver',
+        status: 'active',
+        is_driver: true,
+      },
+      error: null,
+    };
+
+    const response = await GET(request({ token: 'valid-token' }));
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    // Route succeeds with driver access via fallback.
+    expect(body.current).toEqual(
+      expect.objectContaining({
+        companyId: COMPANY_A,
+        canAccessDriverMode: true,
+        landingRoute: '/driver',
+      }),
+    );
+    // Retried exactly once — no extra queries.
+    expect(mocks.driverFromCallCount).toBe(2);
+    // No profile mutation during a clean GET (no stale selection).
+    expect(mocks.updatePayloads).toEqual([]);
+  });
+
+  it('unrelated driver query errors (non-42703) remain fail-closed 500', async () => {
+    mocks.driversResult = {
+      data: null,
+      error: { message: 'permission denied for table drivers', code: '42501' },
+    };
+
+    const response = await GET(request({ token: 'valid-token' }));
+
+    expect(response.status).toBe(500);
+    expect(await readJson(response)).toEqual({
+      error: 'Unable to validate workspace context.',
+    });
+    // No retry — only one call to drivers table.
+    expect(mocks.driverFromCallCount).toBe(1);
+  });
+
+  it('legacy retry failure remains fail-closed 500 and performs no profile update', async () => {
+    mocks.driversResult = { data: null, error: pg42703DriverType };
+    mocks.driversLegacyResult = {
+      data: null,
+      error: { message: 'legacy query also failed', code: '500' },
+    };
+
+    const response = await GET(request({ token: 'valid-token' }));
+
+    expect(response.status).toBe(500);
+    expect(mocks.updatePayloads).toEqual([]);
+    expect(mocks.driverFromCallCount).toBe(2);
   });
 });

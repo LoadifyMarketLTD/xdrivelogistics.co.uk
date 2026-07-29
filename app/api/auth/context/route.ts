@@ -23,6 +23,14 @@ export const revalidate = 0;
 
 type ContextRouteResponse = NextResponse<Record<string, unknown>>;
 
+const isMissingDriverCommercialColumn = (
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+): boolean => {
+  if (!error || error.code !== '42703') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('driver_type') || text.includes('can_commercial_bid');
+};
+
 const responseHeaders = {
   'Cache-Control': 'no-store, max-age=0',
   Pragma: 'no-cache',
@@ -112,7 +120,7 @@ const resolveAuthoritativeSource = async (request: NextRequest) => {
     };
   }
 
-  const [profileResult, membershipsResult, driversResult] = await Promise.all([
+  const [profileResult, membershipsResult, driversInitialResult] = await Promise.all([
     supabaseAdmin
       .from('profiles')
       .select('user_id, company_id, role, status, is_driver')
@@ -128,6 +136,16 @@ const resolveAuthoritativeSource = async (request: NextRequest) => {
       .select('id, user_id, company_id, must_change_password, status, app_access, driver_type, can_commercial_bid')
       .eq('user_id', user.id),
   ]);
+
+  // PostgreSQL 42703 compatibility: when the real schema is missing driver_type or
+  // can_commercial_bid, retry exactly once with the legacy column set.
+  const driverNeedsLegacyFallback = isMissingDriverCommercialColumn(driversInitialResult.error);
+  const driversResult = driverNeedsLegacyFallback
+    ? await supabaseAdmin
+        .from('drivers')
+        .select('id, user_id, company_id, must_change_password, status, app_access')
+        .eq('user_id', user.id)
+    : driversInitialResult;
 
   if (profileResult.error || membershipsResult.error || driversResult.error) {
     console.error('[Shared UI Context] authoritative query failed', {
@@ -161,7 +179,11 @@ const resolveAuthoritativeSource = async (request: NextRequest) => {
   const memberships = normalizeAuthMembershipRows(
     (membershipsResult.data ?? []) as AuthMembershipQueryRow[],
   );
-  const drivers = (driversResult.data ?? []) as DriverBootstrapEvidenceRow[];
+  // Normalize legacy fallback rows: commercial facts are fail-closed.
+  const rawDrivers = (driversResult.data ?? []) as DriverBootstrapEvidenceRow[];
+  const drivers: DriverBootstrapEvidenceRow[] = driverNeedsLegacyFallback
+    ? rawDrivers.map((d) => ({ ...d, driver_type: null, can_commercial_bid: false }))
+    : rawDrivers;
 
   return {
     ok: true as const,
