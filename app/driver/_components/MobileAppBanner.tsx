@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 const DISMISS_KEY = 'xdrive:native-banner-dismissed';
-const NATIVE_SCHEME = 'xdrivedriver://';
+const NATIVE_SCHEME = 'xdrivedriver://notification';
 
 type Props = { isMobile: boolean };
 

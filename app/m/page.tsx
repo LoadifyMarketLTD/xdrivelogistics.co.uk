@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const NATIVE_SCHEME = 'xdrivedriver://';
+const NATIVE_SCHEME = 'xdrivedriver://notification';
 const APK_FALLBACK_URL = '/m/get-app';
 
 export default function MobileDeepLinkPage() {
