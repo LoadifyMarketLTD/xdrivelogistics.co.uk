@@ -41,8 +41,10 @@ class DeepLinkIntentInstrumentedTest {
     private fun deepLinkIntent(uriString: String): Intent =
         Intent(Intent.ACTION_VIEW, Uri.parse(uriString))
 
-    private fun parseIntent(intent: Intent): DeepLinkDestination =
-        XDriveDeepLink.parse(intent.data ?: return DeepLinkDestination.Messages)
+    private fun parseIntent(intent: Intent): DeepLinkDestination {
+        val data = intent.data ?: return DeepLinkDestination.Messages
+        return XDriveDeepLink.parse(data)
+    }
 
     // ── 1. Cold-start intent parsing ──────────────────────────────────────────
 

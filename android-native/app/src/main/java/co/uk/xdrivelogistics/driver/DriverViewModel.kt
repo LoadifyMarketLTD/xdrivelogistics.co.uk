@@ -345,10 +345,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun handleDeepLink(destination: DeepLinkDestination) {
         when (destination) {
             is DeepLinkDestination.Job -> {
-                val state = _uiState.value
-                if (!state.isAuthenticated || state.jobs.isEmpty()) {
-                    // Hold the link until session + jobs are available; fall back to Messages.
-                    _uiState.value = state.copy(pendingDeepLink = destination)
+                val newState = applyJobDeepLinkToState(_uiState.value, destination)
+                _uiState.value = newState
+                if (newState.pendingDeepLink != null) {
+                    // Held pending; fall back to Messages as safe interim destination.
                     changeTab(DriverTab.MESSAGES)
                 } else {
                     selectJobIfAssigned(destination.jobId)
@@ -367,12 +367,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
      * The pending link is cleared before routing to prevent double-processing.
      */
     private fun processPendingDeepLinkIfReady() {
-        val state = _uiState.value
-        val pending = state.pendingDeepLink as? DeepLinkDestination.Job ?: return
-        if (!state.isAuthenticated || state.session == null) return
-        // Clear before routing so a routing failure does not cause repeated attempts.
-        _uiState.value = state.copy(pendingDeepLink = null)
-        selectJobIfAssigned(pending.jobId)
+        val (newState, jobId) = resolvePendingDeepLink(_uiState.value)
+        _uiState.value = newState
+        jobId?.let { selectJobIfAssigned(it) }
     }
 
 
@@ -2180,3 +2177,38 @@ internal suspend fun <T> runWithSingleRefreshRetryCoordinator(
  */
 internal fun shouldClearDispatchDraft(requestJobId: String, currentSelectedJobId: String?): Boolean =
     requestJobId == currentSelectedJobId
+
+/**
+ * Compute the next [DriverUiState] after a [DeepLinkDestination.Job] deep-link is handled.
+ *
+ * If the session is not yet authenticated or the jobs list has not yet loaded (cold start),
+ * the destination is stored in [DriverUiState.pendingDeepLink] so that routing can be
+ * deferred until data is available. Otherwise the state is returned unchanged and the
+ * caller should proceed to route immediately via [selectJobIfAssigned].
+ *
+ * Extracted from [DriverViewModel.handleDeepLink] for unit-testability.
+ */
+internal fun applyJobDeepLinkToState(
+    state: DriverUiState,
+    destination: DeepLinkDestination.Job,
+): DriverUiState = if (!state.isAuthenticated || state.jobs.isEmpty()) {
+    state.copy(pendingDeepLink = destination)
+} else {
+    state
+}
+
+/**
+ * Consume [DriverUiState.pendingDeepLink] when routing preconditions are met.
+ *
+ * Returns the updated state (pending link cleared) and the job ID to route to, or
+ * `null` as the second element if no routing should occur (not authenticated, no session,
+ * or no pending Job link). The pending link is cleared before routing to prevent
+ * double-processing if routing itself fails.
+ *
+ * Extracted from [DriverViewModel.processPendingDeepLinkIfReady] for unit-testability.
+ */
+internal fun resolvePendingDeepLink(state: DriverUiState): Pair<DriverUiState, String?> {
+    val pending = state.pendingDeepLink as? DeepLinkDestination.Job ?: return state to null
+    if (!state.isAuthenticated || state.session == null) return state to null
+    return state.copy(pendingDeepLink = null) to pending.jobId
+}

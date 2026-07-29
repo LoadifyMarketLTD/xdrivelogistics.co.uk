@@ -2,7 +2,12 @@ package co.uk.xdrivelogistics.driver
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [35])
 class DriverPushRoutingTest {
     @Test
     fun `job payload routes to exact job deep link`() {

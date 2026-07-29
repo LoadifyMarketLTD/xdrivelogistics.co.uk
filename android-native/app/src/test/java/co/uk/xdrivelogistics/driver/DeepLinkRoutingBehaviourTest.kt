@@ -9,21 +9,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the deep-link routing state machine behaviours that do not require a running
- * Activity or ViewModel:
+ * Unit tests for the deep-link routing state machine.
  *
- * 1. **Cold-start hold**: A [DeepLinkDestination.Job] arriving before session/jobs are loaded
- *    is stored in [DriverUiState.pendingDeepLink]; non-job destinations are not held.
- * 2. **One-shot routing**: The pending link is cleared atomically before routing is attempted;
- *    subsequent calls to processPendingDeepLinkIfReady on cleared state are no-ops.
- * 3. **A→B / logout isolation**: Owner change (or logout) always clears [pendingDeepLink] so
- *    cross-owner job routing is impossible.
+ * Each test calls the extracted production routing functions [applyJobDeepLinkToState] and
+ * [resolvePendingDeepLink] — the same functions called by [DriverViewModel.handleDeepLink]
+ * and [DriverViewModel.processPendingDeepLinkIfReady] respectively. This ensures the tests
+ * exercise the actual routing mechanism rather than simulating state changes.
+ *
+ * 1. **Cold-start hold**: [applyJobDeepLinkToState] stores the destination in
+ *    [DriverUiState.pendingDeepLink] when the session or jobs list is not yet available.
+ *    Non-job destinations pass through unchanged.
+ * 2. **One-shot routing**: [resolvePendingDeepLink] clears the pending link atomically and
+ *    returns the job ID; subsequent calls on the cleared state are no-ops.
+ * 3. **A→B / logout isolation**: [resolvePendingDeepLink] returns null when the authenticated
+ *    session is null, and a cross-owner job not in the new owner's list resolves to null so
+ *    that [DriverViewModel.selectJobIfAssigned] routes to Messages.
  * 4. **Stale / terminal / marketplace / unassigned job fallback**: [DriverJob.isActive] returns
- *    false for delivered, completed, cancelled, posted, quoted and awarded statuses, so
- *    [DriverViewModel.selectJobIfAssigned] will route to Messages instead of opening stale jobs.
- * 5. **Activity recreation**: During a configuration change the ViewModel survives and the
- *    Activity's intent is re-delivered; if the pending link has already been cleared the
- *    state machine routes directly without re-holding.
+ *    false for terminal and pre-allocation statuses; [resolvePendingDeepLink] returns the job ID
+ *    but [DriverViewModel.selectJobIfAssigned] then falls through to Messages because
+ *    `jobs.firstOrNull { it.id == jobId && it.isActive() }` is null.
+ * 5. **Activity recreation**: [applyJobDeepLinkToState] with data already loaded returns the
+ *    state unchanged (no re-hold), so the caller routes directly.
  */
 class DeepLinkRoutingBehaviourTest {
 
@@ -31,140 +37,138 @@ class DeepLinkRoutingBehaviourTest {
 
     @Test
     fun `cold-start job link is stored as pendingDeepLink when not authenticated`() {
-        val initialState = DriverUiState(isAuthenticated = false, jobs = emptyList())
+        val state = DriverUiState(isAuthenticated = false, jobs = emptyList())
         val destination = DeepLinkDestination.Job("job-cold-start-001")
 
-        // Simulate handleDeepLink cold-start branch: hold the link.
-        val newState = initialState.copy(pendingDeepLink = destination)
+        val newState = applyJobDeepLinkToState(state, destination)
 
         assertEquals(destination, newState.pendingDeepLink)
     }
 
     @Test
     fun `cold-start job link is stored as pendingDeepLink when authenticated but jobs not yet loaded`() {
-        val initialState = DriverUiState(isAuthenticated = true, jobs = emptyList())
+        val state = DriverUiState(isAuthenticated = true, jobs = emptyList())
         val destination = DeepLinkDestination.Job("job-cold-start-002")
 
-        val newState = initialState.copy(pendingDeepLink = destination)
+        val newState = applyJobDeepLinkToState(state, destination)
 
         assertEquals(destination, newState.pendingDeepLink)
     }
 
     @Test
-    fun `non-job destinations are not held in pendingDeepLink`() {
-        // Messages, Nearby, Documents and Profile do not use the pending-hold mechanism;
-        // they are routed immediately. The pending field must remain null.
-        val state = DriverUiState(isAuthenticated = false)
-        assertNull("Messages must not hold a pending link", state.pendingDeepLink)
-        // Simulate routing the non-job destinations — state is unchanged.
-        assertEquals(null, state.copy().pendingDeepLink)
+    fun `job link is not held when session and jobs are already loaded`() {
+        val state = DriverUiState(
+            isAuthenticated = true,
+            session = session("user-a"),
+            jobs = listOf(assignedJob("job-loaded-001")),
+        )
+        val destination = DeepLinkDestination.Job("job-loaded-001")
+
+        val newState = applyJobDeepLinkToState(state, destination)
+
+        // State unchanged — caller will route directly via selectJobIfAssigned.
+        assertNull(newState.pendingDeepLink)
     }
 
     @Test
     fun `pendingDeepLink is null by default (safe default state)`() {
-        val state = DriverUiState()
-        assertNull(state.pendingDeepLink)
+        assertNull(DriverUiState().pendingDeepLink)
     }
 
     // ── 2. One-shot routing ───────────────────────────────────────────────────
 
     @Test
-    fun `processPendingDeepLinkIfReady clears pendingDeepLink atomically before routing`() {
-        val destination = DeepLinkDestination.Job("job-one-shot-001")
-        val session = session("user-a")
-        val job = assignedJob("job-one-shot-001")
-
+    fun `resolvePendingDeepLink clears pendingDeepLink atomically and returns job ID`() {
+        val jobId = "job-one-shot-001"
         val state = DriverUiState(
             isAuthenticated = true,
-            session = session,
-            jobs = listOf(job),
-            pendingDeepLink = destination,
+            session = session("user-a"),
+            jobs = listOf(assignedJob(jobId)),
+            pendingDeepLink = DeepLinkDestination.Job(jobId),
         )
 
-        // Simulate the atomic clear that happens at the start of processPendingDeepLinkIfReady.
-        val clearedState = state.copy(pendingDeepLink = null)
+        val (newState, resolvedId) = resolvePendingDeepLink(state)
 
-        // After clearing, the pending link is gone — a second call would be a no-op.
-        assertNull("pendingDeepLink must be cleared before routing", clearedState.pendingDeepLink)
+        assertNull("pendingDeepLink must be cleared before routing", newState.pendingDeepLink)
+        assertEquals(jobId, resolvedId)
     }
 
     @Test
-    fun `processPendingDeepLinkIfReady is a no-op when pendingDeepLink is already null`() {
-        val session = session("user-a")
+    fun `resolvePendingDeepLink is a no-op when pendingDeepLink is already null`() {
         val state = DriverUiState(
             isAuthenticated = true,
-            session = session,
+            session = session("user-a"),
             jobs = listOf(assignedJob("job-any")),
             pendingDeepLink = null,
         )
 
-        // Simulate the guard: `val pending = state.pendingDeepLink as? Job ?: return`
-        val pending = state.pendingDeepLink as? DeepLinkDestination.Job
-        assertNull("No pending link — processPendingDeepLinkIfReady must return early", pending)
+        val (newState, resolvedId) = resolvePendingDeepLink(state)
+
+        assertNull("No pending link — must return null job ID", resolvedId)
+        assertNull(newState.pendingDeepLink)
     }
 
     @Test
-    fun `second processPendingDeepLinkIfReady call after clear does not re-route`() {
-        // Verify the one-shot property: after the pending link is consumed and cleared,
-        // a subsequent invocation (e.g. from a second refreshDriverData call) is a no-op.
-        val destination = DeepLinkDestination.Job("job-one-shot-002")
-        val session = session("user-a")
-
-        val stateWithPending = DriverUiState(
+    fun `second resolvePendingDeepLink call on cleared state is a no-op`() {
+        val jobId = "job-one-shot-002"
+        val state = DriverUiState(
             isAuthenticated = true,
-            session = session,
-            jobs = listOf(assignedJob("job-one-shot-002")),
-            pendingDeepLink = destination,
+            session = session("user-a"),
+            jobs = listOf(assignedJob(jobId)),
+            pendingDeepLink = DeepLinkDestination.Job(jobId),
         )
 
-        // First invocation — clear and route.
-        val stateAfterFirstCall = stateWithPending.copy(pendingDeepLink = null)
-        assertNull(stateAfterFirstCall.pendingDeepLink)
+        // First call — routes and clears.
+        val (stateAfterFirst, firstId) = resolvePendingDeepLink(state)
+        assertEquals(jobId, firstId)
+        assertNull(stateAfterFirst.pendingDeepLink)
 
-        // Second invocation — pending is null, guard fires, no change.
-        val secondCallGuard = stateAfterFirstCall.pendingDeepLink as? DeepLinkDestination.Job
-        assertNull("Second call must be a no-op; guard must return early", secondCallGuard)
+        // Second call on cleared state — must be a no-op.
+        val (stateAfterSecond, secondId) = resolvePendingDeepLink(stateAfterFirst)
+        assertNull("Second call must return null job ID", secondId)
+        assertNull(stateAfterSecond.pendingDeepLink)
     }
 
     // ── 3. A→B / logout isolation ─────────────────────────────────────────────
 
     @Test
-    fun `owner change clears pendingDeepLink to prevent cross-owner routing`() {
-        val jobA = DeepLinkDestination.Job("owner-a-job-111")
-        val stateWithPendingForA = DriverUiState(
-            isAuthenticated = true,
-            session = session("user-a"),
-            jobs = emptyList(),
-            pendingDeepLink = jobA,
-        )
-
-        // Simulate the owner-change clear block in DriverViewModel init.
-        val stateAfterOwnerChange = stateWithPendingForA.copy(
+    fun `resolvePendingDeepLink returns null when session is null (owner cleared)`() {
+        // After an owner change, the DriverViewModel clears session.
+        // Pending links must not route without a valid session.
+        val state = DriverUiState(
+            isAuthenticated = false,
             session = null,
-            jobs = emptyList(),
-            pendingDeepLink = null,
+            pendingDeepLink = DeepLinkDestination.Job("owner-a-job-111"),
         )
 
-        assertNull(
-            "pendingDeepLink must be null after owner change to prevent cross-owner routing",
-            stateAfterOwnerChange.pendingDeepLink,
-        )
+        val (newState, resolvedId) = resolvePendingDeepLink(state)
+
+        assertNull("No session — routing must not proceed", resolvedId)
+        // Pending link is preserved (not cleared) so it can be retried after session loads.
+        assertEquals(DeepLinkDestination.Job("owner-a-job-111"), newState.pendingDeepLink)
     }
 
     @Test
-    fun `logout clears pendingDeepLink`() {
-        val destination = DeepLinkDestination.Job("job-before-logout")
-        val stateBeforeLogout = DriverUiState(
+    fun `cross-owner job link resolves but selectJobIfAssigned falls back — job not in new owner list`() {
+        // resolvePendingDeepLink returns the job ID; selectJobIfAssigned then rejects it
+        // because the job is absent from owner-B's list (owner isolation at routing layer).
+        val state = DriverUiState(
             isAuthenticated = true,
-            session = session("user-x"),
-            pendingDeepLink = destination,
+            session = session("user-b"),
+            jobs = listOf(assignedJob("job-for-owner-b")), // Owner-A's job is absent
+            pendingDeepLink = DeepLinkDestination.Job("job-for-owner-a"),
         )
 
-        // Logout → session becomes null → ViewModel resets to DriverUiState().
-        val stateAfterLogout = DriverUiState()
+        val (newState, resolvedId) = resolvePendingDeepLink(state)
 
-        assertNull(stateAfterLogout.pendingDeepLink)
-        assertFalse(stateAfterLogout.isAuthenticated)
+        // Link is cleared and returned to the caller.
+        assertNull(newState.pendingDeepLink)
+        assertEquals("job-for-owner-a", resolvedId)
+
+        // The caller (DriverViewModel) passes resolvedId to selectJobIfAssigned,
+        // which checks jobs.firstOrNull { it.id == jobId && it.isActive() } — null → Messages.
+        val assignedJob = state.jobs.firstOrNull { it.id == resolvedId && it.isActive() }
+        assertNull("Cross-owner job must not be found in new owner's list", assignedJob)
     }
 
     @Test
@@ -180,7 +184,7 @@ class DeepLinkRoutingBehaviourTest {
     // ── 4. Stale / terminal / marketplace / unassigned job fallback ───────────
 
     @Test
-    fun `delivered job is not active — stale fallback applies`() {
+    fun `delivered job is not active — selectJobIfAssigned would fall back to Messages`() {
         assertFalse(job("delivered").isActive())
     }
 
@@ -196,8 +200,6 @@ class DeepLinkRoutingBehaviourTest {
 
     @Test
     fun `posted job is not active — marketplace fallback applies`() {
-        // "posted" is a marketplace/pre-allocation status; a deep link to a posted job
-        // must fall back to Messages since selectJobIfAssigned checks isActive().
         assertFalse(job("posted").isActive())
     }
 
@@ -228,70 +230,53 @@ class DeepLinkRoutingBehaviourTest {
     }
 
     @Test
-    fun `selectJobIfAssigned falls back to Messages for job not in assigned list`() {
-        // The assigned jobs list is empty — any job ID, including a marketplace or stale ID,
-        // is absent from the list, so selectJobIfAssigned must route to Messages.
-        val assignedJobs = emptyList<DriverJob>()
-        val lookupId = "marketplace-or-stale-job-999"
-
-        val found = assignedJobs.firstOrNull { it.id == lookupId && it.isActive() }
-        assertNull(
-            "Job not in assigned list — selectJobIfAssigned must route to Messages",
-            found,
-        )
+    fun `terminal job in assigned list is rejected by the isActive guard`() {
+        // resolvePendingDeepLink returns the job ID; selectJobIfAssigned's
+        // `jobs.firstOrNull { it.id == jobId && it.isActive() }` is null for terminal jobs.
+        val terminalJob = job("delivered", id = "delivered-job-001")
+        val found = listOf(terminalJob).firstOrNull { it.id == "delivered-job-001" && it.isActive() }
+        assertNull("Terminal job must fail the isActive guard", found)
     }
 
     @Test
-    fun `selectJobIfAssigned falls back to Messages for terminal job in list`() {
-        // The job exists in the list but has a terminal status — isActive() is false,
-        // so selectJobIfAssigned must treat it as absent and route to Messages.
-        val terminalJob = job("delivered", id = "delivered-job-001")
-        val assignedJobs = listOf(terminalJob)
-        val lookupId = "delivered-job-001"
-
-        val found = assignedJobs.firstOrNull { it.id == lookupId && it.isActive() }
-        assertNull(
-            "Terminal job — selectJobIfAssigned must route to Messages",
-            found,
-        )
+    fun `unassigned job ID (absent from list) is rejected`() {
+        val found = emptyList<DriverJob>().firstOrNull { it.id == "stale-job-999" && it.isActive() }
+        assertNull("Job absent from list must route to Messages", found)
     }
 
     // ── 5. Activity recreation / cold-start re-delivery ──────────────────────
 
     @Test
-    fun `onCreate re-delivery is safe when pending link already cleared (data loaded)`() {
-        // During a configuration change the Activity is recreated but the ViewModel survives.
-        // If data has already loaded and the pending link was processed, calling handleDeepLink
-        // again finds jobs loaded — it goes directly to selectJobIfAssigned (idempotent).
-        //
-        // Simulate: ViewModel has loaded state with no pending link.
-        val loadedState = DriverUiState(
+    fun `applyJobDeepLinkToState does not re-hold when data is already loaded`() {
+        // ViewModel survives a configuration change; data was already loaded.
+        // handleDeepLink is re-invoked by onCreate — must go directly to selectJobIfAssigned.
+        val state = DriverUiState(
             isAuthenticated = true,
             session = session("user-a"),
             jobs = listOf(assignedJob("job-recreation-001")),
             pendingDeepLink = null,
         )
+        val destination = DeepLinkDestination.Job("job-recreation-001")
 
-        // handleDeepLink re-entry: jobs available, no pending → direct route, not re-hold.
-        val isDataReady = loadedState.isAuthenticated && loadedState.jobs.isNotEmpty()
-        assertTrue("Data must be ready to route directly on Activity recreation", isDataReady)
-        assertNull("No pending link means no re-holding on recreation", loadedState.pendingDeepLink)
+        val newState = applyJobDeepLinkToState(state, destination)
+
+        // State unchanged — caller routes directly, no re-hold.
+        assertNull("Re-delivered intent with loaded data must not re-hold", newState.pendingDeepLink)
     }
 
     @Test
-    fun `onCreate re-delivery stores same pending link if data still not loaded`() {
-        // If the Activity is recreated before data loads, handleDeepLink is called again.
-        // The pending link should be overwritten with the same value — idempotent hold.
+    fun `applyJobDeepLinkToState overwrites previous pending with same destination (idempotent hold)`() {
+        // If handleDeepLink is called again before data loads, the hold is idempotent.
         val destination = DeepLinkDestination.Job("job-recreation-002")
-        val stateNotYetLoaded = DriverUiState(
+        val stateWithPending = DriverUiState(
             isAuthenticated = false,
             jobs = emptyList(),
             pendingDeepLink = destination,
         )
 
-        // Second handleDeepLink call before data loads — same result.
-        val newState = stateNotYetLoaded.copy(pendingDeepLink = destination)
-        assertEquals(destination, newState.pendingDeepLink)
+        val newState = applyJobDeepLinkToState(stateWithPending, destination)
+
+        assertEquals("Same destination must remain in pending", destination, newState.pendingDeepLink)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
