@@ -41,8 +41,8 @@ sealed class DeepLinkDestination {
  * - `profile` — driver profile
  *
  * Supported HTTPS paths (exact-allowlist hosts only):
- * - `/driver/jobs/<id>` — exact assigned operational job
- * - `/m/*` or `/driver/*` — Nearby tab
+ * - `/driver/jobs/{id}` — exact assigned operational job
+ * - `/m/...` or `/driver/...` — Nearby tab
  */
 object XDriveDeepLink {
     /** Canonical scheme used for all newly emitted links. */
