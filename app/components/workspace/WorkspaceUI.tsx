@@ -181,3 +181,127 @@ export function SettingsLayout({ navigation, activeId, onNavigate, children }: {
 export function FormSection({ title, description, children, actions }: { title: string; description?: string; children: ReactNode; actions?: ReactNode }) {
   return <section style={{ background: '#fff', border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', marginBottom: '0.75rem', overflow: 'hidden' }}><div style={{ padding: '0.75rem 0.85rem', borderBottom: `1px solid ${workspaceTheme.border}`, display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, fontSize: '0.9rem', color: workspaceTheme.text }}>{title}</h2>{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.7rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions}</div><div style={{ padding: '0.85rem' }}>{children}</div></section>;
 }
+
+// ─── Action Centre primitives ────────────────────────────────────────────────
+// Presentation-only; no role, company, workspace, route, permission or
+// data-fetching logic. Callers supply all data; these components only render.
+
+/** Priority levels for an Action Centre item. */
+export type ActionCentreItemPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/** Status values for an Action Centre item. */
+export type ActionCentreItemStatus = 'open' | 'in_progress' | 'resolved';
+
+/** Optional call-to-action rendered only when explicitly supplied by the caller. */
+export type ActionCentreItemCta = {
+  /** Button/link label text. */
+  label: string;
+  /** Navigate to this URL when supplied (renders an anchor). Mutually exclusive with onClick. */
+  href?: string;
+  /** Inline handler when supplied (renders a button). Used when href is not provided. */
+  onClick?: () => void;
+};
+
+/** Data contract for a single Action Centre item. Contains only display fields. */
+export type ActionCentreItem = {
+  /** Stable, unique identifier for the item (used as React key). */
+  id: string;
+  /** Primary heading text. */
+  title: string;
+  /** Optional supporting description. */
+  description?: string;
+  /** Explicit priority — presentation colour is derived from this field, not from the title text. */
+  priority: ActionCentreItemPriority;
+  /** Explicit status — presentation colour is derived from this field, not from the title text. */
+  status: ActionCentreItemStatus;
+  /** Pre-formatted due label/date string, e.g. "Due 3 Aug" or "Overdue 2d". Never parsed by the component. */
+  dueLabel?: string;
+  /** Pre-formatted entity or reference label, e.g. "Job #JB-1042" or "Invoice INV-88". */
+  entityLabel?: string;
+  /** Pre-formatted assignee label, e.g. "J. Smith". */
+  assigneeLabel?: string;
+  /** Optional CTA rendered only when explicitly supplied. */
+  cta?: ActionCentreItemCta;
+};
+
+type BadgePalette = { bg: string; color: string; border: string };
+
+/** Colour lookup for priority badges — keyed by explicit priority, never inferred from text. */
+export const ACTION_CENTRE_PRIORITY_COLORS: Record<ActionCentreItemPriority, BadgePalette> = {
+  critical: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  high:     { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  medium:   { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  low:      { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+};
+
+/** Colour lookup for status badges — keyed by explicit status, never inferred from text. */
+export const ACTION_CENTRE_STATUS_COLORS: Record<ActionCentreItemStatus, BadgePalette> = {
+  open:        { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  in_progress: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  resolved:    { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' },
+};
+
+/** Human-readable labels for priority and status fields. */
+export const ACTION_CENTRE_PRIORITY_LABELS: Record<ActionCentreItemPriority, string> = {
+  critical: 'Critical',
+  high:     'High',
+  medium:   'Medium',
+  low:      'Low',
+};
+
+export const ACTION_CENTRE_STATUS_LABELS: Record<ActionCentreItemStatus, string> = {
+  open:        'Open',
+  in_progress: 'In Progress',
+  resolved:    'Resolved',
+};
+
+/** Renders a single Action Centre item as a card. Presentation-only; no data fetching. */
+export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
+  const priorityPalette = ACTION_CENTRE_PRIORITY_COLORS[item.priority];
+  const statusPalette = ACTION_CENTRE_STATUS_COLORS[item.status];
+  const badgeBase: CSSProperties = { display: 'inline-flex', alignItems: 'center', borderRadius: '999px', padding: '0.16rem 0.42rem', fontSize: '0.62rem', fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid' };
+  return (
+    <article
+      aria-label={item.title}
+      style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.78rem 0.85rem', boxShadow: compactShadow, position: 'relative', overflow: 'hidden' }}
+    >
+      <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: priorityPalette.color }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0, flex: '1 1 0' }}>
+          <div style={{ color: workspaceTheme.text, fontSize: '0.8rem', fontWeight: 750, lineHeight: 1.35 }}>{item.title}</div>
+          {item.description && <div style={{ color: workspaceTheme.muted, fontSize: '0.7rem', marginTop: '0.22rem', lineHeight: 1.4 }}>{item.description}</div>}
+        </div>
+        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+          <span style={{ ...badgeBase, background: priorityPalette.bg, color: priorityPalette.color, borderColor: priorityPalette.border }}>{ACTION_CENTRE_PRIORITY_LABELS[item.priority]}</span>
+          <span style={{ ...badgeBase, background: statusPalette.bg, color: statusPalette.color, borderColor: statusPalette.border }}>{ACTION_CENTRE_STATUS_LABELS[item.status]}</span>
+        </div>
+      </div>
+      {(item.dueLabel || item.entityLabel || item.assigneeLabel) && (
+        <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
+          {item.entityLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>{item.entityLabel}</span>}
+          {item.dueLabel && <span style={{ color: workspaceTheme.amber, fontSize: '0.65rem', fontWeight: 700 }}>{item.dueLabel}</span>}
+          {item.assigneeLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>→ {item.assigneeLabel}</span>}
+        </div>
+      )}
+      {item.cta && (
+        <div style={{ marginTop: '0.55rem' }}>
+          {item.cta.href ? (
+            <a href={item.cta.href} style={{ color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, textDecoration: 'none' }}>{item.cta.label} →</a>
+          ) : (
+            <button type="button" onClick={item.cta.onClick} style={{ background: 'none', border: 'none', padding: 0, color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}>{item.cta.label} →</button>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Renders a list of Action Centre items. Handles empty state. Presentation-only; no data fetching. */
+export function ActionCentreList({ items, empty }: { items: ActionCentreItem[]; empty?: ReactNode }) {
+  if (items.length === 0) return <>{empty ?? <EmptyState title="No action items" description="There are no outstanding action items at this time." />}</>;
+  return (
+    <div style={{ display: 'grid', gap: '0.5rem' }}>
+      {items.map((item) => <ActionCentreItemCard key={item.id} item={item} />)}
+    </div>
+  );
+}
