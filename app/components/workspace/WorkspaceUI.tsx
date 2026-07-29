@@ -144,12 +144,27 @@ export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { 
   return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
 }
 
-export function StatusBadge({ value, tone }: { value: string; tone?: 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' }) {
+/** Explicit tone values for StatusBadge — keyed by semantic intent, never inferred from display text. */
+export type StatusBadgeTone = 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple';
+
+type StatusBadgeColorPalette = { bg: string; color: string; border: string };
+
+/** Deterministic colour palette lookup for StatusBadge — keyed by explicit tone. */
+export const STATUS_BADGE_COLORS: Record<StatusBadgeTone, StatusBadgeColorPalette> = {
+  green:  { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' },
+  blue:   { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  orange: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  red:    { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  grey:   { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+  purple: { bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff' },
+};
+
+export function StatusBadge({ value, tone, ariaLabel }: { value: string; tone?: StatusBadgeTone; ariaLabel?: string }) {
   const normalised = String(value || 'unknown').trim().toLowerCase();
-  const resolvedTone = tone ?? (normalised.includes('delivered') || normalised.includes('completed') || normalised.includes('active') || normalised.includes('approved') || normalised === 'paid' || normalised === 'ready' ? 'green' : normalised.includes('late') || normalised.includes('overdue') || normalised.includes('failed') || normalised.includes('cancel') || normalised.includes('error') || normalised.includes('dispute') ? 'red' : normalised.includes('pending') || normalised.includes('waiting') || normalised.includes('quoted') ? 'orange' : normalised.includes('draft') ? 'grey' : 'blue');
-  const colors = { green: { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' }, blue: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }, orange: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' }, red: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' }, grey: { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' }, purple: { bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff' } }[resolvedTone];
+  const resolvedTone: StatusBadgeTone = tone ?? (normalised.includes('delivered') || normalised.includes('completed') || normalised.includes('active') || normalised.includes('approved') || normalised === 'paid' || normalised === 'ready' ? 'green' : normalised.includes('late') || normalised.includes('overdue') || normalised.includes('failed') || normalised.includes('cancel') || normalised.includes('error') || normalised.includes('dispute') ? 'red' : normalised.includes('pending') || normalised.includes('waiting') || normalised.includes('quoted') ? 'orange' : normalised.includes('draft') ? 'grey' : 'blue');
+  const colors = STATUS_BADGE_COLORS[resolvedTone];
   const label = normalised.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-  return <span style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
 export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
