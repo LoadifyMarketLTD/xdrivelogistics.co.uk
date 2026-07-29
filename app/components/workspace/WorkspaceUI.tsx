@@ -320,7 +320,12 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
  * @param reason  Optional explanation shown beneath the heading. Defaults to a generic message.
  * @param action  Optional ReactNode rendered as a CTA (e.g. "Request Access" link/button).
  */
-export function PermissionDeniedState({ reason, action }: { reason?: string; action?: ReactNode } = {}) {
+export type PermissionDeniedStateProps = {
+  reason?: string;
+  action?: ReactNode;
+};
+
+export function PermissionDeniedState({ reason, action }: PermissionDeniedStateProps) {
   return (
     <div
       role="alert"
