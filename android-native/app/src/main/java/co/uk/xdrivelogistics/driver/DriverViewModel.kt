@@ -173,7 +173,7 @@ class DriverViewModel(
      * any pending deep link. Intended exclusively for instrumented tests that inject a
      * [SessionRepository] fake and need deterministic session transitions without live API access.
      */
-    @VisibleForTesting
+    @get:VisibleForTesting
     internal val skipDataRefreshForTesting: Boolean = false,
 ) : AndroidViewModel(application) {
     private val activeJobSelectionStore = ActiveJobSelectionStore(application.applicationContext)
