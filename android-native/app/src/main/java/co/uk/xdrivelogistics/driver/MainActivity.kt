@@ -394,7 +394,10 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: Intent?) {
         val data = intent?.data ?: return
         val destination = XDriveDeepLink.parse(data)
-        viewModel.handleDeepLink(destination)
+        // Derive a stable commandId from the URI so that re-delivery of the same intent after
+        // Activity recreation produces the same commandId and is deduplicated in the ViewModel.
+        val commandId = data.toString()
+        viewModel.handleDeepLink(destination, commandId)
     }
 }
 

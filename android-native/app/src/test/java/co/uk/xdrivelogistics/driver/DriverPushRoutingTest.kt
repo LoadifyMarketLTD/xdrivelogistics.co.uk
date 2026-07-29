@@ -58,9 +58,12 @@ class DriverPushRoutingTest {
     }
 
     @Test
-    fun `job_id exactly 128 chars is accepted`() {
-        val validId = "a".repeat(128)
-        assertEquals("xdrivedriver://job/$validId", resolvePushDeepLink(mapOf("job_id" to validId)))
+    fun `job_id exactly 128 chars is not UUID-v4 — build emits notification fallback`() {
+        // A 128-char alphanumeric string passes the broad push payload validator (isValidJobId)
+        // but is not UUID-v4, so build() fails closed to the notification URI. This prevents
+        // emitting xdrivedriver://job/<opaque> which would parse back to Messages silently.
+        val nonUuidId = "a".repeat(128)
+        assertEquals("xdrivedriver://notification", resolvePushDeepLink(mapOf("job_id" to nonUuidId)))
     }
 
     @Test
@@ -80,13 +83,16 @@ class DriverPushRoutingTest {
     }
 
     @Test
-    fun `alphanumeric underscore and hyphen job_ids are accepted`() {
+    fun `non-UUID alphanumeric job_ids fail closed — build emits notification fallback`() {
+        // "JOB_123-abc" and "a1b2c3d4" pass the broad push payload validator but are not UUID-v4.
+        // build() must not emit xdrivedriver://job/<opaque> because parse() would return Messages
+        // for any non-UUID path, creating a silent broken round-trip.
         assertEquals(
-            "xdrivedriver://job/JOB_123-abc",
+            "xdrivedriver://notification",
             resolvePushDeepLink(mapOf("job_id" to "JOB_123-abc")),
         )
         assertEquals(
-            "xdrivedriver://job/a1b2c3d4",
+            "xdrivedriver://notification",
             resolvePushDeepLink(mapOf("job_id" to "a1b2c3d4")),
         )
     }

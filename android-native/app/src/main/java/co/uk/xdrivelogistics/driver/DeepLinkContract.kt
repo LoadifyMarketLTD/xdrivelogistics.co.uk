@@ -113,15 +113,16 @@ object XDriveDeepLink {
      * Build a canonical [Uri] for [destination] using [CANONICAL_SCHEME] (`xdrivedriver://`).
      * Always returns a valid, non-null URI.
      *
-     * For [DeepLinkDestination.Job]: validates the job ID with [isValidJobId] before inserting
-     * it into the URI path. An ID that fails validation produces a Messages URI (safe fallback)
-     * rather than a path-injected string. This ensures every URI emitted by [build] is parseable
-     * by [parse] with no path-traversal or injection risk.
+     * For [DeepLinkDestination.Job]: validates the job ID with [isValidUriJobId] (UUID-v4 only)
+     * before inserting it into the URI path. An ID that fails UUID-v4 validation produces a
+     * Messages URI (safe fallback) rather than emitting a path that would silently parse back
+     * to Messages on inbound. This ensures every Job URI emitted by [build] round-trips through
+     * [parse] with no path-traversal or injection risk.
      */
     fun build(destination: DeepLinkDestination): Uri = when (destination) {
         DeepLinkDestination.Messages -> Uri.parse("$CANONICAL_SCHEME://notification")
         is DeepLinkDestination.Job -> {
-            if (isValidJobId(destination.jobId)) {
+            if (isValidUriJobId(destination.jobId)) {
                 Uri.parse("$CANONICAL_SCHEME://job/${destination.jobId}")
             } else {
                 Uri.parse("$CANONICAL_SCHEME://notification")
@@ -139,13 +140,17 @@ object XDriveDeepLink {
         return when (host) {
             "job" -> {
                 val segs = uri.pathSegments
-                // Strict: exactly one path segment (the job ID) or no path segments with a
-                // query-parameter fallback. Extra path segments are rejected to prevent
-                // path-traversal or ambiguous link formats.
+                val queryNames = uri.queryParameterNames
+                // Strict: permit exactly two representations, no others.
+                // Form A — one path segment, NO query or fragment:
+                //   xdrivedriver://job/{uuid}
+                // Form B — no path segments, EXACTLY the ?id= query, no fragment:
+                //   xdrivedriver://job?id={uuid}
+                // Any other combination (extra path, extra query, fragment) is rejected.
                 val jobId: String = when {
-                    segs.size == 1 -> segs[0]
-                    segs.isEmpty() -> uri.getQueryParameter("id")
-                        ?: return DeepLinkDestination.Messages
+                    segs.size == 1 && queryNames.isEmpty() && uri.fragment == null -> segs[0]
+                    segs.isEmpty() && queryNames == setOf("id") && uri.fragment == null ->
+                        uri.getQueryParameter("id") ?: return DeepLinkDestination.Messages
                     else -> return DeepLinkDestination.Messages
                 }
                 if (isValidUriJobId(jobId)) DeepLinkDestination.Job(jobId) else DeepLinkDestination.Messages
@@ -162,19 +167,17 @@ object XDriveDeepLink {
         val host = uri.host ?: return DeepLinkDestination.Messages
         // Exact allowlist — never match by suffix to prevent lookalike-host attacks.
         if (host !in HTTPS_HOST_ALLOWLIST) return DeepLinkDestination.Messages
-        val path = uri.path ?: return DeepLinkDestination.Messages
-        // Only `/driver/jobs/{uuid}` is a meaningful server-issued HTTPS path.
-        // All other HTTPS paths produce Messages (fail closed) rather than routing to
-        // a tab — `/m/` and `/driver/` were previously mapped to Nearby but this was
-        // overly broad and could be exploited via crafted links.
-        return when {
-            path.startsWith("/driver/jobs/") -> {
-                val jobId = path.removePrefix("/driver/jobs/").trimEnd('/')
-                if (jobId.isNotBlank() && isValidUriJobId(jobId)) DeepLinkDestination.Job(jobId)
-                else DeepLinkDestination.Messages
-            }
-            else -> DeepLinkDestination.Messages
+        // Reject any query string or fragment — /driver/jobs/{uuid} must be a clean path.
+        if (uri.query != null || uri.fragment != null) return DeepLinkDestination.Messages
+        val segs = uri.pathSegments
+        // Exactly three segments: driver / jobs / {uuid} — no trailing slash, no extras.
+        // All other HTTPS paths produce Messages (fail closed).
+        if (segs.size == 3 && segs[0] == "driver" && segs[1] == "jobs") {
+            val jobId = segs[2]
+            return if (isValidUriJobId(jobId)) DeepLinkDestination.Job(jobId)
+            else DeepLinkDestination.Messages
         }
+        return DeepLinkDestination.Messages
     }
 
     internal fun isValidJobId(id: String): Boolean =

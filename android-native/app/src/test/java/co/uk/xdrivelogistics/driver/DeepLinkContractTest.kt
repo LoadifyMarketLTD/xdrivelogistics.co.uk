@@ -2,6 +2,7 @@ package co.uk.xdrivelogistics.driver
 
 import android.net.Uri
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,7 +43,7 @@ class DeepLinkContractTest {
 
     @Test
     fun `build always emits the canonical xdrivedriver scheme`() {
-        val uri = XDriveDeepLink.build(DeepLinkDestination.Job("test-id"))
+        val uri = XDriveDeepLink.build(DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"))
         assertEquals(XDriveDeepLink.CANONICAL_SCHEME, uri.scheme)
         assertTrue(uri.toString().startsWith("xdrivedriver://"))
     }
@@ -51,7 +52,7 @@ class DeepLinkContractTest {
     fun `push destinations use canonical scheme for all five routes`() {
         listOf(
             DeepLinkDestination.Messages,
-            DeepLinkDestination.Job("any-id"),
+            DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"),
             DeepLinkDestination.Nearby,
             DeepLinkDestination.Documents,
             DeepLinkDestination.Profile,
@@ -78,6 +79,30 @@ class DeepLinkContractTest {
         val original = DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1")
         val uri = XDriveDeepLink.build(original)
         assertEquals(original, XDriveDeepLink.parse(uri))
+    }
+
+    @Test
+    fun `build with non-UUID opaque job ID falls back to Messages URI — no invalid job path emitted`() {
+        // An opaque push ID like "JOB_123-abc" passes the broad push validator (isValidJobId)
+        // but fails UUID-v4 validation. build() must NOT emit xdrivedriver://job/JOB_123-abc
+        // because parse() would immediately return Messages, creating a silent broken round-trip.
+        // Instead build() falls back to the Messages (notification) URI.
+        val uri = XDriveDeepLink.build(DeepLinkDestination.Job("JOB_123-abc"))
+        assertEquals(
+            "Non-UUID job ID must fall back to notification URI, not emit a job path",
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(uri),
+        )
+        assertFalse(
+            "Non-UUID job ID must not appear in the emitted URI path",
+            uri.toString().contains("JOB_123-abc"),
+        )
+    }
+
+    @Test
+    fun `build with plain alphanumeric job ID falls back to Messages URI`() {
+        val uri = XDriveDeepLink.build(DeepLinkDestination.Job("abc-123"))
+        assertEquals(DeepLinkDestination.Messages, XDriveDeepLink.parse(uri))
     }
 
     @Test
@@ -190,6 +215,33 @@ class DeepLinkContractTest {
         assertEquals(
             DeepLinkDestination.Job("a1b2c3d4-1234-4abc-8def-0123456789ab"),
             XDriveDeepLink.parse(Uri.parse("https://xdrivelogistics.co.uk/driver/jobs/a1b2c3d4-1234-4abc-8def-0123456789ab")),
+        )
+    }
+
+    @Test
+    fun `https job link with trailing slash is rejected`() {
+        // Trailing slash introduces an empty extra path segment; the parser must use exact
+        // pathSegments matching (size == 3) so a trailing slash fails closed to Messages.
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1/")),
+        )
+    }
+
+    @Test
+    fun `https job link with query string is rejected`() {
+        // Query fields are not part of the canonical path and must not be silently accepted.
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1?foo=bar")),
+        )
+    }
+
+    @Test
+    fun `https job link with fragment is rejected`() {
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1#section")),
         )
     }
 
@@ -325,6 +377,40 @@ class DeepLinkContractTest {
         assertEquals(
             DeepLinkDestination.Messages,
             XDriveDeepLink.parse(Uri.parse("xdrivedriver://job?id=abc-123")),
+        )
+    }
+
+    @Test
+    fun `job path form with extra query param is rejected`() {
+        // xdrivedriver://job/{uuid}?foo=bar — extra query field alongside the path form is not permitted.
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1?foo=bar")),
+        )
+    }
+
+    @Test
+    fun `job path form with fragment is rejected`() {
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1#section")),
+        )
+    }
+
+    @Test
+    fun `job query form with extra query param alongside id is rejected`() {
+        // xdrivedriver://job?id={uuid}&extra=value — only ?id= is permitted, no other fields.
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job?id=6e5e0122-7b3c-4ec8-9f41-5d8937e541f1&extra=value")),
+        )
+    }
+
+    @Test
+    fun `job query form with fragment is rejected`() {
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job?id=6e5e0122-7b3c-4ec8-9f41-5d8937e541f1#section")),
         )
     }
 

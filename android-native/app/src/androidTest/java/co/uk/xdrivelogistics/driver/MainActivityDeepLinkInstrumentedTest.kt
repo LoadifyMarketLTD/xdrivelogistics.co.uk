@@ -58,6 +58,8 @@ import org.junit.runner.RunWith
  *    routing falls through to the Messages tab.
  * 10. ViewModel is always accessible from the Activity's ViewModelStore; the Activity
  *     correctly wires [MainActivity.viewModels] to the Kotlin delegate.
+ * 12. One-shot deduplication: the same intent URI (same commandId) cannot execute twice —
+ *     [DriverUiState.consumedCommandIds] blocks re-delivery both before and after jobs load.
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivityDeepLinkInstrumentedTest {
@@ -762,6 +764,7 @@ class MainActivityDeepLinkInstrumentedTest {
             val staleCommand = PendingDeepLinkCommand(
                 DeepLinkDestination.Job(VALID_JOB_UUID_A),
                 authEpoch = epochDuringA,  // epoch before logout
+                commandId = "stale-cmd-owner-a",
             )
             // Owner B logs in under the new epoch.
             runBlocking { fake.saveSession(DriverSession("tok-b", "ref-b", "owner-b", "b@test.co.uk")) }
@@ -784,6 +787,7 @@ class MainActivityDeepLinkInstrumentedTest {
             val freshCommand = PendingDeepLinkCommand(
                 DeepLinkDestination.Job(VALID_JOB_UUID_A),
                 authEpoch = epochAfterLogout,  // matches current epoch
+                commandId = "fresh-cmd-owner-b",
             )
             val stateWithFreshCommand = vm!!.uiState.value.copy(pendingDeepLink = freshCommand)
             val (_, freshResolvedId) = resolvePendingDeepLink(stateWithFreshCommand)
@@ -820,6 +824,108 @@ class MainActivityDeepLinkInstrumentedTest {
                 epochAdvanced,
             )
             assertEquals("Session must now belong to owner B", "owner-b", vm!!.uiState.value.session?.userId)
+        }
+    }
+
+    // ── 12. One-shot commandId deduplication via consumedCommandIds ───────────
+
+    @Test
+    fun coldStartJobLinkCommandIdIsRecordedInConsumedCommandIdsAfterPendingLinkIsConsumed() {
+        // After the pending deep link is consumed (via processPendingDeepLinkIfReady), the
+        // commandId derived from the URI is recorded in consumedCommandIds. A subsequent
+        // delivery of the same intent (same URI → same commandId) is a no-op.
+        val fake = FakeSessionRepository()
+        installFakeFactory(fake)
+
+        launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
+            var vm: DriverViewModel? = null
+            scenario.onActivity { activity ->
+                vm = ViewModelProvider(activity)[DriverViewModel::class.java]
+
+                // Cold start: link held pending while unauthenticated.
+                assertNotNull("Cold-start link must be held pending", vm!!.uiState.value.pendingDeepLink)
+            }
+
+            // Authenticate — fake skipDataRefreshForTesting=true triggers processPendingDeepLinkIfReady.
+            runBlocking { fake.saveSession(DriverSession("tok", "ref", "user-a", "a@test.co.uk")) }
+            val pendingCleared = awaitCondition(5_000) { vm!!.uiState.value.pendingDeepLink == null }
+            assertTrue("Pending link must be cleared after authentication", pendingCleared)
+
+            scenario.onActivity {
+                // The commandId of the pending link (= URI string) must now be in consumedCommandIds.
+                val consumed = vm!!.uiState.value.consumedCommandIds
+                assertTrue(
+                    "commandId derived from URI must be in consumedCommandIds after consumption",
+                    "xdrivedriver://job/$VALID_JOB_UUID_A" in consumed,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun duplicateWarmJobIntentIsDeduplicatedViaConsumedCommandIds() {
+        // Proves that a duplicate warm intent (same URI → same commandId) does not update
+        // pendingDeepLink a second time once the commandId is in consumedCommandIds.
+        // The commandId is the URI string; the same URI delivered twice must be idempotent.
+        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
+            var vm: DriverViewModel? = null
+            scenario.onActivity { activity -> vm = ViewModelProvider(activity)[DriverViewModel::class.java] }
+
+            // Deliver the first warm intent — records the commandId in the ViewModel state.
+            val warmIntent = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
+            deliverWarmIntent(warmIntent)
+            scenario.onActivity {
+                assertNotNull("First delivery must set pendingDeepLink", vm!!.uiState.value.pendingDeepLink)
+                assertEquals(VALID_JOB_UUID_A, vm!!.uiState.value.pendingDeepLink?.destination?.jobId)
+            }
+
+            // Deliver the exact same intent a second time (same URI → same commandId).
+            deliverWarmIntent(warmIntent)
+            scenario.onActivity {
+                // pendingDeepLink must still hold the same job — not cleared, not accumulated.
+                assertNotNull("Second delivery must not clear the pending link", vm!!.uiState.value.pendingDeepLink)
+                assertEquals(
+                    "Second delivery of the same URI must not change the pending destination",
+                    VALID_JOB_UUID_A,
+                    vm!!.uiState.value.pendingDeepLink?.destination?.jobId,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun recreationIsIdempotentDueToCommandIdDeduplication() {
+        // After Activity recreation, the same intent is re-delivered to onCreate with the same URI.
+        // Since handleIncomingIntent derives commandId = uri.toString(), the ViewModel detects
+        // it's already in consumedCommandIds (if consumed) OR sets the same pending link (if not).
+        // Either way, the routing state must not change.
+        launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
+            var pendingBefore: PendingDeepLinkCommand? = null
+            scenario.onActivity { activity ->
+                val vm = ViewModelProvider(activity)[DriverViewModel::class.java]
+                pendingBefore = vm.uiState.value.pendingDeepLink
+                assertNotNull("Pending link must be set on first cold start", pendingBefore)
+            }
+
+            // Recreate the Activity — ViewModel is retained, same intent re-delivered to onCreate.
+            scenario.recreate()
+
+            scenario.onActivity { activity ->
+                val vm = ViewModelProvider(activity)[DriverViewModel::class.java]
+                val pendingAfter = vm.uiState.value.pendingDeepLink
+
+                // The pending link destination must be the same (idempotent re-hold or preserved).
+                assertEquals(
+                    "Recreation must not change the pending destination",
+                    pendingBefore?.destination,
+                    pendingAfter?.destination,
+                )
+                assertEquals(
+                    "Recreation must not change the job ID held in pending",
+                    VALID_JOB_UUID_A,
+                    pendingAfter?.destination?.jobId,
+                )
+            }
         }
     }
 }

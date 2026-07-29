@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.UUID
 
 
 enum class DriverTab {
@@ -119,6 +120,15 @@ data class DriverUiState(
      * owner B's session.
      */
     val pendingDeepLink: PendingDeepLinkCommand? = null,
+    /**
+     * The set of [PendingDeepLinkCommand.commandId] values that have already been consumed
+     * (routed) in this session. Used by [DriverViewModel.handleDeepLink] to implement
+     * one-shot deduplication: if the same [commandId] arrives again after Activity recreation
+     * or notification redelivery, the command is not executed a second time.
+     *
+     * Cleared on every session boundary (logout, owner change, expiry) together with [authEpoch].
+     */
+    val consumedCommandIds: Set<String> = emptySet(),
 )
 
 /**
@@ -129,11 +139,24 @@ data class DriverUiState(
  * routing; a mismatch means the command was captured under a different owner's session and it is
  * discarded rather than executed. Logout, direct owner replacement, and session expiry all
  * advance the epoch so stale commands cannot bind to a new session.
+ *
+ * [commandId] is a stable identifier derived from the delivery event (e.g. the deep-link URI
+ * string) that allows [DriverViewModel.handleDeepLink] to detect and discard duplicate
+ * deliveries of the same event — for example when the Activity is recreated and [onCreate] is
+ * called again with the same intent, or when a push notification is re-delivered. Once a command
+ * is consumed its [commandId] is added to [DriverUiState.consumedCommandIds]; any subsequent
+ * delivery with the same [commandId] is a no-op.
  */
 data class PendingDeepLinkCommand(
     val destination: DeepLinkDestination.Job,
     /** The [DriverUiState.authEpoch] at capture time. Must equal the current epoch to execute. */
     val authEpoch: Long,
+    /**
+     * Stable identity for this delivery event. Derived from the deep-link URI (or FCM message
+     * ID for push-triggered routing) so that re-delivery of the same event produces the same
+     * [commandId] and can be deduplicated against [DriverUiState.consumedCommandIds].
+     */
+    val commandId: String,
 )
 
 data class DriverJobSyncState(
@@ -383,6 +406,11 @@ class DriverViewModel(
     /**
      * Route a parsed [DeepLinkDestination] to the correct in-app destination.
      *
+     * [commandId] is a stable identifier for this delivery event (derived from the deep-link URI
+     * or FCM message ID). If [commandId] is already in [DriverUiState.consumedCommandIds] the
+     * call is a no-op — this prevents duplicate routing when the Activity is recreated and
+     * [onCreate] re-delivers the same intent, or when a push notification is re-delivered.
+     *
      * For [DeepLinkDestination.Job] destinations: if the session or jobs list is not yet
      * available (cold start), the destination is stored as [DriverUiState.pendingDeepLink] and
      * the driver is routed to the Messages tab as a safe interim destination. The pending link
@@ -390,15 +418,24 @@ class DriverViewModel(
      *
      * All non-job destinations are routed immediately, regardless of auth state.
      */
-    fun handleDeepLink(destination: DeepLinkDestination) {
+    fun handleDeepLink(
+        destination: DeepLinkDestination,
+        commandId: String = UUID.randomUUID().toString(),
+    ) {
         when (destination) {
             is DeepLinkDestination.Job -> {
-                val newState = applyJobDeepLinkToState(_uiState.value, destination)
+                // Idempotency guard: don't re-execute a previously consumed command.
+                if (commandId in _uiState.value.consumedCommandIds) return
+                val newState = applyJobDeepLinkToState(_uiState.value, destination, commandId)
                 _uiState.value = newState
                 if (newState.pendingDeepLink != null) {
                     // Held pending; fall back to Messages as safe interim destination.
                     changeTab(DriverTab.MESSAGES)
                 } else {
+                    // Jobs loaded — consume the command immediately and route.
+                    _uiState.value = _uiState.value.copy(
+                        consumedCommandIds = _uiState.value.consumedCommandIds + commandId,
+                    )
                     selectJobIfAssigned(destination.jobId)
                 }
             }
@@ -2238,16 +2275,22 @@ internal fun shouldClearDispatchDraft(requestJobId: String, currentSelectedJobId
  *
  * If the session is not yet authenticated or the jobs list has not yet loaded (cold start),
  * the destination is stored in [DriverUiState.pendingDeepLink] as a [PendingDeepLinkCommand]
- * that captures the current [DriverUiState.authEpoch]. Otherwise the state is returned
- * unchanged and the caller should proceed to route immediately via [selectJobIfAssigned].
+ * that captures the current [DriverUiState.authEpoch] and the provided [commandId]. Otherwise
+ * the state is returned unchanged and the caller should proceed to route immediately via
+ * [selectJobIfAssigned].
+ *
+ * [commandId] is the stable delivery identity for this event. It is stored in the command so
+ * that [resolvePendingDeepLink] can record it in [DriverUiState.consumedCommandIds] when the
+ * command is consumed, enabling one-shot deduplication across Activity recreation.
  *
  * Extracted from [DriverViewModel.handleDeepLink] for unit-testability.
  */
 internal fun applyJobDeepLinkToState(
     state: DriverUiState,
     destination: DeepLinkDestination.Job,
+    commandId: String,
 ): DriverUiState = if (!state.isAuthenticated || state.jobs.isEmpty()) {
-    state.copy(pendingDeepLink = PendingDeepLinkCommand(destination, state.authEpoch))
+    state.copy(pendingDeepLink = PendingDeepLinkCommand(destination, state.authEpoch, commandId))
 } else {
     state
 }
@@ -2264,6 +2307,11 @@ internal fun applyJobDeepLinkToState(
  * is discarded (stale command rejected). This prevents an owner-A command from executing
  * under owner B's session after logout or a direct owner replacement.
  *
+ * **One-shot deduplication**: when a command is consumed, its [PendingDeepLinkCommand.commandId]
+ * is added to [DriverUiState.consumedCommandIds]. [DriverViewModel.handleDeepLink] checks this
+ * set before processing any new delivery, so re-delivery of the same event (e.g. after
+ * Activity recreation) is a no-op.
+ *
  * Extracted from [DriverViewModel.processPendingDeepLinkIfReady] for unit-testability.
  */
 internal fun resolvePendingDeepLink(state: DriverUiState): Pair<DriverUiState, String?> {
@@ -2273,7 +2321,10 @@ internal fun resolvePendingDeepLink(state: DriverUiState): Pair<DriverUiState, S
         return state.copy(pendingDeepLink = null) to null
     }
     if (!state.isAuthenticated || state.session == null) return state to null
-    return state.copy(pendingDeepLink = null) to pending.destination.jobId
+    return state.copy(
+        pendingDeepLink = null,
+        consumedCommandIds = state.consumedCommandIds + pending.commandId,
+    ) to pending.destination.jobId
 }
 
 /**

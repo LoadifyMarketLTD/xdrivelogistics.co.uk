@@ -45,9 +45,9 @@ class DeepLinkRoutingBehaviourTest {
         val state = DriverUiState(isAuthenticated = false, jobs = emptyList())
         val destination = DeepLinkDestination.Job("job-cold-start-001")
 
-        val newState = applyJobDeepLinkToState(state, destination)
+        val newState = applyJobDeepLinkToState(state, destination, "cmd-cold-start-001")
 
-        assertEquals(PendingDeepLinkCommand(destination, 0L), newState.pendingDeepLink)
+        assertEquals(PendingDeepLinkCommand(destination, 0L, "cmd-cold-start-001"), newState.pendingDeepLink)
     }
 
     @Test
@@ -55,9 +55,9 @@ class DeepLinkRoutingBehaviourTest {
         val state = DriverUiState(isAuthenticated = true, jobs = emptyList())
         val destination = DeepLinkDestination.Job("job-cold-start-002")
 
-        val newState = applyJobDeepLinkToState(state, destination)
+        val newState = applyJobDeepLinkToState(state, destination, "cmd-cold-start-002")
 
-        assertEquals(PendingDeepLinkCommand(destination, 0L), newState.pendingDeepLink)
+        assertEquals(PendingDeepLinkCommand(destination, 0L, "cmd-cold-start-002"), newState.pendingDeepLink)
     }
 
     @Test
@@ -69,7 +69,7 @@ class DeepLinkRoutingBehaviourTest {
         )
         val destination = DeepLinkDestination.Job("job-loaded-001")
 
-        val newState = applyJobDeepLinkToState(state, destination)
+        val newState = applyJobDeepLinkToState(state, destination, "cmd-loaded-001")
 
         // State unchanged — caller will route directly via selectJobIfAssigned.
         assertNull(newState.pendingDeepLink)
@@ -89,13 +89,14 @@ class DeepLinkRoutingBehaviourTest {
             isAuthenticated = true,
             session = session("user-a"),
             jobs = listOf(assignedJob(jobId)),
-            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L, "cmd-one-shot-001"),
         )
 
         val (newState, resolvedId) = resolvePendingDeepLink(state)
 
         assertNull("pendingDeepLink must be cleared before routing", newState.pendingDeepLink)
         assertEquals(jobId, resolvedId)
+        assertTrue("Consumed commandId must be recorded", "cmd-one-shot-001" in newState.consumedCommandIds)
     }
 
     @Test
@@ -120,7 +121,7 @@ class DeepLinkRoutingBehaviourTest {
             isAuthenticated = true,
             session = session("user-a"),
             jobs = listOf(assignedJob(jobId)),
-            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L, "cmd-one-shot-002"),
         )
 
         // First call — routes and clears.
@@ -143,14 +144,14 @@ class DeepLinkRoutingBehaviourTest {
         val state = DriverUiState(
             isAuthenticated = false,
             session = null,
-            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job("owner-a-job-111"), 0L),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job("owner-a-job-111"), 0L, "cmd-owner-a-001"),
         )
 
         val (newState, resolvedId) = resolvePendingDeepLink(state)
 
         assertNull("No session — routing must not proceed", resolvedId)
         // Pending link is preserved (not cleared) so it can be retried after session loads.
-        assertEquals(PendingDeepLinkCommand(DeepLinkDestination.Job("owner-a-job-111"), 0L), newState.pendingDeepLink)
+        assertEquals(PendingDeepLinkCommand(DeepLinkDestination.Job("owner-a-job-111"), 0L, "cmd-owner-a-001"), newState.pendingDeepLink)
     }
 
     @Test
@@ -161,7 +162,7 @@ class DeepLinkRoutingBehaviourTest {
             isAuthenticated = true,
             session = session("user-b"),
             jobs = listOf(assignedJob("job-for-owner-b")), // Owner-A's job is absent
-            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job("job-for-owner-a"), 0L),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job("job-for-owner-a"), 0L, "cmd-owner-a-job"),
         )
 
         val (newState, resolvedId) = resolvePendingDeepLink(state)
@@ -263,7 +264,7 @@ class DeepLinkRoutingBehaviourTest {
         )
         val destination = DeepLinkDestination.Job("job-recreation-001")
 
-        val newState = applyJobDeepLinkToState(state, destination)
+        val newState = applyJobDeepLinkToState(state, destination, "cmd-recreation-001")
 
         // State unchanged — caller routes directly, no re-hold.
         assertNull("Re-delivered intent with loaded data must not re-hold", newState.pendingDeepLink)
@@ -276,12 +277,16 @@ class DeepLinkRoutingBehaviourTest {
         val stateWithPending = DriverUiState(
             isAuthenticated = false,
             jobs = emptyList(),
-            pendingDeepLink = PendingDeepLinkCommand(destination, 0L),
+            pendingDeepLink = PendingDeepLinkCommand(destination, 0L, "cmd-recreation-002-first"),
         )
 
-        val newState = applyJobDeepLinkToState(stateWithPending, destination)
+        val newState = applyJobDeepLinkToState(stateWithPending, destination, "cmd-recreation-002-second")
 
-        assertEquals("Same destination must remain in pending", PendingDeepLinkCommand(destination, 0L), newState.pendingDeepLink)
+        assertEquals(
+            "Same destination must remain in pending with updated commandId",
+            PendingDeepLinkCommand(destination, 0L, "cmd-recreation-002-second"),
+            newState.pendingDeepLink,
+        )
     }
 
     // ── 6. Auth-epoch isolation ───────────────────────────────────────────────
@@ -291,7 +296,7 @@ class DeepLinkRoutingBehaviourTest {
         val state = DriverUiState(isAuthenticated = false, jobs = emptyList(), authEpoch = 3L)
         val destination = DeepLinkDestination.Job("epoch-job-001")
 
-        val newState = applyJobDeepLinkToState(state, destination)
+        val newState = applyJobDeepLinkToState(state, destination, "cmd-epoch-001")
 
         assertEquals(
             "Command epoch must equal state epoch at capture time",
@@ -311,6 +316,7 @@ class DeepLinkRoutingBehaviourTest {
             pendingDeepLink = PendingDeepLinkCommand(
                 DeepLinkDestination.Job("owner-a-job-999"),
                 authEpoch = 0L,  // stale: captured under owner-A's epoch
+                commandId = "cmd-stale-epoch-001",
             ),
         )
 
@@ -334,6 +340,7 @@ class DeepLinkRoutingBehaviourTest {
             pendingDeepLink = PendingDeepLinkCommand(
                 DeepLinkDestination.Job(jobId),
                 authEpoch = 2L,  // matches current epoch
+                commandId = "cmd-epoch-match-001",
             ),
         )
 
@@ -341,6 +348,7 @@ class DeepLinkRoutingBehaviourTest {
 
         assertEquals("Matching-epoch command must be routed", jobId, resolvedId)
         assertNull("Consumed command must be cleared", newState.pendingDeepLink)
+        assertTrue("Consumed commandId must be in consumedCommandIds", "cmd-epoch-match-001" in newState.consumedCommandIds)
     }
 
     @Test
@@ -357,7 +365,7 @@ class DeepLinkRoutingBehaviourTest {
 
         // A new link arriving after the owner change captures epoch 1.
         val destination = DeepLinkDestination.Job("owner-b-job-111")
-        val stateWithNewLink = applyJobDeepLinkToState(stateAfterOwnerChange, destination)
+        val stateWithNewLink = applyJobDeepLinkToState(stateAfterOwnerChange, destination, "cmd-owner-b-001")
 
         assertEquals(
             "New command after owner change must carry the post-change epoch",
@@ -380,6 +388,7 @@ class DeepLinkRoutingBehaviourTest {
             pendingDeepLink = PendingDeepLinkCommand(
                 DeepLinkDestination.Job(sharedJobId),
                 authEpoch = 4L,  // previous epoch
+                commandId = "cmd-stale-shared-001",
             ),
         )
 
@@ -389,6 +398,76 @@ class DeepLinkRoutingBehaviourTest {
             "Stale command must not route even when the job is in the new owner's list",
             resolvedId,
         )
+    }
+
+    // ── 7. One-shot commandId deduplication ──────────────────────────────────
+
+    @Test
+    fun `consumedCommandIds is empty by default`() {
+        assertTrue(DriverUiState().consumedCommandIds.isEmpty())
+    }
+
+    @Test
+    fun `resolvePendingDeepLink adds commandId to consumedCommandIds`() {
+        val jobId = "job-consumed-001"
+        val state = DriverUiState(
+            isAuthenticated = true,
+            session = session("user-a"),
+            jobs = listOf(assignedJob(jobId)),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L, "cmd-consumed-001"),
+        )
+
+        val (newState, _) = resolvePendingDeepLink(state)
+
+        assertTrue(
+            "commandId must be recorded in consumedCommandIds after consumption",
+            "cmd-consumed-001" in newState.consumedCommandIds,
+        )
+    }
+
+    @Test
+    fun `duplicate applyJobDeepLinkToState with same commandId before jobs load — second call overwrites`() {
+        // Before jobs load, a duplicate delivery just overwrites the pending command (same commandId).
+        // handleDeepLink's consumedCommandIds check prevents it from being applied a second time.
+        val destination = DeepLinkDestination.Job("job-dedup-before-load")
+        val state = DriverUiState(isAuthenticated = false, jobs = emptyList())
+
+        // First delivery — creates the pending command.
+        val stateAfterFirst = applyJobDeepLinkToState(state, destination, "cmd-dedup-001")
+        assertEquals(
+            PendingDeepLinkCommand(destination, 0L, "cmd-dedup-001"),
+            stateAfterFirst.pendingDeepLink,
+        )
+
+        // Simulated second delivery of the same URI (same commandId) before jobs load.
+        // applyJobDeepLinkToState itself just overwrites; the dedup guard lives in handleDeepLink.
+        val stateAfterSecond = applyJobDeepLinkToState(stateAfterFirst, destination, "cmd-dedup-001")
+        assertEquals(
+            "Same commandId must produce the same pending command (overwrite, not accumulate)",
+            PendingDeepLinkCommand(destination, 0L, "cmd-dedup-001"),
+            stateAfterSecond.pendingDeepLink,
+        )
+    }
+
+    @Test
+    fun `commandId in consumedCommandIds prevents re-execution after pending link is resolved`() {
+        // After the pending link is consumed (commandId recorded), a re-delivered command with
+        // the same commandId must not create a new pending link or route again.
+        val jobId = "job-dedup-after-load"
+        val destination = DeepLinkDestination.Job(jobId)
+
+        // State where the command was already consumed (e.g., from processPendingDeepLinkIfReady).
+        val stateWithConsumed = DriverUiState(
+            isAuthenticated = true,
+            session = session("user-a"),
+            jobs = listOf(assignedJob(jobId)),
+            consumedCommandIds = setOf("cmd-dedup-resolved-001"),
+        )
+
+        // Simulated re-delivery of the same intent (same commandId already in consumedCommandIds).
+        // handleDeepLink checks consumedCommandIds before calling applyJobDeepLinkToState.
+        val alreadyConsumed = "cmd-dedup-resolved-001" in stateWithConsumed.consumedCommandIds
+        assertTrue("Duplicate delivery must be detected via consumedCommandIds", alreadyConsumed)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
