@@ -167,8 +167,13 @@ object XDriveDeepLink {
         val host = uri.host ?: return DeepLinkDestination.Messages
         // Exact allowlist — never match by suffix to prevent lookalike-host attacks.
         if (host !in HTTPS_HOST_ALLOWLIST) return DeepLinkDestination.Messages
-        // Reject any query string or fragment — /driver/jobs/{uuid} must be a clean path.
+        val path = uri.path ?: return DeepLinkDestination.Messages
+        // Reject any query string, fragment, or trailing slash.
+        // Trailing slash is rejected explicitly because Android's pathSegments strips trailing
+        // empty segments (StringTokenizer skips empty tokens), so /driver/jobs/{uuid}/ would
+        // otherwise produce the same 3-segment list as the canonical form.
         if (uri.query != null || uri.fragment != null) return DeepLinkDestination.Messages
+        if (path.endsWith("/")) return DeepLinkDestination.Messages
         val segs = uri.pathSegments
         // Exactly three segments: driver / jobs / {uuid} — no trailing slash, no extras.
         // All other HTTPS paths produce Messages (fail closed).
