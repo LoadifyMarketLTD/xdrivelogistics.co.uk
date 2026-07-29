@@ -186,4 +186,46 @@ class PushJobRoutingAuthTest {
         val result = routeJobOrMessages("any-job-id", session = session, jobs = emptyList())
         assertNull(result)
     }
+
+    // ── Cold-start pending link — owner isolation ─────────────────────────────
+
+    @Test
+    fun `cold-start job link is not opened for wrong owner even after jobs load`() {
+        // A deep link for owner-A's job arrives; owner-B is authenticated with a different job list.
+        // The link must never open owner-A's job in owner-B's session.
+        val sessionB = DriverSession(
+            accessToken = "token-b",
+            refreshToken = "refresh-b",
+            userId = "owner-b",
+            email = "b@example.com",
+        )
+        val result = routeJobOrMessages(
+            jobId = "job-for-owner-a",
+            session = sessionB,
+            jobs = listOf(job("job-for-owner-b", status = "allocated")),
+        )
+        assertNull("Expected null — job for owner-A must not open in owner-B's session", result)
+    }
+
+    @Test
+    fun `cold-start job link opens once jobs are loaded for the correct owner`() {
+        // Same owner — cold start then jobs arrive; the link should resolve correctly.
+        val result = routeJobOrMessages(
+            jobId = "job-1",
+            session = session,
+            jobs = listOf(job("job-1", status = "on_my_way_to_pickup")),
+        )
+        assertEquals("job-1", result)
+    }
+
+    @Test
+    fun `cold-start link for terminal job still routes to Messages after jobs load`() {
+        // The job was delivered by the time jobs are re-loaded; must not open.
+        val result = routeJobOrMessages(
+            jobId = "job-1",
+            session = session,
+            jobs = listOf(job("job-1", status = "delivered")),
+        )
+        assertNull(result)
+    }
 }

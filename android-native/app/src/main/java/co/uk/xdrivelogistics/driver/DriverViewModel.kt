@@ -93,6 +93,12 @@ data class DriverUiState(
     val savedMarketplaceLoadIds: Set<String> = emptySet(),
     /** Marketplace job IDs the driver has hidden; filtered from the Live Loads list. */
     val hiddenMarketplaceLoadIds: Set<String> = emptySet(),
+    /**
+     * A deep-link destination that arrived before the session and jobs were loaded (cold start).
+     * Processed and cleared once [isAuthenticated] is true and the jobs list has been loaded.
+     * Only [DeepLinkDestination.Job] links are held here; all other destinations route immediately.
+     */
+    val pendingDeepLink: DeepLinkDestination? = null,
 )
 
 data class DriverJobSyncState(
@@ -174,6 +180,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         marketplaceJobs = emptyList(),
                         savedMarketplaceLoadIds = emptySet(),
                         hiddenMarketplaceLoadIds = emptySet(),
+                        // Clear any pending deep link from the previous owner to prevent cross-owner routing.
+                        pendingDeepLink = null,
                     )
                 }
 
@@ -324,7 +332,50 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         changeTab(DriverTab.ACTION)
     }
 
-    /** Selects a Live Loads marketplace job for quoting/saving/hiding. Does not affect operational [selectedJobId]. */
+    /**
+     * Route a parsed [DeepLinkDestination] to the correct in-app destination.
+     *
+     * For [DeepLinkDestination.Job] destinations: if the session or jobs list is not yet
+     * available (cold start), the destination is stored as [DriverUiState.pendingDeepLink] and
+     * the driver is routed to the Messages tab as a safe interim destination. The pending link
+     * is consumed and re-evaluated by [processPendingDeepLinkIfReady] once data has loaded.
+     *
+     * All non-job destinations are routed immediately, regardless of auth state.
+     */
+    fun handleDeepLink(destination: DeepLinkDestination) {
+        when (destination) {
+            is DeepLinkDestination.Job -> {
+                val state = _uiState.value
+                if (!state.isAuthenticated || state.jobs.isEmpty()) {
+                    // Hold the link until session + jobs are available; fall back to Messages.
+                    _uiState.value = state.copy(pendingDeepLink = destination)
+                    changeTab(DriverTab.MESSAGES)
+                } else {
+                    selectJobIfAssigned(destination.jobId)
+                }
+            }
+            DeepLinkDestination.Messages -> changeTab(DriverTab.MESSAGES)
+            DeepLinkDestination.Nearby -> changeTab(DriverTab.NEARBY)
+            DeepLinkDestination.Documents -> changeTab(DriverTab.PROFILE)
+            DeepLinkDestination.Profile -> changeTab(DriverTab.PROFILE)
+        }
+    }
+
+    /**
+     * Consume [DriverUiState.pendingDeepLink] if the session and jobs are now available.
+     * Called after [refreshDriverData] successfully loads the jobs list.
+     * The pending link is cleared before routing to prevent double-processing.
+     */
+    private fun processPendingDeepLinkIfReady() {
+        val state = _uiState.value
+        val pending = state.pendingDeepLink as? DeepLinkDestination.Job ?: return
+        if (!state.isAuthenticated || state.session == null) return
+        // Clear before routing so a routing failure does not cause repeated attempts.
+        _uiState.value = state.copy(pendingDeepLink = null)
+        selectJobIfAssigned(pending.jobId)
+    }
+
+
     fun selectMarketplaceLoad(jobId: String) {
         _uiState.value = _uiState.value.copy(marketplaceSelectedJobId = jobId)
     }
@@ -445,6 +496,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             dispatcherMessagesHasMore = (loadedMessages?.first?.size ?: 0) >= 50,
                         )
                         syncRegisteredDeviceTokenIfNeeded(session)
+                        // Process any deep-link that arrived before jobs were loaded (cold start).
+                        processPendingDeepLinkIfReady()
                     }
                     .onFailure { error ->
                         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure

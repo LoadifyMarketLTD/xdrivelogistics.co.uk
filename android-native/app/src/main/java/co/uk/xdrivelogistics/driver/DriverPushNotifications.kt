@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -18,31 +17,44 @@ private const val DRIVER_PUSH_CHANNEL_NAME = "Dispatcher updates"
 private const val DRIVER_PUSH_CHANNEL_DESCRIPTION = "Assignment and dispatcher notifications"
 
 /**
- * Closed set of valid job-ID characters: letters, digits, hyphens, underscores.
- * Must start with a letter or digit; total length enforced at the call site (≤ 128 chars).
- * Covers UUID (8-4-4-4-12 hex) and common opaque alphanumeric job IDs.
+ * Resolve a push-notification data payload to a deep-link URI string.
+ *
+ * Uses [XDriveDeepLink.build] so that the canonical `xdrivedriver://` scheme is always
+ * emitted. The `xdrive://` scheme is accepted only as an inbound compatibility alias and
+ * must never be produced here for new links.
+ *
+ * Job-ID validation is delegated to [XDriveDeepLink.isValidJobId] which enforces the same
+ * character-set and length rules used by the URI parser, ensuring push and intent routing
+ * behave identically.
  */
-private val VALID_JOB_ID_PATTERN = Regex("^[A-Za-z0-9][A-Za-z0-9_\\-]*$")
+internal fun resolvePushDeepLink(data: Map<String, String>): String =
+    XDriveDeepLink.build(resolvePushDestination(data)).toString()
 
-internal fun resolvePushDeepLink(data: Map<String, String>): String {
+/**
+ * Resolve a push-notification data payload to a typed [DeepLinkDestination].
+ * Exposed internally so tests can assert on the destination directly without
+ * depending on the URI string representation.
+ */
+internal fun resolvePushDestination(data: Map<String, String>): DeepLinkDestination {
     val rawJobId = data["job_id"]?.trim().orEmpty()
     if (rawJobId.isNotEmpty()) {
         // Accept only well-formed identifiers: letters, digits, hyphens and underscores,
         // max 128 characters, starting with a letter or digit.
         // This covers UUID (8-4-4-4-12 hex) and common opaque job-ID formats while
         // preventing arbitrary user-controlled strings from reaching deep-link URIs.
-        return if (rawJobId.length <= 128 && VALID_JOB_ID_PATTERN.matches(rawJobId)) {
-            "xdrive://job/$rawJobId"
+        return if (XDriveDeepLink.isValidJobId(rawJobId)) {
+            DeepLinkDestination.Job(rawJobId)
         } else {
-            "xdrive://notification"
+            DeepLinkDestination.Messages
         }
     }
     val route = data["route"]?.trim()?.lowercase().orEmpty()
     return when (route) {
-        "messages", "notification" -> "xdrive://notification"
-        "documents", "profile" -> "xdrive://documents"
-        "nearby", "loads" -> "xdrive://nearby"
-        else -> "xdrive://notification"
+        "messages", "notification" -> DeepLinkDestination.Messages
+        "documents" -> DeepLinkDestination.Documents
+        "profile" -> DeepLinkDestination.Profile
+        "nearby", "loads" -> DeepLinkDestination.Nearby
+        else -> DeepLinkDestination.Messages
     }
 }
 
@@ -53,13 +65,14 @@ internal fun showDriverPushNotification(
     data: Map<String, String>,
 ) {
     ensureDriverPushChannel(context)
-    val deepLink = resolvePushDeepLink(data)
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink), context, MainActivity::class.java).apply {
+    val destination = resolvePushDestination(data)
+    val deepLinkUri = XDriveDeepLink.build(destination)
+    val intent = Intent(Intent.ACTION_VIEW, deepLinkUri, context, MainActivity::class.java).apply {
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
     val pendingIntent = PendingIntent.getActivity(
         context,
-        deepLink.hashCode(),
+        deepLinkUri.hashCode(),
         intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
@@ -82,7 +95,7 @@ internal fun showDriverPushNotification(
         return
     }
     runCatching {
-        NotificationManagerCompat.from(context).notify(deepLink.hashCode(), notification)
+        NotificationManagerCompat.from(context).notify(deepLinkUri.hashCode(), notification)
     }
 }
 

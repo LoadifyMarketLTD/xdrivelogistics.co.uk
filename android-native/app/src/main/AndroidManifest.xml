@@ -41,6 +41,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Canonical deep-link scheme (new links always use xdrivedriver://) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="xdrivedriver" android:host="job" />
+                <data android:scheme="xdrivedriver" android:host="notification" />
+                <data android:scheme="xdrivedriver" android:host="messages" />
+                <data android:scheme="xdrivedriver" android:host="nearby" />
+                <data android:scheme="xdrivedriver" android:host="loads" />
+                <data android:scheme="xdrivedriver" android:host="documents" />
+                <data android:scheme="xdrivedriver" android:host="profile" />
+            </intent-filter>
+            <!-- Compatibility alias for already-issued xdrive:// links (inbound only) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 

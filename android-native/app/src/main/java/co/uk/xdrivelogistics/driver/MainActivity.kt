@@ -378,37 +378,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIncomingIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        val scheme = data.scheme ?: return
-        when {
-            scheme == "xdrive" -> {
-                val host = data.host ?: return
-                val pathSegments = data.pathSegments
-                when (host) {
-                    "job" -> {
-                        val jobId = pathSegments.firstOrNull() ?: data.getQueryParameter("id") ?: return
-                        // Validate the job against the current authenticated state before navigating.
-                        // If there is no session, the job is not loaded yet, or it is not an active
-                        // assigned job, fall back to the Messages tab to avoid stale/unauthorised routing.
-                        viewModel.selectJobIfAssigned(jobId)
-                    }
-                    "notification", "messages" -> viewModel.changeTab(DriverTab.MESSAGES)
-                    "documents", "profile" -> viewModel.changeTab(DriverTab.PROFILE)
-                    "nearby", "loads" -> viewModel.changeTab(DriverTab.NEARBY)
-                }
-            }
-            scheme == "https" && data.host?.endsWith("xdrivelogistics.co.uk") == true -> {
-                val path = data.path ?: return
-                when {
-                    path.startsWith("/driver/jobs/") -> {
-                        val jobId = path.removePrefix("/driver/jobs/").trimEnd('/')
-                        if (jobId.isNotBlank()) {
-                            viewModel.selectJobIfAssigned(jobId)
-                        }
-                    }
-                    path.startsWith("/m/") || path.startsWith("/driver/") -> viewModel.changeTab(DriverTab.NEARBY)
-                }
-            }
-        }
+        val destination = XDriveDeepLink.parse(data)
+        viewModel.handleDeepLink(destination)
     }
 }
 
