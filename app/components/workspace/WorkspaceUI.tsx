@@ -55,23 +55,31 @@ export function KpiGrid({ children }: { children: ReactNode }) {
   return <div className="xdrive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.65rem', marginBottom: '0.9rem' }}>{children}</div>;
 }
 
-/** Trend / delta indicator for a KpiCard. Direction drives colour and arrow; delta is the display text. */
+/** Trend / delta indicator for a KpiCard. Direction controls the arrow glyph; sentiment controls colour. */
 export type KpiTrend = {
   /** Display text, e.g. "+12 %" or "−3". */
   delta: string;
-  /** Visual direction; decoupled from semantic meaning (up can be good or bad depending on the metric). */
+  /** Arrow direction only — independent of whether the change is good or bad. */
   direction: 'up' | 'down' | 'neutral';
+  /**
+   * Semantic presentation tone, derived from the metric's business meaning.
+   * An upward movement can be negative (e.g. overdue invoices) and a downward
+   * movement can be positive (e.g. incident count). Defaults to `'neutral'`
+   * when omitted so that callers must be explicit about good/bad.
+   */
+  sentiment?: 'positive' | 'negative' | 'neutral';
   /** Optional context label, e.g. "vs last month". */
   label?: string;
 };
 
-const TREND_COLORS: Record<KpiTrend['direction'], string> = {
-  up: workspaceTheme.green,
-  down: workspaceTheme.red,
+/** Colour lookup keyed by semantic sentiment, not by arrow direction. */
+export const SENTIMENT_COLORS: Record<NonNullable<KpiTrend['sentiment']>, string> = {
+  positive: workspaceTheme.green,
+  negative: workspaceTheme.red,
   neutral: workspaceTheme.muted,
 };
 
-const TREND_ARROWS: Record<KpiTrend['direction'], string> = {
+export const TREND_ARROWS: Record<KpiTrend['direction'], string> = {
   up: '↑',
   down: '↓',
   neutral: '→',
@@ -112,8 +120,8 @@ export function KpiCard({
       {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.69rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
       {trend && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
-          <span aria-hidden="true" style={{ color: TREND_COLORS[trend.direction], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
-          <span style={{ color: TREND_COLORS[trend.direction], fontSize: '0.68rem', fontWeight: 800 }}>{trend.delta}</span>
+          <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
+          <span style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.68rem', fontWeight: 800 }}>{trend.delta}</span>
           {trend.label && <span style={{ color: workspaceTheme.muted, fontSize: '0.64rem' }}>{trend.label}</span>}
         </div>
       )}
