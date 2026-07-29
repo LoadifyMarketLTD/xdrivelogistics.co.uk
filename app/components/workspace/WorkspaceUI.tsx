@@ -302,3 +302,124 @@ export function ActionCentreList({ items, empty }: { items: ActionCentreItem[]; 
     </div>
   );
 }
+
+// ─── Operational Table primitives ────────────────────────────────────────────
+// Presentation-only reusable typed table contract. Callers supply typed rows,
+// column definitions, cell renderers and stable row keys. No role, company,
+// permission, status-colour mapping, sorting, filtering or data-fetching logic.
+
+/** Horizontal alignment for an OperationalTable column. */
+export type OperationalTableAlign = 'left' | 'center' | 'right';
+
+/** Definition for a single column in an OperationalTable. */
+export type OperationalTableColumn<TRow> = {
+  /** Stable unique id for the column (used as React key). */
+  id: string;
+  /** Header text rendered inside `<th scope="col">`. */
+  header: string;
+  /** Render function returning the cell content for a given row. Returns only caller-supplied content. */
+  cell: (row: TRow) => ReactNode;
+  /** Horizontal alignment of the column header and cells. Defaults to `'left'`. */
+  align?: OperationalTableAlign;
+  /** Optional CSS width hint applied to the column, e.g. `'120px'` or `'10%'`. */
+  width?: string;
+};
+
+/** Props for OperationalTable. */
+export type OperationalTableProps<TRow> = {
+  /** Column definitions in the order they should appear. */
+  columns: OperationalTableColumn<TRow>[];
+  /** Rows of caller-supplied authorised data to render. */
+  rows: TRow[];
+  /** Returns a stable unique key string for each row. Must not use the row index. */
+  getRowKey: (row: TRow) => string;
+  /** Optional accessible `<caption>` text for the table. */
+  caption?: string;
+  /** Custom empty-table content. Defaults to a standard empty-state message. */
+  empty?: ReactNode;
+};
+
+/** Reusable, accessible, presentation-only operational data table. */
+export function OperationalTable<TRow>({
+  columns,
+  rows,
+  getRowKey,
+  caption,
+  empty,
+}: OperationalTableProps<TRow>) {
+  if (rows.length === 0) {
+    return <>{empty ?? <EmptyState title="No records found" />}</>;
+  }
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          minWidth: `${Math.max(columns.length * 138, 440)}px`,
+        }}
+      >
+        {caption && (
+          <caption
+            style={{
+              captionSide: 'top',
+              textAlign: 'left',
+              padding: '0 0 0.45rem',
+              color: workspaceTheme.muted,
+              fontSize: '0.7rem',
+            }}
+          >
+            {caption}
+          </caption>
+        )}
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col.id}
+                scope="col"
+                style={{
+                  textAlign: col.align ?? 'left',
+                  padding: '0.58rem 0.65rem',
+                  color: '#475569',
+                  fontSize: '0.62rem',
+                  fontWeight: 850,
+                  letterSpacing: '0.045em',
+                  textTransform: 'uppercase' as CSSProperties['textTransform'],
+                  borderBottom: `1px solid ${workspaceTheme.border}`,
+                  background: workspaceTheme.surfaceSoft,
+                  position: 'sticky' as CSSProperties['position'],
+                  top: 0,
+                  ...(col.width ? { width: col.width } : {}),
+                }}
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={getRowKey(row)} className="xdrive-table-row">
+              {columns.map((col) => (
+                <td
+                  key={col.id}
+                  style={{
+                    padding: '0.65rem',
+                    color: workspaceTheme.text,
+                    fontSize: '0.74rem',
+                    borderBottom: '1px solid #edf2f7',
+                    verticalAlign: 'middle',
+                    textAlign: col.align ?? 'left',
+                  }}
+                >
+                  {col.cell(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
