@@ -1,19 +1,15 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  OperationalTableAlign,
-  OperationalTableColumn,
-  OperationalTableProps,
-} from '../app/components/workspace/WorkspaceUI';
+import type { OperationalTableAlign, OperationalTableColumn } from '../app/components/workspace/WorkspaceUI';
+import { OperationalTable } from '../app/components/workspace/WorkspaceUI';
 
 /**
- * OperationalTable primitives contract tests.
+ * OperationalTable primitives — rendered-output assertions.
  *
- * These tests verify the exported type contracts and runtime column/row
- * contracts without requiring a DOM or React rendering environment,
- * consistent with the project's existing pure-TypeScript test pattern.
- *
- * No permission, status, role or company inference is present in the
- * OperationalTable primitives; tests explicitly confirm that absence.
+ * Uses `renderToStaticMarkup` (react-dom/server, Node-safe) to verify the
+ * actual component HTML.  No jsdom is required.  Type-contract assertions are
+ * included only where compile-time behaviour genuinely requires them.
  */
 
 // ---------------------------------------------------------------------------
@@ -34,233 +30,314 @@ const JOB_ROWS: JobRow[] = [
   { id: 'job-2', reference: 'JB-1002', origin: 'Birmingham', destination: 'Leeds' },
 ];
 
+function render(el: React.ReactElement): string {
+  return renderToStaticMarkup(el);
+}
+
 // ---------------------------------------------------------------------------
-// Column contract
+// Column header order
 // ---------------------------------------------------------------------------
 
-describe('OperationalTableColumn type contract', () => {
-  it('accepts a minimal column definition (id, header, cell only)', () => {
-    const col: OperationalTableColumn<JobRow> = {
-      id: 'reference',
-      header: 'Reference',
-      cell: (r) => r.reference,
-    };
-    expect(col.id).toBe('reference');
-    expect(col.header).toBe('Reference');
-    expect(col.align).toBeUndefined();
-    expect(col.width).toBeUndefined();
+describe('OperationalTable — column header order', () => {
+  it('renders all four column headers as <th scope="col"> in declared order', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    const refIdx  = html.indexOf('>Reference<');
+    const origIdx = html.indexOf('>Origin<');
+    const destIdx = html.indexOf('>Destination<');
+    const actIdx  = html.indexOf('>Action<');
+
+    expect(refIdx).toBeGreaterThan(-1);
+    expect(origIdx).toBeGreaterThan(refIdx);
+    expect(destIdx).toBeGreaterThan(origIdx);
+    expect(actIdx).toBeGreaterThan(destIdx);
   });
 
-  it('accepts a fully specified column with align and width', () => {
-    const col: OperationalTableColumn<JobRow> = {
-      id: 'action',
-      header: 'Action',
-      cell: () => 'View',
-      align: 'right',
-      width: '80px',
-    };
-    expect(col.align).toBe('right');
-    expect(col.width).toBe('80px');
-  });
+  it('renders each header inside a <th scope="col"> element', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
 
-  it('cell renderer receives the row and returns caller-supplied content', () => {
-    const col: OperationalTableColumn<JobRow> = {
-      id: 'ref',
-      header: 'Ref',
-      cell: (r) => r.reference,
-    };
-    const result = col.cell(JOB_ROWS[0]);
-    expect(result).toBe('JB-1001');
-  });
-
-  it('cell renderer for a different row returns different content', () => {
-    const col: OperationalTableColumn<JobRow> = {
-      id: 'ref',
-      header: 'Ref',
-      cell: (r) => r.reference,
-    };
-    expect(col.cell(JOB_ROWS[0])).toBe('JB-1001');
-    expect(col.cell(JOB_ROWS[1])).toBe('JB-1002');
+    // Four scope="col" attributes expected — one per column
+    const scopeMatches = html.match(/scope="col"/g);
+    expect(scopeMatches).toHaveLength(JOB_COLUMNS.length);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Column order
+// Row cell content
 // ---------------------------------------------------------------------------
 
-describe('OperationalTable column order contract', () => {
-  it('columns array preserves the declared display order', () => {
-    const ids = JOB_COLUMNS.map((c) => c.id);
-    expect(ids).toEqual(['reference', 'origin', 'dest', 'action']);
+describe('OperationalTable — row cell content', () => {
+  it('renders all cell values for both rows', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    expect(html).toContain('JB-1001');
+    expect(html).toContain('London');
+    expect(html).toContain('Manchester');
+    expect(html).toContain('JB-1002');
+    expect(html).toContain('Birmingham');
+    expect(html).toContain('Leeds');
+    // static 'View' cell from the action column
+    const viewCount = (html.match(/>View</g) ?? []).length;
+    expect(viewCount).toBe(JOB_ROWS.length);
   });
 
-  it('column headers appear in the same order as column definitions', () => {
-    const headers = JOB_COLUMNS.map((c) => c.header);
-    expect(headers).toEqual(['Reference', 'Origin', 'Destination', 'Action']);
-  });
+  it('renders the first row before the second row', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
 
-  it('supports four distinct columns with unique ids', () => {
-    expect(new Set(JOB_COLUMNS.map((c) => c.id)).size).toBe(JOB_COLUMNS.length);
+    expect(html.indexOf('JB-1001')).toBeLessThan(html.indexOf('JB-1002'));
+    expect(html.indexOf('London')).toBeLessThan(html.indexOf('Birmingham'));
   });
 });
 
 // ---------------------------------------------------------------------------
-// Row key contract — getRowKey
+// Optional <caption>
 // ---------------------------------------------------------------------------
 
-describe('OperationalTable row key contract', () => {
-  it('getRowKey is called once per row', () => {
+describe('OperationalTable — caption metadata', () => {
+  it('renders <caption> when caption prop is supplied', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+        caption: 'Active jobs for the selected company',
+      }),
+    );
+
+    expect(html).toContain('<caption');
+    expect(html).toContain('Active jobs for the selected company');
+  });
+
+  it('does not render a <caption> element when caption prop is omitted', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    expect(html).not.toContain('<caption');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+describe('OperationalTable — empty state', () => {
+  it('renders the default "No records found" message when rows is empty', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: [],
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    expect(html).toContain('No records found');
+    // Rows and headers must not appear
+    expect(html).not.toContain('<table');
+    expect(html).not.toContain('<th');
+  });
+
+  it('renders the custom empty prop when supplied with empty rows', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: [],
+        getRowKey: (r) => r.id,
+        empty: React.createElement('p', null, 'No jobs available right now'),
+      }),
+    );
+
+    expect(html).toContain('No jobs available right now');
+    expect(html).not.toContain('No records found');
+    expect(html).not.toContain('<table');
+  });
+
+  it('renders the table (not empty state) when rows is non-empty', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    expect(html).toContain('<table');
+    expect(html).not.toContain('No records found');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Alignment and width — rendered header/cell styles
+// ---------------------------------------------------------------------------
+
+describe('OperationalTable — alignment and width presentation', () => {
+  it('renders text-align:right on the action column header and cells', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    // 'right' alignment must appear at least once for header and once per row
+    const rightCount = (html.match(/text-align:right/g) ?? []).length;
+    // 1 <th> + JOB_ROWS.length <td>s for the 'action' column
+    expect(rightCount).toBe(1 + JOB_ROWS.length);
+  });
+
+  it('renders text-align:left for columns with explicit left or defaulted alignment', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    // Columns 0,1,2 all use left alignment (explicit or defaulted) × (1 th + 2 td each)
+    const leftCount = (html.match(/text-align:left/g) ?? []).length;
+    expect(leftCount).toBe(3 * (1 + JOB_ROWS.length));
+  });
+
+  it('renders the width style on the action column header', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    expect(html).toContain('width:80px');
+  });
+
+  it('renders text-align:center for a center-aligned column', () => {
+    const centreColumns: OperationalTableColumn<JobRow>[] = [
+      { id: 'ref', header: 'Reference', cell: (r) => r.reference, align: 'center' },
+    ];
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: centreColumns,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    // 1 th + 2 td
+    const centreCount = (html.match(/text-align:center/g) ?? []).length;
+    expect(centreCount).toBe(1 + JOB_ROWS.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Responsive overflow wrapper
+// ---------------------------------------------------------------------------
+
+describe('OperationalTable — responsive overflow wrapper', () => {
+  it('wraps the table in a div with overflow-x:auto', () => {
+    const html = render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey: (r) => r.id,
+      }),
+    );
+
+    expect(html).toContain('overflow-x:auto');
+    // The overflow wrapper must appear before the table
+    expect(html.indexOf('overflow-x:auto')).toBeLessThan(html.indexOf('<table'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRowKey — one call per row, no index fallback
+// ---------------------------------------------------------------------------
+
+describe('OperationalTable — getRowKey contract', () => {
+  it('calls getRowKey exactly once per rendered row', () => {
     const getRowKey = vi.fn((r: JobRow) => r.id);
-    JOB_ROWS.forEach((row) => getRowKey(row));
+    render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey,
+      }),
+    );
+
     expect(getRowKey).toHaveBeenCalledTimes(JOB_ROWS.length);
   });
 
-  it('getRowKey returns stable unique strings for each row', () => {
-    const getRowKey = (r: JobRow) => r.id;
-    const keys = JOB_ROWS.map(getRowKey);
+  it('calls getRowKey with the row object, not a numeric index', () => {
+    const getRowKey = vi.fn((r: JobRow) => r.id);
+    render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey,
+      }),
+    );
+
+    const calls = getRowKey.mock.calls;
+    calls.forEach(([arg]) => {
+      expect(typeof arg).toBe('object');
+      expect(typeof (arg as JobRow).id).toBe('string');
+      // The argument must never be a bare numeric index
+      expect(typeof arg).not.toBe('number');
+    });
+  });
+
+  it('getRowKey return values are stable strings, not bare indices', () => {
+    const keys: string[] = [];
+    const getRowKey = vi.fn((r: JobRow) => { const k = r.id; keys.push(k); return k; });
+    render(
+      React.createElement(OperationalTable<JobRow>, {
+        columns: JOB_COLUMNS,
+        rows: JOB_ROWS,
+        getRowKey,
+      }),
+    );
+
     expect(keys).toEqual(['job-1', 'job-2']);
-    expect(new Set(keys).size).toBe(JOB_ROWS.length);
-  });
-
-  it('getRowKey results are strings, not indices', () => {
-    const getRowKey = (r: JobRow) => r.id;
-    JOB_ROWS.forEach((row) => {
-      const key = getRowKey(row);
-      expect(typeof key).toBe('string');
-      expect(key).not.toMatch(/^\d+$/); // must not be a bare numeric index
-    });
+    keys.forEach((k) => expect(k).not.toMatch(/^\d+$/));
   });
 });
 
 // ---------------------------------------------------------------------------
-// Empty-state contract
+// Compile-time: OperationalTableAlign covers exactly three values
 // ---------------------------------------------------------------------------
 
-describe('OperationalTable empty-state contract', () => {
-  it('empty rows array triggers empty-state path', () => {
-    const props: OperationalTableProps<JobRow> = {
-      columns: JOB_COLUMNS,
-      rows: [],
-      getRowKey: (r) => r.id,
-    };
-    // The component branch `if (rows.length === 0)` covers this; verify the
-    // contract by checking the props are well-typed and rows is empty.
-    expect(props.rows.length).toBe(0);
-  });
-
-  it('non-empty rows array does not trigger empty-state path', () => {
-    const props: OperationalTableProps<JobRow> = {
-      columns: JOB_COLUMNS,
-      rows: JOB_ROWS,
-      getRowKey: (r) => r.id,
-    };
-    expect(props.rows.length).toBeGreaterThan(0);
-  });
-
-  it('custom empty prop is accepted in the type contract', () => {
-    const props: OperationalTableProps<JobRow> = {
-      columns: JOB_COLUMNS,
-      rows: [],
-      getRowKey: (r) => r.id,
-      empty: 'No jobs found',
-    };
-    expect(props.empty).toBe('No jobs found');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Accessible metadata contract
-// ---------------------------------------------------------------------------
-
-describe('OperationalTable accessible metadata contract', () => {
-  it('caption field is optional and accepted in the type contract', () => {
-    const withCaption: OperationalTableProps<JobRow> = {
-      columns: JOB_COLUMNS,
-      rows: JOB_ROWS,
-      getRowKey: (r) => r.id,
-      caption: 'Active jobs for the selected company',
-    };
-    expect(withCaption.caption).toBe('Active jobs for the selected company');
-
-    const withoutCaption: OperationalTableProps<JobRow> = {
-      columns: JOB_COLUMNS,
-      rows: JOB_ROWS,
-      getRowKey: (r) => r.id,
-    };
-    expect(withoutCaption.caption).toBeUndefined();
-  });
-
-  it('column id field is always a string (used as th key)', () => {
-    JOB_COLUMNS.forEach((col) => {
-      expect(typeof col.id).toBe('string');
-    });
-  });
-
-  it('column header field is always a string (rendered in th)', () => {
-    JOB_COLUMNS.forEach((col) => {
-      expect(typeof col.header).toBe('string');
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Alignment contract
-// ---------------------------------------------------------------------------
-
-describe('OperationalTableAlign contract', () => {
-  it('covers exactly three alignment values', () => {
-    const alignValues: OperationalTableAlign[] = ['left', 'center', 'right'];
-    expect(new Set(alignValues).size).toBe(3);
-  });
-
-  it('all align values are non-empty strings', () => {
-    const alignValues: OperationalTableAlign[] = ['left', 'center', 'right'];
-    alignValues.forEach((a) => {
-      expect(typeof a).toBe('string');
-      expect(a.length).toBeGreaterThan(0);
-    });
-  });
-
-  it('column without explicit align has undefined align (defaults in renderer)', () => {
-    const col: OperationalTableColumn<JobRow> = {
-      id: 'ref',
-      header: 'Ref',
-      cell: (r) => r.reference,
-    };
-    expect(col.align).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Absence of permission / status inference
-// ---------------------------------------------------------------------------
-
-describe('OperationalTable — no permission or status inference', () => {
-  it('column definition contains no role, company or permission field', () => {
-    JOB_COLUMNS.forEach((col) => {
-      // These keys must not appear on the column definition
-      expect(col).not.toHaveProperty('role');
-      expect(col).not.toHaveProperty('company');
-      expect(col).not.toHaveProperty('permission');
-      expect(col).not.toHaveProperty('sentiment');
-    });
-  });
-
-  it('row key function does not receive or expose role/company context', () => {
-    const getRowKey = (r: JobRow) => r.id;
-    // Verify the function returns only the id — no role/company is appended
-    expect(getRowKey(JOB_ROWS[0])).toBe('job-1');
-    expect(getRowKey(JOB_ROWS[1])).toBe('job-2');
-  });
-
-  it('cell renderer returns exactly the caller-supplied value with no transformation', () => {
-    const refCol: OperationalTableColumn<JobRow> = {
-      id: 'ref',
-      header: 'Reference',
-      cell: (r) => r.reference,
-    };
-    // The primitive must not alter, append or infer any additional string
-    expect(refCol.cell(JOB_ROWS[0])).toBe('JB-1001');
-    expect(refCol.cell(JOB_ROWS[1])).toBe('JB-1002');
+describe('OperationalTableAlign compile-time contract', () => {
+  it('accepts all three alignment values without type error', () => {
+    const values: OperationalTableAlign[] = ['left', 'center', 'right'];
+    expect(new Set(values).size).toBe(3);
   });
 });
