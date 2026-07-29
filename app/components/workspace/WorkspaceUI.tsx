@@ -167,6 +167,30 @@ export function StatusBadge({ value, tone, ariaLabel }: { value: string; tone?: 
   return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
+/** Semantic tone values for SemanticStatusBadge — keyed by intent, never inferred from display text. */
+export type SemanticStatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+
+type SemanticStatusBadgeColorPalette = { bg: string; color: string; border: string };
+
+/** Deterministic colour palette for SemanticStatusBadge — keyed by explicit semantic tone only. */
+export const SEMANTIC_STATUS_BADGE_COLORS: Record<SemanticStatusBadgeTone, SemanticStatusBadgeColorPalette> = {
+  neutral: { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+  info:    { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  success: { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' },
+  warning: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  danger:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+};
+
+/**
+ * Explicit-only status badge. Presentation is derived solely from `tone`; the
+ * supplied `label` is rendered verbatim and never inspected for semantic meaning.
+ * Omitting `tone` resolves to `neutral` — never to a colour inferred from text.
+ */
+export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { label: string; tone?: SemanticStatusBadgeTone; ariaLabel?: string }) {
+  const colors = SEMANTIC_STATUS_BADGE_COLORS[tone];
+  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+}
+
 export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div><div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div><h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
