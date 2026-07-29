@@ -21,7 +21,7 @@ BEGIN
     SELECT cm.user_id
     FROM public.company_memberships cm
     WHERE cm.user_id IS NOT NULL
-      AND cm.status::text = 'active'
+      AND cm.status = 'active'
     GROUP BY cm.user_id
     HAVING count(*) > 1
   ) THEN
@@ -44,7 +44,7 @@ $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS company_memberships_one_active_company_per_user_uidx
   ON public.company_memberships (user_id)
-  WHERE user_id IS NOT NULL AND status::text = 'active';
+  WHERE user_id IS NOT NULL AND status = 'active';
 
 CREATE UNIQUE INDEX IF NOT EXISTS drivers_one_identity_per_auth_user_uidx
   ON public.drivers (user_id)
