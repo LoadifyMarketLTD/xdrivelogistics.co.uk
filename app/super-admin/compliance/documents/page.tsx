@@ -5,9 +5,12 @@ import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiv
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
+type DocumentFamily = 'driver' | 'vehicle' | 'company' | 'identity';
+
 type Row = {
   id: string;
-  entity_type: 'driver' | 'vehicle';
+  document_family: DocumentFamily;
+  entity_type: 'driver' | 'vehicle' | 'company' | 'identity';
   entity_name: string;
   company_name: string;
   doc_type: string;
@@ -16,58 +19,109 @@ type Row = {
   issued_date: string | null;
   created_at: string;
   is_expired: boolean;
+  file_available: boolean;
+};
+
+const openSecureDocument = (url: string) => {
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 };
 
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
 
-  const updateDocument = async (row: Row, action: 'approve' | 'reject') => {
-    setBusyDocumentId(row.id);
-    const auth = await getAuthHeader();
-    if (!auth) {
-      setBusyDocumentId(null);
+  const viewDocument = async (row: Row) => {
+    if (!row.file_available) {
+      window.alert('This record has no stored file.');
       return;
     }
 
-    const reason =
-      action === 'reject'
-        ? window.prompt('Reason for rejection:', '') ?? ''
-        : '';
+    setBusyDocumentId(row.id);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) return;
 
-    const response = await fetch('/api/super-admin/compliance', {
-      method: 'PATCH',
-      headers: {
-        Authorization: auth,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        section: 'documents',
-        entityType: row.entity_type,
-        id: row.id,
-        action,
-        reason: reason.trim() || undefined,
-      }),
-    });
+      const response = await fetch('/api/super-admin/compliance/documents', {
+        method: 'POST',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentFamily: row.document_family,
+          id: row.id,
+        }),
+      });
 
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      window.alert(payload.error ?? `Update failed (${response.status})`);
-    } else {
-      setReloadToken(Date.now());
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        url?: string;
+      };
+
+      if (!response.ok || !payload.url) {
+        window.alert(payload.error ?? `Unable to open document (${response.status}).`);
+        return;
+      }
+
+      openSecureDocument(payload.url);
+    } finally {
+      setBusyDocumentId(null);
     }
-    setBusyDocumentId(null);
+  };
+
+  const updateDocument = async (row: Row, action: 'approve' | 'reject') => {
+    setBusyDocumentId(row.id);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) return;
+
+      const reason =
+        action === 'reject'
+          ? window.prompt('Reason for rejection:', '') ?? ''
+          : '';
+
+      const response = await fetch('/api/super-admin/compliance/documents', {
+        method: 'PATCH',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentFamily: row.document_family,
+          id: row.id,
+          action,
+          reason: reason.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        window.alert(payload.error ?? `Update failed (${response.status})`);
+      } else {
+        setReloadToken(Date.now());
+      }
+    } finally {
+      setBusyDocumentId(null);
+    }
   };
 
   const columns = useMemo(
     () => [
       {
         key: 'entity',
-        label: 'Owner',
+        label: 'Document owner',
         render: (row: Row) => (
           <div>
             <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{row.entity_type}</div>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'capitalize' }}>
+              {row.entity_type}
+            </div>
           </div>
         ),
       },
@@ -78,13 +132,26 @@ export default function Page() {
       },
       {
         key: 'doc_type',
-        label: 'Document Type',
-        render: (row: Row) => <span style={{ fontSize: '0.78rem' }}>{row.doc_type}</span>,
+        label: 'Document type',
+        render: (row: Row) => (
+          <span style={{ fontSize: '0.78rem', textTransform: 'capitalize' }}>
+            {row.doc_type.replace(/_/g, ' ')}
+          </span>
+        ),
       },
       {
         key: 'status',
         label: 'Status',
-        render: (row: Row) => <StatusChip value={row.status} />,
+        render: (row: Row) => <StatusChip value={row.is_expired ? 'expired' : row.status} />,
+      },
+      {
+        key: 'issued_date',
+        label: 'Issued',
+        render: (row: Row) => (
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+            {row.issued_date ?? '—'}
+          </span>
+        ),
       },
       {
         key: 'expiry_date',
@@ -104,19 +171,41 @@ export default function Page() {
       {
         key: 'actions',
         label: 'Actions',
-        render: (row: Row) => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '92px' }}>
-            <button type="button" disabled={busyDocumentId === row.id} onClick={() => void updateDocument(row, 'approve')} style={{ fontSize: '0.68rem' }}>
-              Approve
-            </button>
-            <button type="button" disabled={busyDocumentId === row.id} onClick={() => void updateDocument(row, 'reject')} style={{ fontSize: '0.68rem' }}>
-              Reject
-            </button>
-          </div>
-        ),
+        render: (row: Row) => {
+          const busy = busyDocumentId === row.id;
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '104px' }}>
+              <button
+                type="button"
+                disabled={busy || !row.file_available}
+                onClick={() => void viewDocument(row)}
+                style={{ fontSize: '0.68rem', fontWeight: 700 }}
+                title={row.file_available ? 'Open a short-lived secure preview' : 'No stored file'}
+              >
+                {busy ? 'Please wait…' : 'View document'}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void updateDocument(row, 'approve')}
+                style={{ fontSize: '0.68rem' }}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void updateDocument(row, 'reject')}
+                style={{ fontSize: '0.68rem' }}
+              >
+                Reject
+              </button>
+            </div>
+          );
+        },
       },
     ],
-    [busyDocumentId]
+    [busyDocumentId],
   );
 
   return (
@@ -124,10 +213,10 @@ export default function Page() {
       icon="📁"
       title="Document Review"
       sectionLabel="Compliance"
-      description="All driver and vehicle documents across the platform — review and approval pipeline."
-      endpoint={`/api/super-admin/compliance?section=documents&limit=250&reload=${reloadToken}`}
+      description="All company, identity, driver and vehicle documents across the platform. Secure previews are issued only to the Platform Owner and every view or review action is audit logged."
+      endpoint={`/api/super-admin/compliance/documents?limit=250&reload=${reloadToken}`}
       summaryField="summary"
-      emptyMessage="No documents found."
+      emptyMessage="No compliance documents found."
       columns={columns}
     />
   );
