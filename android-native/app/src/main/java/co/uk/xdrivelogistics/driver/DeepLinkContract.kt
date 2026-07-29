@@ -41,8 +41,8 @@ sealed class DeepLinkDestination {
  * - `profile` — driver profile
  *
  * Supported HTTPS paths (exact-allowlist hosts only):
- * - `/driver/jobs/{id}` — exact assigned operational job
- * - `/m/...` or `/driver/...` — Nearby tab
+ * - `/driver/jobs/{uuid}` — exact assigned operational job (UUID-v4 only)
+ * - All other HTTPS paths produce [DeepLinkDestination.Messages] (fail closed)
  */
 object XDriveDeepLink {
     /** Canonical scheme used for all newly emitted links. */
@@ -66,9 +66,24 @@ object XDriveDeepLink {
     /**
      * Valid job-ID characters: letters, digits, hyphens, underscores.
      * Must start with a letter or digit; max length enforced separately (≤ 128 chars).
-     * Covers UUID (8-4-4-4-12 hex) and common opaque alphanumeric job-ID formats.
+     * Used for push-notification payload validation only — push payloads come from
+     * a server-controlled field and may use opaque alphanumeric formats.
      */
     private val VALID_JOB_ID_PATTERN = Regex("^[A-Za-z0-9][A-Za-z0-9_\\-]*\$")
+
+    /**
+     * Strict UUID-v4 pattern for job IDs accepted from URI paths and query parameters.
+     *
+     * Inbound deep links may be crafted by an attacker, so only well-formed server-issued
+     * UUID-v4 values are accepted from the URI. The push-notification `job_id` field
+     * uses the broader [VALID_JOB_ID_PATTERN] because it comes from a server-controlled
+     * payload rather than a raw URI.
+     *
+     * Format: 8-4-4-4-12 hex digits, version nibble = 4, variant nibble ∈ {8,9,a,b}.
+     */
+    private val UUID_V4_PATTERN: Regex = Regex(
+        """^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"""
+    )
 
     /**
      * Parse [uri] to a [DeepLinkDestination].
@@ -122,7 +137,7 @@ object XDriveDeepLink {
                         ?: return DeepLinkDestination.Messages
                     else -> return DeepLinkDestination.Messages
                 }
-                if (isValidJobId(jobId)) DeepLinkDestination.Job(jobId) else DeepLinkDestination.Messages
+                if (isValidUriJobId(jobId)) DeepLinkDestination.Job(jobId) else DeepLinkDestination.Messages
             }
             "notification", "messages" -> DeepLinkDestination.Messages
             "nearby", "loads" -> DeepLinkDestination.Nearby
@@ -137,17 +152,30 @@ object XDriveDeepLink {
         // Exact allowlist — never match by suffix to prevent lookalike-host attacks.
         if (host !in HTTPS_HOST_ALLOWLIST) return DeepLinkDestination.Messages
         val path = uri.path ?: return DeepLinkDestination.Messages
+        // Only `/driver/jobs/{uuid}` is a meaningful server-issued HTTPS path.
+        // All other HTTPS paths produce Messages (fail closed) rather than routing to
+        // a tab — `/m/` and `/driver/` were previously mapped to Nearby but this was
+        // overly broad and could be exploited via crafted links.
         return when {
             path.startsWith("/driver/jobs/") -> {
                 val jobId = path.removePrefix("/driver/jobs/").trimEnd('/')
-                if (jobId.isNotBlank() && isValidJobId(jobId)) DeepLinkDestination.Job(jobId)
+                if (jobId.isNotBlank() && isValidUriJobId(jobId)) DeepLinkDestination.Job(jobId)
                 else DeepLinkDestination.Messages
             }
-            path.startsWith("/m/") || path.startsWith("/driver/") -> DeepLinkDestination.Nearby
             else -> DeepLinkDestination.Messages
         }
     }
 
     internal fun isValidJobId(id: String): Boolean =
         id.length <= 128 && VALID_JOB_ID_PATTERN.matches(id)
+
+    /**
+     * Strict UUID-v4 validator used for job IDs extracted from inbound URI paths and
+     * query parameters. Only server-issued UUID-v4 values pass this check, preventing
+     * arbitrary string injection from crafted deep links from reaching the routing layer.
+     *
+     * Push-notification payloads use the broader [isValidJobId] instead, since they come
+     * from a server-controlled payload field rather than a raw URI.
+     */
+    internal fun isValidUriJobId(id: String): Boolean = UUID_V4_PATTERN.matches(id)
 }

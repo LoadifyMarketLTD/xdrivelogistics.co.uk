@@ -23,9 +23,11 @@ private const val DRIVER_PUSH_CHANNEL_DESCRIPTION = "Assignment and dispatcher n
  * emitted. The `xdrive://` scheme is accepted only as an inbound compatibility alias and
  * must never be produced here for new links.
  *
- * Job-ID validation is delegated to [XDriveDeepLink.isValidJobId] which enforces the same
- * character-set and length rules used by the URI parser, ensuring push and intent routing
- * behave identically.
+ * Job-ID validation is delegated to [XDriveDeepLink.isValidJobId] which uses a broad
+ * alphanumeric validator on the server-controlled `job_id` payload field. This is
+ * intentionally less strict than [XDriveDeepLink.isValidUriJobId] (UUID-v4 only), which
+ * is used for job IDs extracted from inbound URI paths to prevent arbitrary string
+ * injection via crafted links.
  */
 internal fun resolvePushDeepLink(data: Map<String, String>): String =
     XDriveDeepLink.build(resolvePushDestination(data)).toString()

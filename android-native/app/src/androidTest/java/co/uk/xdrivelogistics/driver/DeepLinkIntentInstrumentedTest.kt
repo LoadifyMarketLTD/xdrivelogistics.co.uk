@@ -83,7 +83,7 @@ class DeepLinkIntentInstrumentedTest {
 
     @Test
     fun warmStartJobIntentEquivalentToColdStart() {
-        val jobId = "warm-test-job-id-123"
+        val jobId = "a1b2c3d4-1234-4abc-8def-0123456789ab"
         // onNewIntent passes the same Intent.ACTION_VIEW — the parser sees the same data URI.
         val coldIntent = deepLinkIntent("xdrivedriver://job/$jobId")
         val warmIntent = deepLinkIntent("xdrivedriver://job/$jobId")
@@ -116,14 +116,14 @@ class DeepLinkIntentInstrumentedTest {
 
     @Test
     fun canonicalSchemeXdriveDriverIsAccepted() {
-        val dest = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/abc-001"))
-        assertEquals(DeepLinkDestination.Job("abc-001"), dest)
+        val dest = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"))
+        assertEquals(DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"), dest)
     }
 
     @Test
     fun compatAliasXdriveIsAcceptedAsInbound() {
-        val dest = XDriveDeepLink.parse(Uri.parse("xdrive://job/abc-001"))
-        assertEquals(DeepLinkDestination.Job("abc-001"), dest)
+        val dest = XDriveDeepLink.parse(Uri.parse("xdrive://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"))
+        assertEquals(DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"), dest)
     }
 
     @Test
@@ -168,16 +168,16 @@ class DeepLinkIntentInstrumentedTest {
     @Test
     fun httpsAllowlistedApexHostAccepted() {
         assertEquals(
-            DeepLinkDestination.Job("job-123"),
-            XDriveDeepLink.parse(Uri.parse("https://xdrivelogistics.co.uk/driver/jobs/job-123")),
+            DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"),
+            XDriveDeepLink.parse(Uri.parse("https://xdrivelogistics.co.uk/driver/jobs/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1")),
         )
     }
 
     @Test
     fun httpsAllowlistedWwwHostAccepted() {
         assertEquals(
-            DeepLinkDestination.Job("job-456"),
-            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/job-456")),
+            DeepLinkDestination.Job("a1b2c3d4-1234-4abc-8def-0123456789ab"),
+            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/a1b2c3d4-1234-4abc-8def-0123456789ab")),
         )
     }
 
@@ -289,7 +289,7 @@ class DeepLinkIntentInstrumentedTest {
         //
         // We verify the state machine directly via DriverUiState since
         // DriverViewModel requires a full Application context.
-        val jobId = "pending-cold-start-job"
+        val jobId = "6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"
         val destination = DeepLinkDestination.Job(jobId)
 
         // The intent parses correctly on the real Android runtime.
@@ -305,11 +305,11 @@ class DeepLinkIntentInstrumentedTest {
     @Test
     fun ownerIsolationJobIdFromIntentIsTypedAndNotAmbiguous() {
         // Two jobs with different IDs must parse to distinct, non-equal destinations.
-        val destA = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/owner-a-job-111"))
-        val destB = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/owner-b-job-222"))
+        val destA = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"))
+        val destB = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/a1b2c3d4-1234-4abc-8def-0123456789ab"))
         assertFalse("Different job IDs must not produce equal destinations", destA == destB)
-        assertEquals(DeepLinkDestination.Job("owner-a-job-111"), destA)
-        assertEquals(DeepLinkDestination.Job("owner-b-job-222"), destB)
+        assertEquals(DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"), destA)
+        assertEquals(DeepLinkDestination.Job("a1b2c3d4-1234-4abc-8def-0123456789ab"), destB)
     }
 
     @Test

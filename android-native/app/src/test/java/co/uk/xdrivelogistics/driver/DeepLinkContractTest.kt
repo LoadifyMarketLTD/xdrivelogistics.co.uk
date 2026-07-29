@@ -30,14 +30,14 @@ class DeepLinkContractTest {
 
     @Test
     fun `canonical xdrivedriver scheme is accepted`() {
-        val dest = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/abc-123"))
-        assertEquals(DeepLinkDestination.Job("abc-123"), dest)
+        val dest = XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"))
+        assertEquals(DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"), dest)
     }
 
     @Test
     fun `compat xdrive scheme is accepted as inbound alias`() {
-        val dest = XDriveDeepLink.parse(Uri.parse("xdrive://job/abc-123"))
-        assertEquals(DeepLinkDestination.Job("abc-123"), dest)
+        val dest = XDriveDeepLink.parse(Uri.parse("xdrive://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"))
+        assertEquals(DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"), dest)
     }
 
     @Test
@@ -103,8 +103,8 @@ class DeepLinkContractTest {
     @Test
     fun `xdrive job link parses to Job destination`() {
         assertEquals(
-            DeepLinkDestination.Job("abc"),
-            XDriveDeepLink.parse(Uri.parse("xdrive://job/abc")),
+            DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"),
+            XDriveDeepLink.parse(Uri.parse("xdrive://job/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1")),
         )
     }
 
@@ -180,31 +180,34 @@ class DeepLinkContractTest {
     @Test
     fun `https www subdomain routes job link correctly`() {
         assertEquals(
-            DeepLinkDestination.Job("job-123"),
-            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/job-123")),
+            DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"),
+            XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/jobs/6e5e0122-7b3c-4ec8-9f41-5d8937e541f1")),
         )
     }
 
     @Test
     fun `https apex host routes job link correctly`() {
         assertEquals(
-            DeepLinkDestination.Job("job-456"),
-            XDriveDeepLink.parse(Uri.parse("https://xdrivelogistics.co.uk/driver/jobs/job-456")),
+            DeepLinkDestination.Job("a1b2c3d4-1234-4abc-8def-0123456789ab"),
+            XDriveDeepLink.parse(Uri.parse("https://xdrivelogistics.co.uk/driver/jobs/a1b2c3d4-1234-4abc-8def-0123456789ab")),
         )
     }
 
     @Test
-    fun `https m prefix routes to Nearby`() {
+    fun `https m prefix fails closed to Messages`() {
+        // The /m/ path previously mapped to Nearby; it now fails closed to prevent
+        // arbitrary crafted HTTPS links from reaching a meaningful destination.
         assertEquals(
-            DeepLinkDestination.Nearby,
+            DeepLinkDestination.Messages,
             XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/m/get-app")),
         )
     }
 
     @Test
-    fun `https driver prefix routes to Nearby`() {
+    fun `https driver prefix without jobs path fails closed to Messages`() {
+        // Only /driver/jobs/{uuid} is a valid server-issued path; other /driver/ paths fail closed.
         assertEquals(
-            DeepLinkDestination.Nearby,
+            DeepLinkDestination.Messages,
             XDriveDeepLink.parse(Uri.parse("https://www.xdrivelogistics.co.uk/driver/dashboard")),
         )
     }
@@ -270,11 +273,12 @@ class DeepLinkContractTest {
     }
 
     @Test
-    fun `job ID exactly 128 chars is accepted`() {
-        val validId = "a".repeat(128)
+    fun `non-UUID job ID (128 alphanumeric chars) in URI is rejected`() {
+        // URI path validation requires UUID-v4; a 128-char alphanumeric string does not pass.
+        val nonUuidId = "a".repeat(128)
         assertEquals(
-            DeepLinkDestination.Job(validId),
-            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/$validId")),
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/$nonUuidId")),
         )
     }
 
@@ -295,9 +299,31 @@ class DeepLinkContractTest {
     }
 
     @Test
-    fun `job query-param id is accepted`() {
+    fun `non-UUID alphanumeric job ID in URI is rejected`() {
+        // URI path job IDs must be UUID-v4. Broad alphanumeric IDs that pass the push
+        // validator are rejected when they come from a raw URI to prevent string injection.
         assertEquals(
-            DeepLinkDestination.Job("abc-123"),
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/JOB_123-abc")),
+        )
+        assertEquals(
+            DeepLinkDestination.Messages,
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job/abc-123")),
+        )
+    }
+
+    @Test
+    fun `job query-param UUID id is accepted`() {
+        assertEquals(
+            DeepLinkDestination.Job("6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"),
+            XDriveDeepLink.parse(Uri.parse("xdrivedriver://job?id=6e5e0122-7b3c-4ec8-9f41-5d8937e541f1")),
+        )
+    }
+
+    @Test
+    fun `job query-param non-UUID id is rejected`() {
+        assertEquals(
+            DeepLinkDestination.Messages,
             XDriveDeepLink.parse(Uri.parse("xdrivedriver://job?id=abc-123")),
         )
     }
