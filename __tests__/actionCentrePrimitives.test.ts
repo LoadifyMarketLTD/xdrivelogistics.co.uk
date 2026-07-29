@@ -68,6 +68,32 @@ describe('ActionCentreItem type contract', () => {
     expect(item.cta?.href).toBeUndefined();
   });
 
+  it('link CTA has href and onClick is absent', () => {
+    const cta: ActionCentreItemCta = { label: 'View job', href: '/jobs/456' };
+    expect(cta.href).toBe('/jobs/456');
+    expect(cta.onClick).toBeUndefined();
+  });
+
+  it('button CTA has onClick and href is absent', () => {
+    let called = false;
+    const cta: ActionCentreItemCta = { label: 'Dismiss', onClick: () => { called = true; } };
+    cta.onClick();
+    expect(called).toBe(true);
+    expect(cta.href).toBeUndefined();
+  });
+
+  it('rejects a no-action CTA at compile time', () => {
+    // @ts-expect-error — no href and no onClick: the discriminated union requires exactly one action
+    const _bad: ActionCentreItemCta = { label: 'Nothing' };
+    void _bad;
+  });
+
+  it('rejects a dual-action CTA at compile time', () => {
+    // @ts-expect-error — both href and onClick supplied: the discriminated union forbids onClick on the link branch and href on the button branch
+    const _bad: ActionCentreItemCta = { label: 'Both', href: '/foo', onClick: () => {} };
+    void _bad;
+  });
+
   it('covers all four priority values', () => {
     const priorities: ActionCentreItemPriority[] = ['critical', 'high', 'medium', 'low'];
     expect(new Set(priorities).size).toBe(4);

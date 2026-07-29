@@ -192,15 +192,12 @@ export type ActionCentreItemPriority = 'critical' | 'high' | 'medium' | 'low';
 /** Status values for an Action Centre item. */
 export type ActionCentreItemStatus = 'open' | 'in_progress' | 'resolved';
 
-/** Optional call-to-action rendered only when explicitly supplied by the caller. */
-export type ActionCentreItemCta = {
-  /** Button/link label text. */
-  label: string;
-  /** Navigate to this URL when supplied (renders an anchor). Mutually exclusive with onClick. */
-  href?: string;
-  /** Inline handler when supplied (renders a button). Used when href is not provided. */
-  onClick?: () => void;
-};
+/** Optional call-to-action rendered only when explicitly supplied by the caller. Exactly one action must be provided. */
+export type ActionCentreItemCta =
+  /** Link variant — renders an anchor; `onClick` must be absent. */
+  | { label: string; href: string; onClick?: never }
+  /** Button variant — renders a button; `href` must be absent. */
+  | { label: string; onClick: () => void; href?: never };
 
 /** Data contract for a single Action Centre item. Contains only display fields. */
 export type ActionCentreItem = {
