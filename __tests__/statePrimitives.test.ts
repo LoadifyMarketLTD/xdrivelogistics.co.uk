@@ -47,6 +47,11 @@ describe('LoadingState — role="status" and accessible label', () => {
     expect(html).not.toContain('Loading\u2026');
     expect(html).toContain('Please wait');
   });
+
+  it('renders aria-busy="true" on the status region', () => {
+    const html = render(React.createElement(LoadingState, {}));
+    expect(html).toContain('aria-busy="true"');
+  });
 });
 
 describe('LoadingState — skeleton bars', () => {
@@ -130,6 +135,25 @@ describe('ErrorState — optional retry button', () => {
   it('retry button has type="button"', () => {
     const html = render(React.createElement(ErrorState, { message: 'err', onRetry: vi.fn() }));
     expect(html).toContain('type="button"');
+  });
+
+  it('does not render caller action when action is omitted', () => {
+    const html = render(React.createElement(ErrorState, { message: 'err' }));
+    expect(html).not.toContain('Go back');
+  });
+
+  it('renders supplied action element', () => {
+    const action = React.createElement('a', { href: '/back' }, 'Go back');
+    const html = render(React.createElement(ErrorState, { message: 'err', action }));
+    expect(html).toContain('Go back');
+    expect(html).toContain('href="/back"');
+  });
+
+  it('renders action without onRetry when only action is supplied', () => {
+    const action = React.createElement('a', { href: '/home' }, 'Home');
+    const html = render(React.createElement(ErrorState, { message: 'err', action }));
+    expect(html).toContain('Home');
+    expect(html).not.toContain('Retry');
   });
 });
 
@@ -223,6 +247,11 @@ describe('WorkspaceState — loading variant', () => {
     expect(html).not.toContain('role="alert"');
   });
 
+  it('loading variant renders aria-busy="true"', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading' }));
+    expect(html).toContain('aria-busy="true"');
+  });
+
   it('renders custom skeleton row count for loading variant', () => {
     const html = render(React.createElement(WorkspaceState, { variant: 'loading', rows: 5 }));
     const matches = (html.match(/xdrive-skeleton-bar/g) ?? []).length;
@@ -299,6 +328,25 @@ describe('WorkspaceState — error variant', () => {
     expect(html).not.toContain('companyId');
     expect(html).not.toContain('userId');
     expect(html).not.toContain('workspaceRole');
+  });
+
+  it('does not render caller action for error variant when action is omitted', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err' }));
+    expect(html).not.toContain('Contact support');
+  });
+
+  it('renders supplied caller action for error variant', () => {
+    const action = React.createElement('a', { href: '/support' }, 'Contact support');
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err', action }));
+    expect(html).toContain('Contact support');
+    expect(html).toContain('href="/support"');
+  });
+
+  it('renders both onRetry and action when both are supplied for error variant', () => {
+    const action = React.createElement('a', { href: '/home' }, 'Go home');
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err', onRetry: vi.fn(), action }));
+    expect(html).toContain('Retry');
+    expect(html).toContain('Go home');
   });
 });
 
