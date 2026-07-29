@@ -213,6 +213,7 @@ export function LoadingState({ label = 'Loading\u2026', rows = LOADING_STATE_DEF
   return (
     <div
       role="status"
+      aria-busy="true"
       aria-label={label}
       className="xdrive-loading-state"
       style={{ minHeight: '160px', display: 'grid', placeItems: 'center', padding: '1.7rem' }}
@@ -257,11 +258,13 @@ export function LoadingState({ label = 'Loading\u2026', rows = LOADING_STATE_DEF
  * Presentation-only error state. Caller supplies the error message explicitly;
  * no business logic, retry mechanism, or auth session access.
  * Optional `onRetry` renders an accessible retry button supplied by the caller.
+ * Optional `action` renders a caller-supplied ReactNode (e.g. a link) after the retry button.
  *
  * @param message  Required error description to display.
  * @param onRetry  Optional retry callback. When supplied, a retry button is rendered.
+ * @param action   Optional caller-supplied ReactNode (e.g. "Go back" link). Rendered only when explicitly supplied.
  */
-export function ErrorState({ message, onRetry, icon }: { message: string; onRetry?: () => void; icon?: ReactNode }) {
+export function ErrorState({ message, onRetry, action, icon }: { message: string; onRetry?: () => void; action?: ReactNode; icon?: ReactNode }) {
   const defaultIcon = (
     <div
       aria-hidden="true"
@@ -311,6 +314,7 @@ export function ErrorState({ message, onRetry, icon }: { message: string; onRetr
             </button>
           </div>
         )}
+        {action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}
       </div>
     </div>
   );
@@ -374,7 +378,7 @@ export function PermissionDeniedState({ reason, action, icon }: PermissionDenied
  *
  * - `'loading'`    → role="status"; non-interactive skeleton; never shows an action.
  * - `'empty'`      → caller-supplied title/description preserved verbatim; optional icon/action.
- * - `'error'`      → role="alert"; caller message preserved verbatim; optional icon/retry action.
+ * - `'error'`      → role="alert"; caller message preserved verbatim; optional icon/retry/action.
  * - `'permission'` → role="alert"; optional reason; optional icon/action; derives no permissions.
  *
  * Delegates to `LoadingState`, `EmptyState`, `ErrorState` or `PermissionDeniedState`; does
@@ -383,7 +387,7 @@ export function PermissionDeniedState({ reason, action, icon }: PermissionDenied
 export type WorkspaceStateProps =
   | { variant: 'loading'; label?: string; rows?: number }
   | { variant: 'empty'; title?: string; description?: string; icon?: ReactNode; action?: ReactNode }
-  | { variant: 'error'; message: string; icon?: ReactNode; onRetry?: () => void }
+  | { variant: 'error'; message: string; icon?: ReactNode; onRetry?: () => void; action?: ReactNode }
   | { variant: 'permission'; reason?: string; icon?: ReactNode; action?: ReactNode };
 
 export function WorkspaceState(props: WorkspaceStateProps) {
@@ -393,7 +397,7 @@ export function WorkspaceState(props: WorkspaceStateProps) {
     case 'empty':
       return <EmptyState title={props.title ?? 'No records found'} description={props.description} icon={props.icon} action={props.action} />;
     case 'error':
-      return <ErrorState message={props.message} icon={props.icon} onRetry={props.onRetry} />;
+      return <ErrorState message={props.message} icon={props.icon} onRetry={props.onRetry} action={props.action} />;
     case 'permission':
       return <PermissionDeniedState reason={props.reason} icon={props.icon} action={props.action} />;
   }
