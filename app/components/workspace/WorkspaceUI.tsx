@@ -195,6 +195,166 @@ export function EmptyState({ title, description, action }: { title: string; desc
   return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div><div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div><h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
 
+// ─── Standardized state primitives ──────────────────────────────────────────
+
+/** Number of skeleton lines to show in `LoadingState` when no explicit count is supplied. */
+export const LOADING_STATE_DEFAULT_ROWS = 3;
+
+/**
+ * Presentation-only loading state. Renders labelled skeleton bars and an
+ * accessible `role="status"` region. No data fetching or side-effects.
+ *
+ * @param label  Screen-reader / visible label (e.g. "Loading shipments…"). Defaults to "Loading…".
+ * @param rows   Number of skeleton content bars to render. Defaults to `LOADING_STATE_DEFAULT_ROWS`.
+ */
+export function LoadingState({ label = 'Loading\u2026', rows = LOADING_STATE_DEFAULT_ROWS }: { label?: string; rows?: number }) {
+  const safeRows = Math.max(1, rows);
+  return (
+    <div
+      role="status"
+      aria-label={label}
+      className="xdrive-loading-state"
+      style={{ minHeight: '160px', display: 'grid', placeItems: 'center', padding: '1.7rem' }}
+    >
+      <div style={{ width: '100%', maxWidth: '420px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', justifyContent: 'center' }}>
+          <span
+            aria-hidden="true"
+            className="xdrive-loading-spinner"
+            style={{
+              display: 'inline-block',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              border: `3px solid ${workspaceTheme.border}`,
+              borderTopColor: workspaceTheme.blue,
+              animation: 'xdrive-spin 0.8s linear infinite',
+            }}
+          />
+          <span style={{ color: workspaceTheme.muted, fontSize: '0.78rem', fontWeight: 700 }}>{label}</span>
+        </div>
+        {Array.from({ length: safeRows }, (_, i) => (
+          <div
+            key={i}
+            className="xdrive-skeleton-bar"
+            aria-hidden="true"
+            style={{
+              height: '12px',
+              borderRadius: '6px',
+              background: workspaceTheme.surfaceMuted,
+              marginBottom: '0.5rem',
+              width: i % 2 === 0 ? '100%' : '72%',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Presentation-only error state. Caller supplies the error message explicitly;
+ * no business logic, retry mechanism, or auth session access.
+ * Optional `onRetry` renders an accessible retry button supplied by the caller.
+ *
+ * @param message  Required error description to display.
+ * @param onRetry  Optional retry callback. When supplied, a retry button is rendered.
+ */
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="xdrive-error-state"
+      style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}
+    >
+      <div>
+        <div
+          aria-hidden="true"
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: '#fef2f2',
+            color: workspaceTheme.red,
+            display: 'grid',
+            placeItems: 'center',
+            margin: '0 auto 0.58rem',
+            fontWeight: 900,
+            fontSize: '1.1rem',
+          }}
+        >
+          !
+        </div>
+        <h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>Something went wrong</h3>
+        <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{message}</p>
+        {onRetry && (
+          <div style={{ marginTop: '0.72rem' }}>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                border: `1px solid ${workspaceTheme.border}`,
+                background: workspaceTheme.surface,
+                color: workspaceTheme.blue,
+                borderRadius: '8px',
+                padding: '0.4rem 0.9rem',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Presentation-only permission-denied state. Derives no permissions itself;
+ * caller supplies `reason` text and an optional `action` element (e.g. a link
+ * to request access). No auth session, role, company or Supabase access.
+ *
+ * @param reason  Optional explanation shown beneath the heading. Defaults to a generic message.
+ * @param action  Optional ReactNode rendered as a CTA (e.g. "Request Access" link/button).
+ */
+export function PermissionDeniedState({ reason, action }: { reason?: string; action?: ReactNode } = {}) {
+  return (
+    <div
+      role="alert"
+      className="xdrive-permission-denied-state"
+      style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}
+    >
+      <div>
+        <div
+          aria-hidden="true"
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: '#fffbeb',
+            color: workspaceTheme.amber,
+            display: 'grid',
+            placeItems: 'center',
+            margin: '0 auto 0.58rem',
+            fontWeight: 900,
+            fontSize: '1.1rem',
+          }}
+        >
+          ⊘
+        </div>
+        <h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>Access restricted</h3>
+        <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>
+          {reason ?? 'You do not have permission to view this content.'}
+        </p>
+        {action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
   if (rows.length === 0) return <>{empty ?? <EmptyState title="No records found" />}</>;
   return <div style={{ width: '100%', overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: `${Math.max(columns.length * 138, 660)}px` }}><thead><tr>{columns.map((column) => <th key={column} style={{ textAlign: 'left', padding: '0.58rem 0.65rem', color: '#475569', fontSize: '0.62rem', fontWeight: 850, letterSpacing: '0.045em', textTransform: 'uppercase', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceSoft, position: 'sticky', top: 0 }}>{column}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className="xdrive-table-row">{row.map((cell, cellIndex) => <td key={cellIndex} style={{ padding: '0.65rem', color: workspaceTheme.text, fontSize: '0.74rem', borderBottom: '1px solid #edf2f7', verticalAlign: 'middle' }}>{cell}</td>)}</tr>)}</tbody></table></div>;
