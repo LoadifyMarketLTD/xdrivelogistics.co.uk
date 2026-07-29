@@ -55,22 +55,72 @@ export function KpiGrid({ children }: { children: ReactNode }) {
   return <div className="xdrive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.65rem', marginBottom: '0.9rem' }}>{children}</div>;
 }
 
-export function KpiCard({ label, value, detail, tone = 'blue', onClick, icon }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy'; onClick?: () => void; icon?: ReactNode }) {
+/** Trend / delta indicator for a KpiCard. Direction drives colour and arrow; delta is the display text. */
+export type KpiTrend = {
+  /** Display text, e.g. "+12 %" or "−3". */
+  delta: string;
+  /** Visual direction; decoupled from semantic meaning (up can be good or bad depending on the metric). */
+  direction: 'up' | 'down' | 'neutral';
+  /** Optional context label, e.g. "vs last month". */
+  label?: string;
+};
+
+const TREND_COLORS: Record<KpiTrend['direction'], string> = {
+  up: workspaceTheme.green,
+  down: workspaceTheme.red,
+  neutral: workspaceTheme.muted,
+};
+
+const TREND_ARROWS: Record<KpiTrend['direction'], string> = {
+  up: '↑',
+  down: '↓',
+  neutral: '→',
+};
+
+export function KpiCard({
+  label,
+  value,
+  detail,
+  tone = 'blue',
+  onClick,
+  icon,
+  trend,
+  ariaLabel,
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: ReactNode;
+  tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
+  onClick?: () => void;
+  icon?: ReactNode;
+  /** Optional trend / delta indicator shown below the value. */
+  trend?: KpiTrend;
+  /** Accessible label for the card. Defaults to the label text when omitted. */
+  ariaLabel?: string;
+}) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
   const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '98px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
       <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
         <div style={{ color: workspaceTheme.muted, fontSize: '0.64rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
-        {icon && <div style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
+        {icon && <div aria-hidden="true" style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
       </div>
       <div style={{ marginTop: '0.26rem', color: workspaceTheme.text, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.05 }}>{value}</div>
       {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.69rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
+      {trend && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
+          <span aria-hidden="true" style={{ color: TREND_COLORS[trend.direction], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
+          <span style={{ color: TREND_COLORS[trend.direction], fontSize: '0.68rem', fontWeight: 800 }}>{trend.delta}</span>
+          {trend.label && <span style={{ color: workspaceTheme.muted, fontSize: '0.64rem' }}>{trend.label}</span>}
+        </div>
+      )}
     </>
   );
-  if (!onClick) return <div style={cardStyle}>{content}</div>;
-  return <button onClick={onClick} type="button" style={cardStyle}>{content}</button>;
+  if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
+  return <button aria-label={computedAriaLabel} onClick={onClick} type="button" style={cardStyle}>{content}</button>;
 }
 
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
