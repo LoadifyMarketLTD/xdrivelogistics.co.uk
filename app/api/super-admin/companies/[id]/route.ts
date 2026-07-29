@@ -50,11 +50,8 @@ const patchSchema = z.object({
 /**
  * PATCH /api/super-admin/companies/[id]
  * Owner-only: approve | reject | reinstate | suspend a company.
- * - pending_approval -> active
- * - pending_approval -> rejected
- * - active -> suspended
- * - suspended -> active
- * - rejected -> pending|pending_approval
+ * Activation is fail-closed: the linked onboarding application must have no
+ * identity-risk hold and every configured mandatory document must be approved.
  */
 export async function PATCH(
   request: NextRequest,
@@ -81,7 +78,6 @@ export async function PATCH(
     return respond(403, { error: 'Forbidden: owner role required.' });
   }
 
-  // Payload validation
   let body: unknown;
   try {
     body = await request.json();
@@ -123,6 +119,23 @@ export async function PATCH(
     return respond(409, {
       error: `Invalid status transition: ${oldStatus} -> ${newStatus}.`,
     });
+  }
+
+  if (newStatus === 'active') {
+    const { error: complianceError } = await supabaseAdmin.rpc(
+      'assert_company_compliance_ready',
+      { p_company_id: companyId },
+    );
+
+    if (complianceError) {
+      if (complianceError.code === '23514' || complianceError.code === 'P0002') {
+        return respond(409, {
+          error: complianceError.message,
+          code: 'company_compliance_not_ready',
+        });
+      }
+      return respond(500, { error: complianceError.message });
+    }
   }
 
   const auditReason = reason?.trim() || `Status changed via super-admin action '${action}'.`;
