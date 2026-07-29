@@ -191,8 +191,9 @@ export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { la
   return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
-export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
-  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div><div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div><h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
+export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
+  const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
+  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
 
 // ─── Standardized state primitives ──────────────────────────────────────────
@@ -260,7 +261,26 @@ export function LoadingState({ label = 'Loading\u2026', rows = LOADING_STATE_DEF
  * @param message  Required error description to display.
  * @param onRetry  Optional retry callback. When supplied, a retry button is rendered.
  */
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorState({ message, onRetry, icon }: { message: string; onRetry?: () => void; icon?: ReactNode }) {
+  const defaultIcon = (
+    <div
+      aria-hidden="true"
+      style={{
+        width: '38px',
+        height: '38px',
+        borderRadius: '10px',
+        background: '#fef2f2',
+        color: workspaceTheme.red,
+        display: 'grid',
+        placeItems: 'center',
+        margin: '0 auto 0.58rem',
+        fontWeight: 900,
+        fontSize: '1.1rem',
+      }}
+    >
+      !
+    </div>
+  );
   return (
     <div
       role="alert"
@@ -268,23 +288,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}
     >
       <div>
-        <div
-          aria-hidden="true"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: '#fef2f2',
-            color: workspaceTheme.red,
-            display: 'grid',
-            placeItems: 'center',
-            margin: '0 auto 0.58rem',
-            fontWeight: 900,
-            fontSize: '1.1rem',
-          }}
-        >
-          !
-        </div>
+        {icon ?? defaultIcon}
         <h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>Something went wrong</h3>
         <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{message}</p>
         {onRetry && (
@@ -323,9 +327,29 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 export type PermissionDeniedStateProps = {
   reason?: string;
   action?: ReactNode;
+  icon?: ReactNode;
 };
 
-export function PermissionDeniedState({ reason, action }: PermissionDeniedStateProps) {
+export function PermissionDeniedState({ reason, action, icon }: PermissionDeniedStateProps) {
+  const defaultIcon = (
+    <div
+      aria-hidden="true"
+      style={{
+        width: '38px',
+        height: '38px',
+        borderRadius: '10px',
+        background: '#fffbeb',
+        color: workspaceTheme.amber,
+        display: 'grid',
+        placeItems: 'center',
+        margin: '0 auto 0.58rem',
+        fontWeight: 900,
+        fontSize: '1.1rem',
+      }}
+    >
+      ⊘
+    </div>
+  );
   return (
     <div
       role="alert"
@@ -333,23 +357,7 @@ export function PermissionDeniedState({ reason, action }: PermissionDeniedStateP
       style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}
     >
       <div>
-        <div
-          aria-hidden="true"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: '#fffbeb',
-            color: workspaceTheme.amber,
-            display: 'grid',
-            placeItems: 'center',
-            margin: '0 auto 0.58rem',
-            fontWeight: 900,
-            fontSize: '1.1rem',
-          }}
-        >
-          ⊘
-        </div>
+        {icon ?? defaultIcon}
         <h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>Access restricted</h3>
         <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>
           {reason ?? 'You do not have permission to view this content.'}
@@ -358,6 +366,37 @@ export function PermissionDeniedState({ reason, action }: PermissionDeniedStateP
       </div>
     </div>
   );
+}
+
+/**
+ * Variant-controlled shared state primitive. `variant` alone selects ARIA semantics,
+ * visual structure and interactivity. No auth, role, company, workspace or Supabase logic.
+ *
+ * - `'loading'`    → role="status"; non-interactive skeleton; never shows an action.
+ * - `'empty'`      → caller-supplied title/description preserved verbatim; optional icon/action.
+ * - `'error'`      → role="alert"; caller message preserved verbatim; optional icon/retry action.
+ * - `'permission'` → role="alert"; optional reason; optional icon/action; derives no permissions.
+ *
+ * Delegates to `LoadingState`, `EmptyState`, `ErrorState` or `PermissionDeniedState`; does
+ * not duplicate their visual implementations and preserves all backward-compatible exports.
+ */
+export type WorkspaceStateProps =
+  | { variant: 'loading'; label?: string; rows?: number }
+  | { variant: 'empty'; title?: string; description?: string; icon?: ReactNode; action?: ReactNode }
+  | { variant: 'error'; message: string; icon?: ReactNode; onRetry?: () => void }
+  | { variant: 'permission'; reason?: string; icon?: ReactNode; action?: ReactNode };
+
+export function WorkspaceState(props: WorkspaceStateProps) {
+  switch (props.variant) {
+    case 'loading':
+      return <LoadingState label={props.label} rows={props.rows} />;
+    case 'empty':
+      return <EmptyState title={props.title ?? 'No records found'} description={props.description} icon={props.icon} action={props.action} />;
+    case 'error':
+      return <ErrorState message={props.message} icon={props.icon} onRetry={props.onRetry} />;
+    case 'permission':
+      return <PermissionDeniedState reason={props.reason} icon={props.icon} action={props.action} />;
+  }
 }
 
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
