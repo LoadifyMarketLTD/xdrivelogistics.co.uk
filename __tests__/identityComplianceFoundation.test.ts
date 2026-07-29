@@ -11,7 +11,8 @@ describe('identity compliance foundation', () => {
     );
 
     expect(migration).toContain('company_memberships_one_active_company_per_user_uidx');
-    expect(migration).toContain("WHERE user_id IS NOT NULL AND status::text = 'active'");
+    expect(migration).toContain("WHERE user_id IS NOT NULL AND status = 'active'");
+    expect(migration).not.toContain("status::text = 'active'");
     expect(migration).toContain('drivers_one_identity_per_auth_user_uidx');
     expect(migration).toContain('Identity compliance preflight failed');
   });
