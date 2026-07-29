@@ -7,7 +7,8 @@ import {
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
 import { isLegacyIndividualDriverOnboardingApplication } from '../../../_lib/onboarding';
-import { individualDriverPayloadSchema } from '../../_lib/schemas';
+import { companyDriverPayloadSchema } from '../../_lib/schemas';
+import { isCompanyDriverOnboardingApplication } from '../../../../../lib/onboardingContract';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -35,13 +36,19 @@ export async function POST(request: NextRequest) {
   if (application.account_type !== 'individual_driver') {
     return json(403, { error: 'Forbidden onboarding account type.' });
   }
-  if (!isLegacyIndividualDriverOnboardingApplication(application.account_type, application.created_at)) {
+
+  const companyDriverInvite = isCompanyDriverOnboardingApplication(application as Record<string, unknown>);
+  const historicalLegacyAccount = isLegacyIndividualDriverOnboardingApplication(
+    application.account_type,
+    application.created_at,
+  );
+  if (!companyDriverInvite && !historicalLegacyAccount) {
     return json(403, {
-      error: 'Individual-driver onboarding is a legacy flow restricted to historical accounts.',
+      error: 'Company Driver onboarding is invitation-only and must be linked to one fleet company.',
     });
   }
 
-  const parsed = individualDriverPayloadSchema.safeParse(application.payload ?? {});
+  const parsed = companyDriverPayloadSchema.safeParse(application.payload ?? {});
   if (!parsed.success) {
     return json(400, {
       error: 'Onboarding payload is incomplete or invalid.',
@@ -55,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   if (submitError) {
     return json(500, {
-      error: 'Failed to submit individual driver onboarding.',
+      error: 'Failed to submit Company Driver onboarding.',
       details: submitError.message,
     });
   }
@@ -68,5 +75,5 @@ export async function POST(request: NextRequest) {
 
   if (updateError) return json(500, { error: updateError.message });
 
-  return json(200, { application: updated, companyId: null });
+  return json(200, { application: updated, companyId: updated.company_id ?? null });
 }
