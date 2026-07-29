@@ -16,6 +16,17 @@ describe('identity compliance foundation', () => {
     expect(migration).toContain('Identity compliance preflight failed');
   });
 
+  it('allows only one active marketplace quote per company or independent identity for a job', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260729162000_marketplace_single_active_quote_per_identity.sql',
+    );
+
+    expect(migration).toContain('job_bids_one_active_company_quote_per_job_uidx');
+    expect(migration).toContain('job_bids_one_active_independent_quote_per_job_uidx');
+    expect(migration).toContain("status IN ('submitted', 'accepted')");
+    expect(migration).toContain('Marketplace fairness preflight failed');
+  });
+
   it('fails closed when an onboarding application is held or mandatory documents are not approved', () => {
     const migration = readRepoFile(
       'supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql',
