@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { SENTIMENT_COLORS, TREND_ARROWS, workspaceTheme } from '../app/components/workspace/WorkspaceUI';
 import type { KpiTrend } from '../app/components/workspace/WorkspaceUI';
 
 /**
  * KpiTrend contract tests.
  *
  * These tests verify the exported KpiTrend type shape and its runtime
- * direction values without requiring a DOM or React rendering environment.
+ * presentation mappings (colour from sentiment, arrow from direction)
+ * without requiring a DOM or React rendering environment.
  * They mirror the project's existing pure-TypeScript test pattern.
  */
 describe('KpiTrend contract', () => {
@@ -32,3 +34,59 @@ describe('KpiTrend contract', () => {
     expect(new Set(directions).size).toBe(3);
   });
 });
+
+describe('SENTIMENT_COLORS presentation mapping', () => {
+  it('positive sentiment maps to green regardless of direction', () => {
+    expect(SENTIMENT_COLORS.positive).toBe(workspaceTheme.green);
+  });
+
+  it('negative sentiment maps to red regardless of direction', () => {
+    expect(SENTIMENT_COLORS.negative).toBe(workspaceTheme.red);
+  });
+
+  it('neutral sentiment maps to muted', () => {
+    expect(SENTIMENT_COLORS.neutral).toBe(workspaceTheme.muted);
+  });
+
+  it('direction:up with sentiment:negative uses red, not green', () => {
+    const trend: KpiTrend = { delta: '+5 incidents', direction: 'up', sentiment: 'negative' };
+    const color = SENTIMENT_COLORS[trend.sentiment ?? 'neutral'];
+    expect(color).toBe(workspaceTheme.red);
+    expect(color).not.toBe(workspaceTheme.green);
+  });
+
+  it('direction:down with sentiment:positive uses green, not red', () => {
+    const trend: KpiTrend = { delta: '−8 overdue', direction: 'down', sentiment: 'positive' };
+    const color = SENTIMENT_COLORS[trend.sentiment ?? 'neutral'];
+    expect(color).toBe(workspaceTheme.green);
+    expect(color).not.toBe(workspaceTheme.red);
+  });
+
+  it('omitted sentiment defaults to neutral (muted), not direction-inferred colour', () => {
+    const trend: KpiTrend = { delta: 'n/a', direction: 'up' };
+    const color = SENTIMENT_COLORS[trend.sentiment ?? 'neutral'];
+    expect(color).toBe(workspaceTheme.muted);
+    expect(color).not.toBe(workspaceTheme.green);
+    expect(color).not.toBe(workspaceTheme.red);
+  });
+});
+
+describe('TREND_ARROWS direction mapping', () => {
+  it('up direction uses up arrow', () => {
+    expect(TREND_ARROWS.up).toBe('↑');
+  });
+
+  it('down direction uses down arrow', () => {
+    expect(TREND_ARROWS.down).toBe('↓');
+  });
+
+  it('neutral direction uses right arrow', () => {
+    expect(TREND_ARROWS.neutral).toBe('→');
+  });
+
+  it('arrow is independent of sentiment — up+negative still shows up arrow', () => {
+    const trend: KpiTrend = { delta: '+5 incidents', direction: 'up', sentiment: 'negative' };
+    expect(TREND_ARROWS[trend.direction]).toBe('↑');
+  });
+});
+
