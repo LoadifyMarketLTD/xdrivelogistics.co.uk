@@ -6,6 +6,7 @@ import {
   LOADING_STATE_DEFAULT_ROWS,
   LoadingState,
   PermissionDeniedState,
+  WorkspaceState,
 } from '../app/components/workspace/WorkspaceUI';
 
 /**
@@ -193,5 +194,179 @@ describe('PermissionDeniedState — no permission inference', () => {
     expect(html).not.toContain('userId');
     expect(html).not.toContain('workspaceRole');
     expect(html).not.toContain('supabase');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WorkspaceState — discriminated union primitive
+// ---------------------------------------------------------------------------
+
+describe('WorkspaceState — loading variant', () => {
+  it('renders role="status" for loading variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading' }));
+    expect(html).toContain('role="status"');
+  });
+
+  it('renders default loading label for loading variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading' }));
+    expect(html).toContain('Loading\u2026');
+  });
+
+  it('renders custom label when supplied for loading variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading', label: 'Loading jobs\u2026' }));
+    expect(html).toContain('Loading jobs\u2026');
+    expect(html).toContain('aria-label="Loading jobs\u2026"');
+  });
+
+  it('loading variant does not render role="alert"', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading' }));
+    expect(html).not.toContain('role="alert"');
+  });
+
+  it('renders custom skeleton row count for loading variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading', rows: 5 }));
+    const matches = (html.match(/xdrive-skeleton-bar/g) ?? []).length;
+    expect(matches).toBe(5);
+  });
+});
+
+describe('WorkspaceState — empty variant', () => {
+  it('renders caller-supplied title verbatim', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'empty', title: 'No shipments yet' }));
+    expect(html).toContain('No shipments yet');
+  });
+
+  it('renders caller-supplied description verbatim', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'empty', title: 'T', description: 'Create your first shipment to get started.' }));
+    expect(html).toContain('Create your first shipment to get started.');
+  });
+
+  it('uses default title "No records found" when title is omitted', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'empty' }));
+    expect(html).toContain('No records found');
+  });
+
+  it('renders supplied action for empty variant', () => {
+    const action = React.createElement('a', { href: '/new' }, 'Add shipment');
+    const html = render(React.createElement(WorkspaceState, { variant: 'empty', title: 'T', action }));
+    expect(html).toContain('Add shipment');
+    expect(html).toContain('href="/new"');
+  });
+
+  it('renders custom icon for empty variant instead of default', () => {
+    const icon = React.createElement('span', { 'data-testid': 'custom-icon' }, '\u{1F4E6}');
+    const html = render(React.createElement(WorkspaceState, { variant: 'empty', title: 'T', icon }));
+    expect(html).toContain('data-testid="custom-icon"');
+  });
+
+  it('empty variant does not render role="alert" or role="status"', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'empty', title: 'T' }));
+    expect(html).not.toContain('role="alert"');
+    expect(html).not.toContain('role="status"');
+  });
+});
+
+describe('WorkspaceState — error variant', () => {
+  it('renders role="alert" for error variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'Network failure.' }));
+    expect(html).toContain('role="alert"');
+  });
+
+  it('renders caller-supplied error message verbatim', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'Failed to load jobs.' }));
+    expect(html).toContain('Failed to load jobs.');
+  });
+
+  it('does not render retry button when onRetry is omitted', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err' }));
+    expect(html).not.toContain('Retry');
+  });
+
+  it('renders retry button when onRetry is supplied', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err', onRetry: vi.fn() }));
+    expect(html).toContain('Retry');
+    expect(html).toContain('type="button"');
+  });
+
+  it('renders custom icon for error variant instead of default', () => {
+    const icon = React.createElement('span', { 'data-testid': 'err-icon' }, 'X');
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err', icon }));
+    expect(html).toContain('data-testid="err-icon"');
+  });
+
+  it('error variant does not contain permission/session field names', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'err' }));
+    expect(html).not.toContain('companyId');
+    expect(html).not.toContain('userId');
+    expect(html).not.toContain('workspaceRole');
+  });
+});
+
+describe('WorkspaceState — permission variant', () => {
+  it('renders role="alert" for permission variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission' }));
+    expect(html).toContain('role="alert"');
+  });
+
+  it('renders "Access restricted" heading for permission variant', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission' }));
+    expect(html).toContain('Access restricted');
+  });
+
+  it('renders default reason text when reason is omitted', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission' }));
+    expect(html).toContain('You do not have permission to view this content.');
+  });
+
+  it('renders caller-supplied reason verbatim', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission', reason: 'Fleet admin access required.' }));
+    expect(html).toContain('Fleet admin access required.');
+  });
+
+  it('does not render action when action is omitted', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission' }));
+    expect(html).not.toContain('Request Access');
+  });
+
+  it('renders supplied action for permission variant', () => {
+    const action = React.createElement('a', { href: '/request' }, 'Request Access');
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission', action }));
+    expect(html).toContain('Request Access');
+    expect(html).toContain('href="/request"');
+  });
+
+  it('renders custom icon for permission variant instead of default', () => {
+    const icon = React.createElement('span', { 'data-testid': 'lock-icon' }, '\uD83D\uDD12');
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission', icon }));
+    expect(html).toContain('data-testid="lock-icon"');
+  });
+
+  it('permission variant does not contain permission/session field names', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission' }));
+    expect(html).not.toContain('companyId');
+    expect(html).not.toContain('userId');
+    expect(html).not.toContain('workspaceRole');
+    expect(html).not.toContain('supabase');
+  });
+});
+
+describe('WorkspaceState — variant controls semantics independently of text', () => {
+  it('permission variant with message text renders alert, not status', () => {
+    // variant controls ARIA role, not the props content
+    const html = render(React.createElement(WorkspaceState, { variant: 'permission', reason: 'Loading data unavailable.' }));
+    expect(html).toContain('role="alert"');
+    expect(html).not.toContain('role="status"');
+  });
+
+  it('error variant with permission-sounding message renders alert', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'error', message: 'Access denied.' }));
+    expect(html).toContain('role="alert"');
+    expect(html).not.toContain('role="status"');
+  });
+
+  it('loading variant never renders role="alert" regardless of label', () => {
+    const html = render(React.createElement(WorkspaceState, { variant: 'loading', label: 'Error loading data' }));
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain('role="alert"');
   });
 });
