@@ -44,7 +44,7 @@ class SessionStore(context: Context) : SessionRepository {
         )
     }
 
-    val session: Flow<DriverSession?> = callbackFlow {
+    override val session: Flow<DriverSession?> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
             trySend(readSession())
         }
@@ -53,7 +53,7 @@ class SessionStore(context: Context) : SessionRepository {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    fun readSession(): DriverSession? {
+    override fun readSession(): DriverSession? {
         val accessToken = prefs.getString(Keys.accessToken, null)
         val refreshToken = prefs.getString(Keys.refreshToken, null)
         val userId = prefs.getString(Keys.userId, null)
@@ -71,7 +71,7 @@ class SessionStore(context: Context) : SessionRepository {
         }
     }
 
-    suspend fun saveSession(session: DriverSession) {
+    override suspend fun saveSession(session: DriverSession) {
         prefs.edit()
             .putString(Keys.accessToken, session.accessToken)
             .putString(Keys.refreshToken, session.refreshToken)
@@ -80,7 +80,7 @@ class SessionStore(context: Context) : SessionRepository {
             .apply()
     }
 
-    suspend fun clear() {
+    override suspend fun clear() {
         prefs.edit()
             .remove(Keys.accessToken)
             .remove(Keys.refreshToken)
