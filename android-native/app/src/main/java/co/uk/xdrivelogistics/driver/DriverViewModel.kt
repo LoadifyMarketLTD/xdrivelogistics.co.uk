@@ -1,7 +1,10 @@
 package co.uk.xdrivelogistics.driver
 
 import android.app.Application
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.DriverAvailability
@@ -18,6 +21,7 @@ import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.data.MobileApiException
 import co.uk.xdrivelogistics.driver.data.MobileApiHttpException
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
+import co.uk.xdrivelogistics.driver.data.SessionRepository
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.jobs.DriverLifecycleTransitions
 import co.uk.xdrivelogistics.driver.offline.MobileLifecycleCommand
@@ -94,11 +98,42 @@ data class DriverUiState(
     /** Marketplace job IDs the driver has hidden; filtered from the Live Loads list. */
     val hiddenMarketplaceLoadIds: Set<String> = emptySet(),
     /**
-     * A deep-link destination that arrived before the session and jobs were loaded (cold start).
-     * Processed and cleared once [isAuthenticated] is true and the jobs list has been loaded.
-     * Only [DeepLinkDestination.Job] links are held here; all other destinations route immediately.
+     * Monotonically increasing counter that is advanced on every logout, direct owner change,
+     * or session expiry. A [PendingDeepLinkCommand] whose [PendingDeepLinkCommand.authEpoch]
+     * does not equal this value is stale and is discarded by [resolvePendingDeepLink] rather
+     * than being routed under a different owner's session.
+     *
+     * The epoch starts at 0 and is never reset to 0 after the first session-null event; each
+     * session end unconditionally increments it so commands from prior sessions are rejected.
      */
-    val pendingDeepLink: DeepLinkDestination? = null,
+    val authEpoch: Long = 0L,
+    /**
+     * A one-shot deep-link routing command that arrived before the session or jobs were loaded
+     * (cold start). Processed and cleared once [isAuthenticated] is true and the jobs list has
+     * been loaded. Only [DeepLinkDestination.Job] commands are held here; all other destinations
+     * route immediately.
+     *
+     * The command carries [PendingDeepLinkCommand.authEpoch] — a snapshot of [authEpoch] at
+     * capture time. [resolvePendingDeepLink] rejects the command if its epoch does not match the
+     * current [authEpoch], preventing a command captured under owner A from executing under
+     * owner B's session.
+     */
+    val pendingDeepLink: PendingDeepLinkCommand? = null,
+)
+
+/**
+ * An auth-epoch-scoped one-shot deep-link routing command held in [DriverUiState.pendingDeepLink].
+ *
+ * [authEpoch] is a snapshot of [DriverUiState.authEpoch] at the time the command was captured.
+ * [resolvePendingDeepLink] validates that this epoch still matches the current state epoch before
+ * routing; a mismatch means the command was captured under a different owner's session and it is
+ * discarded rather than executed. Logout, direct owner replacement, and session expiry all
+ * advance the epoch so stale commands cannot bind to a new session.
+ */
+data class PendingDeepLinkCommand(
+    val destination: DeepLinkDestination.Job,
+    /** The [DriverUiState.authEpoch] at capture time. Must equal the current epoch to execute. */
+    val authEpoch: Long,
 )
 
 data class DriverJobSyncState(
@@ -107,8 +142,17 @@ data class DriverJobSyncState(
     val lastError: String = "",
 )
 
-class DriverViewModel(application: Application) : AndroidViewModel(application) {
-    private val sessionStore = SessionStore(application.applicationContext)
+class DriverViewModel(
+    application: Application,
+    private val sessionStore: SessionRepository,
+    /**
+     * When true, [loadDriverDataWithSession] skips all network calls and immediately processes
+     * any pending deep link. Intended exclusively for instrumented tests that inject a
+     * [SessionRepository] fake and need deterministic session transitions without live API access.
+     */
+    @VisibleForTesting
+    internal val skipDataRefreshForTesting: Boolean = false,
+) : AndroidViewModel(application) {
     private val activeJobSelectionStore = ActiveJobSelectionStore(application.applicationContext)
     private val queueStore = MobileOfflineQueueStore(application.applicationContext)
     private val podPendingStore = PodPendingStore(application.applicationContext)
@@ -153,7 +197,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 if (persisted == null) {
                     clearOwnerScopedMessageRequestGuards()
                     clearOwnerScopedDeviceTokenState()
-                    _uiState.value = DriverUiState()
+                    // Advance epoch so commands captured under the previous session are
+                    // rejected by resolvePendingDeepLink after this reset.
+                    _uiState.value = DriverUiState(authEpoch = _uiState.value.authEpoch + 1)
                     return@collectLatest
                 }
 
@@ -180,8 +226,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         marketplaceJobs = emptyList(),
                         savedMarketplaceLoadIds = emptySet(),
                         hiddenMarketplaceLoadIds = emptySet(),
-                        // Clear any pending deep link from the previous owner to prevent cross-owner routing.
+                        // Clear any pending deep link from the previous owner and advance the
+                        // epoch so a re-delivered command from the previous epoch is rejected.
                         pendingDeepLink = null,
+                        authEpoch = _uiState.value.authEpoch + 1,
                     )
                 }
 
@@ -411,6 +459,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun loadDriverDataWithSession(session: DriverSession, allowRefresh: Boolean) {
+        // In instrumented tests with a fake SessionRepository, skip live API calls and process
+        // any pending deep link immediately (jobs list stays empty; routing falls to Messages).
+        if (skipDataRefreshForTesting) {
+            _uiState.value = _uiState.value.copy(isLoading = false)
+            processPendingDeepLinkIfReady()
+            return
+        }
         api.resolveDriverProfile(session)
             .onSuccess { profile ->
                 flushQueuedMutations(session, profile)
@@ -431,7 +486,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                         refreshAndRetry(session)
                     } else {
                         sessionStore.clear()
-                        _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+                        _uiState.value = DriverUiState(authEpoch = _uiState.value.authEpoch + 1, error = "Your session expired. Please sign in again.")
                     }
                     return@onSuccess
                 }
@@ -451,7 +506,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     } else {
                         // Second auth failure on the already-refreshed session: expire the session.
                         sessionStore.clear()
-                        _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+                        _uiState.value = DriverUiState(authEpoch = _uiState.value.authEpoch + 1, error = "Your session expired. Please sign in again.")
                     }
                     return@onSuccess
                 }
@@ -536,7 +591,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 // Guard: do not clear B's session if A's token refresh failed after a switch.
                 if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return@onFailure
                 sessionStore.clear()
-                _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+                _uiState.value = DriverUiState(authEpoch = _uiState.value.authEpoch + 1, error = "Your session expired. Please sign in again.")
             }
     }
 
@@ -560,7 +615,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun expireSessionForRequest(session: DriverSession) {
         if (!shouldApplyAvailabilityResponse(_uiState.value.session, session)) return
         sessionStore.clear()
-        _uiState.value = DriverUiState(error = "Your session expired. Please sign in again.")
+        _uiState.value = DriverUiState(authEpoch = _uiState.value.authEpoch + 1, error = "Your session expired. Please sign in again.")
     }
 
     private suspend fun <T> runWithSingleRefreshRetry(
@@ -2182,9 +2237,9 @@ internal fun shouldClearDispatchDraft(requestJobId: String, currentSelectedJobId
  * Compute the next [DriverUiState] after a [DeepLinkDestination.Job] deep-link is handled.
  *
  * If the session is not yet authenticated or the jobs list has not yet loaded (cold start),
- * the destination is stored in [DriverUiState.pendingDeepLink] so that routing can be
- * deferred until data is available. Otherwise the state is returned unchanged and the
- * caller should proceed to route immediately via [selectJobIfAssigned].
+ * the destination is stored in [DriverUiState.pendingDeepLink] as a [PendingDeepLinkCommand]
+ * that captures the current [DriverUiState.authEpoch]. Otherwise the state is returned
+ * unchanged and the caller should proceed to route immediately via [selectJobIfAssigned].
  *
  * Extracted from [DriverViewModel.handleDeepLink] for unit-testability.
  */
@@ -2192,7 +2247,7 @@ internal fun applyJobDeepLinkToState(
     state: DriverUiState,
     destination: DeepLinkDestination.Job,
 ): DriverUiState = if (!state.isAuthenticated || state.jobs.isEmpty()) {
-    state.copy(pendingDeepLink = destination)
+    state.copy(pendingDeepLink = PendingDeepLinkCommand(destination, state.authEpoch))
 } else {
     state
 }
@@ -2201,14 +2256,54 @@ internal fun applyJobDeepLinkToState(
  * Consume [DriverUiState.pendingDeepLink] when routing preconditions are met.
  *
  * Returns the updated state (pending link cleared) and the job ID to route to, or
- * `null` as the second element if no routing should occur (not authenticated, no session,
- * or no pending Job link). The pending link is cleared before routing to prevent
- * double-processing if routing itself fails.
+ * `null` as the second element if no routing should occur. The pending link is cleared
+ * before routing to prevent double-processing if routing itself fails.
+ *
+ * **Auth-epoch guard**: if the command's [PendingDeepLinkCommand.authEpoch] does not match
+ * [DriverUiState.authEpoch], the command was captured under a different owner's session and
+ * is discarded (stale command rejected). This prevents an owner-A command from executing
+ * under owner B's session after logout or a direct owner replacement.
  *
  * Extracted from [DriverViewModel.processPendingDeepLinkIfReady] for unit-testability.
  */
 internal fun resolvePendingDeepLink(state: DriverUiState): Pair<DriverUiState, String?> {
-    val pending = state.pendingDeepLink as? DeepLinkDestination.Job ?: return state to null
+    val pending = state.pendingDeepLink ?: return state to null
+    // Epoch guard: reject commands captured under a different auth session.
+    if (pending.authEpoch != state.authEpoch) {
+        return state.copy(pendingDeepLink = null) to null
+    }
     if (!state.isAuthenticated || state.session == null) return state to null
-    return state.copy(pendingDeepLink = null) to pending.jobId
+    return state.copy(pendingDeepLink = null) to pending.destination.jobId
+}
+
+/**
+ * [ViewModelProvider.Factory] for [DriverViewModel] that accepts an injectable [SessionRepository].
+ *
+ * Production usage (in [MainActivity]):
+ * ```kotlin
+ * private val viewModel: DriverViewModel by viewModels { DriverViewModelFactory(application) }
+ * ```
+ *
+ * Instrumented-test usage (inject a [co.uk.xdrivelogistics.driver.FakeSessionRepository]):
+ * ```kotlin
+ * MainActivity.testViewModelFactory = DriverViewModelFactory(appContext, fakeRepo, skipDataRefresh = true)
+ * ```
+ *
+ * @param sessionRepository Defaults to the production [SessionStore] backed by
+ *   [androidx.security.crypto.EncryptedSharedPreferences].
+ * @param skipDataRefreshForTesting Passed to [DriverViewModel.skipDataRefreshForTesting]; must
+ *   be false in production. Set true in instrumented tests to skip live API calls.
+ */
+class DriverViewModelFactory(
+    private val application: Application,
+    private val sessionRepository: SessionRepository = SessionStore(application.applicationContext),
+    private val skipDataRefreshForTesting: Boolean = false,
+) : ViewModelProvider.AndroidViewModelFactory(application) {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(DriverViewModel::class.java)) {
+            return DriverViewModel(application, sessionRepository, skipDataRefreshForTesting) as T
+        }
+        return super.create(modelClass)
+    }
 }

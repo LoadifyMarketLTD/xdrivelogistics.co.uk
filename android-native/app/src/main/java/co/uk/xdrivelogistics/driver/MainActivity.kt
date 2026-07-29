@@ -90,6 +90,8 @@ import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DispatcherMessage
 import co.uk.xdrivelogistics.driver.data.MarketplaceJob
 import co.uk.xdrivelogistics.driver.offline.MobileQueueState
+import androidx.annotation.VisibleForTesting
+import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.messaging.FirebaseMessaging
 import java.io.ByteArrayOutputStream
@@ -127,7 +129,20 @@ private val ComplianceDocumentOptions = listOf(
 )
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: DriverViewModel by viewModels()
+    /**
+     * Overridable in instrumented tests to inject a [DriverViewModelFactory] with a
+     * [co.uk.xdrivelogistics.driver.FakeSessionRepository] and [skipDataRefreshForTesting].
+     * Must be reset to `null` in the test's `@After` method. Always `null` in production.
+     */
+    companion object {
+        @VisibleForTesting
+        @Volatile
+        internal var testViewModelFactory: ViewModelProvider.Factory? = null
+    }
+
+    private val viewModel: DriverViewModel by viewModels {
+        testViewModelFactory ?: DriverViewModelFactory(application)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

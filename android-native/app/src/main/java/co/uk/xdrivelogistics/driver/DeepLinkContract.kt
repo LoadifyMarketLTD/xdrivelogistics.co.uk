@@ -112,10 +112,21 @@ object XDriveDeepLink {
     /**
      * Build a canonical [Uri] for [destination] using [CANONICAL_SCHEME] (`xdrivedriver://`).
      * Always returns a valid, non-null URI.
+     *
+     * For [DeepLinkDestination.Job]: validates the job ID with [isValidJobId] before inserting
+     * it into the URI path. An ID that fails validation produces a Messages URI (safe fallback)
+     * rather than a path-injected string. This ensures every URI emitted by [build] is parseable
+     * by [parse] with no path-traversal or injection risk.
      */
     fun build(destination: DeepLinkDestination): Uri = when (destination) {
         DeepLinkDestination.Messages -> Uri.parse("$CANONICAL_SCHEME://notification")
-        is DeepLinkDestination.Job -> Uri.parse("$CANONICAL_SCHEME://job/${destination.jobId}")
+        is DeepLinkDestination.Job -> {
+            if (isValidJobId(destination.jobId)) {
+                Uri.parse("$CANONICAL_SCHEME://job/${destination.jobId}")
+            } else {
+                Uri.parse("$CANONICAL_SCHEME://notification")
+            }
+        }
         DeepLinkDestination.Nearby -> Uri.parse("$CANONICAL_SCHEME://nearby")
         DeepLinkDestination.Documents -> Uri.parse("$CANONICAL_SCHEME://documents")
         DeepLinkDestination.Profile -> Uri.parse("$CANONICAL_SCHEME://profile")

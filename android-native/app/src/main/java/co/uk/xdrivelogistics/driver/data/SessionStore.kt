@@ -8,7 +8,20 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-class SessionStore(context: Context) {
+/**
+ * Contract for the driver session store. Abstracted to allow fake implementations in
+ * instrumented tests without touching EncryptedSharedPreferences or the Android Keystore.
+ */
+interface SessionRepository {
+    /** Hot stream of the current persisted session. Emits null when no session is stored. */
+    val session: Flow<DriverSession?>
+    /** Read the current session synchronously without subscribing to the flow. */
+    fun readSession(): DriverSession?
+    suspend fun saveSession(session: DriverSession)
+    suspend fun clear()
+}
+
+class SessionStore(context: Context) : SessionRepository {
     private object Keys {
         const val accessToken = "access_token"
         const val refreshToken = "refresh_token"

@@ -30,6 +30,11 @@ import org.junit.Test
  *    `jobs.firstOrNull { it.id == jobId && it.isActive() }` is null.
  * 5. **Activity recreation**: [applyJobDeepLinkToState] with data already loaded returns the
  *    state unchanged (no re-hold), so the caller routes directly.
+ * 6. **Auth-epoch isolation**: [resolvePendingDeepLink] rejects a [PendingDeepLinkCommand] whose
+ *    [PendingDeepLinkCommand.authEpoch] does not match [DriverUiState.authEpoch]. Logout and
+ *    direct owner replacement advance the epoch so stale commands from prior sessions cannot
+ *    execute under a new owner's authenticated state — even if the new owner's job list happens
+ *    to contain the same job ID.
  */
 class DeepLinkRoutingBehaviourTest {
 
@@ -42,7 +47,7 @@ class DeepLinkRoutingBehaviourTest {
 
         val newState = applyJobDeepLinkToState(state, destination)
 
-        assertEquals(destination, newState.pendingDeepLink)
+        assertEquals(PendingDeepLinkCommand(destination, 0L), newState.pendingDeepLink)
     }
 
     @Test
@@ -52,7 +57,7 @@ class DeepLinkRoutingBehaviourTest {
 
         val newState = applyJobDeepLinkToState(state, destination)
 
-        assertEquals(destination, newState.pendingDeepLink)
+        assertEquals(PendingDeepLinkCommand(destination, 0L), newState.pendingDeepLink)
     }
 
     @Test
@@ -84,7 +89,7 @@ class DeepLinkRoutingBehaviourTest {
             isAuthenticated = true,
             session = session("user-a"),
             jobs = listOf(assignedJob(jobId)),
-            pendingDeepLink = DeepLinkDestination.Job(jobId),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L),
         )
 
         val (newState, resolvedId) = resolvePendingDeepLink(state)
@@ -115,7 +120,7 @@ class DeepLinkRoutingBehaviourTest {
             isAuthenticated = true,
             session = session("user-a"),
             jobs = listOf(assignedJob(jobId)),
-            pendingDeepLink = DeepLinkDestination.Job(jobId),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job(jobId), 0L),
         )
 
         // First call — routes and clears.
@@ -138,14 +143,14 @@ class DeepLinkRoutingBehaviourTest {
         val state = DriverUiState(
             isAuthenticated = false,
             session = null,
-            pendingDeepLink = DeepLinkDestination.Job("owner-a-job-111"),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job("owner-a-job-111"), 0L),
         )
 
         val (newState, resolvedId) = resolvePendingDeepLink(state)
 
         assertNull("No session — routing must not proceed", resolvedId)
         // Pending link is preserved (not cleared) so it can be retried after session loads.
-        assertEquals(DeepLinkDestination.Job("owner-a-job-111"), newState.pendingDeepLink)
+        assertEquals(PendingDeepLinkCommand(DeepLinkDestination.Job("owner-a-job-111"), 0L), newState.pendingDeepLink)
     }
 
     @Test
@@ -156,7 +161,7 @@ class DeepLinkRoutingBehaviourTest {
             isAuthenticated = true,
             session = session("user-b"),
             jobs = listOf(assignedJob("job-for-owner-b")), // Owner-A's job is absent
-            pendingDeepLink = DeepLinkDestination.Job("job-for-owner-a"),
+            pendingDeepLink = PendingDeepLinkCommand(DeepLinkDestination.Job("job-for-owner-a"), 0L),
         )
 
         val (newState, resolvedId) = resolvePendingDeepLink(state)
@@ -271,12 +276,119 @@ class DeepLinkRoutingBehaviourTest {
         val stateWithPending = DriverUiState(
             isAuthenticated = false,
             jobs = emptyList(),
-            pendingDeepLink = destination,
+            pendingDeepLink = PendingDeepLinkCommand(destination, 0L),
         )
 
         val newState = applyJobDeepLinkToState(stateWithPending, destination)
 
-        assertEquals("Same destination must remain in pending", destination, newState.pendingDeepLink)
+        assertEquals("Same destination must remain in pending", PendingDeepLinkCommand(destination, 0L), newState.pendingDeepLink)
+    }
+
+    // ── 6. Auth-epoch isolation ───────────────────────────────────────────────
+
+    @Test
+    fun `applyJobDeepLinkToState captures current authEpoch in the command`() {
+        val state = DriverUiState(isAuthenticated = false, jobs = emptyList(), authEpoch = 3L)
+        val destination = DeepLinkDestination.Job("epoch-job-001")
+
+        val newState = applyJobDeepLinkToState(state, destination)
+
+        assertEquals(
+            "Command epoch must equal state epoch at capture time",
+            3L,
+            newState.pendingDeepLink?.authEpoch,
+        )
+    }
+
+    @Test
+    fun `resolvePendingDeepLink rejects stale command from previous epoch`() {
+        // Represents: command captured at epoch 0, but state has advanced to epoch 1 after logout.
+        val staleState = DriverUiState(
+            isAuthenticated = true,
+            session = session("owner-b"),
+            jobs = listOf(assignedJob("owner-a-job-999")),  // B has same job in list
+            authEpoch = 1L,
+            pendingDeepLink = PendingDeepLinkCommand(
+                DeepLinkDestination.Job("owner-a-job-999"),
+                authEpoch = 0L,  // stale: captured under owner-A's epoch
+            ),
+        )
+
+        val (newState, resolvedId) = resolvePendingDeepLink(staleState)
+
+        assertNull(
+            "Epoch-0 command must be rejected and not routed under epoch-1 state",
+            resolvedId,
+        )
+        assertNull("Stale command must be cleared from state", newState.pendingDeepLink)
+    }
+
+    @Test
+    fun `resolvePendingDeepLink routes command whose epoch matches current state epoch`() {
+        val jobId = "epoch-match-job-001"
+        val state = DriverUiState(
+            isAuthenticated = true,
+            session = session("owner-a"),
+            jobs = listOf(assignedJob(jobId)),
+            authEpoch = 2L,
+            pendingDeepLink = PendingDeepLinkCommand(
+                DeepLinkDestination.Job(jobId),
+                authEpoch = 2L,  // matches current epoch
+            ),
+        )
+
+        val (newState, resolvedId) = resolvePendingDeepLink(state)
+
+        assertEquals("Matching-epoch command must be routed", jobId, resolvedId)
+        assertNull("Consumed command must be cleared", newState.pendingDeepLink)
+    }
+
+    @Test
+    fun `direct owner replacement advances authEpoch and clears pending link`() {
+        // Simulates: owner A was active (epoch 0), then owner B's session arrives directly
+        // (no intermediate null). applyJobDeepLinkToState on the new epoch captures epoch 1.
+        val stateAfterOwnerChange = DriverUiState(
+            isAuthenticated = true,
+            session = session("owner-b"),
+            jobs = emptyList(),
+            authEpoch = 1L,           // epoch advanced by the owner-change path in ViewModel
+            pendingDeepLink = null,   // cleared by the owner-change path
+        )
+
+        // A new link arriving after the owner change captures epoch 1.
+        val destination = DeepLinkDestination.Job("owner-b-job-111")
+        val stateWithNewLink = applyJobDeepLinkToState(stateAfterOwnerChange, destination)
+
+        assertEquals(
+            "New command after owner change must carry the post-change epoch",
+            1L,
+            stateWithNewLink.pendingDeepLink?.authEpoch,
+        )
+    }
+
+    @Test
+    fun `stale epoch command is discarded even when job appears in new owner list`() {
+        // Security proof: if a stale epoch-N command somehow survived a session reset and the
+        // new owner B happens to have the same job ID in their list, the epoch guard discards
+        // the command before the job-list check is even reached.
+        val sharedJobId = "shared-job-across-owners"
+        val staleState = DriverUiState(
+            isAuthenticated = true,
+            session = session("owner-b"),
+            jobs = listOf(assignedJob(sharedJobId)),
+            authEpoch = 5L,
+            pendingDeepLink = PendingDeepLinkCommand(
+                DeepLinkDestination.Job(sharedJobId),
+                authEpoch = 4L,  // previous epoch
+            ),
+        )
+
+        val (_, resolvedId) = resolvePendingDeepLink(staleState)
+
+        assertNull(
+            "Stale command must not route even when the job is in the new owner's list",
+            resolvedId,
+        )
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
