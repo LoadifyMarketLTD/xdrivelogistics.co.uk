@@ -8,8 +8,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
-import androidx.test.runner.lifecycle.Stage
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -120,41 +118,34 @@ class MainActivityDeepLinkInstrumentedTest {
     }
 
     /**
-     * Deliver a warm intent to the running [MainActivity] via
+     * Deliver a warm intent to the exact [MainActivity] owned by [scenario] via
      * [android.app.Instrumentation.callActivityOnNewIntent].
      *
-     * Using [android.content.Context.startActivity] with [Intent.FLAG_ACTIVITY_NEW_TASK] from an
-     * Application context caused [MainActivity] to be launched in a **new task** on Android 14,
-     * leaving the [ActivityScenario]-tracked instance permanently in [Stage.PAUSED]. When
-     * [ActivityScenario.close] subsequently called [android.app.Activity.finish], the Activity
-     * could not transition past PAUSED to DESTROYED, causing the
-     * "Activity never becomes [DESTROYED]" assertion error.
+     * Accepts the owning [ActivityScenario] so that [onNewIntent] is delivered to the
+     * exact instance tracked by the scenario, not to an arbitrary resumed activity discovered
+     * through the global [androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry].
+     * Querying the registry via `.getActivitiesInStage(RESUMED).firstOrNull()` is
+     * non-deterministic when stale or multiple activities are present, and can leave the
+     * scenario-owned instance permanently PAUSED, causing [ActivityScenario.close] to time
+     * out waiting for DESTROYED.
      *
-     * [android.app.Instrumentation.callActivityOnNewIntent] delivers [onNewIntent] directly to
-     * the existing [MainActivity] instance on the main thread. The Activity stays in
-     * [Stage.RESUMED] throughout, so [ActivityScenario.close] can follow the normal
+     * [android.app.Instrumentation.callActivityOnNewIntent] delivers [onNewIntent] directly
+     * to the existing [MainActivity] instance on the main thread. The Activity stays in
+     * RESUMED throughout, so [ActivityScenario.close] can follow the normal
      * RESUMED→PAUSED→STOPPED→DESTROYED teardown path.
      *
      * Must be called from the **instrumentation thread** (the test method body), not from
      * within [ActivityScenario.onActivity].
      */
-    private fun deliverWarmIntent(intent: Intent) {
+    private fun deliverWarmIntent(scenario: ActivityScenario<MainActivity>, intent: Intent) {
         val instr = InstrumentationRegistry.getInstrumentation()
         instr.waitForIdleSync()
-
-        // Obtain the current RESUMED MainActivity to deliver the intent to.
-        var activity: MainActivity? = null
-        instr.runOnMainSync {
-            activity = ActivityLifecycleMonitorRegistry.getInstance()
-                .getActivitiesInStage(Stage.RESUMED)
-                .filterIsInstance<MainActivity>()
-                .firstOrNull()
+        // scenario.onActivity runs the block on the main thread and blocks the instrumentation
+        // thread until it completes — callActivityOnNewIntent delivers onNewIntent synchronously
+        // to the exact activity instance owned by this scenario.
+        scenario.onActivity { activity ->
+            instr.callActivityOnNewIntent(activity, intent)
         }
-
-        val act = activity ?: return
-        // callActivityOnNewIntent() invokes onNewIntent() on the main thread, which then
-        // calls handleIncomingIntent() → DriverViewModel.handleDeepLink() before returning.
-        instr.runOnMainSync { instr.callActivityOnNewIntent(act, intent) }
         instr.waitForIdleSync()
     }
 
@@ -258,7 +249,7 @@ class MainActivityDeepLinkInstrumentedTest {
             var activityBefore: MainActivity? = null
             scenario.onActivity { a -> activityBefore = a }
 
-            deliverWarmIntent(warmIntent)
+            deliverWarmIntent(scenario, warmIntent)
 
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
@@ -279,7 +270,7 @@ class MainActivityDeepLinkInstrumentedTest {
             var activityBefore: MainActivity? = null
             scenario.onActivity { a -> activityBefore = a }
 
-            deliverWarmIntent(nearbyIntent)
+            deliverWarmIntent(scenario, nearbyIntent)
 
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
@@ -302,7 +293,7 @@ class MainActivityDeepLinkInstrumentedTest {
             var activityBefore: MainActivity? = null
             scenario.onActivity { a -> activityBefore = a }
 
-            deliverWarmIntent(compatIntent)
+            deliverWarmIntent(scenario, compatIntent)
 
             scenario.onActivity { a ->
                 assertSame("Warm compat-scheme intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
@@ -377,7 +368,7 @@ class MainActivityDeepLinkInstrumentedTest {
             scenario.onActivity { a -> activityBefore = a }
 
             // First delivery: holds the link.
-            deliverWarmIntent(jobIntent)
+            deliverWarmIntent(scenario, jobIntent)
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
                 val vm = ViewModelProvider(a)[DriverViewModel::class.java]
@@ -386,7 +377,7 @@ class MainActivityDeepLinkInstrumentedTest {
             }
 
             // Second delivery (duplicate — e.g., push received twice): must be idempotent.
-            deliverWarmIntent(jobIntent)
+            deliverWarmIntent(scenario, jobIntent)
             scenario.onActivity { a ->
                 assertSame("Duplicate warm intent must still reuse the same Activity instance", activityBefore, a)
                 val vm = ViewModelProvider(a)[DriverViewModel::class.java]
@@ -480,7 +471,7 @@ class MainActivityDeepLinkInstrumentedTest {
             scenario.onActivity { a -> activityBefore = a }
 
             // Owner A's job arrives first via warm intent.
-            deliverWarmIntent(intentA)
+            deliverWarmIntent(scenario, intentA)
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
                 val vm = ViewModelProvider(a)[DriverViewModel::class.java]
@@ -489,7 +480,7 @@ class MainActivityDeepLinkInstrumentedTest {
 
             // Owner B's job arrives (e.g., after account switch + push).
             // Routing must REPLACE the pending link, not accumulate two links.
-            deliverWarmIntent(intentB)
+            deliverWarmIntent(scenario, intentB)
             scenario.onActivity { a ->
                 assertSame("Second warm intent must still reuse the same Activity instance", activityBefore, a)
                 val vm = ViewModelProvider(a)[DriverViewModel::class.java]
@@ -522,7 +513,7 @@ class MainActivityDeepLinkInstrumentedTest {
             }
 
             // Set owner A's pending link via the real onNewIntent path.
-            deliverWarmIntent(intentA)
+            deliverWarmIntent(scenario, intentA)
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm!!.uiState.value.pendingDeepLink?.destination)
@@ -544,7 +535,7 @@ class MainActivityDeepLinkInstrumentedTest {
             }
 
             // Owner B's warm intent arrives after logout — a fresh pending link is set.
-            deliverWarmIntent(intentB)
+            deliverWarmIntent(scenario, intentB)
             scenario.onActivity { a ->
                 assertSame("Post-logout warm intent must still reuse the same Activity instance", activityBefore, a)
                 val pending = vm!!.uiState.value.pendingDeepLink
@@ -570,14 +561,14 @@ class MainActivityDeepLinkInstrumentedTest {
             var activityBefore: MainActivity? = null
             scenario.onActivity { a -> activityBefore = a }
 
-            deliverWarmIntent(intentA)
+            deliverWarmIntent(scenario, intentA)
             var pendingA: PendingDeepLinkCommand? = null
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
                 pendingA = ViewModelProvider(a)[DriverViewModel::class.java].uiState.value.pendingDeepLink
             }
 
-            deliverWarmIntent(intentB)
+            deliverWarmIntent(scenario, intentB)
             scenario.onActivity { a ->
                 assertSame("Second warm intent must still reuse the same Activity instance", activityBefore, a)
                 val pendingB = ViewModelProvider(a)[DriverViewModel::class.java].uiState.value.pendingDeepLink
@@ -603,7 +594,7 @@ class MainActivityDeepLinkInstrumentedTest {
             }
 
             // Pending link set for owner via the real onNewIntent path.
-            deliverWarmIntent(warmIntent)
+            deliverWarmIntent(scenario, warmIntent)
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm!!.uiState.value.pendingDeepLink?.destination)
@@ -760,7 +751,7 @@ class MainActivityDeepLinkInstrumentedTest {
             // Owner A delivers a job link while logged in.
             var activityBefore: MainActivity? = null
             scenario.onActivity { a -> activityBefore = a }
-            deliverWarmIntent(Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A")))
+            deliverWarmIntent(scenario, Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A")))
             scenario.onActivity { a ->
                 assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
             }
@@ -817,6 +808,7 @@ class MainActivityDeepLinkInstrumentedTest {
                 VALID_JOB_UUID_A,
                 freshResolvedId,
             )
+            scenario.moveToState(ActivityScenario.State.CREATED)
         }
     }
 
@@ -894,14 +886,14 @@ class MainActivityDeepLinkInstrumentedTest {
 
             // Deliver the first warm intent — records the commandId in the ViewModel state.
             val warmIntent = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-            deliverWarmIntent(warmIntent)
+            deliverWarmIntent(scenario, warmIntent)
             scenario.onActivity {
                 assertNotNull("First delivery must set pendingDeepLink", vm!!.uiState.value.pendingDeepLink)
                 assertEquals(VALID_JOB_UUID_A, vm!!.uiState.value.pendingDeepLink?.destination?.jobId)
             }
 
             // Deliver the exact same intent a second time (same URI → same commandId).
-            deliverWarmIntent(warmIntent)
+            deliverWarmIntent(scenario, warmIntent)
             scenario.onActivity {
                 // pendingDeepLink must still hold the same job — not cleared, not accumulated.
                 assertNotNull("Second delivery must not clear the pending link", vm!!.uiState.value.pendingDeepLink)
