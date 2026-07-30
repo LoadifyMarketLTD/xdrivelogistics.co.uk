@@ -55,22 +55,80 @@ export function KpiGrid({ children }: { children: ReactNode }) {
   return <div className="xdrive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.65rem', marginBottom: '0.9rem' }}>{children}</div>;
 }
 
-export function KpiCard({ label, value, detail, tone = 'blue', onClick, icon }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy'; onClick?: () => void; icon?: ReactNode }) {
+/** Trend / delta indicator for a KpiCard. Direction controls the arrow glyph; sentiment controls colour. */
+export type KpiTrend = {
+  /** Display text, e.g. "+12 %" or "−3". */
+  delta: string;
+  /** Arrow direction only — independent of whether the change is good or bad. */
+  direction: 'up' | 'down' | 'neutral';
+  /**
+   * Semantic presentation tone, derived from the metric's business meaning.
+   * An upward movement can be negative (e.g. overdue invoices) and a downward
+   * movement can be positive (e.g. incident count). Defaults to `'neutral'`
+   * when omitted so that callers must be explicit about good/bad.
+   */
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  /** Optional context label, e.g. "vs last month". */
+  label?: string;
+};
+
+/** Colour lookup keyed by semantic sentiment, not by arrow direction. */
+export const SENTIMENT_COLORS: Record<NonNullable<KpiTrend['sentiment']>, string> = {
+  positive: workspaceTheme.green,
+  negative: workspaceTheme.red,
+  neutral: workspaceTheme.muted,
+};
+
+export const TREND_ARROWS: Record<KpiTrend['direction'], string> = {
+  up: '↑',
+  down: '↓',
+  neutral: '→',
+};
+
+export function KpiCard({
+  label,
+  value,
+  detail,
+  tone = 'blue',
+  onClick,
+  icon,
+  trend,
+  ariaLabel,
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: ReactNode;
+  tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
+  onClick?: () => void;
+  icon?: ReactNode;
+  /** Optional trend / delta indicator shown below the value. */
+  trend?: KpiTrend;
+  /** Accessible label for the card. Defaults to the label text when omitted. */
+  ariaLabel?: string;
+}) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
   const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '98px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
       <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
         <div style={{ color: workspaceTheme.muted, fontSize: '0.64rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
-        {icon && <div style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
+        {icon && <div aria-hidden="true" style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
       </div>
       <div style={{ marginTop: '0.26rem', color: workspaceTheme.text, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.05 }}>{value}</div>
       {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.69rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
+      {trend && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
+          <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
+          <span style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.68rem', fontWeight: 800 }}>{trend.delta}</span>
+          {trend.label && <span style={{ color: workspaceTheme.muted, fontSize: '0.64rem' }}>{trend.label}</span>}
+        </div>
+      )}
     </>
   );
-  if (!onClick) return <div style={cardStyle}>{content}</div>;
-  return <button onClick={onClick} type="button" style={cardStyle}>{content}</button>;
+  if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
+  return <button aria-label={computedAriaLabel} onClick={onClick} type="button" style={cardStyle}>{content}</button>;
 }
 
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
@@ -86,16 +144,263 @@ export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { 
   return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
 }
 
-export function StatusBadge({ value, tone }: { value: string; tone?: 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' }) {
+/** Explicit tone values for StatusBadge — keyed by semantic intent, never inferred from display text. */
+export type StatusBadgeTone = 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple';
+
+type StatusBadgeColorPalette = { bg: string; color: string; border: string };
+
+/** Deterministic colour palette lookup for StatusBadge — keyed by explicit tone. */
+export const STATUS_BADGE_COLORS: Record<StatusBadgeTone, StatusBadgeColorPalette> = {
+  green:  { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' },
+  blue:   { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  orange: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  red:    { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  grey:   { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+  purple: { bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff' },
+};
+
+export function StatusBadge({ value, tone, ariaLabel }: { value: string; tone?: StatusBadgeTone; ariaLabel?: string }) {
   const normalised = String(value || 'unknown').trim().toLowerCase();
-  const resolvedTone = tone ?? (normalised.includes('delivered') || normalised.includes('completed') || normalised.includes('active') || normalised.includes('approved') || normalised === 'paid' || normalised === 'ready' ? 'green' : normalised.includes('late') || normalised.includes('overdue') || normalised.includes('failed') || normalised.includes('cancel') || normalised.includes('error') || normalised.includes('dispute') ? 'red' : normalised.includes('pending') || normalised.includes('waiting') || normalised.includes('quoted') ? 'orange' : normalised.includes('draft') ? 'grey' : 'blue');
-  const colors = { green: { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' }, blue: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }, orange: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' }, red: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' }, grey: { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' }, purple: { bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff' } }[resolvedTone];
+  const resolvedTone: StatusBadgeTone = tone ?? (normalised.includes('delivered') || normalised.includes('completed') || normalised.includes('active') || normalised.includes('approved') || normalised === 'paid' || normalised === 'ready' ? 'green' : normalised.includes('late') || normalised.includes('overdue') || normalised.includes('failed') || normalised.includes('cancel') || normalised.includes('error') || normalised.includes('dispute') ? 'red' : normalised.includes('pending') || normalised.includes('waiting') || normalised.includes('quoted') ? 'orange' : normalised.includes('draft') ? 'grey' : 'blue');
+  const colors = STATUS_BADGE_COLORS[resolvedTone];
   const label = normalised.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-  return <span style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
-export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
-  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div><div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div><h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
+/** Semantic tone values for SemanticStatusBadge — keyed by intent, never inferred from display text. */
+export type SemanticStatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+
+type SemanticStatusBadgeColorPalette = { bg: string; color: string; border: string };
+
+/** Deterministic colour palette for SemanticStatusBadge — keyed by explicit semantic tone only. */
+export const SEMANTIC_STATUS_BADGE_COLORS: Record<SemanticStatusBadgeTone, SemanticStatusBadgeColorPalette> = {
+  neutral: { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+  info:    { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  success: { bg: '#ecfdf3', color: '#166534', border: '#bbf7d0' },
+  warning: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  danger:  { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+};
+
+/**
+ * Explicit-only status badge. Presentation is derived solely from `tone`; the
+ * supplied `label` is rendered verbatim and never inspected for semantic meaning.
+ * Omitting `tone` resolves to `neutral` — never to a colour inferred from text.
+ */
+export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { label: string; tone?: SemanticStatusBadgeTone; ariaLabel?: string }) {
+  const colors = SEMANTIC_STATUS_BADGE_COLORS[tone];
+  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+}
+
+export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
+  const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
+  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
+}
+
+// ─── Standardized state primitives ──────────────────────────────────────────
+
+/** Number of skeleton lines to show in `LoadingState` when no explicit count is supplied. */
+export const LOADING_STATE_DEFAULT_ROWS = 3;
+
+/**
+ * Presentation-only loading state. Renders labelled skeleton bars and an
+ * accessible `role="status"` region. No data fetching or side-effects.
+ *
+ * @param label  Screen-reader / visible label (e.g. "Loading shipments…"). Defaults to "Loading…".
+ * @param rows   Number of skeleton content bars to render. Defaults to `LOADING_STATE_DEFAULT_ROWS`.
+ */
+export function LoadingState({ label = 'Loading\u2026', rows = LOADING_STATE_DEFAULT_ROWS }: { label?: string; rows?: number }) {
+  const safeRows = Math.max(1, rows);
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+      className="xdrive-loading-state"
+      style={{ minHeight: '160px', display: 'grid', placeItems: 'center', padding: '1.7rem' }}
+    >
+      <div style={{ width: '100%', maxWidth: '420px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem', justifyContent: 'center' }}>
+          <span
+            aria-hidden="true"
+            className="xdrive-loading-spinner"
+            style={{
+              display: 'inline-block',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              border: `3px solid ${workspaceTheme.border}`,
+              borderTopColor: workspaceTheme.blue,
+              animation: 'xdrive-spin 0.8s linear infinite',
+            }}
+          />
+          <span style={{ color: workspaceTheme.muted, fontSize: '0.78rem', fontWeight: 700 }}>{label}</span>
+        </div>
+        {Array.from({ length: safeRows }, (_, i) => (
+          <div
+            key={i}
+            className="xdrive-skeleton-bar"
+            aria-hidden="true"
+            style={{
+              height: '12px',
+              borderRadius: '6px',
+              background: workspaceTheme.surfaceMuted,
+              marginBottom: '0.5rem',
+              width: i % 2 === 0 ? '100%' : '72%',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Presentation-only error state. Caller supplies the error message explicitly;
+ * no business logic, retry mechanism, or auth session access.
+ * Optional `onRetry` renders an accessible retry button supplied by the caller.
+ * Optional `action` renders a caller-supplied ReactNode (e.g. a link) after the retry button.
+ *
+ * @param message  Required error description to display.
+ * @param onRetry  Optional retry callback. When supplied, a retry button is rendered.
+ * @param action   Optional caller-supplied ReactNode (e.g. "Go back" link). Rendered only when explicitly supplied.
+ */
+export function ErrorState({ message, onRetry, action, icon }: { message: string; onRetry?: () => void; action?: ReactNode; icon?: ReactNode }) {
+  const defaultIcon = (
+    <div
+      aria-hidden="true"
+      style={{
+        width: '38px',
+        height: '38px',
+        borderRadius: '10px',
+        background: '#fef2f2',
+        color: workspaceTheme.red,
+        display: 'grid',
+        placeItems: 'center',
+        margin: '0 auto 0.58rem',
+        fontWeight: 900,
+        fontSize: '1.1rem',
+      }}
+    >
+      !
+    </div>
+  );
+  return (
+    <div
+      role="alert"
+      className="xdrive-error-state"
+      style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}
+    >
+      <div>
+        {icon ?? defaultIcon}
+        <h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>Something went wrong</h3>
+        <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{message}</p>
+        {onRetry && (
+          <div style={{ marginTop: '0.72rem' }}>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                border: `1px solid ${workspaceTheme.border}`,
+                background: workspaceTheme.surface,
+                color: workspaceTheme.blue,
+                borderRadius: '8px',
+                padding: '0.4rem 0.9rem',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Presentation-only permission-denied state. Derives no permissions itself;
+ * caller supplies `reason` text and an optional `action` element (e.g. a link
+ * to request access). No auth session, role, company or Supabase access.
+ *
+ * @param reason  Optional explanation shown beneath the heading. Defaults to a generic message.
+ * @param action  Optional ReactNode rendered as a CTA (e.g. "Request Access" link/button).
+ */
+export type PermissionDeniedStateProps = {
+  reason?: string;
+  action?: ReactNode;
+  icon?: ReactNode;
+};
+
+export function PermissionDeniedState({ reason, action, icon }: PermissionDeniedStateProps) {
+  const defaultIcon = (
+    <div
+      aria-hidden="true"
+      style={{
+        width: '38px',
+        height: '38px',
+        borderRadius: '10px',
+        background: '#fffbeb',
+        color: workspaceTheme.amber,
+        display: 'grid',
+        placeItems: 'center',
+        margin: '0 auto 0.58rem',
+        fontWeight: 900,
+        fontSize: '1.1rem',
+      }}
+    >
+      ⊘
+    </div>
+  );
+  return (
+    <div
+      role="alert"
+      className="xdrive-permission-denied-state"
+      style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}
+    >
+      <div>
+        {icon ?? defaultIcon}
+        <h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>Access restricted</h3>
+        <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>
+          {reason ?? 'You do not have permission to view this content.'}
+        </p>
+        {action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Variant-controlled shared state primitive. `variant` alone selects ARIA semantics,
+ * visual structure and interactivity. No auth, role, company, workspace or Supabase logic.
+ *
+ * - `'loading'`    → role="status"; non-interactive skeleton; never shows an action.
+ * - `'empty'`      → caller-supplied title/description preserved verbatim; optional icon/action.
+ * - `'error'`      → role="alert"; caller message preserved verbatim; optional icon/retry/action.
+ * - `'permission'` → role="alert"; optional reason; optional icon/action; derives no permissions.
+ *
+ * Delegates to `LoadingState`, `EmptyState`, `ErrorState` or `PermissionDeniedState`; does
+ * not duplicate their visual implementations and preserves all backward-compatible exports.
+ */
+export type WorkspaceStateProps =
+  | { variant: 'loading'; label?: string; rows?: number }
+  | { variant: 'empty'; title?: string; description?: string; icon?: ReactNode; action?: ReactNode }
+  | { variant: 'error'; message: string; icon?: ReactNode; onRetry?: () => void; action?: ReactNode }
+  | { variant: 'permission'; reason?: string; icon?: ReactNode; action?: ReactNode };
+
+export function WorkspaceState(props: WorkspaceStateProps) {
+  switch (props.variant) {
+    case 'loading':
+      return <LoadingState label={props.label} rows={props.rows} />;
+    case 'empty':
+      return <EmptyState title={props.title ?? 'No records found'} description={props.description} icon={props.icon} action={props.action} />;
+    case 'error':
+      return <ErrorState message={props.message} icon={props.icon} onRetry={props.onRetry} action={props.action} />;
+    case 'permission':
+      return <PermissionDeniedState reason={props.reason} icon={props.icon} action={props.action} />;
+  }
 }
 
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
@@ -122,4 +427,246 @@ export function SettingsLayout({ navigation, activeId, onNavigate, children }: {
 
 export function FormSection({ title, description, children, actions }: { title: string; description?: string; children: ReactNode; actions?: ReactNode }) {
   return <section style={{ background: '#fff', border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', marginBottom: '0.75rem', overflow: 'hidden' }}><div style={{ padding: '0.75rem 0.85rem', borderBottom: `1px solid ${workspaceTheme.border}`, display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, fontSize: '0.9rem', color: workspaceTheme.text }}>{title}</h2>{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.7rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions}</div><div style={{ padding: '0.85rem' }}>{children}</div></section>;
+}
+
+// ─── Action Centre primitives ────────────────────────────────────────────────
+// Presentation-only; no role, company, workspace, route, permission or
+// data-fetching logic. Callers supply all data; these components only render.
+
+/** Priority levels for an Action Centre item. */
+export type ActionCentreItemPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/** Status values for an Action Centre item. */
+export type ActionCentreItemStatus = 'open' | 'in_progress' | 'resolved';
+
+/** Optional call-to-action rendered only when explicitly supplied by the caller. Exactly one action must be provided. */
+export type ActionCentreItemCta =
+  /** Link variant — renders an anchor; `onClick` must be absent. */
+  | { label: string; href: string; onClick?: never }
+  /** Button variant — renders a button; `href` must be absent. */
+  | { label: string; onClick: () => void; href?: never };
+
+/** Data contract for a single Action Centre item. Contains only display fields. */
+export type ActionCentreItem = {
+  /** Stable, unique identifier for the item (used as React key). */
+  id: string;
+  /** Primary heading text. */
+  title: string;
+  /** Optional supporting description. */
+  description?: string;
+  /** Explicit priority — presentation colour is derived from this field, not from the title text. */
+  priority: ActionCentreItemPriority;
+  /** Explicit status — presentation colour is derived from this field, not from the title text. */
+  status: ActionCentreItemStatus;
+  /** Pre-formatted due label/date string, e.g. "Due 3 Aug" or "Overdue 2d". Never parsed by the component. */
+  dueLabel?: string;
+  /** Pre-formatted entity or reference label, e.g. "Job #JB-1042" or "Invoice INV-88". */
+  entityLabel?: string;
+  /** Pre-formatted assignee label, e.g. "J. Smith". */
+  assigneeLabel?: string;
+  /** Optional CTA rendered only when explicitly supplied. */
+  cta?: ActionCentreItemCta;
+};
+
+type BadgePalette = { bg: string; color: string; border: string };
+
+/** Colour lookup for priority badges — keyed by explicit priority, never inferred from text. */
+export const ACTION_CENTRE_PRIORITY_COLORS: Record<ActionCentreItemPriority, BadgePalette> = {
+  critical: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  high:     { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  medium:   { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  low:      { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+};
+
+/** Colour lookup for status badges — keyed by explicit status, never inferred from text. */
+export const ACTION_CENTRE_STATUS_COLORS: Record<ActionCentreItemStatus, BadgePalette> = {
+  open:        { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  in_progress: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  resolved:    { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' },
+};
+
+/** Human-readable labels for priority and status fields. */
+export const ACTION_CENTRE_PRIORITY_LABELS: Record<ActionCentreItemPriority, string> = {
+  critical: 'Critical',
+  high:     'High',
+  medium:   'Medium',
+  low:      'Low',
+};
+
+export const ACTION_CENTRE_STATUS_LABELS: Record<ActionCentreItemStatus, string> = {
+  open:        'Open',
+  in_progress: 'In Progress',
+  resolved:    'Resolved',
+};
+
+/** Renders a single Action Centre item as a card. Presentation-only; no data fetching. */
+export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
+  const priorityPalette = ACTION_CENTRE_PRIORITY_COLORS[item.priority];
+  const statusPalette = ACTION_CENTRE_STATUS_COLORS[item.status];
+  const badgeBase: CSSProperties = { display: 'inline-flex', alignItems: 'center', borderRadius: '999px', padding: '0.16rem 0.42rem', fontSize: '0.62rem', fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid' };
+  return (
+    <article
+      aria-label={item.title}
+      style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.78rem 0.85rem', boxShadow: compactShadow, position: 'relative', overflow: 'hidden' }}
+    >
+      <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: priorityPalette.color }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0, flex: '1 1 0' }}>
+          <div style={{ color: workspaceTheme.text, fontSize: '0.8rem', fontWeight: 750, lineHeight: 1.35 }}>{item.title}</div>
+          {item.description && <div style={{ color: workspaceTheme.muted, fontSize: '0.7rem', marginTop: '0.22rem', lineHeight: 1.4 }}>{item.description}</div>}
+        </div>
+        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+          <span style={{ ...badgeBase, background: priorityPalette.bg, color: priorityPalette.color, borderColor: priorityPalette.border }}>{ACTION_CENTRE_PRIORITY_LABELS[item.priority]}</span>
+          <span style={{ ...badgeBase, background: statusPalette.bg, color: statusPalette.color, borderColor: statusPalette.border }}>{ACTION_CENTRE_STATUS_LABELS[item.status]}</span>
+        </div>
+      </div>
+      {(item.dueLabel || item.entityLabel || item.assigneeLabel) && (
+        <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
+          {item.entityLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>{item.entityLabel}</span>}
+          {item.dueLabel && <span style={{ color: workspaceTheme.amber, fontSize: '0.65rem', fontWeight: 700 }}>{item.dueLabel}</span>}
+          {item.assigneeLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>→ {item.assigneeLabel}</span>}
+        </div>
+      )}
+      {item.cta && (
+        <div style={{ marginTop: '0.55rem' }}>
+          {item.cta.href ? (
+            <a href={item.cta.href} style={{ color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, textDecoration: 'none' }}>{item.cta.label} →</a>
+          ) : (
+            <button type="button" onClick={item.cta.onClick} style={{ background: 'none', border: 'none', padding: 0, color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}>{item.cta.label} →</button>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Renders a list of Action Centre items. Handles empty state. Presentation-only; no data fetching. */
+export function ActionCentreList({ items, empty }: { items: ActionCentreItem[]; empty?: ReactNode }) {
+  if (items.length === 0) return <>{empty ?? <EmptyState title="No action items" description="There are no outstanding action items at this time." />}</>;
+  return (
+    <div style={{ display: 'grid', gap: '0.5rem' }}>
+      {items.map((item) => <ActionCentreItemCard key={item.id} item={item} />)}
+    </div>
+  );
+}
+
+// ─── Operational Table primitives ────────────────────────────────────────────
+// Presentation-only reusable typed table contract. Callers supply typed rows,
+// column definitions, cell renderers and stable row keys. No role, company,
+// permission, status-colour mapping, sorting, filtering or data-fetching logic.
+
+/** Horizontal alignment for an OperationalTable column. */
+export type OperationalTableAlign = 'left' | 'center' | 'right';
+
+/** Definition for a single column in an OperationalTable. */
+export type OperationalTableColumn<TRow> = {
+  /** Stable unique id for the column (used as React key). */
+  id: string;
+  /** Header text rendered inside `<th scope="col">`. */
+  header: string;
+  /** Render function returning the cell content for a given row. Returns only caller-supplied content. */
+  cell: (row: TRow) => ReactNode;
+  /** Horizontal alignment of the column header and cells. Defaults to `'left'`. */
+  align?: OperationalTableAlign;
+  /** Optional CSS width hint applied to the column, e.g. `'120px'` or `'10%'`. */
+  width?: string;
+};
+
+/** Props for OperationalTable. */
+export type OperationalTableProps<TRow> = {
+  /** Column definitions in the order they should appear. */
+  columns: OperationalTableColumn<TRow>[];
+  /** Rows of caller-supplied authorised data to render. */
+  rows: TRow[];
+  /** Returns a stable unique key string for each row. Must not use the row index. */
+  getRowKey: (row: TRow) => string;
+  /** Optional accessible `<caption>` text for the table. */
+  caption?: string;
+  /** Custom empty-table content. Defaults to a standard empty-state message. */
+  empty?: ReactNode;
+};
+
+/** Reusable, accessible, presentation-only operational data table. */
+export function OperationalTable<TRow>({
+  columns,
+  rows,
+  getRowKey,
+  caption,
+  empty,
+}: OperationalTableProps<TRow>) {
+  if (rows.length === 0) {
+    return <>{empty ?? <EmptyState title="No records found" />}</>;
+  }
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          minWidth: `${Math.max(columns.length * 138, 440)}px`,
+        }}
+      >
+        {caption && (
+          <caption
+            style={{
+              captionSide: 'top',
+              textAlign: 'left',
+              padding: '0 0 0.45rem',
+              color: workspaceTheme.muted,
+              fontSize: '0.7rem',
+            }}
+          >
+            {caption}
+          </caption>
+        )}
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col.id}
+                scope="col"
+                style={{
+                  textAlign: col.align ?? 'left',
+                  padding: '0.58rem 0.65rem',
+                  color: '#475569',
+                  fontSize: '0.62rem',
+                  fontWeight: 850,
+                  letterSpacing: '0.045em',
+                  textTransform: 'uppercase' as CSSProperties['textTransform'],
+                  borderBottom: `1px solid ${workspaceTheme.border}`,
+                  background: workspaceTheme.surfaceSoft,
+                  position: 'sticky' as CSSProperties['position'],
+                  top: 0,
+                  ...(col.width ? { width: col.width } : {}),
+                }}
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={getRowKey(row)} className="xdrive-table-row">
+              {columns.map((col) => (
+                <td
+                  key={col.id}
+                  style={{
+                    padding: '0.65rem',
+                    color: workspaceTheme.text,
+                    fontSize: '0.74rem',
+                    borderBottom: '1px solid #edf2f7',
+                    verticalAlign: 'middle',
+                    textAlign: col.align ?? 'left',
+                  }}
+                >
+                  {col.cell(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
