@@ -66,7 +66,7 @@ BEGIN
 
     INSERT INTO public.company_memberships (company_id, user_id, invited_email, role_in_company, status, updated_at)
     VALUES (v_company_id, v_app.user_id, v_app.email, 'owner', 'active', now())
-    ON CONFLICT (company_id, user_id)
+    ON CONFLICT ON CONSTRAINT company_memberships_company_id_user_id_key
     DO UPDATE SET invited_email = EXCLUDED.invited_email,
                   role_in_company = EXCLUDED.role_in_company,
                   status = 'active',
