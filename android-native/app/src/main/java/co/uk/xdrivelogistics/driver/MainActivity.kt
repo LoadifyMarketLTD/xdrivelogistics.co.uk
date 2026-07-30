@@ -391,6 +391,27 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
 
+    /**
+     * Test-only entry point that delivers [intent] to [onNewIntent] on the calling thread
+     * without crossing the [android.app.Instrumentation] framework boundary.
+     *
+     * [android.app.Instrumentation.callActivityOnNewIntent] and
+     * [android.content.Context.startActivity] both route through ActivityManager, which
+     * pauses the scenario-owned activity during dispatch. Under Android 14, this leaves
+     * the [androidx.test.core.app.ActivityScenario]-tracked instance permanently PAUSED,
+     * causing [androidx.test.core.app.ActivityScenario.close] to time out waiting for
+     * DESTROYED. Calling [onNewIntent] directly (via this method, invoked inside
+     * [androidx.test.core.app.ActivityScenario.onActivity]) keeps the activity in RESUMED
+     * throughout, so close() follows the normal RESUMED→PAUSED→STOPPED→DESTROYED path.
+     *
+     * Must only be called from within [androidx.test.core.app.ActivityScenario.onActivity]
+     * so the dispatch runs on the main thread, matching production behaviour.
+     */
+    @VisibleForTesting
+    internal fun dispatchNewIntentForTesting(intent: Intent) {
+        onNewIntent(intent)
+    }
+
     private fun handleIncomingIntent(intent: Intent?) {
         val data = intent?.data ?: return
         val destination = XDriveDeepLink.parse(data)

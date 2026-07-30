@@ -28,28 +28,27 @@ import org.junit.runner.RunWith
  * Unlike the parser-only [DeepLinkIntentInstrumentedTest], these tests exercise the
  * complete Activity lifecycle routing path:
  *   - cold-start: [MainActivity.onCreate] → `handleIncomingIntent` → [DriverViewModel.handleDeepLink]
- *   - warm-start: [MainActivity.onNewIntent] delivered via real Android [android.content.Context.startActivity]
- *     with [Intent.FLAG_ACTIVITY_SINGLE_TOP] — [MainActivity] is declared `singleTop` in the manifest
+ *   - warm-start: [MainActivity.onNewIntent] delivered via [MainActivity.dispatchNewIntentForTesting]
  *   - recreation: [ActivityScenario.recreate] retains the ViewModel; `onCreate` re-delivers idempotently
  *   - logout/owner-clear: [DriverViewModel.logout] exercises the production session-clear path
  *
  * State assertions are made synchronously within [ActivityScenario.onActivity] blocks on the
- * main thread. Warm-intent delivery calls [android.content.Activity.startActivity] with
- * [Intent.FLAG_ACTIVITY_SINGLE_TOP] from within [ActivityScenario.onActivity]. Because
- * [MainActivity] is declared `android:launchMode="singleTop"` in the manifest, the Android
- * framework delivers the intent to the existing instance via [MainActivity.onNewIntent] without
- * creating a new one. The activity remains RESUMED throughout the delivery, so
- * [ActivityScenario.close] can follow the normal RESUMED→PAUSED→STOPPED→DESTROYED path without
- * interference. [android.app.Instrumentation.waitForIdleSync] after the delivery drains all
- * pending main-thread work (including the [MainActivityDeepLinkInstrumentedTest] Binder
- * callback that schedules `onNewIntent`) before assertions run.
+ * main thread. Warm-intent delivery uses [MainActivity.dispatchNewIntentForTesting] from within
+ * [ActivityScenario.onActivity] to invoke the real production [MainActivity.onNewIntent] directly
+ * on the main thread — this avoids both [android.content.Context.startActivity] with
+ * [Intent.FLAG_ACTIVITY_NEW_TASK] (which can launch a second [MainActivity] in a new task) and
+ * [android.app.Instrumentation.callActivityOnNewIntent] (which crosses the instrumentation
+ * framework boundary and interferes with [ActivityScenario] lifecycle ownership under Android 14,
+ * leaving the scenario-tracked instance permanently PAUSED and causing [ActivityScenario.close]
+ * to time out waiting for DESTROYED). [android.app.Instrumentation.waitForIdleSync] after the
+ * delivery ensures async Compose/Coroutine state settles before assertions run.
  *
  * Coverage:
  * 1. Cold-start ACTION_VIEW: job link held as [DriverUiState.pendingDeepLink] by the
  *    production [MainActivity.onCreate] → `handleIncomingIntent` code path; safe interim tab = MESSAGES.
  * 2. Cold-start non-job links (Messages, Nearby, Profile): route immediately, no pending hold.
- * 3. Warm-start via real Android singleTop delivery: job and non-job intents are processed
- *    through the production [MainActivity.onNewIntent] path via the Android framework.
+ * 3. Warm-start via [MainActivity.dispatchNewIntentForTesting]: job and
+ *    non-job intents are processed through the production [MainActivity.onNewIntent] path.
  * 4. Activity recreation ([ActivityScenario.recreate]): ViewModel retained; routing state is
  *    idempotent — the same intent is re-delivered to `onCreate` and produces the same state.
  * 5. Duplicate warm intents: one-shot idempotent hold — the same job destination is held,
@@ -120,26 +119,27 @@ class MainActivityDeepLinkInstrumentedTest {
     }
 
     /**
-     * Deliver a warm intent to the exact [MainActivity] owned by [scenario] via the real
-     * Android [android.content.Context.startActivity] + [Intent.FLAG_ACTIVITY_SINGLE_TOP] path.
+     * Deliver a warm intent to the exact [MainActivity] owned by [scenario] via
+     * [MainActivity.dispatchNewIntentForTesting].
      *
-     * [MainActivity] is declared `android:launchMode="singleTop"` in the manifest. When
-     * [startActivity] is called with [Intent.FLAG_ACTIVITY_SINGLE_TOP] and the activity is
-     * already at the top of the task, the Android framework delivers the intent directly to
-     * the existing instance via [MainActivity.onNewIntent] without creating a new instance.
-     * The activity remains RESUMED throughout the delivery — [ActivityScenario.close] can
-     * therefore follow the normal RESUMED→PAUSED→STOPPED→DESTROYED path without interference.
+     * Accepts the owning [ActivityScenario] so that [onNewIntent] is delivered to the
+     * exact instance tracked by the scenario. [MainActivity.dispatchNewIntentForTesting]
+     * calls the real production [MainActivity.onNewIntent] directly on the activity instance,
+     * without going through the [android.app.Instrumentation] framework callback boundary or
+     * ActivityManager. This avoids the teardown interference that
+     * [android.app.Instrumentation.callActivityOnNewIntent] and
+     * [android.content.Context.startActivity] cause under Android 14: both routes briefly
+     * pause the scenario-owned activity via ActivityManager, leaving it permanently PAUSED
+     * and causing [ActivityScenario.close] to time out waiting for DESTROYED.
      *
-     * [scenario.onActivity] is used to call [startActivity] on the main thread so that the
-     * intent is dispatched from within the activity's own context (no [Intent.FLAG_ACTIVITY_NEW_TASK]
-     * required). The [android.app.Instrumentation.waitForIdleSync] call after [onActivity]
-     * returns drains the main-thread queue — which by then includes the Binder-scheduled
-     * `onNewIntent` callback — so routing is complete before any assertion runs.
+     * [scenario.onActivity] runs the block on the main thread and blocks the instrumentation
+     * thread until it completes, so routing is synchronous before any assertion.
+     * [android.app.Instrumentation.waitForIdleSync] after [onActivity] returns lets
+     * Compose/coroutine state settle before assertions run.
      */
     private fun deliverWarmIntent(scenario: ActivityScenario<MainActivity>, intent: Intent) {
-        val deliveryIntent = Intent(intent).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         scenario.onActivity { activity ->
-            activity.startActivity(deliveryIntent)
+            activity.dispatchNewIntentForTesting(intent)
         }
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
     }
