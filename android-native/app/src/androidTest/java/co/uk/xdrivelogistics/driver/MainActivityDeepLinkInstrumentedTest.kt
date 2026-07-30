@@ -1,7 +1,6 @@
 package co.uk.xdrivelogistics.driver
 
 import android.Manifest
-import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -10,11 +9,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
-import co.uk.xdrivelogistics.driver.data.DriverSession
-import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -30,43 +26,43 @@ import org.junit.runner.RunWith
  *
  * Unlike the parser-only [DeepLinkIntentInstrumentedTest], these tests exercise the
  * complete Activity lifecycle routing path:
- *   - cold-start: [MainActivity.onCreate] → `handleIncomingIntent` → [DriverViewModel.handleDeepLink]
- *   - warm-start: [MainActivity.onNewIntent] delivered via [MainActivity.dispatchNewIntentForTesting]
+ *   - cold-start: [MainActivity.onCreate] → `routeIncomingIntent` → [DriverViewModel.handleDeepLink]
+ *   - warm-start: [MainActivity.routeIncomingIntentForTesting] — exercises the production routing
+ *     logic without going through [android.app.Activity.onNewIntent] or ActivityManager, keeping
+ *     the scenario-owned instance in RESUMED and allowing [ActivityScenario.close] to complete.
  *   - recreation: [ActivityScenario.recreate] retains the ViewModel; `onCreate` re-delivers idempotently
  *   - logout/owner-clear: [DriverViewModel.logout] exercises the production session-clear path
  *
+ * Pure routing and session-state tests (deduplication, owner epoch, logout isolation, pending-link
+ * replacement) that do not require Activity lifecycle are covered in [DriverViewModelDeepLinkTest].
+ *
  * State assertions are made synchronously within [ActivityScenario.onActivity] blocks on the
- * main thread. Warm-intent delivery uses [MainActivity.dispatchNewIntentForTesting] from within
- * [ActivityScenario.onActivity] to invoke the real production [MainActivity.onNewIntent] directly
- * on the main thread — this avoids both [android.content.Context.startActivity] with
- * [Intent.FLAG_ACTIVITY_NEW_TASK] (which can launch a second [MainActivity] in a new task) and
- * [android.app.Instrumentation.callActivityOnNewIntent] (which crosses the instrumentation
- * framework boundary and interferes with [ActivityScenario] lifecycle ownership under Android 14,
- * leaving the scenario-tracked instance permanently PAUSED and causing [ActivityScenario.close]
- * to time out waiting for DESTROYED). [android.app.Instrumentation.waitForIdleSync] after the
- * delivery ensures async Compose/Coroutine state settles before assertions run.
+ * main thread. Warm-intent delivery uses [MainActivity.routeIncomingIntentForTesting] from within
+ * [ActivityScenario.onActivity] to invoke only the production routing logic — not the lifecycle
+ * callback — on the main thread. This avoids both [android.content.Context.startActivity] with
+ * [Intent.FLAG_ACTIVITY_NEW_TASK] (which can launch a second [MainActivity]) and
+ * [android.app.Instrumentation.callActivityOnNewIntent] or direct [android.app.Activity.onNewIntent]
+ * invocation (which both cross the ActivityManager boundary and interfere with
+ * [ActivityScenario] lifecycle ownership under Android 14, leaving the scenario-tracked instance
+ * permanently PAUSED and causing [ActivityScenario.close] to time out waiting for DESTROYED).
+ * [composeTestRule.waitForIdle] after delivery ensures async Compose/Coroutine state settles
+ * before assertions run.
  *
  * Coverage:
  * 1. Cold-start ACTION_VIEW: job link held as [DriverUiState.pendingDeepLink] by the
- *    production [MainActivity.onCreate] → `handleIncomingIntent` code path; safe interim tab = MESSAGES.
+ *    production [MainActivity.onCreate] → `routeIncomingIntent` code path; safe interim tab = MESSAGES.
  * 2. Cold-start non-job links (Messages, Nearby, Profile): route immediately, no pending hold.
- * 3. Warm-start via [MainActivity.dispatchNewIntentForTesting]: job and
- *    non-job intents are processed through the production [MainActivity.onNewIntent] path.
+ * 3. Warm-start via [MainActivity.routeIncomingIntentForTesting]: job and
+ *    non-job intents are processed through the production routing path.
  * 4. Activity recreation ([ActivityScenario.recreate]): ViewModel retained; routing state is
  *    idempotent — the same intent is re-delivered to `onCreate` and produces the same state.
- * 5. Duplicate warm intents: one-shot idempotent hold — the same job destination is held,
- *    not accumulated.
- * 6. Malformed/unknown/bare URIs: Activity launches without crash; parser returns Messages.
- * 7. A→B owner isolation: after [DriverViewModel.logout], owner A's pending link is rejected
- *    by [resolvePendingDeepLink] (no session); owner B's warm intent then sets a fresh link.
- * 8. Logout/owner-clear: [DriverViewModel.logout] is the production clear path; the routing
- *    coordinator [resolvePendingDeepLink] returns null on the actual post-logout ViewModel state.
- * 9. Stale/unassigned job via [DriverViewModel.selectJobIfAssigned]: without a session,
+ * 5. Malformed/unknown/bare URIs: Activity launches without crash; parser returns Messages.
+ * 6. Stale/unassigned job via [DriverViewModel.selectJobIfAssigned]: without a session,
  *    routing falls through to the Messages tab.
- * 10. ViewModel is always accessible from the Activity's ViewModelStore; the Activity
- *     correctly wires [MainActivity.viewModels] to the Kotlin delegate.
- * 12. One-shot deduplication: the same intent URI (same commandId) cannot execute twice —
- *     [DriverUiState.consumedCommandIds] blocks re-delivery both before and after jobs load.
+ * 7. ViewModel is always accessible from the Activity's ViewModelStore; the Activity
+ *    correctly wires [MainActivity.viewModels] to the Kotlin delegate.
+ * 8. One-shot deduplication (recreation): the same intent URI (same commandId) is idempotent
+ *    after Activity recreation via [ActivityScenario.recreate].
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivityDeepLinkInstrumentedTest {
@@ -110,32 +106,6 @@ class MainActivityDeepLinkInstrumentedTest {
     }
 
     /**
-     * Poll [condition] until it returns true or [timeoutMs] elapses. Returns whether the
-     * condition was met. Runs on the instrumentation thread (NOT the main thread) so it is
-     * safe to read [DriverViewModel.uiState] which is a [kotlinx.coroutines.flow.StateFlow].
-     */
-    private fun awaitCondition(timeoutMs: Long = 5_000L, condition: () -> Boolean): Boolean {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            if (condition()) return true
-            Thread.sleep(50)
-        }
-        return false
-    }
-
-    /**
-     * Install [DriverViewModelFactory] with a [FakeSessionRepository] and
-     * [skipDataRefreshForTesting=true] as [MainActivity.testViewModelFactory]. Call before
-     * launching any Activity that should use the fake store.
-     */
-    private fun installFakeFactory(fakeSession: FakeSessionRepository): DriverViewModelFactory =
-        DriverViewModelFactory(
-            ApplicationProvider.getApplicationContext<Application>(),
-            fakeSession,
-            skipDataRefreshForTesting = true,
-        ).also { MainActivity.testViewModelFactory = it }
-
-    /**
      * Launch [MainActivity] with an ACTION_VIEW deep-link intent.
      * Proves the Activity starts without crashing when given the specified URI.
      */
@@ -152,17 +122,14 @@ class MainActivityDeepLinkInstrumentedTest {
 
     /**
      * Deliver a warm intent to the exact [MainActivity] owned by [scenario] via
-     * [MainActivity.dispatchNewIntentForTesting].
+     * [MainActivity.routeIncomingIntentForTesting].
      *
-     * Accepts the owning [ActivityScenario] so that [onNewIntent] is delivered to the
-     * exact instance tracked by the scenario. [MainActivity.dispatchNewIntentForTesting]
-     * calls the real production [MainActivity.onNewIntent] directly on the activity instance,
-     * without going through the [android.app.Instrumentation] framework callback boundary or
-     * ActivityManager. This avoids the teardown interference that
-     * [android.app.Instrumentation.callActivityOnNewIntent] and
-     * [android.content.Context.startActivity] cause under Android 14: both routes briefly
-     * pause the scenario-owned activity via ActivityManager, leaving it permanently PAUSED
-     * and causing [ActivityScenario.close] to time out waiting for DESTROYED.
+     * Accepts the owning [ActivityScenario] so that routing is applied to the exact instance
+     * tracked by the scenario. [MainActivity.routeIncomingIntentForTesting] calls only the
+     * private [MainActivity.routeIncomingIntent] routing function — it does NOT call
+     * [android.app.Activity.onNewIntent] or [super.onNewIntent], which would notify
+     * ActivityManager and leave the scenario-tracked instance in an indeterminate lifecycle
+     * state under Android 14, causing [ActivityScenario.close] to time out waiting for DESTROYED.
      *
      * [scenario.onActivity] runs the block on the main thread and blocks the instrumentation
      * thread until it completes, so routing is synchronous before any assertion.
@@ -173,7 +140,7 @@ class MainActivityDeepLinkInstrumentedTest {
      */
     private fun deliverWarmIntent(scenario: ActivityScenario<MainActivity>, intent: Intent) {
         scenario.onActivity { activity ->
-            activity.dispatchNewIntentForTesting(intent)
+            activity.routeIncomingIntentForTesting(intent)
         }
         composeTestRule.waitForIdle()
     }
@@ -189,7 +156,7 @@ class MainActivityDeepLinkInstrumentedTest {
     @Test
     fun coldStartJobLinkHeldAsPendingDeepLinkByProductionViewModel() {
         // Observe the production DriverViewModel from the Activity's ViewModelStore and
-        // assert the state produced by MainActivity.onCreate → handleIncomingIntent directly.
+        // assert the state produced by MainActivity.onCreate → routeIncomingIntent directly.
         // No vm.handleDeepLink() call in the test body — the Activity's onCreate already
         // invoked it; we observe its result here.
         launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
@@ -225,7 +192,7 @@ class MainActivityDeepLinkInstrumentedTest {
 
     @Test
     fun coldStartNotificationLinkRoutesToMessagesImmediately() {
-        // onCreate → handleIncomingIntent → handleDeepLink(Messages) routes immediately.
+        // onCreate → routeIncomingIntent → handleDeepLink(Messages) routes immediately.
         launchWithDeepLink("xdrivedriver://notification").use { scenario ->
             scenario.onActivity { activity ->
                 val vm = ViewModelProvider(activity)[DriverViewModel::class.java]
@@ -333,7 +300,7 @@ class MainActivityDeepLinkInstrumentedTest {
     @Test
     fun recreationPreservesPendingJobLinkIdempotently() {
         launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
-            // Before recreation: assert state produced by the first onCreate → handleIncomingIntent.
+            // Before recreation: assert state produced by the first onCreate → routeIncomingIntent.
             scenario.onActivity { activity ->
                 val vm = ViewModelProvider(activity)[DriverViewModel::class.java]
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
@@ -344,7 +311,7 @@ class MainActivityDeepLinkInstrumentedTest {
             scenario.recreate()
 
             // After recreation: the ViewModel is retained and the recreated Activity's
-            // onCreate re-delivers the same intent via handleIncomingIntent — idempotent.
+            // onCreate re-delivers the same intent via routeIncomingIntent — idempotent.
             // Assert the actual retained ViewModel state without re-applying the destination.
             scenario.onActivity { activity ->
                 val vm = ViewModelProvider(activity)[DriverViewModel::class.java]
@@ -384,38 +351,7 @@ class MainActivityDeepLinkInstrumentedTest {
 
     // ── 5. Duplicate warm intents — one-shot idempotent hold ─────────────────
 
-    @Test
-    fun duplicateWarmJobIntentsAreHandledIdempotently() {
-        val jobIntent = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var activityBefore: MainActivity? = null
-            scenario.onActivity { a -> activityBefore = a }
-
-            // First delivery: holds the link.
-            deliverWarmIntent(scenario, jobIntent)
-            scenario.onActivity { a ->
-                assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
-                val vm = ViewModelProvider(a)[DriverViewModel::class.java]
-                assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
-                assertEquals(DriverTab.MESSAGES, vm.uiState.value.selectedTab)
-            }
-
-            // Second delivery (duplicate — e.g., push received twice): must be idempotent.
-            deliverWarmIntent(scenario, jobIntent)
-            scenario.onActivity { a ->
-                assertSame("Duplicate warm intent must still reuse the same Activity instance", activityBefore, a)
-                val vm = ViewModelProvider(a)[DriverViewModel::class.java]
-                assertEquals(
-                    "Duplicate warm intent must not change pending link",
-                    DeepLinkDestination.Job(VALID_JOB_UUID_A),
-                    vm.uiState.value.pendingDeepLink?.destination,
-                )
-                assertEquals(DriverTab.MESSAGES, vm.uiState.value.selectedTab)
-            }
-        }
-    }
-
-    // ── 6. Malformed/unknown/bare URIs — Activity launches safely ────────────
+    // ── 5. Malformed/unknown/bare URIs — Activity launches safely ────────────
 
     @Test
     fun malformedBareUriLaunchesActivityWithoutCrash() {
@@ -481,162 +417,7 @@ class MainActivityDeepLinkInstrumentedTest {
         }
     }
 
-    // ── 7. A→B owner isolation — logout clears owner A's link; owner B gets a fresh start ──
-
-    @Test
-    fun ownerTransitionReplacesExistingPendingDeepLink() {
-        // Proves that when owner B's job intent arrives, it replaces (does not accumulate)
-        // owner A's pending link via the production applyJobDeepLinkToState code path.
-        val intentA = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-        val intentB = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_B"))
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var activityBefore: MainActivity? = null
-            scenario.onActivity { a -> activityBefore = a }
-
-            // Owner A's job arrives first via warm intent.
-            deliverWarmIntent(scenario, intentA)
-            scenario.onActivity { a ->
-                assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
-                val vm = ViewModelProvider(a)[DriverViewModel::class.java]
-                assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
-            }
-
-            // Owner B's job arrives (e.g., after account switch + push).
-            // Routing must REPLACE the pending link, not accumulate two links.
-            deliverWarmIntent(scenario, intentB)
-            scenario.onActivity { a ->
-                assertSame("Second warm intent must still reuse the same Activity instance", activityBefore, a)
-                val vm = ViewModelProvider(a)[DriverViewModel::class.java]
-                assertEquals(
-                    "Owner B's job must replace owner A's pending link — no accumulation",
-                    DeepLinkDestination.Job(VALID_JOB_UUID_B),
-                    vm.uiState.value.pendingDeepLink?.destination,
-                )
-            }
-        }
-    }
-
-    @Test
-    fun logoutClearsOwnerALinkSoOwnerBGetsAFreshPendingSlot() {
-        // Proves the full A→B owner transition through the production logout path:
-        // 1. Owner A's job is set as pendingDeepLink via warm intent.
-        // 2. vm.logout() is called (production path) — the session-clear coroutine clears state.
-        // 3. After logout, resolvePendingDeepLink on the actual ViewModel state returns null
-        //    (session guard prevents stale routing even before the async DataStore clear).
-        // 4. Owner B's warm intent then sets a fresh pending link.
-        val intentA = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-        val intentB = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_B"))
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var vm: DriverViewModel? = null
-            var activityBefore: MainActivity? = null
-            scenario.onActivity { a ->
-                activityBefore = a
-                vm = ViewModelProvider(a)[DriverViewModel::class.java]
-            }
-
-            // Set owner A's pending link via the real onNewIntent path.
-            deliverWarmIntent(scenario, intentA)
-            scenario.onActivity { a ->
-                assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
-                assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm!!.uiState.value.pendingDeepLink?.destination)
-            }
-
-            // Trigger the production logout path on the main thread.
-            scenario.onActivity { _ -> vm!!.logout() }
-
-            // After logout, the routing coordinator must not route owner A's stale job.
-            // resolvePendingDeepLink returns null when session == null (unauthenticated guard),
-            // proving the stale link is inert regardless of whether the async DataStore
-            // clear has completed.
-            scenario.onActivity { _ ->
-                val (_, resolvedId) = resolvePendingDeepLink(vm!!.uiState.value)
-                assertNull(
-                    "After logout, resolvePendingDeepLink must not route owner A's stale job",
-                    resolvedId,
-                )
-            }
-
-            // Owner B's warm intent arrives after logout — a fresh pending link is set.
-            deliverWarmIntent(scenario, intentB)
-            scenario.onActivity { a ->
-                assertSame("Post-logout warm intent must still reuse the same Activity instance", activityBefore, a)
-                val pending = vm!!.uiState.value.pendingDeepLink
-                assertEquals(
-                    "Owner B's job must be held as a fresh pending link after owner A's logout",
-                    DeepLinkDestination.Job(VALID_JOB_UUID_B),
-                    pending?.destination,
-                )
-                assertFalse(
-                    "Owner B's pending link must not equal owner A's stale UUID",
-                    pending?.destination == DeepLinkDestination.Job(VALID_JOB_UUID_A),
-                )
-            }
-        }
-    }
-
-    @Test
-    fun differentJobIdsParseThroughActivityToNonEqualDestinations() {
-        val intentA = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-        val intentB = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_B"))
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var activityBefore: MainActivity? = null
-            scenario.onActivity { a -> activityBefore = a }
-
-            deliverWarmIntent(scenario, intentA)
-            var pendingA: PendingDeepLinkCommand? = null
-            scenario.onActivity { a ->
-                assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
-                pendingA = ViewModelProvider(a)[DriverViewModel::class.java].uiState.value.pendingDeepLink
-            }
-
-            deliverWarmIntent(scenario, intentB)
-            scenario.onActivity { a ->
-                assertSame("Second warm intent must still reuse the same Activity instance", activityBefore, a)
-                val pendingB = ViewModelProvider(a)[DriverViewModel::class.java].uiState.value.pendingDeepLink
-                assertFalse("Different job UUIDs must produce non-equal pending destinations", pendingA == pendingB)
-                assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), pendingA?.destination)
-                assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_B), pendingB?.destination)
-            }
-        }
-    }
-
-    // ── 8. Logout/owner-clear — production vm.logout() path ─────────────────
-
-    @Test
-    fun logoutClearsPendingDeepLinkFromPreviousOwner() {
-        val warmIntent = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var vm: DriverViewModel? = null
-            var activityBefore: MainActivity? = null
-            scenario.onActivity { a ->
-                activityBefore = a
-                vm = ViewModelProvider(a)[DriverViewModel::class.java]
-            }
-
-            // Pending link set for owner via the real onNewIntent path.
-            deliverWarmIntent(scenario, warmIntent)
-            scenario.onActivity { a ->
-                assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
-                assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm!!.uiState.value.pendingDeepLink?.destination)
-            }
-
-            // Exercise the production logout path.
-            scenario.onActivity { _ -> vm!!.logout() }
-
-            // Assert on the actual ViewModel state (not a manually constructed copy).
-            // resolvePendingDeepLink returns null: the null-session guard prevents stale routing
-            // after logout, whether or not the async DataStore clear has completed yet.
-            scenario.onActivity { _ ->
-                val (_, resolvedId) = resolvePendingDeepLink(vm!!.uiState.value)
-                assertNull(
-                    "After vm.logout(), resolvePendingDeepLink must not route a stale job from the previous owner",
-                    resolvedId,
-                )
-            }
-        }
-    }
-
-    // ── 9. Stale/unassigned job — selectJobIfAssigned falls through to Messages ─
+    // ── 6. Stale/unassigned job — selectJobIfAssigned falls through to Messages ─
 
     @Test
     fun staleJobIdWithoutSessionFallsToMessagesViaSelectJobIfAssigned() {
@@ -678,256 +459,12 @@ class MainActivityDeepLinkInstrumentedTest {
         }
     }
 
-    // ── 11. Auth-epoch / A→B owner isolation (FakeSessionRepository + skipDataRefresh) ──
-    //
-    // These tests use an in-memory FakeSessionRepository and skip live API calls so that
-    // session transitions are deterministic and do not depend on network availability.
-    // The FakeSessionRepository emits session changes synchronously on the Kotlin main-thread
-    // dispatcher, making state transitions observable after awaitCondition() returns.
-    //
-    // The tests prove:
-    // a. [DriverViewModel.authEpoch] advances after logout/session-null.
-    // b. A [PendingDeepLinkCommand] holds the authEpoch at capture time.
-    // c. [resolvePendingDeepLink] on the post-logout (epoch N+1) state rejects a command
-    //    that was captured at epoch N.
-    // d. A new owner (B) who logs in after A has logged out can only process commands
-    //    that were captured under the new epoch, not under A's epoch.
-
-    @Test
-    fun authEpochAdvancesAfterLogoutAndPendingLinkIsCleared() {
-        val fake = FakeSessionRepository()
-        installFakeFactory(fake)
-
-        launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
-            var vm: DriverViewModel? = null
-
-            scenario.onActivity { activity ->
-                vm = ViewModelProvider(activity)[DriverViewModel::class.java]
-            }
-
-            // After the null-session reset + onCreate handleDeepLink, epoch is ≥ 1
-            // and the pending link is held for the current epoch.
-            val pendingAfterColdStart = vm!!.uiState.value.pendingDeepLink
-            assertNotNull("Cold-start link must be held as PendingDeepLinkCommand", pendingAfterColdStart)
-            assertEquals(
-                "Command destination must match the cold-start job UUID",
-                DeepLinkDestination.Job(VALID_JOB_UUID_A),
-                pendingAfterColdStart?.destination,
-            )
-            val epochAtColdStart = vm!!.uiState.value.authEpoch
-            assertEquals(
-                "Command epoch must match the state epoch at capture time",
-                epochAtColdStart,
-                pendingAfterColdStart?.authEpoch,
-            )
-
-            // Owner A logs in: FakeSessionRepository emits synchronously → ViewModel
-            // observes session, marks isAuthenticated = true, then (skipDataRefresh) calls
-            // processPendingDeepLinkIfReady which consumes the pending link.
-            runBlocking { fake.saveSession(DriverSession("tok-a", "ref-a", "owner-a", "a@test.co.uk")) }
-            val aAuthenticated = awaitCondition(5_000) { vm!!.uiState.value.isAuthenticated }
-            assertTrue("ViewModel must become authenticated after owner A session write", aAuthenticated)
-
-            // Pending link consumed (routed to Messages because jobs list is empty in test mode).
-            val pendingAfterALogin = awaitCondition(5_000) { vm!!.uiState.value.pendingDeepLink == null }
-            assertTrue("Pending link must be consumed after owner A authenticates", pendingAfterALogin)
-            val epochDuringA = vm!!.uiState.value.authEpoch
-            assertEquals("Epoch must not change on login (only on logout/owner-change)", epochAtColdStart, epochDuringA)
-
-            // Owner A logs out: production logout path → sessionStore.clear() → FakeRepo emits null
-            // → DriverViewModel receives null → state reset with authEpoch + 1.
-            scenario.onActivity { _ -> vm!!.logout() }
-            val epochAdvanced = awaitCondition(5_000) { vm!!.uiState.value.authEpoch > epochDuringA }
-            assertTrue("authEpoch must advance after logout", epochAdvanced)
-            val epochAfterLogout = vm!!.uiState.value.authEpoch
-            assertTrue("Post-logout epoch must be strictly greater than during-A epoch", epochAfterLogout > epochDuringA)
-            assertNull("Pending link must be null after logout state reset", vm!!.uiState.value.pendingDeepLink)
-        }
-    }
-
-    @Test
-    fun ownerBCannotRouteStaleOwnerACommandAfterEpochAdvance() {
-        // Security proof: a PendingDeepLinkCommand captured at epoch N is rejected by
-        // resolvePendingDeepLink when the current state epoch is N+1 (after logout).
-        // This proves the production epoch guard works regardless of whether the job
-        // appears in owner B's (empty) jobs list.
-        val fake = FakeSessionRepository()
-        installFakeFactory(fake)
-
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var vm: DriverViewModel? = null
-
-            scenario.onActivity { activity ->
-                vm = ViewModelProvider(activity)[DriverViewModel::class.java]
-            }
-
-            // Owner A logs in.
-            runBlocking { fake.saveSession(DriverSession("tok-a", "ref-a", "owner-a", "a@test.co.uk")) }
-            val aAuthenticated = awaitCondition(5_000) { vm!!.uiState.value.isAuthenticated }
-            assertTrue("Owner A must authenticate", aAuthenticated)
-            val epochDuringA = vm!!.uiState.value.authEpoch
-
-            // Owner A delivers a job link while logged in.
-            var activityBefore: MainActivity? = null
-            scenario.onActivity { a -> activityBefore = a }
-            deliverWarmIntent(scenario, Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A")))
-            scenario.onActivity { a ->
-                assertSame("Warm intent must reuse existing Activity (SINGLE_TOP/CLEAR_TOP)", activityBefore, a)
-            }
-            // skipDataRefresh: processPendingDeepLinkIfReady consumes the link immediately.
-            // If jobs were loaded, it would have been consumed. If jobs are empty, link is held
-            // (unauthenticated guard still passes if session is set).
-            // Here, since isAuthenticated=true but jobs=empty → applyJobDeepLinkToState holds it.
-            // processPendingDeepLinkIfReady: isAuthenticated=true, session!=null, epoch matches → consumes.
-            // We wait for the link to be consumed (or confirm it was processed).
-
-            // Owner A logs out.
-            scenario.onActivity { _ -> vm!!.logout() }
-            val epochAdvanced = awaitCondition(5_000) { vm!!.uiState.value.authEpoch > epochDuringA }
-            assertTrue("Epoch must advance after owner A logout", epochAdvanced)
-            val epochAfterLogout = vm!!.uiState.value.authEpoch
-
-            // Construct a stale command as if owner A's link somehow persisted past the logout.
-            // This represents the scenario the epoch guard defends against: a command from epoch
-            // N surviving into epoch N+1. In the production code path this cannot happen
-            // (the state reset clears the pending link), but the epoch guard is a second line
-            // of defence if state ever reaches this condition.
-            val staleCommand = PendingDeepLinkCommand(
-                DeepLinkDestination.Job(VALID_JOB_UUID_A),
-                authEpoch = epochDuringA,  // epoch before logout
-                commandId = "stale-cmd-owner-a",
-            )
-            // Owner B logs in under the new epoch.
-            runBlocking { fake.saveSession(DriverSession("tok-b", "ref-b", "owner-b", "b@test.co.uk")) }
-            val bAuthenticated = awaitCondition(5_000) {
-                vm!!.uiState.value.isAuthenticated && vm!!.uiState.value.session?.userId == "owner-b"
-            }
-            assertTrue("Owner B must authenticate", bAuthenticated)
-
-            // Directly verify the epoch guard: resolvePendingDeepLink on the current (B-epoch)
-            // state with owner A's stale command must reject it.
-            val stateWithStaleCommand = vm!!.uiState.value.copy(pendingDeepLink = staleCommand)
-            val (_, stalResolvedId) = resolvePendingDeepLink(stateWithStaleCommand)
-            assertNull(
-                "Stale epoch-$epochDuringA command must be rejected under epoch-$epochAfterLogout state",
-                stalResolvedId,
-            )
-
-            // Confirm that the epoch guard is the rejection reason: a command with the new epoch
-            // IS resolved (job absent from B's list → Messages, but the routing coordinator proceeds).
-            val freshCommand = PendingDeepLinkCommand(
-                DeepLinkDestination.Job(VALID_JOB_UUID_A),
-                authEpoch = epochAfterLogout,  // matches current epoch
-                commandId = "fresh-cmd-owner-b",
-            )
-            val stateWithFreshCommand = vm!!.uiState.value.copy(pendingDeepLink = freshCommand)
-            val (_, freshResolvedId) = resolvePendingDeepLink(stateWithFreshCommand)
-            assertEquals(
-                "A fresh command with the correct epoch must be resolved (routing handled by job-list check)",
-                VALID_JOB_UUID_A,
-                freshResolvedId,
-            )
-        }
-    }
-
-    @Test
-    fun directOwnerReplacementAdvancesEpoch() {
-        // Proves that a direct A→B session replacement (no intermediate null) advances the
-        // authEpoch through the production ownerChanged() path in DriverViewModel.
-        val fake = FakeSessionRepository()
-        installFakeFactory(fake)
-
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var vm: DriverViewModel? = null
-            scenario.onActivity { activity -> vm = ViewModelProvider(activity)[DriverViewModel::class.java] }
-
-            // Owner A logs in.
-            runBlocking { fake.saveSession(DriverSession("tok-a", "ref-a", "owner-a", "a@test.co.uk")) }
-            awaitCondition(5_000) { vm!!.uiState.value.isAuthenticated }
-            val epochDuringA = vm!!.uiState.value.authEpoch
-
-            // Direct replacement: B's session arrives without an intermediate null.
-            // The ViewModel's ownerChanged() path detects the different userId and advances the epoch.
-            runBlocking { fake.saveSession(DriverSession("tok-b", "ref-b", "owner-b", "b@test.co.uk")) }
-            val epochAdvanced = awaitCondition(5_000) { vm!!.uiState.value.authEpoch > epochDuringA }
-            assertTrue(
-                "Direct owner replacement must advance authEpoch via the ownerChanged path",
-                epochAdvanced,
-            )
-            assertEquals("Session must now belong to owner B", "owner-b", vm!!.uiState.value.session?.userId)
-        }
-    }
-
-    // ── 12. One-shot commandId deduplication via consumedCommandIds ───────────
-
-    @Test
-    fun coldStartJobLinkCommandIdIsRecordedInConsumedCommandIdsAfterPendingLinkIsConsumed() {
-        // After the pending deep link is consumed (via processPendingDeepLinkIfReady), the
-        // commandId derived from the URI is recorded in consumedCommandIds. A subsequent
-        // delivery of the same intent (same URI → same commandId) is a no-op.
-        val fake = FakeSessionRepository()
-        installFakeFactory(fake)
-
-        launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
-            var vm: DriverViewModel? = null
-            scenario.onActivity { activity ->
-                vm = ViewModelProvider(activity)[DriverViewModel::class.java]
-
-                // Cold start: link held pending while unauthenticated.
-                assertNotNull("Cold-start link must be held pending", vm!!.uiState.value.pendingDeepLink)
-            }
-
-            // Authenticate — fake skipDataRefreshForTesting=true triggers processPendingDeepLinkIfReady.
-            runBlocking { fake.saveSession(DriverSession("tok", "ref", "user-a", "a@test.co.uk")) }
-            val pendingCleared = awaitCondition(5_000) { vm!!.uiState.value.pendingDeepLink == null }
-            assertTrue("Pending link must be cleared after authentication", pendingCleared)
-
-            scenario.onActivity {
-                // The commandId of the pending link (= URI string) must now be in consumedCommandIds.
-                val consumed = vm!!.uiState.value.consumedCommandIds
-                assertTrue(
-                    "commandId derived from URI must be in consumedCommandIds after consumption",
-                    "xdrivedriver://job/$VALID_JOB_UUID_A" in consumed,
-                )
-            }
-        }
-    }
-
-    @Test
-    fun duplicateWarmJobIntentIsDeduplicatedViaConsumedCommandIds() {
-        // Proves that a duplicate warm intent (same URI → same commandId) does not update
-        // pendingDeepLink a second time once the commandId is in consumedCommandIds.
-        // The commandId is the URI string; the same URI delivered twice must be idempotent.
-        launchWithDeepLink("xdrivedriver://notification").use { scenario ->
-            var vm: DriverViewModel? = null
-            scenario.onActivity { activity -> vm = ViewModelProvider(activity)[DriverViewModel::class.java] }
-
-            // Deliver the first warm intent — records the commandId in the ViewModel state.
-            val warmIntent = Intent(Intent.ACTION_VIEW, Uri.parse("xdrivedriver://job/$VALID_JOB_UUID_A"))
-            deliverWarmIntent(scenario, warmIntent)
-            scenario.onActivity {
-                assertNotNull("First delivery must set pendingDeepLink", vm!!.uiState.value.pendingDeepLink)
-                assertEquals(VALID_JOB_UUID_A, vm!!.uiState.value.pendingDeepLink?.destination?.jobId)
-            }
-
-            // Deliver the exact same intent a second time (same URI → same commandId).
-            deliverWarmIntent(scenario, warmIntent)
-            scenario.onActivity {
-                // pendingDeepLink must still hold the same job — not cleared, not accumulated.
-                assertNotNull("Second delivery must not clear the pending link", vm!!.uiState.value.pendingDeepLink)
-                assertEquals(
-                    "Second delivery of the same URI must not change the pending destination",
-                    VALID_JOB_UUID_A,
-                    vm!!.uiState.value.pendingDeepLink?.destination?.jobId,
-                )
-            }
-        }
-    }
+    // ── 8. One-shot commandId deduplication via Activity recreation ───────────
 
     @Test
     fun recreationIsIdempotentDueToCommandIdDeduplication() {
         // After Activity recreation, the same intent is re-delivered to onCreate with the same URI.
-        // Since handleIncomingIntent derives commandId = uri.toString(), the ViewModel detects
+        // Since routeIncomingIntent derives commandId = uri.toString(), the ViewModel detects
         // it's already in consumedCommandIds (if consumed) OR sets the same pending link (if not).
         // Either way, the routing state must not change.
         launchWithDeepLink("xdrivedriver://job/$VALID_JOB_UUID_A").use { scenario ->
