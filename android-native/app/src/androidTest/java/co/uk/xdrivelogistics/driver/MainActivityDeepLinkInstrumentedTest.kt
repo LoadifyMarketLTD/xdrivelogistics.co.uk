@@ -1,13 +1,15 @@
 package co.uk.xdrivelogistics.driver
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.GrantPermissionRule
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -17,6 +19,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -70,6 +73,35 @@ class MainActivityDeepLinkInstrumentedTest {
 
     private val VALID_JOB_UUID_A = "6e5e0122-7b3c-4ec8-9f41-5d8937e541f1"
     private val VALID_JOB_UUID_B = "a1b2c3d4-1234-4abc-8def-0123456789ab"
+
+    /**
+     * Pre-grant POST_NOTIFICATIONS so [MainActivity]'s
+     * `LaunchedEffect(state.isAuthenticated)` never calls
+     * `notificationPermissionLauncher.launch()` during tests.
+     *
+     * Without this rule, any test that authenticates (via [FakeSessionRepository]) on
+     * Android 13+ causes the permission dialog to open, leaving the Activity in PAUSED.
+     * [ActivityScenario.close] then times out waiting for DESTROYED.
+     */
+    @get:Rule
+    val grantPermissions: GrantPermissionRule =
+        GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+
+    /**
+     * Registers Compose's [androidx.compose.ui.test.ComposeIdlingResource] with Espresso
+     * so that [waitForIdle] drains both the main Looper queue *and* any pending
+     * Choreographer/[androidx.compose.runtime.Recomposer] frames.
+     *
+     * [android.app.Instrumentation.waitForIdleSync] only drains Looper messages; it does
+     * not wait for Compose's frame clock (backed by [android.view.Choreographer]). A
+     * pending recomposition frame left in the Choreographer queue when
+     * [ActivityScenario.close] calls [android.app.Activity.finishAndRemoveTask] prevents
+     * the window manager from completing the RESUMED→PAUSED transition on Android 14,
+     * causing a 45-second timeout. [waitForIdle] blocks until the [Recomposer] is idle,
+     * ensuring no pending frame work exists before teardown.
+     */
+    @get:Rule
+    val composeTestRule = createEmptyComposeRule()
 
     @After
     fun tearDown() {
@@ -134,14 +166,16 @@ class MainActivityDeepLinkInstrumentedTest {
      *
      * [scenario.onActivity] runs the block on the main thread and blocks the instrumentation
      * thread until it completes, so routing is synchronous before any assertion.
-     * [android.app.Instrumentation.waitForIdleSync] after [onActivity] returns lets
-     * Compose/coroutine state settle before assertions run.
+     * [composeTestRule.waitForIdle] after [onActivity] returns blocks until Compose's
+     * [androidx.compose.runtime.Recomposer] has no pending work — including pending
+     * Choreographer frame callbacks — so that no in-flight recomposition remains when
+     * [ActivityScenario.close] calls [android.app.Activity.finishAndRemoveTask].
      */
     private fun deliverWarmIntent(scenario: ActivityScenario<MainActivity>, intent: Intent) {
         scenario.onActivity { activity ->
             activity.dispatchNewIntentForTesting(intent)
         }
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        composeTestRule.waitForIdle()
     }
 
     // ── 1. Cold-start job link — held in ViewModel until session/jobs load ────
@@ -252,8 +286,6 @@ class MainActivityDeepLinkInstrumentedTest {
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
                 assertEquals(DriverTab.MESSAGES, vm.uiState.value.selectedTab)
             }
-            // Pause+stop the Activity before close() so Compose's Choreographer pipeline
-            // has no pending frame callbacks when finishAndRemoveTask() runs.
         }
     }
 
