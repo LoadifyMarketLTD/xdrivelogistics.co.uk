@@ -24,12 +24,17 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.uk.xdrivelogistics.driver.data.DriverJob
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -48,26 +53,47 @@ internal enum class LiveLoadsBox { LIVE, PINNED, HIDDEN }
 
 internal enum class LiveLoadPreferenceAction { PIN, HIDE, RESTORE }
 
-internal fun routeToLiveLoadDetails(
+internal data class LiveLoadsEmptyState(
+    val title: String,
+    val message: String,
+)
+
+internal fun liveLoadsEmptyState(box: LiveLoadsBox, activeDeliveryPostcode: String?): LiveLoadsEmptyState = when (box) {
+    LiveLoadsBox.PINNED -> LiveLoadsEmptyState(
+        title = "No pinned loads.",
+        message = "Pin loads from Live to keep them ready for quick quoting.",
+    )
+    LiveLoadsBox.HIDDEN -> LiveLoadsEmptyState(
+        title = "No hidden loads.",
+        message = "Loads you hide will appear here so you can restore them later.",
+    )
+    LiveLoadsBox.LIVE -> LiveLoadsEmptyState(
+        title = "No live loads.",
+        message = if (activeDeliveryPostcode.isNullOrBlank()) {
+            "Take a run first and the app will search around its delivery postcode."
+        } else {
+            "No posted pickup loads found within your selected radius of $activeDeliveryPostcode."
+        },
+    )
+}
+
+internal fun routeToLiveLoadAction(
     jobId: String,
-    onJobSelected: (String) -> Unit,
-    onTabChange: (DriverTab) -> Unit,
+    mode: ActionEntryMode,
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
 ) {
-    onJobSelected(jobId)
-    onTabChange(DriverTab.ACTION)
+    onOpenActionForJob(jobId, mode)
 }
 
 internal fun openLiveLoadFromCard(
     jobId: String,
-    onJobSelected: (String) -> Unit,
-    onTabChange: (DriverTab) -> Unit,
-) = routeToLiveLoadDetails(jobId, onJobSelected, onTabChange)
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
+) = routeToLiveLoadAction(jobId, ActionEntryMode.DETAILS, onOpenActionForJob)
 
 internal fun openLiveLoadQuoteFlow(
     jobId: String,
-    onJobSelected: (String) -> Unit,
-    onTabChange: (DriverTab) -> Unit,
-) = routeToLiveLoadDetails(jobId, onJobSelected, onTabChange)
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
+) = routeToLiveLoadAction(jobId, ActionEntryMode.QUOTE, onOpenActionForJob)
 
 internal fun filterLiveLoadsByBox(
     jobs: List<DriverJob>,
@@ -77,7 +103,7 @@ internal fun filterLiveLoadsByBox(
     when (box) {
         LiveLoadsBox.PINNED -> preferences[job.id] == "saved"
         LiveLoadsBox.HIDDEN -> preferences[job.id] == "deleted"
-        LiveLoadsBox.LIVE -> preferences[job.id] != "deleted"
+        LiveLoadsBox.LIVE -> preferences[job.id] !in setOf("saved", "deleted")
     }
 }
 
@@ -109,19 +135,33 @@ internal data class LiveLoadCardData(
 )
 
 internal fun DriverJob.toLiveLoadCardData(): LiveLoadCardData {
+    val details = loadDetails.toJsonObjectOrNull()
     val company = clientName.takeIf { it.isNotBlank() } ?: "XDrive Marketplace"
-    val ref = id.take(8).uppercase().ifBlank { "TBC" }
+    val ref = details.string("public_reference")
+        ?: details.string("job_reference")
+        ?: details.string("reference")
+        ?: id.take(8).uppercase().ifBlank { "TBC" }
+    val pallets = details.string("pallets")
+        ?.takeIf { it.isNotBlank() && !it.equals("0", ignoreCase = true) }
+        ?.let { "$it pallets" }
+    val weight = details.string("weight")?.formatWeightLabel()
+    val specialRequirements = details.string("special_requirements")
+        ?: details.string("requirements")
     val summary = listOfNotNull(
         cargoType.takeIf { it.isNotBlank() },
-        loadDetails.readLoadField("pallets")?.let { "$it pallets" },
-        loadDetails.readLoadField("weight")?.let { "$it kg" },
+        pallets,
+        weight,
+        specialRequirements?.takeIf { it.isNotBlank() }?.let { "Req: $it" },
     ).ifEmpty {
-        listOf(loadDetails.takeIf { it.isNotBlank() }?.take(90) ?: "Freight details pending")
+        listOf("Freight details pending")
     }.joinToString(" • ")
     return LiveLoadCardData(
         companyName = company,
         reference = ref,
-        vehicleType = vehicleType.takeIf { it.isNotBlank() } ?: loadDetails.readLoadField("vehicle") ?: "Vehicle TBC",
+        vehicleType = vehicleType.takeIf { it.isNotBlank() }
+            ?: details.string("vehicle_type")
+            ?: details.string("vehicle")
+            ?: "Vehicle TBC",
         pickupLine = pickupLocation.ifBlank { "Pickup location TBC" },
         pickupTime = pickupDatetime.liveLoadsDateTime(),
         deliveryLine = deliveryLocation.ifBlank { "Delivery location TBC" },
@@ -178,7 +218,7 @@ internal fun LiveLoadCard(
                             color = LiveLoadsPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
@@ -216,7 +256,7 @@ internal fun LiveLoadCard(
             ) {
                 Text(
                     data.freightSummary,
-                    color = if (data.freightSummary.contains("pending", ignoreCase = true)) LiveLoadsSecondary else LiveLoadsSecondary,
+                    color = if (data.freightSummary.contains("pending", ignoreCase = true)) LiveLoadsSecondary.copy(alpha = 0.82f) else LiveLoadsSecondary,
                     fontSize = 13.sp,
                     lineHeight = 17.sp,
                     maxLines = 2,
@@ -242,10 +282,13 @@ internal fun LiveLoadCard(
                         Text("Hidden", color = LiveLoadsDanger, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                     "saved" -> {
+                        OutlinedButton(onClick = { onRestore?.invoke() }, modifier = Modifier.height(36.dp)) {
+                            Text("Unpin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
                         OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.height(36.dp)) {
                             Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        Text("Pinned", color = LiveLoadsSuccess, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text("Pinned", color = LiveLoadsSuccess, fontSize = 12.sp, modifier = Modifier.weight(1f), maxLines = 1)
                     }
                     else -> {
                         OutlinedButton(onClick = { onSave?.invoke() }, modifier = Modifier.height(36.dp)) {
@@ -306,6 +349,7 @@ private fun StopMarker(color: Color) {
         modifier = Modifier
             .width(14.dp)
             .height(14.dp)
+            .semantics { contentDescription = if (color == LiveLoadsSuccess) "Pickup marker" else "Delivery marker" }
             .clip(RoundedCornerShape(999.dp))
             .background(color.copy(alpha = 0.18f))
             .padding(3.dp),
@@ -327,20 +371,18 @@ private fun LiveLoadRouteLine(
     dateTime: String,
     isPickup: Boolean,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             location,
             color = LiveLoadsPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            maxLines = 1,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(10.dp))
         Text(
             dateTime,
-            color = if (dateTime.contains("TBC", ignoreCase = true)) LiveLoadsSecondary else LiveLoadsSecondary,
+            color = if (dateTime.contains("TBC", ignoreCase = true)) LiveLoadsSecondary.copy(alpha = 0.82f) else LiveLoadsSecondary,
             fontSize = 13.sp,
             fontWeight = if (isPickup) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
@@ -348,17 +390,33 @@ private fun LiveLoadRouteLine(
     }
 }
 
-private fun String.readLoadField(key: String): String? {
-    val quoted = Regex("\"$key\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE).find(this)
-    if (quoted != null) return quoted.groupValues.getOrNull(1)?.takeIf { it.isNotBlank() }
-    val raw = Regex("\"$key\"\\s*:\\s*([^,}\\]]+)", RegexOption.IGNORE_CASE).find(this)
-    return raw?.groupValues?.getOrNull(1)?.trim()?.trim('"')?.takeIf { it.isNotBlank() && it != "null" }
-}
-
 private fun String?.liveLoadsDateTime(): String {
     val date = runCatching { this?.takeIf { it.isNotBlank() }?.let { OffsetDateTime.parse(it) } }.getOrNull() ?: return "Time TBC"
     val local = date.atZoneSameInstant(ZoneId.of("Europe/London"))
     return local.format(DateTimeFormatter.ofPattern("dd MMM • HH:mm", Locale.UK))
+}
+
+private fun String.toJsonObjectOrNull(): JsonObject? {
+    if (isBlank()) return null
+    val parsed = runCatching { JsonParser.parseString(this) }.getOrNull() ?: return null
+    return parsed.takeIf { it.isJsonObject }?.asJsonObject
+}
+
+private fun JsonObject?.string(key: String): String? {
+    val value = this?.get(key) ?: return null
+    return value.asStringOrNull()?.takeIf { it.isNotBlank() }
+}
+
+private fun JsonElement?.asStringOrNull(): String? = when {
+    this == null || isJsonNull -> null
+    isJsonPrimitive -> asJsonPrimitive.asString
+    else -> null
+}
+
+private fun String.formatWeightLabel(): String {
+    val value = trim()
+    if (value.isBlank()) return value
+    return if (value.any { it.isLetter() }) value else "$value kg"
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF070B14)

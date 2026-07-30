@@ -33,6 +33,11 @@ enum class DriverTab {
     PROFILE,
 }
 
+enum class ActionEntryMode {
+    DETAILS,
+    QUOTE,
+}
+
 data class DriverUiState(
     val isLoading: Boolean = false,
     val isAuthenticated: Boolean = false,
@@ -48,6 +53,7 @@ data class DriverUiState(
     val jobSearchPreferences: Map<String, String> = emptyMap(),
     val selectedTab: DriverTab = DriverTab.NEARBY,
     val selectedJobId: String? = null,
+    val actionEntryMode: ActionEntryMode = ActionEntryMode.DETAILS,
     val message: String = "",
     val error: String = "",
 )
@@ -123,11 +129,22 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun changeTab(tab: DriverTab) {
-        _uiState.value = _uiState.value.copy(selectedTab = tab)
+        _uiState.value = _uiState.value.copy(
+            selectedTab = tab,
+            actionEntryMode = if (tab == DriverTab.ACTION) _uiState.value.actionEntryMode else ActionEntryMode.DETAILS,
+        )
     }
 
     fun selectJob(jobId: String) {
         _uiState.value = _uiState.value.copy(selectedJobId = jobId)
+    }
+
+    fun openActionForJob(jobId: String, mode: ActionEntryMode) {
+        _uiState.value = _uiState.value.copy(
+            selectedJobId = jobId,
+            selectedTab = DriverTab.ACTION,
+            actionEntryMode = mode,
+        )
     }
 
     fun refreshDriverData() {

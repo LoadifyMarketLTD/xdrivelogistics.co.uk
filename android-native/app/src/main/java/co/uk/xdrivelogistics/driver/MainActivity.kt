@@ -88,6 +88,7 @@ import co.uk.xdrivelogistics.driver.data.DriverNotification
 import com.google.android.gms.location.LocationServices
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -262,6 +263,7 @@ class MainActivity : ComponentActivity() {
                             state = state,
                             onTabChange = viewModel::changeTab,
                             onJobSelected = viewModel::selectJob,
+                            onOpenActionForJob = viewModel::openActionForJob,
                             onLogout = viewModel::logout,
                             onRefresh = viewModel::refreshDriverData,
                             onSendNote = viewModel::sendQuickNote,
@@ -463,6 +465,7 @@ private fun DriverAppShell(
     state: DriverUiState,
     onTabChange: (DriverTab) -> Unit,
     onJobSelected: (String) -> Unit,
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSendNote: (String, Boolean) -> Unit,
@@ -498,7 +501,7 @@ private fun DriverAppShell(
 
         Box(modifier = Modifier.weight(1f)) {
             when (state.selectedTab) {
-                DriverTab.NEARBY -> NearbyJobsScreen(state, onJobSelected, onTabChange, onJobPreference)
+                DriverTab.NEARBY -> NearbyJobsScreen(state, onOpenActionForJob, onJobPreference)
                 DriverTab.QUOTES -> MyQuotesScreen(state)
                 DriverTab.BOOKINGS -> BookingsScreen(state, onJobSelected, onTabChange)
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
@@ -624,19 +627,25 @@ private fun DashboardScreen(
 @Composable
 private fun NearbyJobsScreen(
     state: DriverUiState,
-    onJobSelected: (String) -> Unit,
-    onTabChange: (DriverTab) -> Unit,
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
     onJobPreference: (String, String?) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     var box by remember { mutableStateOf(LiveLoadsBox.LIVE) }
+    var sortBy by remember { mutableStateOf("Collection") }
+    var radiusMiles by remember { mutableStateOf(20) }
+    var dateScope by remember { mutableStateOf("Any date") }
+    var vehicleScope by remember { mutableStateOf("All vehicles") }
+    var freightScope by remember { mutableStateOf("All freight") }
+    var memberScope by remember { mutableStateOf("All members") }
     val activeDeliveryJob = state.jobs.firstOrNull {
         !it.isPosted() && it.isActive() && it.deliveryPostcode.isNotBlank()
     }
+
     val postedJobs = state.jobs.filter { it.isPosted() }
     val deliveryZoneJobs = if (activeDeliveryJob != null) {
         postedJobs
-            .filter { (it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE) <= 20.0 }
+            .filter { (it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE) <= radiusMiles.toDouble() }
             .sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE }
     } else {
         postedJobs.sortedWith(
@@ -657,7 +666,31 @@ private fun NearbyJobsScreen(
             it.deliveryLocation.lowercase().contains(needle) ||
             it.loadDetails.lowercase().contains(needle)
     }
-    val filtered = searched.sortedBy { it.pickupDatetime.orEmpty() }
+    val dated = searched.filter { job ->
+        val pickup = job.pickupDatetime?.take(10).orEmpty()
+        when (dateScope) {
+            "Today" -> pickup == LocalDate.now(ZoneId.of("Europe/London")).toString()
+            "Tomorrow" -> pickup == LocalDate.now(ZoneId.of("Europe/London")).plusDays(1).toString()
+            "This week" -> {
+                val today = LocalDate.now(ZoneId.of("Europe/London"))
+                val end = today.plusDays(7)
+                val parsed = runCatching { LocalDate.parse(pickup) }.getOrNull()
+                parsed != null && !parsed.isBefore(today) && !parsed.isAfter(end)
+            }
+            else -> true
+        }
+    }
+
+    val vehicleFiltered = dated.filter { vehicleScope == "All vehicles" || it.vehicleType.equals(vehicleScope, ignoreCase = true) }
+    val freightFiltered = vehicleFiltered.filter { freightScope == "All freight" || it.cargoType.equals(freightScope, ignoreCase = true) }
+    val memberFiltered = freightFiltered.filter { memberScope == "All members" || it.clientName.isNotBlank() }
+    val filtered = when (sortBy) {
+        "Nearest" -> memberFiltered.sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE }
+        else -> memberFiltered.sortedBy { it.pickupDatetime.orEmpty() }
+    }
+    val emptyState = liveLoadsEmptyState(box, activeDeliveryJob?.deliveryPostcode)
+    val vehicleOptions = listOf("All vehicles") + state.jobs.map { it.vehicleType.trim() }.filter { it.isNotBlank() }.distinct().take(5)
+    val freightOptions = listOf("All freight") + state.jobs.map { it.cargoType.trim() }.filter { it.isNotBlank() }.distinct().take(5)
 
     LazyColumn(
         modifier = Modifier
@@ -684,23 +717,66 @@ private fun NearbyJobsScreen(
                     if (box == LiveLoadsBox.LIVE) "${filtered.size} available" else "${filtered.size} loads",
                     color = TextPrimary,
                     fontWeight = FontWeight.Black,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                 )
-                Text("Collection time order", color = TextSecondary, fontSize = 13.sp)
+                Text(if (query.isBlank()) sortBy else "Search: \"$query\"", color = TextSecondary, fontSize = 12.sp, maxLines = 1)
             }
         }
         item {
             XDriveTextField(query, { query = it }, "Search jobs", "Find")
         }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    CompactFilterPill(
+                        label = "Sort: $sortBy",
+                        onClick = { sortBy = if (sortBy == "Collection") "Nearest" else "Collection" },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = "Radius: ${radiusMiles}mi",
+                        onClick = { radiusMiles = when (radiusMiles) { 10 -> 20; 20 -> 30; else -> 10 } },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = dateScope,
+                        onClick = {
+                            dateScope = when (dateScope) {
+                                "Any date" -> "Today"
+                                "Today" -> "Tomorrow"
+                                "Tomorrow" -> "This week"
+                                else -> "Any date"
+                            }
+                        },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = vehicleScope,
+                        onClick = { vehicleScope = vehicleOptions.nextAfter(vehicleScope) },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = freightScope,
+                        onClick = { freightScope = freightOptions.nextAfter(freightScope) },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = memberScope,
+                        onClick = { memberScope = if (memberScope == "All members") "Named members" else "All members" },
+                    )
+                }
+            }
+        }
         if (filtered.isEmpty()) {
             item {
                 EmptyState(
-                    "No live loads.",
-                    if (activeDeliveryJob != null) {
-                        "No posted pickup loads found within 20 miles of ${activeDeliveryJob.deliveryPostcode}."
-                    } else {
-                        "Take a run first and the app will search around its delivery postcode."
-                    },
+                    emptyState.title,
+                    emptyState.message,
                 )
             }
         }
@@ -708,8 +784,8 @@ private fun NearbyJobsScreen(
             LiveLoadCard(
                 job = job,
                 selected = state.selectedJobId == job.id,
-                onOpen = { openLiveLoadFromCard(job.id, onJobSelected, onTabChange) },
-                onQuote = { openLiveLoadQuoteFlow(job.id, onJobSelected, onTabChange) },
+                onOpen = { openLiveLoadFromCard(job.id, onOpenActionForJob) },
+                onQuote = { openLiveLoadQuoteFlow(job.id, onOpenActionForJob) },
                 onSave = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.PIN)) },
                 onHide = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.HIDE)) },
                 onRestore = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.RESTORE)) },
@@ -717,6 +793,26 @@ private fun NearbyJobsScreen(
             )
         }
     }
+}
+
+@Composable
+private fun CompactFilterPill(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(999.dp),
+        border = BorderStroke(1.dp, Border),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+        modifier = Modifier.height(34.dp),
+    ) {
+        Text(label, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private fun List<String>.nextAfter(current: String): String {
+    if (isEmpty()) return current
+    val currentIndex = indexOf(current).takeIf { it >= 0 } ?: 0
+    return this[(currentIndex + 1) % size]
 }
 
 @Composable
@@ -1001,6 +1097,7 @@ private fun ActionScreen(
             job = selected,
             statusMessage = state.message,
             errorMessage = state.error,
+            openQuoteFirst = state.actionEntryMode == ActionEntryMode.QUOTE,
             onSubmitQuote = onSubmitQuote,
             onSendMessage = { onSendNote("Message requested for ${selected.id.take(8).uppercase()}", true) },
         )
@@ -1148,6 +1245,7 @@ private fun PostedJobDetailScreen(
     job: DriverJob,
     statusMessage: String,
     errorMessage: String,
+    openQuoteFirst: Boolean,
     onSubmitQuote: (String, String) -> Unit,
     onSendMessage: () -> Unit,
 ) {
@@ -1182,19 +1280,21 @@ private fun PostedJobDetailScreen(
             }
         }
 
-        item {
-            LightDetailCard {
-                Text(job.marketplaceTitle(), color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 20.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(job.marketplaceMeta(), color = Color(0xFF6C6F7D), fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(job.marketplaceBadges()) { badge ->
-                        PostedBadge(badge.label, badge.color, badge.textColor)
+        if (openQuoteFirst) {
+            item {
+                LightDetailCard(contentPadding = 12.dp) {
+                    Text("Quote Entry", color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Spacer(Modifier.height(10.dp))
+                    if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
+                        QuoteStatusBanner(
+                            title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
+                            body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
+                            isError = errorMessage.isNotBlank(),
+                        )
+                        Spacer(Modifier.height(12.dp))
                     }
+                    QuoteBoxLight(onSubmitQuote)
                 }
-                Spacer(Modifier.height(14.dp))
-                PostedRouteBox(job)
             }
         }
 
@@ -1232,16 +1332,34 @@ private fun PostedJobDetailScreen(
         }
 
         item {
-            LightDetailCard(contentPadding = 12.dp) {
-                if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
-                    QuoteStatusBanner(
-                        title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
-                        body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
-                        isError = errorMessage.isNotBlank(),
-                    )
-                    Spacer(Modifier.height(12.dp))
+            LightDetailCard {
+                Text(job.marketplaceTitle(), color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(job.marketplaceMeta(), color = Color(0xFF6C6F7D), fontSize = 14.sp)
+                Spacer(Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(job.marketplaceBadges()) { badge ->
+                        PostedBadge(badge.label, badge.color, badge.textColor)
+                    }
                 }
-                QuoteBoxLight(onSubmitQuote)
+                Spacer(Modifier.height(14.dp))
+                PostedRouteBox(job)
+            }
+        }
+
+        if (!openQuoteFirst) {
+            item {
+                LightDetailCard(contentPadding = 12.dp) {
+                    if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
+                        QuoteStatusBanner(
+                            title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
+                            body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
+                            isError = errorMessage.isNotBlank(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    QuoteBoxLight(onSubmitQuote)
+                }
             }
         }
 
@@ -1963,7 +2081,7 @@ private fun JobCard(
 
 @Composable
 private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (DriverTab) -> Unit) {
-    val tabs = listOf(DriverTab.NEARBY, DriverTab.MESSAGES, DriverTab.QUOTES, DriverTab.JOBS, DriverTab.PROFILE)
+    val tabs = primaryBottomNavTabs()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1992,6 +2110,16 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
         }
     }
 }
+
+internal fun primaryBottomNavTabs(): List<DriverTab> = listOf(
+    DriverTab.NEARBY,
+    DriverTab.MESSAGES,
+    DriverTab.QUOTES,
+    DriverTab.JOBS,
+    DriverTab.PROFILE,
+)
+
+internal fun primaryBottomNavLabels(activeCount: Int = 0): List<String> = primaryBottomNavTabs().map { it.navLabel(activeCount) }
 
 @Composable
 private fun LiveLoadsSegmentedTabs(

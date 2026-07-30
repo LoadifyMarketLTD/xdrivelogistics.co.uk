@@ -7,38 +7,40 @@ import org.junit.Test
 
 class LiveLoadsComponentsTest {
     @Test
-    fun `card tap selects same job and opens action tab`() {
-        var selectedJob: String? = null
-        var selectedTab: DriverTab? = null
+    fun `card tap opens details mode for same job`() {
+        var selectedJob: String? = "job-a"
+        var mode: ActionEntryMode? = null
 
         openLiveLoadFromCard(
             jobId = "job-live-1",
-            onJobSelected = { selectedJob = it },
-            onTabChange = { selectedTab = it },
+            onOpenActionForJob = { jobId, entryMode ->
+                selectedJob = jobId
+                mode = entryMode
+            },
         )
 
         assertEquals("job-live-1", selectedJob)
-        assertEquals(DriverTab.ACTION, selectedTab)
+        assertEquals(ActionEntryMode.DETAILS, mode)
     }
 
     @Test
-    fun `quote tap always uses exact tapped job`() {
-        var selectedJob: String? = null
-        var selectedTab: DriverTab? = null
+    fun `quote tap for job B keeps quote target on B`() {
+        var selectedJob: String? = "job-a"
+        var mode: ActionEntryMode = ActionEntryMode.DETAILS
+        var submittedJobId: String? = null
 
-        openLiveLoadQuoteFlow(
-            jobId = "job-a",
-            onJobSelected = { selectedJob = it },
-            onTabChange = { selectedTab = it },
-        )
         openLiveLoadQuoteFlow(
             jobId = "job-b",
-            onJobSelected = { selectedJob = it },
-            onTabChange = { selectedTab = it },
+            onOpenActionForJob = { jobId, entryMode ->
+                selectedJob = jobId
+                mode = entryMode
+            },
         )
+        submittedJobId = selectedJob
 
         assertEquals("job-b", selectedJob)
-        assertEquals(DriverTab.ACTION, selectedTab)
+        assertEquals(ActionEntryMode.QUOTE, mode)
+        assertEquals("job-b", submittedJobId)
     }
 
     @Test
@@ -58,10 +60,10 @@ class LiveLoadsComponentsTest {
         val hidden = filterLiveLoadsByBox(jobs, prefs, LiveLoadsBox.HIDDEN).map { it.id }
         val counts = liveLoadsCounts(jobs, prefs)
 
-        assertEquals(listOf("job-live", "job-pinned"), live)
+        assertEquals(listOf("job-live"), live)
         assertEquals(listOf("job-pinned"), pinned)
         assertEquals(listOf("job-hidden"), hidden)
-        assertEquals(2, counts.first)
+        assertEquals(1, counts.first)
         assertEquals(1, counts.second)
         assertEquals(1, counts.third)
     }
@@ -100,6 +102,14 @@ class LiveLoadsComponentsTest {
     }
 
     @Test
+    fun `weight with existing unit is not duplicated`() {
+        val job = job(loadDetails = """{"weight":"1200 kg"}""")
+        val card = job.toLiveLoadCardData()
+        assertTrue(card.freightSummary.contains("1200 kg"))
+        assertTrue(!card.freightSummary.contains("1200 kg kg"))
+    }
+
+    @Test
     fun `long and missing values render with safe fallbacks`() {
         val job = job(
             id = "job-with-long-values-001",
@@ -121,6 +131,21 @@ class LiveLoadsComponentsTest {
         assertEquals("Time TBC", card.pickupTime)
         assertEquals("Time TBC", card.deliveryTime)
         assertEquals("Freight details pending", card.freightSummary)
+    }
+
+    @Test
+    fun `empty state copy matches selected box`() {
+        assertEquals("No live loads.", liveLoadsEmptyState(LiveLoadsBox.LIVE, "LS1").title)
+        assertEquals("No pinned loads.", liveLoadsEmptyState(LiveLoadsBox.PINNED, "LS1").title)
+        assertEquals("No hidden loads.", liveLoadsEmptyState(LiveLoadsBox.HIDDEN, "LS1").title)
+    }
+
+    @Test
+    fun `bottom nav labels remain in product order`() {
+        assertEquals(
+            listOf("Loads", "Updates", "Offers", "Runs", "More"),
+            primaryBottomNavLabels(0),
+        )
     }
 
     private fun job(
