@@ -3,6 +3,7 @@ package co.uk.xdrivelogistics.driver
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -259,7 +260,7 @@ class MainActivityDeepLinkInstrumentedTest {
             }
             // Pause+stop the Activity before close() so Compose's Choreographer pipeline
             // has no pending frame callbacks when finishAndRemoveTask() runs.
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -281,7 +282,7 @@ class MainActivityDeepLinkInstrumentedTest {
                     vm.uiState.value.pendingDeepLink,
                 )
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -300,7 +301,7 @@ class MainActivityDeepLinkInstrumentedTest {
                 val vm = ViewModelProvider(a)[DriverViewModel::class.java]
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -388,7 +389,7 @@ class MainActivityDeepLinkInstrumentedTest {
                 )
                 assertEquals(DriverTab.MESSAGES, vm.uiState.value.selectedTab)
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -490,7 +491,7 @@ class MainActivityDeepLinkInstrumentedTest {
                     vm.uiState.value.pendingDeepLink?.destination,
                 )
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -549,7 +550,7 @@ class MainActivityDeepLinkInstrumentedTest {
                     pending?.destination == DeepLinkDestination.Job(VALID_JOB_UUID_A),
                 )
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -576,7 +577,7 @@ class MainActivityDeepLinkInstrumentedTest {
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), pendingA?.destination)
                 assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_B), pendingB?.destination)
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -613,7 +614,7 @@ class MainActivityDeepLinkInstrumentedTest {
                     resolvedId,
                 )
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -808,7 +809,7 @@ class MainActivityDeepLinkInstrumentedTest {
                 VALID_JOB_UUID_A,
                 freshResolvedId,
             )
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
@@ -903,7 +904,7 @@ class MainActivityDeepLinkInstrumentedTest {
                     vm!!.uiState.value.pendingDeepLink?.destination?.jobId,
                 )
             }
-            scenario.moveToState(ActivityScenario.State.CREATED)
+            scenario.moveToState(Lifecycle.State.CREATED)
         }
     }
 
