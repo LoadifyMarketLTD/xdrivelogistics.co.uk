@@ -2002,9 +2002,9 @@ private fun LiveLoadsSegmentedTabs(
     onSelected: (LiveLoadsBox) -> Unit,
 ) {
     val tabs = listOf(
-        Triple(LiveLoadsBox.LIVE, "Live ($liveCount)", Modifier.weight(1f)),
-        Triple(LiveLoadsBox.PINNED, "Pinned ($pinnedCount)", Modifier.weight(1f)),
-        Triple(LiveLoadsBox.HIDDEN, "Hidden ($hiddenCount)", Modifier.weight(1f)),
+        LiveLoadsBox.LIVE to "Live ($liveCount)",
+        LiveLoadsBox.PINNED to "Pinned ($pinnedCount)",
+        LiveLoadsBox.HIDDEN to "Hidden ($hiddenCount)",
     )
     Row(
         modifier = Modifier
@@ -2014,10 +2014,11 @@ private fun LiveLoadsSegmentedTabs(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        tabs.forEach { (tab, label, tabModifier) ->
+        tabs.forEach { (tab, label) ->
             val active = selected == tab
             Box(
-                modifier = tabModifier
+                modifier = Modifier
+                    .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(if (active) Yellow else Color.Transparent)
                     .clickable { onSelected(tab) }
