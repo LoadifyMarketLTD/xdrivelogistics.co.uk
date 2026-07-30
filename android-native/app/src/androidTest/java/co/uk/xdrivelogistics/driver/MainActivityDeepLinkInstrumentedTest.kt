@@ -35,9 +35,12 @@ import org.junit.runner.RunWith
  *   - logout/owner-clear: [DriverViewModel.logout] exercises the production session-clear path
  *
  * State assertions are made synchronously within [ActivityScenario.onActivity] blocks on the
- * main thread. Warm-intent delivery uses a real [android.content.Context.startActivity] call
- * with production flags ([Intent.FLAG_ACTIVITY_SINGLE_TOP] | [Intent.FLAG_ACTIVITY_CLEAR_TOP] |
- * [Intent.FLAG_ACTIVITY_NEW_TASK]), matching the [DriverPushNotifications] production path.
+ * main thread. Warm-intent delivery uses [android.app.Instrumentation.callActivityOnNewIntent]
+ * to invoke [MainActivity.onNewIntent] directly on the main thread — this avoids
+ * [android.content.Context.startActivity] with [Intent.FLAG_ACTIVITY_NEW_TASK] which can
+ * launch a second [MainActivity] instance in a new task and leave the
+ * [ActivityScenario]-tracked instance permanently PAUSED, causing [ActivityScenario.close]
+ * to time out waiting for DESTROYED.
  * [android.app.Instrumentation.waitForIdleSync] ensures [MainActivity.onNewIntent] completes
  * before assertions run. Production [MainActivity.onNewIntent] remains `protected`.
  *
@@ -45,8 +48,8 @@ import org.junit.runner.RunWith
  * 1. Cold-start ACTION_VIEW: job link held as [DriverUiState.pendingDeepLink] by the
  *    production [MainActivity.onCreate] → `handleIncomingIntent` code path; safe interim tab = MESSAGES.
  * 2. Cold-start non-job links (Messages, Nearby, Profile): route immediately, no pending hold.
- * 3. Warm-start via the real [MainActivity.onNewIntent] path (framework-delivered): job and
- *    non-job intents are processed through the production lifecycle path.
+ * 3. Warm-start via [android.app.Instrumentation.callActivityOnNewIntent]: job and
+ *    non-job intents are processed through the production [MainActivity.onNewIntent] path.
  * 4. Activity recreation ([ActivityScenario.recreate]): ViewModel retained; routing state is
  *    idempotent — the same intent is re-delivered to `onCreate` and produces the same state.
  * 5. Duplicate warm intents: one-shot idempotent hold — the same job destination is held,
@@ -117,63 +120,42 @@ class MainActivityDeepLinkInstrumentedTest {
     }
 
     /**
-     * Deliver a warm intent to the running [MainActivity] via the Android Activity Manager,
-     * using the same production flags as [DriverPushNotifications]:
-     * [Intent.FLAG_ACTIVITY_SINGLE_TOP] | [Intent.FLAG_ACTIVITY_CLEAR_TOP] |
-     * [Intent.FLAG_ACTIVITY_NEW_TASK] (required when starting from a non-Activity context).
+     * Deliver a warm intent to the running [MainActivity] via
+     * [android.app.Instrumentation.callActivityOnNewIntent].
      *
-     * This is a real Activity Manager delivery — the framework calls [MainActivity.onNewIntent]
-     * on the existing top Activity instance, exactly as a push-notification tap would.
-     * Production [MainActivity.onNewIntent] remains `protected`; no access-modifier changes
-     * are needed.
+     * Using [android.content.Context.startActivity] with [Intent.FLAG_ACTIVITY_NEW_TASK] from an
+     * Application context caused [MainActivity] to be launched in a **new task** on Android 14,
+     * leaving the [ActivityScenario]-tracked instance permanently in [Stage.PAUSED]. When
+     * [ActivityScenario.close] subsequently called [android.app.Activity.finish], the Activity
+     * could not transition past PAUSED to DESTROYED, causing the
+     * "Activity never becomes [DESTROYED]" assertion error.
      *
-     * After [android.app.Instrumentation.waitForIdleSync], polls [ActivityLifecycleMonitorRegistry]
-     * until [MainActivity] is back in [Stage.RESUMED]. This is necessary because
-     * [Intent.FLAG_ACTIVITY_NEW_TASK] dispatches `onNewIntent` via an asynchronous Binder IPC;
-     * [waitForIdleSync] alone only drains the current main-thread queue and may return before the
-     * IPC is processed, leaving the Activity in [Stage.PAUSED]. Waiting for [Stage.RESUMED] ensures:
-     *   (a) [MainActivity.onNewIntent] → `handleIncomingIntent` → [DriverViewModel.handleDeepLink]
-     *       has fully executed before assertions run;
-     *   (b) the Activity is in [Stage.RESUMED] when [ActivityScenario.close] fires, allowing the
-     *       normal RESUMED→PAUSED→STOPPED→DESTROYED teardown and preventing the
-     *       "Activity never becomes [DESTROYED]" timeout.
+     * [android.app.Instrumentation.callActivityOnNewIntent] delivers [onNewIntent] directly to
+     * the existing [MainActivity] instance on the main thread. The Activity stays in
+     * [Stage.RESUMED] throughout, so [ActivityScenario.close] can follow the normal
+     * RESUMED→PAUSED→STOPPED→DESTROYED teardown path.
      *
      * Must be called from the **instrumentation thread** (the test method body), not from
      * within [ActivityScenario.onActivity].
      */
     private fun deliverWarmIntent(intent: Intent) {
-        val ctx = ApplicationProvider.getApplicationContext<Application>()
         val instr = InstrumentationRegistry.getInstrumentation()
-        ctx.startActivity(
-            Intent(intent).apply {
-                setClass(ctx, MainActivity::class.java)
-                addFlags(
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_NEW_TASK,
-                )
-            },
-        )
-        // startActivity from application context dispatches onNewIntent via an asynchronous
-        // Binder IPC. FLAG_ACTIVITY_NEW_TASK may also cause a brief PAUSED→RESUMED cycle on
-        // the existing Activity. waitForIdleSync() drains the current main-thread queue but
-        // does not guarantee the IPC has been processed. Poll ActivityLifecycleMonitorRegistry
-        // until MainActivity is back in RESUMED so that:
-        //   (a) onNewIntent → handleDeepLink has fully executed before assertions run, and
-        //   (b) the Activity is in RESUMED state when ActivityScenario.close() fires, allowing
-        //       the normal RESUMED→PAUSED→STOPPED→DESTROYED teardown path.
-        val deadline = System.currentTimeMillis() + 5_000L
-        do {
-            instr.waitForIdleSync()
-            var resumed = false
-            instr.runOnMainSync {
-                resumed = ActivityLifecycleMonitorRegistry.getInstance()
-                    .getActivitiesInStage(Stage.RESUMED)
-                    .any { it is MainActivity }
-            }
-            if (resumed) break
-            Thread.sleep(50)
-        } while (System.currentTimeMillis() < deadline)
+        instr.waitForIdleSync()
+
+        // Obtain the current RESUMED MainActivity to deliver the intent to.
+        var activity: MainActivity? = null
+        instr.runOnMainSync {
+            activity = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(Stage.RESUMED)
+                .filterIsInstance<MainActivity>()
+                .firstOrNull()
+        }
+
+        val act = activity ?: return
+        // callActivityOnNewIntent() invokes onNewIntent() on the main thread, which then
+        // calls handleIncomingIntent() → DriverViewModel.handleDeepLink() before returning.
+        instr.runOnMainSync { instr.callActivityOnNewIntent(act, intent) }
+        instr.waitForIdleSync()
     }
 
     // ── 1. Cold-start job link — held in ViewModel until session/jobs load ────
