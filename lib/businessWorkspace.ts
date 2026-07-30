@@ -1,0 +1,143 @@
+/**
+ * BusinessWorkspace — the top-level workspace identity.
+ *
+ * Describes *which product surface* a company or user belongs to, independent
+ * of their membership role within a company.  Four workspaces map 1:1 to the
+ * four canonical route prefixes and are mutually exclusive from a routing
+ * perspective.
+ *
+ * Existing routes (do not change):
+ *   /driver    → shared driver workspace surface
+ *   /customer  → shipper
+ *   /broker    → broker
+ *   /admin     → carrier_fleet  (legacy company / carrier-fleet control surface)
+ *
+ * Important: /driver is a shared route surface for both employed/company
+ * drivers and owner-drivers with equivalent in-workspace permissions.
+ * Route prefix alone never proves valid driver security context.
+ *
+ * Do not confuse BusinessWorkspace with:
+ *   - WorkspaceRole (lib/workspaceRole.ts) — the UI-level coarse role resolver.
+ *   - MembershipRole (lib/membershipRole.ts) — the per-company DB role.
+ */
+
+import type { WorkspaceCapability } from './workspaceRole';
+
+/** The four XDrive business workspace types. */
+export type BusinessWorkspace =
+  | 'owner_operator'  // shared driver workspace surface; accesses /driver
+  | 'shipper'         // customer / shipper company; accesses /customer
+  | 'broker'          // freight broker; accesses /broker
+  | 'carrier_fleet';  // carrier / fleet company; accesses /admin
+
+/** Canonical landing route for each workspace. Existing routes preserved. */
+export const WORKSPACE_LANDING_ROUTE: Record<BusinessWorkspace, string> = {
+  owner_operator: '/driver',
+  shipper:        '/customer',
+  broker:         '/broker',
+  carrier_fleet:  '/admin',
+};
+
+/** Human-readable label for each workspace. */
+export const WORKSPACE_LABEL: Record<BusinessWorkspace, string> = {
+  owner_operator: 'Owner Operator',
+  shipper:        'Shipper',
+  broker:         'Broker',
+  carrier_fleet:  'Carrier / Fleet',
+};
+
+/**
+ * High-level capabilities available within each workspace.
+ * These align with the WorkspaceCapability strings in lib/workspaceRole.ts
+ * and cover every capability referenced in the canonical route registry
+ * (lib/roleCapabilities.ts) for that workspace.
+ */
+export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly WorkspaceCapability[]> = {
+  owner_operator: [
+    'loads.view.marketplace',
+    'quotes.submit',
+    'jobs.view',
+    'jobs.execute',
+    'jobs.track',
+    'documents.own.manage',
+    'invoices.carrier.manage',
+  ],
+  shipper: [
+    'loads.create',
+    'loads.publish',
+    'loads.view.own',
+    'quotes.receive',
+    'quotes.compare',
+    'quotes.award',
+    'jobs.view',
+    'jobs.track',
+    'jobs.review_pod',
+    'invoices.customer.manage',
+    'settings.manage',
+  ],
+  broker: [
+    'company.manage',
+    'loads.create',
+    'loads.publish',
+    'loads.view.own',
+    'loads.view.marketplace',
+    'quotes.submit',
+    'quotes.receive',
+    'quotes.compare',
+    'quotes.award',
+    'jobs.dispatch',
+    'jobs.track',
+    'jobs.review_pod',
+    'invoices.customer.manage',
+    'invoices.carrier.manage',
+    'margins.view',
+    'incidents.manage',
+    'settings.manage',
+  ],
+  carrier_fleet: [
+    'loads.view.marketplace',
+    'quotes.submit',
+    'jobs.view',
+    'jobs.allocate',
+    'jobs.dispatch',
+    'jobs.execute',
+    'jobs.track',
+    'drivers.manage',
+    'vehicles.manage',
+    'fleet.positions.view',
+    'fleet.maintenance.manage',
+    'documents.company.manage',
+    'documents.verify',
+    'invoices.customer.manage',
+    'invoices.carrier.manage',
+    'payments.manage',
+    'margins.view',
+    'company.members.manage',
+    'incidents.manage',
+    'settings.manage',
+  ],
+};
+
+/**
+ * Returns true if the workspace exposes the given high-level capability.
+ */
+export function workspaceHasCapability(
+  workspace: BusinessWorkspace,
+  capability: WorkspaceCapability,
+): boolean {
+  return WORKSPACE_CAPABILITIES[workspace]?.includes(capability) ?? false;
+}
+
+/**
+ * Resolves the BusinessWorkspace for a given route pathname.
+ * Returns null for unrecognised prefixes (public routes, super-admin, etc.).
+ */
+export function workspaceForRoute(pathname: string): BusinessWorkspace | null {
+  const clean = pathname.split('?')[0]?.split('#')[0] ?? '';
+  // /driver maps to the shared driver business surface for routing lookups.
+  if (clean === '/driver'   || clean.startsWith('/driver/'))   return 'owner_operator';
+  if (clean === '/customer' || clean.startsWith('/customer/')) return 'shipper';
+  if (clean === '/broker'   || clean.startsWith('/broker/'))   return 'broker';
+  if (clean === '/admin'    || clean.startsWith('/admin/'))    return 'carrier_fleet';
+  return null;
+}
