@@ -163,112 +163,32 @@ export async function PATCH(request: NextRequest) {
     return respond(400, { error: 'A valid case, action and written reason are required.' });
   }
 
-  const { data: currentCase, error: caseError } = await supabaseAdmin
-    .from('fraud_review_cases')
-    .select('id, status, subject_user_id, subject_company_id, onboarding_application_id')
-    .eq('id', parsed.data.caseId)
-    .maybeSingle();
-
-  if (caseError) return respond(500, { error: caseError.message });
-  if (!currentCase) return respond(404, { error: 'Fraud review case not found.' });
-
-  const nextStatus = {
-    investigate: 'investigating',
-    clear: 'cleared',
-    confirm: 'confirmed',
-    dismiss: 'dismissed',
-  }[parsed.data.action];
-
-  const decisionPayload: Record<string, unknown> = {
-    status: nextStatus,
-    decision_reason: parsed.data.reason,
-    assigned_to: owner.id,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (parsed.data.action !== 'investigate') {
-    decisionPayload.decided_by = owner.id;
-    decisionPayload.decided_at = new Date().toISOString();
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from('fraud_review_cases')
-    .update(decisionPayload)
-    .eq('id', parsed.data.caseId);
-
-  if (updateError) return respond(500, { error: updateError.message });
-
-  if (currentCase.onboarding_application_id) {
-    if (parsed.data.action === 'confirm') {
-      const { error: applicationError } = await supabaseAdmin
-        .from('onboarding_applications')
-        .update({
-          risk_status: 'confirmed_fraud',
-          risk_reason: parsed.data.reason,
-          risk_updated_at: new Date().toISOString(),
-          risk_reviewed_by: owner.id,
-          status: 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: owner.id,
-          review_notes: parsed.data.reason,
-        })
-        .eq('id', currentCase.onboarding_application_id);
-
-      if (applicationError) return respond(500, { error: applicationError.message });
-    }
-
-    if (parsed.data.action === 'clear' || parsed.data.action === 'dismiss') {
-      const { count: unresolvedCount, error: unresolvedError } = await supabaseAdmin
-        .from('fraud_review_cases')
-        .select('id', { count: 'exact', head: true })
-        .eq('onboarding_application_id', currentCase.onboarding_application_id)
-        .in('status', ['open', 'investigating', 'confirmed'])
-        .neq('id', currentCase.id);
-
-      if (unresolvedError) return respond(500, { error: unresolvedError.message });
-
-      if ((unresolvedCount ?? 0) === 0) {
-        const { error: clearError } = await supabaseAdmin
-          .from('onboarding_applications')
-          .update({
-            risk_status: 'clear',
-            risk_reason: null,
-            risk_updated_at: new Date().toISOString(),
-            risk_reviewed_by: owner.id,
-          })
-          .eq('id', currentCase.onboarding_application_id);
-
-        if (clearError) return respond(500, { error: clearError.message });
-      }
-    }
-  }
-
-  if (parsed.data.action === 'confirm' && currentCase.subject_user_id) {
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({ status: 'blocked' })
-      .eq('user_id', currentCase.subject_user_id);
-
-    if (profileError) return respond(500, { error: profileError.message });
-  }
-
-  await supabaseAdmin.from('owner_audit_log').insert({
-    actor_user_id: owner.id,
-    target_company_id: currentCase.subject_company_id ?? null,
-    action_type: `fraud_case_${parsed.data.action}`,
-    old_status: currentCase.status,
-    new_status: nextStatus,
-    reason: parsed.data.reason,
-    metadata: {
-      fraud_case_id: currentCase.id,
-      subject_user_id: currentCase.subject_user_id,
-      onboarding_application_id: currentCase.onboarding_application_id,
+  const { data: decisionResult, error: decisionError } = await supabaseAdmin.rpc(
+    'owner_decide_fraud_review_case',
+    {
+      p_actor_user_id: owner.id,
+      p_case_id: parsed.data.caseId,
+      p_action: parsed.data.action,
+      p_reason: parsed.data.reason,
     },
-  });
+  );
+
+  if (decisionError) {
+    if (decisionError.code === 'P0002') return respond(404, { error: 'Fraud review case not found.' });
+    if (decisionError.code === '23505') return respond(409, { error: decisionError.message });
+    if (decisionError.code === '23514') return respond(422, { error: decisionError.message });
+    return respond(500, { error: decisionError.message });
+  }
+
+  const row = Array.isArray(decisionResult)
+    ? ((decisionResult[0] as Record<string, unknown> | undefined) ?? null)
+    : ((decisionResult as Record<string, unknown> | null) ?? null);
+  const nextStatus = typeof row?.new_status === 'string' ? row.new_status : null;
+  const caseId = typeof row?.case_id === 'string' ? row.case_id : parsed.data.caseId;
 
   return respond(200, {
     success: true,
-    caseId: currentCase.id,
+    caseId,
     status: nextStatus,
   });
 }

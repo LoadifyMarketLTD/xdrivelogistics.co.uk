@@ -56,13 +56,21 @@ export async function POST(request: NextRequest) {
     (authUser.app_metadata ?? null) as Record<string, unknown> | null,
   );
 
-  const { data: existing, error: existingError } = await supabaseAdmin
+  const { data: existingRows, error: existingError } = await supabaseAdmin
     .from('onboarding_applications')
     .select('id, status, account_type, company_id, payload, created_at, token_hash, token_expires_at, token_activated_at')
     .eq('user_id', authUser.id)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(2);
 
   if (existingError) return json(500, { error: existingError.message });
+  if ((existingRows ?? []).length > 1) {
+    return json(409, {
+      error: 'Multiple onboarding applications were found for this user. Platform Owner review is required before initialising onboarding.',
+      code: 'onboarding_application_integrity_violation',
+    });
+  }
+  const existing = existingRows?.[0] ?? null;
 
   const existingAccountType = normalizeOnboardingAccountType(existing?.account_type);
   if (existing && !existingAccountType) {

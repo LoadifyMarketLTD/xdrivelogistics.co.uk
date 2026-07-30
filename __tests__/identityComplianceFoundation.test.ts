@@ -41,12 +41,16 @@ describe('identity compliance foundation', () => {
   });
 
   it('fingerprints onboarding documents before storage and places cross-account duplicates on hold', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql',
+    );
     const uploadRoute = readRepoFile('app/api/onboarding/documents/route.ts');
 
+    expect(migration).toContain('document_fingerprints_exact_file_uidx');
+    expect(migration).toContain('register_duplicate_document_fraud_case');
     expect(uploadRoute).toContain("createHash('sha256')");
     expect(uploadRoute).toContain(".from('document_fingerprints')");
-    expect(uploadRoute).toContain("case_type: 'duplicate_file'");
-    expect(uploadRoute).toContain("risk_status: 'on_hold'");
+    expect(uploadRoute).toContain("rpc('register_duplicate_document_fraud_case'");
     expect(uploadRoute).toContain("code: 'duplicate_document_detected'");
   });
 
@@ -63,15 +67,16 @@ describe('identity compliance foundation', () => {
   });
 
   it('requires a recorded human decision before a fraud case blocks the user profile', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql',
+    );
     const fraudRoute = readRepoFile(
       'app/api/super-admin/compliance/fraud-cases/route.ts',
     );
 
+    expect(migration).toContain('owner_decide_fraud_review_case');
     expect(fraudRoute).toContain("action: z.enum(['investigate', 'clear', 'confirm', 'dismiss'])");
-    expect(fraudRoute).toContain("parsed.data.action === 'confirm'");
-    expect(fraudRoute).toContain("risk_status: 'confirmed_fraud'");
-    expect(fraudRoute).toContain(".update({ status: 'blocked' })");
-    expect(fraudRoute).toContain('decision_reason: parsed.data.reason');
+    expect(fraudRoute).toContain("owner_decide_fraud_review_case");
   });
 
   it('exposes document review and identity fraud review in the Platform Owner navigation', () => {

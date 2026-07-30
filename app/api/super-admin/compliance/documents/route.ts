@@ -416,7 +416,7 @@ export async function POST(request: NextRequest) {
     return respond(500, { error: signedError?.message ?? 'Failed to create secure document link.' });
   }
 
-  await supabaseAdmin.from('owner_audit_log').insert({
+  const { error: auditError } = await supabaseAdmin.from('owner_audit_log').insert({
     actor_user_id: owner.id,
     target_company_id: null,
     action_type: 'document_viewed',
@@ -428,6 +428,7 @@ export async function POST(request: NextRequest) {
       document_family: parsed.data.documentFamily,
     },
   });
+  if (auditError) return respond(500, { error: auditError.message });
 
   return respond(200, { url: signed.signedUrl, expiresInSeconds: 300 });
 }
@@ -443,54 +444,26 @@ export async function PATCH(request: NextRequest) {
   const parsed = reviewSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Invalid document review request.' });
 
-  const source = sourceFor(parsed.data.documentFamily);
-  const { data: currentData, error: currentError } = await supabaseAdmin
-    .from(source.table)
-    .select(`id, ${source.statusColumn}`)
-    .eq('id', parsed.data.id)
-    .maybeSingle();
-
-  if (currentError) return respond(500, { error: currentError.message });
-  if (!currentData) return respond(404, { error: 'Document not found.' });
-
-  const current = currentData as DbRow;
-  const nextStatus = parsed.data.action === 'approve' ? source.approvedStatus : source.rejectedStatus;
-  const updatePayload: DbRow = {
-    [source.statusColumn]: nextStatus,
-    [source.reviewerColumn]: owner.id,
-    [source.reviewedAtColumn]: new Date().toISOString(),
-    [source.reasonColumn]:
-      parsed.data.action === 'reject'
-        ? parsed.data.reason?.trim() || 'Rejected by platform compliance review.'
-        : null,
-  };
-
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from(source.table)
-    .update(updatePayload)
-    .eq('id', parsed.data.id)
-    .select(`id, ${source.statusColumn}`)
-    .maybeSingle();
-
-  if (updateError) return respond(500, { error: updateError.message });
-
-  await supabaseAdmin.from('owner_audit_log').insert({
-    actor_user_id: owner.id,
-    target_company_id: null,
-    action_type: parsed.data.action === 'approve' ? 'document_approved' : 'document_rejected',
-    old_status: text(current[source.statusColumn]),
-    new_status: nextStatus,
-    reason:
-      parsed.data.reason?.trim() ||
-      `${parsed.data.documentFamily} document ${parsed.data.id} ${nextStatus} by platform compliance.`,
-    metadata: {
-      document_id: parsed.data.id,
-      document_family: parsed.data.documentFamily,
-    },
+  const { data: result, error: reviewError } = await supabaseAdmin.rpc('owner_review_compliance_document', {
+    p_actor_user_id: owner.id,
+    p_document_family: parsed.data.documentFamily,
+    p_document_id: parsed.data.id,
+    p_action: parsed.data.action,
+    p_reason: parsed.data.reason?.trim() || null,
   });
 
+  if (reviewError) {
+    if (reviewError.code === 'P0002') return respond(404, { error: 'Document not found.' });
+    if (reviewError.code === '23505') return respond(409, { error: reviewError.message });
+    if (reviewError.code === '23514') return respond(422, { error: reviewError.message });
+    return respond(500, { error: reviewError.message });
+  }
+
+  const row = Array.isArray(result) ? (result[0] as DbRow | undefined) : (result as DbRow | null);
+  const nextStatus = text(row?.new_status);
+
   return respond(200, {
-    document: updated,
+    document: row ?? null,
     documentFamily: parsed.data.documentFamily,
     status: nextStatus,
   });
