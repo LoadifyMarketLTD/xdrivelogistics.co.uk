@@ -2,6 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type QueryResult<T> = Promise<{ data: T; error: { message: string } | null }>;
 
+type MembershipFixture = {
+  id: string;
+  company_id: string;
+  user_id: string;
+  role_in_company: string | null;
+  status: string | null;
+  companies: {
+    id: string;
+    name: string;
+    company_type: string | null;
+    status: string | null;
+  } | null;
+};
+
 type SupabaseFixtures = {
   profile: QueryResult<{
     role: string;
@@ -9,19 +23,7 @@ type SupabaseFixtures = {
     is_driver: boolean;
     company_id: string | null;
   } | null>;
-  memberships: QueryResult<Array<{
-    id: string;
-    company_id: string;
-    user_id: string;
-    role_in_company: string | null;
-    status: string | null;
-    companies: {
-      id: string;
-      name: string;
-      company_type: string | null;
-      status: string | null;
-    } | null;
-  }>>;
+  memberships: QueryResult<MembershipFixture[]>;
   driver: QueryResult<{
     id: string;
     company_id: string | null;
@@ -32,6 +34,24 @@ type SupabaseFixtures = {
   } | null>;
   creatorCompany: QueryResult<{ company_type: string | null } | null>;
 };
+
+const membership = (
+  companyId: string,
+  overrides: Partial<MembershipFixture> = {},
+): MembershipFixture => ({
+  id: `mem-${companyId}`,
+  company_id: companyId,
+  user_id: 'user-1',
+  role_in_company: 'owner',
+  status: 'active',
+  companies: {
+    id: companyId,
+    name: `Company ${companyId}`,
+    company_type: 'standard',
+    status: 'active',
+  },
+  ...overrides,
+});
 
 const defaultFixtures = (): SupabaseFixtures => ({
   profile: Promise.resolve({
@@ -44,21 +64,7 @@ const defaultFixtures = (): SupabaseFixtures => ({
     error: null,
   }),
   memberships: Promise.resolve({
-    data: [
-      {
-        id: 'mem-1',
-        company_id: 'co-1',
-        user_id: 'user-1',
-        role_in_company: 'owner',
-        status: 'active',
-        companies: {
-          id: 'co-1',
-          name: 'Company One',
-          company_type: 'standard',
-          status: 'active',
-        },
-      },
-    ],
+    data: [membership('co-1', { id: 'mem-1' })],
     error: null,
   }),
   driver: Promise.resolve({
@@ -72,10 +78,7 @@ const defaultFixtures = (): SupabaseFixtures => ({
     },
     error: null,
   }),
-  creatorCompany: Promise.resolve({
-    data: null,
-    error: null,
-  }),
+  creatorCompany: Promise.resolve({ data: null, error: null }),
 });
 
 let authGetUserResult: Promise<{
@@ -99,9 +102,7 @@ const buildSupabaseAdmin = () => ({
         eq: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn(() => fixtures.profile),
       };
-      return {
-        select: vi.fn(() => query),
-      };
+      return { select: vi.fn(() => query) };
     }
 
     if (table === 'company_memberships') {
@@ -109,9 +110,7 @@ const buildSupabaseAdmin = () => ({
         eq: vi.fn().mockReturnThis(),
         order: vi.fn(() => fixtures.memberships),
       };
-      return {
-        select: vi.fn(() => query),
-      };
+      return { select: vi.fn(() => query) };
     }
 
     if (table === 'drivers') {
@@ -120,9 +119,7 @@ const buildSupabaseAdmin = () => ({
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn(() => fixtures.driver),
       };
-      return {
-        select: vi.fn(() => query),
-      };
+      return { select: vi.fn(() => query) };
     }
 
     const query = {
@@ -130,9 +127,7 @@ const buildSupabaseAdmin = () => ({
       limit: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn(() => fixtures.creatorCompany),
     };
-    return {
-      select: vi.fn(() => query),
-    };
+    return { select: vi.fn(() => query) };
   },
 });
 
@@ -175,9 +170,7 @@ const buildRequest = (pathname: string): import('next/server').NextRequest =>
     cookies: {
       get: () => ({ value: 'token-1' }),
     },
-    nextUrl: {
-      pathname,
-    },
+    nextUrl: { pathname },
   }) as unknown as import('next/server').NextRequest;
 
 describe('middleware resolveRouteAuth hardening', () => {
@@ -200,7 +193,7 @@ describe('middleware resolveRouteAuth hardening', () => {
     expect(result.kind).toBe('service_unavailable');
   });
 
-  it('fails closed when multiple active memberships exist without trusted selected company', async () => {
+  it('fails closed when multiple active memberships exist', async () => {
     fixtures = {
       ...defaultFixtures(),
       profile: Promise.resolve({
@@ -213,24 +206,7 @@ describe('middleware resolveRouteAuth hardening', () => {
         error: null,
       }),
       memberships: Promise.resolve({
-        data: [
-          {
-            id: 'mem-1',
-            company_id: 'co-1',
-            user_id: 'user-1',
-            role_in_company: 'owner',
-            status: 'active',
-            companies: { id: 'co-1', name: 'Company One', company_type: 'standard', status: 'active' },
-          },
-          {
-            id: 'mem-2',
-            company_id: 'co-2',
-            user_id: 'user-1',
-            role_in_company: 'owner',
-            status: 'active',
-            companies: { id: 'co-2', name: 'Company Two', company_type: 'standard', status: 'active' },
-          },
-        ],
+        data: [membership('co-1', { id: 'mem-1' }), membership('co-2', { id: 'mem-2' })],
         error: null,
       }),
     };
@@ -268,7 +244,7 @@ describe('middleware resolveRouteAuth hardening', () => {
     }
   });
 
-  it('denies when driver row belongs to another company than selected active company', async () => {
+  it('denies when driver row belongs to another company than the active company', async () => {
     fixtures = {
       ...defaultFixtures(),
       driver: Promise.resolve({
@@ -290,7 +266,7 @@ describe('middleware resolveRouteAuth hardening', () => {
     expect(result.kind).toBe('forbidden');
   });
 
-  it('denies stale profile company_id when it is outside active memberships', async () => {
+  it('denies a stale profile company_id outside the active membership', async () => {
     fixtures = {
       ...defaultFixtures(),
       profile: Promise.resolve({
@@ -310,45 +286,13 @@ describe('middleware resolveRouteAuth hardening', () => {
     expect(result.kind).toBe('forbidden');
   });
 
-  it('recalculates driver context on company switch and clears commercial rights without matching driver row', async () => {
+  it('rejects multiple active memberships even when profile.company_id points to one of them', async () => {
     fixtures = {
       ...defaultFixtures(),
       memberships: Promise.resolve({
-        data: [
-          {
-            id: 'mem-1',
-            company_id: 'co-1',
-            user_id: 'user-1',
-            role_in_company: 'owner',
-            status: 'active',
-            companies: { id: 'co-1', name: 'Company One', company_type: 'standard', status: 'active' },
-          },
-          {
-            id: 'mem-2',
-            company_id: 'co-2',
-            user_id: 'user-1',
-            role_in_company: 'owner',
-            status: 'active',
-            companies: { id: 'co-2', name: 'Company Two', company_type: 'standard', status: 'active' },
-          },
-        ],
+        data: [membership('co-1', { id: 'mem-1' }), membership('co-2', { id: 'mem-2' })],
         error: null,
       }),
-    };
-
-    authGetUserResult = Promise.resolve({
-      data: {
-        user: {
-          id: 'user-1',
-          app_metadata: { role: 'driver' },
-          user_metadata: {},
-        },
-      },
-      error: null,
-    });
-
-    fixtures = {
-      ...fixtures,
       profile: Promise.resolve({
         data: {
           role: 'driver',
@@ -364,14 +308,7 @@ describe('middleware resolveRouteAuth hardening', () => {
     const middleware = await import('../middleware');
     const result = await middleware.resolveRouteAuth(buildRequest('/admin/jobs'));
 
-    expect(result.kind).toBe('authenticated');
-    if (result.kind === 'authenticated') {
-      expect(result.driverId).toBeNull();
-      expect(result.canCommercialBid).toBeNull();
-      expect(result.canAccessDriverMode).toBe(false);
-      expect(result.ownerDriverWorkspace).toBe(false);
-      expect(result.ownerDriverExecutionMode).toBe(false);
-    }
+    expect(result.kind).toBe('forbidden');
   });
 
   it('allows authoritative platform owner to access super-admin without memberships', async () => {
@@ -448,19 +385,16 @@ describe('middleware resolveRouteAuth hardening', () => {
       ...defaultFixtures(),
       memberships: Promise.resolve({
         data: [
-          {
+          membership('co-owner-driver', {
             id: 'mem-1',
-            company_id: 'co-owner-driver',
-            user_id: 'user-1',
             role_in_company: 'driver',
-            status: 'active',
             companies: {
               id: 'co-owner-driver',
               name: 'Owner Driver Co',
               company_type: 'owner_driver',
               status: 'active',
             },
-          },
+          }),
         ],
         error: null,
       }),

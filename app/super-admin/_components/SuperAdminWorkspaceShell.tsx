@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -86,8 +86,9 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Compliance',
-    summary: 'Documents and expiry',
+    summary: 'Documents, identity and expiry',
     items: [
+      { id: 'fraud-cases', label: 'Identity & Fraud Review', href: '/super-admin/compliance/fraud-cases' },
       { id: 'insurance', label: 'Insurance', href: '/super-admin/compliance/insurance' },
       { id: 'licences', label: 'Operator Licences', href: '/super-admin/compliance/operator-licences' },
       { id: 'expiries', label: 'Expiry Tracking', href: '/super-admin/compliance/expiries' },

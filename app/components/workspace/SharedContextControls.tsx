@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import type {
@@ -11,7 +11,6 @@ import type { BusinessWorkspace } from '../../../lib/businessWorkspace';
 import { WORKSPACE_LABEL } from '../../../lib/businessWorkspace';
 import {
   filterAuthorizedNavigation,
-  shouldShowCompanySwitcher,
   shouldShowWorkspaceSwitcher,
   type AuthorizedNavigationTarget,
 } from '../../../lib/sharedUiNavigation';
@@ -43,6 +42,7 @@ export default function SharedContextControls({
   const [isSwitching, setIsSwitching] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const latestSwitchRequestId = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,8 +113,10 @@ export default function SharedContextControls({
     companyId: string,
     workspace: BusinessWorkspace,
   ) => {
-    if (!companyId || isSwitching) return;
+    if (!companyId) return;
 
+    const requestId = latestSwitchRequestId.current + 1;
+    latestSwitchRequestId.current = requestId;
     setIsSwitching(true);
     setError('');
     try {
@@ -143,39 +145,26 @@ export default function SharedContextControls({
         );
       }
 
+      if (requestId !== latestSwitchRequestId.current) return;
+
       setContext(body);
+      setSelectedCompanyId(body.current?.companyId ?? body.selectedCompanyId ?? companyId);
+      setSelectedWorkspace(body.current?.activeWorkspace ?? '');
       router.replace(body.landingRoute);
       router.refresh();
-      setIsSwitching(false);
     } catch (switchError) {
+      if (requestId !== latestSwitchRequestId.current) return;
       setError(
         switchError instanceof Error
           ? switchError.message
           : 'Unable to switch workspace context.',
       );
-      setIsSwitching(false);
+    } finally {
+      if (requestId === latestSwitchRequestId.current) {
+        setIsSwitching(false);
+      }
     }
   };
-
-  const onCompanyChange = (companyId: string) => {
-    setSelectedCompanyId(companyId);
-    const membership = context?.memberships.find(
-      (item) => item.companyId === companyId,
-    );
-    const workspaces = membership?.enabledWorkspaces ?? [];
-
-    if (workspaces.length === 1 && workspaces[0]) {
-      setSelectedWorkspace(workspaces[0]);
-      void switchContext(companyId, workspaces[0]);
-      return;
-    }
-
-    setSelectedWorkspace('');
-  };
-
-  const showCompanySwitcher = shouldShowCompanySwitcher(
-    context?.memberships.length ?? 0,
-  );
   const showWorkspaceSwitcher = shouldShowWorkspaceSwitcher(
     selectedMembership?.enabledWorkspaces.length ?? 0,
   );
@@ -204,25 +193,25 @@ export default function SharedContextControls({
       }}
       aria-label="Workspace context controls"
     >
-      {!isLoading && showCompanySwitcher && (
+      {!isLoading && selectedMembership && (
         <label style={{ display: 'grid', gap: '0.12rem' }}>
           <span style={{ fontSize: '0.52rem', color: workspaceTheme.muted, fontWeight: 800 }}>
             Organisation
           </span>
-          <select
-            aria-label="Select organisation"
-            value={selectedCompanyId}
-            disabled={isSwitching}
-            onChange={(event) => onCompanyChange(event.target.value)}
-            style={{ ...controlStyle, maxWidth: '190px' }}
+          <span
+            aria-label="Active organisation"
+            style={{
+              ...controlStyle,
+              maxWidth: '190px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
           >
-            <option value="">Select organisation</option>
-            {context?.memberships.map((membership) => (
-              <option key={membership.membershipId} value={membership.companyId}>
-                {membership.companyName}
-              </option>
-            ))}
-          </select>
+            {selectedMembership.companyName}
+          </span>
         </label>
       )}
 
@@ -237,7 +226,6 @@ export default function SharedContextControls({
             disabled={isSwitching || !selectedCompanyId}
             onChange={(event) => {
               const workspace = event.target.value as BusinessWorkspace;
-              setSelectedWorkspace(workspace);
               void switchContext(selectedCompanyId, workspace);
             }}
             style={{ ...controlStyle, maxWidth: '160px' }}

@@ -199,6 +199,11 @@ const mapResolutionError = (error: string): ContextRouteResponse => {
   if (error === 'no_active_membership') {
     return json(403, { error: 'No active company membership is available.' });
   }
+  if (error === 'multiple_active_memberships') {
+    return json(409, {
+      error: 'Identity integrity violation: multiple active company memberships detected.',
+    });
+  }
   if (error === 'company_not_available') {
     return json(403, { error: 'The requested company is not available to this account.' });
   }
@@ -235,8 +240,6 @@ export async function GET(
       if (!recoverable.ok) return mapResolutionError(recoverable.error);
 
       // Persist only when recovery produces a complete unambiguous context.
-      // When multiple memberships exist, recovery returns companySelectionRequired: true
-      // (current: null) and explicit selection is needed — do not mutate the profile.
       if (recoverable.snapshot.current !== null) {
         const { data: recovered, error: updateError } = await source.admin
           .from('profiles')
