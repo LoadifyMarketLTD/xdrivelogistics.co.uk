@@ -8,6 +8,14 @@ import {
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
+const isMissingDriverCommercialColumn = (
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+): boolean => {
+  if (!error || error.code !== '42703') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('driver_type') || text.includes('can_commercial_bid');
+};
+
 export type DriverContext = {
   userId: string;
   driverId: string;
@@ -95,7 +103,7 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
-  const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
+  const [{ data: driverInitialRow, error: driverInitialError }, { data: profileRow, error: profileError }] = await Promise.all([
     supabaseAdmin
       .from('drivers')
       .select('id, company_id, user_id, app_access, status, driver_type, can_commercial_bid')
@@ -107,6 +115,19 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
       .eq('user_id', authData.user.id)
       .maybeSingle(),
   ]);
+
+  const useLegacyDriverFallback = isMissingDriverCommercialColumn(driverInitialError);
+  const { data: driverLegacyRow, error: driverLegacyError } = useLegacyDriverFallback
+    ? await supabaseAdmin
+        .from('drivers')
+        .select('id, company_id, user_id, app_access, status')
+        .eq('user_id', authData.user.id)
+        .maybeSingle()
+    : { data: null, error: null };
+  const driverRow = useLegacyDriverFallback
+    ? (driverLegacyRow ? { ...driverLegacyRow, driver_type: null, can_commercial_bid: false } : null)
+    : driverInitialRow;
+  const driverError = useLegacyDriverFallback ? driverLegacyError : driverInitialError;
 
   if (driverError) return respond(500, { error: driverError.message });
   if (profileError) return respond(500, { error: profileError.message });

@@ -1,76 +1,7 @@
--- ============================================================
--- ARCHITECTURE DECISION (canonical – do not override without
--- explicit product-owner sign-off):
---
--- XDrive Logistics supports exactly TWO driver types:
---   • owner_driver  – self-employed / sole-trader operator
---   • company_driver – employed by or contracted to a carrier
---
--- 'individual_driver' and 'subcontractor' are NOT driver types
--- and must not be persisted in drivers.driver_type.
--- 'subcontractor' describes a commercial relationship, not a
--- driver classification.
---
--- MARKETPLACE ACCESS:
--- Both owner_driver AND company_driver MUST be able to:
---   view marketplace jobs, submit quotations, receive direct
---   jobs, accept jobs, and complete transport operations.
---
--- PERMISSION MODEL:
--- can_commercial_bid is an independent business flag and must
--- NOT be derived from driver_type alone.  A company_driver
--- acting on behalf of their fleet is a valid bidding entity.
--- Default is TRUE for both types.
---
--- PLATFORM SCOPE:
--- This platform supports owner-drivers, small fleets (3-5
--- drivers), medium fleets, and large carriers.
--- ============================================================
+-- Forward-only hotfix: remove PL/pgSQL ambiguity in membership upsert conflict target.
+-- This migration preserves the canonical function contract and behavior while using an
+-- explicit unique-constraint conflict target.
 
--- 1. Remap legacy driver_type values before tightening the constraint.
---    individual_driver  → owner_driver  (no employer company – self-operated)
---    subcontractor      → company_driver if they have a company_id,
---                         owner_driver  otherwise
-UPDATE public.drivers
-SET driver_type = 'owner_driver'
-WHERE driver_type = 'individual_driver';
-
-UPDATE public.drivers
-SET driver_type = CASE
-  WHEN company_id IS NOT NULL THEN 'company_driver'
-  ELSE 'owner_driver'
-END
-WHERE driver_type = 'subcontractor';
-
--- 2. Drop the old check constraint that permitted the invalid types.
-ALTER TABLE public.drivers
-  DROP CONSTRAINT IF EXISTS drivers_driver_type_check;
-
--- 3. Add the canonical constraint: only owner_driver | company_driver.
-ALTER TABLE public.drivers
-  ADD CONSTRAINT drivers_driver_type_check
-  CHECK (driver_type IN ('owner_driver', 'company_driver'));
-
--- 4. Fix can_commercial_bid:
---    • Change the column default to TRUE (architecture requires both
---      types to have marketplace access unless explicitly revoked).
---    • Enable bidding for any company_driver that was incorrectly
---      blocked because the previous migration defaulted to FALSE.
-ALTER TABLE public.drivers
-  ALTER COLUMN can_commercial_bid SET DEFAULT true;
-
-UPDATE public.drivers
-SET can_commercial_bid = true
-WHERE driver_type = 'company_driver'
-  AND can_commercial_bid = false;
-
--- 5. Update submit_individual_driver_onboarding so that any driver
---    row it creates (directly or via a later approval step) lands with
---    driver_type = 'owner_driver', not the retired 'individual_driver'.
---    The function itself does not INSERT into drivers; it only updates
---    profiles.  The approval function (review_onboarding_application_atomic)
---    inserts the drivers row.  We patch the approval function so that
---    account_type = 'individual_driver' provisions an owner_driver row.
 CREATE OR REPLACE FUNCTION public.review_onboarding_application_atomic(
   p_application_id uuid,
   p_actor_user_id uuid,
@@ -254,5 +185,4 @@ $$;
 REVOKE ALL ON FUNCTION public.review_onboarding_application_atomic(uuid, uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.review_onboarding_application_atomic(uuid, uuid, text, text) TO service_role;
 
--- 6. Notify PostgREST to reload the schema cache.
 NOTIFY pgrst, 'reload schema';
