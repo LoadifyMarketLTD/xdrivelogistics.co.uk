@@ -35,7 +35,11 @@ jobs:
           --health-retries=10
 
     env:
-      DATABASE_URL: ******localhost:5432/postgres
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
 
     steps:
       - name: Checkout exact workflow SHA
@@ -54,7 +58,7 @@ jobs:
           MIGRATION_BACKFILL="supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
 
           bootstrap_base_schema() {
-            psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 <<'SQL'
+            psql -v ON_ERROR_STOP=1 <<'SQL'
           DROP SCHEMA IF EXISTS auth CASCADE;
           DROP SCHEMA IF EXISTS public CASCADE;
           CREATE SCHEMA auth;
@@ -221,7 +225,7 @@ jobs:
 
           bootstrap_base_schema
 
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 <<'SQL'
+          psql -v ON_ERROR_STOP=1 <<'SQL'
           INSERT INTO auth.users (
             id, aud, role, email, encrypted_password,
             raw_app_meta_data, raw_user_meta_data, created_at, updated_at
@@ -240,7 +244,7 @@ jobs:
           SQL
 
           set +e
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}" > /tmp/identity-preflight-failure.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}" > /tmp/identity-preflight-failure.log 2>&1
           preflight_status=$?
           set -e
 
@@ -253,9 +257,9 @@ jobs:
           grep -F "Identity compliance preflight failed: at least one user has multiple active company memberships." /tmp/identity-preflight-failure.log >/dev/null
 
           bootstrap_base_schema
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}"
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${MIGRATION_QUOTES}"
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${MIGRATION_BACKFILL}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_QUOTES}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_BACKFILL}"
 
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_atomicity.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_atomicity.sql
