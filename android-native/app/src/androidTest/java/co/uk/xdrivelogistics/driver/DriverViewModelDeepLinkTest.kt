@@ -24,23 +24,11 @@ import org.junit.runner.RunWith
  *
  * Unlike [MainActivityDeepLinkInstrumentedTest], these tests exercise the routing state
  * machine directly through [DriverViewModel.handleDeepLink] and [DriverViewModel.logout],
- * without launching [MainActivity] or using [ActivityScenario]. This eliminates all
- * Activity lifecycle teardown constraints and makes routing assertions fully deterministic.
+ * without launching [MainActivity] or using [androidx.test.core.app.ActivityScenario].
  *
- * The [DriverViewModel] is created via [DriverViewModelFactory] with a [FakeSessionRepository]
- * and [skipDataRefreshForTesting=true], owned by a per-test [ViewModelStore] that is cleared
- * in [tearDown] to cancel [viewModelScope] cleanly. Session transitions are deterministic:
- * [FakeSessionRepository] emits changes synchronously on the main-thread dispatcher, and
- * [awaitCondition] polls from the instrumentation thread until the ViewModel observes them.
- *
- * Coverage:
- * 1. Deduplication: the same commandId (URI) is a no-op on second delivery.
- * 2. Pending-link replacement: a second job intent replaces the first pending link.
- * 3. Logout isolation: [resolvePendingDeepLink] returns null after logout (null-session guard).
- * 4. Different job IDs: two UUIDs produce non-equal [PendingDeepLinkCommand] values.
- * 5. commandId recording: consumed links are recorded in [DriverUiState.consumedCommandIds].
- * 6. Auth-epoch isolation: epoch advances after logout and direct owner replacement.
- * 7. Epoch guard: a command captured at epoch N is rejected at epoch N+1.
+ * The fake repository starts with a null persisted session. [buildViewModel] waits for that
+ * initial emission to be observed before a test delivers a deep link or changes owner. This
+ * removes a scheduler race while preserving the production auth-epoch boundary contract.
  */
 @RunWith(AndroidJUnit4::class)
 class DriverViewModelDeepLinkTest {
@@ -60,26 +48,27 @@ class DriverViewModelDeepLinkTest {
         vmStore.clear()
     }
 
-    /**
-     * Create a [DriverViewModel] owned by a per-test [ViewModelStore] so that
-     * [ViewModelStore.clear] in [tearDown] cancels its [viewModelScope] deterministically.
-     */
     private fun buildViewModel(fake: FakeSessionRepository = FakeSessionRepository()): DriverViewModel {
         val factory = DriverViewModelFactory(
             ApplicationProvider.getApplicationContext<Application>(),
             fake,
             skipDataRefreshForTesting = true,
         )
-        return ViewModelProvider(
+        val viewModel = ViewModelProvider(
             object : ViewModelStoreOwner {
                 override val viewModelStore: ViewModelStore
                     get() = vmStore
             },
             factory,
         )[DriverViewModel::class.java]
+
+        assertTrue(
+            "Initial null session must be observed before the test delivers commands",
+            awaitCondition { viewModel.uiState.value.authEpoch > 0L },
+        )
+        return viewModel
     }
 
-    /** Poll [condition] until it returns true or [timeoutMs] elapses. */
     private fun awaitCondition(timeoutMs: Long = 5_000L, condition: () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
