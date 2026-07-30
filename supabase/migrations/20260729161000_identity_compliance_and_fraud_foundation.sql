@@ -476,6 +476,8 @@ DECLARE
   v_case public.fraud_review_cases%ROWTYPE;
   v_next_status text;
   v_unresolved_count bigint;
+  v_profile_status text;
+  v_profile_rows bigint;
 BEGIN
   IF p_action NOT IN ('investigate', 'clear', 'confirm', 'dismiss') THEN
     RAISE EXCEPTION 'Unsupported fraud-case action.'
@@ -499,6 +501,24 @@ BEGIN
     ELSE 'dismissed'
   END;
 
+  IF p_action = 'confirm' THEN
+    IF v_case.subject_user_id IS NULL THEN
+      RAISE EXCEPTION 'Fraud confirmation requires a canonical subject_user_id.'
+        USING ERRCODE = '23514';
+    END IF;
+
+    SELECT profile.status
+    INTO v_profile_status
+    FROM public.profiles profile
+    WHERE profile.user_id = v_case.subject_user_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Fraud confirmation requires an existing canonical profile for the subject user.'
+        USING ERRCODE = 'P0002';
+    END IF;
+  END IF;
+
   IF v_case.status IN ('cleared', 'confirmed', 'dismissed')
      AND v_case.status <> v_next_status
   THEN
@@ -509,6 +529,11 @@ BEGIN
   IF v_case.status = v_next_status
      AND COALESCE(v_case.decision_reason, '') = COALESCE(p_reason, '')
   THEN
+    IF p_action = 'confirm' AND v_profile_status IS DISTINCT FROM 'blocked' THEN
+      RAISE EXCEPTION 'Fraud case is already confirmed but subject profile is not blocked.'
+        USING ERRCODE = '23514';
+    END IF;
+
     RETURN QUERY SELECT v_case.id, v_case.status, v_case.status;
     RETURN;
   END IF;
@@ -553,10 +578,16 @@ BEGIN
     END IF;
   END IF;
 
-  IF p_action = 'confirm' AND v_case.subject_user_id IS NOT NULL THEN
+  IF p_action = 'confirm' THEN
     UPDATE public.profiles
     SET status = 'blocked'
     WHERE user_id = v_case.subject_user_id;
+
+    GET DIAGNOSTICS v_profile_rows = ROW_COUNT;
+    IF v_profile_rows <> 1 THEN
+      RAISE EXCEPTION 'Fraud confirmation expected exactly one canonical profile update, got %.', v_profile_rows
+        USING ERRCODE = '23514';
+    END IF;
   END IF;
 
   INSERT INTO public.owner_audit_log (

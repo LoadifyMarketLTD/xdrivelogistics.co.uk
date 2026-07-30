@@ -1,0 +1,57 @@
+name: Validate Identity Compliance Foundation
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql"
+      - "supabase/migrations/20260729162000_marketplace_single_active_quote_per_identity.sql"
+      - "supabase/tests/identity_compliance_atomicity.sql"
+      - "supabase/tests/identity_compliance_migration_preflight.sql"
+      - "scripts/validate_identity_compliance_foundation.sh"
+      - ".github/workflows/validate-identity-compliance-foundation.yml"
+  push:
+    branches:
+      - security/identity-compliance-foundation
+    paths:
+      - "supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql"
+      - "supabase/migrations/20260729162000_marketplace_single_active_quote_per_identity.sql"
+      - "supabase/tests/identity_compliance_atomicity.sql"
+      - "supabase/tests/identity_compliance_migration_preflight.sql"
+      - "scripts/validate_identity_compliance_foundation.sh"
+      - ".github/workflows/validate-identity-compliance-foundation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: ******localhost:5432/postgres
+
+    steps:
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@v5
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run identity compliance migration/atomicity/concurrency checks
+        shell: bash
+        run: bash scripts/validate_identity_compliance_foundation.sh
