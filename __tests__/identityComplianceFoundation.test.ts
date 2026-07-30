@@ -51,7 +51,19 @@ describe('identity compliance foundation', () => {
     expect(uploadRoute).toContain("createHash('sha256')");
     expect(uploadRoute).toContain(".from('document_fingerprints')");
     expect(uploadRoute).toContain("rpc('register_duplicate_document_fraud_case'");
+    expect(uploadRoute).toContain(".from('fraud_review_cases')");
+    expect(uploadRoute).toContain(".in('status', ['cleared', 'dismissed'])");
     expect(uploadRoute).toContain("code: 'duplicate_document_detected'");
+  });
+
+  it('keeps Company Driver approvals non-owner and filters company activation to canonical company onboarding subjects', () => {
+    const incrementalMigration = readRepoFile(
+      'supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql',
+    );
+
+    expect(incrementalMigration).toContain('assert_company_compliance_ready');
+    expect(incrementalMigration).toContain("requirement.document_family = 'company'");
+    expect(incrementalMigration).toContain("WHEN v_identity_mode = 'company_driver' AND role_in_company = 'owner' THEN 'driver'");
   });
 
   it('gives only the Platform Owner a short-lived secure document preview and logs every view', () => {

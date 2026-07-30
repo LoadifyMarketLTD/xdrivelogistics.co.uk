@@ -65,6 +65,24 @@ const registerDuplicateCaseAndHold = async (params: {
   return { caseId: typeof data === 'string' ? data : null, error: null };
 };
 
+const hasClearedDuplicateDecision = async (
+  onboardingApplicationId: string,
+  fileSha256: string,
+) => {
+  const { data, error } = await supabaseAdmin!
+    .from('fraud_review_cases')
+    .select('id')
+    .eq('onboarding_application_id', onboardingApplicationId)
+    .eq('case_type', 'duplicate_file')
+    .filter('evidence->>file_sha256', 'eq', fileSha256)
+    .in('status', ['cleared', 'dismissed'])
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { allowed: false, error };
+  return { allowed: Boolean(data?.id), error: null };
+};
+
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return json(503, { error: 'Server auth is not configured.' });
@@ -180,28 +198,38 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { caseId, error: caseError } = await registerDuplicateCaseAndHold({
-      subjectUserId: authData.user.id,
-      subjectCompanyId: app.company_id ?? null,
-      onboardingApplicationId: app.id,
-      matchedUserId: duplicateFingerprint.user_id ?? null,
-      matchedCompanyId: duplicateFingerprint.company_id ?? null,
-      fileSha256,
-      attemptedDocType: docType,
-      matchedFingerprintId: duplicateFingerprint.id,
-      matchedDocumentFamily: (duplicateFingerprint.document_family as string | null) ?? null,
-      matchedDocumentId: (duplicateFingerprint.document_id as string | null) ?? null,
-    });
-
-    if (caseError || !caseId) {
-      return json(500, { error: caseError?.message ?? 'Failed to create fraud review case.' });
+    const { allowed, error: clearanceError } = await hasClearedDuplicateDecision(app.id, fileSha256);
+    if (clearanceError) {
+      return json(503, {
+        error: clearanceError.message,
+        code: 'identity_compliance_registry_unavailable',
+      });
     }
 
-    return json(409, {
-      error: 'A duplicate document was detected. The application is on hold for Platform Owner review.',
-      code: 'duplicate_document_detected',
-      reviewCaseId: caseId,
-    });
+    if (!allowed) {
+      const { caseId, error: caseError } = await registerDuplicateCaseAndHold({
+        subjectUserId: authData.user.id,
+        subjectCompanyId: app.company_id ?? null,
+        onboardingApplicationId: app.id,
+        matchedUserId: duplicateFingerprint.user_id ?? null,
+        matchedCompanyId: duplicateFingerprint.company_id ?? null,
+        fileSha256,
+        attemptedDocType: docType,
+        matchedFingerprintId: duplicateFingerprint.id,
+        matchedDocumentFamily: (duplicateFingerprint.document_family as string | null) ?? null,
+        matchedDocumentId: (duplicateFingerprint.document_id as string | null) ?? null,
+      });
+
+      if (caseError || !caseId) {
+        return json(500, { error: caseError?.message ?? 'Failed to create fraud review case.' });
+      }
+
+      return json(409, {
+        error: 'A duplicate document was detected. The application is on hold for Platform Owner review.',
+        code: 'duplicate_document_detected',
+        reviewCaseId: caseId,
+      });
+    }
   }
 
   const ext = path.extname(file.name || '').toLowerCase();
@@ -395,38 +423,53 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-      await cleanupUploadedObject();
-
       if (matchedFingerprint.onboarding_application_id === app.id) {
+        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
+        await cleanupUploadedObject();
+
         return json(409, {
           error: 'This exact document has already been uploaded to this application.',
           code: 'duplicate_document_in_application',
         });
       }
 
-      const { caseId, error: caseError } = await registerDuplicateCaseAndHold({
-        subjectUserId: authData.user.id,
-        subjectCompanyId: app.company_id ?? null,
-        onboardingApplicationId: app.id,
-        matchedUserId: matchedFingerprint.user_id ?? null,
-        matchedCompanyId: matchedFingerprint.company_id ?? null,
-        fileSha256,
-        attemptedDocType: docType,
-        matchedFingerprintId: matchedFingerprint.id,
-        matchedDocumentFamily: (matchedFingerprint.document_family as string | null) ?? null,
-        matchedDocumentId: (matchedFingerprint.document_id as string | null) ?? null,
-      });
-
-      if (caseError || !caseId) {
-        return json(500, { error: caseError?.message ?? 'Failed to create fraud review case.' });
+      const { allowed, error: clearanceError } = await hasClearedDuplicateDecision(app.id, fileSha256);
+      if (clearanceError) {
+        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
+        await cleanupUploadedObject();
+        return json(503, {
+          error: clearanceError.message,
+          code: 'identity_compliance_registry_unavailable',
+        });
       }
 
-      return json(409, {
-        error: 'A duplicate document was detected. The application is on hold for Platform Owner review.',
-        code: 'duplicate_document_detected',
-        reviewCaseId: caseId,
-      });
+      if (!allowed) {
+        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
+        await cleanupUploadedObject();
+
+        const { caseId, error: caseError } = await registerDuplicateCaseAndHold({
+          subjectUserId: authData.user.id,
+          subjectCompanyId: app.company_id ?? null,
+          onboardingApplicationId: app.id,
+          matchedUserId: matchedFingerprint.user_id ?? null,
+          matchedCompanyId: matchedFingerprint.company_id ?? null,
+          fileSha256,
+          attemptedDocType: docType,
+          matchedFingerprintId: matchedFingerprint.id,
+          matchedDocumentFamily: (matchedFingerprint.document_family as string | null) ?? null,
+          matchedDocumentId: (matchedFingerprint.document_id as string | null) ?? null,
+        });
+
+        if (caseError || !caseId) {
+          return json(500, { error: caseError?.message ?? 'Failed to create fraud review case.' });
+        }
+
+        return json(409, {
+          error: 'A duplicate document was detected. The application is on hold for Platform Owner review.',
+          code: 'duplicate_document_detected',
+          reviewCaseId: caseId,
+        });
+      }
     }
 
     await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
