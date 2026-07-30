@@ -177,7 +177,23 @@ CREATE TABLE IF NOT EXISTS public.document_fingerprints (
   UNIQUE (document_family, document_id)
 );
 
-CREATE INDEX IF NOT EXISTS document_fingerprints_exact_file_idx
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT fingerprint.file_sha256
+    FROM public.document_fingerprints fingerprint
+    WHERE fingerprint.file_sha256 IS NOT NULL
+    GROUP BY fingerprint.file_sha256
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION
+      'Identity compliance preflight failed: duplicate document fingerprints already exist for the same SHA-256 file hash.';
+  END IF;
+END;
+$$;
+
+DROP INDEX IF EXISTS public.document_fingerprints_exact_file_idx;
+CREATE UNIQUE INDEX IF NOT EXISTS document_fingerprints_exact_file_uidx
   ON public.document_fingerprints (file_sha256);
 CREATE INDEX IF NOT EXISTS document_fingerprints_document_number_idx
   ON public.document_fingerprints (document_number_hash)
@@ -222,6 +238,353 @@ CREATE INDEX IF NOT EXISTS fraud_review_cases_open_queue_idx
   WHERE status IN ('open', 'investigating');
 CREATE INDEX IF NOT EXISTS fraud_review_cases_subject_user_idx
   ON public.fraud_review_cases (subject_user_id, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS fraud_review_cases_open_duplicate_file_uidx
+  ON public.fraud_review_cases (onboarding_application_id, ((evidence->>'file_sha256')))
+  WHERE case_type = 'duplicate_file'
+    AND status IN ('open', 'investigating')
+    AND onboarding_application_id IS NOT NULL
+    AND evidence ? 'file_sha256';
+
+CREATE OR REPLACE FUNCTION public.register_duplicate_document_fraud_case(
+  p_subject_user_id uuid,
+  p_subject_company_id uuid,
+  p_onboarding_application_id uuid,
+  p_matched_user_id uuid,
+  p_matched_company_id uuid,
+  p_file_sha256 text,
+  p_attempted_doc_type text,
+  p_matched_fingerprint_id uuid,
+  p_matched_document_family text,
+  p_matched_document_id uuid
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_case_id uuid;
+BEGIN
+  IF p_onboarding_application_id IS NULL OR COALESCE(trim(p_file_sha256), '') = '' THEN
+    RAISE EXCEPTION 'Duplicate-file case registration requires onboarding_application_id and file_sha256.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  PERFORM 1
+  FROM public.onboarding_applications application
+  WHERE application.id = p_onboarding_application_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Onboarding application not found.' USING ERRCODE = 'P0002';
+  END IF;
+
+  INSERT INTO public.fraud_review_cases (
+    subject_user_id,
+    subject_company_id,
+    onboarding_application_id,
+    matched_user_id,
+    matched_company_id,
+    case_type,
+    severity,
+    status,
+    automatic_hold,
+    evidence
+  )
+  VALUES (
+    p_subject_user_id,
+    p_subject_company_id,
+    p_onboarding_application_id,
+    p_matched_user_id,
+    p_matched_company_id,
+    'duplicate_file',
+    'critical',
+    'open',
+    true,
+    jsonb_strip_nulls(jsonb_build_object(
+      'file_sha256', p_file_sha256,
+      'attempted_doc_type', p_attempted_doc_type,
+      'matched_fingerprint_id', p_matched_fingerprint_id,
+      'matched_document_family', p_matched_document_family,
+      'matched_document_id', p_matched_document_id
+    ))
+  )
+  ON CONFLICT DO NOTHING
+  RETURNING id INTO v_case_id;
+
+  IF v_case_id IS NULL THEN
+    SELECT case_row.id
+    INTO v_case_id
+    FROM public.fraud_review_cases case_row
+    WHERE case_row.onboarding_application_id = p_onboarding_application_id
+      AND case_row.case_type = 'duplicate_file'
+      AND case_row.status IN ('open', 'investigating')
+      AND case_row.evidence->>'file_sha256' = p_file_sha256
+    ORDER BY case_row.created_at ASC
+    LIMIT 1
+    FOR UPDATE;
+  END IF;
+
+  IF v_case_id IS NULL THEN
+    RAISE EXCEPTION 'Could not create or resolve duplicate-file fraud case.'
+      USING ERRCODE = '23505';
+  END IF;
+
+  UPDATE public.onboarding_applications
+  SET risk_status = 'on_hold',
+      risk_reason = 'Exact document file already exists on another platform identity.',
+      risk_updated_at = now()
+  WHERE id = p_onboarding_application_id;
+
+  RETURN v_case_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.owner_review_compliance_document(
+  p_actor_user_id uuid,
+  p_document_family text,
+  p_document_id uuid,
+  p_action text,
+  p_reason text DEFAULT NULL
+)
+RETURNS TABLE (document_id uuid, old_status text, new_status text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_table text;
+  v_status_column text;
+  v_reviewer_column text;
+  v_reviewed_at_column text;
+  v_reason_column text;
+  v_old_status text;
+  v_next_status text;
+  v_reason text;
+BEGIN
+  IF p_document_family NOT IN ('driver', 'vehicle', 'company', 'identity') THEN
+    RAISE EXCEPTION 'Unsupported document family.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF p_action NOT IN ('approve', 'reject') THEN
+    RAISE EXCEPTION 'Unsupported document review action.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF p_document_family = 'driver' THEN
+    v_table := 'driver_documents';
+    v_status_column := 'status';
+    v_reviewer_column := 'verified_by';
+    v_reviewed_at_column := 'verified_at';
+    v_reason_column := 'rejection_reason';
+    v_next_status := CASE WHEN p_action = 'approve' THEN 'approved' ELSE 'rejected' END;
+  ELSIF p_document_family = 'vehicle' THEN
+    v_table := 'vehicle_documents';
+    v_status_column := 'status';
+    v_reviewer_column := 'verified_by';
+    v_reviewed_at_column := 'verified_at';
+    v_reason_column := 'rejection_reason';
+    v_next_status := CASE WHEN p_action = 'approve' THEN 'approved' ELSE 'rejected' END;
+  ELSIF p_document_family = 'company' THEN
+    v_table := 'company_documents';
+    v_status_column := 'status';
+    v_reviewer_column := 'reviewed_by';
+    v_reviewed_at_column := 'reviewed_at';
+    v_reason_column := 'review_notes';
+    v_next_status := CASE WHEN p_action = 'approve' THEN 'approved' ELSE 'rejected' END;
+  ELSE
+    v_table := 'driver_identity_documents';
+    v_status_column := 'verification_status';
+    v_reviewer_column := 'reviewed_by';
+    v_reviewed_at_column := 'reviewed_at';
+    v_reason_column := 'review_notes';
+    v_next_status := CASE WHEN p_action = 'approve' THEN 'verified' ELSE 'rejected' END;
+  END IF;
+
+  EXECUTE format(
+    'SELECT %1$I FROM public.%2$I WHERE id = $1 FOR UPDATE',
+    v_status_column,
+    v_table
+  )
+  INTO v_old_status
+  USING p_document_id;
+
+  IF v_old_status IS NULL THEN
+    RAISE EXCEPTION 'Document not found.' USING ERRCODE = 'P0002';
+  END IF;
+
+  v_reason := CASE
+    WHEN p_action = 'reject' THEN COALESCE(NULLIF(trim(p_reason), ''), 'Rejected by platform compliance review.')
+    ELSE NULL
+  END;
+
+  EXECUTE format(
+    'UPDATE public.%1$I
+     SET %2$I = $2,
+         %3$I = $3,
+         %4$I = now(),
+         %5$I = $4
+     WHERE id = $1',
+    v_table,
+    v_status_column,
+    v_reviewer_column,
+    v_reviewed_at_column,
+    v_reason_column
+  )
+  USING p_document_id, v_next_status, p_actor_user_id, v_reason;
+
+  INSERT INTO public.owner_audit_log (
+    actor_user_id,
+    target_company_id,
+    action_type,
+    old_status,
+    new_status,
+    reason,
+    metadata
+  )
+  VALUES (
+    p_actor_user_id,
+    NULL,
+    CASE WHEN p_action = 'approve' THEN 'document_approved' ELSE 'document_rejected' END,
+    v_old_status,
+    v_next_status,
+    COALESCE(NULLIF(trim(p_reason), ''), format('%s document %s %s by platform compliance.', p_document_family, p_document_id, v_next_status)),
+    jsonb_build_object(
+      'document_id', p_document_id,
+      'document_family', p_document_family
+    )
+  );
+
+  RETURN QUERY SELECT p_document_id, v_old_status, v_next_status;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.owner_decide_fraud_review_case(
+  p_actor_user_id uuid,
+  p_case_id uuid,
+  p_action text,
+  p_reason text
+)
+RETURNS TABLE (case_id uuid, old_status text, new_status text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_case public.fraud_review_cases%ROWTYPE;
+  v_next_status text;
+  v_unresolved_count bigint;
+BEGIN
+  IF p_action NOT IN ('investigate', 'clear', 'confirm', 'dismiss') THEN
+    RAISE EXCEPTION 'Unsupported fraud-case action.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  SELECT *
+  INTO v_case
+  FROM public.fraud_review_cases case_row
+  WHERE case_row.id = p_case_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Fraud review case not found.' USING ERRCODE = 'P0002';
+  END IF;
+
+  v_next_status := CASE p_action
+    WHEN 'investigate' THEN 'investigating'
+    WHEN 'clear' THEN 'cleared'
+    WHEN 'confirm' THEN 'confirmed'
+    ELSE 'dismissed'
+  END;
+
+  IF v_case.status IN ('cleared', 'confirmed', 'dismissed')
+     AND v_case.status <> v_next_status
+  THEN
+    RAISE EXCEPTION 'Fraud review case is already finalised as %.', v_case.status
+      USING ERRCODE = '23505';
+  END IF;
+
+  IF v_case.status = v_next_status
+     AND COALESCE(v_case.decision_reason, '') = COALESCE(p_reason, '')
+  THEN
+    RETURN QUERY SELECT v_case.id, v_case.status, v_case.status;
+    RETURN;
+  END IF;
+
+  UPDATE public.fraud_review_cases
+  SET status = v_next_status,
+      decision_reason = p_reason,
+      assigned_to = p_actor_user_id,
+      decided_by = CASE WHEN p_action = 'investigate' THEN NULL ELSE p_actor_user_id END,
+      decided_at = CASE WHEN p_action = 'investigate' THEN NULL ELSE now() END,
+      updated_at = now()
+  WHERE id = v_case.id;
+
+  IF v_case.onboarding_application_id IS NOT NULL THEN
+    IF p_action = 'confirm' THEN
+      UPDATE public.onboarding_applications
+      SET risk_status = 'confirmed_fraud',
+          risk_reason = p_reason,
+          risk_updated_at = now(),
+          risk_reviewed_by = p_actor_user_id,
+          status = 'rejected',
+          reviewed_at = now(),
+          reviewed_by = p_actor_user_id,
+          review_notes = p_reason
+      WHERE id = v_case.onboarding_application_id;
+    ELSIF p_action IN ('clear', 'dismiss') THEN
+      SELECT count(*)
+      INTO v_unresolved_count
+      FROM public.fraud_review_cases other_case
+      WHERE other_case.onboarding_application_id = v_case.onboarding_application_id
+        AND other_case.id <> v_case.id
+        AND other_case.status IN ('open', 'investigating', 'confirmed');
+
+      IF v_unresolved_count = 0 THEN
+        UPDATE public.onboarding_applications
+        SET risk_status = 'clear',
+            risk_reason = NULL,
+            risk_updated_at = now(),
+            risk_reviewed_by = p_actor_user_id
+        WHERE id = v_case.onboarding_application_id;
+      END IF;
+    END IF;
+  END IF;
+
+  IF p_action = 'confirm' AND v_case.subject_user_id IS NOT NULL THEN
+    UPDATE public.profiles
+    SET status = 'blocked'
+    WHERE user_id = v_case.subject_user_id;
+  END IF;
+
+  INSERT INTO public.owner_audit_log (
+    actor_user_id,
+    target_company_id,
+    action_type,
+    old_status,
+    new_status,
+    reason,
+    metadata
+  )
+  VALUES (
+    p_actor_user_id,
+    v_case.subject_company_id,
+    format('fraud_case_%s', p_action),
+    v_case.status,
+    v_next_status,
+    p_reason,
+    jsonb_build_object(
+      'fraud_case_id', v_case.id,
+      'subject_user_id', v_case.subject_user_id,
+      'onboarding_application_id', v_case.onboarding_application_id
+    )
+  );
+
+  RETURN QUERY SELECT v_case.id, v_case.status, v_next_status;
+END;
+$$;
 
 ALTER TABLE public.platform_identity_registry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.document_fingerprints ENABLE ROW LEVEL SECURITY;
@@ -424,9 +787,15 @@ CREATE TRIGGER trg_enforce_onboarding_approval_compliance
 REVOKE ALL ON FUNCTION public.get_missing_onboarding_documents(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.assert_onboarding_compliance_ready(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.assert_company_compliance_ready(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.register_duplicate_document_fraud_case(uuid, uuid, uuid, uuid, uuid, text, text, uuid, text, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.owner_review_compliance_document(uuid, text, uuid, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.owner_decide_fraud_review_case(uuid, uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_missing_onboarding_documents(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.assert_onboarding_compliance_ready(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.assert_company_compliance_ready(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.register_duplicate_document_fraud_case(uuid, uuid, uuid, uuid, uuid, text, text, uuid, text, uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.owner_review_compliance_document(uuid, text, uuid, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.owner_decide_fraud_review_case(uuid, uuid, text, text) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
 
