@@ -391,6 +391,20 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
 
+    /**
+     * Test-only entry point that invokes the real production [onNewIntent] from within
+     * [ActivityScenario.onActivity], avoiding the `Instrumentation.callActivityOnNewIntent`
+     * framework boundary which interferes with [ActivityScenario] lifecycle ownership under
+     * Android 14 and prevents deterministic teardown.
+     *
+     * Must not duplicate routing logic — it delegates entirely to [onNewIntent].
+     * Not accessible outside the package; not part of the public production API.
+     */
+    @VisibleForTesting
+    internal fun dispatchNewIntentForTesting(intent: Intent) {
+        onNewIntent(intent)
+    }
+
     private fun handleIncomingIntent(intent: Intent?) {
         val data = intent?.data ?: return
         val destination = XDriveDeepLink.parse(data)

@@ -28,25 +28,27 @@ import org.junit.runner.RunWith
  * Unlike the parser-only [DeepLinkIntentInstrumentedTest], these tests exercise the
  * complete Activity lifecycle routing path:
  *   - cold-start: [MainActivity.onCreate] → `handleIncomingIntent` → [DriverViewModel.handleDeepLink]
- *   - warm-start: [MainActivity.onNewIntent] delivered via [InstrumentationRegistry] framework boundary
+ *   - warm-start: [MainActivity.onNewIntent] delivered via [MainActivity.dispatchNewIntentForTesting]
  *   - recreation: [ActivityScenario.recreate] retains the ViewModel; `onCreate` re-delivers idempotently
  *   - logout/owner-clear: [DriverViewModel.logout] exercises the production session-clear path
  *
  * State assertions are made synchronously within [ActivityScenario.onActivity] blocks on the
- * main thread. Warm-intent delivery uses [android.app.Instrumentation.callActivityOnNewIntent]
- * to invoke [MainActivity.onNewIntent] directly on the main thread — this avoids
- * [android.content.Context.startActivity] with [Intent.FLAG_ACTIVITY_NEW_TASK] which can
- * launch a second [MainActivity] instance in a new task and leave the
- * [ActivityScenario]-tracked instance permanently PAUSED, causing [ActivityScenario.close]
- * to time out waiting for DESTROYED.
- * [android.app.Instrumentation.waitForIdleSync] ensures [MainActivity.onNewIntent] completes
- * before assertions run. Production [MainActivity.onNewIntent] remains `protected`.
+ * main thread. Warm-intent delivery uses [MainActivity.dispatchNewIntentForTesting] from within
+ * [ActivityScenario.onActivity] to invoke the real production [MainActivity.onNewIntent] directly
+ * on the main thread — this avoids both [android.content.Context.startActivity] with
+ * [Intent.FLAG_ACTIVITY_NEW_TASK] (which can launch a second [MainActivity] in a new task) and
+ * [android.app.Instrumentation.callActivityOnNewIntent] (which crosses the instrumentation
+ * framework boundary and interferes with [ActivityScenario] lifecycle ownership under Android 14,
+ * leaving the scenario-tracked instance permanently PAUSED and causing [ActivityScenario.close]
+ * to time out waiting for DESTROYED).
+ * [android.app.Instrumentation.waitForIdleSync] after the delivery ensures async Compose/Coroutine
+ * state settles before assertions run.
  *
  * Coverage:
  * 1. Cold-start ACTION_VIEW: job link held as [DriverUiState.pendingDeepLink] by the
  *    production [MainActivity.onCreate] → `handleIncomingIntent` code path; safe interim tab = MESSAGES.
  * 2. Cold-start non-job links (Messages, Nearby, Profile): route immediately, no pending hold.
- * 3. Warm-start via [android.app.Instrumentation.callActivityOnNewIntent]: job and
+ * 3. Warm-start via [MainActivity.dispatchNewIntentForTesting]: job and
  *    non-job intents are processed through the production [MainActivity.onNewIntent] path.
  * 4. Activity recreation ([ActivityScenario.recreate]): ViewModel retained; routing state is
  *    idempotent — the same intent is re-delivered to `onCreate` and produces the same state.
@@ -119,7 +121,7 @@ class MainActivityDeepLinkInstrumentedTest {
 
     /**
      * Deliver a warm intent to the exact [MainActivity] owned by [scenario] via
-     * [android.app.Instrumentation.callActivityOnNewIntent].
+     * [MainActivity.dispatchNewIntentForTesting].
      *
      * Accepts the owning [ActivityScenario] so that [onNewIntent] is delivered to the
      * exact instance tracked by the scenario, not to an arbitrary resumed activity discovered
@@ -129,24 +131,21 @@ class MainActivityDeepLinkInstrumentedTest {
      * scenario-owned instance permanently PAUSED, causing [ActivityScenario.close] to time
      * out waiting for DESTROYED.
      *
-     * [android.app.Instrumentation.callActivityOnNewIntent] delivers [onNewIntent] directly
-     * to the existing [MainActivity] instance on the main thread. The Activity stays in
-     * RESUMED throughout, so [ActivityScenario.close] can follow the normal
-     * RESUMED→PAUSED→STOPPED→DESTROYED teardown path.
+     * [MainActivity.dispatchNewIntentForTesting] calls the real production [MainActivity.onNewIntent]
+     * directly on the activity instance, without going through the [android.app.Instrumentation]
+     * framework callback boundary. This avoids the teardown interference that
+     * [android.app.Instrumentation.callActivityOnNewIntent] causes under Android 14 when
+     * [ActivityScenario] owns the activity lifecycle. The Activity stays in RESUMED throughout,
+     * so [ActivityScenario.close] can follow the normal RESUMED→PAUSED→STOPPED→DESTROYED path.
      *
-     * Must be called from the **instrumentation thread** (the test method body), not from
-     * within [ActivityScenario.onActivity].
+     * [scenario.onActivity] runs the block on the main thread and blocks the instrumentation
+     * thread until it completes, so routing is synchronous before any assertion.
      */
     private fun deliverWarmIntent(scenario: ActivityScenario<MainActivity>, intent: Intent) {
-        val instr = InstrumentationRegistry.getInstrumentation()
-        instr.waitForIdleSync()
-        // scenario.onActivity runs the block on the main thread and blocks the instrumentation
-        // thread until it completes — callActivityOnNewIntent delivers onNewIntent synchronously
-        // to the exact activity instance owned by this scenario.
         scenario.onActivity { activity ->
-            instr.callActivityOnNewIntent(activity, intent)
+            activity.dispatchNewIntentForTesting(intent)
         }
-        instr.waitForIdleSync()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
     }
 
     // ── 1. Cold-start job link — held in ViewModel until session/jobs load ────
