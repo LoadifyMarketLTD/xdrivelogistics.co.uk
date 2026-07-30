@@ -629,7 +629,7 @@ private fun NearbyJobsScreen(
     onJobPreference: (String, String?) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var box by remember { mutableStateOf("Inbox") }
+    var box by remember { mutableStateOf("Live") }
     var sort by remember { mutableStateOf("Nearest") }
     var radius by remember { mutableStateOf("20") }
     var vehicleFilter by remember { mutableStateOf("") }
@@ -654,8 +654,8 @@ private fun NearbyJobsScreen(
     val boxedJobs = deliveryZoneJobs.filter { job ->
         val pref = state.jobSearchPreferences[job.id]
         when (box) {
-            "Saved" -> pref == "saved"
-            "Deleted" -> pref == "deleted"
+            "Pinned" -> pref == "saved"
+            "Hidden" -> pref == "deleted"
             else -> pref != "deleted"
         }
     }.filter { job ->
@@ -695,12 +695,12 @@ private fun NearbyJobsScreen(
     ) {
         item {
             XDriveCard {
-                Text("Nearby Jobs", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                Text("Live Loads", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
                 Text(
                     if (activeDeliveryJob != null) {
-                        "${filtered.size} jobs within 20 miles of ${activeDeliveryJob.deliveryPostcode}"
+                        "${filtered.size} live loads within 20 miles of ${activeDeliveryJob.deliveryPostcode}"
                     } else {
-                        "${filtered.size} posted jobs available"
+                        "${filtered.size} live loads available"
                     },
                     color = TextSecondary,
                     fontSize = 13.sp,
@@ -735,7 +735,7 @@ private fun NearbyJobsScreen(
             }
         }
         item {
-            SegmentedTabs(listOf("Inbox", "Saved", "Deleted"), box) { box = it }
+            SegmentedTabs(listOf("Live", "Pinned", "Hidden"), box) { box = it }
         }
         item {
             XDriveTextField(query, { query = it }, "Search jobs", "Find")
@@ -777,25 +777,21 @@ private fun NearbyJobsScreen(
         if (filtered.isEmpty()) {
             item {
                 EmptyState(
-                    "No nearby jobs.",
+                    "No live loads.",
                     if (activeDeliveryJob != null) {
-                        "No posted pickup jobs found within 20 miles of ${activeDeliveryJob.deliveryPostcode}."
+                        "No posted pickup loads found within 20 miles of ${activeDeliveryJob.deliveryPostcode}."
                     } else {
-                        "Take a job first and the app will search around its delivery postcode."
+                        "Take a run first and the app will search around its delivery postcode."
                     },
                 )
             }
         }
         items(filtered, key = { it.id }) { job ->
-            JobCard(
+            LiveLoadCard(
                 job = job,
                 selected = state.selectedJobId == job.id,
-                onClick = {
-                    onJobSelected(job.id)
-                    onTabChange(DriverTab.ACTION)
-                },
-                onMoveStatus = {},
-                onSubmitQuote = { _, _ -> },
+                onOpen = { routeToLiveLoadDetails(job.id, onJobSelected, onTabChange) },
+                onQuote = { routeToLiveLoadDetails(job.id, onJobSelected, onTabChange) },
                 onSave = { onJobPreference(job.id, "saved") },
                 onHide = { onJobPreference(job.id, "deleted") },
                 onRestore = { onJobPreference(job.id, null) },
@@ -2049,7 +2045,7 @@ private fun JobCard(
 
 @Composable
 private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (DriverTab) -> Unit) {
-    val tabs = listOf(DriverTab.NEARBY, DriverTab.QUOTES, DriverTab.JOBS, DriverTab.MESSAGES, DriverTab.PROFILE)
+    val tabs = listOf(DriverTab.NEARBY, DriverTab.MESSAGES, DriverTab.QUOTES, DriverTab.JOBS, DriverTab.PROFILE)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2547,14 +2543,14 @@ private fun String.toDriverSafeError(): String {
 }
 
 private fun DriverTab.screenTitle() = when (this) {
-    DriverTab.NEARBY -> "Nearby Jobs"
-    DriverTab.QUOTES -> "My Quotes"
+    DriverTab.NEARBY -> "Live Loads"
+    DriverTab.QUOTES -> "Offers"
     DriverTab.BOOKINGS -> "Bookings"
-    DriverTab.JOBS -> "My Jobs"
+    DriverTab.JOBS -> "Runs"
     DriverTab.SMARTPAY -> "XDrive Pay"
     DriverTab.ACTION -> "Job Details"
-    DriverTab.MESSAGES -> "Alerts"
-    DriverTab.PROFILE -> "Profile"
+    DriverTab.MESSAGES -> "Updates"
+    DriverTab.PROFILE -> "More"
 }
 
 private fun DriverUiState.headerTitle(): String {
@@ -2567,14 +2563,14 @@ private fun DriverUiState.headerTitle(): String {
 }
 
 private fun DriverTab.navLabel(activeCount: Int = 0) = when (this) {
-    DriverTab.NEARBY -> "Nearby"
-    DriverTab.QUOTES -> "Quotes"
+    DriverTab.NEARBY -> "Loads"
+    DriverTab.QUOTES -> "Offers"
     DriverTab.BOOKINGS -> "Bookings"
-    DriverTab.JOBS -> if (activeCount > 0) "Jobs $activeCount" else "Jobs"
+    DriverTab.JOBS -> if (activeCount > 0) "Runs $activeCount" else "Runs"
     DriverTab.SMARTPAY -> "Pay"
     DriverTab.ACTION -> "Job"
-    DriverTab.MESSAGES -> "Alerts"
-    DriverTab.PROFILE -> "Profile"
+    DriverTab.MESSAGES -> "Updates"
+    DriverTab.PROFILE -> "More"
 }
 
 private fun DriverTab.navIcon(activeCount: Int) = when (this) {
