@@ -407,9 +407,12 @@ export async function POST(request: NextRequest) {
   if (!storageObject) {
     return respond(409, { error: 'Stored document path is not a supported private-storage object.' });
   }
+  if (storageObject.bucket !== source.bucket) {
+    return respond(409, { error: 'Stored document path does not match the expected document storage bucket.' });
+  }
 
   const { data: signed, error: signedError } = await supabaseAdmin.storage
-    .from(storageObject.bucket)
+    .from(source.bucket)
     .createSignedUrl(storageObject.objectPath, 300);
 
   if (signedError || !signed?.signedUrl) {

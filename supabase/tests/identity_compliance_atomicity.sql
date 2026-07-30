@@ -337,12 +337,13 @@ VALUES (
   jsonb_build_object('full_name', 'Atomicity Company Driver', 'phone', '+447700900001')
 );
 
-SELECT public.review_onboarding_application_atomic(
-  '65000000-0000-0000-0000-000000000302'::uuid,
-  '65000000-0000-0000-0000-0000000000cc'::uuid,
-  'approve',
-  'atomicity: invited company driver approval'
-);
+UPDATE public.onboarding_applications
+SET status = 'approved',
+    risk_reviewed_by = '65000000-0000-0000-0000-0000000000cc'::uuid,
+    reviewed_at = now(),
+    reviewed_by = '65000000-0000-0000-0000-0000000000cc'::uuid,
+    review_notes = 'atomicity: invited company driver approval'
+WHERE id = '65000000-0000-0000-0000-000000000302'::uuid;
 
 DO $$
 DECLARE

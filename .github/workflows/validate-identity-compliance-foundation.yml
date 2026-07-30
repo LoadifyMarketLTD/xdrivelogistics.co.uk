@@ -8,6 +8,7 @@ on:
       - "supabase/migrations/20260729170000_unified_onboarding_contract_and_activation_gate.sql"
       - "supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
       - "supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
+      - "supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
       - "supabase/tests/identity_compliance_atomicity.sql"
       - "supabase/tests/identity_compliance_migration_preflight.sql"
       - ".github/workflows/validate-identity-compliance-foundation.yml"
@@ -55,7 +56,10 @@ jobs:
 
           MIGRATION_IDENTITY="supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql"
           MIGRATION_QUOTES="supabase/migrations/20260729162000_marketplace_single_active_quote_per_identity.sql"
+          MIGRATION_ONBOARDING_GATE="supabase/migrations/20260729170000_unified_onboarding_contract_and_activation_gate.sql"
+          MIGRATION_OWNER_DRIVER_BINDING="supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
           MIGRATION_BACKFILL="supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
+          MIGRATION_COMPANY_DRIVER_FIX="supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
 
           bootstrap_base_schema() {
             psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -107,6 +111,10 @@ jobs:
           CREATE TABLE public.profiles (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+            full_name text,
+            phone text,
+            role text NOT NULL DEFAULT 'customer',
+            is_driver boolean NOT NULL DEFAULT false,
             company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
             status text NOT NULL DEFAULT 'active',
             created_at timestamptz NOT NULL DEFAULT now(),
@@ -128,8 +136,13 @@ jobs:
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
             company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            display_name text,
+            phone text,
+            status text NOT NULL DEFAULT 'pending_verification',
+            app_access boolean NOT NULL DEFAULT false,
             account_status text NOT NULL DEFAULT 'active',
-            created_at timestamptz NOT NULL DEFAULT now()
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
           );
 
           CREATE TABLE public.onboarding_applications (
@@ -145,6 +158,9 @@ jobs:
             reviewed_at timestamptz,
             reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
             review_notes text,
+            submitted_at timestamptz,
+            last_activity_at timestamptz NOT NULL DEFAULT now(),
+            created_at timestamptz NOT NULL DEFAULT now(),
             updated_at timestamptz NOT NULL DEFAULT now()
           );
 
@@ -259,7 +275,10 @@ jobs:
           bootstrap_base_schema
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_QUOTES}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_ONBOARDING_GATE}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_DRIVER_BINDING}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_BACKFILL}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_COMPANY_DRIVER_FIX}"
 
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_atomicity.sql

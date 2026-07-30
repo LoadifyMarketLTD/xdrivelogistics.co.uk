@@ -72,6 +72,8 @@ describe('identity compliance foundation', () => {
     );
 
     expect(documentRoute).toContain("profile?.role !== 'owner'");
+    expect(documentRoute).toContain('storageObject.bucket !== source.bucket');
+    expect(documentRoute).toContain('.from(source.bucket)');
     expect(documentRoute).toContain('createSignedUrl(storageObject.objectPath, 300)');
     expect(documentRoute).toContain("action_type: 'document_viewed'");
     expect(documentRoute).toContain("document_family: 'company'");
