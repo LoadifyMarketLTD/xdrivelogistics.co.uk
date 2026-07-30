@@ -72,15 +72,14 @@ class DriverViewModelDeepLinkTest {
         )
         return ViewModelProvider(
             object : ViewModelStoreOwner {
-                override fun getViewModelStore(): ViewModelStore = vmStore
+                override val viewModelStore: ViewModelStore
+                    get() = vmStore
             },
             factory,
         )[DriverViewModel::class.java]
     }
 
-    /**
-     * Poll [condition] until it returns true or [timeoutMs] elapses.
-     */
+    /** Poll [condition] until it returns true or [timeoutMs] elapses. */
     private fun awaitCondition(timeoutMs: Long = 5_000L, condition: () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
@@ -90,20 +89,16 @@ class DriverViewModelDeepLinkTest {
         return false
     }
 
-    // ── 1. Deduplication — same commandId is a no-op ──────────────────────────
-
     @Test
     fun duplicateWarmJobIntentsAreHandledIdempotently() {
         val vm = buildViewModel()
         val uri = "xdrivedriver://job/$VALID_JOB_UUID_A"
         val dest = XDriveDeepLink.parse(Uri.parse(uri))
 
-        // First delivery: holds the pending link.
         vm.handleDeepLink(dest, uri)
         assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
         assertEquals(DriverTab.MESSAGES, vm.uiState.value.selectedTab)
 
-        // Second delivery (duplicate — same commandId): must be idempotent.
         vm.handleDeepLink(dest, uri)
         assertEquals(
             "Duplicate delivery must not change pending link",
@@ -119,12 +114,10 @@ class DriverViewModelDeepLinkTest {
         val uri = "xdrivedriver://job/$VALID_JOB_UUID_A"
         val dest = XDriveDeepLink.parse(Uri.parse(uri))
 
-        // First delivery — sets pendingDeepLink.
         vm.handleDeepLink(dest, uri)
         assertNotNull("First delivery must set pendingDeepLink", vm.uiState.value.pendingDeepLink)
         assertEquals(VALID_JOB_UUID_A, vm.uiState.value.pendingDeepLink?.destination?.jobId)
 
-        // Second delivery (same URI → same commandId): pendingDeepLink must be unchanged.
         vm.handleDeepLink(dest, uri)
         assertNotNull("Second delivery must not clear the pending link", vm.uiState.value.pendingDeepLink)
         assertEquals(
@@ -133,8 +126,6 @@ class DriverViewModelDeepLinkTest {
             vm.uiState.value.pendingDeepLink?.destination?.jobId,
         )
     }
-
-    // ── 2. Pending-link replacement — second job replaces first ───────────────
 
     @Test
     fun ownerTransitionReplacesExistingPendingDeepLink() {
@@ -170,27 +161,19 @@ class DriverViewModelDeepLinkTest {
         assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_B), pendingB?.destination)
     }
 
-    // ── 3. Logout isolation — null-session guard blocks stale routing ─────────
-
     @Test
     fun logoutClearsOwnerALinkSoOwnerBGetsAFreshPendingSlot() {
         val vm = buildViewModel()
         val uriA = "xdrivedriver://job/$VALID_JOB_UUID_A"
         val uriB = "xdrivedriver://job/$VALID_JOB_UUID_B"
 
-        // Set owner A's pending link.
         vm.handleDeepLink(XDriveDeepLink.parse(Uri.parse(uriA)), uriA)
         assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
 
-        // Exercise the production logout path.
         vm.logout()
-
-        // resolvePendingDeepLink returns null: the null-session guard prevents stale routing
-        // after logout, whether or not the async DataStore clear has completed yet.
         val (_, resolvedId) = resolvePendingDeepLink(vm.uiState.value)
         assertNull("After logout, resolvePendingDeepLink must not route owner A's stale job", resolvedId)
 
-        // Owner B's job arrives after logout — a fresh pending link is set.
         vm.handleDeepLink(XDriveDeepLink.parse(Uri.parse(uriB)), uriB)
         val pending = vm.uiState.value.pendingDeepLink
         assertEquals(
@@ -212,11 +195,7 @@ class DriverViewModelDeepLinkTest {
         vm.handleDeepLink(XDriveDeepLink.parse(Uri.parse(uri)), uri)
         assertEquals(DeepLinkDestination.Job(VALID_JOB_UUID_A), vm.uiState.value.pendingDeepLink?.destination)
 
-        // Exercise the production logout path.
         vm.logout()
-
-        // Assert on the actual ViewModel state: the null-session guard prevents stale routing
-        // after logout, whether or not the async DataStore clear has completed yet.
         val (_, resolvedId) = resolvePendingDeepLink(vm.uiState.value)
         assertNull(
             "After vm.logout(), resolvePendingDeepLink must not route a stale job from the previous owner",
@@ -224,19 +203,15 @@ class DriverViewModelDeepLinkTest {
         )
     }
 
-    // ── 4. commandId recording — consumed links enter consumedCommandIds ──────
-
     @Test
     fun coldStartJobLinkCommandIdIsRecordedInConsumedCommandIdsAfterPendingLinkIsConsumed() {
         val fake = FakeSessionRepository()
         val vm = buildViewModel(fake)
 
-        // Simulate deep-link delivery (e.g., from onCreate → routeIncomingIntent).
         val uri = "xdrivedriver://job/$VALID_JOB_UUID_A"
         vm.handleDeepLink(XDriveDeepLink.parse(Uri.parse(uri)), uri)
         assertNotNull("Deep-link delivery must hold the link pending", vm.uiState.value.pendingDeepLink)
 
-        // Authenticate — skipDataRefreshForTesting=true triggers processPendingDeepLinkIfReady.
         runBlocking { fake.saveSession(DriverSession("tok", "ref", "user-a", "a@test.co.uk")) }
         val pendingCleared = awaitCondition(5_000) { vm.uiState.value.pendingDeepLink == null }
         assertTrue("Pending link must be cleared after authentication", pendingCleared)
@@ -248,14 +223,11 @@ class DriverViewModelDeepLinkTest {
         )
     }
 
-    // ── 5. Auth-epoch — FakeSessionRepository + skipDataRefresh ──────────────
-
     @Test
     fun authEpochAdvancesAfterLogoutAndPendingLinkIsCleared() {
         val fake = FakeSessionRepository()
         val vm = buildViewModel(fake)
 
-        // Simulate a cold-start job deep-link delivery.
         val uri = "xdrivedriver://job/$VALID_JOB_UUID_A"
         vm.handleDeepLink(XDriveDeepLink.parse(Uri.parse(uri)), uri)
 
@@ -273,9 +245,6 @@ class DriverViewModelDeepLinkTest {
             pendingAfterDelivery?.authEpoch,
         )
 
-        // Owner A logs in: FakeSessionRepository emits synchronously → ViewModel
-        // observes session, marks isAuthenticated = true, then (skipDataRefresh) calls
-        // processPendingDeepLinkIfReady which consumes the pending link.
         runBlocking { fake.saveSession(DriverSession("tok-a", "ref-a", "owner-a", "a@test.co.uk")) }
         val aAuthenticated = awaitCondition(5_000) { vm.uiState.value.isAuthenticated }
         assertTrue("ViewModel must become authenticated after owner A session write", aAuthenticated)
@@ -285,8 +254,6 @@ class DriverViewModelDeepLinkTest {
         val epochDuringA = vm.uiState.value.authEpoch
         assertEquals("Epoch must not change on login (only on logout/owner-change)", epochAtDelivery, epochDuringA)
 
-        // Owner A logs out: production logout path → sessionStore.clear() → FakeRepo emits null
-        // → DriverViewModel receives null → state reset with authEpoch + 1.
         vm.logout()
         val epochAdvanced = awaitCondition(5_000) { vm.uiState.value.authEpoch > epochDuringA }
         assertTrue("authEpoch must advance after logout", epochAdvanced)
@@ -297,41 +264,31 @@ class DriverViewModelDeepLinkTest {
 
     @Test
     fun ownerBCannotRouteStaleOwnerACommandAfterEpochAdvance() {
-        // Security proof: a PendingDeepLinkCommand captured at epoch N is rejected by
-        // resolvePendingDeepLink when the current state epoch is N+1 (after logout).
         val fake = FakeSessionRepository()
         val vm = buildViewModel(fake)
 
-        // Owner A logs in.
         runBlocking { fake.saveSession(DriverSession("tok-a", "ref-a", "owner-a", "a@test.co.uk")) }
         val aAuthenticated = awaitCondition(5_000) { vm.uiState.value.isAuthenticated }
         assertTrue("Owner A must authenticate", aAuthenticated)
         val epochDuringA = vm.uiState.value.authEpoch
 
-        // Owner A logs out.
         vm.logout()
         val epochAdvanced = awaitCondition(5_000) { vm.uiState.value.authEpoch > epochDuringA }
         assertTrue("Epoch must advance after owner A logout", epochAdvanced)
         val epochAfterLogout = vm.uiState.value.authEpoch
 
-        // Construct a stale command as if owner A's link somehow persisted past the logout.
-        // This represents the scenario the epoch guard defends against: a command from epoch
-        // N surviving into epoch N+1.
         val staleCommand = PendingDeepLinkCommand(
             DeepLinkDestination.Job(VALID_JOB_UUID_A),
-            authEpoch = epochDuringA,  // epoch before logout
+            authEpoch = epochDuringA,
             commandId = "stale-cmd-owner-a",
         )
 
-        // Owner B logs in under the new epoch.
         runBlocking { fake.saveSession(DriverSession("tok-b", "ref-b", "owner-b", "b@test.co.uk")) }
         val bAuthenticated = awaitCondition(5_000) {
             vm.uiState.value.isAuthenticated && vm.uiState.value.session?.userId == "owner-b"
         }
         assertTrue("Owner B must authenticate", bAuthenticated)
 
-        // Directly verify the epoch guard: resolvePendingDeepLink on the current (B-epoch)
-        // state with owner A's stale command must reject it.
         val stateWithStaleCommand = vm.uiState.value.copy(pendingDeepLink = staleCommand)
         val (_, staleResolvedId) = resolvePendingDeepLink(stateWithStaleCommand)
         assertNull(
@@ -339,11 +296,9 @@ class DriverViewModelDeepLinkTest {
             staleResolvedId,
         )
 
-        // Confirm that the epoch guard is the rejection reason: a command with the new epoch
-        // IS resolved (job absent from B's list → Messages, but the routing coordinator proceeds).
         val freshCommand = PendingDeepLinkCommand(
             DeepLinkDestination.Job(VALID_JOB_UUID_A),
-            authEpoch = epochAfterLogout,  // matches current epoch
+            authEpoch = epochAfterLogout,
             commandId = "fresh-cmd-owner-b",
         )
         val stateWithFreshCommand = vm.uiState.value.copy(pendingDeepLink = freshCommand)
@@ -357,18 +312,13 @@ class DriverViewModelDeepLinkTest {
 
     @Test
     fun directOwnerReplacementAdvancesEpoch() {
-        // Proves that a direct A→B session replacement (no intermediate null) advances the
-        // authEpoch through the production ownerChanged() path in DriverViewModel.
         val fake = FakeSessionRepository()
         val vm = buildViewModel(fake)
 
-        // Owner A logs in.
         runBlocking { fake.saveSession(DriverSession("tok-a", "ref-a", "owner-a", "a@test.co.uk")) }
         awaitCondition(5_000) { vm.uiState.value.isAuthenticated }
         val epochDuringA = vm.uiState.value.authEpoch
 
-        // Direct replacement: B's session arrives without an intermediate null.
-        // The ViewModel's ownerChanged() path detects the different userId and advances the epoch.
         runBlocking { fake.saveSession(DriverSession("tok-b", "ref-b", "owner-b", "b@test.co.uk")) }
         val epochAdvanced = awaitCondition(5_000) { vm.uiState.value.authEpoch > epochDuringA }
         assertTrue(
