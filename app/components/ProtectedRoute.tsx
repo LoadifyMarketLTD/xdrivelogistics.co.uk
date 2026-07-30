@@ -31,8 +31,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       membershipRole: user.membershipRole ?? null,
       financeAccess: user.financeAccess ?? null,
       ownerDriverWorkspace: user.ownerDriverWorkspace === true,
+      ownerDriverExecutionMode: user.ownerDriverExecutionMode === true,
       rawRole: user.rawRole ?? null,
       workspaceRole: user.workspaceRole ?? null,
+      driverId: user.driverId ?? null,
+      canCommercialBid: user.canCommercialBid,
+      driverStatus: user.driverStatus ?? null,
+      appAccess: user.appAccess,
+      accountStatus: user.accountStatus ?? null,
+      companyStatus: user.companyStatus ?? null,
     });
   }, [allowedRoles, pathname, user]);
 
