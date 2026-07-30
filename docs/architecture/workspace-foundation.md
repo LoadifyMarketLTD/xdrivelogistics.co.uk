@@ -1,5 +1,14 @@
 # Workspace Foundation — Architecture Map
 
+## Supersession note (canonical contract)
+
+`docs/architecture/single-active-identity-and-company.md` is now authoritative for identity and company-membership integrity. Earlier multi-active-membership/company-switcher assumptions in prior shared-shell work are superseded for ordinary users:
+
+- one ordinary auth user has at most one active `company_memberships` row;
+- multiple active memberships are an integrity violation and must fail closed;
+- workspace switching remains valid only inside the same canonical company identity;
+- Platform Owner global authority is not modelled through ordinary multi-company memberships.
+
 ## Purpose
 
 This document maps required multi-role concepts to the current foundation contracts and records explicit deferred gaps.
@@ -86,11 +95,11 @@ Middleware hardening requirements are now enforced server-side:
 - Protected routes fail closed when DB-backed auth context is unavailable (no metadata-only fallback authorization).
 - `user_metadata` is non-authoritative for owner-driver workspace and execution-mode privileges.
 - Active company context is resolved from authenticated membership rows via `resolveActiveCompanyContext`.
-- `profile.company_id` is currently used only as a preferred/default company selector input.
-- The selected company is server-validated against active memberships before route authorization.
-- This foundation does not yet prove `profile.company_id` as a persistent Company Switcher selection contract.
+- `profile.company_id` is server-validated and may never override a multi-active-membership integrity violation.
+- Company/workspace context is authorized only within one canonical active company identity.
+- This foundation is not an ordinary multi-company switcher contract.
 - Membership role, company id, and company status are bound to the same selected active membership record.
-- Multiple active memberships without trusted selected-company context are denied (`active_company_required` path).
+- Multiple active memberships are denied fail-closed (`active_company_required` path), including when a preferred company value is present.
 
 ### Shared `/driver` surface contract
 

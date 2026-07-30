@@ -21,8 +21,7 @@ export const filterAuthorizedNavigation = (
     .slice(0, Math.max(0, limit));
 };
 
-export const shouldShowCompanySwitcher = (membershipCount: number): boolean =>
-  membershipCount > 1;
+export const shouldShowCompanySwitcher = (_membershipCount: number): boolean => false;
 
 export const shouldShowWorkspaceSwitcher = (
   enabledWorkspaceCount: number,

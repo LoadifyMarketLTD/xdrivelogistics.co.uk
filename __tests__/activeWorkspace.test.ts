@@ -55,7 +55,7 @@ describe('resolveActiveCompanyContext', () => {
     ).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
-  it('prevents workspace leakage across companies', () => {
+  it('fails closed for multiple active memberships even when preferredCompanyId is supplied', () => {
     const rows = [
       membership({
         company_id: 'carrier-co',
@@ -82,7 +82,7 @@ describe('resolveActiveCompanyContext', () => {
         preferredCompanyId: 'carrier-co',
         activeWorkspace: 'broker',
       }),
-    ).toEqual({ ok: false, error: 'workspace_not_enabled' });
+    ).toEqual({ ok: false, error: 'active_company_required' });
   });
 
   it('resolves carrier_fleet workspace for finance role on standard company', () => {
