@@ -154,7 +154,8 @@ const resolveStorageObject = (
 
     const bucket = decodeURIComponent(parts.shift() ?? '');
     const objectPath = parts.map((part) => decodeURIComponent(part)).join('/');
-    return bucket && objectPath ? { bucket, objectPath } : null;
+    if (!bucket || bucket !== fallbackBucket || !objectPath) return null;
+    return { bucket: fallbackBucket, objectPath };
   } catch {
     return null;
   }
