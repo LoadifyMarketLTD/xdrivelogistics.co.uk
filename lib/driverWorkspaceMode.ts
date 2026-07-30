@@ -62,15 +62,14 @@ export const isDriverProviderWorkspaceRequested = (
   userMetadata: DriverWorkspaceMetadata,
   appMetadata: DriverWorkspaceMetadata
 ) => {
+  void userMetadata;
   const tags = [
-    ...readNormalizedMetadataTags(userMetadata, ['account_type', 'workspace_mode', 'requested_role', 'signup_type', 'role']),
     ...readNormalizedMetadataTags(appMetadata, ['account_type', 'workspace_mode', 'requested_role', 'signup_type', 'role']),
   ];
 
   const explicitIndividualDriver = tags.some((value) => INDIVIDUAL_DRIVER_TAGS.has(value));
   const driverWorkspaceMode = tags.includes('driver') || tags.includes('fleet_driver');
   const workspaceExplicitlyDisabled =
-    hasExplicitFalseFlag(userMetadata, 'owner_driver_workspace') ||
     hasExplicitFalseFlag(appMetadata, 'owner_driver_workspace');
 
   if (explicitIndividualDriver || (driverWorkspaceMode && workspaceExplicitlyDisabled)) {
@@ -78,7 +77,6 @@ export const isDriverProviderWorkspaceRequested = (
   }
 
   return (
-    readMetadataFlag(userMetadata, 'owner_driver_workspace') ||
     readMetadataFlag(appMetadata, 'owner_driver_workspace') ||
     tags.some((value) => PROVIDER_WORKSPACE_TAGS.has(value))
   );
@@ -88,13 +86,12 @@ export const isDriverExecutionModeRequested = (
   userMetadata: DriverWorkspaceMetadata,
   appMetadata: DriverWorkspaceMetadata
 ) => {
+  void userMetadata;
   const tags = [
-    ...readNormalizedMetadataTags(userMetadata, ['workspace_mode', 'execution_mode']),
     ...readNormalizedMetadataTags(appMetadata, ['workspace_mode', 'execution_mode']),
   ];
 
   return (
-    readMetadataFlag(userMetadata, 'owner_driver_execution_mode') ||
     readMetadataFlag(appMetadata, 'owner_driver_execution_mode') ||
     tags.some((value) => DRIVER_EXECUTION_MODE_TAGS.has(value))
   );
