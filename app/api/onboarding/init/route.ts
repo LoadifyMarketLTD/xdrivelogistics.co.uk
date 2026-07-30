@@ -17,6 +17,7 @@ import {
   resolveOnboardingAccountTypeFromMetadata,
   resolveOnboardingTokenTtlHours,
 } from '../../_lib/onboarding';
+import { isCompanyDriverOnboardingApplication } from '../../../../lib/onboardingContract';
 
 const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
@@ -52,16 +53,24 @@ export async function POST(request: NextRequest) {
   const authUser = authData.user;
   const metadataAccountType = resolveOnboardingAccountTypeFromMetadata(
     (authUser.user_metadata ?? null) as Record<string, unknown> | null,
-    (authUser.app_metadata ?? null) as Record<string, unknown> | null
+    (authUser.app_metadata ?? null) as Record<string, unknown> | null,
   );
 
-  const { data: existing, error: existingError } = await supabaseAdmin
+  const { data: existingRows, error: existingError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, status, account_type, created_at, token_hash, token_expires_at, token_activated_at')
+    .select('id, status, account_type, company_id, payload, created_at, token_hash, token_expires_at, token_activated_at')
     .eq('user_id', authUser.id)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(2);
 
   if (existingError) return json(500, { error: existingError.message });
+  if ((existingRows ?? []).length > 1) {
+    return json(409, {
+      error: 'Multiple onboarding applications were found for this user. Platform Owner review is required before initialising onboarding.',
+      code: 'onboarding_application_integrity_violation',
+    });
+  }
+  const existing = existingRows?.[0] ?? null;
 
   const existingAccountType = normalizeOnboardingAccountType(existing?.account_type);
   if (existing && !existingAccountType) {
@@ -70,14 +79,20 @@ export async function POST(request: NextRequest) {
       code: 'unsupported_saved_account_type',
     });
   }
+
+  const isCompanyDriverInvite = Boolean(
+    existing && isCompanyDriverOnboardingApplication(existing as Record<string, unknown>),
+  );
+
   if (
     existingAccountType === 'individual_driver' &&
     existing &&
+    !isCompanyDriverInvite &&
     !isLegacyIndividualDriverOnboardingApplication(existing.account_type, existing.created_at)
   ) {
     return json(409, {
-      error: 'Individual-driver onboarding is legacy-only and unavailable for new registrations.',
-      code: 'legacy_individual_driver_onboarding_locked',
+      error: 'Company Driver onboarding is invitation-only. A fleet company must invite and link the driver before onboarding can start.',
+      code: 'company_driver_invitation_required',
     });
   }
 
@@ -92,23 +107,19 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // When there is no existing onboarding row and the account type resolves to
-  // individual_driver from auth metadata, use the auth user's created_at date
-  // to enforce the legacy cutoff (the onboarding row does not yet exist so
-  // existing.created_at cannot be used).
+  // Company Drivers cannot initialise their own onboarding from metadata. The
+  // fleet invitation flow must first create a company-linked application.
   if (!existing && accountType === 'individual_driver') {
-    if (!isLegacyIndividualDriverOnboardingApplication('individual_driver', authUser.created_at ?? null)) {
-      return json(409, {
-        error: 'Individual-driver onboarding is legacy-only and unavailable for new registrations.',
-        code: 'legacy_individual_driver_onboarding_locked',
-      });
-    }
+    return json(409, {
+      error: 'Company Driver onboarding is invitation-only. Ask the fleet company to invite this email address.',
+      code: 'company_driver_invitation_required',
+    });
   }
 
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
   const now = new Date();
   const tokenExpired = Boolean(
-    existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime()
+    existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime(),
   );
   const shouldRegenerateToken =
     normalizedExistingStatus !== 'approved' &&

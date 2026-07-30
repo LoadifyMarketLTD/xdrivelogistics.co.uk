@@ -1,0 +1,284 @@
+name: Validate Identity Compliance Foundation
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql"
+      - "supabase/migrations/20260729162000_marketplace_single_active_quote_per_identity.sql"
+      - "supabase/migrations/20260729170000_unified_onboarding_contract_and_activation_gate.sql"
+      - "supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
+      - "supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
+      - "supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
+      - "supabase/tests/identity_compliance_atomicity.sql"
+      - "supabase/tests/identity_compliance_migration_preflight.sql"
+      - ".github/workflows/validate-identity-compliance-foundation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@v5
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Validate migration preflight + atomicity SQL tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MIGRATION_IDENTITY="supabase/migrations/20260729161000_identity_compliance_and_fraud_foundation.sql"
+          MIGRATION_QUOTES="supabase/migrations/20260729162000_marketplace_single_active_quote_per_identity.sql"
+          MIGRATION_ONBOARDING_GATE="supabase/migrations/20260729170000_unified_onboarding_contract_and_activation_gate.sql"
+          MIGRATION_OWNER_DRIVER_BINDING="supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
+          MIGRATION_BACKFILL="supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
+          MIGRATION_COMPANY_DRIVER_FIX="supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
+
+          bootstrap_base_schema() {
+            psql -v ON_ERROR_STOP=1 <<'SQL'
+          DROP SCHEMA IF EXISTS auth CASCADE;
+          DROP SCHEMA IF EXISTS public CASCADE;
+          CREATE SCHEMA auth;
+          CREATE SCHEMA public;
+
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+              EXECUTE 'CREATE ROLE anon NOLOGIN';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              EXECUTE 'CREATE ROLE authenticated NOLOGIN';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+              EXECUTE 'CREATE ROLE service_role NOLOGIN BYPASSRLS';
+            ELSE
+              EXECUTE 'ALTER ROLE service_role BYPASSRLS';
+            END IF;
+          END;
+          $$;
+
+          GRANT USAGE ON SCHEMA auth, public TO anon, authenticated, service_role;
+
+          CREATE TABLE auth.users (
+            id uuid PRIMARY KEY,
+            aud text,
+            role text,
+            email text UNIQUE,
+            encrypted_password text,
+            raw_app_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+            raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.companies (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            name text NOT NULL,
+            status text NOT NULL DEFAULT 'active',
+            created_by uuid REFERENCES auth.users(id),
+            created_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.profiles (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+            full_name text,
+            phone text,
+            role text NOT NULL DEFAULT 'customer',
+            is_driver boolean NOT NULL DEFAULT false,
+            company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            status text NOT NULL DEFAULT 'active',
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.company_memberships (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            role_in_company text NOT NULL,
+            status text NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE (company_id, user_id)
+          );
+
+          CREATE TABLE public.drivers (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            display_name text,
+            phone text,
+            status text NOT NULL DEFAULT 'pending_verification',
+            app_access boolean NOT NULL DEFAULT false,
+            account_status text NOT NULL DEFAULT 'active',
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.onboarding_applications (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            email text,
+            account_type text NOT NULL,
+            status text NOT NULL DEFAULT 'draft',
+            current_step text,
+            completion_percentage integer NOT NULL DEFAULT 0,
+            company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            reviewed_at timestamptz,
+            reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            review_notes text,
+            submitted_at timestamptz,
+            last_activity_at timestamptz NOT NULL DEFAULT now(),
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.company_documents (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE,
+            onboarding_application_id uuid REFERENCES public.onboarding_applications(id) ON DELETE SET NULL,
+            file_path text,
+            doc_type text NOT NULL,
+            status text NOT NULL DEFAULT 'pending',
+            reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            reviewed_at timestamptz,
+            review_notes text,
+            expiry_date date
+          );
+
+          CREATE TABLE public.driver_identity_documents (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            driver_id uuid REFERENCES public.drivers(id) ON DELETE SET NULL,
+            onboarding_application_id uuid REFERENCES public.onboarding_applications(id) ON DELETE SET NULL,
+            file_path text,
+            doc_type text NOT NULL,
+            verification_status text NOT NULL DEFAULT 'pending',
+            reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            reviewed_at timestamptz,
+            review_notes text,
+            expiry_date date
+          );
+
+          CREATE TABLE public.driver_documents (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            driver_id uuid REFERENCES public.drivers(id) ON DELETE SET NULL,
+            doc_type text NOT NULL,
+            status text NOT NULL DEFAULT 'pending',
+            verified_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            verified_at timestamptz,
+            rejection_reason text,
+            expiry_date date
+          );
+
+          CREATE TABLE public.vehicle_documents (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            doc_type text NOT NULL,
+            status text NOT NULL DEFAULT 'pending',
+            verified_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            verified_at timestamptz,
+            rejection_reason text,
+            expiry_date date
+          );
+
+          CREATE TABLE public.owner_audit_log (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            actor_user_id uuid NOT NULL REFERENCES auth.users(id),
+            target_company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            action_type text NOT NULL,
+            old_status text,
+            new_status text,
+            reason text,
+            metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE public.jobs (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
+          );
+
+          CREATE TABLE public.job_bids (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            job_id uuid NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
+            company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
+            bidder_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+            status text NOT NULL DEFAULT 'submitted'
+          );
+          SQL
+          }
+
+          bootstrap_base_schema
+
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO auth.users (
+            id, aud, role, email, encrypted_password,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+          )
+          VALUES ('71000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated', 'preflight-conflict-user@example.test', '', '{}'::jsonb, '{}'::jsonb, now(), now());
+
+          INSERT INTO public.companies (id, name, status, created_by)
+          VALUES
+            ('71000000-0000-0000-0000-000000000011', 'Conflict A', 'active', '71000000-0000-0000-0000-000000000001'),
+            ('71000000-0000-0000-0000-000000000012', 'Conflict B', 'active', '71000000-0000-0000-0000-000000000001');
+
+          INSERT INTO public.company_memberships (company_id, user_id, role_in_company, status, updated_at)
+          VALUES
+            ('71000000-0000-0000-0000-000000000011', '71000000-0000-0000-0000-000000000001', 'owner', 'active', now()),
+            ('71000000-0000-0000-0000-000000000012', '71000000-0000-0000-0000-000000000001', 'dispatcher', 'active', now());
+          SQL
+
+          set +e
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}" > /tmp/identity-preflight-failure.log 2>&1
+          preflight_status=$?
+          set -e
+
+          if [ "${preflight_status}" -eq 0 ]; then
+            echo "Expected preflight migration failure did not occur."
+            cat /tmp/identity-preflight-failure.log
+            exit 1
+          fi
+
+          grep -F "Identity compliance preflight failed: at least one user has multiple active company memberships." /tmp/identity-preflight-failure.log >/dev/null
+
+          bootstrap_base_schema
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_IDENTITY}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_QUOTES}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_ONBOARDING_GATE}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_DRIVER_BINDING}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_BACKFILL}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_COMPANY_DRIVER_FIX}"
+
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_atomicity.sql
