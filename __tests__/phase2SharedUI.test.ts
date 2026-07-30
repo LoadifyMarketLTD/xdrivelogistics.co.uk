@@ -71,6 +71,20 @@ describe('Phase 2 Shared UI — authoritative company and workspace context', ()
     expect(result).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
+  it('fails closed when multiple active memberships exist', () => {
+    const result = resolveSharedUiContext({
+      memberships: [
+        membership({ companyId: 'company-a' }),
+        membership({ companyId: 'company-b', companyType: 'broker' }),
+      ],
+      requestedCompanyId: 'company-a',
+      requestedWorkspace: 'carrier_fleet',
+      userId: 'user-1',
+    });
+
+    expect(result).toEqual({ ok: false, error: 'multiple_active_memberships' });
+  });
+
   it('keeps a valid Company Driver on the shared /driver surface', () => {
     const result = resolveSharedUiContext({
       memberships: [
@@ -213,10 +227,10 @@ describe('Phase 2 Shared UI — navigation-only search', () => {
 });
 
 describe('Phase 2 Shared UI — switcher visibility', () => {
-  it('shows the Company switcher only for multiple memberships', () => {
+  it('does not show the Company switcher for ordinary users', () => {
     expect(shouldShowCompanySwitcher(0)).toBe(false);
     expect(shouldShowCompanySwitcher(1)).toBe(false);
-    expect(shouldShowCompanySwitcher(2)).toBe(true);
+    expect(shouldShowCompanySwitcher(2)).toBe(false);
   });
 
   it('shows the Workspace switcher only for multiple enabled workspaces', () => {

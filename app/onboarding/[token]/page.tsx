@@ -3,23 +3,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-
-type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver' | 'individual_driver';
+import {
+  getOnboardingContract,
+  normalizeCanonicalOnboardingAccountType,
+  type PersistedOnboardingAccountType,
+} from '../../../lib/onboardingContract';
 
 type Application = {
   id: string;
   user_id: string;
-  account_type: AccountType;
+  account_type: PersistedOnboardingAccountType;
   status: string;
   current_step: string;
   completion_percentage: number;
+  company_id?: string | null;
   payload: Record<string, unknown>;
 };
-
-const brokerDocs = ['company_registration', 'public_liability', 'vat_registration'] as const;
-const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'vehicle_insurance', 'company_registration', 'vat_registration'] as const;
-const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'insurance', 'right_to_work', 'visa_document'] as const;
-const individualDriverDocs = ['driving_licence', 'proof_of_address', 'right_to_work', 'visa_document'] as const;
 
 export default function OnboardingTokenPage() {
   const params = useParams<{ token: string }>();
@@ -34,15 +33,9 @@ export default function OnboardingTokenPage() {
   const [error, setError] = useState('');
 
   const accountType = application?.account_type;
-
-  const requiredDocs = useMemo(() => {
-    if (accountType === 'customer_shipper') return [];
-    if (accountType === 'broker_shipper') return brokerDocs;
-    if (accountType === 'fleet_courier') return fleetDocs;
-    if (accountType === 'owner_driver') return ownerDriverDocs;
-    if (accountType === 'individual_driver') return individualDriverDocs;
-    return [];
-  }, [accountType]);
+  const canonicalAccountType = normalizeCanonicalOnboardingAccountType(accountType);
+  const contract = getOnboardingContract(accountType);
+  const onboardingDocuments = useMemo(() => contract?.documents ?? [], [contract]);
 
   const toBoolean = (value: string | undefined) => {
     const normalized = (value ?? '').trim().toLowerCase();
@@ -50,16 +43,20 @@ export default function OnboardingTokenPage() {
   };
 
   const normalizedPayload = () => {
-    if (accountType === 'fleet_courier') {
+    const common = canonicalAccountType
+      ? { ...formData, canonical_account_type: canonicalAccountType }
+      : { ...formData };
+
+    if (canonicalAccountType === 'fleet_courier') {
       return {
-        ...formData,
+        ...common,
         transport_contact: formData.transport_contact ?? formData.transport_manager ?? '',
       };
     }
 
-    if (accountType === 'owner_driver') {
+    if (canonicalAccountType === 'owner_driver') {
       return {
-        ...formData,
+        ...common,
         right_to_work_status: formData.right_to_work_status ?? 'other',
         registration: formData.registration ?? formData.vehicle_registration ?? '',
         make: formData.make ?? formData.vehicle_make ?? '',
@@ -71,16 +68,16 @@ export default function OnboardingTokenPage() {
       };
     }
 
-    if (accountType === 'individual_driver') {
+    if (canonicalAccountType === 'company_driver') {
       return {
-        ...formData,
+        ...common,
         right_to_work_status: formData.right_to_work_status ?? 'other',
         settled_status: toBoolean(formData.settled_status),
         pre_settled_status: toBoolean(formData.pre_settled_status),
       };
     }
 
-    return formData;
+    return common;
   };
 
   const authHeaders = async (): Promise<Record<string, string>> => {
@@ -89,7 +86,7 @@ export default function OnboardingTokenPage() {
     } = await supabase.auth.getSession();
 
     if (!session?.access_token) return {};
-    return { Authorization: 'Bearer ' + session.access_token };
+    return { Authorization: `Bearer ${session.access_token}` };
   };
 
   const loadSession = useCallback(async () => {
@@ -112,12 +109,14 @@ export default function OnboardingTokenPage() {
       setApplication(data.application);
       const payload = (data.application?.payload ?? {}) as Record<string, unknown>;
       const nextFormData: Record<string, string> = {};
-      Object.entries(payload).forEach(([k, v]) => {
-        if (typeof v === 'string') nextFormData[k] = v;
+      Object.entries(payload).forEach(([key, value]) => {
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          nextFormData[key] = String(value);
+        }
       });
       setFormData(nextFormData);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load onboarding session.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to load onboarding session.');
     } finally {
       setLoading(false);
     }
@@ -128,21 +127,14 @@ export default function OnboardingTokenPage() {
   }, [loadSession]);
 
   const updateField = (key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData((previous) => ({ ...previous, [key]: value }));
   };
 
-  const accountRouteSegment = () => {
-    if (accountType === 'customer_shipper') return 'customer';
-    if (accountType === 'fleet_courier') return 'fleet';
-    if (accountType === 'owner_driver') return 'owner-driver';
-    if (accountType === 'individual_driver') return 'individual-driver';
-    return 'broker';
-  };
-
-  const sessionEndpoint = () => `/api/onboarding/${accountRouteSegment()}/session`;
-  const submitEndpoint = () => `/api/onboarding/submit/${accountRouteSegment()}`;
+  const sessionEndpoint = () => `/api/onboarding/${contract?.routeSegment ?? 'customer'}/session`;
+  const submitEndpoint = () => `/api/onboarding/submit/${contract?.routeSegment ?? 'customer'}`;
 
   const saveProgress = async (currentStep: string, completionPercentage: number) => {
+    if (!contract) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -169,14 +161,15 @@ export default function OnboardingTokenPage() {
       }
       setApplication(data.application);
       setMessage('Progress saved. You can continue later from this step.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save onboarding progress.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to save onboarding progress.');
     } finally {
       setSaving(false);
     }
   };
 
   const submitOnboarding = async () => {
+    if (!contract) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -211,9 +204,13 @@ export default function OnboardingTokenPage() {
         return;
       }
       setApplication(data.application);
-      setMessage(application?.account_type === 'customer_shipper' ? 'Customer onboarding complete.' : 'Onboarding submitted successfully. Your account is now pending review.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to submit onboarding.');
+      setMessage(
+        canonicalAccountType === 'customer_shipper'
+          ? 'Customer onboarding complete.'
+          : 'Onboarding submitted successfully. Your account remains restricted until Platform Compliance approves it.',
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to submit onboarding.');
     } finally {
       setSaving(false);
     }
@@ -229,7 +226,6 @@ export default function OnboardingTokenPage() {
       const form = new FormData();
       form.set('docType', docType);
       form.set('file', file);
-      form.set('model', accountType === 'owner_driver' ? 'driver_identity' : 'company');
 
       const res = await fetch('/api/onboarding/documents', {
         method: 'POST',
@@ -245,106 +241,106 @@ export default function OnboardingTokenPage() {
 
       updateField(`doc_${docType}`, data.path ?? 'uploaded');
       setMessage(`Uploaded ${docType.replace(/_/g, ' ')}.`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Document upload failed.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Document upload failed.');
     } finally {
       setSaving(false);
     }
   };
 
-
   const renderCustomerShipper = () => (
     <section>
       <h2>Customer / Shipper Details</h2>
-      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(v) => updateField('full_name', v)} />
-      <Field label="Email" value={formData.contact_email ?? ''} onChange={(v) => updateField('contact_email', v)} />
-      <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(v) => updateField('contact_phone', v)} />
-      <Field label="Company Name" value={formData.company_name ?? ''} onChange={(v) => updateField('company_name', v)} />
-      <Field label="Billing Address" value={formData.billing_address ?? ''} onChange={(v) => updateField('billing_address', v)} />
+      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(value) => updateField('full_name', value)} />
+      <Field label="Email" value={formData.contact_email ?? ''} onChange={(value) => updateField('contact_email', value)} />
+      <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(value) => updateField('contact_phone', value)} />
+      <Field label="Company Name" value={formData.company_name ?? ''} onChange={(value) => updateField('company_name', value)} />
+      <Field label="Billing Address" value={formData.billing_address ?? ''} onChange={(value) => updateField('billing_address', value)} />
     </section>
   );
+
   const renderBrokerShipper = () => (
     <section>
       <h2>Broker / Shipper Details</h2>
-      <Field label="Company Name" value={formData.company_name ?? ''} onChange={(v) => updateField('company_name', v)} />
-      <Field label="Trading Name" value={formData.trading_name ?? ''} onChange={(v) => updateField('trading_name', v)} />
-      <Field label="Company Number" value={formData.company_number ?? ''} onChange={(v) => updateField('company_number', v)} />
-      <Field label="VAT Number" value={formData.vat_number ?? ''} onChange={(v) => updateField('vat_number', v)} />
-      <Field label="Billing Address" value={formData.billing_address ?? ''} onChange={(v) => updateField('billing_address', v)} />
-      <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(v) => updateField('trading_address', v)} />
-      <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(v) => updateField('contact_person', v)} />
-      <Field label="Finance Contact" value={formData.finance_contact ?? ''} onChange={(v) => updateField('finance_contact', v)} />
-      <Field label="Email" value={formData.contact_email ?? ''} onChange={(v) => updateField('contact_email', v)} />
-      <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(v) => updateField('contact_phone', v)} />
+      <Field label="Company Name" value={formData.company_name ?? ''} onChange={(value) => updateField('company_name', value)} />
+      <Field label="Trading Name" value={formData.trading_name ?? ''} onChange={(value) => updateField('trading_name', value)} />
+      <Field label="Company Number" value={formData.company_number ?? ''} onChange={(value) => updateField('company_number', value)} />
+      <Field label="VAT Number (when VAT registered)" value={formData.vat_number ?? ''} onChange={(value) => updateField('vat_number', value)} />
+      <Field label="Billing Address" value={formData.billing_address ?? ''} onChange={(value) => updateField('billing_address', value)} />
+      <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(value) => updateField('trading_address', value)} />
+      <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(value) => updateField('contact_person', value)} />
+      <Field label="Finance Contact" value={formData.finance_contact ?? ''} onChange={(value) => updateField('finance_contact', value)} />
+      <Field label="Email" value={formData.contact_email ?? ''} onChange={(value) => updateField('contact_email', value)} />
+      <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(value) => updateField('contact_phone', value)} />
     </section>
   );
 
   const renderFleetCourier = () => (
     <section>
       <h2>Fleet / Courier Company Details</h2>
-      <Field label="Legal Company Name" value={formData.legal_company_name ?? ''} onChange={(v) => updateField('legal_company_name', v)} />
-      <Field label="Trading Name" value={formData.trading_name ?? ''} onChange={(v) => updateField('trading_name', v)} />
-      <Field label="Company Number" value={formData.company_number ?? ''} onChange={(v) => updateField('company_number', v)} />
-      <Field label="VAT Number" value={formData.vat_number ?? ''} onChange={(v) => updateField('vat_number', v)} />
-      <Field label="Registered Address" value={formData.registered_address ?? ''} onChange={(v) => updateField('registered_address', v)} />
-      <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(v) => updateField('trading_address', v)} />
-      <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(v) => updateField('contact_person', v)} />
-      <Field label="Compliance Contact" value={formData.compliance_contact ?? ''} onChange={(v) => updateField('compliance_contact', v)} />
-      <Field label="Transport Contact" value={formData.transport_contact ?? formData.transport_manager ?? ''} onChange={(v) => updateField('transport_contact', v)} />
+      <Field label="Legal Company Name" value={formData.legal_company_name ?? ''} onChange={(value) => updateField('legal_company_name', value)} />
+      <Field label="Trading Name" value={formData.trading_name ?? ''} onChange={(value) => updateField('trading_name', value)} />
+      <Field label="Company Number" value={formData.company_number ?? ''} onChange={(value) => updateField('company_number', value)} />
+      <Field label="VAT Number (when VAT registered)" value={formData.vat_number ?? ''} onChange={(value) => updateField('vat_number', value)} />
+      <Field label="Registered Address" value={formData.registered_address ?? ''} onChange={(value) => updateField('registered_address', value)} />
+      <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(value) => updateField('trading_address', value)} />
+      <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(value) => updateField('contact_person', value)} />
+      <Field label="Compliance Contact" value={formData.compliance_contact ?? ''} onChange={(value) => updateField('compliance_contact', value)} />
+      <Field label="Transport Contact" value={formData.transport_contact ?? formData.transport_manager ?? ''} onChange={(value) => updateField('transport_contact', value)} />
     </section>
   );
 
   const renderOwnerDriver = () => (
     <section>
-      <h2>Owner Driver / Sole Trader Details</h2>
-      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(v) => updateField('full_name', v)} />
-      <Field label="Date of Birth" value={formData.dob ?? ''} onChange={(v) => updateField('dob', v)} />
-      <Field label="Nationality" value={formData.nationality ?? ''} onChange={(v) => updateField('nationality', v)} />
-      <Field label="Address" value={formData.address ?? ''} onChange={(v) => updateField('address', v)} />
-      <Field label="Phone" value={formData.phone ?? ''} onChange={(v) => updateField('phone', v)} />
-      <Field label="Email" value={formData.email ?? ''} onChange={(v) => updateField('email', v)} />
-      <Field label="Right to Work Status (citizen / visa_required / share_code_required / settled / pre_settled / other)" value={formData.right_to_work_status ?? ''} onChange={(v) => updateField('right_to_work_status', v)} />
-      <Field label="Visa Expiry (YYYY-MM-DD)" value={formData.visa_expiry ?? ''} onChange={(v) => updateField('visa_expiry', v)} />
-      <Field label="Visa Type" value={formData.visa_type ?? ''} onChange={(v) => updateField('visa_type', v)} />
-      <Field label="Share Code" value={formData.share_code ?? ''} onChange={(v) => updateField('share_code', v)} />
-      <Field label="Settled Status (true/false)" value={formData.settled_status ?? ''} onChange={(v) => updateField('settled_status', v)} />
-      <Field label="Pre-Settled Status (true/false)" value={formData.pre_settled_status ?? ''} onChange={(v) => updateField('pre_settled_status', v)} />
-      <Field label="Vehicle Registration" value={formData.registration ?? formData.vehicle_registration ?? ''} onChange={(v) => updateField('registration', v)} />
-      <Field label="Vehicle Make" value={formData.make ?? formData.vehicle_make ?? ''} onChange={(v) => updateField('make', v)} />
-      <Field label="Vehicle Model" value={formData.model ?? formData.vehicle_model ?? ''} onChange={(v) => updateField('model', v)} />
-      <Field label="Payload" value={formData.payload ?? formData.vehicle_payload ?? ''} onChange={(v) => updateField('payload', v)} />
-      <Field label="Dimensions" value={formData.dimensions ?? formData.vehicle_dimensions ?? ''} onChange={(v) => updateField('dimensions', v)} />
-      <Field label="Tail Lift" value={formData.tail_lift ?? ''} onChange={(v) => updateField('tail_lift', v)} />
-      <Field label="Insurance Details" value={formData.insurance_details ?? ''} onChange={(v) => updateField('insurance_details', v)} />
+      <h2>Owner Operator Details</h2>
+      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(value) => updateField('full_name', value)} />
+      <Field label="Date of Birth" value={formData.dob ?? ''} onChange={(value) => updateField('dob', value)} />
+      <Field label="Nationality" value={formData.nationality ?? ''} onChange={(value) => updateField('nationality', value)} />
+      <Field label="Address" value={formData.address ?? ''} onChange={(value) => updateField('address', value)} />
+      <Field label="Phone" value={formData.phone ?? ''} onChange={(value) => updateField('phone', value)} />
+      <Field label="Email" value={formData.email ?? ''} onChange={(value) => updateField('email', value)} />
+      <Field label="Right to Work Status" value={formData.right_to_work_status ?? ''} onChange={(value) => updateField('right_to_work_status', value)} />
+      <Field label="Visa Expiry (when applicable)" value={formData.visa_expiry ?? ''} onChange={(value) => updateField('visa_expiry', value)} />
+      <Field label="Visa Type (when applicable)" value={formData.visa_type ?? ''} onChange={(value) => updateField('visa_type', value)} />
+      <Field label="Share Code (when applicable)" value={formData.share_code ?? ''} onChange={(value) => updateField('share_code', value)} />
+      <Field label="Settled Status (true/false)" value={formData.settled_status ?? ''} onChange={(value) => updateField('settled_status', value)} />
+      <Field label="Pre-Settled Status (true/false)" value={formData.pre_settled_status ?? ''} onChange={(value) => updateField('pre_settled_status', value)} />
+      <Field label="Vehicle Registration" value={formData.registration ?? formData.vehicle_registration ?? ''} onChange={(value) => updateField('registration', value)} />
+      <Field label="Vehicle Make" value={formData.make ?? formData.vehicle_make ?? ''} onChange={(value) => updateField('make', value)} />
+      <Field label="Vehicle Model" value={formData.model ?? formData.vehicle_model ?? ''} onChange={(value) => updateField('model', value)} />
+      <Field label="Payload" value={formData.payload ?? formData.vehicle_payload ?? ''} onChange={(value) => updateField('payload', value)} />
+      <Field label="Dimensions" value={formData.dimensions ?? formData.vehicle_dimensions ?? ''} onChange={(value) => updateField('dimensions', value)} />
+      <Field label="Tail Lift" value={formData.tail_lift ?? ''} onChange={(value) => updateField('tail_lift', value)} />
+      <Field label="Insurance Details" value={formData.insurance_details ?? ''} onChange={(value) => updateField('insurance_details', value)} />
     </section>
   );
 
-  const renderIndividualDriver = () => (
+  const renderCompanyDriver = () => (
     <section>
-      <h2>Individual Driver Details</h2>
-      <p style={{ color: '#6B7280', marginTop: 0 }}>This account is for individual drivers employed by or working for a fleet or transport company. No carrier workspace will be created.</p>
-      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(v) => updateField('full_name', v)} />
-      <Field label="Date of Birth" value={formData.dob ?? ''} onChange={(v) => updateField('dob', v)} />
-      <Field label="Address" value={formData.address ?? ''} onChange={(v) => updateField('address', v)} />
-      <Field label="Phone" value={formData.phone ?? ''} onChange={(v) => updateField('phone', v)} />
-      <Field label="Email" value={formData.email ?? ''} onChange={(v) => updateField('email', v)} />
-      <Field label="Right to Work Status (citizen / visa_required / share_code_required / settled / pre_settled / other)" value={formData.right_to_work_status ?? ''} onChange={(v) => updateField('right_to_work_status', v)} />
-      <Field label="Visa Expiry (YYYY-MM-DD, when applicable)" value={formData.visa_expiry ?? ''} onChange={(v) => updateField('visa_expiry', v)} />
-      <Field label="Share Code (when applicable)" value={formData.share_code ?? ''} onChange={(v) => updateField('share_code', v)} />
-      <Field label="Settled Status (true/false)" value={formData.settled_status ?? ''} onChange={(v) => updateField('settled_status', v)} />
-      <Field label="Pre-Settled Status (true/false)" value={formData.pre_settled_status ?? ''} onChange={(v) => updateField('pre_settled_status', v)} />
+      <h2>Company Driver Details</h2>
+      <p style={{ color: '#6B7280', marginTop: 0 }}>
+        This account is linked exclusively to the fleet company that sent the invitation. It does not create another company or Owner Operator identity.
+      </p>
+      <Field label="Full Name" value={formData.full_name ?? ''} onChange={(value) => updateField('full_name', value)} />
+      <Field label="Date of Birth" value={formData.dob ?? ''} onChange={(value) => updateField('dob', value)} />
+      <Field label="Address" value={formData.address ?? ''} onChange={(value) => updateField('address', value)} />
+      <Field label="Phone" value={formData.phone ?? ''} onChange={(value) => updateField('phone', value)} />
+      <Field label="Email" value={formData.email ?? ''} onChange={(value) => updateField('email', value)} />
+      <Field label="Right to Work Status" value={formData.right_to_work_status ?? ''} onChange={(value) => updateField('right_to_work_status', value)} />
+      <Field label="Visa Expiry (when applicable)" value={formData.visa_expiry ?? ''} onChange={(value) => updateField('visa_expiry', value)} />
+      <Field label="Share Code (when applicable)" value={formData.share_code ?? ''} onChange={(value) => updateField('share_code', value)} />
+      <Field label="Settled Status (true/false)" value={formData.settled_status ?? ''} onChange={(value) => updateField('settled_status', value)} />
+      <Field label="Pre-Settled Status (true/false)" value={formData.pre_settled_status ?? ''} onChange={(value) => updateField('pre_settled_status', value)} />
     </section>
   );
 
-  if (loading) {
-    return <main style={{ padding: '2rem' }}>Loading onboarding...</main>;
-  }
+  if (loading) return <main style={{ padding: '2rem' }}>Loading onboarding...</main>;
 
-  if (!application) {
+  if (!application || !contract || !canonicalAccountType) {
     return (
       <main style={{ padding: '2rem' }}>
         <h1>Onboarding unavailable</h1>
-        <p>{error || 'No onboarding application found.'}</p>
+        <p>{error || 'No supported onboarding application was found.'}</p>
       </main>
     );
   }
@@ -353,42 +349,48 @@ export default function OnboardingTokenPage() {
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '2rem' }}>
-      <h1>XDrive Onboarding</h1>
-      <p>
-        Status: <strong>{application.status}</strong>
-      </p>
-      <p>
-        Current step: <strong>{application.current_step}</strong>
-      </p>
+      <h1>XDrive Onboarding — {contract.label}</h1>
+      <p style={{ color: '#4B5563' }}>{contract.description}</p>
+      <p>Status: <strong>{application.status}</strong></p>
+      <p>Current step: <strong>{application.current_step}</strong></p>
 
       <div style={{ background: '#E5E7EB', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
         <div style={{ width: `${progress}%`, height: 10, background: '#2563EB' }} />
       </div>
       <p style={{ marginTop: 0 }}>{progress.toFixed(0)}% complete</p>
 
-      {application.account_type === 'customer_shipper' && renderCustomerShipper()}
-      {application.account_type === 'broker_shipper' && renderBrokerShipper()}
-      {application.account_type === 'fleet_courier' && renderFleetCourier()}
-      {application.account_type === 'owner_driver' && renderOwnerDriver()}
-      {application.account_type === 'individual_driver' && renderIndividualDriver()}
+      {canonicalAccountType === 'customer_shipper' && renderCustomerShipper()}
+      {canonicalAccountType === 'broker_shipper' && renderBrokerShipper()}
+      {canonicalAccountType === 'fleet_courier' && renderFleetCourier()}
+      {canonicalAccountType === 'owner_driver' && renderOwnerDriver()}
+      {canonicalAccountType === 'company_driver' && renderCompanyDriver()}
 
-      {requiredDocs.length > 0 && (
-      <section style={{ marginTop: '2rem' }}>
-        <h2>Document Upload</h2>
-        {requiredDocs.map((doc) => (
-          <div key={doc} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'center' }}>
-            <span>{doc.replace(/_/g, ' ')}</span>
-            <input
-              type="file"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                void uploadDocument(doc, file);
-              }}
-            />
-          </div>
-        ))}
-      </section>
+      {onboardingDocuments.length > 0 && (
+        <section style={{ marginTop: '2rem' }}>
+          <h2>Document Upload</h2>
+          <p style={{ color: '#4B5563' }}>
+            Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
+          </p>
+          {onboardingDocuments.map((doc) => (
+            <div key={doc.type} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>{doc.label}</div>
+                <div style={{ fontSize: '0.8rem', color: doc.requirement === 'required' ? '#B91C1C' : '#6B7280' }}>
+                  {doc.requirement === 'required' ? 'Required' : 'Conditional'}
+                  {doc.condition ? ` — ${doc.condition}` : ''}
+                </div>
+              </div>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadDocument(doc.type, file);
+                }}
+              />
+            </div>
+          ))}
+        </section>
       )}
 
       <section style={{ marginTop: '2rem' }}>
@@ -412,14 +414,7 @@ export default function OnboardingTokenPage() {
         <button
           onClick={() => void submitOnboarding()}
           disabled={saving || application.status === 'approved'}
-          style={{
-            padding: '0.75rem 1rem',
-            borderRadius: 6,
-            border: 'none',
-            background: '#1D4ED8',
-            color: '#fff',
-            cursor: 'pointer',
-          }}
+          style={{ padding: '0.75rem 1rem', borderRadius: 6, border: 'none', background: '#1D4ED8', color: '#fff', cursor: 'pointer' }}
         >
           Submit for review
         </button>
@@ -448,7 +443,7 @@ function Field({
       <div style={{ marginBottom: '0.35rem', fontWeight: 500 }}>{label}</div>
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         style={{ width: '100%', border: '1px solid #D1D5DB', borderRadius: 6, padding: '0.6rem 0.75rem' }}
       />
     </label>

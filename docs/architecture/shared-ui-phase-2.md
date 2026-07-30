@@ -1,5 +1,14 @@
 # Phase 2 — Shared UI Control Contract
 
+## Supersession note (canonical contract)
+
+This Phase 2 document preserves historical implementation context, but the final canonical contract is `docs/architecture/single-active-identity-and-company.md`. Earlier assumptions that ordinary users can select between multiple active company memberships are superseded:
+
+- ordinary users have one active company identity;
+- multiple active memberships fail closed as an integrity incident;
+- workspace switching is same-company only;
+- Platform Owner global authority is separate from ordinary company memberships.
+
 ## Base
 
 This phase starts from the verified Foundation merge commit:
@@ -13,14 +22,14 @@ Build the shared authenticated application shell and authoritative context-switc
 ## Allowed scope
 
 - Shared shell for the existing stable route families: `/driver`, `/customer`, `/broker`, `/admin`, `/admin/fleet`, `/super-admin`.
-- Organisation / Company switcher backed only by active server-authoritative `company_memberships` and canonical `companies` records.
+- Historical: Organisation / Company switcher work explored authoritative context selection. Superseded for ordinary users by the single-active-membership contract.
 - Workspace switcher backed only by the merged Foundation workspace registry, enabled workspaces, membership identity and capability resolution.
 - Role/persona display that cannot grant permissions client-side.
 - Shared sidebar and top-navigation contracts.
 - Global-search UI skeleton and adapter contract only; no invented backend or data source.
 - Notifications and messages entry points that link only to existing routes.
 - Responsive and accessibility behaviour for the shared shell.
-- Tests for cross-company isolation, stale-context clearing, failed switching and route preservation.
+- Tests for cross-company isolation, failed switching, same-company workspace switching and route preservation.
 
 ## Mandatory security invariants
 

@@ -274,7 +274,7 @@ describe('GET /api/auth/context', () => {
     expect(await readJson(response)).toEqual({ error: 'Unable to recover workspace context.' });
   });
 
-  it('does not persist when stale recovery requires explicit company selection (multiple memberships)', async () => {
+  it('fails closed for multiple active memberships and does not persist profile company updates', async () => {
     mocks.profileResult = {
       data: {
         user_id: 'user-1',
@@ -285,19 +285,17 @@ describe('GET /api/auth/context', () => {
       },
       error: null,
     };
-    // Two active memberships: recovery cannot auto-select, so companySelectionRequired is true.
     mocks.membershipsResult = {
       data: [activeMembership(COMPANY_A), activeMembership(COMPANY_B)],
       error: null,
     };
 
     const response = await GET(request({ token: 'valid-token' }));
-    const body = await readJson(response);
 
-    expect(response.status).toBe(200);
-    expect(body.staleSelectionCleared).toBe(true);
-    expect(body.companySelectionRequired).toBe(true);
-    expect(body.current).toBeNull();
+    expect(response.status).toBe(409);
+    expect(await readJson(response)).toEqual({
+      error: 'Identity integrity violation: multiple active company memberships detected.',
+    });
     expect(mocks.updatePayloads).toEqual([]);
   });
 });
@@ -318,6 +316,30 @@ describe('POST /api/auth/context', () => {
     expect(response.status).toBe(403);
     expect(await readJson(response)).toEqual({
       error: 'The requested company is not available to this account.',
+    });
+    expect(mocks.updatePayloads).toEqual([]);
+  });
+
+  it('fails closed when multiple active memberships exist, even with explicit client company selection', async () => {
+    mocks.membershipsResult = {
+      data: [activeMembership(COMPANY_A), activeMembership(COMPANY_B)],
+      error: null,
+    };
+
+    const response = await POST(
+      request({
+        method: 'POST',
+        token: 'valid-token',
+        body: {
+          companyId: COMPANY_A,
+          workspace: 'carrier_fleet',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await readJson(response)).toEqual({
+      error: 'Identity integrity violation: multiple active company memberships detected.',
     });
     expect(mocks.updatePayloads).toEqual([]);
   });
@@ -363,6 +385,29 @@ describe('POST /api/auth/context', () => {
         activeWorkspace: 'carrier_fleet',
       }),
     );
+  });
+
+  it('does not allow workspace switching to change canonical company identity', async () => {
+    const response = await POST(
+      request({
+        method: 'POST',
+        token: 'valid-token',
+        body: {
+          companyId: COMPANY_A,
+          workspace: 'carrier_fleet',
+        },
+      }),
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(body.current).toEqual(
+      expect.objectContaining({
+        companyId: COMPANY_A,
+        activeWorkspace: 'carrier_fleet',
+      }),
+    );
+    expect(mocks.updatePayloads).toEqual([{ company_id: COMPANY_A }]);
   });
 
   it('resolves a company driver with same-company evidence to /driver not /admin', async () => {

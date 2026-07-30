@@ -30,7 +30,7 @@ const membership = (input: {
 });
 
 describe('resolveSharedUiContext', () => {
-  it('requires explicit company selection for multiple active memberships', () => {
+  it('fails closed for multiple active memberships', () => {
     const result = resolveSharedUiContext({
       memberships: [
         membership({ companyId: 'company-a' }),
@@ -39,19 +39,7 @@ describe('resolveSharedUiContext', () => {
       userId: 'user-1',
     });
 
-    expect(result).toEqual({
-      ok: true,
-      snapshot: {
-        memberships: expect.arrayContaining([
-          expect.objectContaining({ companyId: 'company-a' }),
-          expect.objectContaining({ companyId: 'company-b' }),
-        ]),
-        current: null,
-        companySelectionRequired: true,
-        workspaceSelectionRequired: false,
-        selectedCompanyId: null,
-      },
-    });
+    expect(result).toEqual({ ok: false, error: 'multiple_active_memberships' });
   });
 
   it('rejects cross-company and stale profile selections', () => {
@@ -255,7 +243,7 @@ describe('resolveSharedUiContextFromOptions — multi-workspace presentation', (
     }
   });
 
-  it('sets selectedCompanyId to null when company selection itself is required', () => {
+  it('fails closed when multiple memberships are present in options', () => {
     const result = resolveSharedUiContextFromOptions({
       options: [
         multiWorkspaceOption('company-a'),
@@ -264,10 +252,6 @@ describe('resolveSharedUiContextFromOptions — multi-workspace presentation', (
       userId: 'user-1',
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.snapshot.companySelectionRequired).toBe(true);
-      expect(result.snapshot.selectedCompanyId).toBeNull();
-    }
+    expect(result).toEqual({ ok: false, error: 'multiple_active_memberships' });
   });
 });
