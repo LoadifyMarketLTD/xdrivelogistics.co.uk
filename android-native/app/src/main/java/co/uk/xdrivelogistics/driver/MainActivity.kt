@@ -629,13 +629,7 @@ private fun NearbyJobsScreen(
     onJobPreference: (String, String?) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var box by remember { mutableStateOf("Live") }
-    var sort by remember { mutableStateOf("Nearest") }
-    var radius by remember { mutableStateOf("20") }
-    var vehicleFilter by remember { mutableStateOf("") }
-    var freightFilter by remember { mutableStateOf("") }
-    var dateFilter by remember { mutableStateOf("") }
-    var memberFilter by remember { mutableStateOf("") }
+    var box by remember { mutableStateOf(LiveLoadsBox.LIVE) }
     val activeDeliveryJob = state.jobs.firstOrNull {
         !it.isPosted() && it.isActive() && it.deliveryPostcode.isNotBlank()
     }
@@ -650,25 +644,8 @@ private fun NearbyJobsScreen(
                 .thenBy { it.pickupDatetime.orEmpty() }
         )
     }
-    val radiusMiles = radius.toDoubleOrNull()
-    val boxedJobs = deliveryZoneJobs.filter { job ->
-        val pref = state.jobSearchPreferences[job.id]
-        when (box) {
-            "Pinned" -> pref == "saved"
-            "Hidden" -> pref == "deleted"
-            else -> pref != "deleted"
-        }
-    }.filter { job ->
-        radiusMiles == null || (job.pickupDistanceFromActiveDeliveryMiles ?: job.distanceMiles ?: 0.0) <= radiusMiles
-    }.filter { job ->
-        vehicleFilter.isBlank() || job.vehicleType.contains(vehicleFilter.trim(), ignoreCase = true) || job.vehicleLabel().contains(vehicleFilter.trim(), ignoreCase = true)
-    }.filter { job ->
-        freightFilter.isBlank() || job.cargoType.contains(freightFilter.trim(), ignoreCase = true) || job.loadDetails.contains(freightFilter.trim(), ignoreCase = true)
-    }.filter { job ->
-        dateFilter.isBlank() || job.pickupDatetime.orEmpty().contains(dateFilter.trim(), ignoreCase = true)
-    }.filter { job ->
-        memberFilter.isBlank() || job.clientName.contains(memberFilter.trim(), ignoreCase = true) || job.id.contains(memberFilter.trim(), ignoreCase = true)
-    }
+    val boxedJobs = filterLiveLoadsByBox(deliveryZoneJobs, state.jobSearchPreferences, box)
+    val (liveCount, pinnedCount, hiddenCount) = liveLoadsCounts(deliveryZoneJobs, state.jobSearchPreferences)
     val searched = boxedJobs.filter {
         val needle = query.trim().lowercase()
         needle.isBlank() ||
@@ -680,12 +657,7 @@ private fun NearbyJobsScreen(
             it.deliveryLocation.lowercase().contains(needle) ||
             it.loadDetails.lowercase().contains(needle)
     }
-    val filtered = when (sort) {
-        "Newest" -> searched.sortedByDescending { it.pickupDatetime.orEmpty() }
-        "Highest Value" -> searched.sortedByDescending { it.budgetAmount ?: 0.0 }
-        "Best Match" -> searched.sortedWith(compareByDescending<DriverJob> { it.vehicleType.isNotBlank() }.thenBy { it.pickupDistanceFromActiveDeliveryMiles ?: it.distanceMiles ?: Double.MAX_VALUE })
-        else -> searched.sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: it.distanceMiles ?: Double.MAX_VALUE }
-    }
+    val filtered = searched.sortedBy { it.pickupDatetime.orEmpty() }
 
     LazyColumn(
         modifier = Modifier
@@ -694,85 +666,31 @@ private fun NearbyJobsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            XDriveCard {
-                Text("Live Loads", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
+            LiveLoadsSegmentedTabs(
+                selected = box,
+                liveCount = liveCount,
+                pinnedCount = pinnedCount,
+                hiddenCount = hiddenCount,
+                onSelected = { box = it },
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    if (activeDeliveryJob != null) {
-                        "${filtered.size} live loads within 20 miles of ${activeDeliveryJob.deliveryPostcode}"
-                    } else {
-                        "${filtered.size} live loads available"
-                    },
-                    color = TextSecondary,
-                    fontSize = 13.sp,
+                    if (box == LiveLoadsBox.LIVE) "${filtered.size} available" else "${filtered.size} loads",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
                 )
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    BadgeText(if (activeDeliveryJob != null) "Delivery zone" else "All posted", Yellow)
-                    BadgeText("20 miles", Blue)
-                    BadgeText("Backload search", Success)
-                }
+                Text("Collection time order", color = TextSecondary, fontSize = 13.sp)
             }
-        }
-        item {
-            XDriveCard {
-                Text("Who's Nearby", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                Text("${state.nearbyDrivers.size} tracked drivers", color = TextSecondary, fontSize = 13.sp)
-                Spacer(Modifier.height(10.dp))
-                if (state.nearbyDrivers.isEmpty()) {
-                    Text("No live driver locations yet.", color = TextSecondary, fontSize = 13.sp)
-                } else {
-                    state.nearbyDrivers.take(5).forEach { nearby ->
-                        InfoLine(
-                            nearby.driverName,
-                            listOf(
-                                nearby.vehicleLabel,
-                                nearby.lat?.let { lat -> nearby.lng?.let { lng -> "%.4f, %.4f".format(Locale.UK, lat, lng) } }.orEmpty(),
-                                nearby.recordedAt?.marketplaceTime().orEmpty(),
-                            ).filter { it.isNotBlank() }.joinToString(" | ")
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            SegmentedTabs(listOf("Live", "Pinned", "Hidden"), box) { box = it }
         }
         item {
             XDriveTextField(query, { query = it }, "Search jobs", "Find")
-        }
-        item {
-            XDriveCard {
-                Text("Search Filters", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    Box(Modifier.weight(1f)) { XDriveTextField(radius, { radius = it }, "Radius miles", "Mi", keyboardType = KeyboardType.Number) }
-                    Box(Modifier.weight(1f)) { XDriveTextField(vehicleFilter, { vehicleFilter = it }, "Vehicle", "Van") }
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    Box(Modifier.weight(1f)) { XDriveTextField(freightFilter, { freightFilter = it }, "Freight", "Load") }
-                    Box(Modifier.weight(1f)) { XDriveTextField(dateFilter, { dateFilter = it }, "Date", "Date") }
-                }
-                Spacer(Modifier.height(10.dp))
-                XDriveTextField(memberFilter, { memberFilter = it }, "Member name / ID", "ID")
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        query = ""
-                        radius = "20"
-                        vehicleFilter = ""
-                        freightFilter = ""
-                        dateFilter = ""
-                        memberFilter = ""
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Clear Filters", fontWeight = FontWeight.Bold) }
-            }
-        }
-        item {
-            SegmentedTabs(listOf("Nearest", "Best Match", "Newest", "Highest Value"), sort) { sort = it }
         }
         if (filtered.isEmpty()) {
             item {
@@ -790,11 +708,11 @@ private fun NearbyJobsScreen(
             LiveLoadCard(
                 job = job,
                 selected = state.selectedJobId == job.id,
-                onOpen = { routeToLiveLoadDetails(job.id, onJobSelected, onTabChange) },
-                onQuote = { routeToLiveLoadDetails(job.id, onJobSelected, onTabChange) },
-                onSave = { onJobPreference(job.id, "saved") },
-                onHide = { onJobPreference(job.id, "deleted") },
-                onRestore = { onJobPreference(job.id, null) },
+                onOpen = { openLiveLoadFromCard(job.id, onJobSelected, onTabChange) },
+                onQuote = { openLiveLoadQuoteFlow(job.id, onJobSelected, onTabChange) },
+                onSave = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.PIN)) },
+                onHide = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.HIDE)) },
+                onRestore = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.RESTORE)) },
                 preferenceState = state.jobSearchPreferences[job.id],
             )
         }
@@ -2068,6 +1986,49 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
                     color = if (tab == selected) Yellow else TextSecondary,
                     fontSize = 13.sp,
                     fontWeight = if (tab == selected) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveLoadsSegmentedTabs(
+    selected: LiveLoadsBox,
+    liveCount: Int,
+    pinnedCount: Int,
+    hiddenCount: Int,
+    onSelected: (LiveLoadsBox) -> Unit,
+) {
+    val tabs = listOf(
+        Triple(LiveLoadsBox.LIVE, "Live ($liveCount)", Modifier.weight(1f)),
+        Triple(LiveLoadsBox.PINNED, "Pinned ($pinnedCount)", Modifier.weight(1f)),
+        Triple(LiveLoadsBox.HIDDEN, "Hidden ($hiddenCount)", Modifier.weight(1f)),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Navy2, RoundedCornerShape(22.dp))
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        tabs.forEach { (tab, label, tabModifier) ->
+            val active = selected == tab
+            Box(
+                modifier = tabModifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (active) Yellow else Color.Transparent)
+                    .clickable { onSelected(tab) }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    color = if (active) Color(0xFF05070C) else TextSecondary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     maxLines = 1,
                 )
             }

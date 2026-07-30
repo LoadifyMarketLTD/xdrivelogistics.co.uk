@@ -3,12 +3,14 @@ package co.uk.xdrivelogistics.driver
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -16,12 +18,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.uk.xdrivelogistics.driver.data.DriverJob
@@ -37,6 +42,11 @@ private val LiveLoadsSecondary = Color(0xFFA9B7D0)
 private val LiveLoadsYellow = Color(0xFFFFD200)
 private val LiveLoadsSuccess = Color(0xFF25D987)
 private val LiveLoadsDanger = Color(0xFFFF5C7A)
+private val LiveLoadsChip = Color(0xFF1C2947)
+
+internal enum class LiveLoadsBox { LIVE, PINNED, HIDDEN }
+
+internal enum class LiveLoadPreferenceAction { PIN, HIDE, RESTORE }
 
 internal fun routeToLiveLoadDetails(
     jobId: String,
@@ -47,8 +57,49 @@ internal fun routeToLiveLoadDetails(
     onTabChange(DriverTab.ACTION)
 }
 
+internal fun openLiveLoadFromCard(
+    jobId: String,
+    onJobSelected: (String) -> Unit,
+    onTabChange: (DriverTab) -> Unit,
+) = routeToLiveLoadDetails(jobId, onJobSelected, onTabChange)
+
+internal fun openLiveLoadQuoteFlow(
+    jobId: String,
+    onJobSelected: (String) -> Unit,
+    onTabChange: (DriverTab) -> Unit,
+) = routeToLiveLoadDetails(jobId, onJobSelected, onTabChange)
+
+internal fun filterLiveLoadsByBox(
+    jobs: List<DriverJob>,
+    preferences: Map<String, String>,
+    box: LiveLoadsBox,
+): List<DriverJob> = jobs.filter { job ->
+    when (box) {
+        LiveLoadsBox.PINNED -> preferences[job.id] == "saved"
+        LiveLoadsBox.HIDDEN -> preferences[job.id] == "deleted"
+        LiveLoadsBox.LIVE -> preferences[job.id] != "deleted"
+    }
+}
+
+internal fun liveLoadsCounts(
+    jobs: List<DriverJob>,
+    preferences: Map<String, String>,
+): Triple<Int, Int, Int> {
+    val live = filterLiveLoadsByBox(jobs, preferences, LiveLoadsBox.LIVE).size
+    val pinned = filterLiveLoadsByBox(jobs, preferences, LiveLoadsBox.PINNED).size
+    val hidden = filterLiveLoadsByBox(jobs, preferences, LiveLoadsBox.HIDDEN).size
+    return Triple(live, pinned, hidden)
+}
+
+internal fun applyLiveLoadPreferenceAction(action: LiveLoadPreferenceAction): String? = when (action) {
+    LiveLoadPreferenceAction.PIN -> "saved"
+    LiveLoadPreferenceAction.HIDE -> "deleted"
+    LiveLoadPreferenceAction.RESTORE -> null
+}
+
 internal data class LiveLoadCardData(
-    val companyAndReference: String,
+    val companyName: String,
+    val reference: String,
     val vehicleType: String,
     val pickupLine: String,
     val pickupTime: String,
@@ -59,7 +110,7 @@ internal data class LiveLoadCardData(
 
 internal fun DriverJob.toLiveLoadCardData(): LiveLoadCardData {
     val company = clientName.takeIf { it.isNotBlank() } ?: "XDrive Marketplace"
-    val ref = "REF ${id.take(8).uppercase()}"
+    val ref = id.take(8).uppercase().ifBlank { "TBC" }
     val summary = listOfNotNull(
         cargoType.takeIf { it.isNotBlank() },
         loadDetails.readLoadField("pallets")?.let { "$it pallets" },
@@ -68,7 +119,8 @@ internal fun DriverJob.toLiveLoadCardData(): LiveLoadCardData {
         listOf(loadDetails.takeIf { it.isNotBlank() }?.take(90) ?: "Freight details pending")
     }.joinToString(" • ")
     return LiveLoadCardData(
-        companyAndReference = "$company • $ref",
+        companyName = company,
+        reference = ref,
         vehicleType = vehicleType.takeIf { it.isNotBlank() } ?: loadDetails.readLoadField("vehicle") ?: "Vehicle TBC",
         pickupLine = pickupLocation.ifBlank { "Pickup location TBC" },
         pickupTime = pickupDatetime.liveLoadsDateTime(),
@@ -78,7 +130,7 @@ internal fun DriverJob.toLiveLoadCardData(): LiveLoadCardData {
     )
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 internal fun LiveLoadCard(
     job: DriverJob,
     selected: Boolean,
@@ -98,41 +150,109 @@ internal fun LiveLoadCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(data.companyAndReference, color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("Vehicle: ${data.vehicleType}", color = LiveLoadsSecondary, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            LiveLoadStopLine("Pickup", data.pickupLine, data.pickupTime)
-            LiveLoadStopLine("Delivery", data.deliveryLine, data.deliveryTime)
-            Text("Freight: ${data.freightSummary}", color = LiveLoadsPrimary, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Button(
-                onClick = onQuote,
-                colors = ButtonDefaults.buttonColors(containerColor = LiveLoadsYellow, contentColor = Color(0xFF05070C)),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                Text("Quote", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(34.dp)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(LiveLoadsYellow),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("X", color = Color(0xFF05070C), fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            data.companyName,
+                            color = LiveLoadsPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            data.reference,
+                            color = LiveLoadsSecondary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(LiveLoadsChip)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        data.vehicleType,
+                        color = if (data.vehicleType.contains("TBC", ignoreCase = true)) LiveLoadsSecondary else LiveLoadsPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+
+            LiveLoadRouteSection(data.pickupLine, data.pickupTime, data.deliveryLine, data.deliveryTime)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    data.freightSummary,
+                    color = if (data.freightSummary.contains("pending", ignoreCase = true)) LiveLoadsSecondary else LiveLoadsSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = onQuote,
+                    colors = ButtonDefaults.buttonColors(containerColor = LiveLoadsYellow, contentColor = Color(0xFF05070C)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.height(48.dp),
+                ) {
+                    Text("Quote", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 when (preferenceState) {
                     "deleted" -> {
-                        OutlinedButton(onClick = { onRestore?.invoke() }, modifier = Modifier.weight(1f)) {
-                            Text("Restore", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { onRestore?.invoke() }, modifier = Modifier.height(36.dp)) {
+                            Text("Restore", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        Text("Hidden", color = LiveLoadsDanger, fontSize = 12.sp)
+                        Text("Hidden", color = LiveLoadsDanger, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                     "saved" -> {
-                        OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.weight(1f)) {
-                            Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.height(36.dp)) {
+                            Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        Text("Pinned", color = LiveLoadsSuccess, fontSize = 12.sp)
+                        Text("Pinned", color = LiveLoadsSuccess, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                     else -> {
-                        OutlinedButton(onClick = { onSave?.invoke() }, modifier = Modifier.weight(1f)) {
-                            Text("Pin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { onSave?.invoke() }, modifier = Modifier.height(36.dp)) {
+                            Text("Pin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.weight(1f)) {
-                            Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.height(36.dp)) {
+                            Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }
@@ -141,19 +261,90 @@ internal fun LiveLoadCard(
     }
 }
 
-@androidx.compose.runtime.Composable
-private fun LiveLoadStopLine(label: String, location: String, dateTime: String) {
-    Column(
+@Composable
+private fun LiveLoadRouteSection(
+    pickupLocation: String,
+    pickupTime: String,
+    deliveryLocation: String,
+    deliveryTime: String,
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF131D33), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .background(Color(0xFF101A31), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(label, color = LiveLoadsYellow, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        Spacer(Modifier.height(2.dp))
-        Text(location, color = LiveLoadsPrimary, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(1.dp))
-        Text(dateTime, color = LiveLoadsSecondary, fontSize = 12.sp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            StopMarker(color = LiveLoadsSuccess)
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(22.dp)
+                    .background(LiveLoadsSecondary.copy(alpha = 0.45f)),
+            )
+            StopMarker(color = LiveLoadsDanger)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+            LiveLoadRouteLine(
+                location = pickupLocation,
+                dateTime = pickupTime,
+                isPickup = true,
+            )
+            LiveLoadRouteLine(
+                location = deliveryLocation,
+                dateTime = deliveryTime,
+                isPickup = false,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StopMarker(color: Color) {
+    Box(
+        modifier = Modifier
+            .width(14.dp)
+            .height(14.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(color.copy(alpha = 0.18f))
+            .padding(3.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(8.dp)
+                .height(8.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(color),
+        )
+    }
+}
+
+@Composable
+private fun LiveLoadRouteLine(
+    location: String,
+    dateTime: String,
+    isPickup: Boolean,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            location,
+            color = LiveLoadsPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            dateTime,
+            color = if (dateTime.contains("TBC", ignoreCase = true)) LiveLoadsSecondary else LiveLoadsSecondary,
+            fontSize = 13.sp,
+            fontWeight = if (isPickup) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+        )
     }
 }
 
@@ -168,4 +359,32 @@ private fun String?.liveLoadsDateTime(): String {
     val date = runCatching { this?.takeIf { it.isNotBlank() }?.let { OffsetDateTime.parse(it) } }.getOrNull() ?: return "Time TBC"
     val local = date.atZoneSameInstant(ZoneId.of("Europe/London"))
     return local.format(DateTimeFormatter.ofPattern("dd MMM • HH:mm", Locale.UK))
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF070B14)
+@Composable
+private fun LiveLoadCardPreview() {
+    LiveLoadCard(
+        job = DriverJob(
+            id = "xdl-c059b7a3",
+            status = "posted",
+            currentStatus = "posted",
+            pickupLocation = "APPROX. AREA • BB1",
+            deliveryLocation = "APPROX. AREA • DA8",
+            pickupDatetime = "2026-07-13T15:30:00Z",
+            deliveryDatetime = "2026-07-14T06:30:00Z",
+            clientName = "Loadify Market",
+            clientPhone = "",
+            vehicleType = "LWB Van",
+            cargoType = "Pallets",
+            budgetAmount = null,
+            loadDetails = """{"pallets":"1"}""",
+        ),
+        selected = false,
+        onOpen = {},
+        onQuote = {},
+        onSave = {},
+        onHide = {},
+        onRestore = {},
+    )
 }
