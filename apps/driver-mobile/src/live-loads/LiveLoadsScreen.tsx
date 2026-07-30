@@ -5,6 +5,7 @@ import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type Live
 import { supabase } from '../auth/supabase';
 import { loadMarketplacePreferences, saveMarketplacePreferences, type MarketplacePreferences } from '../jobs/marketplacePreferences';
 import { enqueueAction, isOnline, type QueuedAction } from '../offline/queue';
+import { buildDisplayedFeed, hideJobPreference, restoreJobPreference, togglePinPreference } from './liveLoadHelpers';
 import { LiveLoadCard } from './LiveLoadCard';
 
 type Feed = 'live' | 'pinned' | 'hidden';
@@ -124,17 +125,17 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
 
   const togglePin = useCallback((jobId: string) => persistPreferences((current) => ({
     ...current,
-    savedJobIds: current.savedJobIds.includes(jobId) ? current.savedJobIds.filter((id) => id !== jobId) : [...current.savedJobIds, jobId],
+    ...togglePinPreference(current, jobId),
   })), [persistPreferences]);
 
   const hide = useCallback((jobId: string) => persistPreferences((current) => ({
     ...current,
-    hiddenJobIds: current.hiddenJobIds.includes(jobId) ? current.hiddenJobIds : [...current.hiddenJobIds, jobId],
+    ...hideJobPreference(current, jobId),
   })), [persistPreferences]);
 
   const restore = useCallback((jobId: string) => persistPreferences((current) => ({
     ...current,
-    hiddenJobIds: current.hiddenJobIds.filter((id) => id !== jobId),
+    ...restoreJobPreference(current, jobId),
   })), [persistPreferences]);
 
   const openQuote = useCallback((job: LiveLoad) => {
@@ -202,12 +203,8 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
     }
   }, [authUserId, onQuoteQueued, quoteAmount, quoteJob, quoteMessage]);
 
-  const visible = jobs.filter((job) => !preferences.hiddenJobIds.includes(job.id));
-  const displayed = feed === 'pinned'
-    ? visible.filter((job) => preferences.savedJobIds.includes(job.id))
-    : feed === 'hidden'
-      ? jobs.filter((job) => preferences.hiddenJobIds.includes(job.id))
-      : visible;
+  const displayed = buildDisplayedFeed(feed, jobs, preferences);
+  const visibleCount = jobs.filter((job) => !preferences.hiddenJobIds.includes(job.id)).length;
 
   return (
     <View style={styles.screen}>
@@ -215,7 +212,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
         <View>
           <Text style={styles.eyebrow}>XDRIVE DRIVER</Text>
           <Text style={styles.title}>Live Loads</Text>
-          <Text style={styles.subtitle}>{visible.length} available load{visible.length === 1 ? '' : 's'}</Text>
+          <Text style={styles.subtitle}>{visibleCount} available load{visibleCount === 1 ? '' : 's'}</Text>
         </View>
         <TouchableOpacity
           style={[styles.filterToggle, showFilters && styles.filterToggleActive]}
@@ -228,7 +225,7 @@ export function LiveLoadsScreen({ canCommercialBid, authUserId, onQuoteQueued }:
       </View>
 
       <View style={styles.tabs}>
-        {([['live', `Live ${visible.length}`], ['pinned', `Pinned ${preferences.savedJobIds.length}`], ['hidden', `Hidden ${preferences.hiddenJobIds.length}`]] as Array<[Feed, string]>).map(([key, label]) => (
+        {([['live', `Live ${visibleCount}`], ['pinned', `Pinned ${preferences.savedJobIds.length}`], ['hidden', `Hidden ${preferences.hiddenJobIds.length}`]] as Array<[Feed, string]>).map(([key, label]) => (
           <TouchableOpacity key={key} style={[styles.tab, feed === key && styles.activeTab]} onPress={() => setFeed(key)} accessibilityRole="tab">
             <Text style={[styles.tabText, feed === key && styles.activeTabText]}>{label}</Text>
           </TouchableOpacity>

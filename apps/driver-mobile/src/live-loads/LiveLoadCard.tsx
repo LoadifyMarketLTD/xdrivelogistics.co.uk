@@ -1,22 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { LiveLoad } from '../api/liveLoads';
-
-function companyName(job: LiveLoad) {
-  return job.postingCompanyName?.trim() || 'Verified marketplace member';
-}
-
-function schedule(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('en-GB', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+import { companyName, schedule } from './liveLoadHelpers';
 
 function Stop({ pickup, location, time }: { pickup: boolean; location: string; time: string }) {
   return (
@@ -131,6 +116,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderColor: '#e2e8f0',
     borderWidth: 1,
+    borderTopWidth: 3,
+    borderTopColor: '#1d57d8',
     borderRadius: 18,
     padding: 16,
     gap: 13,
