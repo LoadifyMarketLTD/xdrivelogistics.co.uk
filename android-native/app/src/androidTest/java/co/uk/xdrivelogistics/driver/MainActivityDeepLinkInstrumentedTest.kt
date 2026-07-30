@@ -8,6 +8,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -125,15 +127,23 @@ class MainActivityDeepLinkInstrumentedTest {
      * Production [MainActivity.onNewIntent] remains `protected`; no access-modifier changes
      * are needed.
      *
-     * [waitForIdleSync] drains the main-thread message queue so that [MainActivity.onNewIntent] →
-     * `handleIncomingIntent` → [DriverViewModel.handleDeepLink] completes and the
-     * [DriverViewModel.uiState] [StateFlow] has updated before the next [onActivity] block.
+     * After [android.app.Instrumentation.waitForIdleSync], polls [ActivityLifecycleMonitorRegistry]
+     * until [MainActivity] is back in [Stage.RESUMED]. This is necessary because
+     * [Intent.FLAG_ACTIVITY_NEW_TASK] dispatches `onNewIntent` via an asynchronous Binder IPC;
+     * [waitForIdleSync] alone only drains the current main-thread queue and may return before the
+     * IPC is processed, leaving the Activity in [Stage.PAUSED]. Waiting for [Stage.RESUMED] ensures:
+     *   (a) [MainActivity.onNewIntent] → `handleIncomingIntent` → [DriverViewModel.handleDeepLink]
+     *       has fully executed before assertions run;
+     *   (b) the Activity is in [Stage.RESUMED] when [ActivityScenario.close] fires, allowing the
+     *       normal RESUMED→PAUSED→STOPPED→DESTROYED teardown and preventing the
+     *       "Activity never becomes [DESTROYED]" timeout.
      *
      * Must be called from the **instrumentation thread** (the test method body), not from
      * within [ActivityScenario.onActivity].
      */
     private fun deliverWarmIntent(intent: Intent) {
         val ctx = ApplicationProvider.getApplicationContext<Application>()
+        val instr = InstrumentationRegistry.getInstrumentation()
         ctx.startActivity(
             Intent(intent).apply {
                 setClass(ctx, MainActivity::class.java)
@@ -144,7 +154,26 @@ class MainActivityDeepLinkInstrumentedTest {
                 )
             },
         )
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        // startActivity from application context dispatches onNewIntent via an asynchronous
+        // Binder IPC. FLAG_ACTIVITY_NEW_TASK may also cause a brief PAUSED→RESUMED cycle on
+        // the existing Activity. waitForIdleSync() drains the current main-thread queue but
+        // does not guarantee the IPC has been processed. Poll ActivityLifecycleMonitorRegistry
+        // until MainActivity is back in RESUMED so that:
+        //   (a) onNewIntent → handleDeepLink has fully executed before assertions run, and
+        //   (b) the Activity is in RESUMED state when ActivityScenario.close() fires, allowing
+        //       the normal RESUMED→PAUSED→STOPPED→DESTROYED teardown path.
+        val deadline = System.currentTimeMillis() + 5_000L
+        do {
+            instr.waitForIdleSync()
+            var resumed = false
+            instr.runOnMainSync {
+                resumed = ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED)
+                    .any { it is MainActivity }
+            }
+            if (resumed) break
+            Thread.sleep(50)
+        } while (System.currentTimeMillis() < deadline)
     }
 
     // ── 1. Cold-start job link — held in ViewModel until session/jobs load ────

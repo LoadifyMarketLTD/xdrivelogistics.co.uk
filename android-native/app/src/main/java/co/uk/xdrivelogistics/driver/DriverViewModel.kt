@@ -261,10 +261,20 @@ class DriverViewModel(
                     session = persisted,
                     error = "",
                 )
-                syncRegisteredDeviceTokenIfNeeded(persisted)
+                // Skip live network operations (FCM token registration, POD recovery, live
+                // refresh) when running in instrumented-test mode. These operations make real
+                // API calls that return 401 on the emulator, triggering expireSessionForRequest
+                // which would incorrectly advance authEpoch and clear consumedCommandIds,
+                // corrupting the test assertions that prove epoch/deduplication invariants.
+                // skipDataRefreshForTesting is always false in production.
+                if (!skipDataRefreshForTesting) {
+                    syncRegisteredDeviceTokenIfNeeded(persisted)
+                }
                 refreshDriverData()
-                recoverPendingPodUploads(persisted)
-                startLiveRefresh(persisted)
+                if (!skipDataRefreshForTesting) {
+                    recoverPendingPodUploads(persisted)
+                    startLiveRefresh(persisted)
+                }
             }
         }
     }
