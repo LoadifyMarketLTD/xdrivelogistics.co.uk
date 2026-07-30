@@ -5,8 +5,11 @@ const mocks = vi.hoisted(() => ({
   getBearerToken: vi.fn(),
   getUser: vi.fn(),
   from: vi.fn(),
+  fromStorage: vi.fn(),
+  createSignedUrl: vi.fn(),
   rpc: vi.fn(),
   onboardingRows: [] as Array<Record<string, unknown>>,
+  documentFilePath: 'company/documents/test.pdf' as string | null,
   profileRole: 'owner',
 }));
 
@@ -20,12 +23,16 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   },
   supabaseAdmin: {
     from: mocks.from,
+    storage: {
+      from: mocks.fromStorage,
+    },
     rpc: mocks.rpc,
   },
 }));
 
 import { POST as initOnboarding } from '../app/api/onboarding/init/route';
 import { POST as submitIndividualDriver } from '../app/api/onboarding/submit/individual-driver/route';
+import { POST as viewComplianceDocument } from '../app/api/super-admin/compliance/documents/route';
 import { PATCH as reviewComplianceDocument } from '../app/api/super-admin/compliance/documents/route';
 import { PATCH as reviewFraudCase } from '../app/api/super-admin/compliance/fraud-cases/route';
 
@@ -47,8 +54,11 @@ beforeEach(() => {
   mocks.getBearerToken.mockReset();
   mocks.getUser.mockReset();
   mocks.from.mockReset();
+  mocks.fromStorage.mockReset();
+  mocks.createSignedUrl.mockReset();
   mocks.rpc.mockReset();
   mocks.onboardingRows = [];
+  mocks.documentFilePath = 'company/documents/test.pdf';
   mocks.profileRole = 'owner';
 
   mocks.getBearerToken.mockReturnValue('token');
@@ -80,6 +90,30 @@ beforeEach(() => {
       };
     }
 
+    if (
+      table === 'company_documents' ||
+      table === 'driver_documents' ||
+      table === 'vehicle_documents' ||
+      table === 'driver_identity_documents'
+    ) {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: mocks.documentFilePath ? { id: 'doc-1', file_path: mocks.documentFilePath } : null,
+              error: null,
+            }),
+          }),
+        }),
+      };
+    }
+
+    if (table === 'owner_audit_log') {
+      return {
+        insert: async () => ({ error: null }),
+      };
+    }
+
     return {
       select: () => ({
         eq: () => ({
@@ -88,6 +122,14 @@ beforeEach(() => {
       }),
     };
   });
+
+  mocks.createSignedUrl.mockResolvedValue({
+    data: { signedUrl: 'https://signed.example.com/object' },
+    error: null,
+  });
+  mocks.fromStorage.mockImplementation(() => ({
+    createSignedUrl: mocks.createSignedUrl,
+  }));
 });
 
 describe('identity compliance route hardening', () => {
@@ -160,5 +202,67 @@ describe('identity compliance route hardening', () => {
     );
 
     expect(response.status).toBe(409);
+  });
+
+  it('signs relative paths in the expected fallback bucket', async () => {
+    mocks.documentFilePath = '/company/app-1/proof.pdf';
+
+    const response = await viewComplianceDocument(
+      request('http://localhost/api/super-admin/compliance/documents', {
+        documentFamily: 'company',
+        id: '11111111-1111-4111-8111-111111111111',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fromStorage).toHaveBeenCalledWith('onboarding-documents');
+    expect(mocks.createSignedUrl).toHaveBeenCalledWith('company/app-1/proof.pdf', 300);
+  });
+
+  it('accepts absolute storage URL only when bucket matches fallback bucket', async () => {
+    mocks.documentFilePath =
+      'https://project.example.co/storage/v1/object/authenticated/onboarding-documents/company/app-1/proof.pdf';
+
+    const response = await viewComplianceDocument(
+      request('http://localhost/api/super-admin/compliance/documents', {
+        documentFamily: 'company',
+        id: '11111111-1111-4111-8111-111111111111',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fromStorage).toHaveBeenCalledWith('onboarding-documents');
+    expect(mocks.createSignedUrl).toHaveBeenCalledWith('company/app-1/proof.pdf', 300);
+  });
+
+  it('rejects absolute storage URL when bucket differs from fallback bucket', async () => {
+    mocks.documentFilePath =
+      'https://project.example.co/storage/v1/object/authenticated/driver-docs/company/app-1/proof.pdf';
+
+    const response = await viewComplianceDocument(
+      request('http://localhost/api/super-admin/compliance/documents', {
+        documentFamily: 'company',
+        id: '11111111-1111-4111-8111-111111111111',
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.fromStorage).not.toHaveBeenCalled();
+    expect(mocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed non-storage URLs', async () => {
+    mocks.documentFilePath = 'https://project.example.co/files/company/app-1/proof.pdf';
+
+    const response = await viewComplianceDocument(
+      request('http://localhost/api/super-admin/compliance/documents', {
+        documentFamily: 'company',
+        id: '11111111-1111-4111-8111-111111111111',
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.fromStorage).not.toHaveBeenCalled();
+    expect(mocks.createSignedUrl).not.toHaveBeenCalled();
   });
 });
