@@ -106,9 +106,17 @@ export async function fetchLiveLoads(options: { destinationMode?: boolean; radiu
   const params = new URLSearchParams();
   if (options.destinationMode) params.set('mode', 'destination');
   if (options.radiusMiles) params.set('radius', String(options.radiusMiles));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
   const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/nearby-jobs?${params.toString()}`, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
+    signal: controller.signal,
+  }).catch((error) => {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    throw error;
+  }).finally(() => clearTimeout(timeoutId));
   const payload = await response.json().catch(() => ({})) as LiveLoadsResponse & { error?: string };
   if (!response.ok) throw new Error(payload.error || `Unable to load jobs (HTTP ${response.status}).`);
   return { jobs: (payload.jobs ?? []).map(mapLiveLoad), returnIq: payload.returnIq ?? { active: false } };
@@ -128,6 +136,8 @@ export async function fetchActiveQuotedJobIds() {
 
 export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string) {
   const token = await accessToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
   const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
     method: 'POST',
     headers: {
@@ -136,7 +146,13 @@ export async function submitLiveLoadQuote(jobId: string, amount: number | null, 
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ jobId, amount, message: message?.trim() || null }),
-  });
+    signal: controller.signal,
+  }).catch((error) => {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    throw error;
+  }).finally(() => clearTimeout(timeoutId));
   const payload = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) throw new Error(payload.error || `Unable to submit quote (HTTP ${response.status}).`);
 }

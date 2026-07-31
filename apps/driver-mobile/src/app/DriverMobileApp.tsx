@@ -330,7 +330,14 @@ export default function DriverMobileApp() {
       setAuthUserId(nextUserId);
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
-      if (!session) setScreen('login');
+      if (!session) {
+        setJob(null);
+        setJobs([]);
+        setResources(null);
+        setQueue([]);
+        setMessage('');
+        setScreen('login');
+      }
     });
     return () => subscription.unsubscribe();
   }, [flushQueue, loadJobs, loadResources]);
@@ -429,6 +436,7 @@ export default function DriverMobileApp() {
     setQueue([]);
     setResources(null);
     setNotificationsSeenAt(null);
+    setMessage('');
     setScreen('login');
   }
 
@@ -709,6 +717,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
   const [recipientName, setRecipientName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function addPhoto() {
     const ImagePicker = await import('expo-image-picker');
@@ -734,20 +743,28 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       return;
     }
 
+    setSubmitting(true);
     const payload = { photoUris, documentUris, recipientName, signatureData, notes };
     if (!token || !(await isOnline())) {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      onSaved();
+      setSubmitting(false);
+      Alert.alert('POD saved offline', 'Your POD evidence has been saved and will be uploaded automatically when connectivity returns.', [
+        { text: 'OK', onPress: () => onSaved() },
+      ]);
       return;
     }
     try {
       const response = await uploadPod(job.id, token, payload);
+      setSubmitting(false);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      onSaved();
+      setSubmitting(false);
+      Alert.alert('POD queued for retry', 'The upload failed. Your POD evidence has been saved and will retry automatically.', [
+        { text: 'OK', onPress: () => onSaved() },
+      ]);
     }
   }
 
@@ -808,7 +825,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
           <Text style={styles.subtle}>Draw directly in the signature panel above.</Text>
         )}
       </Panel>
-      <PrimaryButton label="Save POD" onPress={() => void savePod()} />
+      <PrimaryButton label={submitting ? 'Saving...' : 'Save POD'} onPress={() => void savePod()} disabled={submitting} />
     </View>
   );
 }
