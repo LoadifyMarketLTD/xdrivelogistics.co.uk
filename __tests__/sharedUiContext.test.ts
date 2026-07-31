@@ -30,7 +30,7 @@ const membership = (input: {
 });
 
 describe('resolveSharedUiContext', () => {
-  it('fails closed for multiple active memberships', () => {
+  it('requires company selection when multiple active memberships exist without an explicit selection', () => {
     const result = resolveSharedUiContext({
       memberships: [
         membership({ companyId: 'company-a' }),
@@ -39,7 +39,7 @@ describe('resolveSharedUiContext', () => {
       userId: 'user-1',
     });
 
-    expect(result).toEqual({ ok: false, error: 'multiple_active_memberships' });
+    expect(result).toEqual({ ok: true, snapshot: expect.objectContaining({ companySelectionRequired: true, current: null }) });
   });
 
   it('rejects cross-company and stale profile selections', () => {
@@ -243,7 +243,7 @@ describe('resolveSharedUiContextFromOptions — multi-workspace presentation', (
     }
   });
 
-  it('fails closed when multiple memberships are present in options', () => {
+  it('requires company selection when multiple memberships are present in options without an explicit selection', () => {
     const result = resolveSharedUiContextFromOptions({
       options: [
         multiWorkspaceOption('company-a'),
@@ -252,6 +252,6 @@ describe('resolveSharedUiContextFromOptions — multi-workspace presentation', (
       userId: 'user-1',
     });
 
-    expect(result).toEqual({ ok: false, error: 'multiple_active_memberships' });
+    expect(result).toEqual({ ok: true, snapshot: expect.objectContaining({ companySelectionRequired: true, current: null }) });
   });
 });

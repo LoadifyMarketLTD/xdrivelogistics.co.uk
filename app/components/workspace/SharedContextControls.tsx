@@ -94,7 +94,7 @@ export default function SharedContextControls({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshUserContext, router]);
 
   const selectedMembership = useMemo<SharedUiMembershipOption | null>(
     () =>

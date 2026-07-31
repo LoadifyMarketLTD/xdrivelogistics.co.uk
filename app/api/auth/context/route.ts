@@ -240,6 +240,13 @@ export async function GET(
       if (!recoverable.ok) return mapResolutionError(recoverable.error);
 
       // Persist only when recovery produces a complete unambiguous context.
+      // Multiple active memberships after stale-company recovery is an identity integrity violation.
+      if (recoverable.snapshot.memberships.length > 1) {
+        return json(409, {
+          error: 'Identity integrity violation: multiple active company memberships detected.',
+        });
+      }
+
       if (recoverable.snapshot.current !== null) {
         const { data: recovered, error: updateError } = await source.admin
           .from('profiles')
@@ -311,6 +318,14 @@ export async function POST(
     });
 
     if (!resolution.ok) return mapResolutionError(resolution.error);
+
+    // Multiple active memberships — reject even with an explicit company selection.
+    if (resolution.snapshot.memberships.length > 1) {
+      return json(409, {
+        error: 'Identity integrity violation: multiple active company memberships detected.',
+      });
+    }
+
     if (!resolution.snapshot.current) {
       return json(409, { error: 'A complete company and workspace selection is required.' });
     }
