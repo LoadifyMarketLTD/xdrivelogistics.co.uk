@@ -374,9 +374,14 @@ export default function DriverMobileApp() {
   }, [flushQueue, token]);
 
   async function signIn(email: string, password: string) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password.trim()) {
+      setMessage('Enter both email and password.');
+      return;
+    }
     setLoading(true);
     setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
     if (error) {
       setLoading(false);
       setMessage(error.message);
@@ -575,6 +580,7 @@ export default function DriverMobileApp() {
 function LoginScreen({ onSignIn, message, loading }: { onSignIn: (email: string, password: string) => void; message: string; loading: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const hasCredentials = email.trim().length > 0 && password.trim().length > 0;
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.login}>
@@ -583,7 +589,7 @@ function LoginScreen({ onSignIn, message, loading }: { onSignIn: (email: string,
         {message ? <Text style={styles.message}>{message}</Text> : null}
         <TextInput autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={colors.muted} style={styles.input} value={email} onChangeText={setEmail} />
         <TextInput placeholder="Password" placeholderTextColor={colors.muted} secureTextEntry style={styles.input} value={password} onChangeText={setPassword} />
-        <PrimaryButton label={loading ? 'Signing in...' : 'Sign in'} onPress={() => onSignIn(email, password)} disabled={!email || !password || loading} />
+        <PrimaryButton label={loading ? 'Signing in...' : 'Sign in'} onPress={() => onSignIn(email, password)} disabled={!hasCredentials || loading} />
       </View>
     </SafeAreaView>
   );
