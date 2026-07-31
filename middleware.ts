@@ -403,14 +403,46 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   };
 };
 
+function generateNonce(): string {
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  return btoa(String.fromCharCode(...buf));
+}
+
+function buildCspHeader(nonce: string): string {
+  const isDev = process.env.NODE_ENV === 'development';
+  const scriptSrc = isDev
+    ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
+    : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+    "upgrade-insecure-requests",
+  ].join('; ');
+}
+
 export async function middleware(request: NextRequest) {
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
     return canonicalRedirect;
   }
 
+  const nonce = generateNonce();
+
   if (!isProtectedPath(request.nextUrl.pathname)) {
-    return NextResponse.next();
+    const response = NextResponse.next({
+      request: { headers: new Headers({ ...Object.fromEntries(request.headers), 'x-nonce': nonce }) },
+    });
+    response.headers.set('Content-Security-Policy', buildCspHeader(nonce));
+    return response;
   }
 
   const auth = await resolveRouteAuth(request);
@@ -491,7 +523,11 @@ export async function middleware(request: NextRequest) {
     return buildRedirect(request, DRIVER_JOBS_PATH);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next({
+    request: { headers: new Headers({ ...Object.fromEntries(request.headers), 'x-nonce': nonce }) },
+  });
+  response.headers.set('Content-Security-Policy', buildCspHeader(nonce));
+  return response;
 }
 
 export const config = {
