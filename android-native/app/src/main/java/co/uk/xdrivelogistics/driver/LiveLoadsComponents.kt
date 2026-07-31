@@ -147,6 +147,19 @@ internal fun QuoteValidationResult.toUserMessage(): String = when (this) {
     QuoteValidationResult.OK -> ""
 }
 
+/**
+ * Parses [text] as a finite, positive `Double`.
+ *
+ * Returns `null` for blank, non-numeric, zero, negative, infinite (`Infinity`, `+Infinity`) or
+ * `NaN` values. Both `QuoteBox` composables use this function for their button-enabled check, and
+ * [validateQuoteSubmission] uses it for the production validation path, so the rule is identical
+ * across UI and coordinator.
+ */
+internal fun parseFinitePositiveAmount(text: String): Double? {
+    val d = text.trim().toDoubleOrNull() ?: return null
+    return if (d.isFinite() && d > 0.0) d else null
+}
+
 /** Validates the inputs that must be satisfied before a quote can be submitted. */
 internal fun validateQuoteSubmission(
     quoteJobId: String?,
@@ -156,8 +169,7 @@ internal fun validateQuoteSubmission(
     val job = jobs.firstOrNull { it.id == quoteJobId }
         ?: return QuoteValidationResult.NO_JOB_SELECTED
     if (job.status.lowercase() != "posted") return QuoteValidationResult.JOB_NOT_POSTED
-    val amount = amountText.trim().toDoubleOrNull()
-    if (amount == null || amount <= 0.0) return QuoteValidationResult.INVALID_AMOUNT
+    if (parseFinitePositiveAmount(amountText) == null) return QuoteValidationResult.INVALID_AMOUNT
     return QuoteValidationResult.OK
 }
 

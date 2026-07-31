@@ -78,9 +78,10 @@ internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
                 return QuoteSubmitOutcome.ValidationFailure(validation)
             }
 
-            // resolveQuoteJobId is non-null here because validateQuoteSubmission returned OK
+            // resolveQuoteJobId and parseFinitePositiveAmount are both non-null here because
+            // validateQuoteSubmission returned OK
             val resolvedJobId = resolveQuoteJobId(quoteJobId, jobs)!!
-            val amount = amountText.trim().toDouble()
+            val amount = parseFinitePositiveAmount(amountText)!!
 
             submitFn(sess, prof, resolvedJobId, amount, note.trim())
                 .fold(

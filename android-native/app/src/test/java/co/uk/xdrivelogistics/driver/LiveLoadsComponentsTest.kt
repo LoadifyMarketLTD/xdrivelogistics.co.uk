@@ -229,6 +229,64 @@ class LiveLoadsComponentsTest {
         assertEquals(QuoteValidationResult.INVALID_AMOUNT, result)
     }
 
+    // -----------------------------------------------------------------------
+    // parseFinitePositiveAmount — covers the shared button-eligibility rule
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `parseFinitePositiveAmount returns value for normal positive amount`() {
+        assertEquals(150.0, parseFinitePositiveAmount("150.00")!!, 0.001)
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for Infinity`() {
+        assertEquals(null, parseFinitePositiveAmount("Infinity"))
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for positive Infinity literal`() {
+        assertEquals(null, parseFinitePositiveAmount("+Infinity"))
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for negative Infinity`() {
+        assertEquals(null, parseFinitePositiveAmount("-Infinity"))
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for NaN`() {
+        assertEquals(null, parseFinitePositiveAmount("NaN"))
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for zero`() {
+        assertEquals(null, parseFinitePositiveAmount("0"))
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for negative value`() {
+        assertEquals(null, parseFinitePositiveAmount("-1.00"))
+    }
+
+    @Test
+    fun `parseFinitePositiveAmount returns null for blank`() {
+        assertEquals(null, parseFinitePositiveAmount(""))
+    }
+
+    // validateQuoteSubmission also rejects non-finite inputs via parseFinitePositiveAmount
+
+    @Test
+    fun `validateQuoteSubmission returns INVALID_AMOUNT for Infinity`() {
+        val result = validateQuoteSubmission("job-a", listOf(job("job-a")), "Infinity")
+        assertEquals(QuoteValidationResult.INVALID_AMOUNT, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns INVALID_AMOUNT for NaN`() {
+        val result = validateQuoteSubmission("job-a", listOf(job("job-a")), "NaN")
+        assertEquals(QuoteValidationResult.INVALID_AMOUNT, result)
+    }
+
     @Test
     fun `resolveQuoteJobId returns id of explicitly opened job ignoring other jobs in list`() {
         val jobs = listOf(job("job-a"), job("job-b"), job("job-c"))

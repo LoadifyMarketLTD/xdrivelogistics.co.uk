@@ -280,6 +280,58 @@ class QuoteSubmissionCoordinatorTest {
     }
 
     // -----------------------------------------------------------------------
+    // Non-finite amount values — Infinity / NaN must not reach the API
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `Infinity amount yields ValidationFailure INVALID_AMOUNT with zero API calls`() = runTest {
+        var callCount = 0
+        val coordinator = QuoteSubmissionCoordinator { _, _, _, _, _ -> callCount++; Result.success(Unit) }
+        val jobs = listOf(postedJob("job-a"))
+
+        val outcome = coordinator.submit("job-a", jobs, "Infinity", "", session, profile)
+
+        assertTrue(outcome is QuoteSubmitOutcome.ValidationFailure)
+        assertEquals(
+            QuoteValidationResult.INVALID_AMOUNT,
+            (outcome as QuoteSubmitOutcome.ValidationFailure).result,
+        )
+        assertEquals(0, callCount)
+    }
+
+    @Test
+    fun `positive Infinity literal yields ValidationFailure INVALID_AMOUNT with zero API calls`() = runTest {
+        var callCount = 0
+        val coordinator = QuoteSubmissionCoordinator { _, _, _, _, _ -> callCount++; Result.success(Unit) }
+        val jobs = listOf(postedJob("job-a"))
+
+        val outcome = coordinator.submit("job-a", jobs, "+Infinity", "", session, profile)
+
+        assertTrue(outcome is QuoteSubmitOutcome.ValidationFailure)
+        assertEquals(
+            QuoteValidationResult.INVALID_AMOUNT,
+            (outcome as QuoteSubmitOutcome.ValidationFailure).result,
+        )
+        assertEquals(0, callCount)
+    }
+
+    @Test
+    fun `NaN amount yields ValidationFailure INVALID_AMOUNT with zero API calls`() = runTest {
+        var callCount = 0
+        val coordinator = QuoteSubmissionCoordinator { _, _, _, _, _ -> callCount++; Result.success(Unit) }
+        val jobs = listOf(postedJob("job-a"))
+
+        val outcome = coordinator.submit("job-a", jobs, "NaN", "", session, profile)
+
+        assertTrue(outcome is QuoteSubmitOutcome.ValidationFailure)
+        assertEquals(
+            QuoteValidationResult.INVALID_AMOUNT,
+            (outcome as QuoteSubmitOutcome.ValidationFailure).result,
+        )
+        assertEquals(0, callCount)
+    }
+
+    // -----------------------------------------------------------------------
     // Additional: API is called with the correct session/profile/amount
     // -----------------------------------------------------------------------
 

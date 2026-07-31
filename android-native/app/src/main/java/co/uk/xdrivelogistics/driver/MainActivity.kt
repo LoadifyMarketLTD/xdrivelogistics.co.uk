@@ -1511,7 +1511,7 @@ private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit, isSubmitting:
     Spacer(Modifier.height(8.dp))
     Button(
         onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true && !isSubmitting,
+        enabled = parseFinitePositiveAmount(amount) != null && !isSubmitting,
         modifier = Modifier.fillMaxWidth().height(48.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Color(0xFF111217)),
         shape = RoundedCornerShape(999.dp),
@@ -1669,7 +1669,7 @@ private fun QuoteBox(onSubmitQuote: (String, String) -> Unit, isSubmitting: Bool
     Spacer(Modifier.height(10.dp))
     Button(
         onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true && !isSubmitting,
+        enabled = parseFinitePositiveAmount(amount) != null && !isSubmitting,
         modifier = Modifier.fillMaxWidth(),
         colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
         shape = RoundedCornerShape(14.dp),
