@@ -157,23 +157,23 @@ export function resolveActiveCompanyContext(
   if (!active.length) {
     return { ok: false, error: 'no_active_membership' };
   }
+
+  // Multiple active memberships — always fail closed regardless of preferredCompanyId.
+  // The caller must use the shared UI context flow to resolve the correct company.
   if (active.length > 1) {
     return { ok: false, error: 'active_company_required' };
   }
 
-  let chosen: RawMembershipRow | undefined;
+  // Single active membership.
+  const singleMembership = active[0];
 
-  if (preferredCompanyId) {
-    chosen = active.find((m) => m.company_id === preferredCompanyId);
-    if (!chosen) {
-      return { ok: false, error: 'no_active_membership' };
-    }
-  } else if (active.length === 1) {
-    chosen = active[0];
-  }
-  if (!chosen) {
+  // If a preferred company was specified but doesn't match the only active membership,
+  // reject to prevent a stale profile company_id from granting unintended access.
+  if (preferredCompanyId && singleMembership.company_id !== preferredCompanyId) {
     return { ok: false, error: 'no_active_membership' };
   }
+
+  const chosen = singleMembership;
 
   const company = chosen.companies;
   if (!company) {
