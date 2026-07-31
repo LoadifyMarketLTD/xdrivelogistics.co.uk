@@ -350,26 +350,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            if (selectedJob.isPosted()) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Submit a quote and wait for the customer to award the job before starting work.",
-                )
-                return@launch
-            }
-
-            selectedJob.blockingRequirementFor(nextStatus)?.let { requirement ->
-                _uiState.value = _uiState.value.copy(error = requirement)
+            val rejection = preflightStatusUpdateRejection(selectedJob, nextStatus)
+            if (rejection != null) {
+                _uiState.value = _uiState.value.copy(error = rejection)
                 return@launch
             }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            if (!isValidTransition(selectedJob.currentStatus.ifBlank { selectedJob.status }, nextStatus)) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "This job cannot move to $nextStatus from its current status.",
-                )
-                return@launch
-            }
 
             api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
                 .onSuccess {
