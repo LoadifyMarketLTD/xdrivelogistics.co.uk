@@ -1,6 +1,6 @@
 # XDrive Automated Audit Report
 
-> Generated: 2026-07-31T19:37:39.597Z
+> Generated: 2026-07-31T19:50:02.015Z
 > Script: `scripts/run-automated-audit.mjs`
 > Coverage: Static code analysis + lint + typecheck + unit tests
 > Note: Checks requiring a live Supabase database or browser are marked ⚠️ MANUAL
@@ -179,9 +179,9 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `PR-02-03` | ✅ PASS | ESLint passed with 0 warnings/errors |
+| `PR-02-03` | ⚠️ MANUAL | Lint skipped (--skip-lint) |
 
-**Section: 1 PASS · 0 FAIL · 0 MANUAL**
+**Section: 0 PASS · 0 FAIL · 1 MANUAL**
 
 ---
 
@@ -189,9 +189,9 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `PR-02-02` | ✅ PASS | TypeScript typecheck passed — 0 errors |
+| `PR-02-02` | ⚠️ MANUAL | Typecheck skipped (--skip-lint) |
 
-**Section: 1 PASS · 0 FAIL · 0 MANUAL**
+**Section: 0 PASS · 0 FAIL · 1 MANUAL**
 
 ---
 
@@ -199,9 +199,9 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `UNIT-TESTS` | ✅ PASS | All unit tests passed uleResolve (node:internal/modules/esm/resolve:859:18)     at defaultResolve (node:internal/modules |
+| `UNIT-TESTS` | ⚠️ MANUAL | Unit tests skipped (--skip-tests) |
 
-**Section: 1 PASS · 0 FAIL · 0 MANUAL**
+**Section: 0 PASS · 0 FAIL · 1 MANUAL**
 
 ---
 
@@ -209,9 +209,9 @@
 
 | Status | Count |
 |---|---|
-| ✅ PASS | **77** |
+| ✅ PASS | **74** |
 | ❌ FAIL | **0** |
-| ⚠️ MANUAL | **4** |
+| ⚠️ MANUAL | **7** |
 | **TOTAL** | **81** |
 
 > 🟢 **All automatable checks PASS.** Proceed to manual audit phase for live DB and browser checks.
