@@ -73,7 +73,7 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [canCommercialBid]);
 
   useEffect(() => {
     let active = true;
