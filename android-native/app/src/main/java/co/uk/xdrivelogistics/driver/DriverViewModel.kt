@@ -67,6 +67,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
 
+    // Coordinator wired to the real API. The same coordinator class is used directly
+    // in QuoteSubmissionCoordinatorTest with a stub submitFn — so those tests prove
+    // the production submission path, not a copy of it.
+    private val quoteCoordinator = QuoteSubmissionCoordinator { session, profile, jobId, amount, note ->
+        api.submitJobQuote(session, profile, jobId, amount, note)
+    }
+
     private val _uiState = MutableStateFlow(DriverUiState())
     val uiState: StateFlow<DriverUiState> = _uiState.asStateFlow()
     private var liveRefreshJob: kotlinx.coroutines.Job? = null
@@ -382,31 +389,36 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
-        if (_uiState.value.isSubmittingQuote) return
-        // Capture the intended job ID at invocation time so a concurrent state
-        // change cannot redirect the submission to a different job.
+        // Capture the intended job ID at invocation time — before the coroutine launches —
+        // so a concurrent state change cannot redirect the submission to a different job.
         val quoteJobId = _uiState.value.selectedJobId
+        // Set the in-flight flag synchronously on the calling thread, before the coroutine
+        // launches, so a second UI tap arriving before the coroutine starts also sees it.
+        if (_uiState.value.isSubmittingQuote) return
+        _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
         viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == quoteJobId }
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
-                return@launch
-            }
-            if (selectedJob.status.lowercase() != "posted") {
-                _uiState.value = _uiState.value.copy(error = "Only posted jobs can be quoted.")
-                return@launch
-            }
-            val amount = amountText.trim().toDoubleOrNull()
-            if (amount == null || amount <= 0.0) {
-                _uiState.value = _uiState.value.copy(error = "Enter a valid quote amount.")
-                return@launch
-            }
-
-            _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
-            api.submitJobQuote(session, profile, selectedJob.id, amount, note.trim())
-                .onSuccess {
+            val outcome = quoteCoordinator.submit(
+                quoteJobId = quoteJobId,
+                jobs = _uiState.value.jobs,
+                amountText = amountText,
+                note = note,
+                session = _uiState.value.session,
+                profile = _uiState.value.profile,
+            )
+            when (outcome) {
+                is QuoteSubmitOutcome.AlreadyInFlight,
+                is QuoteSubmitOutcome.NoSession,
+                is QuoteSubmitOutcome.NoProfile -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false)
+                }
+                is QuoteSubmitOutcome.ValidationFailure -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isSubmittingQuote = false,
+                        error = outcome.result.toUserMessage(),
+                    )
+                }
+                is QuoteSubmitOutcome.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isSubmittingQuote = false,
@@ -414,13 +426,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     refreshDriverData()
                 }
-                .onFailure { error ->
+                is QuoteSubmitOutcome.ApiFailure -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isSubmittingQuote = false,
-                        error = error.friendlyDriverMessage("Failed to submit quote."),
+                        error = outcome.error.friendlyDriverMessage("Failed to submit quote."),
                     )
                 }
+            }
         }
     }
 

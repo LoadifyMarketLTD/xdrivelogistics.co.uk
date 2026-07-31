@@ -139,6 +139,14 @@ internal enum class QuoteValidationResult {
     INVALID_AMOUNT,
 }
 
+/** Maps a validation failure to the user-facing error string shown in the quote form. */
+internal fun QuoteValidationResult.toUserMessage(): String = when (this) {
+    QuoteValidationResult.NO_JOB_SELECTED -> "Select a posted job first."
+    QuoteValidationResult.JOB_NOT_POSTED -> "Only posted jobs can be quoted."
+    QuoteValidationResult.INVALID_AMOUNT -> "Enter a valid quote amount."
+    QuoteValidationResult.OK -> ""
+}
+
 /** Validates the inputs that must be satisfied before a quote can be submitted. */
 internal fun validateQuoteSubmission(
     quoteJobId: String?,
