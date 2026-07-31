@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: 'XDrive Driver',
   slug: 'xdrive-driver',
   owner: 'xdrive-logistics-ltd',
-  version: '0.1.0',
+  version: '1.0.0',
   orientation: 'portrait',
   scheme: 'xdrivedriver',
   userInterfaceStyle: 'dark',

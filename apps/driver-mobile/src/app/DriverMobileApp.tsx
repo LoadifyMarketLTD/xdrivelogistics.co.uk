@@ -7,7 +7,7 @@ import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-c
 import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
-import { isSupabaseConfigured, supabase } from '../auth/supabase';
+import { supabase } from '../auth/supabase';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
@@ -330,7 +330,14 @@ export default function DriverMobileApp() {
       setAuthUserId(nextUserId);
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
-      if (!session) setScreen('login');
+      if (!session) {
+        setJob(null);
+        setJobs([]);
+        setResources(null);
+        setQueue([]);
+        setMessage('');
+        setScreen('login');
+      }
     });
     return () => subscription.unsubscribe();
   }, [flushQueue, loadJobs, loadResources]);
@@ -374,13 +381,14 @@ export default function DriverMobileApp() {
   }, [flushQueue, token]);
 
   async function signIn(email: string, password: string) {
-    if (!isSupabaseConfigured) {
-      setMessage('Supabase mobile config is missing.');
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password.trim()) {
+      setMessage('Enter both email and password.');
       return;
     }
     setLoading(true);
     setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
     if (error) {
       setLoading(false);
       setMessage(error.message);
@@ -428,6 +436,7 @@ export default function DriverMobileApp() {
     setQueue([]);
     setResources(null);
     setNotificationsSeenAt(null);
+    setMessage('');
     setScreen('login');
   }
 
@@ -579,6 +588,7 @@ export default function DriverMobileApp() {
 function LoginScreen({ onSignIn, message, loading }: { onSignIn: (email: string, password: string) => void; message: string; loading: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const hasCredentials = email.trim().length > 0 && password.trim().length > 0;
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.login}>
@@ -587,7 +597,7 @@ function LoginScreen({ onSignIn, message, loading }: { onSignIn: (email: string,
         {message ? <Text style={styles.message}>{message}</Text> : null}
         <TextInput autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={colors.muted} style={styles.input} value={email} onChangeText={setEmail} />
         <TextInput placeholder="Password" placeholderTextColor={colors.muted} secureTextEntry style={styles.input} value={password} onChangeText={setPassword} />
-        <PrimaryButton label={loading ? 'Signing in...' : 'Sign in'} onPress={() => onSignIn(email, password)} disabled={!email || !password || loading} />
+        <PrimaryButton label={loading ? 'Signing in...' : 'Sign in'} onPress={() => onSignIn(email, password)} disabled={!hasCredentials || loading} />
       </View>
     </SafeAreaView>
   );
@@ -707,6 +717,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
   const [recipientName, setRecipientName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function addPhoto() {
     const ImagePicker = await import('expo-image-picker');
@@ -732,20 +743,28 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       return;
     }
 
+    setSubmitting(true);
     const payload = { photoUris, documentUris, recipientName, signatureData, notes };
     if (!token || !(await isOnline())) {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      onSaved();
+      setSubmitting(false);
+      Alert.alert('POD saved offline', 'Your POD evidence has been saved and will be uploaded automatically when connectivity returns.', [
+        { text: 'OK', onPress: () => onSaved() },
+      ]);
       return;
     }
     try {
       const response = await uploadPod(job.id, token, payload);
+      setSubmitting(false);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      onSaved();
+      setSubmitting(false);
+      Alert.alert('POD queued for retry', 'The upload failed. Your POD evidence has been saved and will retry automatically.', [
+        { text: 'OK', onPress: () => onSaved() },
+      ]);
     }
   }
 
@@ -806,7 +825,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
           <Text style={styles.subtle}>Draw directly in the signature panel above.</Text>
         )}
       </Panel>
-      <PrimaryButton label="Save POD" onPress={() => void savePod()} />
+      <PrimaryButton label={submitting ? 'Saving...' : 'Save POD'} onPress={() => void savePod()} disabled={submitting} />
     </View>
   );
 }

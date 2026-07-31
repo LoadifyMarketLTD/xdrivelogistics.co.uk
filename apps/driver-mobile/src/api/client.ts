@@ -9,6 +9,8 @@ type ApiOptions = {
   body?: unknown;
 };
 
+const requestTimeoutMs = 20_000;
+
 export function getApiBaseUrl() {
   const configured = Constants.expoConfig?.extra?.apiBaseUrl;
   return normalizeApiBaseUrl(typeof configured === 'string' ? configured : fallbackApiBaseUrl);
@@ -38,6 +40,8 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = await resolveAuthToken(options.token);
   const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
   const response = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
@@ -46,10 +50,23 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
       ...(token ? { Authorization: 'Bearer ' + token } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: controller.signal,
+  }).catch((error) => {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    throw error;
+  }).finally(() => {
+    clearTimeout(timeoutId);
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await response.json().catch(() => ({} as { error?: string; message?: string }));
   if (!response.ok) {
-    const message = typeof payload?.error === 'string' ? payload.error : `Request failed with HTTP ${response.status}`;
+    const message =
+      typeof payload?.error === 'string'
+        ? payload.error
+        : typeof payload?.message === 'string'
+          ? payload.message
+          : `Request failed with HTTP ${response.status}`;
     throw new Error(message);
   }
   return payload as T;

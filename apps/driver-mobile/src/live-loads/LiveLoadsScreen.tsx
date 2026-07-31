@@ -78,13 +78,18 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
   useEffect(() => {
     let active = true;
     void (async () => {
-      const { data } = await supabase.auth.getSession();
-      const email = data.session?.user?.email?.trim().toLowerCase() || '';
-      const stored = await loadMarketplacePreferences(email);
-      if (!active) return;
-      setAccountEmail(email);
-      setPreferences(stored);
-      await loadJobs(stored);
+      try {
+        const { data } = await supabase.auth.getSession();
+        const email = data.session?.user?.email?.trim().toLowerCase() || '';
+        const stored = await loadMarketplacePreferences(email);
+        if (!active) return;
+        setAccountEmail(email);
+        setPreferences(stored);
+        await loadJobs(stored);
+      } catch (loadError) {
+        if (!active) return;
+        setError(loadError instanceof Error ? loadError.message : 'Unable to initialize live loads.');
+      }
     })();
     return () => { active = false; };
   }, [loadJobs]);
