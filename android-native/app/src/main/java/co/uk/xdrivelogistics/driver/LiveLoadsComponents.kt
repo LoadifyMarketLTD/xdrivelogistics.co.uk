@@ -3,15 +3,19 @@ package co.uk.xdrivelogistics.driver
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -171,6 +175,7 @@ internal fun DriverJob.toLiveLoadCardData(): LiveLoadCardData {
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LiveLoadCard(
     job: DriverJob,
@@ -233,6 +238,7 @@ internal fun LiveLoadCard(
                 }
                 Box(
                     modifier = Modifier
+                        .widthIn(max = 130.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(LiveLoadsChip)
                         .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -274,28 +280,63 @@ internal fun LiveLoadCard(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 when (preferenceState) {
                     "deleted" -> {
-                        OutlinedButton(onClick = { onRestore?.invoke() }, modifier = Modifier.height(36.dp)) {
+                        OutlinedButton(
+                            onClick = { onRestore?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
                             Text("Restore", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        Text("Hidden", color = LiveLoadsDanger, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text(
+                            "Hidden",
+                            color = LiveLoadsDanger,
+                            fontSize = 12.sp,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
                     }
                     "saved" -> {
-                        OutlinedButton(onClick = { onRestore?.invoke() }, modifier = Modifier.height(36.dp)) {
+                        OutlinedButton(
+                            onClick = { onRestore?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
                             Text("Unpin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.height(36.dp)) {
+                        OutlinedButton(
+                            onClick = { onHide?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
                             Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        Text("Pinned", color = LiveLoadsSuccess, fontSize = 12.sp, modifier = Modifier.weight(1f), maxLines = 1)
+                        Text(
+                            "Pinned",
+                            color = LiveLoadsSuccess,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
                     }
                     else -> {
-                        OutlinedButton(onClick = { onSave?.invoke() }, modifier = Modifier.height(36.dp)) {
+                        OutlinedButton(
+                            onClick = { onSave?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
                             Text("Pin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
-                        OutlinedButton(onClick = { onHide?.invoke() }, modifier = Modifier.height(36.dp)) {
+                        OutlinedButton(
+                            onClick = { onHide?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
                             Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }

@@ -1,7 +1,9 @@
 package co.uk.xdrivelogistics.driver
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import co.uk.xdrivelogistics.driver.data.DriverJob
@@ -103,6 +105,104 @@ class LiveLoadsCardInteractionTest {
         composeRule.onNodeWithText("Quote").assertIsDisplayed()
         composeRule.onNodeWithText("Vehicle TBC").assertIsDisplayed()
         composeRule.onNodeWithText("Delivery location TBC").assertIsDisplayed()
+    }
+
+    @Test
+    fun pin_targets_exact_job_id_with_two_cards() {
+        var pinnedJobId: String? = null
+        composeRule.setContent {
+            Column {
+                LiveLoadCard(
+                    job = job(id = "job-first"),
+                    selected = false,
+                    onOpen = {},
+                    onQuote = {},
+                    onSave = { pinnedJobId = "job-first" },
+                    onHide = {},
+                    onRestore = {},
+                )
+                LiveLoadCard(
+                    job = job(id = "job-second", clientName = "Second Freight Co"),
+                    selected = false,
+                    onOpen = {},
+                    onQuote = {},
+                    onSave = { pinnedJobId = "job-second" },
+                    onHide = {},
+                    onRestore = {},
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("Pin")[0].performClick()
+        composeRule.runOnIdle {
+            assertEquals("job-first", pinnedJobId)
+        }
+    }
+
+    @Test
+    fun hide_targets_exact_job_id_with_two_cards() {
+        var hiddenJobId: String? = null
+        composeRule.setContent {
+            Column {
+                LiveLoadCard(
+                    job = job(id = "job-first"),
+                    selected = false,
+                    onOpen = {},
+                    onQuote = {},
+                    onSave = {},
+                    onHide = { hiddenJobId = "job-first" },
+                    onRestore = {},
+                )
+                LiveLoadCard(
+                    job = job(id = "job-second", clientName = "Second Freight Co"),
+                    selected = false,
+                    onOpen = {},
+                    onQuote = {},
+                    onSave = {},
+                    onHide = { hiddenJobId = "job-second" },
+                    onRestore = {},
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("Hide")[1].performClick()
+        composeRule.runOnIdle {
+            assertEquals("job-second", hiddenJobId)
+        }
+    }
+
+    @Test
+    fun restore_targets_exact_job_id_with_two_cards() {
+        var restoredJobId: String? = null
+        composeRule.setContent {
+            Column {
+                LiveLoadCard(
+                    job = job(id = "job-first"),
+                    selected = false,
+                    onOpen = {},
+                    onQuote = {},
+                    onSave = {},
+                    onHide = {},
+                    onRestore = { restoredJobId = "job-first" },
+                    preferenceState = "deleted",
+                )
+                LiveLoadCard(
+                    job = job(id = "job-second", clientName = "Second Freight Co"),
+                    selected = false,
+                    onOpen = {},
+                    onQuote = {},
+                    onSave = {},
+                    onHide = {},
+                    onRestore = { restoredJobId = "job-second" },
+                    preferenceState = "deleted",
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("Restore")[0].performClick()
+        composeRule.runOnIdle {
+            assertEquals("job-first", restoredJobId)
+        }
     }
 
     private fun job(

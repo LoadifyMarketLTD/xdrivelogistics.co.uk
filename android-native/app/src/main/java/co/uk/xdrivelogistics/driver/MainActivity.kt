@@ -736,11 +736,13 @@ private fun NearbyJobsScreen(
                         onClick = { sortBy = if (sortBy == "Collection") "Nearest" else "Collection" },
                     )
                 }
-                item {
-                    CompactFilterPill(
-                        label = "Radius: ${radiusMiles}mi",
-                        onClick = { radiusMiles = when (radiusMiles) { 10 -> 20; 20 -> 30; else -> 10 } },
-                    )
+                if (activeDeliveryJob != null) {
+                    item {
+                        CompactFilterPill(
+                            label = "Radius: ${radiusMiles}mi",
+                            onClick = { radiusMiles = when (radiusMiles) { 10 -> 20; 20 -> 30; else -> 10 } },
+                        )
+                    }
                 }
                 item {
                     CompactFilterPill(
@@ -805,8 +807,8 @@ private fun CompactFilterPill(label: String, onClick: () -> Unit) {
         shape = RoundedCornerShape(999.dp),
         border = BorderStroke(1.dp, Border),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-        modifier = Modifier.height(34.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        modifier = Modifier.heightIn(min = 48.dp),
     ) {
         Text(label, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

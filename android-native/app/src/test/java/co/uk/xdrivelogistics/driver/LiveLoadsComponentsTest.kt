@@ -148,6 +148,39 @@ class LiveLoadsComponentsTest {
         )
     }
 
+    @Test
+    fun `pin preference targets only the tapped job when two jobs exist`() {
+        val prefs = mutableMapOf<String, String?>()
+
+        // Simulate pinning job-two while job-one is untouched
+        prefs["job-two"] = applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.PIN)
+
+        assertEquals(null, prefs["job-one"])
+        assertEquals("saved", prefs["job-two"])
+    }
+
+    @Test
+    fun `hide preference targets only the tapped job when two jobs exist`() {
+        val prefs = mutableMapOf<String, String?>()
+
+        prefs["job-two"] = applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.HIDE)
+
+        assertEquals(null, prefs["job-one"])
+        assertEquals("deleted", prefs["job-two"])
+    }
+
+    @Test
+    fun `restore preference targets only the tapped job when two jobs exist`() {
+        val prefs = mutableMapOf<String, String?>()
+        prefs["job-one"] = "saved"
+        prefs["job-two"] = "saved"
+
+        prefs["job-two"] = applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.RESTORE)
+
+        assertEquals("saved", prefs["job-one"])
+        assertEquals(null, prefs["job-two"])
+    }
+
     private fun job(
         id: String,
         pickupLocation: String = "Leeds LS1",
