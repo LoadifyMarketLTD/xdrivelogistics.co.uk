@@ -188,7 +188,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             invoices = invoices,
                             nearbyDrivers = nearbyDrivers,
                             jobSearchPreferences = preferences,
-                            selectedJobId = _uiState.value.selectedJobId ?: jobs.firstOrNull()?.id,
+                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, jobs),
                         )
                     }
                     .onFailure { error ->
@@ -576,30 +576,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 }
-
-private fun isValidTransition(currentRaw: String, next: String): Boolean {
-    val current = normalizeDriverStatus(currentRaw)
-    return when (next) {
-        "on_my_way" -> current in listOf("allocated", "awarded")
-        "on_site_pickup" -> current == "on_my_way"
-        "loaded" -> current == "on_site_pickup"
-        "in_transit" -> current == "loaded"
-        "on_site_delivery" -> current == "in_transit"
-        "delivered" -> current == "on_site_delivery"
-        "completed" -> current == "delivered"
-        else -> false
-    }
-}
-
-private fun normalizeDriverStatus(raw: String): String =
-    when (raw.lowercase().ifBlank { "assigned" }) {
-        "assigned", "accepted" -> "allocated"
-        "arrived_pickup" -> "on_site_pickup"
-        "collected" -> "loaded"
-        "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
-        "arrived_delivery" -> "on_site_delivery"
-        else -> raw.lowercase().ifBlank { "assigned" }
-    }
 
 private fun Throwable.isSessionError(): Boolean {
     val text = message.orEmpty().lowercase()
