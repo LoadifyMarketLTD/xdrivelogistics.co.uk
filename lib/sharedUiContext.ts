@@ -134,13 +134,11 @@ export const resolveSharedUiContextFromOptions = (input: {
   if (memberships.length === 0) {
     return { ok: false, error: 'no_active_membership' };
   }
-  if (memberships.length > 1) {
-    return { ok: false, error: 'multiple_active_memberships' };
-  }
 
   const explicitlySelectedCompanyId =
     input.requestedCompanyId?.trim() || input.profileCompanyId?.trim() || null;
-  const selectedCompanyId = explicitlySelectedCompanyId ?? memberships[0]?.companyId ?? null;
+  const selectedCompanyId =
+    explicitlySelectedCompanyId ?? (memberships.length === 1 ? memberships[0]?.companyId ?? null : null);
 
   if (!selectedCompanyId) {
     return {

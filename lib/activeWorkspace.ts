@@ -157,9 +157,6 @@ export function resolveActiveCompanyContext(
   if (!active.length) {
     return { ok: false, error: 'no_active_membership' };
   }
-  if (active.length > 1) {
-    return { ok: false, error: 'active_company_required' };
-  }
 
   let chosen: RawMembershipRow | undefined;
 
@@ -170,9 +167,9 @@ export function resolveActiveCompanyContext(
     }
   } else if (active.length === 1) {
     chosen = active[0];
-  }
-  if (!chosen) {
-    return { ok: false, error: 'no_active_membership' };
+  } else {
+    // Multiple active memberships — caller must supply preferredCompanyId.
+    return { ok: false, error: 'active_company_required' };
   }
 
   const company = chosen.companies;
