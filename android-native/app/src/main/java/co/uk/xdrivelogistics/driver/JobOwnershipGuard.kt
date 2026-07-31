@@ -32,11 +32,11 @@ internal fun preflightStatusUpdateRejection(job: DriverJob, nextStatus: String):
     if (job.isPosted()) {
         return "Submit a quote and wait for the customer to award the job before starting work."
     }
-    val blockingRequirement = job.blockingRequirementFor(nextStatus)
-    if (blockingRequirement != null) return blockingRequirement
     val current = job.currentStatus.ifBlank { job.status }
     if (!isValidTransition(current, nextStatus)) {
         return "This job cannot move to $nextStatus from its current status."
     }
+    val blockingRequirement = job.blockingRequirementFor(nextStatus)
+    if (blockingRequirement != null) return blockingRequirement
     return null
 }
