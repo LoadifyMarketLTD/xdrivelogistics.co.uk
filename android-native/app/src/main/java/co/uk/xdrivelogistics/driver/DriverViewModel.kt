@@ -33,6 +33,11 @@ enum class DriverTab {
     PROFILE,
 }
 
+enum class ActionEntryMode {
+    DETAILS,
+    QUOTE,
+}
+
 data class DriverUiState(
     val isLoading: Boolean = false,
     val isAuthenticated: Boolean = false,
@@ -48,6 +53,8 @@ data class DriverUiState(
     val jobSearchPreferences: Map<String, String> = emptyMap(),
     val selectedTab: DriverTab = DriverTab.NEARBY,
     val selectedJobId: String? = null,
+    val actionEntryMode: ActionEntryMode = ActionEntryMode.DETAILS,
+    val isSubmittingQuote: Boolean = false,
     val message: String = "",
     val error: String = "",
 )
@@ -59,6 +66,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
+
+    // Coordinator wired to the real API. The same coordinator class is used directly
+    // in QuoteSubmissionCoordinatorTest with a stub submitFn — so those tests prove
+    // the production submission path, not a copy of it.
+    private val quoteCoordinator = QuoteSubmissionCoordinator { session, profile, jobId, amount, note ->
+        api.submitJobQuote(session, profile, jobId, amount, note)
+    }
 
     private val _uiState = MutableStateFlow(DriverUiState())
     val uiState: StateFlow<DriverUiState> = _uiState.asStateFlow()
@@ -123,11 +137,22 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun changeTab(tab: DriverTab) {
-        _uiState.value = _uiState.value.copy(selectedTab = tab)
+        _uiState.value = _uiState.value.copy(
+            selectedTab = tab,
+            actionEntryMode = if (tab == DriverTab.ACTION) _uiState.value.actionEntryMode else ActionEntryMode.DETAILS,
+        )
     }
 
     fun selectJob(jobId: String) {
         _uiState.value = _uiState.value.copy(selectedJobId = jobId)
+    }
+
+    fun openActionForJob(jobId: String, mode: ActionEntryMode) {
+        _uiState.value = _uiState.value.copy(
+            selectedJobId = jobId,
+            selectedTab = DriverTab.ACTION,
+            actionEntryMode = mode,
+        )
     }
 
     fun refreshDriverData() {
@@ -163,7 +188,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             invoices = invoices,
                             nearbyDrivers = nearbyDrivers,
                             jobSearchPreferences = preferences,
-                            selectedJobId = _uiState.value.selectedJobId ?: jobs.firstOrNull()?.id,
+                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, jobs),
                         )
                     }
                     .onFailure { error ->
@@ -325,26 +350,13 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            if (selectedJob.isPosted()) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Submit a quote and wait for the customer to award the job before starting work.",
-                )
-                return@launch
-            }
-
-            selectedJob.blockingRequirementFor(nextStatus)?.let { requirement ->
-                _uiState.value = _uiState.value.copy(error = requirement)
+            val rejection = preflightStatusUpdateRejection(selectedJob, nextStatus)
+            if (rejection != null) {
+                _uiState.value = _uiState.value.copy(error = rejection)
                 return@launch
             }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            if (!isValidTransition(selectedJob.currentStatus.ifBlank { selectedJob.status }, nextStatus)) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "This job cannot move to $nextStatus from its current status.",
-                )
-                return@launch
-            }
 
             api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
                 .onSuccess {
@@ -364,39 +376,51 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
+        // Capture the intended job ID at invocation time — before the coroutine launches —
+        // so a concurrent state change cannot redirect the submission to a different job.
+        val quoteJobId = _uiState.value.selectedJobId
+        // Set the in-flight flag synchronously on the calling thread, before the coroutine
+        // launches, so a second UI tap arriving before the coroutine starts also sees it.
+        if (_uiState.value.isSubmittingQuote) return
+        _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
         viewModelScope.launch {
-            val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
-                return@launch
-            }
-            if (selectedJob.status.lowercase() != "posted") {
-                _uiState.value = _uiState.value.copy(error = "Only posted jobs can be quoted.")
-                return@launch
-            }
-            val amount = amountText.trim().toDoubleOrNull()
-            if (amount == null || amount <= 0.0) {
-                _uiState.value = _uiState.value.copy(error = "Enter a valid quote amount.")
-                return@launch
-            }
-
-            _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.submitJobQuote(session, profile, selectedJob.id, amount, note.trim())
-                .onSuccess {
+            val outcome = quoteCoordinator.submit(
+                quoteJobId = quoteJobId,
+                jobs = _uiState.value.jobs,
+                amountText = amountText,
+                note = note,
+                session = _uiState.value.session,
+                profile = _uiState.value.profile,
+            )
+            when (outcome) {
+                is QuoteSubmitOutcome.AlreadyInFlight,
+                is QuoteSubmitOutcome.NoSession,
+                is QuoteSubmitOutcome.NoProfile -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false)
+                }
+                is QuoteSubmitOutcome.ValidationFailure -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isSubmittingQuote = false,
+                        error = outcome.result.toUserMessage(),
+                    )
+                }
+                is QuoteSubmitOutcome.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isSubmittingQuote = false,
                         message = "Quote submitted.",
                     )
                     refreshDriverData()
                 }
-                .onFailure { error ->
+                is QuoteSubmitOutcome.ApiFailure -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to submit quote."),
+                        isSubmittingQuote = false,
+                        error = outcome.error.friendlyDriverMessage("Failed to submit quote."),
                     )
                 }
+            }
         }
     }
 
@@ -539,30 +563,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 }
-
-private fun isValidTransition(currentRaw: String, next: String): Boolean {
-    val current = normalizeDriverStatus(currentRaw)
-    return when (next) {
-        "on_my_way" -> current in listOf("allocated", "awarded")
-        "on_site_pickup" -> current == "on_my_way"
-        "loaded" -> current == "on_site_pickup"
-        "in_transit" -> current == "loaded"
-        "on_site_delivery" -> current == "in_transit"
-        "delivered" -> current == "on_site_delivery"
-        "completed" -> current == "delivered"
-        else -> false
-    }
-}
-
-private fun normalizeDriverStatus(raw: String): String =
-    when (raw.lowercase().ifBlank { "assigned" }) {
-        "assigned", "accepted" -> "allocated"
-        "arrived_pickup" -> "on_site_pickup"
-        "collected" -> "loaded"
-        "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
-        "arrived_delivery" -> "on_site_delivery"
-        else -> raw.lowercase().ifBlank { "assigned" }
-    }
 
 private fun Throwable.isSessionError(): Boolean {
     val text = message.orEmpty().lowercase()

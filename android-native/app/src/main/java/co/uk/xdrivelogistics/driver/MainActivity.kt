@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -88,6 +89,7 @@ import co.uk.xdrivelogistics.driver.data.DriverNotification
 import com.google.android.gms.location.LocationServices
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -95,16 +97,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val Navy = Color(0xFF070B14)
-private val Navy2 = Color(0xFF0D1424)
-private val Panel = Color(0xFF131D33)
-private val Border = Color(0xFF24324D)
-private val Blue = Color(0xFF0057D9)
-private val Yellow = Color(0xFFFFD200)
-private val TextPrimary = Color(0xFFF8FAFC)
-private val TextSecondary = Color(0xFFA9B7D0)
-private val Danger = Color(0xFFFF5C7A)
-private val Success = Color(0xFF25D987)
+// Colour aliases — single source of truth is XDriveTheme.kt
+private val Navy = XDriveTheme.Background
+private val Navy2 = XDriveTheme.Canvas
+private val Panel = XDriveTheme.Surface
+private val Border = XDriveTheme.Border
+private val Blue = XDriveTheme.Navy
+private val Yellow = XDriveTheme.Yellow
+private val TextPrimary = XDriveTheme.TextPrimary
+private val TextSecondary = XDriveTheme.TextSecondary
+private val Danger = XDriveTheme.Danger
+private val Success = XDriveTheme.Success
 
 private data class ComplianceDocOption(
     val label: String,
@@ -262,6 +265,7 @@ class MainActivity : ComponentActivity() {
                             state = state,
                             onTabChange = viewModel::changeTab,
                             onJobSelected = viewModel::selectJob,
+                            onOpenActionForJob = viewModel::openActionForJob,
                             onLogout = viewModel::logout,
                             onRefresh = viewModel::refreshDriverData,
                             onSendNote = viewModel::sendQuickNote,
@@ -463,6 +467,7 @@ private fun DriverAppShell(
     state: DriverUiState,
     onTabChange: (DriverTab) -> Unit,
     onJobSelected: (String) -> Unit,
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSendNote: (String, Boolean) -> Unit,
@@ -488,7 +493,8 @@ private fun DriverAppShell(
             .fillMaxSize()
             .background(Navy)
             .statusBarsPadding()
-            .navigationBarsPadding()
+            // navigationBarsPadding is handled by BottomNav so its background
+            // extends behind the system gesture bar; do not apply it here.
     ) {
         AppHeader(
             title = state.headerTitle(),
@@ -498,7 +504,7 @@ private fun DriverAppShell(
 
         Box(modifier = Modifier.weight(1f)) {
             when (state.selectedTab) {
-                DriverTab.NEARBY -> NearbyJobsScreen(state, onJobSelected, onTabChange, onJobPreference)
+                DriverTab.NEARBY -> NearbyJobsScreen(state, onOpenActionForJob, onJobPreference)
                 DriverTab.QUOTES -> MyQuotesScreen(state)
                 DriverTab.BOOKINGS -> BookingsScreen(state, onJobSelected, onTabChange)
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
@@ -624,25 +630,25 @@ private fun DashboardScreen(
 @Composable
 private fun NearbyJobsScreen(
     state: DriverUiState,
-    onJobSelected: (String) -> Unit,
-    onTabChange: (DriverTab) -> Unit,
+    onOpenActionForJob: (String, ActionEntryMode) -> Unit,
     onJobPreference: (String, String?) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    var box by remember { mutableStateOf("Inbox") }
-    var sort by remember { mutableStateOf("Nearest") }
-    var radius by remember { mutableStateOf("20") }
-    var vehicleFilter by remember { mutableStateOf("") }
-    var freightFilter by remember { mutableStateOf("") }
-    var dateFilter by remember { mutableStateOf("") }
-    var memberFilter by remember { mutableStateOf("") }
+    var box by remember { mutableStateOf(LiveLoadsBox.LIVE) }
+    var sortBy by remember { mutableStateOf("Collection") }
+    var radiusMiles by remember { mutableStateOf(20) }
+    var dateScope by remember { mutableStateOf("Any date") }
+    var vehicleScope by remember { mutableStateOf("All vehicles") }
+    var freightScope by remember { mutableStateOf("All freight") }
+    var memberScope by remember { mutableStateOf("All members") }
     val activeDeliveryJob = state.jobs.firstOrNull {
         !it.isPosted() && it.isActive() && it.deliveryPostcode.isNotBlank()
     }
+
     val postedJobs = state.jobs.filter { it.isPosted() }
     val deliveryZoneJobs = if (activeDeliveryJob != null) {
         postedJobs
-            .filter { (it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE) <= 20.0 }
+            .filter { (it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE) <= radiusMiles.toDouble() }
             .sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE }
     } else {
         postedJobs.sortedWith(
@@ -650,25 +656,8 @@ private fun NearbyJobsScreen(
                 .thenBy { it.pickupDatetime.orEmpty() }
         )
     }
-    val radiusMiles = radius.toDoubleOrNull()
-    val boxedJobs = deliveryZoneJobs.filter { job ->
-        val pref = state.jobSearchPreferences[job.id]
-        when (box) {
-            "Saved" -> pref == "saved"
-            "Deleted" -> pref == "deleted"
-            else -> pref != "deleted"
-        }
-    }.filter { job ->
-        radiusMiles == null || (job.pickupDistanceFromActiveDeliveryMiles ?: job.distanceMiles ?: 0.0) <= radiusMiles
-    }.filter { job ->
-        vehicleFilter.isBlank() || job.vehicleType.contains(vehicleFilter.trim(), ignoreCase = true) || job.vehicleLabel().contains(vehicleFilter.trim(), ignoreCase = true)
-    }.filter { job ->
-        freightFilter.isBlank() || job.cargoType.contains(freightFilter.trim(), ignoreCase = true) || job.loadDetails.contains(freightFilter.trim(), ignoreCase = true)
-    }.filter { job ->
-        dateFilter.isBlank() || job.pickupDatetime.orEmpty().contains(dateFilter.trim(), ignoreCase = true)
-    }.filter { job ->
-        memberFilter.isBlank() || job.clientName.contains(memberFilter.trim(), ignoreCase = true) || job.id.contains(memberFilter.trim(), ignoreCase = true)
-    }
+    val boxedJobs = filterLiveLoadsByBox(deliveryZoneJobs, state.jobSearchPreferences, box)
+    val (liveCount, pinnedCount, hiddenCount) = liveLoadsCounts(deliveryZoneJobs, state.jobSearchPreferences)
     val searched = boxedJobs.filter {
         val needle = query.trim().lowercase()
         needle.isBlank() ||
@@ -680,12 +669,31 @@ private fun NearbyJobsScreen(
             it.deliveryLocation.lowercase().contains(needle) ||
             it.loadDetails.lowercase().contains(needle)
     }
-    val filtered = when (sort) {
-        "Newest" -> searched.sortedByDescending { it.pickupDatetime.orEmpty() }
-        "Highest Value" -> searched.sortedByDescending { it.budgetAmount ?: 0.0 }
-        "Best Match" -> searched.sortedWith(compareByDescending<DriverJob> { it.vehicleType.isNotBlank() }.thenBy { it.pickupDistanceFromActiveDeliveryMiles ?: it.distanceMiles ?: Double.MAX_VALUE })
-        else -> searched.sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: it.distanceMiles ?: Double.MAX_VALUE }
+    val dated = searched.filter { job ->
+        val pickup = job.pickupDatetime?.take(10).orEmpty()
+        when (dateScope) {
+            "Today" -> pickup == LocalDate.now(ZoneId.of("Europe/London")).toString()
+            "Tomorrow" -> pickup == LocalDate.now(ZoneId.of("Europe/London")).plusDays(1).toString()
+            "This week" -> {
+                val today = LocalDate.now(ZoneId.of("Europe/London"))
+                val end = today.plusDays(7)
+                val parsed = runCatching { LocalDate.parse(pickup) }.getOrNull()
+                parsed != null && !parsed.isBefore(today) && !parsed.isAfter(end)
+            }
+            else -> true
+        }
     }
+
+    val vehicleFiltered = dated.filter { vehicleScope == "All vehicles" || it.vehicleType.equals(vehicleScope, ignoreCase = true) }
+    val freightFiltered = vehicleFiltered.filter { freightScope == "All freight" || it.cargoType.equals(freightScope, ignoreCase = true) }
+    val memberFiltered = freightFiltered.filter { memberScope == "All members" || it.clientName.isNotBlank() }
+    val filtered = when (sortBy) {
+        "Nearest" -> memberFiltered.sortedBy { it.pickupDistanceFromActiveDeliveryMiles ?: Double.MAX_VALUE }
+        else -> memberFiltered.sortedBy { it.pickupDatetime.orEmpty() }
+    }
+    val emptyState = liveLoadsEmptyState(box, activeDeliveryJob?.deliveryPostcode)
+    val vehicleOptions = listOf("All vehicles") + state.jobs.map { it.vehicleType.trim() }.filter { it.isNotBlank() }.distinct().take(5)
+    val freightOptions = listOf("All freight") + state.jobs.map { it.cargoType.trim() }.filter { it.isNotBlank() }.distinct().take(5)
 
     LazyColumn(
         modifier = Modifier
@@ -694,115 +702,122 @@ private fun NearbyJobsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            XDriveCard {
-                Text("Nearby Jobs", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 22.sp)
+            LiveLoadsSegmentedTabs(
+                selected = box,
+                liveCount = liveCount,
+                pinnedCount = pinnedCount,
+                hiddenCount = hiddenCount,
+                onSelected = { box = it },
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    if (activeDeliveryJob != null) {
-                        "${filtered.size} jobs within 20 miles of ${activeDeliveryJob.deliveryPostcode}"
-                    } else {
-                        "${filtered.size} posted jobs available"
-                    },
-                    color = TextSecondary,
-                    fontSize = 13.sp,
+                    if (box == LiveLoadsBox.LIVE) "${filtered.size} available" else "${filtered.size} loads",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
                 )
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    BadgeText(if (activeDeliveryJob != null) "Delivery zone" else "All posted", Yellow)
-                    BadgeText("20 miles", Blue)
-                    BadgeText("Backload search", Success)
-                }
+                Text(if (query.isBlank()) sortBy else "Search: \"$query\"", color = TextSecondary, fontSize = 12.sp, maxLines = 1)
             }
-        }
-        item {
-            XDriveCard {
-                Text("Who's Nearby", color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                Text("${state.nearbyDrivers.size} tracked drivers", color = TextSecondary, fontSize = 13.sp)
-                Spacer(Modifier.height(10.dp))
-                if (state.nearbyDrivers.isEmpty()) {
-                    Text("No live driver locations yet.", color = TextSecondary, fontSize = 13.sp)
-                } else {
-                    state.nearbyDrivers.take(5).forEach { nearby ->
-                        InfoLine(
-                            nearby.driverName,
-                            listOf(
-                                nearby.vehicleLabel,
-                                nearby.lat?.let { lat -> nearby.lng?.let { lng -> "%.4f, %.4f".format(Locale.UK, lat, lng) } }.orEmpty(),
-                                nearby.recordedAt?.marketplaceTime().orEmpty(),
-                            ).filter { it.isNotBlank() }.joinToString(" | ")
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            SegmentedTabs(listOf("Inbox", "Saved", "Deleted"), box) { box = it }
         }
         item {
             XDriveTextField(query, { query = it }, "Search jobs", "Find")
         }
         item {
-            XDriveCard {
-                Text("Search Filters", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    Box(Modifier.weight(1f)) { XDriveTextField(radius, { radius = it }, "Radius miles", "Mi", keyboardType = KeyboardType.Number) }
-                    Box(Modifier.weight(1f)) { XDriveTextField(vehicleFilter, { vehicleFilter = it }, "Vehicle", "Van") }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    CompactFilterPill(
+                        label = "Sort: $sortBy",
+                        onClick = { sortBy = if (sortBy == "Collection") "Nearest" else "Collection" },
+                    )
                 }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    Box(Modifier.weight(1f)) { XDriveTextField(freightFilter, { freightFilter = it }, "Freight", "Load") }
-                    Box(Modifier.weight(1f)) { XDriveTextField(dateFilter, { dateFilter = it }, "Date", "Date") }
+                if (activeDeliveryJob != null) {
+                    item {
+                        CompactFilterPill(
+                            label = "Radius: ${radiusMiles}mi",
+                            onClick = { radiusMiles = when (radiusMiles) { 10 -> 20; 20 -> 30; else -> 10 } },
+                        )
+                    }
                 }
-                Spacer(Modifier.height(10.dp))
-                XDriveTextField(memberFilter, { memberFilter = it }, "Member name / ID", "ID")
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        query = ""
-                        radius = "20"
-                        vehicleFilter = ""
-                        freightFilter = ""
-                        dateFilter = ""
-                        memberFilter = ""
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = TextPrimary),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Clear Filters", fontWeight = FontWeight.Bold) }
+                item {
+                    CompactFilterPill(
+                        label = dateScope,
+                        onClick = {
+                            dateScope = when (dateScope) {
+                                "Any date" -> "Today"
+                                "Today" -> "Tomorrow"
+                                "Tomorrow" -> "This week"
+                                else -> "Any date"
+                            }
+                        },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = vehicleScope,
+                        onClick = { vehicleScope = vehicleOptions.nextAfter(vehicleScope) },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = freightScope,
+                        onClick = { freightScope = freightOptions.nextAfter(freightScope) },
+                    )
+                }
+                item {
+                    CompactFilterPill(
+                        label = memberScope,
+                        onClick = { memberScope = if (memberScope == "All members") "Named members" else "All members" },
+                    )
+                }
             }
-        }
-        item {
-            SegmentedTabs(listOf("Nearest", "Best Match", "Newest", "Highest Value"), sort) { sort = it }
         }
         if (filtered.isEmpty()) {
             item {
                 EmptyState(
-                    "No nearby jobs.",
-                    if (activeDeliveryJob != null) {
-                        "No posted pickup jobs found within 20 miles of ${activeDeliveryJob.deliveryPostcode}."
-                    } else {
-                        "Take a job first and the app will search around its delivery postcode."
-                    },
+                    emptyState.title,
+                    emptyState.message,
                 )
             }
         }
         items(filtered, key = { it.id }) { job ->
-            JobCard(
+            LiveLoadCard(
                 job = job,
                 selected = state.selectedJobId == job.id,
-                onClick = {
-                    onJobSelected(job.id)
-                    onTabChange(DriverTab.ACTION)
-                },
-                onMoveStatus = {},
-                onSubmitQuote = { _, _ -> },
-                onSave = { onJobPreference(job.id, "saved") },
-                onHide = { onJobPreference(job.id, "deleted") },
-                onRestore = { onJobPreference(job.id, null) },
+                onOpen = { openLiveLoadFromCard(job.id, onOpenActionForJob) },
+                onQuote = { openLiveLoadQuoteFlow(job.id, onOpenActionForJob) },
+                onSave = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.PIN)) },
+                onHide = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.HIDE)) },
+                onRestore = { onJobPreference(job.id, applyLiveLoadPreferenceAction(LiveLoadPreferenceAction.RESTORE)) },
                 preferenceState = state.jobSearchPreferences[job.id],
             )
         }
     }
+}
+
+@Composable
+private fun CompactFilterPill(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(999.dp),
+        border = BorderStroke(1.dp, Border),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        modifier = Modifier.heightIn(min = 48.dp),
+    ) {
+        Text(label, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private fun List<String>.nextAfter(current: String): String {
+    if (isEmpty()) return current
+    val currentIndex = indexOf(current).takeIf { it >= 0 } ?: 0
+    return this[(currentIndex + 1) % size]
 }
 
 @Composable
@@ -1087,8 +1102,10 @@ private fun ActionScreen(
             job = selected,
             statusMessage = state.message,
             errorMessage = state.error,
+            openQuoteFirst = state.actionEntryMode == ActionEntryMode.QUOTE,
             onSubmitQuote = onSubmitQuote,
             onSendMessage = { onSendNote("Message requested for ${selected.id.take(8).uppercase()}", true) },
+            isSubmitting = state.isSubmittingQuote,
         )
         return
     }
@@ -1117,9 +1134,9 @@ private fun ActionScreen(
             item { EmptyState("No job selected.", "Open a posted job from Nearby to view details or send a quote.") }
         } else {
             when (detailTab) {
-                "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote) }
+                "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote, state.isSubmittingQuote) }
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
-                "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote) }
+                "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote, state.isSubmittingQuote) }
                 "POD" -> item {
             PodPanel(
                 selected,
@@ -1155,7 +1172,7 @@ private fun ActionScreen(
 }
 
 @Composable
-private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> Unit) {
+private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     XDriveCard {
         Text("Summary", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         InfoLine("Job Ref", job.id.take(12).uppercase())
@@ -1171,7 +1188,7 @@ private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> U
         }
         if (job.isPosted()) {
             Spacer(Modifier.height(14.dp))
-            QuoteBox(onSubmitQuote)
+            QuoteBox(onSubmitQuote, isSubmitting)
         }
     }
 }
@@ -1234,8 +1251,10 @@ private fun PostedJobDetailScreen(
     job: DriverJob,
     statusMessage: String,
     errorMessage: String,
+    openQuoteFirst: Boolean,
     onSubmitQuote: (String, String) -> Unit,
     onSendMessage: () -> Unit,
+    isSubmitting: Boolean = false,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -1268,19 +1287,21 @@ private fun PostedJobDetailScreen(
             }
         }
 
-        item {
-            LightDetailCard {
-                Text(job.marketplaceTitle(), color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 20.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(job.marketplaceMeta(), color = Color(0xFF6C6F7D), fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(job.marketplaceBadges()) { badge ->
-                        PostedBadge(badge.label, badge.color, badge.textColor)
+        if (openQuoteFirst) {
+            item {
+                LightDetailCard(contentPadding = 12.dp) {
+                    Text("Quote Entry", color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Spacer(Modifier.height(10.dp))
+                    if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
+                        QuoteStatusBanner(
+                            title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
+                            body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
+                            isError = errorMessage.isNotBlank(),
+                        )
+                        Spacer(Modifier.height(12.dp))
                     }
+                    QuoteBoxLight(onSubmitQuote, isSubmitting)
                 }
-                Spacer(Modifier.height(14.dp))
-                PostedRouteBox(job)
             }
         }
 
@@ -1318,16 +1339,34 @@ private fun PostedJobDetailScreen(
         }
 
         item {
-            LightDetailCard(contentPadding = 12.dp) {
-                if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
-                    QuoteStatusBanner(
-                        title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
-                        body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
-                        isError = errorMessage.isNotBlank(),
-                    )
-                    Spacer(Modifier.height(12.dp))
+            LightDetailCard {
+                Text(job.marketplaceTitle(), color = Color(0xFF303344), fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(job.marketplaceMeta(), color = Color(0xFF6C6F7D), fontSize = 14.sp)
+                Spacer(Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(job.marketplaceBadges()) { badge ->
+                        PostedBadge(badge.label, badge.color, badge.textColor)
+                    }
                 }
-                QuoteBoxLight(onSubmitQuote)
+                Spacer(Modifier.height(14.dp))
+                PostedRouteBox(job)
+            }
+        }
+
+        if (!openQuoteFirst) {
+            item {
+                LightDetailCard(contentPadding = 12.dp) {
+                    if (errorMessage.isNotBlank() || statusMessage.isNotBlank()) {
+                        QuoteStatusBanner(
+                            title = if (errorMessage.isNotBlank()) "Action needed" else "Quote status",
+                            body = errorMessage.toDriverSafeError().ifBlank { statusMessage },
+                            isError = errorMessage.isNotBlank(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    QuoteBoxLight(onSubmitQuote, isSubmitting)
+                }
             }
         }
 
@@ -1419,7 +1458,7 @@ private fun FeedbackLine(label: String, positive: String, neutral: String, negat
 }
 
 @Composable
-private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
+private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     var amount by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     val fieldText = Color(0xFF202231)
@@ -1472,7 +1511,7 @@ private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
     Spacer(Modifier.height(8.dp))
     Button(
         onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true,
+        enabled = parseFinitePositiveAmount(amount) != null && !isSubmitting,
         modifier = Modifier.fillMaxWidth().height(48.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Color(0xFF111217)),
         shape = RoundedCornerShape(999.dp),
@@ -1480,14 +1519,14 @@ private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
 }
 
 @Composable
-private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSubmitQuote: (String, String) -> Unit) {
+private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     XDriveCard {
         Text("Status History", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
         if (job.isPosted()) {
             Text("This job is posted for driver quotes. Submit a quote; status workflow starts after the job is awarded.", color = TextSecondary, lineHeight = 20.sp)
             Spacer(Modifier.height(12.dp))
-            QuoteBox(onSubmitQuote)
+            QuoteBox(onSubmitQuote, isSubmitting)
         } else {
             StatusTimeline(job.driverStatusKey())
             Spacer(Modifier.height(12.dp))
@@ -1608,7 +1647,7 @@ private fun PodPanel(
 }
 
 @Composable
-private fun QuoteBox(onSubmitQuote: (String, String) -> Unit) {
+private fun QuoteBox(onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     var amount by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     Text("Quote this job", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -1630,7 +1669,7 @@ private fun QuoteBox(onSubmitQuote: (String, String) -> Unit) {
     Spacer(Modifier.height(10.dp))
     Button(
         onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true,
+        enabled = parseFinitePositiveAmount(amount) != null && !isSubmitting,
         modifier = Modifier.fillMaxWidth(),
         colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
         shape = RoundedCornerShape(14.dp),
@@ -1769,8 +1808,21 @@ private fun ProfileScreen(
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(state.profile?.displayName?.ifBlank { "Driver" } ?: "Driver", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                        Text(state.profile?.email?.ifBlank { state.session?.email ?: "-" } ?: "-", color = TextSecondary)
+                        Text(
+                            state.profile?.displayName?.ifBlank { "Driver" } ?: "Driver",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            state.profile?.email?.ifBlank { state.session?.email ?: "-" } ?: "-",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     BadgeText("Active", Success)
                 }
@@ -2049,29 +2101,91 @@ private fun JobCard(
 
 @Composable
 private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (DriverTab) -> Unit) {
-    val tabs = listOf(DriverTab.NEARBY, DriverTab.QUOTES, DriverTab.JOBS, DriverTab.MESSAGES, DriverTab.PROFILE)
+    val tabs = primaryBottomNavTabs()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Navy2)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            // navigationBarsPadding here (not on the outer Column) so Navy2 background
+            // extends visually behind the system gesture indicator on Android 10+ devices
+            // while label content remains above it.
+            .navigationBarsPadding()
+            .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         tabs.forEach { tab ->
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = XDriveTheme.BottomNavItemMinHeight)
                     .clip(RoundedCornerShape(14.dp))
                     .background(if (tab == selected) Color(0xFF17243F) else Color.Transparent)
                     .clickable { onTabChange(tab) }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 10.dp, horizontal = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     tab.navLabel(activeCount),
                     color = if (tab == selected) Yellow else TextSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = if (tab == selected) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+internal fun primaryBottomNavTabs(): List<DriverTab> = listOf(
+    DriverTab.NEARBY,
+    DriverTab.MESSAGES,
+    DriverTab.QUOTES,
+    DriverTab.JOBS,
+    DriverTab.PROFILE,
+)
+
+internal fun primaryBottomNavLabels(activeCount: Int = 0): List<String> = primaryBottomNavTabs().map { it.navLabel(activeCount) }
+
+@Composable
+private fun LiveLoadsSegmentedTabs(
+    selected: LiveLoadsBox,
+    liveCount: Int,
+    pinnedCount: Int,
+    hiddenCount: Int,
+    onSelected: (LiveLoadsBox) -> Unit,
+) {
+    val tabs = listOf(
+        LiveLoadsBox.LIVE to "Live ($liveCount)",
+        LiveLoadsBox.PINNED to "Pinned ($pinnedCount)",
+        LiveLoadsBox.HIDDEN to "Hidden ($hiddenCount)",
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Navy2, RoundedCornerShape(22.dp))
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        tabs.forEach { (tab, label) ->
+            val active = selected == tab
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (active) Yellow else Color.Transparent)
+                    .clickable { onSelected(tab) }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    color = if (active) Color(0xFF05070C) else TextSecondary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     maxLines = 1,
                 )
             }
@@ -2547,14 +2661,14 @@ private fun String.toDriverSafeError(): String {
 }
 
 private fun DriverTab.screenTitle() = when (this) {
-    DriverTab.NEARBY -> "Nearby Jobs"
-    DriverTab.QUOTES -> "My Quotes"
+    DriverTab.NEARBY -> "Live Loads"
+    DriverTab.QUOTES -> "Offers"
     DriverTab.BOOKINGS -> "Bookings"
-    DriverTab.JOBS -> "My Jobs"
+    DriverTab.JOBS -> "Runs"
     DriverTab.SMARTPAY -> "XDrive Pay"
     DriverTab.ACTION -> "Job Details"
-    DriverTab.MESSAGES -> "Alerts"
-    DriverTab.PROFILE -> "Profile"
+    DriverTab.MESSAGES -> "Updates"
+    DriverTab.PROFILE -> "More"
 }
 
 private fun DriverUiState.headerTitle(): String {
@@ -2567,14 +2681,14 @@ private fun DriverUiState.headerTitle(): String {
 }
 
 private fun DriverTab.navLabel(activeCount: Int = 0) = when (this) {
-    DriverTab.NEARBY -> "Nearby"
-    DriverTab.QUOTES -> "Quotes"
+    DriverTab.NEARBY -> "Loads"
+    DriverTab.QUOTES -> "Offers"
     DriverTab.BOOKINGS -> "Bookings"
-    DriverTab.JOBS -> if (activeCount > 0) "Jobs $activeCount" else "Jobs"
+    DriverTab.JOBS -> if (activeCount > 0) "Runs $activeCount" else "Runs"
     DriverTab.SMARTPAY -> "Pay"
     DriverTab.ACTION -> "Job"
-    DriverTab.MESSAGES -> "Alerts"
-    DriverTab.PROFILE -> "Profile"
+    DriverTab.MESSAGES -> "Updates"
+    DriverTab.PROFILE -> "More"
 }
 
 private fun DriverTab.navIcon(activeCount: Int) = when (this) {
