@@ -103,7 +103,7 @@ class LiveLoadsComponentsTest {
 
     @Test
     fun `weight with existing unit is not duplicated`() {
-        val job = job(loadDetails = """{"weight":"1200 kg"}""")
+        val job = job(id = "job-weight-unit", loadDetails = """{"weight":"1200 kg"}""")
         val card = job.toLiveLoadCardData()
         assertTrue(card.freightSummary.contains("1200 kg"))
         assertTrue(!card.freightSummary.contains("1200 kg kg"))

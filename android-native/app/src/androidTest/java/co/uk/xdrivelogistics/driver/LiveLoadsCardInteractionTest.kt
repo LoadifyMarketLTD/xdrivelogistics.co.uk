@@ -1,6 +1,6 @@
 package co.uk.xdrivelogistics.driver
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -100,9 +100,9 @@ class LiveLoadsCardInteractionTest {
             )
         }
 
-        composeRule.onNodeWithText("Quote").assertExists()
-        composeRule.onNodeWithText("Vehicle TBC").assertExists()
-        composeRule.onNodeWithText("Delivery location TBC").assertExists()
+        composeRule.onNodeWithText("Quote").assertIsDisplayed()
+        composeRule.onNodeWithText("Vehicle TBC").assertIsDisplayed()
+        composeRule.onNodeWithText("Delivery location TBC").assertIsDisplayed()
     }
 
     private fun job(
