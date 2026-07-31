@@ -181,6 +181,87 @@ class LiveLoadsComponentsTest {
         assertEquals(null, prefs["job-two"])
     }
 
+    // -----------------------------------------------------------------------
+    // Quote submission validation tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `validateQuoteSubmission returns OK for valid posted job and positive amount`() {
+        val jobs = listOf(job("job-a"))
+        val result = validateQuoteSubmission("job-a", jobs, "120.00")
+        assertEquals(QuoteValidationResult.OK, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns NO_JOB_SELECTED when quoteJobId is null`() {
+        val result = validateQuoteSubmission(null, listOf(job("job-a")), "100.00")
+        assertEquals(QuoteValidationResult.NO_JOB_SELECTED, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns NO_JOB_SELECTED when quoteJobId is not in jobs list`() {
+        val result = validateQuoteSubmission("job-missing", listOf(job("job-a")), "100.00")
+        assertEquals(QuoteValidationResult.NO_JOB_SELECTED, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns JOB_NOT_POSTED for non-posted job`() {
+        val allocated = job("job-alloc").copy(status = "allocated", currentStatus = "allocated")
+        val result = validateQuoteSubmission("job-alloc", listOf(allocated), "100.00")
+        assertEquals(QuoteValidationResult.JOB_NOT_POSTED, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns INVALID_AMOUNT for zero amount`() {
+        val result = validateQuoteSubmission("job-a", listOf(job("job-a")), "0")
+        assertEquals(QuoteValidationResult.INVALID_AMOUNT, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns INVALID_AMOUNT for negative amount`() {
+        val result = validateQuoteSubmission("job-a", listOf(job("job-a")), "-50")
+        assertEquals(QuoteValidationResult.INVALID_AMOUNT, result)
+    }
+
+    @Test
+    fun `validateQuoteSubmission returns INVALID_AMOUNT for non-numeric amount`() {
+        val result = validateQuoteSubmission("job-a", listOf(job("job-a")), "abc")
+        assertEquals(QuoteValidationResult.INVALID_AMOUNT, result)
+    }
+
+    @Test
+    fun `resolveQuoteJobId returns id of explicitly opened job ignoring other jobs in list`() {
+        val jobs = listOf(job("job-a"), job("job-b"), job("job-c"))
+        val resolved = resolveQuoteJobId("job-b", jobs)
+        assertEquals("job-b", resolved)
+    }
+
+    @Test
+    fun `resolveQuoteJobId returns null when quoteJobId not in jobs list`() {
+        val jobs = listOf(job("job-a"), job("job-b"))
+        val resolved = resolveQuoteJobId("job-missing", jobs)
+        assertEquals(null, resolved)
+    }
+
+    @Test
+    fun `resolveQuoteJobId returns null when quoteJobId is null`() {
+        val resolved = resolveQuoteJobId(null, listOf(job("job-a")))
+        assertEquals(null, resolved)
+    }
+
+    @Test
+    fun `resolveQuoteJobId is not affected by which job was previously selected`() {
+        // Simulates: job-a was previously selected; user then opens quote for job-b
+        val previouslySelected = "job-a"
+        val openedForQuote = "job-b"
+        val jobs = listOf(job(previouslySelected), job(openedForQuote))
+
+        val resolved = resolveQuoteJobId(openedForQuote, jobs)
+
+        assertEquals(openedForQuote, resolved)
+        assertTrue(resolved != previouslySelected)
+    }
+
     private fun job(
         id: String,
         pickupLocation: String = "Leeds LS1",

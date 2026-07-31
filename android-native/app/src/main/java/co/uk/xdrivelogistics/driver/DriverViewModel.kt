@@ -54,6 +54,7 @@ data class DriverUiState(
     val selectedTab: DriverTab = DriverTab.NEARBY,
     val selectedJobId: String? = null,
     val actionEntryMode: ActionEntryMode = ActionEntryMode.DETAILS,
+    val isSubmittingQuote: Boolean = false,
     val message: String = "",
     val error: String = "",
 )
@@ -381,10 +382,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
+        if (_uiState.value.isSubmittingQuote) return
+        // Capture the intended job ID at invocation time so a concurrent state
+        // change cannot redirect the submission to a different job.
+        val quoteJobId = _uiState.value.selectedJobId
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
-            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
+            val selectedJob = _uiState.value.jobs.firstOrNull { it.id == quoteJobId }
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a posted job first.")
                 return@launch
@@ -399,11 +404,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
-            _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
+            _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
             api.submitJobQuote(session, profile, selectedJob.id, amount, note.trim())
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isSubmittingQuote = false,
                         message = "Quote submitted.",
                     )
                     refreshDriverData()
@@ -411,6 +417,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isSubmittingQuote = false,
                         error = error.friendlyDriverMessage("Failed to submit quote."),
                     )
                 }

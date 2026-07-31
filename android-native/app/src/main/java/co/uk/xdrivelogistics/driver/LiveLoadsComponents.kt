@@ -128,6 +128,40 @@ internal fun applyLiveLoadPreferenceAction(action: LiveLoadPreferenceAction): St
     LiveLoadPreferenceAction.RESTORE -> null
 }
 
+// ---------------------------------------------------------------------------
+// Quote submission validation helpers — pure functions, unit-testable on JVM
+// ---------------------------------------------------------------------------
+
+internal enum class QuoteValidationResult {
+    OK,
+    NO_JOB_SELECTED,
+    JOB_NOT_POSTED,
+    INVALID_AMOUNT,
+}
+
+/** Validates the inputs that must be satisfied before a quote can be submitted. */
+internal fun validateQuoteSubmission(
+    quoteJobId: String?,
+    jobs: List<DriverJob>,
+    amountText: String,
+): QuoteValidationResult {
+    val job = jobs.firstOrNull { it.id == quoteJobId }
+        ?: return QuoteValidationResult.NO_JOB_SELECTED
+    if (job.status.lowercase() != "posted") return QuoteValidationResult.JOB_NOT_POSTED
+    val amount = amountText.trim().toDoubleOrNull()
+    if (amount == null || amount <= 0.0) return QuoteValidationResult.INVALID_AMOUNT
+    return QuoteValidationResult.OK
+}
+
+/**
+ * Returns the job ID that would be submitted for a quote given the current state.
+ * The job ID is read from the explicitly opened quote context, not from a generic
+ * "last selected job" fallback, so the result is always tied to the job the driver
+ * tapped Quote on.
+ */
+internal fun resolveQuoteJobId(quoteJobId: String?, jobs: List<DriverJob>): String? =
+    jobs.firstOrNull { it.id == quoteJobId }?.id
+
 internal data class LiveLoadCardData(
     val companyName: String,
     val reference: String,

@@ -1105,6 +1105,7 @@ private fun ActionScreen(
             openQuoteFirst = state.actionEntryMode == ActionEntryMode.QUOTE,
             onSubmitQuote = onSubmitQuote,
             onSendMessage = { onSendNote("Message requested for ${selected.id.take(8).uppercase()}", true) },
+            isSubmitting = state.isSubmittingQuote,
         )
         return
     }
@@ -1133,9 +1134,9 @@ private fun ActionScreen(
             item { EmptyState("No job selected.", "Open a posted job from Nearby to view details or send a quote.") }
         } else {
             when (detailTab) {
-                "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote) }
+                "Summary" -> item { JobSummaryPanel(selected, onSubmitQuote, state.isSubmittingQuote) }
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
-                "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote) }
+                "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote, state.isSubmittingQuote) }
                 "POD" -> item {
             PodPanel(
                 selected,
@@ -1171,7 +1172,7 @@ private fun ActionScreen(
 }
 
 @Composable
-private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> Unit) {
+private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     XDriveCard {
         Text("Summary", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         InfoLine("Job Ref", job.id.take(12).uppercase())
@@ -1187,7 +1188,7 @@ private fun JobSummaryPanel(job: DriverJob, onSubmitQuote: (String, String) -> U
         }
         if (job.isPosted()) {
             Spacer(Modifier.height(14.dp))
-            QuoteBox(onSubmitQuote)
+            QuoteBox(onSubmitQuote, isSubmitting)
         }
     }
 }
@@ -1253,6 +1254,7 @@ private fun PostedJobDetailScreen(
     openQuoteFirst: Boolean,
     onSubmitQuote: (String, String) -> Unit,
     onSendMessage: () -> Unit,
+    isSubmitting: Boolean = false,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -1298,7 +1300,7 @@ private fun PostedJobDetailScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                     }
-                    QuoteBoxLight(onSubmitQuote)
+                    QuoteBoxLight(onSubmitQuote, isSubmitting)
                 }
             }
         }
@@ -1363,7 +1365,7 @@ private fun PostedJobDetailScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                     }
-                    QuoteBoxLight(onSubmitQuote)
+                    QuoteBoxLight(onSubmitQuote, isSubmitting)
                 }
             }
         }
@@ -1456,7 +1458,7 @@ private fun FeedbackLine(label: String, positive: String, neutral: String, negat
 }
 
 @Composable
-private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
+private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     var amount by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     val fieldText = Color(0xFF202231)
@@ -1509,7 +1511,7 @@ private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
     Spacer(Modifier.height(8.dp))
     Button(
         onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true,
+        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true && !isSubmitting,
         modifier = Modifier.fillMaxWidth().height(48.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Color(0xFF111217)),
         shape = RoundedCornerShape(999.dp),
@@ -1517,14 +1519,14 @@ private fun QuoteBoxLight(onSubmitQuote: (String, String) -> Unit) {
 }
 
 @Composable
-private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSubmitQuote: (String, String) -> Unit) {
+private fun JobStatusPanel(job: DriverJob, onMoveStatus: (String) -> Unit, onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     XDriveCard {
         Text("Status History", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
         if (job.isPosted()) {
             Text("This job is posted for driver quotes. Submit a quote; status workflow starts after the job is awarded.", color = TextSecondary, lineHeight = 20.sp)
             Spacer(Modifier.height(12.dp))
-            QuoteBox(onSubmitQuote)
+            QuoteBox(onSubmitQuote, isSubmitting)
         } else {
             StatusTimeline(job.driverStatusKey())
             Spacer(Modifier.height(12.dp))
@@ -1645,7 +1647,7 @@ private fun PodPanel(
 }
 
 @Composable
-private fun QuoteBox(onSubmitQuote: (String, String) -> Unit) {
+private fun QuoteBox(onSubmitQuote: (String, String) -> Unit, isSubmitting: Boolean = false) {
     var amount by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     Text("Quote this job", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -1667,7 +1669,7 @@ private fun QuoteBox(onSubmitQuote: (String, String) -> Unit) {
     Spacer(Modifier.height(10.dp))
     Button(
         onClick = { onSubmitQuote(amount, message) },
-        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true,
+        enabled = amount.toDoubleOrNull()?.let { it > 0.0 } == true && !isSubmitting,
         modifier = Modifier.fillMaxWidth(),
         colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
         shape = RoundedCornerShape(14.dp),
