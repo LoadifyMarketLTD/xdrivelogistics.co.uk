@@ -17,6 +17,17 @@ jobs:
   build-and-lint:
     name: Build & Lint
     runs-on: ubuntu-latest
+    # Run when web or shared root files change.
+    # Always runs on push to the default branch to keep the baseline green.
+    if: |
+      github.event_name == 'push' ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:web') ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross') ||
+      (
+        !contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') &&
+        !contains(toJson(github.event.pull_request.labels.*.name), 'scope:android') &&
+        !contains(toJson(github.event.pull_request.labels.*.name), 'scope:supabase')
+      )
     permissions:
       contents: read
 
@@ -97,6 +108,11 @@ jobs:
   expo-driver-typecheck:
     name: Expo Driver Typecheck
     runs-on: ubuntu-latest
+    # Run when Expo files or root shared dependencies change.
+    if: |
+      github.event_name == 'push' ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
     permissions:
       contents: read
 
