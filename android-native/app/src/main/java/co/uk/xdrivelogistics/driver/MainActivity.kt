@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -96,16 +97,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val Navy = Color(0xFF070B14)
-private val Navy2 = Color(0xFF0D1424)
-private val Panel = Color(0xFF131D33)
-private val Border = Color(0xFF24324D)
-private val Blue = Color(0xFF0057D9)
-private val Yellow = Color(0xFFFFD200)
-private val TextPrimary = Color(0xFFF8FAFC)
-private val TextSecondary = Color(0xFFA9B7D0)
-private val Danger = Color(0xFFFF5C7A)
-private val Success = Color(0xFF25D987)
+// Colour aliases — single source of truth is XDriveTheme.kt
+private val Navy = XDriveTheme.Background
+private val Navy2 = XDriveTheme.Canvas
+private val Panel = XDriveTheme.Surface
+private val Border = XDriveTheme.Border
+private val Blue = XDriveTheme.Navy
+private val Yellow = XDriveTheme.Yellow
+private val TextPrimary = XDriveTheme.TextPrimary
+private val TextSecondary = XDriveTheme.TextSecondary
+private val Danger = XDriveTheme.Danger
+private val Success = XDriveTheme.Success
 
 private data class ComplianceDocOption(
     val label: String,
@@ -491,7 +493,8 @@ private fun DriverAppShell(
             .fillMaxSize()
             .background(Navy)
             .statusBarsPadding()
-            .navigationBarsPadding()
+            // navigationBarsPadding is handled by BottomNav so its background
+            // extends behind the system gesture bar; do not apply it here.
     ) {
         AppHeader(
             title = state.headerTitle(),
@@ -1801,8 +1804,21 @@ private fun ProfileScreen(
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(state.profile?.displayName?.ifBlank { "Driver" } ?: "Driver", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                        Text(state.profile?.email?.ifBlank { state.session?.email ?: "-" } ?: "-", color = TextSecondary)
+                        Text(
+                            state.profile?.displayName?.ifBlank { "Driver" } ?: "Driver",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            state.profile?.email?.ifBlank { state.session?.email ?: "-" } ?: "-",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     BadgeText("Active", Success)
                 }
@@ -2086,25 +2102,33 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
         modifier = Modifier
             .fillMaxWidth()
             .background(Navy2)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            // navigationBarsPadding here (not on the outer Column) so Navy2 background
+            // extends visually behind the system gesture indicator on Android 10+ devices
+            // while label content remains above it.
+            .navigationBarsPadding()
+            .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         tabs.forEach { tab ->
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = XDriveTheme.BottomNavItemMinHeight)
                     .clip(RoundedCornerShape(14.dp))
                     .background(if (tab == selected) Color(0xFF17243F) else Color.Transparent)
                     .clickable { onTabChange(tab) }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 10.dp, horizontal = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     tab.navLabel(activeCount),
                     color = if (tab == selected) Yellow else TextSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = if (tab == selected) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

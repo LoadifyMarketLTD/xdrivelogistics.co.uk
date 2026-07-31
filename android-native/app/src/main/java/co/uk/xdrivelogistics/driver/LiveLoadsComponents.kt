@@ -40,14 +40,15 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val LiveLoadsCardBackground = Color(0xFF0D1424)
-private val LiveLoadsCardBorder = Color(0xFF24324D)
-private val LiveLoadsPrimary = Color(0xFFF8FAFC)
-private val LiveLoadsSecondary = Color(0xFFA9B7D0)
-private val LiveLoadsYellow = Color(0xFFFFD200)
-private val LiveLoadsSuccess = Color(0xFF25D987)
-private val LiveLoadsDanger = Color(0xFFFF5C7A)
-private val LiveLoadsChip = Color(0xFF1C2947)
+// Colour aliases — single source of truth is XDriveTheme.kt
+private val LiveLoadsCardBackground = XDriveTheme.Canvas
+private val LiveLoadsCardBorder = XDriveTheme.Border
+private val LiveLoadsPrimary = XDriveTheme.TextPrimary
+private val LiveLoadsSecondary = XDriveTheme.TextSecondary
+private val LiveLoadsYellow = XDriveTheme.Yellow
+private val LiveLoadsSuccess = XDriveTheme.Success
+private val LiveLoadsDanger = XDriveTheme.Danger
+private val LiveLoadsChip = XDriveTheme.Chip
 
 internal enum class LiveLoadsBox { LIVE, PINNED, HIDDEN }
 
