@@ -17,6 +17,8 @@
     "audit:interactive": "node ./scripts/audit-interactive-elements.mjs",
     "preview": "next start",
     "validate:supabase-env": "node ./scripts/validate-supabase-env.mjs",
+    "audit:auto": "node ./scripts/run-automated-audit.mjs",
+    "audit:auto:fast": "node ./scripts/run-automated-audit.mjs --skip-tests --skip-lint",
     "test:unit": "vitest run"
   },
   "dependencies": {
