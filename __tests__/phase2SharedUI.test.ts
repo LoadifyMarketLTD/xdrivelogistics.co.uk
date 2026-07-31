@@ -71,7 +71,7 @@ describe('Phase 2 Shared UI — authoritative company and workspace context', ()
     expect(result).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
-  it('fails closed when multiple active memberships exist', () => {
+  it('resolves to the explicitly requested company when multiple active memberships exist', () => {
     const result = resolveSharedUiContext({
       memberships: [
         membership({ companyId: 'company-a' }),
@@ -82,7 +82,11 @@ describe('Phase 2 Shared UI — authoritative company and workspace context', ()
       userId: 'user-1',
     });
 
-    expect(result).toEqual({ ok: false, error: 'multiple_active_memberships' });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.current?.companyId).toBe('company-a');
+      expect(result.snapshot.current?.activeWorkspace).toBe('carrier_fleet');
+    }
   });
 
   it('keeps a valid Company Driver on the shared /driver surface', () => {
