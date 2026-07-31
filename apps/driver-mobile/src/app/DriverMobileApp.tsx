@@ -7,7 +7,7 @@ import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-c
 import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
-import { isSupabaseConfigured, supabase } from '../auth/supabase';
+import { supabase } from '../auth/supabase';
 import { getNextStep } from '../jobs/statusFlow';
 import type { DriverJob, JobScope, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
@@ -374,10 +374,6 @@ export default function DriverMobileApp() {
   }, [flushQueue, token]);
 
   async function signIn(email: string, password: string) {
-    if (!isSupabaseConfigured) {
-      setMessage('Supabase mobile config is missing.');
-      return;
-    }
     setLoading(true);
     setMessage('');
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
