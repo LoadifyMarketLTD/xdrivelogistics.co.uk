@@ -3,7 +3,7 @@
 > **DEVELOPMENT FREEZE** — Platform entered Production Certification phase.
 > No new features unless required to fix a defect identified during certification.
 
-## Audit Suite — 20 Workbooks
+## Audit Suite — 22 Workbooks
 
 | # | Workbook | File | Status |
 |---|---|---|---|
@@ -27,6 +27,8 @@
 | 18 | API Contract Audit | [18-api-contract-audit.md](18-api-contract-audit.md) | 🔲 Not Started |
 | 19 | UX/UI Consistency Audit | [19-ux-ui-consistency.md](19-ux-ui-consistency.md) | 🔲 Not Started |
 | 20 | Production Release Checklist | [20-production-release-checklist.md](20-production-release-checklist.md) | 🔲 Not Started |
+| 21 | Inventar Master v1 | [21-inventar-master-v1.md](21-inventar-master-v1.md) | 🟡 In Progress |
+| 22 | Gap & Contradictions v1 | [22-gap-contradictions-v1.md](22-gap-contradictions-v1.md) | 🟡 In Progress |
 
 ## Legend
 
@@ -41,7 +43,7 @@ Severity: `CRITICAL` · `MAJOR` · `MINOR` · `COSMETIC`
 
 ## Mandatory Execution Order
 
-1. **Phase 1** — Complete all 20 audit workbooks using real application, real backend, real database.
+1. **Phase 1** — Complete all 22 audit workbooks using real application, real backend, real database.
 2. **Phase 2** — Fix all CRITICAL and MAJOR defects. No regression allowed.
 3. **Phase 3** — Complete `20-production-release-checklist.md` — every module marked PASS or FAIL (no assumptions).
 
