@@ -30,10 +30,12 @@ type FlagDefinition = {
   key: string;
   label: string;
   description: string;
-  category: 'Marketplace' | 'Operations' | 'Finance' | 'Compliance' | 'Platform';
+  category: 'Marketplace' | 'Operations' | 'Finance' | 'Compliance' | 'Platform' | 'Governance';
   enabled: boolean;
 };
 
+// Canonical list — must stay in sync with the seed in
+// supabase/migrations/20260725170000_platform_feature_flags.sql.
 const FLAG_DEFINITIONS: FlagDefinition[] = [
   {
     key: 'exchange_marketplace',
@@ -73,37 +75,50 @@ const FLAG_DEFINITIONS: FlagDefinition[] = [
   {
     key: 'stripe_billing_future_phase',
     label: 'Stripe Billing (Future Phase)',
-    description: 'Stripe checkout/connect automation is explicitly out of MVP scope.',
+    description: 'Stripe checkout/connect automation — explicitly out of MVP scope.',
     category: 'Finance',
     enabled: false,
   },
   {
     key: 'notifications',
     label: 'Notification System',
-    description: 'Real-time notifications for job events, bids, and compliance alerts.',
+    description: 'In-app and email notifications for job events.',
     category: 'Platform',
     enabled: true,
   },
   {
-    key: 'driver_tracking',
-    label: 'Live Driver Tracking',
-    description: 'GPS location tracking for active driver deliveries.',
-    category: 'Operations',
+    key: 'document_review',
+    label: 'Document Review Queue',
+    description: 'Admin can review and approve uploaded compliance documents.',
+    category: 'Compliance',
     enabled: true,
   },
   {
-    key: 'public_quote_requests',
-    label: 'Public Quote Requests',
-    description: 'Anonymous visitors can request quotes via the marketing site.',
+    key: 'broker_carrier_network',
+    label: 'Broker Carrier Network',
+    description: 'Brokers can invite and manage a private carrier network.',
     category: 'Marketplace',
     enabled: true,
   },
   {
-    key: 'compliance_gating',
-    label: 'Compliance Gating',
-    description:
-      'Blocks job posting for companies with outstanding compliance issues.',
-    category: 'Compliance',
+    key: 'driver_mobile_app',
+    label: 'Driver Mobile App',
+    description: 'Native Android/iOS app for driver job management.',
+    category: 'Operations',
+    enabled: true,
+  },
+  {
+    key: 'company_suspension',
+    label: 'Company Suspension Controls',
+    description: 'Super admin can suspend and reinstate companies.',
+    category: 'Governance',
+    enabled: true,
+  },
+  {
+    key: 'audit_logging',
+    label: 'Audit Logging',
+    description: 'All governance actions are written to the owner audit log.',
+    category: 'Platform',
     enabled: true,
   },
 ];
@@ -174,10 +189,10 @@ export async function GET(request: NextRequest) {
   if (section === 'feature-flags') {
     const { data, error } = await supabaseAdmin
       .from('platform_feature_flags')
-      .select('key, enabled');
+      .select('key, is_enabled');
     if (error) return respond(500, { error: error.message });
 
-    const enabledByKey = new Map((data ?? []).map((row) => [row.key, Boolean(row.enabled)]));
+    const enabledByKey = new Map((data ?? []).map((row) => [row.key, Boolean(row.is_enabled)]));
     return respond(200, {
       section,
       flags: FLAG_DEFINITIONS.map((flag) => ({
@@ -282,7 +297,7 @@ export async function PATCH(request: NextRequest) {
         label: definition.label,
         description: definition.description,
         category: definition.category,
-        enabled: flag.enabled,
+        is_enabled: flag.enabled,
         updated_by: owner.id,
       };
     });
