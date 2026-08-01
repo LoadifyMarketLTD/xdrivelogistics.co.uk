@@ -35,16 +35,16 @@ Supporting artifacts:
 
 ## Related P0 runtime defect ledger — `owner_audit_log.target_type`
 
-> **Live body captured 2026-08-01.** The live Production `set_company_status_governance` already inserts `target_type = 'company'`. The function is PARTIALLY ALIGNED: `target_type` is correct; `target_id` and `target_name` are absent from the INSERT; the live body has two enum casts (`SELECT c.status::text`, `UPDATE ... status = $1::company_status`) that the staged patch `20260801153000` would silently drop — making it **UNSAFE AS WRITTEN**. The full diff is in the migration header. The next required read-only query is the `owner_audit_log` column nullability query below.
+> **Live body captured 2026-08-01.** The live Production `set_company_status_governance` already inserts `target_type = 'company'`. The function is **PARTIAL / OPTIONAL LATER ENRICHMENT**: `target_type` is already correct, `target_id` and `target_name` are absent, and the old `20260801153000` patch is now superseded no-op because it would have dropped two live enum casts. The only remaining question is whether the later safe enrichment `20260801160500` is needed at all after the `owner_audit_log` column-nullability query.
 
 This runbook tracks driver-commercial reconciliation, but the same Production incident window also contains a separate P0 runtime defect for `public.owner_audit_log.target_type`. Keep that remediation narrow and evidence-driven:
 
 | Function / concern | Live Production evidence | Repo-canonical evidence | Status | Safest next action |
 |---|---|---|---|---|
-| `set_company_status_governance(uuid,uuid,text,text,text)` | **Live body captured 2026-08-01.** Already inserts `target_type='company'`. Omits `target_id`/`target_name`. Has `::text` and `::company_status` enum casts absent from repo/patch. | `075` INSERT omits `target_type`, `target_id`, `target_name`; omits both enum casts. Migration `20260801153000` adds target fields but drops both casts — **UNSAFE AS WRITTEN**. | **PARTIALLY ALIGNED / PATCH UNSAFE** | Run `owner_audit_log` column nullability query below. If `target_id` NOT NULL: author reworked patch preserving both enum casts. If nullable: mark ALIGNED; retire `20260801153000`. |
+| `set_company_status_governance(uuid,uuid,text,text,text)` | **Live body captured 2026-08-01.** Already inserts `target_type='company'`. Omits `target_id`/`target_name`. Has `::text` and `::company_status` enum casts absent from repo/patch. | `075` INSERT omits `target_type`, `target_id`, `target_name`; omits both enum casts. Migration `20260801153000` adds target fields but drops both casts — **UNSAFE AS WRITTEN**. | **PARTIAL / OPTIONAL LATER ENRICHMENT** | Run `owner_audit_log` column nullability query below. If `target_id` NOT NULL: author reworked patch preserving both enum casts. If nullable: mark ALIGNED; retire `20260801153000`. |
 | `owner_review_compliance_document(uuid,text,uuid,text,text)` | Live body explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`; current semantic value is `compliance_document`. | Consistent with live. | **ALIGNED** | Preserve the live semantic contract unless a separate approved change says otherwise. |
 | `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` INSERT omits `target_type` and `target_id`; this is the confirmed NOT NULL failure source. | Migration `078` contains the bug; migration `20260801091000` is the staged narrow patch. | **DIVERGENT — PATCH STAGED, NOT YET APPLIED** | Apply only `20260801091000_fix_owner_audit_log_target_type.sql` after staging validation and Platform Owner approval. Full runbook: `supabase/ops/marketplace-governance-production-runbook.md`. |
-| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | The Production read-only function query returned no row for this exact signature. Live status is unconfirmed. | Migration `20260730100000` defines the function and its `owner_audit_log` INSERT **omits `target_type` and `target_id`** — same bug class as the marketplace function. | **BLOCKED (PRODUCTION) / DIVERGENT (REPO-CANONICAL)** | Run the single-signature lookup in the incident report. If the function exists in Production and omits `target_type`, author a narrow patch (adding `target_type = 'fraud_case'` and `target_id = p_case_id`). Do not patch without live evidence. |
+| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Raw Production function output for the exact signature is still missing. Live status remains unproven. | Repo migration `20260730100000` omits `target_type` and `target_id`. `20260801130000` is a **SUPERSEDED NO-OP**; `20260801163000` is the blocked candidate patch. | **BLOCKED (PRODUCTION) / DIVERGENT (REPO-CANONICAL)** | Run the exact single-signature function query plus the `fraud_review_cases` base-table query. If both prove the bug exists live, stage-validate `20260801163000`; otherwise classify it N/A. |
 
 Read-only column query for `owner_audit_log` — run and archive output (next required step):
 
@@ -56,7 +56,7 @@ WHERE table_schema = 'public'
 ORDER BY ordinal_position;
 ```
 
-Single read-only SQL for `owner_decide_fraud_review_case`:
+Single read-only SQL for `owner_decide_fraud_review_case` (first live-evidence gate):
 
 ```sql
 SELECT
@@ -68,6 +68,24 @@ WHERE n.nspname = 'public'
   AND p.proname = 'owner_decide_fraud_review_case'
   AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
 ```
+
+Additional live-evidence gate for `20260801163000`:
+
+```sql
+SELECT table_name, table_type
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'fraud_review_cases';
+```
+
+Decision matrix:
+
+- function absent -> `20260801163000` is **NOT APPLICABLE**
+- function already writes `target_type = fraud_case` -> **NOT APPLICABLE**
+- `fraud_review_cases` absent / not `BASE TABLE` -> **NOT APPLICABLE** and separate schema-drift incident
+- function exists, still omits `target_type`, and dependencies match -> stage-validate `20260801163000`; still not approved for direct Production apply
+
+Full blocked runbook: `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/fraud-review-case-audit-target-production-runbook.md`
 
 ---
 
