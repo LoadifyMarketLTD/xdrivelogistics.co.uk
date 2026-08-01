@@ -100,24 +100,14 @@ export default function LoginPage() {
           />
         </section>
         <aside className="login-form-panel">
-        <div className="login-form-inner">
-        <div className="login-reference-card" aria-hidden="true">
-          <Image
-            src="/login-app-reference.jpeg"
-            alt=""
-            width={440}
-            height={248}
-            className="login-reference-image"
-            priority
-          />
-        </div>
-        <div className="login-logo-row">
-          <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={168} height={40} priority />
-        </div>
-        <div className="login-form-header">
-          <h2>{showReset ? 'Reset your password' : 'Welcome Back'}</h2>
-          <p>{showReset ? 'Enter your email to receive reset instructions' : 'Sign in to your account'}</p>
-        </div>
+          <div className="login-form-inner">
+            <div className="login-logo-row">
+              <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={168} height={40} priority />
+            </div>
+            <div className="login-form-header">
+              <h2>{showReset ? 'Reset your password' : 'Welcome Back'}</h2>
+              <p>{showReset ? 'Enter your email to receive reset instructions' : 'Sign in to your account'}</p>
+            </div>
 
         {showResetSuccess && !showReset && (
           <div className="login-message success">
@@ -284,21 +274,6 @@ export default function LoginPage() {
           width: 100%;
           max-width: 440px;
           margin: 0 auto;
-        }
-
-        .login-reference-card {
-          margin-bottom: 1.25rem;
-          border-radius: 1rem;
-          overflow: hidden;
-          border: 1px solid #e5e7eb;
-          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-          background: #f8fafc;
-        }
-
-        .login-reference-image {
-          display: block;
-          width: 100%;
-          height: auto;
         }
 
         .login-logo-row {
