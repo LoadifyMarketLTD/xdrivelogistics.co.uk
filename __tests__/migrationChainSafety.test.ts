@@ -54,3 +54,31 @@ describe('retired driver commercial catch-up migration', () => {
     expect(archived).toContain('INSERT INTO public.notification_events');
   });
 });
+
+describe('archived fraud review audit-target migration', () => {
+  it('keeps the automatic migration file as no-op and archives the candidate patch externally', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260801163000_p0_fix_fraud_review_case_audit_target_type.sql',
+    );
+    const archived = readRepoFile(
+      'docs/ops/20260801163000_p0_fix_fraud_review_case_audit_target_type.historical.sql',
+    );
+
+    expect(migration).toContain('archived as NOT APPLICABLE');
+    expect(migration).toContain('intentionally performs no schema or data changes');
+    expect(migration).toMatch(/RAISE NOTICE/i);
+
+    expect(migration).not.toMatch(/CREATE OR REPLACE FUNCTION/i);
+    expect(migration).not.toMatch(/^\s*ALTER\s+TABLE/im);
+    expect(migration).not.toMatch(/^\s*UPDATE\s+public\./im);
+    expect(migration).not.toMatch(/^\s*INSERT\s+INTO\s+public\./im);
+    expect(migration).not.toMatch(/^\s*DELETE\s+FROM\s+public\./im);
+    expect(migration).not.toMatch(/^\s*GRANT\s+/im);
+    expect(migration).not.toMatch(/^\s*REVOKE\s+/im);
+    expect(migration).not.toMatch(/NOTIFY\s+pgrst/i);
+
+    expect(archived).toContain('CREATE OR REPLACE FUNCTION public.owner_decide_fraud_review_case(');
+    expect(archived).toMatch(/INSERT INTO public\.owner_audit_log[\s\S]*?target_type[\s\S]*?'fraud_case'/);
+    expect(archived).toContain('GRANT EXECUTE ON FUNCTION public.owner_decide_fraud_review_case(uuid, uuid, text, text) TO service_role');
+  });
+});

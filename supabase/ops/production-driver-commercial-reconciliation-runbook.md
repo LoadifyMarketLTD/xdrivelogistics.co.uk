@@ -44,7 +44,7 @@ This runbook tracks driver-commercial reconciliation, but the same Production in
 | `set_company_status_governance(uuid,uuid,text,text,text)` | **Live body captured 2026-08-01.** Already inserts `target_type='company'`. Omits `target_id`/`target_name`. Has `::text` and `::company_status` enum casts absent from repo/patch. | `075` INSERT omits `target_type`, `target_id`, `target_name`; omits both enum casts. Migration `20260801153000` adds target fields but drops both casts — **UNSAFE AS WRITTEN**. | **PARTIAL / OPTIONAL LATER ENRICHMENT** | Run `owner_audit_log` column nullability query below. If `target_id` NOT NULL: author reworked patch preserving both enum casts. If nullable: mark ALIGNED; retire `20260801153000`. |
 | `owner_review_compliance_document(uuid,text,uuid,text,text)` | Live body explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`; current semantic value is `compliance_document`. | Consistent with live. | **ALIGNED** | Preserve the live semantic contract unless a separate approved change says otherwise. |
 | `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` INSERT omits `target_type` and `target_id`; this is the confirmed NOT NULL failure source. | Migration `078` contains the bug; migration `20260801091000` is the staged narrow patch. | **DIVERGENT — PATCH STAGED, NOT YET APPLIED** | Apply only `20260801091000_fix_owner_audit_log_target_type.sql` after staging validation and Platform Owner approval. Full runbook: `supabase/ops/marketplace-governance-production-runbook.md`. |
-| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Raw Production function output for the exact signature is still missing. Live status remains unproven. | Repo migration `20260730100000` omits `target_type` and `target_id`. `20260801130000` is a **SUPERSEDED NO-OP**; `20260801163000` is the blocked candidate patch. | **BLOCKED (PRODUCTION) / DIVERGENT (REPO-CANONICAL)** | Run the exact single-signature function query plus the `fraud_review_cases` base-table query. If both prove the bug exists live, stage-validate `20260801163000`; otherwise classify it N/A. |
+| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Exact Production lookup via `to_regprocedure('public.owner_decide_fraud_review_case(uuid,uuid,text,text)')` returned zero rows, and table inventory returned only `profiles` and `onboarding_applications` (`fraud_review_cases` absent). | Repo migration `20260730100000` omits `target_type` and `target_id`. `20260801130000` is a **SUPERSEDED NO-OP**; `20260801163000` is now archived notice-only no-op with historical SQL preserved under `docs/ops/20260801163000_p0_fix_fraud_review_case_audit_target_type.historical.sql`. | **NOT APPLICABLE (PRODUCTION) / ARCHIVED NO-OP (AUTOMATIC CHAIN)** | No staging or Production approval is required for this migration because there is no live target object to patch. |
 
 Read-only column query for `owner_audit_log` — run and archive output (next required step):
 
@@ -78,14 +78,14 @@ WHERE table_schema = 'public'
   AND table_name = 'fraud_review_cases';
 ```
 
-Decision matrix:
+Decision closure (captured):
 
-- function absent -> `20260801163000` is **NOT APPLICABLE**
-- function already writes `target_type = fraud_case` -> **NOT APPLICABLE**
-- `fraud_review_cases` absent / not `BASE TABLE` -> **NOT APPLICABLE** and separate schema-drift incident
-- function exists, still omits `target_type`, and dependencies match -> stage-validate `20260801163000`; still not approved for direct Production apply
+- exact function-signature lookup returned zero rows
+- `fraud_review_cases` is absent from `information_schema.tables`
+- `20260801163000` is therefore **NOT APPLICABLE / archived automatic-chain no-op**
+- no staging or Production approval is required for this migration
 
-Full blocked runbook: `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/fraud-review-case-audit-target-production-runbook.md`
+Full archived runbook: `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/fraud-review-case-audit-target-production-runbook.md`
 
 ---
 
