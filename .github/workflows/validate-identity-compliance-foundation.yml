@@ -12,6 +12,7 @@ on:
       - "supabase/migrations/20260801080000_canonical_owner_audit_log_target_columns.sql"
       - "supabase/migrations/20260801080500_fix_owner_review_compliance_document_function.sql"
       - "supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql"
+      - "supabase/migrations/20260801210000_canonical_fraud_review_audit_target_fresh_db.sql"
       - "supabase/tests/identity_compliance_atomicity.sql"
       - "supabase/tests/identity_compliance_migration_preflight.sql"
       - ".github/workflows/validate-identity-compliance-foundation.yml"
@@ -66,6 +67,7 @@ jobs:
           MIGRATION_OWNER_AUDIT_TARGET_COLUMNS="supabase/migrations/20260801080000_canonical_owner_audit_log_target_columns.sql"
           MIGRATION_FIX_OWNER_REVIEW="supabase/migrations/20260801080500_fix_owner_review_compliance_document_function.sql"
           MIGRATION_FIX_TARGET_TYPE="supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql"
+          MIGRATION_FRESH_DB_FRAUD_FIX="supabase/migrations/20260801210000_canonical_fraud_review_audit_target_fresh_db.sql"
 
           bootstrap_base_schema() {
             psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -291,6 +293,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_AUDIT_TARGET_COLUMNS}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FIX_OWNER_REVIEW}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FIX_TARGET_TYPE}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FRESH_DB_FRAUD_FIX}"
 
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_atomicity.sql
