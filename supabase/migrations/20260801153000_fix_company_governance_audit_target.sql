@@ -1,14 +1,45 @@
 -- Migration 20260801153000 — Narrow repair for company-governance owner_audit_log targets
 --
--- Live runtime evidence confirmed the current owner_audit_log.target_type NOT NULL
--- violation is emitted by set_company_status_governance(uuid, uuid, text, text, text).
--- The canonical body in 075_super_admin_governance_layer.sql writes an audit row
--- without target_type, target_id, or target_name even though the live schema
--- requires those target columns.
+-- !! DO NOT APPLY TO PRODUCTION !!
+-- This migration has NOT been validated against the live Production function body.
+-- The claim of "live runtime evidence confirmed" was incorrect at time of authoring.
+-- Contradictory evidence exists in the repo:
+--   - docs/audit/20-production-release-checklist-final.md and
+--     docs/incidents/2026-08-01-production-login-blocker-driver-schema-drift.md and
+--     supabase/ops/production-driver-commercial-reconciliation-runbook.md
+--   all claimed set_company_status_governance was ALIGNED (target_type already present).
+--   Those ALIGNED claims have been retracted — the live body has never been captured.
+--
+-- Repo-canonical analysis (075_super_admin_governance_layer.sql:150-167) shows the
+-- function body omits target_type, target_id, and target_name from the owner_audit_log
+-- INSERT, which would emit a NOT NULL violation.  However, it is unknown whether the
+-- live Production function matches that repo body or has already been corrected manually.
+--
+-- Required before this migration may be applied:
+--   1. Capture the exact live Production function body with the read-only SQL below.
+--   2. Diff the live body line-by-line against this migration.
+--   3. Prove the failing action path from the Production error log.
+--   4. Validate on a disposable/staging database loaded with the captured live body.
+--   5. Obtain Platform Owner written approval.
+--
+-- Read-only SQL to run first (archive raw output before proceeding):
+--
+--   SELECT
+--     p.oid::regprocedure AS function_signature,
+--     pg_get_function_arguments(p.oid) AS arguments,
+--     pg_get_function_result(p.oid) AS returns,
+--     p.prosecdef AS security_definer,
+--     array_to_string(p.proconfig, E'\n') AS proc_config,
+--     pg_get_functiondef(p.oid) AS function_definition
+--   FROM pg_proc p
+--   JOIN pg_namespace n ON n.oid = p.pronamespace
+--   WHERE n.nspname = 'public'
+--     AND p.proname = 'set_company_status_governance'
+--     AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text, text';
 --
 -- This migration intentionally patches only set_company_status_governance while
 -- preserving its business rules, SECURITY DEFINER posture, search_path, return
--- type, grants, and trigger-coupled behavior.
+-- type, grants, and trigger-coupled behavior — subject to live-body validation.
 
 BEGIN;
 
