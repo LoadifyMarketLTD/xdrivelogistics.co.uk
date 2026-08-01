@@ -180,4 +180,15 @@ describe('fraud review case audit-target patch', () => {
     expect(superseded).toContain('DO NOT APPLY');
     expect(superseded).toContain('SUPERSEDED BY 20260801163000');
   });
+
+  it('superseded migration 20260801130000 contains no dangerous runtime SQL', () => {
+    const superseded = readRepoFile(SUPERSEDED_MIGRATION);
+
+    expect(superseded).not.toMatch(/CREATE OR REPLACE FUNCTION/i);
+    expect(superseded).not.toMatch(/^\s*UPDATE\s+public\./im);
+    expect(superseded).not.toMatch(/^\s*INSERT\s+INTO\s+public\./im);
+    expect(superseded).not.toMatch(/^\s*GRANT\s+/im);
+    expect(superseded).not.toMatch(/^\s*REVOKE\s+/im);
+    expect(superseded).not.toMatch(/^\s*ALTER\s+TABLE/im);
+  });
 });

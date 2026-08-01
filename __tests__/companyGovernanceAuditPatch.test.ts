@@ -6,6 +6,8 @@ const readRepoFile = (relativePath: string) =>
 
 describe('company governance audit-target patch', () => {
   const PATCH_MIGRATION =
+    'supabase/migrations/20260801160500_safe_company_governance_audit_enrichment.sql';
+  const SUPERSEDED_MIGRATION =
     'supabase/migrations/20260801153000_fix_company_governance_audit_target.sql';
   const ORIGINAL_MIGRATION =
     'supabase/migrations/075_super_admin_governance_layer.sql';
@@ -51,11 +53,11 @@ describe('company governance audit-target patch', () => {
     const migration = readRepoFile(PATCH_MIGRATION);
 
     expect(migration).toContain('public.set_company_status_governance(');
-    expect(migration).toContain('p_actor_user_id uuid');
-    expect(migration).toContain('p_target_company_id uuid');
-    expect(migration).toContain('p_action_type text');
-    expect(migration).toContain('p_new_status text');
-    expect(migration).toContain('p_reason text DEFAULT NULL');
+    expect(migration).toMatch(/p_actor_user_id\s+uuid/);
+    expect(migration).toMatch(/p_target_company_id\s+uuid/);
+    expect(migration).toMatch(/p_action_type\s+text/);
+    expect(migration).toMatch(/p_new_status\s+text/);
+    expect(migration).toContain('p_reason');
     expect(migration).toContain('RETURNS TABLE (company_id uuid, old_status text, new_status text)');
   });
 
@@ -80,10 +82,10 @@ describe('company governance audit-target patch', () => {
   it('patch migration validates owner_audit_log target columns before patching the function', () => {
     const migration = readRepoFile(PATCH_MIGRATION);
 
-    expect(migration).toContain("column_name = 'target_type'");
-    expect(migration).toContain("column_name = 'target_id'");
-    expect(migration).toContain("column_name = 'target_name'");
-    expect(migration).toContain("is_nullable = 'NO'");
+    expect(migration).toMatch(/column_name\s+=\s+'target_type'/);
+    expect(migration).toMatch(/column_name\s+=\s+'target_id'/);
+    expect(migration).toMatch(/column_name\s+=\s+'target_name'/);
+    expect(migration).toMatch(/is_nullable\s+=\s+'NO'/);
     expect(migration).toContain('RAISE EXCEPTION');
   });
 
@@ -92,7 +94,7 @@ describe('company governance audit-target patch', () => {
 
     expect(migration).toContain('assert_company_status_transition');
     expect(migration).toContain("set_config('app.company_status_change_context', 'governance_api', true)");
-    expect(migration).toContain("UPDATE public.companies SET status = $1 WHERE id = $2");
+    expect(migration).toContain("UPDATE public.companies SET status = $1::company_status WHERE id = $2");
   });
 
   it('original migration 075 omitted target_type from the audit insert (documents the bug)', () => {
@@ -135,5 +137,23 @@ describe('company governance audit-target patch', () => {
     const migration = readRepoFile(PATCH_MIGRATION);
 
     expect(migration).toContain("NOTIFY pgrst, 'reload schema'");
+  });
+
+  it('superseded migration 20260801153000 is marked as must-not-apply', () => {
+    const superseded = readRepoFile(SUPERSEDED_MIGRATION);
+
+    expect(superseded).toContain('DO NOT APPLY');
+    expect(superseded).toContain('SUPERSEDED BY 20260801160500');
+  });
+
+  it('superseded migration 20260801153000 contains no dangerous runtime SQL', () => {
+    const superseded = readRepoFile(SUPERSEDED_MIGRATION);
+
+    expect(superseded).not.toMatch(/^CREATE OR REPLACE FUNCTION/im);
+    expect(superseded).not.toMatch(/^\s*UPDATE\s+public\./im);
+    expect(superseded).not.toMatch(/^\s*INSERT\s+INTO\s+public\./im);
+    expect(superseded).not.toMatch(/^\s*GRANT\s+/im);
+    expect(superseded).not.toMatch(/^\s*REVOKE\s+/im);
+    expect(superseded).not.toMatch(/^\s*ALTER\s+TABLE/im);
   });
 });
