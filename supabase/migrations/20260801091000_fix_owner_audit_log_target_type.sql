@@ -6,16 +6,16 @@
 --   • apply_marketplace_governance_action (migration 078)
 --   • owner_review_compliance_document (migration 20260801080500)
 --   • owner_decide_fraud_review_case (migration 20260730100000)
---   • super-admin support and compliance API routes (app-level)
 --
 -- Fix:
---   1. Add target_type with DEFAULT '' if missing (safety net for any caller
---      that is not yet updated).
+--   1. Ensure target_type exists as NOT NULL with no DEFAULT.
+--      An empty-string DEFAULT would silently hide future defective callers;
+--      every caller must supply a meaningful semantic value.
 --   2. Redefine all four DB functions to explicitly supply target_type.
 
 BEGIN;
 
--- ── 1. Ensure target_type column exists with a safe default ──────────────────
+-- ── 1. Ensure target_type column exists as NOT NULL with no DEFAULT ──────────
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -25,12 +25,12 @@ BEGIN
       AND column_name  = 'target_type'
   ) THEN
     ALTER TABLE public.owner_audit_log
-      ADD COLUMN target_type text NOT NULL DEFAULT '';
+      ADD COLUMN target_type text NOT NULL;
   ELSE
-    -- Column exists — ensure it has a DEFAULT so callers that omit it
-    -- do not crash until they are updated.
+    -- Column exists — remove any DEFAULT so every caller is forced to supply
+    -- a semantic value.  The four functions below all do so explicitly.
     ALTER TABLE public.owner_audit_log
-      ALTER COLUMN target_type SET DEFAULT '';
+      ALTER COLUMN target_type DROP DEFAULT;
   END IF;
 END $$;
 

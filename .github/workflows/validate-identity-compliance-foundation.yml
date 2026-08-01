@@ -9,6 +9,7 @@ on:
       - "supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
       - "supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
       - "supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
+      - "supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql"
       - "supabase/tests/identity_compliance_atomicity.sql"
       - "supabase/tests/identity_compliance_migration_preflight.sql"
       - ".github/workflows/validate-identity-compliance-foundation.yml"
@@ -60,6 +61,7 @@ jobs:
           MIGRATION_OWNER_DRIVER_BINDING="supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
           MIGRATION_BACKFILL="supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
           MIGRATION_COMPANY_DRIVER_FIX="supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
+          MIGRATION_FIX_TARGET_TYPE="supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql"
 
           bootstrap_base_schema() {
             psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -215,6 +217,9 @@ jobs:
           CREATE TABLE public.owner_audit_log (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             actor_user_id uuid NOT NULL REFERENCES auth.users(id),
+            target_type text NOT NULL,
+            target_id uuid,
+            target_name text,
             target_company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL,
             action_type text NOT NULL,
             old_status text,
@@ -279,6 +284,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_DRIVER_BINDING}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_BACKFILL}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_COMPANY_DRIVER_FIX}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FIX_TARGET_TYPE}"
 
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_atomicity.sql
