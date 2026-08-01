@@ -9,6 +9,9 @@ import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RES
 import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 
 export default function LoginPage() {
+  const primaryHeroImage = 'https://github.com/user-attachments/assets/30065a9b-7da1-4133-8747-859697e02f12';
+  const fallbackHeroImage = '/xdrive-login-hero.webp.jpeg';
+  const lastResortHeroImage = '/hero-dispatch-control.webp';
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -20,7 +23,7 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const [heroImageSrc, setHeroImageSrc] = useState('/xdrive-login-hero.webp.jpeg');
+  const [heroImageSrc, setHeroImageSrc] = useState(primaryHeroImage);
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
@@ -91,8 +94,10 @@ export default function LoginPage() {
             alt="XDrive Logistics hero"
             className="login-hero-image"
             onError={(event) => {
-              if (heroImageSrc !== '/hero-dispatch-control.webp') {
-                setHeroImageSrc('/hero-dispatch-control.webp');
+              if (heroImageSrc !== fallbackHeroImage) {
+                setHeroImageSrc(fallbackHeroImage);
+              } else if (heroImageSrc !== lastResortHeroImage) {
+                setHeroImageSrc(lastResortHeroImage);
               } else {
                 event.currentTarget.style.display = 'none';
               }
@@ -228,17 +233,20 @@ export default function LoginPage() {
     </div>
       <style jsx>{`
         .login-page {
-          width: 100vw;
-          height: 100vh;
+          width: 100%;
+          min-height: 100vh;
+          height: auto;
           margin: 0;
           padding: 0;
-          background: #ffffff;
-          overflow: hidden;
+          background: #f3f4f6;
+          overflow-x: hidden;
+          overflow-y: auto;
         }
 
         .login-shell {
-          width: 100vw;
-          height: 100vh;
+          width: 100%;
+          min-height: 100vh;
+          height: auto;
           display: grid;
           grid-template-columns: 70% 30%;
         }
@@ -265,8 +273,8 @@ export default function LoginPage() {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          height: 100vh;
-          min-width: 420px;
+          min-height: 100vh;
+          min-width: 380px;
           overflow-y: auto;
         }
 
