@@ -61,7 +61,7 @@ Each migration below is classified as exactly one of the required labels.
 | `20260801130000_fix_fraud_review_case_audit_target.sql` | **SUPERSEDED NO-OP** | Must remain an executable no-op. Superseded by `20260801163000_p0_fix_fraud_review_case_audit_target_type.sql`. |
 | `20260801153000_fix_company_governance_audit_target.sql` | **SUPERSEDED NO-OP** | Must remain an executable no-op. Superseded by `20260801160500_safe_company_governance_audit_enrichment.sql`. |
 | `20260801160500_safe_company_governance_audit_enrichment.sql` | **ACTIVE — candidate for later controlled apply** | Observability-only enrichment for `set_company_status_governance`; only relevant if Platform Owner wants the extra audit fields after live column/nullability confirmation. |
-| `20260801163000_p0_fix_fraud_review_case_audit_target_type.sql` | **BLOCKED PENDING LIVE EVIDENCE** | Do not apply until the two raw Production evidence gates below are supplied and the decision matrix is satisfied. |
+| `20260801163000_p0_fix_fraud_review_case_audit_target_type.sql` | **NOT APPLICABLE / ARCHIVED NO-OP** | Production evidence is decisive: `to_regprocedure('public.owner_decide_fraud_review_case(uuid,uuid,text,text)')` returned zero rows and `information_schema.tables` showed only `profiles` and `onboarding_applications` (no `fraud_review_cases`). The automatic-chain migration is now notice-only no-op; candidate SQL is archived at `docs/ops/20260801163000_p0_fix_fraud_review_case_audit_target_type.historical.sql`. |
 
 ### Superseded / no-op migrations that must remain non-destructive
 
@@ -81,13 +81,13 @@ The following status language is canonical for PR #326 and must stay consistent 
 | `owner_review_compliance_document(uuid,text,uuid,text,text)` | **ALIGNED** | Repo repair explicitly writes `target_type`, `target_id`, and `target_name`; no contradictory live evidence has been captured. | No claim that Production P0 is closed; keep as a controlled migration candidate only if rollout is still needed. |
 | `apply_marketplace_governance_action(uuid,uuid,text,text)` | **DIVERGENT — PATCH STAGED** | Live Production evidence shows the audit INSERT omits `target_type`; `20260801091000` is the narrow repair. | Staging validation + Platform Owner approval required before any Production SQL. |
 | `set_company_status_governance(uuid,uuid,text,text,text)` | **PARTIAL / OPTIONAL LATER ENRICHMENT** | Live body already writes `target_type='company'`, but omits `target_id`/`target_name`; old patch `20260801153000` was unsafe and is now superseded by no-op. `20260801160500` is an optional later enrichment only. | Run the `owner_audit_log` column-nullability query first. If `target_id` is nullable, Production SQL is not required. If not, treat `20260801160500` as a later controlled enhancement candidate only after staging. |
-| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | **BLOCKED (PRODUCTION) / DIVERGENT (REPO-CANONICAL)** | Repo migration `20260730100000` omits `target_type`, but the live Production function body has not been proven with raw output. `20260801130000` is superseded no-op; `20260801163000` is the blocked candidate. | Do not apply anything until raw Production function/table evidence is attached and the decision matrix below is resolved. |
+| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | **NOT APPLICABLE (PRODUCTION) / ARCHIVED NO-OP (AUTOMATIC CHAIN)** | Exact Production lookup via `to_regprocedure('public.owner_decide_fraud_review_case(uuid,uuid,text,text)')` returned zero rows; `information_schema.tables` returned only `profiles` and `onboarding_applications`, so `fraud_review_cases` is absent. `20260801163000` is archived as no-op and its candidate SQL is preserved historically. | No staging or Production approval is required for this migration because there is no live target object to patch. Do not apply patch SQL. |
 
 ---
 
-## Section 4 — Live-evidence gates for `20260801163000`
+## Section 4 — Closure evidence for `20260801163000`
 
-### Required raw Production queries
+### Captured Production outputs (decisive)
 
 ```sql
 SELECT pg_get_functiondef(oid)
@@ -95,27 +95,23 @@ FROM pg_proc
 WHERE oid = to_regprocedure(
   'public.owner_decide_fraud_review_case(uuid,uuid,text,text)'
 );
+-- Result: zero rows (no matching function signature in Production)
 ```
 
 ```sql
 SELECT table_name, table_type
 FROM information_schema.tables
 WHERE table_schema = 'public'
-  AND table_name = 'fraud_review_cases';
+  AND table_name IN ('fraud_review_cases', 'profiles', 'onboarding_applications')
+ORDER BY table_name;
+-- Result: profiles, onboarding_applications only; fraud_review_cases absent
 ```
 
-### Required decision matrix
+### Final classification
 
-| Raw result | Classification | Required next step |
-|---|---|---|
-| Function absent | **NOT APPLICABLE** | Do not apply `20260801163000`; document the function as absent in Production. |
-| Function exists and already writes `target_type = 'fraud_case'` | **NOT APPLICABLE** | Do not apply `20260801163000`; archive the raw function body as closure evidence. |
-| `fraud_review_cases` absent or not a `BASE TABLE` | **NOT APPLICABLE** | Do not apply `20260801163000`; open a separate schema-drift incident. |
-| Function exists, still omits `target_type`, and dependencies match | **BLOCKED PENDING LIVE EVIDENCE → ACTIVE CANDIDATE AFTER STAGING** | Treat `20260801163000` as a staging/disposable validation candidate only. It is still not approved for immediate Production apply. |
-
-### Current state
-
-**Gate status today:** still **BLOCKED**. No raw Production output for those exact queries is attached in the repository context available to this task.
+- Migration status: **NOT APPLICABLE / archived / automatic-chain no-op**
+- Runtime apply status: **must not be applied**
+- Approval requirement: **no staging or Production approval required for this migration** because there is no live target object to patch.
 
 ---
 
@@ -138,7 +134,7 @@ Production SQL guidance for this PR is split into narrow, evidence-driven runboo
 - Every previous **ALIGNED / PARTIAL / DIVERGENT / BLOCKED** statement for the `owner_audit_log` tracks is now normalized to Section 3 above.
 - No document in the updated closure packet recommends applying `20260801130000` or `20260801153000`.
 - No updated closure document claims the `target_type` P0 is closed in Production before runtime evidence and staging proof exist.
-- The fraud-review path is documented as **blocked**, not closed.
+- The fraud-review path is documented as **NOT APPLICABLE / archived no-op** with decisive Production evidence.
 
 ### Open reviewer gates that still block merge confidence
 
@@ -166,7 +162,7 @@ Before merge can be considered, all of the following must be true:
 - [ ] CI rerun on the final head and all required workflows conclude green
 - [ ] `20260801130000` still remains an executable no-op
 - [ ] `20260801153000` still remains an executable no-op
-- [ ] Raw Production evidence for `20260801163000` is attached or the migration is marked N/A from that raw evidence
+- [x] Raw Production evidence for `20260801163000` is attached and the migration is marked NOT APPLICABLE / archived no-op
 - [ ] Staging/disposable validation is attached for every still-active Production migration candidate
 - [ ] Unresolved review threads are either fixed or explicitly waived in writing by the Platform Owner
 - [ ] `mergeable_state` remains clean and no conflict with `main` is reported
