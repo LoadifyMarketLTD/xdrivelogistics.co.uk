@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   fromStorage: vi.fn(),
   createSignedUrl: vi.fn(),
   rpc: vi.fn(),
+  auditInsert: vi.fn(),
   onboardingRows: [] as Array<Record<string, unknown>>,
   documentFilePath: 'company/documents/test.pdf' as string | null,
   profileRole: 'owner',
@@ -32,6 +33,7 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
 
 import { POST as initOnboarding } from '../app/api/onboarding/init/route';
 import { POST as submitIndividualDriver } from '../app/api/onboarding/submit/individual-driver/route';
+import { GET as loadComplianceDocuments } from '../app/api/super-admin/compliance/documents/route';
 import { POST as viewComplianceDocument } from '../app/api/super-admin/compliance/documents/route';
 import { PATCH as reviewComplianceDocument } from '../app/api/super-admin/compliance/documents/route';
 import { PATCH as reviewFraudCase } from '../app/api/super-admin/compliance/fraud-cases/route';
@@ -50,6 +52,11 @@ const patchRequest = (url: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 
+const getRequest = (url: string) =>
+  new NextRequest(url, {
+    method: 'GET',
+  });
+
 beforeEach(() => {
   mocks.getBearerToken.mockReset();
   mocks.getUser.mockReset();
@@ -57,6 +64,7 @@ beforeEach(() => {
   mocks.fromStorage.mockReset();
   mocks.createSignedUrl.mockReset();
   mocks.rpc.mockReset();
+  mocks.auditInsert.mockReset();
   mocks.onboardingRows = [];
   mocks.documentFilePath = 'company/documents/test.pdf';
   mocks.profileRole = 'owner';
@@ -98,9 +106,14 @@ beforeEach(() => {
     ) {
       return {
         select: () => ({
+          order: () => ({
+            limit: async () => ({ data: [], error: null }),
+          }),
           eq: () => ({
             maybeSingle: async () => ({
-              data: mocks.documentFilePath ? { id: 'doc-1', file_path: mocks.documentFilePath } : null,
+              data: mocks.documentFilePath
+                ? { id: 'doc-1', doc_type: 'Operator Licence', file_path: mocks.documentFilePath }
+                : null,
               error: null,
             }),
           }),
@@ -110,7 +123,7 @@ beforeEach(() => {
 
     if (table === 'owner_audit_log') {
       return {
-        insert: async () => ({ error: null }),
+        insert: mocks.auditInsert,
       };
     }
 
@@ -130,6 +143,7 @@ beforeEach(() => {
   mocks.fromStorage.mockImplementation(() => ({
     createSignedUrl: mocks.createSignedUrl,
   }));
+  mocks.auditInsert.mockResolvedValue({ error: null });
 });
 
 describe('identity compliance route hardening', () => {
@@ -187,6 +201,33 @@ describe('identity compliance route hardening', () => {
     );
   });
 
+  it('uses atomic document-review RPC for reject decisions', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [{ document_id: 'doc-1', old_status: 'pending', new_status: 'rejected' }],
+      error: null,
+    });
+
+    const response = await reviewComplianceDocument(
+      patchRequest('http://localhost/api/super-admin/compliance/documents', {
+        documentFamily: 'company',
+        id: '11111111-1111-4111-8111-111111111111',
+        action: 'reject',
+        reason: 'Missing page',
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('rejected');
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'owner_review_compliance_document',
+      expect.objectContaining({
+        p_action: 'reject',
+        p_document_family: 'company',
+      }),
+    );
+  });
+
   it('maps atomic fraud decision conflicts to deterministic 409 responses', async () => {
     mocks.rpc.mockResolvedValue({
       data: null,
@@ -217,6 +258,27 @@ describe('identity compliance route hardening', () => {
     expect(response.status).toBe(200);
     expect(mocks.fromStorage).toHaveBeenCalledWith('onboarding-documents');
     expect(mocks.createSignedUrl).toHaveBeenCalledWith('company/app-1/proof.pdf', 300);
+    expect(mocks.auditInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor_user_id: 'user-1',
+        action_type: 'document_viewed',
+        target_type: 'company_document',
+        target_id: '11111111-1111-4111-8111-111111111111',
+        target_name: 'Operator Licence',
+      }),
+    );
+  });
+
+  it('loads compliance document list without audit insert failures', async () => {
+    const response = await loadComplianceDocuments(
+      getRequest('http://localhost/api/super-admin/compliance/documents?limit=10'),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.rows).toEqual([]);
+    expect(body.summary.total).toBe(0);
+    expect(mocks.auditInsert).not.toHaveBeenCalled();
   });
 
   it('accepts absolute storage URL only when bucket matches fallback bucket', async () => {

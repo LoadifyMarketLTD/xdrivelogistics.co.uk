@@ -1,0 +1,62 @@
+# CODEOWNERS — XDrive Logistics monorepo
+# Each line is a path pattern followed by the owner(s).
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Global fallback — Platform Owner approves anything not matched below
+# ──────────────────────────────────────────────────────────────────────────────
+*                                   @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# WEB — Next.js website and server API routes
+# ──────────────────────────────────────────────────────────────────────────────
+/app/                               @LoadifyMarketLTD
+/lib/                               @LoadifyMarketLTD
+/middleware.ts                      @LoadifyMarketLTD
+/public/                            @LoadifyMarketLTD
+/e2e/                               @LoadifyMarketLTD
+/__tests__/                         @LoadifyMarketLTD
+/next.config.mjs                    @LoadifyMarketLTD
+/tailwind.config.js                 @LoadifyMarketLTD
+/postcss.config.js                  @LoadifyMarketLTD
+/components.json                    @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EXPO_DRIVER — Expo React Native driver app
+# ──────────────────────────────────────────────────────────────────────────────
+/apps/driver-mobile/                @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ANDROID_NATIVE_DRIVER — Kotlin Android driver app
+# ──────────────────────────────────────────────────────────────────────────────
+/android-native/                    @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SUPABASE — Database migrations, RLS, edge functions, tests
+# ──────────────────────────────────────────────────────────────────────────────
+/supabase/                          @LoadifyMarketLTD
+/database/                          @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Shared root infrastructure — requires cross-product justification
+# ──────────────────────────────────────────────────────────────────────────────
+/package.json                       @LoadifyMarketLTD
+/package-lock.json                  @LoadifyMarketLTD
+/tsconfig.json                      @LoadifyMarketLTD
+/vitest.config.ts                   @LoadifyMarketLTD
+/playwright.config.ts               @LoadifyMarketLTD
+/eslint.config.js                   @LoadifyMarketLTD
+/.eslintrc.json                     @LoadifyMarketLTD
+/.nvmrc                             @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GitHub Actions — all workflow changes require Platform Owner approval
+# ──────────────────────────────────────────────────────────────────────────────
+/.github/                           @LoadifyMarketLTD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Documentation and governance
+# ──────────────────────────────────────────────────────────────────────────────
+/docs/                              @LoadifyMarketLTD
+/SECURITY.md                        @LoadifyMarketLTD
+/README.md                          @LoadifyMarketLTD

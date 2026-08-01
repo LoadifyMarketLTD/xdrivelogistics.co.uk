@@ -126,6 +126,13 @@ const sourceFor = (family: DocumentFamily) => {
   } as const;
 };
 
+const auditTargetTypeFor = (family: DocumentFamily) => `${family}_document`;
+
+const auditTargetNameFor = (family: DocumentFamily, docType: unknown, documentId: string) => {
+  const resolvedType = text(docType);
+  return resolvedType || `${family} document ${documentId}`;
+};
+
 const resolveStorageObject = (
   rawPath: string,
   fallbackBucket: string,
@@ -394,7 +401,7 @@ export async function POST(request: NextRequest) {
   const source = sourceFor(parsed.data.documentFamily);
   const { data, error } = await supabaseAdmin
     .from(source.table)
-    .select('id, file_path')
+    .select('id, doc_type, file_path')
     .eq('id', parsed.data.id)
     .maybeSingle();
 
@@ -422,6 +429,9 @@ export async function POST(request: NextRequest) {
 
   const { error: auditError } = await supabaseAdmin.from('owner_audit_log').insert({
     actor_user_id: owner.id,
+    target_type: auditTargetTypeFor(parsed.data.documentFamily),
+    target_id: parsed.data.id,
+    target_name: auditTargetNameFor(parsed.data.documentFamily, (data as DbRow).doc_type, parsed.data.id),
     target_company_id: null,
     action_type: 'document_viewed',
     old_status: '',
@@ -430,6 +440,7 @@ export async function POST(request: NextRequest) {
     metadata: {
       document_id: parsed.data.id,
       document_family: parsed.data.documentFamily,
+      target_type: auditTargetTypeFor(parsed.data.documentFamily),
     },
   });
   if (auditError) return respond(500, { error: auditError.message });

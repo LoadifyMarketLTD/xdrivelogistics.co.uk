@@ -16,6 +16,17 @@ const isConfigured =
   isValidSupabaseUrl(supabaseUrl) &&
   supabaseAnonKey.length > 0;
 
+const noRealtimeWebSocketTransport = class {
+  constructor() {
+    throw new Error('Realtime WebSocket transport is not available in this runtime.');
+  }
+};
+
+const realtimeTransport =
+  typeof WebSocket !== 'undefined'
+    ? WebSocket
+    : (noRealtimeWebSocketTransport as unknown as typeof WebSocket);
+
 const unconfiguredFetch: typeof fetch = async () =>
   new Response(
     JSON.stringify({
@@ -48,6 +59,9 @@ export const supabase: SupabaseClient = createClient(
     },
     global: {
       fetch: isConfigured ? fetch : unconfiguredFetch,
+    },
+    realtime: {
+      transport: realtimeTransport,
     },
   }
 );
