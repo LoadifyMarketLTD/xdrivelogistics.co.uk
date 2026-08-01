@@ -33,6 +33,32 @@ Supporting artifacts:
 
 ---
 
+## Related P0 runtime defect ledger — `owner_audit_log.target_type`
+
+This runbook tracks driver-commercial reconciliation, but the same Production incident window also contains a separate P0 runtime defect for `public.owner_audit_log.target_type`. Keep that remediation narrow and evidence-driven:
+
+| Function / concern | Live Production evidence | Status | Safest next action |
+|---|---|---|---|
+| `set_company_status_governance(uuid,uuid,text,text,text)` | Live body explicitly inserts `target_type = 'company'` and `target_company_id`. | **ALIGNED** | Do not replace this function in the marketplace audit repair. |
+| `owner_review_compliance_document(uuid,text,uuid,text,text)` | Live body explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`; current semantic value is `compliance_document`. | **ALIGNED** | Preserve the live semantic contract unless a separate approved change says otherwise. |
+| `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` insert omits `target_type` and `target_id`; this is the confirmed NOT NULL failure source. | **DIVERGENT** | Patch only this caller with `20260801091000_fix_owner_audit_log_target_type.sql`. |
+| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | The Production read-only function query returned no row for this exact signature. | **BLOCKED** | Re-run a single-signature lookup before deciding whether any fraud-review patch is needed. |
+
+Single read-only SQL for the remaining unverified function:
+
+```sql
+SELECT
+  p.oid::regprocedure AS function_signature,
+  pg_get_functiondef(p.oid) AS function_definition
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'owner_decide_fraud_review_case'
+  AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
+```
+
+---
+
 ## Current drift ledger
 
 Status vocabulary: **ALIGNED / PARTIAL / DIVERGENT / NOT PRESENT / BLOCKED**
