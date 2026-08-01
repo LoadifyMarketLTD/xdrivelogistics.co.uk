@@ -1,27 +1,33 @@
--- Migration 20260801130000 — Narrow repair for fraud-review owner_audit_log targets
+-- Migration 20260801163000 — P0 fix: owner_decide_fraud_review_case missing target_type
 --
--- !! DO NOT APPLY — SUPERSEDED BY 20260801163000_p0_fix_fraud_review_case_audit_target_type.sql !!
+-- Root-cause analysis (2026-08-01):
 --
--- Root-cause analysis (2026-08-01) confirmed owner_decide_fraud_review_case is the P0
--- caller producing "null value in column target_type".  Production schema confirmed
--- target_id and target_name are nullable (safe to add).  The safe fix is in 20260801163000.
+-- Four functions INSERT into owner_audit_log.  owner_audit_log.target_type is NOT NULL
+-- with no default.  The ongoing P0 error "null value in column target_type" is produced by
+-- the one remaining function that omits target_type from its INSERT:
 --
--- This file is retained for audit history only.
+--   Function                         | Fix migration         | Status
+--   ---------------------------------+-----------------------+------------------
+--   apply_marketplace_governance_action | 20260801091000     | Applied ✓
+--   owner_review_compliance_document    | 20260801080500     | Applied ✓
+--   set_company_status_governance       | live body confirmed | Already present ✓
+--   owner_decide_fraud_review_case      | 20260801130000     | BLOCKED — this file
 --
--- Read-only Production lookup (run before any decision):
+-- This migration is the P0 fix.  Migration 20260801130000 was blocked pending live-body
+-- confirmation.  The Production schema (confirmed 2026-08-01) shows target_id and
+-- target_name are both nullable, so adding them alongside target_type is safe.
 --
---   SELECT
---     p.oid::regprocedure AS function_signature,
---     pg_get_functiondef(p.oid) AS function_definition
---   FROM pg_proc p
---   JOIN pg_namespace n ON n.oid = p.pronamespace
---   WHERE n.nspname = 'public'
---     AND p.proname = 'owner_decide_fraud_review_case'
---     AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
+-- Unlike set_company_status_governance, owner_decide_fraud_review_case contains no
+-- dynamic SQL with enum casts — there are no dangerous DIFF A / DIFF B concerns.
+-- The full business logic from 20260730100000 is preserved exactly; the only change
+-- is the addition of three fields to the owner_audit_log INSERT:
 --
--- This migration patches ONLY owner_decide_fraud_review_case.
--- It does NOT touch set_company_status_governance, owner_review_compliance_document,
--- apply_marketplace_governance_action, any table, any RLS policy, or any driver schema.
+--   target_type  = 'fraud_case'                          ← fixes P0 NOT NULL violation
+--   target_id    = p_case_id                             ← audit observability
+--   target_name  = format('Fraud review case %s', p_case_id)  ← audit observability
+--
+-- This migration SUPERSEDES 20260801130000_fix_fraud_review_case_audit_target.sql.
+-- That file MUST NOT be applied — it is now superseded by this migration.
 
 BEGIN;
 
@@ -33,22 +39,11 @@ BEGIN
     WHERE table_schema = 'public'
       AND table_name   = 'owner_audit_log'
       AND column_name  = 'target_type'
+      AND data_type    = 'text'
+      AND is_nullable  = 'NO'
   ) THEN
     RAISE EXCEPTION
-      'owner_audit_log.target_type must exist before applying 20260801130000. Apply canonical target columns first.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  -- Confirm NOT NULL is enforced (migration 20260801091000 should already have set this)
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name   = 'owner_audit_log'
-      AND column_name  = 'target_type'
-      AND is_nullable  = 'YES'
-  ) THEN
-    RAISE EXCEPTION
-      'owner_audit_log.target_type must be NOT NULL before applying 20260801130000.'
+      'owner_audit_log.target_type text NOT NULL must exist before applying 20260801163000.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -60,7 +55,7 @@ BEGIN
       AND udt_name     = 'uuid'
   ) THEN
     RAISE EXCEPTION
-      'owner_audit_log.target_id uuid must exist before applying 20260801130000.'
+      'owner_audit_log.target_id uuid must exist before applying 20260801163000.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -72,26 +67,30 @@ BEGIN
       AND data_type    = 'text'
   ) THEN
     RAISE EXCEPTION
-      'owner_audit_log.target_name text must exist before applying 20260801130000.'
+      'owner_audit_log.target_name text must exist before applying 20260801163000.'
       USING ERRCODE = '23514';
   END IF;
 END $$;
 
--- ── 2. owner_decide_fraud_review_case — add missing audit target fields ───────
+-- ── 2. owner_decide_fraud_review_case — add missing target_type (P0 fix) ─────
 --
--- All business logic, guards, status transitions, atomicity, profile blocking,
--- onboarding-application updates, SECURITY DEFINER, search_path, return type,
--- and grants are preserved exactly from 20260730100000.
+-- All business logic is preserved exactly from 20260730100000:
+--   - Action validation ('investigate', 'clear', 'confirm', 'dismiss')
+--   - Idempotency guard (same status + same reason = early return)
+--   - fraud_review_cases status update with decided_by / decided_at
+--   - onboarding_applications risk_status backfill on confirm/clear/dismiss
+--   - profiles.status = 'blocked' on confirm with ROW_COUNT assertion
+--   - SECURITY DEFINER, search_path, return type, grants
 --
--- Only three columns are added to the owner_audit_log INSERT:
---   target_type  = 'fraud_case'
---   target_id    = p_case_id
---   target_name  = format('Fraud review case %s', p_case_id)
+-- Only the owner_audit_log INSERT gains three fields:
+--   target_type = 'fraud_case'  ← P0 fix
+--   target_id   = p_case_id     ← observability
+--   target_name = format(...)   ← observability
 CREATE OR REPLACE FUNCTION public.owner_decide_fraud_review_case(
   p_actor_user_id uuid,
-  p_case_id uuid,
-  p_action text,
-  p_reason text
+  p_case_id       uuid,
+  p_action        text,
+  p_reason        text
 )
 RETURNS TABLE (case_id uuid, old_status text, new_status text)
 LANGUAGE plpgsql
@@ -99,11 +98,11 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_case public.fraud_review_cases%ROWTYPE;
-  v_next_status text;
-  v_unresolved_count bigint;
-  v_profile_status text;
-  v_profile_rows bigint;
+  v_case              public.fraud_review_cases%ROWTYPE;
+  v_next_status       text;
+  v_unresolved_count  bigint;
+  v_profile_status    text;
+  v_profile_rows      bigint;
 BEGIN
   IF p_action NOT IN ('investigate', 'clear', 'confirm', 'dismiss') THEN
     RAISE EXCEPTION 'Unsupported fraud-case action.'
@@ -122,8 +121,8 @@ BEGIN
 
   v_next_status := CASE p_action
     WHEN 'investigate' THEN 'investigating'
-    WHEN 'clear' THEN 'cleared'
-    WHEN 'confirm' THEN 'confirmed'
+    WHEN 'clear'       THEN 'cleared'
+    WHEN 'confirm'     THEN 'confirmed'
     ELSE 'dismissed'
   END;
 
@@ -165,39 +164,39 @@ BEGIN
   END IF;
 
   UPDATE public.fraud_review_cases
-  SET status = v_next_status,
+  SET status          = v_next_status,
       decision_reason = p_reason,
-      assigned_to = p_actor_user_id,
-      decided_by = CASE WHEN p_action = 'investigate' THEN NULL ELSE p_actor_user_id END,
-      decided_at = CASE WHEN p_action = 'investigate' THEN NULL ELSE now() END,
-      updated_at = now()
+      assigned_to     = p_actor_user_id,
+      decided_by      = CASE WHEN p_action = 'investigate' THEN NULL ELSE p_actor_user_id END,
+      decided_at      = CASE WHEN p_action = 'investigate' THEN NULL ELSE now() END,
+      updated_at      = now()
   WHERE id = v_case.id;
 
   IF v_case.onboarding_application_id IS NOT NULL THEN
     IF p_action = 'confirm' THEN
       UPDATE public.onboarding_applications
-      SET risk_status = 'confirmed_fraud',
-          risk_reason = p_reason,
-          risk_updated_at = now(),
+      SET risk_status      = 'confirmed_fraud',
+          risk_reason      = p_reason,
+          risk_updated_at  = now(),
           risk_reviewed_by = p_actor_user_id,
-          status = 'rejected',
-          reviewed_at = now(),
-          reviewed_by = p_actor_user_id,
-          review_notes = p_reason
+          status           = 'rejected',
+          reviewed_at      = now(),
+          reviewed_by      = p_actor_user_id,
+          review_notes     = p_reason
       WHERE id = v_case.onboarding_application_id;
     ELSIF p_action IN ('clear', 'dismiss') THEN
       SELECT count(*)
       INTO v_unresolved_count
       FROM public.fraud_review_cases other_case
       WHERE other_case.onboarding_application_id = v_case.onboarding_application_id
-        AND other_case.id <> v_case.id
+        AND other_case.id    <> v_case.id
         AND other_case.status IN ('open', 'investigating', 'confirmed');
 
       IF v_unresolved_count = 0 THEN
         UPDATE public.onboarding_applications
-        SET risk_status = 'clear',
-            risk_reason = NULL,
-            risk_updated_at = now(),
+        SET risk_status      = 'clear',
+            risk_reason      = NULL,
+            risk_updated_at  = now(),
             risk_reviewed_by = p_actor_user_id
         WHERE id = v_case.onboarding_application_id;
       END IF;
@@ -216,6 +215,7 @@ BEGIN
     END IF;
   END IF;
 
+  -- target_type = 'fraud_case' is the P0 fix; target_id and target_name are observability enrichment
   INSERT INTO public.owner_audit_log (
     actor_user_id,
     target_type,
@@ -239,9 +239,9 @@ BEGIN
     v_next_status,
     p_reason,
     jsonb_build_object(
-      'fraud_case_id', v_case.id,
-      'subject_user_id', v_case.subject_user_id,
-      'onboarding_application_id', v_case.onboarding_application_id
+      'fraud_case_id',              v_case.id,
+      'subject_user_id',            v_case.subject_user_id,
+      'onboarding_application_id',  v_case.onboarding_application_id
     )
   );
 
