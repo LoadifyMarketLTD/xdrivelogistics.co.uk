@@ -313,6 +313,7 @@ export async function PATCH(request: NextRequest) {
     .from('owner_audit_log')
     .insert({
       actor_user_id: owner.id,
+      target_type: `${entityType}_document`,
       target_company_id: null,
       action_type: action === 'approve' ? 'document_approved' : 'document_rejected',
       old_status: currentDoc.status ?? null,

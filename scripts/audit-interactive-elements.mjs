@@ -157,11 +157,14 @@ async function run() {
 
   const matrix = [];
   for (const item of extracted) {
-    let targetFile = routeToFile.get(item.currentTarget) ?? null;
+    // Strip query string before route lookup so targets like /admin/drivers?driver=xxx
+    // correctly resolve to the /admin/drivers page file.
+    const routeKey = item.currentTarget.split('?')[0];
+    let targetFile = routeToFile.get(routeKey) ?? null;
     let routeExists = Boolean(targetFile);
     if (!routeExists) {
       for (const dynamicRoute of dynamicRoutes) {
-        if (dynamicRoute.regex.test(item.currentTarget)) {
+        if (dynamicRoute.regex.test(routeKey)) {
           routeExists = true;
           targetFile = dynamicRoute.file;
           break;

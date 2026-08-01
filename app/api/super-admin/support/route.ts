@@ -295,6 +295,7 @@ export async function PATCH(request: NextRequest) {
     .from('owner_audit_log')
     .insert({
       actor_user_id: owner.id,
+      target_type: 'support_ticket',
       target_company_id: null,
       action_type: 'support_ticket_updated',
       old_status: currentStatus,

@@ -81,7 +81,7 @@
 | Evidence | android-native/data/ApiClient.kt:298, supabase/migrations/071 |
 | Risk | **LAUNCH BLOCKER** — Android drivers see zero notifications |
 | Safe remediation | Apply bridge migration 20260725160000 |
-| Closure gate | **IMPLEMENTED BUT NOT LIVE-VALIDATED** until runtime producer → bridge → notifications → Android proof exists |
+| Closure gate | **MIGRATION APPLIED 2026-08-01** — verification queries + Android runtime evidence still required |
 
 ### C2: Web /m/ Driver Notification Source
 
@@ -155,7 +155,7 @@
 | Functions added | `fn_notification_event_title()`, `fn_notification_event_body()` |
 | Policies modified | `notifications`: replaced `notifications_all_member` with `notifications_recipient_select` + `notifications_service_role_all` |
 | Test added | None (requires live DB + Android device) |
-| Result | Migration prepared — requires manual application in Supabase SQL Editor |
+| Result | **APPLIED to live DB 2026-08-01** — "Success. No rows returned". Verification queries pending. |
 
 ### E2: Web /m/ Driver Notification Fix
 
@@ -172,40 +172,13 @@
 
 ## F. MANUAL CHECKPOINT — Live DB SQL Required
 
-### ⚠️ STOP — Manual SQL Application Required
+### ✅ Migration Applied — Verification Required
 
-**Migration to apply**:
-- File: `supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql`
-- Content: Full SQL in that file
-- Purpose: Bridge `notification_events` → `notifications` for Android + fix RLS on notifications table
-- Expected result: `Success. No rows returned`
-- Risk: READ-ONLY except for trigger/function/policy creation — does NOT modify data or migration history
+**Migration applied 2026-08-01**: `supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql`  
+**Result received**: `Success. No rows returned`  
+**Next step**: Run the three verification queries in `docs/master-matrix/09-notification-bridge-live-validation-ledger.md` (Steps 1–3) to confirm the trigger, RLS policies, and helper functions were created in the live DB.
 
-**After applying, run verification**:
-
-```sql
--- Verify bridge trigger exists
-SELECT trigger_name, event_manipulation, event_object_table
-FROM information_schema.triggers
-WHERE trigger_schema = 'public'
-  AND trigger_name = 'trg_bridge_notification_event_to_inbox';
--- Expected: 1 row (AFTER INSERT on notification_events)
-
--- Verify new RLS policies on notifications
-SELECT policyname, cmd, roles
-FROM pg_policies
-WHERE schemaname = 'public' AND tablename = 'notifications';
--- Expected: notifications_recipient_select (SELECT, authenticated) + notifications_service_role_all (ALL, service_role)
-
--- Verify helper functions exist
-SELECT proname FROM pg_proc
-JOIN pg_namespace ON pg_namespace.oid = pronamespace
-WHERE nspname = 'public'
-  AND proname IN ('fn_notification_event_title', 'fn_notification_event_body', 'fn_bridge_notification_event_to_inbox');
--- Expected: 3 rows
-```
-
-**After verification, the next session can proceed to**:
+**After verification, proceed to**:
 1. Enable Groups A and F skipped tests (set E2E_ADMIN_EMAIL + E2E_OWNER_EMAIL in CI secrets)
 2. Verify notification delivery end-to-end with an Android device
 3. Implement notification retry (P2)

@@ -35,8 +35,8 @@
 | Idempotency | `CREATE OR REPLACE FUNCTION`, `DROP TRIGGER IF EXISTS + CREATE`, `DROP POLICY IF EXISTS` |
 | Guards | DO $$ block checks both tables exist before proceeding |
 | Duplicate policies | Drops `notifications_all_member` superseded policy, adds two specific policies |
-| Application | **NOT YET APPLIED** — requires manual Supabase SQL Editor execution |
-| Status | **PENDING MANUAL APPLICATION** |
+| Application | **APPLIED** — "Success. No rows returned" confirmed in Supabase SQL Editor (2026-08-01) |
+| Status | **APPLIED — run verification queries to confirm objects exist** |
 
 ---
 
@@ -107,7 +107,7 @@
 | 116_notify_invoice_created.sql | Yes | Invoice created trigger |
 | 20260721223500_scrub_notification_secrets.sql | Yes | Scrubs secrets from notification payloads |
 | 20260723222000_notification_recipient_isolation.sql | Yes | Tightens RLS to recipient-scoped |
-| 20260725161000_notification_events_to_notifications_bridge.sql | **PENDING** | Bridge trigger — apply next |
+| 20260725161000_notification_events_to_notifications_bridge.sql | **APPLIED** | Bridge trigger — applied 2026-08-01. Run verification queries. |
 
 ---
 
@@ -137,12 +137,12 @@
 
 | Category | Count | Applied | Pending |
 |---|---|---|---|
-| Total migrations | 160 | 159 | 1 (bridge) |
+| Total migrations | 160 | 160 | 0 |
 | Finance migrations | 8 | 8 | 0 |
-| Notification migrations | 9 | 8 | 1 (bridge) |
+| Notification migrations | 9 | 9 | 0 |
 | Onboarding migrations | 12 | 12 | 0 |
 | Storage migrations | 4 | 4 | 0 |
 | Broker carrier invitations | 2 | 2 | 0 |
 | Security/hardening | 6 | 6 | 0 |
 
-**The single remaining unapplied migration is the notification bridge** (`20260725160000`). This must be applied to fix the Android notification delivery launch blocker.
+**All 160 migrations are applied.** Next step: run verification queries to confirm bridge objects exist in live DB.

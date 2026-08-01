@@ -1,104 +1,38 @@
 # Audit 03 — Broker Workflow
 
-> Production Certification Phase · Development Freeze Active
-
-## Metadata
+## Audit Metadata
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Environment | https://www.xdrivelogistics.co.uk |
-| Test account (broker) | |
+| Audit date | 2026-08-01 |
+| Commit SHA | `38977d4d06bfb9fbaf55803f8a480262d8d3f262` |
+| Branch | `copilot/audit-intreg-repository-loadifymarketltd` |
+| Verification mode | Static repository audit plus committed/generated automation evidence |
+| Overall disposition | PARTIAL — core broker surfaces exist, but invitation/award/dispute flows are not fully runtime-certified. |
 
-## Legend
+## Scope
 
-`✅ PASS` · `❌ FAIL` · `⚠️ PARTIAL` · `🔲 N/T` — Severity: `CRITICAL` `MAJOR` `MINOR` `COSMETIC`
+Broker dashboard, load posting, carrier invitations, bid comparison, dispute/POD review, customer invoice review.
 
----
+## Evidence Basis
 
-## BW-01 · Broker Onboarding & Login
+- `docs/master-matrix/01-page-inventory.md` — `/broker/*` pages.
+- `docs/master-matrix/03-workflow-decomposition.md` — broker carrier invitation workflow and bid/award controls.
+- `e2e/broker.spec.ts` — broker E2E contract artifact.
+- `app/api/broker/**`, `app/api/carrier/broker-invitations/route.ts`, `app/api/customer/bids/[id]/award/route.ts`.
 
-| ID | Step | Route / Action | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BW-01-01 | Register as broker role | POST `/api/onboarding/init` | Onboarding initiated with broker flow | | 🔲 N/T | | |
-| BW-01-02 | Complete broker onboarding session | POST `/api/onboarding/broker/session` | Session state saved | | 🔲 N/T | | |
-| BW-01-03 | Submit broker application | POST `/api/onboarding/submit/broker` | Status = `pending_approval`; admin notified | | 🔲 N/T | | |
-| BW-01-04 | Login after admin approval | POST `/login` | Redirect to `/broker` dashboard | | 🔲 N/T | | |
-| BW-01-05 | Access `/broker` without broker role | Customer or driver account | 403 Forbidden or redirect | | 🔲 N/T | | |
+## Findings
 
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
+| ID | Finding | Disposition | Evidence |
+|---|---|---|---|
+| BW-03-01 | Broker pages exist for loads, jobs, bids, carrier network, disputes, POD review and settings. | PASS — static evidence only | `app/broker/**/page.tsx` |
+| BW-03-02 | Carrier invitation APIs and database objects are present, including revoke/accept/reject paths. | PASS — static evidence only | `app/api/broker/carrier-invitations/**`, `app/api/carrier/broker-invitations/route.ts`, `supabase/migrations/20260725130000_*` |
+| BW-03-03 | Workflow decomposition records 30 broker invitation controls, with many rows still PARTIAL or BLOCKED. | PARTIAL | `docs/master-matrix/03-workflow-decomposition.md` WF-01 |
+| BW-03-04 | Broker E2E coverage exists but depends on unavailable runtime credentials and live notification side effects. | BLOCKED | `e2e/broker.spec.ts` |
+| BW-03-05 | Broker/customer invoice and dispute screens are mostly PARTIAL in the page inventory and not release-ready. | FAIL | `docs/master-matrix/01-page-inventory.md` broker rows |
 
----
+## Release Gate Impact
 
-## BW-02 · Job Posting as Broker
-
-| ID | Step | Route / Action | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BW-02-01 | Create new job | `/broker` → "Post Load" | Form displayed; all fields present | | 🔲 N/T | | |
-| BW-02-02 | Post job with valid data | Supabase insert `jobs` | Job created; status = `open`; visible on marketplace | | 🔲 N/T | | |
-| BW-02-03 | View broker's own jobs | `/broker` | Only own company's jobs listed | | 🔲 N/T | | |
-| BW-02-04 | Broker cannot see other companies' jobs | `/broker` | No cross-company job leakage | | 🔲 N/T | | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BW-03 · Invitations to Carriers
-
-| ID | Step | Route / Action | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BW-03-01 | Send invitation to specific carrier | Invite action on job | Carrier receives notification / email | | 🔲 N/T | | |
-| BW-03-02 | Invited carrier sees job in their loads | Carrier dashboard | Job visible with "invited" flag | | 🔲 N/T | | |
-| BW-03-03 | Revoke invitation | Revoke action | Carrier no longer sees the invitation | | 🔲 N/T | | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BW-04 · Offer Comparison & Carrier Selection
-
-| ID | Step | Route / Action | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BW-04-01 | View bids received on broker job | `/broker` → job detail | Bids listed with carrier name, price, vehicle type | | 🔲 N/T | | |
-| BW-04-02 | Sort bids by price | Sort control | Sorted correctly ascending / descending | | 🔲 N/T | | |
-| BW-04-03 | View carrier company profile from bid | Link in bid | Carrier profile opens | | 🔲 N/T | | |
-| BW-04-04 | Award bid to carrier | POST `/api/customer/bids/[id]/award` | Job allocated; carrier notified; other bids rejected | | 🔲 N/T | | |
-| BW-04-05 | Attempt second award after allocation | Award action | Blocked; error returned | | 🔲 N/T | | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BW-05 · Tracking, Communication & Finalization
-
-| ID | Step | Route / Action | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BW-05-01 | Track job status | `/broker` → job detail | Current status displayed; updated in real time | | 🔲 N/T | | |
-| BW-05-02 | View POD after delivery | Job detail → POD section | POD images and signature accessible | | 🔲 N/T | | |
-| BW-05-03 | Download POD PDF | Download button | PDF downloads with correct content | | 🔲 N/T | | |
-| BW-05-04 | View completed loads history | `/broker/awards` | All awarded and completed jobs listed | | 🔲 N/T | | |
-| BW-05-05 | View active bids submitted by carriers | `/broker/bids` | All pending bids listed | | 🔲 N/T | | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## Summary
-
-| Section | Tests | PASS | FAIL | PARTIAL | N/T |
-|---|---|---|---|---|---|
-| BW-01 Onboarding & Login | 5 | | | | |
-| BW-02 Job Posting | 4 | | | | |
-| BW-03 Invitations | 3 | | | | |
-| BW-04 Offer Comparison | 5 | | | | |
-| BW-05 Tracking & Finalization | 5 | | | | |
-| **TOTAL** | **22** | | | | |
-
-**Overall Result:** ☐ PASS ☐ FAIL
-
-**Defects raised:**
-
-| Defect ID | Description | Severity |
-|---|---|---|
-| | | |
+- Linked defects: DEF-001, DEF-002, DEF-005
+- Launch blocker: Yes
+- Auditor decision: PARTIAL — core broker surfaces exist, but invitation/award/dispute flows are not fully runtime-certified.

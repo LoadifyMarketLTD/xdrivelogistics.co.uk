@@ -1,0 +1,478 @@
+{
+  "runDate": "2026-08-01T18:11:46.530Z",
+  "totalPass": 77,
+  "totalFail": 0,
+  "totalManual": 4,
+  "sections": [
+    {
+      "title": "DB-01 — Migration Integrity",
+      "results": [
+        {
+          "id": "DB-01-01",
+          "pass": true,
+          "note": "Highest numbered migration: 129"
+        },
+        {
+          "id": "DB-01-02",
+          "pass": true,
+          "note": "No duplicate migration version numbers"
+        },
+        {
+          "id": "DB-01-03",
+          "pass": true,
+          "note": "Sequence 001–129 is complete"
+        },
+        {
+          "id": "DB-01-04",
+          "pass": true,
+          "note": "Migration 129 serialize_overpayment_guard found"
+        },
+        {
+          "id": "DB-01-05",
+          "pass": true,
+          "note": "Total migration files: 191"
+        }
+      ]
+    },
+    {
+      "title": "DB-02 — Schema Integrity (Tables & Columns)",
+      "results": [
+        {
+          "id": "DB-02-TABLE-driver_device_tokens",
+          "pass": true,
+          "note": "\"driver_device_tokens\" implemented as column \"device_token\" on \"drivers\" (106_driver_device_tokens) — ✅ confirmed"
+        },
+        {
+          "id": "DB-02-jobs.id",
+          "pass": true,
+          "note": "Column \"id\" found in migrations"
+        },
+        {
+          "id": "DB-02-jobs.company_id",
+          "pass": true,
+          "note": "Column \"company_id\" found in migrations"
+        },
+        {
+          "id": "DB-02-jobs.status",
+          "pass": true,
+          "note": "Column \"status\" found in migrations"
+        },
+        {
+          "id": "DB-02-jobs.pickup_location",
+          "pass": true,
+          "note": "Column \"pickup_location\" found in migrations"
+        },
+        {
+          "id": "DB-02-jobs.delivery_location",
+          "pass": true,
+          "note": "Column \"delivery_location\" found in migrations"
+        },
+        {
+          "id": "DB-02-jobs.created_at",
+          "pass": true,
+          "note": "Column \"created_at\" found in migrations"
+        },
+        {
+          "id": "DB-02-jobs.updated_at",
+          "pass": true,
+          "note": "Column \"updated_at\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.id",
+          "pass": true,
+          "note": "Column \"id\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.job_id",
+          "pass": true,
+          "note": "Column \"job_id\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.driver_id",
+          "pass": true,
+          "note": "Column \"driver_id\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.company_id",
+          "pass": true,
+          "note": "Column \"company_id\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.amount",
+          "pass": true,
+          "note": "Column \"amount\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.status",
+          "pass": true,
+          "note": "Column \"status\" found in migrations"
+        },
+        {
+          "id": "DB-02-job_bids.created_at",
+          "pass": true,
+          "note": "Column \"created_at\" found in migrations"
+        },
+        {
+          "id": "DB-02-companies.id",
+          "pass": true,
+          "note": "Column \"id\" found in migrations"
+        },
+        {
+          "id": "DB-02-companies.name",
+          "pass": true,
+          "note": "Column \"name\" found in migrations"
+        },
+        {
+          "id": "DB-02-companies.status",
+          "pass": true,
+          "note": "Column \"status\" found in migrations"
+        },
+        {
+          "id": "DB-02-companies.created_at",
+          "pass": true,
+          "note": "Column \"created_at\" found in migrations"
+        },
+        {
+          "id": "DB-02-profiles.user_id",
+          "pass": true,
+          "note": "Column \"user_id\" found in migrations"
+        },
+        {
+          "id": "DB-02-profiles.role",
+          "pass": true,
+          "note": "Column \"role\" found in migrations"
+        },
+        {
+          "id": "DB-02-profiles.status",
+          "pass": true,
+          "note": "Column \"status\" found in migrations"
+        },
+        {
+          "id": "DB-02-driver_locations.driver_id",
+          "pass": true,
+          "note": "Column \"driver_id\" found in migrations"
+        },
+        {
+          "id": "DB-02-driver_locations.lat",
+          "pass": true,
+          "note": "Column \"lat\" found in migrations"
+        },
+        {
+          "id": "DB-02-driver_locations.lng",
+          "pass": true,
+          "note": "Column \"lng\" found in migrations"
+        },
+        {
+          "id": "DB-02-driver_locations.updated_at",
+          "pass": true,
+          "note": "Column \"updated_at\" found in migrations"
+        },
+        {
+          "id": "DB-02-invoices.id",
+          "pass": true,
+          "note": "Column \"id\" found in migrations"
+        },
+        {
+          "id": "DB-02-company_documents.id",
+          "pass": true,
+          "note": "Column \"id\" found in migrations"
+        },
+        {
+          "id": "DB-02-company_documents.company_id",
+          "pass": true,
+          "note": "Column \"company_id\" found in migrations"
+        }
+      ]
+    },
+    {
+      "title": "DB-03 — Foreign Keys",
+      "results": [
+        {
+          "id": "DB-03-jobs.company_id",
+          "pass": true,
+          "note": "FK jobs.company_id → companies found"
+        },
+        {
+          "id": "DB-03-job_bids.job_id",
+          "pass": true,
+          "note": "FK job_bids.job_id → jobs found"
+        },
+        {
+          "id": "DB-03-job_bids.company_id",
+          "pass": true,
+          "note": "FK job_bids.company_id → companies found"
+        },
+        {
+          "id": "DB-03-profiles.user_id",
+          "pass": true,
+          "note": "FK profiles.user_id → auth.users found"
+        }
+      ]
+    },
+    {
+      "title": "DB-04 — Triggers",
+      "results": [
+        {
+          "id": "DB-04-updated_at@jobs",
+          "pass": true,
+          "note": "Trigger/function \"updated_at\" found in migrations"
+        },
+        {
+          "id": "DB-04-updated_at@job_bids",
+          "pass": true,
+          "note": "Trigger/function \"updated_at\" found in migrations"
+        },
+        {
+          "id": "DB-04-notify_invoice_created",
+          "pass": true,
+          "note": "Trigger/function \"notify_invoice_created\" found in migrations"
+        },
+        {
+          "id": "DB-04-serialize_overpayment",
+          "pass": true,
+          "note": "Trigger/function \"serialize_overpayment\" found in migrations"
+        }
+      ]
+    },
+    {
+      "title": "DB-07 — Indexes & Performance",
+      "results": [
+        {
+          "id": "DB-07-jobs.status",
+          "pass": true,
+          "note": "Index on jobs(status) found in migrations"
+        },
+        {
+          "id": "DB-07-jobs.company_id",
+          "pass": true,
+          "note": "Index on jobs(company_id) found in migrations"
+        },
+        {
+          "id": "DB-07-job_bids.job_id",
+          "pass": true,
+          "note": "Index on job_bids(job_id) found in migrations"
+        },
+        {
+          "id": "DB-07-driver_locations.driver_id",
+          "pass": true,
+          "note": "Index on driver_locations(driver_id) found in migrations"
+        }
+      ]
+    },
+    {
+      "title": "SEC-01 — Row Level Security",
+      "results": [
+        {
+          "id": "SEC-01-jobs",
+          "pass": true,
+          "note": "RLS or policy found for table \"jobs\""
+        },
+        {
+          "id": "SEC-01-job_bids",
+          "pass": true,
+          "note": "RLS or policy found for table \"job_bids\""
+        },
+        {
+          "id": "SEC-01-companies",
+          "pass": true,
+          "note": "RLS or policy found for table \"companies\""
+        },
+        {
+          "id": "SEC-01-profiles",
+          "pass": true,
+          "note": "RLS or policy found for table \"profiles\""
+        },
+        {
+          "id": "SEC-01-drivers",
+          "pass": true,
+          "note": "RLS or policy found for table \"drivers\""
+        },
+        {
+          "id": "SEC-01-vehicles",
+          "pass": true,
+          "note": "RLS or policy found for table \"vehicles\""
+        },
+        {
+          "id": "SEC-01-invoices",
+          "pass": true,
+          "note": "RLS or policy found for table \"invoices\""
+        },
+        {
+          "id": "SEC-01-company_documents",
+          "pass": true,
+          "note": "RLS or policy found for table \"company_documents\""
+        },
+        {
+          "id": "SEC-01-notifications",
+          "pass": true,
+          "note": "RLS or policy found for table \"notifications\""
+        },
+        {
+          "id": "SEC-01-driver_locations",
+          "pass": true,
+          "note": "RLS or policy found for table \"driver_locations\""
+        },
+        {
+          "id": "SEC-01-company_memberships",
+          "pass": true,
+          "note": "RLS or policy found for table \"company_memberships\""
+        },
+        {
+          "id": "SEC-01-job_disputes",
+          "pass": true,
+          "note": "RLS or policy found for table \"job_disputes\""
+        }
+      ]
+    },
+    {
+      "title": "PR-03 — Storage Buckets",
+      "results": [
+        {
+          "id": "PR-03-03-driver-docs",
+          "pass": true,
+          "note": "Bucket \"driver-docs\" referenced in migrations"
+        },
+        {
+          "id": "PR-03-03-vehicle-docs",
+          "pass": true,
+          "note": "Bucket \"vehicle-docs\" referenced in migrations"
+        },
+        {
+          "id": "PR-03-03-pod-photos",
+          "pass": true,
+          "note": "Bucket \"pod-photos\" referenced in migrations"
+        }
+      ]
+    },
+    {
+      "title": "PR-03 / DB-08 — Realtime Publications",
+      "results": [
+        {
+          "id": "PR-03-05-jobs",
+          "pass": null,
+          "note": "Realtime for \"jobs\" must be verified in Supabase dashboard (no migration evidence)"
+        },
+        {
+          "id": "PR-03-05-job_bids",
+          "pass": null,
+          "note": "Realtime for \"job_bids\" must be verified in Supabase dashboard (no migration evidence)"
+        },
+        {
+          "id": "PR-03-05-driver_locations",
+          "pass": null,
+          "note": "Realtime for \"driver_locations\" must be verified in Supabase dashboard (no migration evidence)"
+        },
+        {
+          "id": "PR-03-05-notifications",
+          "pass": null,
+          "note": "Realtime for \"notifications\" must be verified in Supabase dashboard (no migration evidence)"
+        }
+      ]
+    },
+    {
+      "title": "SEC-04 / RP-03 — Middleware Route Protection",
+      "results": [
+        {
+          "id": "RP-03-super_admin",
+          "pass": true,
+          "note": "\"/super-admin\" present in PROTECTED_PATH_PREFIXES"
+        },
+        {
+          "id": "RP-03-broker",
+          "pass": true,
+          "note": "\"/broker\" present in PROTECTED_PATH_PREFIXES"
+        },
+        {
+          "id": "RP-03-admin",
+          "pass": true,
+          "note": "\"/admin\" present in PROTECTED_PATH_PREFIXES"
+        },
+        {
+          "id": "RP-03-driver",
+          "pass": true,
+          "note": "\"/driver\" present in PROTECTED_PATH_PREFIXES"
+        },
+        {
+          "id": "RP-03-customer",
+          "pass": true,
+          "note": "\"/customer\" present in PROTECTED_PATH_PREFIXES"
+        },
+        {
+          "id": "RP-03-m",
+          "pass": true,
+          "note": "\"/m\" present in PROTECTED_PATH_PREFIXES"
+        },
+        {
+          "id": "SEC-04-07",
+          "pass": true,
+          "note": "isRoleAllowedForPath called in middleware for role enforcement"
+        },
+        {
+          "id": "SEC-03-01",
+          "pass": true,
+          "note": "Unauthenticated requests redirected to /login in middleware"
+        },
+        {
+          "id": "SEC-04-01",
+          "pass": true,
+          "note": "Forbidden redirect present in middleware"
+        }
+      ]
+    },
+    {
+      "title": "SEC-06 — Environment & Secrets",
+      "results": [
+        {
+          "id": "SEC-06-03",
+          "pass": true,
+          "note": "NEXT_PUBLIC_ vars (NEXT_PUBLIC_SITE_URL, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) contain no sensitive names"
+        },
+        {
+          "id": "SEC-06-01",
+          "pass": true,
+          "note": "SUPABASE_SERVICE_ROLE_KEY is not prefixed NEXT_PUBLIC_ in .env.example"
+        },
+        {
+          "id": "SEC-06-04-service_role",
+          "pass": true,
+          "note": "No \"service_role\" commits found in git history "
+        },
+        {
+          "id": "SEC-06-04-jwt_prefix",
+          "pass": true,
+          "note": "No \"eyJ\" commits found in git history (JWT prefix (may be false positive for anon key))"
+        }
+      ]
+    },
+    {
+      "title": "PR-02-03 — ESLint",
+      "results": [
+        {
+          "id": "PR-02-03",
+          "pass": true,
+          "note": "ESLint passed with 0 warnings/errors"
+        }
+      ]
+    },
+    {
+      "title": "PR-02-02 — TypeScript Typecheck",
+      "results": [
+        {
+          "id": "PR-02-02",
+          "pass": true,
+          "note": "TypeScript typecheck passed — 0 errors"
+        }
+      ]
+    },
+    {
+      "title": "Unit Tests — Role & Permission (Audit 12)",
+      "results": [
+        {
+          "id": "UNIT-TESTS",
+          "pass": true,
+          "note": "All unit tests passed\nilter decoding\u001b[2m > \u001b[22mpreserves URLSearchParams decoding for \"customer=ACME%2BLogistics\"\u001b[32m 0\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m __tests__/brokerWorkspaceCustomerFilter.test.ts\u001b[2m > \u001b[22mbroker customer filter decoding\u001b[2m > \u001b[22mpreserves URLSearchParams decoding for \"customer=ACME%252BLogistics\"\u001b[32m 0\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m40 passed\u001b[39m\u001b[22m\u001b[90m (40)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m459 passed\u001b[39m\u001b[22m\u001b[90m (459)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:11:42\n\u001b[2m   Duration \u001b[22m 3.88s\u001b[2m (transform 1.42s, setup 0ms, import 3.28s, tests 912ms, environment 6ms)\u001b[22m\n\n"
+        }
+      ]
+    }
+  ]
+}

@@ -17,6 +17,8 @@
     "audit:interactive": "node ./scripts/audit-interactive-elements.mjs",
     "preview": "next start",
     "validate:supabase-env": "node ./scripts/validate-supabase-env.mjs",
+    "audit:auto": "node ./scripts/run-automated-audit.mjs",
+    "audit:auto:fast": "node ./scripts/run-automated-audit.mjs --skip-tests --skip-lint",
     "test:unit": "vitest run"
   },
   "dependencies": {
@@ -91,7 +93,7 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.23",
-    "eslint": "^9.39.4",
+    "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
     "kimi-plugin-inspect-react": "^1.0.3",

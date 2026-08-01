@@ -1,124 +1,38 @@
 # Audit 14 — Business Rules Audit
 
-> Production Certification Phase · Development Freeze Active
-> Verify that all core business logic rules are enforced at every layer.
-
-## Metadata
+## Audit Metadata
 
 | Field | Value |
 |---|---|
-| Auditor | |
-| Date | |
-| Environment | https://www.xdrivelogistics.co.uk |
+| Audit date | 2026-08-01 |
+| Commit SHA | `38977d4d06bfb9fbaf55803f8a480262d8d3f262` |
+| Branch | `copilot/audit-intreg-repository-loadifymarketltd` |
+| Verification mode | Static repository audit plus committed/generated automation evidence |
+| Overall disposition | PARTIAL — state-machine and workflow evidence exists, but business-rule closure is incomplete. |
 
-## Legend
+## Scope
 
-`✅ PASS` · `❌ FAIL` · `⚠️ PARTIAL` · `🔲 N/T` — Severity: `CRITICAL` `MAJOR` `MINOR` `COSMETIC`
+Job lifecycle, bid lifecycle, onboarding review, invoice lifecycle, notification triggers and role-dependent business rules.
 
----
+## Evidence Basis
 
-## BR-01 · Job State Machine
+- `docs/master-matrix/03-workflow-decomposition.md` — control-level workflow matrix.
+- `supabase/migrations/079*`, `080*`, `082*`, `103*`, `125-129*`, `20260721224500_*`.
+- `__tests__/onboardingContract.test.ts`, `__tests__/jobClientFields.test.ts`, `__tests__/businessWorkspace.test.ts`.
+- `e2e/quote-lifecycle-contract.spec.ts`, `e2e/invoice-lifecycle-contract.spec.ts`, `e2e/job-operations-contract.spec.ts`.
 
-| ID | Rule | Test Method | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BR-01-01 | Job can only transition: `open` → `assigned` | Attempt `open` → `in_progress` direct | Rejected; invalid transition | | 🔲 N/T | CRITICAL | |
-| BR-01-02 | Job can only transition: `assigned` → `in_progress` | Trigger via Start Journey | Allowed | | 🔲 N/T | MAJOR | |
-| BR-01-03 | Job cannot be cancelled after `in_progress` | Cancel action on active job | Blocked; error shown | | 🔲 N/T | MAJOR | |
-| BR-01-04 | Job status `delivered` is terminal | Attempt update after delivery | Rejected | | 🔲 N/T | MAJOR | |
-| BR-01-05 | Job status `cancelled` is terminal | Attempt reactivation | Rejected | | 🔲 N/T | MAJOR | |
-| BR-01-06 | Only one bid can be awarded per job | Award second bid after first awarded | Rejected; error returned | | 🔲 N/T | CRITICAL | |
+## Findings
 
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
+| ID | Finding | Disposition | Evidence |
+|---|---|---|---|
+| BRA-14-01 | Workflow decomposition enumerates concrete controls for invitations, jobs, bids, allocation, delivery and invoicing. | PASS — static evidence only | `docs/master-matrix/03-workflow-decomposition.md` |
+| BRA-14-02 | Schema and migrations contain explicit lifecycle hardening for bids, jobs, onboarding and invoices. | PASS — static evidence only | named migrations in scope |
+| BRA-14-03 | Some business-rule contract tests exist in unit/E2E form, but many controls in the workflow matrix remain PARTIAL or BLOCKED. | PARTIAL | workflow matrix + selected tests |
+| BRA-14-04 | Live re-testing of every business transition per role/company has not been captured. | BLOCKED | absence of completed workbooks 01-05 and 18 |
+| BRA-14-05 | Business-rules workbook cannot be closed as PASS in the current audit state. | PARTIAL | depends on DEF-001/DEF-004 |
 
----
+## Release Gate Impact
 
-## BR-02 · Driver Journey State Machine
-
-| ID | Rule | Test Method | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BR-02-01 | `start_journey` only allowed when job is `assigned` | Call with non-assigned job | Error; action rejected | | 🔲 N/T | CRITICAL | |
-| BR-02-02 | `arrived_collection` only after `start_journey` | Skip start_journey; call arrived_collection | Rejected | | 🔲 N/T | MAJOR | |
-| BR-02-03 | `loaded` only after `arrived_collection` | Call loaded without arriving | Rejected | | 🔲 N/T | MAJOR | |
-| BR-02-04 | `on_my_way` only after `loaded` | Skip loaded; call on_my_way | Rejected | | 🔲 N/T | MAJOR | |
-| BR-02-05 | `arrived_delivery` only after `on_my_way` | Skip on_my_way | Rejected | | 🔲 N/T | MAJOR | |
-| BR-02-06 | POD submit only allowed after `arrived_delivery` | Submit POD with status `on_my_way` | Rejected | | 🔲 N/T | MAJOR | |
-| BR-02-07 | Status updates are idempotent within same step | Repeat same status action | Accepted gracefully; no duplicate records | | 🔲 N/T | MINOR | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BR-03 · Onboarding State Machine
-
-| ID | Rule | Test Method | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BR-03-01 | Onboarding token required to submit | POST `/api/onboarding/submit/customer` without token | Rejected | | 🔲 N/T | MAJOR | |
-| BR-03-02 | Onboarding token is single-use | Reuse same token | Rejected; session invalid | | 🔲 N/T | MAJOR | |
-| BR-03-03 | Onboarding session atomic — partial submit blocked | Submit without all required steps | Rejected with clear error | | 🔲 N/T | CRITICAL | |
-| BR-03-04 | Company not accessible until approved | Login with pending company | Redirect to `/pending-approval` | | 🔲 N/T | CRITICAL | |
-| BR-03-05 | Rejected company cannot re-submit without new application | Rejected company submits again | Blocked; contact admin message | | 🔲 N/T | MAJOR | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BR-04 · Bid / Quote Rules
-
-| ID | Rule | Test Method | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BR-04-01 | Driver can only bid on open jobs | Bid on assigned/cancelled job | Rejected | | 🔲 N/T | CRITICAL | |
-| BR-04-02 | Driver cannot bid on own company's jobs (if applicable) | Self-bid attempt | Rejected or warning shown | | 🔲 N/T | MAJOR | |
-| BR-04-03 | Duplicate bid rejected (same driver, same job) | Submit second bid | Rejected; unique constraint | | 🔲 N/T | MAJOR | |
-| BR-04-04 | Bid amount must be > 0 | Submit bid with 0 | Front-end and back-end both reject | | 🔲 N/T | MAJOR | |
-| BR-04-05 | Award only valid bid (not rejected/cancelled) | Award a previously rejected bid | Rejected | | 🔲 N/T | MAJOR | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BR-05 · Invoice & Finance Rules
-
-| ID | Rule | Test Method | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BR-05-01 | Invoice only generated for delivered job | Generate invoice for in_progress job | Blocked or error | | 🔲 N/T | MAJOR | |
-| BR-05-02 | Invoice amount matches awarded bid amount | Compare `invoices.amount` to `job_bids.amount` | Match | | 🔲 N/T | CRITICAL | |
-| BR-05-03 | Invoice cannot be submitted twice (overpayment guard) | Submit same invoice twice | Second submit rejected (migration 129) | | 🔲 N/T | CRITICAL | |
-| BR-05-04 | Dispute only openable on submitted invoice | Dispute on draft invoice | Blocked | | 🔲 N/T | MAJOR | |
-| BR-05-05 | Admin can see all invoices; driver sees only own | Role-scoped query | Correct results per role | | 🔲 N/T | CRITICAL | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## BR-06 · Access & Membership Rules
-
-| ID | Rule | Test Method | Expected | Result | Status | Severity | Defect ID |
-|---|---|---|---|---|---|---|---|
-| BR-06-01 | User cannot be member of two companies simultaneously | Add user already in Company A to Company B | Blocked or requires removal first | | 🔲 N/T | MAJOR | |
-| BR-06-02 | Deactivated user cannot login | Login as deactivated user | Login rejected | | 🔲 N/T | CRITICAL | |
-| BR-06-03 | Suspended company — members lose access | Login as member of suspended company | Redirect to suspended notice | | 🔲 N/T | CRITICAL | |
-| BR-06-04 | Driver must be available to receive job notifications | Unavailable driver | Not notified of new nearby jobs | | 🔲 N/T | MAJOR | |
-
-**Section result:** ☐ PASS ☐ FAIL — Notes: _______________
-
----
-
-## Summary
-
-| Section | Tests | PASS | FAIL | PARTIAL | N/T |
-|---|---|---|---|---|---|
-| BR-01 Job State Machine | 6 | | | | |
-| BR-02 Journey State Machine | 7 | | | | |
-| BR-03 Onboarding State Machine | 5 | | | | |
-| BR-04 Bid/Quote Rules | 5 | | | | |
-| BR-05 Invoice & Finance | 5 | | | | |
-| BR-06 Access & Membership | 4 | | | | |
-| **TOTAL** | **32** | | | | |
-
-**Overall Result:** ☐ PASS ☐ FAIL
-
-**Defects raised:**
-
-| Defect ID | Description | Severity |
-|---|---|---|
-| | | |
+- Linked defects: DEF-001, DEF-004
+- Launch blocker: Yes
+- Auditor decision: PARTIAL — state-machine and workflow evidence exists, but business-rule closure is incomplete.

@@ -147,6 +147,14 @@ const normalizeMembershipRows = (rows: MembershipQueryRow[]): RawMembershipRow[]
 const readFallbackRole = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
+const isMissingDriverCanBidColumn = (
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+): boolean => {
+  if (!error || error.code !== '42703') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('can_commercial_bid');
+};
+
 const isServiceFailure = (message: string | null | undefined) => {
   const normalized = (message ?? '').toLowerCase();
   return (
@@ -254,7 +262,14 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   }
 
   if (profileRes.error || membershipsRes.error || creatorCompanyRes.error) {
-    return { kind: 'forbidden' };
+    // A DB query error is not an access-control decision — it means the
+    // underlying data could not be read (transient connection hiccup, schema
+    // drift, or an RLS policy issue that isn't a network failure).  Returning
+    // 'forbidden' here was silently turning these transient failures into a
+    // permanent-looking 403 page.  Return 'service_unavailable' so the user
+    // is sent to the login page with a retryable "service unavailable" message
+    // rather than being told they have no permission.
+    return { kind: 'service_unavailable' };
   }
 
   const profile = profileRes.data as {
@@ -316,7 +331,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
-  const { data: driverData, error: driverError } = await supabaseAdmin
+  const { data: driverDataInitial, error: driverErrorInitial } = await supabaseAdmin
     .from('drivers')
     .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
     .eq('user_id', authData.user.id)
@@ -324,11 +339,27 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     .limit(1)
     .maybeSingle();
 
+  // PostgreSQL 42703 compatibility: when the live schema is missing can_commercial_bid
+  // (production schema drift — unapplied migration 20260725184000), retry exactly once
+  // with the legacy column set.  Commercial bidding is fail-closed: null if unavailable.
+  const driverNeedsLegacyFallback = isMissingDriverCanBidColumn(driverErrorInitial);
+  const { data: driverData, error: driverError } = driverNeedsLegacyFallback
+    ? await supabaseAdmin
+        .from('drivers')
+        .select('id, company_id, app_access, must_change_password, status')
+        .eq('user_id', authData.user.id)
+        .eq('company_id', activeCompany.context.companyId)
+        .limit(1)
+        .maybeSingle()
+    : { data: driverDataInitial, error: driverErrorInitial };
+
   if (isServiceFailure(driverError?.message)) {
     return { kind: 'service_unavailable' };
   }
   if (driverError) {
-    return { kind: 'forbidden' };
+    // Same principle as the profile/membership query block above: an unexpected
+    // DB error reading driver data is a service issue, not an access denial.
+    return { kind: 'service_unavailable' };
   }
 
   const driver = driverData as {
@@ -396,12 +427,53 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     membershipId: activeCompany.context.membershipId,
     membershipRole,
     driverId: driver?.id ?? null,
-    canCommercialBid: driver?.can_commercial_bid ?? null,
+    canCommercialBid: driverNeedsLegacyFallback ? null : (driver?.can_commercial_bid ?? null),
     driverStatus: driver?.status ?? null,
     accountStatus: profileStatus,
     companyStatus,
   };
 };
+
+function generateNonce(): string {
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  return btoa(String.fromCharCode(...buf));
+}
+
+function buildCspHeader(nonce: string): string {
+  const isDev = process.env.NODE_ENV === 'development';
+  const scriptSrc = isDev
+    ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
+    : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
+  const styleSrc = isDev ? `'self' 'unsafe-inline'` : `'self'`;
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    `style-src ${styleSrc}`,
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+    "upgrade-insecure-requests",
+  ].join('; ');
+}
+
+function buildNonceResponse(request: NextRequest, nonce: string) {
+  const csp = buildCspHeader(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set('Content-Security-Policy', csp);
+
+  return response;
+}
 
 export async function middleware(request: NextRequest) {
   const canonicalRedirect = buildCanonicalHostRedirect(request);
@@ -409,8 +481,10 @@ export async function middleware(request: NextRequest) {
     return canonicalRedirect;
   }
 
+  const nonce = generateNonce();
+
   if (!isProtectedPath(request.nextUrl.pathname)) {
-    return NextResponse.next();
+    return buildNonceResponse(request, nonce);
   }
 
   const auth = await resolveRouteAuth(request);
@@ -491,7 +565,7 @@ export async function middleware(request: NextRequest) {
     return buildRedirect(request, DRIVER_JOBS_PATH);
   }
 
-  return NextResponse.next();
+  return buildNonceResponse(request, nonce);
 }
 
 export const config = {
