@@ -1,33 +1,66 @@
 -- Migration 20260801163000 — P0 fix: owner_decide_fraud_review_case missing target_type
 --
+-- !! DO NOT APPLY until the two open evidence gaps below are resolved. !!
+--
 -- Root-cause analysis (2026-08-01):
 --
 -- Four functions INSERT into owner_audit_log.  owner_audit_log.target_type is NOT NULL
--- with no default.  The ongoing P0 error "null value in column target_type" is produced by
--- the one remaining function that omits target_type from its INSERT:
+-- with no default.  Repo-canonical analysis identifies owner_decide_fraud_review_case
+-- (body in 20260730100000) as the sole remaining function whose INSERT omits target_type.
 --
---   Function                         | Fix migration         | Status
---   ---------------------------------+-----------------------+------------------
---   apply_marketplace_governance_action | 20260801091000     | Applied ✓
---   owner_review_compliance_document    | 20260801080500     | Applied ✓
---   set_company_status_governance       | live body confirmed | Already present ✓
---   owner_decide_fraud_review_case      | 20260801130000     | BLOCKED — this file
+--   Function                            | Fix migration     | Status
+--   ------------------------------------+-------------------+------------------
+--   apply_marketplace_governance_action | 20260801091000    | Applied ✓
+--   owner_review_compliance_document    | 20260801080500    | Applied ✓
+--   set_company_status_governance       | live body in 20260801153000 header | Repo evidence only — see GAP 1
+--   owner_decide_fraud_review_case      | 20260801130000    | BLOCKED — this file
 --
--- This migration is the P0 fix.  Migration 20260801130000 was blocked pending live-body
--- confirmation.  The Production schema (confirmed 2026-08-01) shows target_id and
--- target_name are both nullable, so adding them alongside target_type is safe.
+-- ── UNRESOLVED EVIDENCE GAPS (must be cleared before Production apply) ─────────
 --
--- Unlike set_company_status_governance, owner_decide_fraud_review_case contains no
--- dynamic SQL with enum casts — there are no dangerous DIFF A / DIFF B concerns.
--- The full business logic from 20260730100000 is preserved exactly; the only change
--- is the addition of three fields to the owner_audit_log INSERT:
+-- GAP 1 — Live body of owner_decide_fraud_review_case not confirmed.
+--   The claim that this function is the P0 caller is based on repo-canonical migration
+--   history (20260730100000), not on a live pg_get_functiondef result.  Before applying
+--   this migration, the Platform Owner MUST run:
 --
---   target_type  = 'fraud_case'                          ← fixes P0 NOT NULL violation
---   target_id    = p_case_id                             ← audit observability
---   target_name  = format('Fraud review case %s', p_case_id)  ← audit observability
+--     SELECT pg_get_functiondef(p.oid)
+--     FROM pg_proc p
+--     JOIN pg_namespace n ON n.oid = p.pronamespace
+--     WHERE n.nspname = 'public'
+--       AND p.proname = 'owner_decide_fraud_review_case'
+--       AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
+--
+--   If the live body already contains target_type = 'fraud_case', this migration is
+--   NOT APPLICABLE.  If the function does not exist, this migration is NOT APPLICABLE.
+--   Only proceed if the live body matches 20260730100000 (no target_type in INSERT).
+--
+-- GAP 2 — public.fraud_review_cases schema cache warning.
+--   Production previously reported: "Could not find the table 'public.fraud_review_cases'
+--   in the schema cache."  This migration references fraud_review_cases%ROWTYPE and
+--   performs SELECT/UPDATE on that table.  If the table is absent from the live schema,
+--   CREATE OR REPLACE FUNCTION will fail at compile time.
+--   Before applying, the Platform Owner MUST run:
+--
+--     SELECT table_name, table_type
+--     FROM information_schema.tables
+--     WHERE table_schema = 'public'
+--       AND table_name = 'fraud_review_cases';
+--
+--   The preflight in section 2 below will also catch this at migration time.
+--
+-- ── Summary ──────────────────────────────────────────────────────────────────
+--
+-- The SQL is correct as written.  The only change vs 20260730100000 is three fields
+-- added to the owner_audit_log INSERT:
+--
+--   target_type  = 'fraud_case'                              ← fixes P0 NOT NULL violation
+--   target_id    = p_case_id                                 ← audit observability
+--   target_name  = format('Fraud review case %s', p_case_id) ← audit observability
+--
+-- Unlike set_company_status_governance there are no enum cast concerns.
+-- All business logic is preserved exactly from 20260730100000.
 --
 -- This migration SUPERSEDES 20260801130000_fix_fraud_review_case_audit_target.sql.
--- That file MUST NOT be applied — it is now superseded by this migration.
+-- That file MUST NOT be applied — it is superseded by this migration.
 
 BEGIN;
 
@@ -72,7 +105,197 @@ BEGIN
   END IF;
 END $$;
 
--- ── 2. owner_decide_fraud_review_case — add missing target_type (P0 fix) ─────
+-- ── 2. Validate dependent tables and key columns (GAP 2 guard) ───────────────
+--
+-- CREATE OR REPLACE FUNCTION will fail at compile time if fraud_review_cases does
+-- not exist (the function body references fraud_review_cases%ROWTYPE).  The guards
+-- below surface a clear error before the function creation is attempted.
+DO $$
+BEGIN
+  -- 2a. fraud_review_cases — table and all columns written or read by the function
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases'
+  ) THEN
+    RAISE EXCEPTION
+      'public.fraud_review_cases does not exist. Resolve GAP 2 (schema cache warning) before applying 20260801163000.'
+      USING ERRCODE = '42P01';
+  END IF;
+
+  -- Columns read by the function
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'status'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.status must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'subject_user_id'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.subject_user_id must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'subject_company_id'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.subject_company_id must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'onboarding_application_id'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.onboarding_application_id must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'decision_reason'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.decision_reason must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  -- Columns written by the function
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'assigned_to'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.assigned_to must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'decided_by'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.decided_by must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'decided_at'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.decided_at must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'updated_at'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.updated_at must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  -- 2b. profiles — table and columns read/written by the confirm branch
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'profiles'
+  ) THEN
+    RAISE EXCEPTION 'public.profiles does not exist. Required by fraud confirm branch in 20260801163000.'
+      USING ERRCODE = '42P01';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'user_id'
+  ) THEN
+    RAISE EXCEPTION 'profiles.user_id must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'status'
+  ) THEN
+    RAISE EXCEPTION 'profiles.status must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  -- 2c. onboarding_applications — table and columns written by confirm/clear/dismiss branches
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications'
+  ) THEN
+    RAISE EXCEPTION 'public.onboarding_applications does not exist. Required by onboarding backfill branch in 20260801163000.'
+      USING ERRCODE = '42P01';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'risk_status'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.risk_status must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'risk_reason'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.risk_reason must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'risk_updated_at'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.risk_updated_at must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'risk_reviewed_by'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.risk_reviewed_by must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'status'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.status must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'reviewed_at'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.reviewed_at must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'reviewed_by'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.reviewed_by must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'review_notes'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.review_notes must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
+  END IF;
+END $$;
+
+-- ── 3. owner_decide_fraud_review_case — add missing target_type (P0 fix) ─────
 --
 -- All business logic is preserved exactly from 20260730100000:
 --   - Action validation ('investigate', 'clear', 'confirm', 'dismiss')
