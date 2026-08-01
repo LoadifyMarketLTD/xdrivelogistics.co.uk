@@ -779,7 +779,7 @@ DECLARE
   v_actor_id          uuid := '65000000-0000-0000-0000-0000000000d0';
   v_audit_count       bigint;
   v_target_type       text;
-  v_target_id         uuid;
+  v_target_id         text;
   v_target_name       text;
   v_action_type       text;
   v_new_status        text;
@@ -801,7 +801,7 @@ BEGIN
   END IF;
 
   -- Verify audit log row
-  SELECT count(*), min(target_type), min(target_id), min(target_name), min(action_type)
+  SELECT count(*), min(target_type), min(target_id::text), min(target_name), min(action_type)
   INTO v_audit_count, v_target_type, v_target_id, v_target_name, v_action_type
   FROM public.owner_audit_log
   WHERE actor_user_id = v_actor_id
@@ -819,7 +819,7 @@ BEGIN
       v_target_type;
   END IF;
 
-  IF v_target_id IS DISTINCT FROM v_case_id THEN
+  IF v_target_id IS DISTINCT FROM v_case_id::text THEN
     RAISE EXCEPTION
       'owner_audit_log.target_id = %, expected %.',
       v_target_id, v_case_id;
