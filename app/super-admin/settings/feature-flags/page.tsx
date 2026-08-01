@@ -19,7 +19,7 @@ type Flag = {
   key: string;
   label: string;
   description: string;
-  category: 'Marketplace' | 'Operations' | 'Finance' | 'Compliance' | 'Platform';
+  category: 'Marketplace' | 'Operations' | 'Finance' | 'Compliance' | 'Platform' | 'Governance';
   enabled: boolean;
 };
 
@@ -99,7 +99,7 @@ export default function Page() {
 
   const categorySummary = useMemo(
     () =>
-      (['Marketplace', 'Operations', 'Finance', 'Compliance', 'Platform'] as const).map(
+      (['Marketplace', 'Operations', 'Finance', 'Compliance', 'Platform', 'Governance'] as const).map(
         (category) => {
           const categoryFlags = flags.filter((flag) => flag.category === category);
           return {
