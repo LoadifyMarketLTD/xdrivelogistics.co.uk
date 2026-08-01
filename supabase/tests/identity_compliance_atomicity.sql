@@ -731,4 +731,110 @@ EXCEPTION
 END;
 $$;
 
+-- ── owner_decide_fraud_review_case: success path audit-target verification ────
+--
+-- Verifies that after migration 20260801210000 the function:
+--   (a) succeeds for action='investigate'
+--   (b) writes an owner_audit_log row with target_type = 'fraud_case'
+--   (c) writes target_id  = the case UUID
+--   (d) writes target_name derived from the case UUID
+--   (e) does NOT write target_type = NULL
+
+INSERT INTO auth.users (
+  id, aud, role, email, encrypted_password,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+VALUES (
+  '65000000-0000-0000-0000-0000000000d0',
+  'authenticated',
+  'authenticated',
+  'fraud-audit-target-actor@example.test',
+  '',
+  '{}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now()
+);
+
+INSERT INTO public.fraud_review_cases (
+  id,
+  case_type,
+  severity,
+  status,
+  automatic_hold,
+  evidence
+)
+VALUES (
+  '65000000-0000-0000-0000-000000000501',
+  'manual_report',
+  'medium',
+  'open',
+  false,
+  '{}'::jsonb
+);
+
+DO $$
+DECLARE
+  v_case_id           uuid := '65000000-0000-0000-0000-000000000501';
+  v_actor_id          uuid := '65000000-0000-0000-0000-0000000000d0';
+  v_audit_count       bigint;
+  v_target_type       text;
+  v_target_id         uuid;
+  v_target_name       text;
+  v_action_type       text;
+  v_new_status        text;
+BEGIN
+  -- Call the function under test
+  SELECT new_status
+  INTO v_new_status
+  FROM public.owner_decide_fraud_review_case(
+    v_actor_id,
+    v_case_id,
+    'investigate',
+    'audit-target regression test'
+  );
+
+  IF v_new_status IS DISTINCT FROM 'investigating' THEN
+    RAISE EXCEPTION
+      'owner_decide_fraud_review_case returned unexpected new_status=%. Expected investigating.',
+      v_new_status;
+  END IF;
+
+  -- Verify audit log row
+  SELECT count(*), min(target_type), min(target_id), min(target_name), min(action_type)
+  INTO v_audit_count, v_target_type, v_target_id, v_target_name, v_action_type
+  FROM public.owner_audit_log
+  WHERE actor_user_id = v_actor_id
+    AND action_type = 'fraud_case_investigate';
+
+  IF v_audit_count <> 1 THEN
+    RAISE EXCEPTION
+      'Expected exactly 1 audit row for fraud_case_investigate, got %.',
+      v_audit_count;
+  END IF;
+
+  IF v_target_type IS DISTINCT FROM 'fraud_case' THEN
+    RAISE EXCEPTION
+      'owner_audit_log.target_type = %, expected fraud_case. Migration 20260801210000 may not have been applied.',
+      v_target_type;
+  END IF;
+
+  IF v_target_id IS DISTINCT FROM v_case_id THEN
+    RAISE EXCEPTION
+      'owner_audit_log.target_id = %, expected %.',
+      v_target_id, v_case_id;
+  END IF;
+
+  IF v_target_name NOT LIKE '%' || v_case_id::text || '%' THEN
+    RAISE EXCEPTION
+      'owner_audit_log.target_name = %, expected a value containing the case UUID %.',
+      v_target_name, v_case_id;
+  END IF;
+
+  RAISE NOTICE
+    'owner_decide_fraud_review_case audit-target verification passed: target_type=%, target_id=%, action_type=%',
+    v_target_type, v_target_id, v_action_type;
+END;
+$$;
+
 ROLLBACK;
