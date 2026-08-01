@@ -265,6 +265,7 @@ DECLARE
   v_approved_old_status text;
   v_approved_new_status text;
   v_approved_reason text;
+  v_approved_target_type text;
 BEGIN
   SELECT status
   INTO v_doc_status
@@ -277,8 +278,8 @@ BEGIN
       v_doc_status;
   END IF;
 
-  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason)
-  INTO v_approved_audit_count, v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason
+  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason), min(target_type)
+  INTO v_approved_audit_count, v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason, v_approved_target_type
   FROM public.owner_audit_log
   WHERE action_type = 'document_approved'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
@@ -293,10 +294,11 @@ BEGIN
      OR v_approved_old_status IS DISTINCT FROM 'pending'
      OR v_approved_new_status IS DISTINCT FROM 'approved'
      OR COALESCE(v_approved_reason, '') = ''
+     OR v_approved_target_type IS DISTINCT FROM 'company_document'
   THEN
     RAISE EXCEPTION
-      'Approved document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%',
-      v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason;
+      'Approved document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%, target_type=%',
+      v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason, v_approved_target_type;
   END IF;
 END;
 $$;
@@ -319,6 +321,7 @@ DECLARE
   v_rejected_old_status text;
   v_rejected_new_status text;
   v_rejected_reason text;
+  v_rejected_target_type text;
 BEGIN
   SELECT status
   INTO v_doc_status
@@ -331,8 +334,8 @@ BEGIN
       v_doc_status;
   END IF;
 
-  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason)
-  INTO v_rejected_audit_count, v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason
+  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason), min(target_type)
+  INTO v_rejected_audit_count, v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason, v_rejected_target_type
   FROM public.owner_audit_log
   WHERE action_type = 'document_rejected'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
@@ -347,10 +350,11 @@ BEGIN
      OR v_rejected_old_status IS DISTINCT FROM 'approved'
      OR v_rejected_new_status IS DISTINCT FROM 'rejected'
      OR v_rejected_reason IS DISTINCT FROM 'failed verification'
+     OR v_rejected_target_type IS DISTINCT FROM 'company_document'
   THEN
     RAISE EXCEPTION
-      'Rejected document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%',
-      v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason;
+      'Rejected document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%, target_type=%',
+      v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason, v_rejected_target_type;
   END IF;
 END;
 $$;
