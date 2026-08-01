@@ -16,7 +16,7 @@
 
 | ID | Source Audit | Date Found | Description | Severity | Status | Affected Roles | Launch Blocker |
 |---|---|---|---|---|---|---|---|
-| **DEF-009** | **Platform Owner — live DB read** | **2026-08-01** | **P0 Production login blocker: `drivers.driver_type` and `drivers.can_commercial_bid` absent from live schema. Migrations 20260725184000 and 20260726060000 not applied. Every login for company-associated users redirects to `/forbidden`.** | **P0 CRITICAL** | **OPEN — MIGRATION PENDING APPROVAL** | **all authenticated roles** | **Yes** |
+| **DEF-009** | **Platform Owner — live DB read** | **2026-08-01** | **P0 Production reconciliation blocker: login outage was mitigated, Unit A (`drivers` columns/defaults/nullability + canonical `drivers_driver_type_check`) is now aligned from confirmed manual Production SQL, but remaining independent units (active-bid duplicate compatibility, RLS, RPC, notifications) are still unverified for safe rollout.** | **P0 CRITICAL** | **OPEN — RECONCILIATION UNITS PENDING EVIDENCE** | **all authenticated roles** | **Yes** |
 | DEF-001 | Audit 18 — API Contract | 2026-08-01 | API contract coverage is critically incomplete: `docs/master-matrix/02-api-inventory.md` records 72 business routes, only 10 CLOSED and 62 PARTIAL. | CRITICAL | OPEN | all authenticated roles | Yes |
 | DEF-002 | Audit 19 — UX/UI Consistency | 2026-08-01 | Interactive surface audit regenerated at 334 targets with 281 duplicate targets and 63 inaccessible pages; navigation consistency is not certifiable. | CRITICAL | OPEN | public, customer, driver, broker, admin, super-admin | Yes |
 | DEF-003 | Audit 02 / 08 / 19 | 2026-08-01 | Legacy `/m/*` web routes coexist with the canonical Expo driver app, creating duplicated mobile behaviour and certification drift. | MAJOR | OPEN | driver, owner-driver | Yes |
@@ -147,7 +147,7 @@
 | ID | DEF-009 |
 | Severity | **P0 CRITICAL — Production Login Blocker** |
 | Source audit | Platform Owner live read (2026-08-01) + emergency manual Production repairs + reconciliation artifacts in this PR |
-| Evidence | Original live evidence showed both migrations absent and both driver columns missing. Current task instructions confirm emergency manual Production repairs already added `drivers.driver_type`, `drivers.can_commercial_bid`, `company_documents.issued_date`, and `driver_identity_documents.issued_date`, plus a targeted duplicate-bid repair. Exact post-repair drift must now be captured with `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/production_driver_commercial_reconciliation_audit.sql`. |
+| Evidence | Original live evidence showed both migrations absent and both driver columns missing. Confirmed Production evidence now records: `drivers.can_commercial_bid` = `boolean NOT NULL default true`; `drivers.driver_type` = `text NOT NULL default 'company_driver'`; no prior `driver_type` constraint; manual narrow apply succeeded for `drivers_driver_type_check` with canonical values; `driver_type` distribution = `company_driver 5`, `owner_driver 0`, legacy/non-canonical `0`, `NULL 0`; `can_commercial_bid` distribution = `true 5`, `false 0`, `NULL 0`. Remaining units still require independent read-only/staging evidence. |
 | Affected files | `supabase/migrations/20260725184000_driver_commercial_bidding_controls.sql`, `supabase/migrations/20260726060000_canonical_driver_type_architecture.sql`, `middleware.ts` (secondary bug: no 42703 fallback) |
 | Affected roles | All authenticated roles (login fails before role is resolved) |
 | Confirmed root cause | Two driver-commercial migrations were absent from the live Supabase project during the outage, and middleware lacked a 42703 fallback. After the outage, emergency manual Production repairs changed live schema/data state. The incident is now a reconciliation problem, not a safe replay-migration problem. |
@@ -159,8 +159,8 @@
 | Migration dependency chain | Broad catch-up sequencing is superseded for Production by concern-by-concern reconciliation. Narrow units now exist for driver-column constraints, duplicate-safe indexes, `job_bids_exchange_insert` RLS, and `review_onboarding_application_atomic`; `can_commercial_bid` data reconciliation and notification behavior remain approval-gated runbooks until runtime evidence exists. |
 | Rollback procedure | Roll back only the independently approved narrow unit being applied. No global rollback that drops emergency-repair columns is authorized. Recovery steps are documented per unit in `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/production-driver-commercial-reconciliation-runbook.md`. |
 | Post-migration verification | Do not claim PASS from static inspection alone. Required evidence is: (1) raw read-only Production drift output, (2) staging/disposable validation on a Production-equivalent baseline, (3) post-apply verification for the specific narrow unit, and (4) runtime workflow evidence for login, bidding, onboarding, and notification paths touched by that unit. |
-| Launch blocker | **Yes — P0. No user can log in on production until middleware fix is deployed AND schema migration is applied.** |
-| Status | **MITIGATED FOR LOGIN / OPEN FOR RECONCILIATION** — Middleware fix exists. Production SQL remains blocked pending concern-by-concern drift capture and staging validation. |
+| Launch blocker | **Yes — P0 reconciliation blocker for controlled Production rollout of remaining units (indexes/RLS/RPC/notifications).** |
+| Status | **MITIGATED FOR LOGIN / OPEN FOR RECONCILIATION** — Unit A is aligned in Production from the confirmed narrow manual apply; remaining units stay blocked pending concern-by-concern read-only and staging evidence. |
 
 ## Release Gate
 

@@ -21,6 +21,17 @@ Production emergency repairs have already changed live state:
 - one duplicate submitted bid was changed to `withdrawn` while the canonical accepted bid was preserved
 - `owner_review_compliance_document` may already have been corrected manually
 
+Confirmed Production evidence now captured from Platform Owner (manual SQL, one statement at a time):
+
+- Column inventory:
+  - `drivers.can_commercial_bid` → `boolean`, `NOT NULL`, default `true`
+  - `drivers.driver_type` → `text`, `NOT NULL`, default `'company_driver'`
+- Constraint inventory: no prior `driver_type` constraint was present.
+- Manual narrow apply executed successfully:
+  - `alter table public.drivers add constraint drivers_driver_type_check check (driver_type in ('owner_driver', 'company_driver'));`
+- `driver_type` data distribution: `company_driver = 5`, `owner_driver = 0`, legacy/non-canonical = `0`, `NULL = 0`.
+- `can_commercial_bid` distribution: `true = 5`, `false = 0`, `NULL = 0`.
+
 Because of those manual changes, `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/migrations/20260801000000_p0_driver_commercial_columns_catchup.sql` must **not** be applied to Production.
 
 It is not a narrow schema catch-up. It mixes:
@@ -63,16 +74,16 @@ Do **not** run:
 
 ## Current finding
 
-The middleware fix can protect login from a missing-column regression, but the live Production database now requires a read-only reconciliation flow instead of a replay migration.
+The middleware fix protects login from missing-column regressions, and Unit A (driver column defaults/nullability + canonical `driver_type` constraint) is now aligned in Production from the confirmed manual narrow apply.
 
 The exact concern-by-concern status, evidence, and next actions now live in:
 
 `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/production-driver-commercial-reconciliation-runbook.md`
 
-Until that drift ledger is populated with raw Production query output and staging validation evidence, this incident remains open.
+This incident remains open for reconciliation of the remaining independent units (indexes, RLS, RPC side effects, notifications).
 
 ---
 
 ## Single safest next action
 
-Run the read-only audit package against Production, archive the raw outputs, and update the reconciliation runbook before approving any narrow unit for staging or Production.
+Run the next independent read-only Unit C statement (active company-bid duplicate compatibility) and archive the raw output before any index/RLS/RPC change.

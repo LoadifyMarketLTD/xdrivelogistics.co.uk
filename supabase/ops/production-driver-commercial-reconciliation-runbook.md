@@ -39,8 +39,10 @@ Status vocabulary: **ALIGNED / PARTIAL / DIVERGENT / NOT PRESENT / BLOCKED**
 
 | Concern | Live evidence currently available | Repo expectation | Status | Safest next action |
 |---|---|---|---|---|
-| `drivers.driver_type` column | Task instruction says Production emergency repair already added the column; no captured `information_schema` output yet for default/nullability/check constraint. | Repo expects canonical values `owner_driver \| company_driver`, NOT NULL, default `company_driver`, canonical check constraint. | **PARTIAL** | Run audit steps A1–A4 in Production and staging baseline; if values are already canonical and no NULLs exist, review unit A only. |
-| `drivers.can_commercial_bid` column | Task instruction says Production emergency repair already added the column; no captured live default/nullability/distribution yet. | Repo expects boolean column present; default `true`; existing `false` rows must remain untouched until explicitly classified. | **PARTIAL** | Run audit steps A1, A3, B1, B2 plus false-row worksheet; do not write data. |
+| `drivers` column existence / types / defaults / nullability | Platform Owner Production evidence: `drivers.can_commercial_bid → boolean, NOT NULL, default true`; `drivers.driver_type → text, NOT NULL, default 'company_driver'`. | Repo expects `driver_type` canonical defaults/nullability and `can_commercial_bid` boolean default true + NOT NULL. | **ALIGNED** | No Production write needed for this unit; keep reconciliation scoped to remaining independent units. |
+| Canonical `drivers_driver_type_check` constraint | Platform Owner Production evidence: no prior constraint referencing `driver_type`; then manually applied `alter table public.drivers add constraint drivers_driver_type_check check (driver_type in ('owner_driver', 'company_driver'));` with success. | Repo expects canonical `driver_type` check constraint. | **ALIGNED** | Treat Unit A as already satisfied in Production; do not re-run broad catch-up migration. |
+| Current `driver_type` values | Platform Owner Production evidence: `company_driver → 5`; `owner_driver → 0`; legacy/non-canonical → 0; `NULL → 0`. | Repo expects only canonical values and no NULL. | **ALIGNED** | Proceed to the next independent read-only unit (Unit C preflight). |
+| Current `can_commercial_bid` values | Platform Owner Production evidence: `true → 5`; `false → 0`; `NULL → 0`. No intentionally revoked `false` rows currently present. | Repo expects no NULL values and preservation of any existing `false` rows. | **ALIGNED** | Keep Unit B as no-op for current dataset; re-audit before any future data DML. |
 | `job_bids_active_company_unique_idx` compatibility | Task instruction says one duplicate submitted bid was changed to `withdrawn` while canonical accepted bid was preserved; no full duplicate scan output yet. | Repo index requires zero active duplicates for `(job_id, company_id)` where `status in ('submitted','accepted')`. | **PARTIAL** | Run audit step C1; only consider unit C if query returns 0 rows. |
 | `job_bids_active_null_company_unique_idx` compatibility | No live query result captured. | Repo index requires zero active duplicates for `(job_id, bidder_user_id)` when `company_id IS NULL`. | **BLOCKED** | Run audit step C2 before any index DDL review. |
 | `job_bids_exchange_insert` RLS | No live `pg_policies` output captured. | Repo expects policy body aligned to `can_commercial_bid`, active driver status, and exchange/direct invite gating. | **BLOCKED** | Run audit steps D1–D2 and compare raw `with_check` text to unit D. |
@@ -343,4 +345,19 @@ Status vocabulary: **ALIGNED / PARTIAL / DIVERGENT / NOT PRESENT / BLOCKED**
 
 ## Single safest next action
 
-Run `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/ops/production_driver_commercial_reconciliation_audit.sql` read-only against Production, paste the raw outputs into this runbook, and update the drift ledger before approving any unit for staging or Production.
+Run the next independent read-only Unit C statement in Production (one statement only):
+
+```sql
+SELECT
+  job_id,
+  company_id,
+  COUNT(*) AS active_bid_count,
+  array_agg(id ORDER BY created_at, id) AS bid_ids,
+  array_agg(status ORDER BY created_at, id) AS statuses
+FROM public.job_bids
+WHERE company_id IS NOT NULL
+  AND status IN ('submitted', 'accepted')
+GROUP BY job_id, company_id
+HAVING COUNT(*) > 1
+ORDER BY active_bid_count DESC, job_id;
+```

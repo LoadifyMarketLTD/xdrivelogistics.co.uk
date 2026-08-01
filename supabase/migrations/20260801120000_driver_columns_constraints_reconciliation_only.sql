@@ -50,12 +50,29 @@ ALTER TABLE public.drivers
 ALTER TABLE public.drivers
   ALTER COLUMN driver_type SET NOT NULL;
 
-ALTER TABLE public.drivers
-  DROP CONSTRAINT IF EXISTS drivers_driver_type_check;
+DO $$
+DECLARE
+  existing_driver_type_check text;
+BEGIN
+  SELECT pg_get_constraintdef(oid)
+    INTO existing_driver_type_check
+  FROM pg_constraint
+  WHERE conrelid = 'public.drivers'::regclass
+    AND conname = 'drivers_driver_type_check';
 
-ALTER TABLE public.drivers
-  ADD CONSTRAINT drivers_driver_type_check
-  CHECK (driver_type IN ('owner_driver', 'company_driver'));
+  IF existing_driver_type_check IS NULL THEN
+    ALTER TABLE public.drivers
+      ADD CONSTRAINT drivers_driver_type_check
+      CHECK (driver_type IN ('owner_driver', 'company_driver'));
+  ELSIF existing_driver_type_check NOT ILIKE '%driver_type%'
+     OR existing_driver_type_check NOT ILIKE '%owner_driver%'
+     OR existing_driver_type_check NOT ILIKE '%company_driver%' THEN
+    RAISE EXCEPTION
+      'drivers_driver_type_check already exists but is non-canonical (%). Reconcile manually before re-running.',
+      existing_driver_type_check;
+  END IF;
+END
+$$;
 
 ALTER TABLE public.drivers
   ALTER COLUMN can_commercial_bid SET DEFAULT true;
