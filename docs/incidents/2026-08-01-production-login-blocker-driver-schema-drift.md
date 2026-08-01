@@ -86,32 +86,25 @@ This incident remains open for reconciliation of the remaining independent units
 
 ## Related P0 runtime defect — `owner_audit_log.target_type`
 
-> **Contradiction notice (2026-08-01):** an earlier revision of this section listed `set_company_status_governance` as **ALIGNED** based on unverified claims. That status has been retracted. The repo-canonical function body (`075_super_admin_governance_layer.sql:150-167`) does not include `target_type`, `target_id`, or `target_name` in the `owner_audit_log` INSERT. Whether the live Production function diverges from that baseline is unknown until the read-only lookup below is archived. Do **not** apply `20260801153000_fix_company_governance_audit_target.sql` until live evidence is captured and staging-validated.
+> **Live body captured 2026-08-01.** The live Production `set_company_status_governance` already inserts `target_type = 'company'`. The function is PARTIALLY ALIGNED: `target_type` is correct; `target_id` and `target_name` are absent from the INSERT; the live body has two enum casts (`::text` on SELECT, `::company_status` on UPDATE) that the staged patch `20260801153000` would silently drop. The full diff is archived in the `20260801153000` migration header. The next required action is the `owner_audit_log` column nullability query below — not the function-definition query, which is now complete.
 
-Live Production function-definition evidence is needed to determine the remediation scope for the separate `owner_audit_log.target_type NOT NULL` failure. Current status:
+Live Production evidence for the `owner_audit_log.target_type NOT NULL` failure:
 
 | Function / concern | Live Production evidence | Repo-canonical evidence | Status | Safest next action |
 |---|---|---|---|---|
-| `set_company_status_governance(uuid,uuid,text,text,text)` | **NOT YET CAPTURED** — previous ALIGNED claim was unverified and has been retracted. | `075_super_admin_governance_layer.sql:150-167` INSERT omits `target_type`, `target_id`, `target_name`. Migration `20260801153000` provides a narrow patch. | **UNCONFIRMED / BLOCKED** | Run the full read-only lookup SQL below; archive raw output; if live body omits `target_type`, diff against `20260801153000`, validate on staging, then obtain Platform Owner approval before applying. |
+| `set_company_status_governance(uuid,uuid,text,text,text)` | **Live body captured 2026-08-01.** Already inserts `target_type = 'company'`. Omits `target_id` and `target_name`. Live body has two enum casts (`SELECT c.status::text`, `UPDATE ... status = $1::company_status`) absent from repo baseline and from migration `20260801153000`. | `075_super_admin_governance_layer.sql:150-167` omits `target_type`, `target_id`, `target_name`; omits both enum casts. Migration `20260801153000` adds target fields but drops both live enum casts — **UNSAFE AS WRITTEN**. | **PARTIALLY ALIGNED / PATCH UNSAFE** | Run `owner_audit_log` column nullability query (Section 2.2 of checklist). If `target_id` NOT NULL: author reworked patch preserving both live enum casts, add only `target_id`+`target_name` to INSERT, stage-validate, obtain approval. If `target_id` nullable: no patch needed; mark ALIGNED; retire `20260801153000`. |
 | `owner_review_compliance_document(uuid,text,uuid,text,text)` | Explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`. Live semantic value is `compliance_document`. | Consistent with live. | **ALIGNED** | Preserve the live semantic contract unless separately approved. |
 | `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` INSERT omits `target_type` and `target_id`, emitting NOT NULL violation. | Migration `078` contains the same bug; migration `20260801091000` provides the narrow patch. | **DIVERGENT — PATCH STAGED** | Apply only `supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql` after staging validation and Platform Owner approval. Full runbook: `supabase/ops/marketplace-governance-production-runbook.md`. |
 | `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Not returned by the Production read-only function query. Live status cannot be confirmed without re-running the single-signature lookup. | Migration `20260730100000` defines the function with an `owner_audit_log` INSERT that **also omits `target_type` and `target_id`** — same bug class as the marketplace function. If this migration was applied to Production, the function is broken. If it was not applied, the function may not exist live. | **BLOCKED (PRODUCTION) / DIVERGENT (REPO-CANONICAL)** | 1. Run the single-signature lookup below to determine live status. 2. If the function exists live and omits `target_type`, author a narrow patch analogous to `20260801091000` (adding `target_type = 'fraud_case'` and `target_id = p_case_id`). 3. Do not author or apply any patch without live evidence of the current function body. |
 
-Full read-only SQL for `set_company_status_governance` (run once, archive raw output):
+Read-only query for `owner_audit_log` column nullability — run and archive output (this is the next required step for `set_company_status_governance`):
 
 ```sql
-SELECT
-  p.oid::regprocedure AS function_signature,
-  pg_get_function_arguments(p.oid) AS arguments,
-  pg_get_function_result(p.oid) AS returns,
-  p.prosecdef AS security_definer,
-  array_to_string(p.proconfig, E'\n') AS proc_config,
-  pg_get_functiondef(p.oid) AS function_definition
-FROM pg_proc p
-JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-  AND p.proname = 'set_company_status_governance'
-  AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text, text';
+SELECT column_name, data_type, udt_name, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'owner_audit_log'
+ORDER BY ordinal_position;
 ```
 
 Single read-only SQL for `owner_decide_fraud_review_case` (run once, archive raw output):
@@ -127,7 +120,7 @@ WHERE n.nspname = 'public'
   AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
 ```
 
-Expected outcomes and required next steps:
+Expected outcomes and required next steps for `owner_decide_fraud_review_case`:
 
 | Query result | Interpretation | Required action |
 |---|---|---|
@@ -135,10 +128,10 @@ Expected outcomes and required next steps:
 | Returns one row whose body does **not** include `target_type` | Same bug as marketplace function; Migration `20260730100000` was applied. | Author a narrow patch (same pattern as `20260801091000`) adding `target_type = 'fraud_case'` and `target_id = p_case_id`. Stage and validate before Production. |
 | Returns zero rows | Function does not exist with this exact signature. | Confirm via `p.proname = 'owner_decide_fraud_review_case'` without arg filter whether any overload exists. If absent, no patch needed; document as not yet applied to Production. |
 
-This incident remains separate from the driver-commercial reconciliation units above. The `owner_audit_log.target_type` remediation now has three open threads: one confirmed broken (marketplace), one unverified (fraud review), and one contradicted/unverified (`set_company_status_governance`). All require live lookup before any Production SQL.
+`owner_audit_log.target_type` remediation status summary: one confirmed broken (marketplace — patch staged), one unverified (fraud review — lookup pending), one partially aligned (`set_company_status_governance` — `target_type` correct, `target_id`/`target_name` absent, column nullability query pending, patch `20260801153000` unsafe as written).
 
 ---
 
 ## Single safest next action
 
-Run the next independent read-only Unit C statement (active company-bid duplicate compatibility) and archive the raw output before any index/RLS/RPC change.
+Run the `owner_audit_log` column nullability query above and archive the output. Then run the next independent read-only Unit C statement (active company-bid duplicate compatibility).
