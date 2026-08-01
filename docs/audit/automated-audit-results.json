@@ -1,8 +1,8 @@
 {
-  "runDate": "2026-08-01T18:08:31.380Z",
-  "totalPass": 74,
+  "runDate": "2026-08-01T18:11:46.530Z",
+  "totalPass": 77,
   "totalFail": 0,
-  "totalManual": 7,
+  "totalManual": 4,
   "sections": [
     {
       "title": "DB-01 — Migration Integrity",
@@ -449,8 +449,8 @@
       "results": [
         {
           "id": "PR-02-03",
-          "pass": null,
-          "note": "Lint skipped (--skip-lint)"
+          "pass": true,
+          "note": "ESLint passed with 0 warnings/errors"
         }
       ]
     },
@@ -459,8 +459,8 @@
       "results": [
         {
           "id": "PR-02-02",
-          "pass": null,
-          "note": "Typecheck skipped (--skip-lint)"
+          "pass": true,
+          "note": "TypeScript typecheck passed — 0 errors"
         }
       ]
     },
@@ -469,8 +469,8 @@
       "results": [
         {
           "id": "UNIT-TESTS",
-          "pass": null,
-          "note": "Unit tests skipped (--skip-tests)"
+          "pass": true,
+          "note": "All unit tests passed\nilter decoding\u001b[2m > \u001b[22mpreserves URLSearchParams decoding for \"customer=ACME%2BLogistics\"\u001b[32m 0\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m __tests__/brokerWorkspaceCustomerFilter.test.ts\u001b[2m > \u001b[22mbroker customer filter decoding\u001b[2m > \u001b[22mpreserves URLSearchParams decoding for \"customer=ACME%252BLogistics\"\u001b[32m 0\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m40 passed\u001b[39m\u001b[22m\u001b[90m (40)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m459 passed\u001b[39m\u001b[22m\u001b[90m (459)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:11:42\n\u001b[2m   Duration \u001b[22m 3.88s\u001b[2m (transform 1.42s, setup 0ms, import 3.28s, tests 912ms, environment 6ms)\u001b[22m\n\n"
         }
       ]
     }
