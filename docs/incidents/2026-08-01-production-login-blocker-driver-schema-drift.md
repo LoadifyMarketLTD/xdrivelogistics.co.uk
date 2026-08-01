@@ -88,14 +88,14 @@ This incident remains open for reconciliation of the remaining independent units
 
 Live Production function-definition evidence changes the remediation scope for the separate `owner_audit_log.target_type NOT NULL` failure. Current status:
 
-| Function / concern | Live Production evidence | Status | Safest next action |
-|---|---|---|---|
-| `set_company_status_governance(uuid,uuid,text,text,text)` | Explicitly inserts `target_type = 'company'` and includes `target_company_id`. | **ALIGNED** | Do not overwrite this function for the current incident. |
-| `owner_review_compliance_document(uuid,text,uuid,text,text)` | Explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`. Live semantic value is currently `compliance_document`. | **ALIGNED** | Preserve the live semantic contract unless separately approved. |
-| `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` insert omits `target_type` and `target_id`, which can emit `null value in column "target_type"`. | **DIVERGENT** | Use only the narrow marketplace patch in `supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql`; do not broaden the fix to other RPCs. |
-| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Not returned by the Production read-only query that inspected the other live caller definitions. | **BLOCKED** | Re-run a single read-only lookup for this exact signature before deciding whether any patch is required. |
+| Function / concern | Live Production evidence | Repo-canonical evidence | Status | Safest next action |
+|---|---|---|---|---|
+| `set_company_status_governance(uuid,uuid,text,text,text)` | Explicitly inserts `target_type = 'company'` and includes `target_company_id`. | Consistent with live. | **ALIGNED** | Do not overwrite this function for the current incident. |
+| `owner_review_compliance_document(uuid,text,uuid,text,text)` | Explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`. Live semantic value is `compliance_document`. | Consistent with live. | **ALIGNED** | Preserve the live semantic contract unless separately approved. |
+| `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` INSERT omits `target_type` and `target_id`, emitting NOT NULL violation. | Migration `078` contains the same bug; migration `20260801091000` provides the narrow patch. | **DIVERGENT — PATCH STAGED** | Apply only `supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql` after staging validation and Platform Owner approval. Full runbook: `supabase/ops/marketplace-governance-production-runbook.md`. |
+| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Not returned by the Production read-only function query. Live status cannot be confirmed without re-running the single-signature lookup. | Migration `20260730100000` defines the function with an `owner_audit_log` INSERT that **also omits `target_type` and `target_id`** — same bug class as the marketplace function. If this migration was applied to Production, the function is broken. If it was not applied, the function may not exist live. | **BLOCKED (PRODUCTION) / DIVERGENT (REPO-CANONICAL)** | 1. Run the single-signature lookup below to determine live status. 2. If the function exists live and omits `target_type`, author a narrow patch analogous to `20260801091000` (adding `target_type = 'fraud_case'` and `target_id = p_case_id`). 3. Do not author or apply any patch without live evidence of the current function body. |
 
-Single read-only SQL for the remaining unverified function:
+Single read-only SQL for the remaining unverified function (run once, archive raw output):
 
 ```sql
 SELECT
@@ -108,7 +108,15 @@ WHERE n.nspname = 'public'
   AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
 ```
 
-This incident remains separate from the driver-commercial reconciliation units above: two owner-audit callers are aligned, one is confirmed broken, and one remains unverified.
+Expected outcomes and required next steps:
+
+| Query result | Interpretation | Required action |
+|---|---|---|
+| Returns one row whose body includes `target_type` in the audit INSERT | Function already patched or uses a different INSERT path. | Confirm value is non-empty and matches expected semantics; no further patch needed. |
+| Returns one row whose body does **not** include `target_type` | Same bug as marketplace function; Migration `20260730100000` was applied. | Author a narrow patch (same pattern as `20260801091000`) adding `target_type = 'fraud_case'` and `target_id = p_case_id`. Stage and validate before Production. |
+| Returns zero rows | Function does not exist with this exact signature. | Confirm via `p.proname = 'owner_decide_fraud_review_case'` without arg filter whether any overload exists. If absent, no patch needed; document as not yet applied to Production. |
+
+This incident remains separate from the driver-commercial reconciliation units above: two owner-audit callers are aligned, one has a staged patch (marketplace), and one remains unverified at Production (fraud review).
 
 ---
 
