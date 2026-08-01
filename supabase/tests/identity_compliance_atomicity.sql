@@ -231,43 +231,98 @@ VALUES (
   'pending'
 );
 
-SELECT pg_temp.expect_exception(
-  $sql$
-  SELECT public.owner_review_compliance_document(
-    '65000000-0000-0000-0000-000000000299'::uuid,
-    'company',
-    '65000000-0000-0000-0000-000000000202'::uuid,
-    'approve',
-    NULL
-  )
-  $sql$,
-  'Document review unexpectedly succeeded when audit insertion should fail.'
+SELECT public.owner_review_compliance_document(
+  '65000000-0000-0000-0000-000000000299'::uuid,
+  'company',
+  '65000000-0000-0000-0000-000000000202'::uuid,
+  'approve',
+  NULL
 );
 
 DO $$
 DECLARE
   v_doc_status text;
-  v_audit_count bigint;
+  v_approved_audit_count bigint;
+  v_approved_target_type text;
+  v_approved_target_id text;
+  v_approved_target_name text;
 BEGIN
   SELECT status
   INTO v_doc_status
   FROM public.company_documents
   WHERE id = '65000000-0000-0000-0000-000000000202';
 
-  IF v_doc_status IS DISTINCT FROM 'pending' THEN
+  IF v_doc_status IS DISTINCT FROM 'approved' THEN
     RAISE EXCEPTION
-      'Document review was not rolled back atomically. Expected status=pending, got=%.',
+      'Document review did not reach approved status. Expected status=approved, got=%.',
       v_doc_status;
   END IF;
 
-  SELECT count(*)
-  INTO v_audit_count
+  SELECT count(*), min(target_type), min(target_id::text), min(target_name)
+  INTO v_approved_audit_count, v_approved_target_type, v_approved_target_id, v_approved_target_name
   FROM public.owner_audit_log
   WHERE action_type = 'document_approved'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
 
-  IF v_audit_count <> 0 THEN
-    RAISE EXCEPTION 'Document-review audit row exists despite rollback.';
+  IF v_approved_audit_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one approved document audit row, got %.', v_approved_audit_count;
+  END IF;
+
+  IF v_approved_target_type IS DISTINCT FROM 'company_document'
+     OR v_approved_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000202'
+     OR COALESCE(v_approved_target_name, '') = ''
+  THEN
+    RAISE EXCEPTION
+      'Approved document audit fields invalid. target_type=%, target_id=%, target_name=%',
+      v_approved_target_type, v_approved_target_id, v_approved_target_name;
+  END IF;
+END;
+$$;
+
+SELECT public.owner_review_compliance_document(
+  '65000000-0000-0000-0000-000000000299'::uuid,
+  'company',
+  '65000000-0000-0000-0000-000000000202'::uuid,
+  'reject',
+  'failed verification'
+);
+
+DO $$
+DECLARE
+  v_doc_status text;
+  v_rejected_audit_count bigint;
+  v_rejected_target_type text;
+  v_rejected_target_id text;
+  v_rejected_target_name text;
+BEGIN
+  SELECT status
+  INTO v_doc_status
+  FROM public.company_documents
+  WHERE id = '65000000-0000-0000-0000-000000000202';
+
+  IF v_doc_status IS DISTINCT FROM 'rejected' THEN
+    RAISE EXCEPTION
+      'Document review did not reach rejected status. Expected status=rejected, got=%.',
+      v_doc_status;
+  END IF;
+
+  SELECT count(*), min(target_type), min(target_id::text), min(target_name)
+  INTO v_rejected_audit_count, v_rejected_target_type, v_rejected_target_id, v_rejected_target_name
+  FROM public.owner_audit_log
+  WHERE action_type = 'document_rejected'
+    AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
+
+  IF v_rejected_audit_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one rejected document audit row, got %.', v_rejected_audit_count;
+  END IF;
+
+  IF v_rejected_target_type IS DISTINCT FROM 'company_document'
+     OR v_rejected_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000202'
+     OR COALESCE(v_rejected_target_name, '') = ''
+  THEN
+    RAISE EXCEPTION
+      'Rejected document audit fields invalid. target_type=%, target_id=%, target_name=%',
+      v_rejected_target_type, v_rejected_target_id, v_rejected_target_name;
   END IF;
 END;
 $$;
