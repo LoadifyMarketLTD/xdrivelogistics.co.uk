@@ -6,6 +6,8 @@ const readRepoFile = (relativePath: string) =>
 
 describe('fraud review case audit-target patch', () => {
   const PATCH_MIGRATION =
+    'supabase/migrations/20260801163000_p0_fix_fraud_review_case_audit_target_type.sql';
+  const SUPERSEDED_MIGRATION =
     'supabase/migrations/20260801130000_fix_fraud_review_case_audit_target.sql';
   const ORIGINAL_BACKFILL =
     'supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql';
@@ -66,9 +68,9 @@ describe('fraud review case audit-target patch', () => {
 
     expect(migration).toContain('public.owner_decide_fraud_review_case(');
     expect(migration).toContain('p_actor_user_id uuid');
-    expect(migration).toContain('p_case_id uuid');
-    expect(migration).toContain('p_action text');
-    expect(migration).toContain('p_reason text');
+    expect(migration).toMatch(/p_case_id\s+uuid/);
+    expect(migration).toMatch(/p_action\s+text/);
+    expect(migration).toMatch(/p_reason\s+text/);
     expect(migration).toContain('RETURNS TABLE (case_id uuid, old_status text, new_status text)');
   });
 
@@ -97,7 +99,7 @@ describe('fraud review case audit-target patch', () => {
     expect(migration).toContain("column_name  = 'target_type'");
     expect(migration).toContain("column_name  = 'target_id'");
     expect(migration).toContain("column_name  = 'target_name'");
-    expect(migration).toContain("is_nullable  = 'YES'");
+    expect(migration).toContain("is_nullable  = 'NO'");
     expect(migration).toContain('RAISE EXCEPTION');
   });
 
@@ -116,8 +118,8 @@ describe('fraud review case audit-target patch', () => {
     const migration = readRepoFile(PATCH_MIGRATION);
 
     expect(migration).toContain("SET status = 'blocked'");
-    expect(migration).toContain("risk_status = 'confirmed_fraud'");
-    expect(migration).toContain("risk_status = 'clear'");
+    expect(migration).toMatch(/risk_status\s*=\s*'confirmed_fraud'/);
+    expect(migration).toMatch(/risk_status\s*=\s*'clear'/);
     expect(migration).toContain('onboarding_applications');
   });
 
@@ -168,7 +170,14 @@ describe('fraud review case audit-target patch', () => {
   it('patch migration includes the BLOCKED/conditional production guidance comment', () => {
     const migration = readRepoFile(PATCH_MIGRATION);
 
-    expect(migration).toContain('MUST NOT be applied to Production until');
-    expect(migration).toContain('single-signature read-only lookup');
+    expect(migration).toContain('DO NOT APPLY until the two open evidence gaps below are resolved.');
+    expect(migration).toContain("to_regprocedure(");
+  });
+
+  it('superseded migration 20260801130000 is marked as must-not-apply', () => {
+    const superseded = readRepoFile(SUPERSEDED_MIGRATION);
+
+    expect(superseded).toContain('DO NOT APPLY');
+    expect(superseded).toContain('SUPERSEDED BY 20260801163000');
   });
 });
