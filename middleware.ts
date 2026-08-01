@@ -262,7 +262,14 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   }
 
   if (profileRes.error || membershipsRes.error || creatorCompanyRes.error) {
-    return { kind: 'forbidden' };
+    // A DB query error is not an access-control decision — it means the
+    // underlying data could not be read (transient connection hiccup, schema
+    // drift, or an RLS policy issue that isn't a network failure).  Returning
+    // 'forbidden' here was silently turning these transient failures into a
+    // permanent-looking 403 page.  Return 'service_unavailable' so the user
+    // is sent to the login page with a retryable "service unavailable" message
+    // rather than being told they have no permission.
+    return { kind: 'service_unavailable' };
   }
 
   const profile = profileRes.data as {
@@ -350,7 +357,9 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'service_unavailable' };
   }
   if (driverError) {
-    return { kind: 'forbidden' };
+    // Same principle as the profile/membership query block above: an unexpected
+    // DB error reading driver data is a service issue, not an access denial.
+    return { kind: 'service_unavailable' };
   }
 
   const driver = driverData as {
