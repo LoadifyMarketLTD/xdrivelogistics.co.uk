@@ -1,8 +1,8 @@
 {
-  "runDate": "2026-07-31T19:50:02.015Z",
-  "totalPass": 74,
+  "runDate": "2026-08-01T06:53:54.393Z",
+  "totalPass": 77,
   "totalFail": 0,
-  "totalManual": 7,
+  "totalManual": 4,
   "sections": [
     {
       "title": "DB-01 — Migration Integrity",
@@ -449,8 +449,8 @@
       "results": [
         {
           "id": "PR-02-03",
-          "pass": null,
-          "note": "Lint skipped (--skip-lint)"
+          "pass": true,
+          "note": "ESLint passed with 0 warnings/errors"
         }
       ]
     },
@@ -459,8 +459,8 @@
       "results": [
         {
           "id": "PR-02-02",
-          "pass": null,
-          "note": "Typecheck skipped (--skip-lint)"
+          "pass": true,
+          "note": "TypeScript typecheck passed — 0 errors"
         }
       ]
     },
@@ -469,8 +469,8 @@
       "results": [
         {
           "id": "UNIT-TESTS",
-          "pass": null,
-          "note": "Unit tests skipped (--skip-tests)"
+          "pass": true,
+          "note": "All unit tests passed\nuleResolve (node:internal/modules/esm/resolve:859:18)\n    at defaultResolve (node:internal/modules/esm/resolve:992:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)\n    at #resolve (node:internal/modules/esm/loader:683:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {\n  code: 'ERR_MODULE_NOT_FOUND'\n}\n\n\n\n"
         }
       ]
     }

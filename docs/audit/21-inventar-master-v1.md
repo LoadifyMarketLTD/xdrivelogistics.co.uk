@@ -1,117 +1,76 @@
-# Audit 21 — Inventar Master v1
+# Audit 21 — Master Inventory v2
 
-> Production Certification Phase · Development Freeze Active  
-> Acest document este inventarul tehnic inițial (V1), obținut direct din repository.
+> Repository-wide inventory refreshed on 2026-08-01 for commit `38977d4d06bfb9fbaf55803f8a480262d8d3f262`.
+> Method: filesystem scan, targeted file review, regenerated audit scripts, and existing master-matrix evidence.
 
-## Scope V1
+## Repository Summary
 
-- Repository root: `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk`
-- Surse inventariate: `app`, `lib`, `components`, `supabase`, `.github/workflows`, `e2e`, `__tests__`, `docs/audit`, `docs/master-matrix`.
-- Regula: fără presupuneri; fiecare secțiune are referințe la fișiere concrete.
-
-## Legend
-
-`✅ Funcționează` · `⚠️ Funcționează parțial` · `❌ Defect` · `🚫 Blocant` · `📝 Observații` · `🔧 Recomandare`
-
----
-
-## IM-01 · Inventar tehnic brut (repo-level)
-
-| ID | Element | Rezultat inventariere | Dovadă |
+| ID | Inventory Category | Count / Result | Evidence |
 |---|---|---|---|
-| IM-01-01 | Total fișiere | 949 | scan complet repo (excluzând `.git`) |
-| IM-01-02 | Total directoare | 399 | scan complet repo (excluzând `.git`) |
-| IM-01-03 | Pagini App Router (`page.tsx`) | 168 | `app/**/page.tsx` |
-| IM-01-04 | Rute API (`route.ts`) | 81 | `app/api/**/route.ts` |
-| IM-01-05 | Layout-uri | 6 | `app/**/layout.tsx` |
-| IM-01-06 | Componente (TS/TSX/JS/JSX) | 71 | `components`, `app/components`, `app/*/_components` |
-| IM-01-07 | Migrations Supabase | 178 | `supabase/migrations/*.sql` |
-| IM-01-08 | Tabele declarate în migrații | 62 | parse `CREATE TABLE` |
-| IM-01-09 | Funcții SQL/RPC declarate | 95 | parse `CREATE FUNCTION` |
-| IM-01-10 | Triggere declarate | 54 | parse `CREATE TRIGGER` |
-| IM-01-11 | Policies RLS declarate | 229 | parse `CREATE POLICY` |
-| IM-01-12 | Edge Functions | 2 (`notify-operational-event`, `send-email`) | `supabase/functions/*` |
-| IM-01-13 | Workflow-uri GitHub Actions | 13 | `.github/workflows/*.yml` |
+| IM-21-01 | Total files (excluding `.git`) | 969 | session filesystem scan |
+| IM-21-02 | Total directories (excluding `.git`) | 402 | session filesystem scan |
+| IM-21-03 | App Router pages (`page.tsx`) | 168 | `app/**/page.tsx` scan |
+| IM-21-04 | Layout files | 6 | `app/**/layout.tsx` scan |
+| IM-21-05 | Loading files | 1 | `app/**/loading.tsx` scan |
+| IM-21-06 | Error boundaries | 1 | `app/**/error.tsx` scan |
+| IM-21-07 | Not-found files | 1 | `app/**/not-found.tsx` scan |
+| IM-21-08 | Route handlers (`route.ts`) | 81 | `app/**/route.ts` scan |
+| IM-21-09 | Server action files | 1 | `app/actions/**/*.ts` scan |
+| IM-21-10 | E2E specs | 18 | `e2e/**/*.ts` scan |
+| IM-21-11 | Unit-test files | 31 | `__tests__/**/*.ts` scan |
+| IM-21-12 | GitHub Actions workflows | 13 | `.github/workflows/*.yml` scan |
+| IM-21-13 | Supabase migrations | 178 | `supabase/migrations/*.sql` scan |
+| IM-21-14 | Edge functions | 2 | `supabase/functions/*/index.ts` scan |
+| IM-21-15 | Business API routes inventoried in matrix | 72 | `docs/master-matrix/02-api-inventory.md` |
+| IM-21-16 | Interactive targets inventoried | 334 | `docs/audit/platform-interactive-summary.json` |
 
-Status: ✅ inventariere tehnică executată pentru structurile majore.
+## Major Directory Inventory
 
----
+| ID | Area | Notes |
+|---|---|---|
+| IM-21-17 | `/app` | Next.js App Router web platform with public, admin, broker, customer, driver, super-admin, onboarding and legacy mobile surfaces |
+| IM-21-18 | `/apps/driver-mobile` | Canonical Expo React Native driver app |
+| IM-21-19 | `/android-native` | Native Android app and Gradle build |
+| IM-21-20 | `/lib` | Shared auth, role, workspace, navigation and data helpers |
+| IM-21-21 | `/supabase` | Migrations, edge functions, diagnostics, ops scripts, tests and linked-project metadata |
+| IM-21-22 | `/docs/audit` | Audit workbooks, generated reports and contradiction ledgers |
+| IM-21-23 | `/docs/master-matrix` | Page/API/workflow/notification/migration matrices |
+| IM-21-24 | `/e2e` | Playwright-based smoke and contract tests |
+| IM-21-25 | `/__tests__` | Vitest-based unit and regression tests |
+| IM-21-26 | `/.github/workflows` | CI, Android CI and focused validation workflows |
 
-## IM-02 · Inventar pe domenii (artefacte auditate)
+## Roles, Workspaces and Security Surfaces
 
-| ID | Domeniu | Sursă principală | Status |
+| ID | Item | Evidence |
+|---|---|---|
+| IM-21-27 | Canonical app roles: owner, broker, company_admin, company_staff, driver, customer | `lib/authRole.ts` |
+| IM-21-28 | Workspace roles/capabilities/nav definitions | `lib/workspaceRole.ts`, `lib/roleCapabilities.ts` |
+| IM-21-29 | Protected route prefixes | `middleware.ts` (`/super-admin`, `/broker`, `/admin`, `/driver`, `/customer`, `/m`) |
+| IM-21-30 | Auth/session resolution stack | `lib/authSession.ts`, `lib/activeWorkspace.ts`, `middleware.ts` |
+
+## Data Platform Inventory
+
+| ID | Item | Count / Result | Evidence |
 |---|---|---|---|
-| IM-02-01 | Rute/pagini dashboard | `app/**/page.tsx` + `docs/master-matrix/01-page-inventory.md` | ✅ |
-| IM-02-02 | API contracte | `app/api/**/route.ts` + `docs/master-matrix/02-api-inventory.md` | ✅ |
-| IM-02-03 | Fluxuri business | `docs/master-matrix/03-workflow-decomposition.md` | ✅ |
-| IM-02-04 | Roluri/permisiuni | `middleware.ts`, `lib/authRole.ts`, `lib/workspacePermissionResolver.ts` | ✅ |
-| IM-02-05 | DB model + migrații | `database/schema.sql`, `supabase/migrations` | ✅ |
-| IM-02-06 | RLS/policies | `supabase/migrations` + `supabase/tests/*.sql` | ✅ |
-| IM-02-07 | Notificări/email/webhooks | `supabase/functions/*`, `app/api/super-admin/email-readiness/route.ts` | ✅ |
-| IM-02-08 | CI/CD + quality gates | `.github/workflows/ci.yml` + validatoare dedicate | ✅ |
-| IM-02-09 | Hosting/config/env | `netlify.toml`, `.env.example`, `next.config.mjs`, `middleware.ts` | ✅ |
-| IM-02-10 | Teste unit/integration/e2e | `__tests__`, `e2e`, `vitest`, `playwright` | ✅ |
+| IM-21-31 | Core+operational tables identified | ~50+ logical tables/records | `supabase/migrations/*.sql`, data audit report |
+| IM-21-32 | Views | 21 | data audit report |
+| IM-21-33 | Functions / procedures | 182 create-or-alter statements | data audit report |
+| IM-21-34 | RLS policies | 227 create-policy statements | data audit report |
+| IM-21-35 | Triggers | 68 create-trigger statements | data audit report |
+| IM-21-36 | Indexes | 156 create-index statements | data audit report |
+| IM-21-37 | Storage buckets | 3 private buckets | `supabase/migrations/032_storage_buckets.sql` |
+| IM-21-38 | Realtime-consumed tables identified in code | 4 (`jobs`, `job_tracking_events`, `driver_locations`, `notification_events`) | data audit report |
 
----
+## Verification Snapshot
 
-## IM-03 · Contracte și integrări identificate
+| ID | Evidence Stream | Latest Result |
+|---|---|---|
+| IM-21-39 | Automated audit | 77 PASS / 0 FAIL / 4 MANUAL |
+| IM-21-40 | Interactive audit | 334 targets; 1 CLOSED / 52 PARTIAL / 281 DUPLICATE / 0 BROKEN / 63 inaccessible pages |
+| IM-21-41 | Page inventory | Extensive, but many PARTIAL rows remain |
+| IM-21-42 | API inventory | 72 business routes; 10 CLOSED / 62 PARTIAL |
+| IM-21-43 | Workflow matrix | Control-level workflow decomposition exists; many rows PARTIAL/BLOCKED |
 
-| ID | Contract / integrare | Fișier(e) | Observație |
-|---|---|---|---|
-| IM-03-01 | FE ↔ API App Router | `app/**/page.tsx` + `app/api/**/route.ts` | Contract dominant intern |
-| IM-03-02 | API ↔ Supabase (admin/validator) | `app/api/_lib/supabaseAdmin.ts` + rute API | Dependință critică runtime |
-| IM-03-03 | Supabase DB webhook ↔ `notify-operational-event` | `supabase/functions/notify-operational-event/index.ts` | Header secret obligatoriu |
-| IM-03-04 | Supabase Auth hook ↔ `send-email` | `supabase/functions/send-email/index.ts` | HMAC verificat |
-| IM-03-05 | Email provider extern (Resend) | ambele edge functions | Fără `RESEND_API_KEY` → fail explicit |
-| IM-03-06 | Client ↔ canonical host | `middleware.ts`, `lib/siteUrl.ts`, `netlify.toml` | Canonical host enforced condițional |
+## Inventory Decision
 
----
-
-## IM-04 · Stări și tranziții (surse identificate)
-
-| ID | Entitate | Sursă stare/tranziție | Status inventariere |
-|---|---|---|---|
-| IM-04-01 | Jobs lifecycle | `database/schema.sql` (`job_status`), migrații `079`, `082`, `20260720234500` | ✅ |
-| IM-04-02 | Bids lifecycle | migrații `080_canonical_bid_status.sql`, `103_canonical_award_path.sql` | ✅ |
-| IM-04-03 | Onboarding lifecycle | migrații `099-104`, `117`, `20260729170000` | ✅ |
-| IM-04-04 | Invoice lifecycle | migrații `014`, `074`, `125-129`, `20260721224500` | ✅ |
-| IM-04-05 | Notification lifecycle | `071`, `084`, `088`, `114-116`, `20260723222000` | ✅ |
-
----
-
-## IM-05 · Feature flags, funcții neterminate, mock/placeholder
-
-| ID | Tip | Dovadă | Status |
-|---|---|---|---|
-| IM-05-01 | Feature flags runtime | `supabase/migrations/20260725170000_platform_feature_flags.sql` | ✅ |
-| IM-05-02 | UI management feature flags | `app/super-admin/settings/feature-flags/page.tsx` | ✅ |
-| IM-05-03 | Placeholder footprint | `docs/audit/platform-interactive-summary.json` (`PLACEHOLDER: 9`) | ⚠️ |
-| IM-05-04 | Broken targets | `docs/audit/platform-interactive-summary.json` (`BROKEN: 17`) | ❌ |
-| IM-05-05 | Duplicate flows | `docs/audit/platform-interactive-summary.json` (`DUPLICATE: 189`) | ⚠️ |
-
----
-
-## IM-06 · Evidence records (format operațional cerut)
-
-| ID | Fișier + locație | Rută/Funcție | Rol testat | Condiții test | Rezultat așteptat | Rezultat real | Severitate | Impact | Recomandare exactă | Status verificare |
-|---|---|---|---|---|---|---|---|---|---|---|
-| IM-EV-01 | `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/middleware.ts:19-20,182-183` | Protecție rute | neautentificat + roluri mixte | acces direct URL la suprafețe protejate | redirect/login/forbidden consistent | prefixele protejate sunt definite explicit (`/super-admin`, `/broker`, `/admin`, `/driver`, `/customer`, `/m`) | MAJOR | reduce acces neautorizat | păstrare matrice rol+rute sincronizată cu noile pagini | ✅ |
-| IM-EV-02 | `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/app/robots.ts:6-32` | Indexare | public + private pages | crawler rules | excludere dashboard-uri private | ✅ FIXED — `disallow` adăugat pentru 13 prefixe private (sincronizat cu `middleware.ts`) | CRITICAL | risc SEO/indexare accidentală suprafețe private | adaugă `disallow` explicit pentru suprafețe autentificate | ✅ |
-| IM-EV-03 | `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/docs/audit/platform-interactive-summary.json:2-9` | Navigație interactivă | toate rolurile | audit static link/target | majoritatea fluxurilor închise | `CLOSED: 2`, `PARTIAL: 44`, `BROKEN: 17`, `DUPLICATE: 189` | CRITICAL | risc fluxuri rupte/ambigue | prioritizare fix pentru BROKEN, apoi consolidare duplicate | ❌ |
-| IM-EV-04 | `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/functions/notify-operational-event/index.ts:4-7,351-358` | webhook notifications | sistem automat | apel fără secret valid | 401 | validare secret + constant-time compare prezentă | MAJOR | reduce replay/abuz webhook | menține secret rotation + monitorizare failed attempts | ✅ |
-| IM-EV-05 | `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/supabase/functions/send-email/index.ts:36-71,211-218` | Auth email hook signature | extern (Supabase Auth) | payload nesemnat / semnătură invalidă | reject | 401 + verificare HMAC existentă | MAJOR | protecție împotriva spoofing | păstrare test de contract webhook cu semnătură invalidă | ✅ |
-| IM-EV-06 | `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/netlify.toml:1-14` | hosting config | deploy | build cu env invalide | fail-fast/avertizare | config Netlify prezent; variabile critice indicate | MAJOR | stabilitate deploy | adaugă checklist automat pentru env completeness în CI | ⚠️ |
-
----
-
-## IM-07 · Ce NU este încă validat în V1
-
-Acest inventar V1 nu înlocuiește verificările live obligatorii:
-
-- DNS/SSL certificate chain și redirect-uri la nivel infrastructură live.
-- Starea reală a cron jobs din `cron.job` (necesită acces DB live).
-- Limite operaționale reale (Supabase quotas, Realtime throughput, costuri Resend).
-- Teste cross-browser/device reale pentru toate fluxurile rolurilor.
-
-Status general V1: ⚠️ Funcționează parțial (inventar completat, verificare live încă în curs).
-
+The repository inventory is now populated at the major-structure level and cross-linked to supporting matrices. The inventory is **not equivalent to full runtime verification**. The certification gap remains the difference between discovered items and items with closed runtime evidence.
