@@ -84,6 +84,34 @@ This incident remains open for reconciliation of the remaining independent units
 
 ---
 
+## Related P0 runtime defect — `owner_audit_log.target_type`
+
+Live Production function-definition evidence changes the remediation scope for the separate `owner_audit_log.target_type NOT NULL` failure. Current status:
+
+| Function / concern | Live Production evidence | Status | Safest next action |
+|---|---|---|---|
+| `set_company_status_governance(uuid,uuid,text,text,text)` | Explicitly inserts `target_type = 'company'` and includes `target_company_id`. | **ALIGNED** | Do not overwrite this function for the current incident. |
+| `owner_review_compliance_document(uuid,text,uuid,text,text)` | Explicitly inserts `target_type`, `target_id = p_document_id`, and `target_name`. Live semantic value is currently `compliance_document`. | **ALIGNED** | Preserve the live semantic contract unless separately approved. |
+| `apply_marketplace_governance_action(uuid,uuid,text,text)` | Live `owner_audit_log` insert omits `target_type` and `target_id`, which can emit `null value in column "target_type"`. | **DIVERGENT** | Use only the narrow marketplace patch in `supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql`; do not broaden the fix to other RPCs. |
+| `owner_decide_fraud_review_case(uuid,uuid,text,text)` | Not returned by the Production read-only query that inspected the other live caller definitions. | **BLOCKED** | Re-run a single read-only lookup for this exact signature before deciding whether any patch is required. |
+
+Single read-only SQL for the remaining unverified function:
+
+```sql
+SELECT
+  p.oid::regprocedure AS function_signature,
+  pg_get_functiondef(p.oid) AS function_definition
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'owner_decide_fraud_review_case'
+  AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
+```
+
+This incident remains separate from the driver-commercial reconciliation units above: two owner-audit callers are aligned, one is confirmed broken, and one remains unverified.
+
+---
+
 ## Single safest next action
 
 Run the next independent read-only Unit C statement (active company-bid duplicate compatibility) and archive the raw output before any index/RLS/RPC change.
