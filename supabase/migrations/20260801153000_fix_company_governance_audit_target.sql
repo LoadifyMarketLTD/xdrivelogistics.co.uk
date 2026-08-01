@@ -1,5 +1,16 @@
 -- Migration 20260801153000 — Narrow repair for company-governance owner_audit_log targets
 --
+-- !! DO NOT APPLY — SUPERSEDED BY 20260801160500_safe_company_governance_audit_enrichment.sql !!
+--
+-- Production schema was confirmed (2026-08-01):
+--   owner_audit_log.target_id   is nullable (YES) → live function is fully correct.
+--   owner_audit_log.target_name is nullable (YES) → live function is fully correct.
+-- Per decision matrix: no bug patch needed; enrichment applied safely in 20260801160500.
+--
+-- This file is retained for audit history only.  The two dangerous diffs documented
+-- below (DIFF A: missing ::text cast; DIFF B: missing ::company_status cast) are
+-- resolved in the superseding migration.
+--
 -- !! DO NOT APPLY TO PRODUCTION — UNSAFE AS WRITTEN !!
 --
 -- Live Production function body captured 2026-08-01.
