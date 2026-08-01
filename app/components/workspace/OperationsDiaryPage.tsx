@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
@@ -66,6 +66,7 @@ const formatDateTime = (value: string | null | undefined) =>
 
 export default function OperationsDiaryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(user?.companyId ?? null);
   const [jobs, setJobs] = useState<DiaryJob[]>([]);
@@ -79,6 +80,13 @@ export default function OperationsDiaryPage() {
   const [dateFilter, setDateFilter] = useState('all');
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({});
   const [workingJobId, setWorkingJobId] = useState<string | null>(null);
+
+  // Pre-populate search from ?job= query param so navigating from another page
+  // with a specific job ID lands the diary pre-filtered to that booking.
+  useEffect(() => {
+    const jobId = searchParams.get('job');
+    if (jobId) setSearch(jobId);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user?.id) return;
