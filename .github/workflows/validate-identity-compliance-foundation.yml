@@ -9,6 +9,7 @@ on:
       - "supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
       - "supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
       - "supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
+      - "supabase/migrations/20260801080500_fix_owner_review_compliance_document_function.sql"
       - "supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql"
       - "supabase/tests/identity_compliance_atomicity.sql"
       - "supabase/tests/identity_compliance_migration_preflight.sql"
@@ -61,6 +62,7 @@ jobs:
           MIGRATION_OWNER_DRIVER_BINDING="supabase/migrations/20260729170500_owner_driver_onboarding_company_binding.sql"
           MIGRATION_BACKFILL="supabase/migrations/20260730100000_owner_decide_fraud_review_case_atomicity_backfill.sql"
           MIGRATION_COMPANY_DRIVER_FIX="supabase/migrations/20260730112000_company_driver_role_and_company_activation_gate_fix.sql"
+          MIGRATION_FIX_OWNER_REVIEW="supabase/migrations/20260801080500_fix_owner_review_compliance_document_function.sql"
           MIGRATION_FIX_TARGET_TYPE="supabase/migrations/20260801091000_fix_owner_audit_log_target_type.sql"
 
           bootstrap_base_schema() {
@@ -284,6 +286,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_DRIVER_BINDING}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_BACKFILL}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_COMPANY_DRIVER_FIX}"
+          psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FIX_OWNER_REVIEW}"
           psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FIX_TARGET_TYPE}"
 
           psql -v ON_ERROR_STOP=1 -f supabase/tests/identity_compliance_migration_preflight.sql
