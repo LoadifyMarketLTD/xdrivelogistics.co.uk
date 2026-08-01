@@ -314,6 +314,7 @@ export async function PATCH(request: NextRequest) {
     .insert({
       actor_user_id: owner.id,
       target_company_id: null,
+      target_type: 'document',
       action_type: action === 'approve' ? 'document_approved' : 'document_rejected',
       old_status: currentDoc.status ?? null,
       new_status: nextStatus,

@@ -296,6 +296,7 @@ export async function PATCH(request: NextRequest) {
     .insert({
       actor_user_id: owner.id,
       target_company_id: null,
+      target_type: 'support_ticket',
       action_type: 'support_ticket_updated',
       old_status: currentStatus,
       new_status: nextStatus,

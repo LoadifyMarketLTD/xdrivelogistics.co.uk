@@ -423,6 +423,7 @@ export async function POST(request: NextRequest) {
   const { error: auditError } = await supabaseAdmin.from('owner_audit_log').insert({
     actor_user_id: owner.id,
     target_company_id: null,
+    target_type: 'document',
     action_type: 'document_viewed',
     old_status: '',
     new_status: '',
