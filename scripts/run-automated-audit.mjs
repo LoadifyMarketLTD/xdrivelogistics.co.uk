@@ -23,7 +23,7 @@
  *   node ./scripts/run-automated-audit.mjs [--skip-tests] [--skip-lint]
  */
 
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -138,8 +138,8 @@ function run(cmd, options = {}) {
   };
 }
 
-function runGit(args) {
-  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+function runGit(args, options = {}) {
+  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, ...options });
   return {
     ok: r.status === 0,
     stdout: r.stdout ?? '',
@@ -429,35 +429,52 @@ async function checkEnvExample() {
 }
 
 // SEC-06-04: Git history secrets scan
-function filterGitHistoryHits(stdout, pattern) {
+function filterGitHistoryHits(stdout, detector) {
   return stdout
     .split('\n')
     .filter(Boolean)
-    .filter((line) => line.toLowerCase().includes(pattern.toLowerCase()))
+    .filter((line) => detector.test(line))
     .filter((line) => !/example|placeholder|your_|# /i.test(line))
     .slice(0, 5);
 }
 
-function readGitSecretHistory(paths = GIT_SECRET_HISTORY_PATHS) {
-  return runGit(['log', '--all', '-p', '--', ...paths]);
+function readGitSecretHistory(paths = GIT_SECRET_HISTORY_PATHS, pattern) {
+  const args = ['log', '--all'];
+  if (pattern) {
+    args.push(`-G${pattern}`);
+  }
+  args.push('-p', '--', ...paths);
+  return runGit(args);
 }
 
 export function checkGitSecrets(readHistory = readGitSecretHistory) {
   const results = [];
   const patterns = [
-    { pattern: 'service_role', id: 'SEC-06-04-service_role' },
-    { pattern: 'eyJ', id: 'SEC-06-04-jwt_prefix', note: 'JWT prefix (may be false positive for anon key)' },
+    {
+      pattern: 'service_role',
+      id: 'SEC-06-04-service_role',
+      detector: /(service[_-]?role|SUPABASE_SERVICE_ROLE_KEY).{0,120}(eyJ[A-Za-z0-9_-]{20,}|sb_[A-Za-z0-9._-]{20,}|[A-Za-z0-9/+_=]{32,})/i,
+    },
+    {
+      pattern: 'eyJ',
+      id: 'SEC-06-04-jwt_prefix',
+      note: 'JWT prefix (may be false positive for anon key)',
+      detector: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+/,
+    },
   ];
-  const history = readHistory(GIT_SECRET_HISTORY_PATHS);
 
-  if (!history.ok) {
-    const failureNote = (history.stderr || history.stdout || 'git log failed').trim().slice(0, 200);
-    return patterns.map(({ id, pattern }) =>
-      fail(id, `Git history scan failed closed while checking "${pattern}": ${failureNote}`));
-  }
+  for (const { pattern, id, note, detector } of patterns) {
+    const history = readHistory(GIT_SECRET_HISTORY_PATHS, pattern);
 
-  for (const { pattern, id, note } of patterns) {
-    const hits = filterGitHistoryHits(history.stdout, pattern);
+    if (!history.ok) {
+      const failureNote = (history.stderr || history.stdout || 'git log failed').trim().slice(0, 200);
+      results.push(
+        fail(id, `Git history scan failed closed while checking "${pattern}": ${failureNote}`),
+      );
+      continue;
+    }
+
+    const hits = filterGitHistoryHits(history.stdout, detector);
     if (hits.length === 0) {
       results.push(pass(id, `No "${pattern}" commits found in git history ${note ? `(${note})` : ''}`));
     } else {
