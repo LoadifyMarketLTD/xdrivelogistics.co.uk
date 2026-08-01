@@ -113,8 +113,6 @@ vi.mock('../lib/authSession', () => ({
 
 import { middleware } from '../middleware';
 
-const originalNodeEnv = process.env.NODE_ENV;
-
 function expectNonceContract(response: Response) {
   const csp = response.headers.get('content-security-policy');
   const forwardedCsp = response.headers.get('x-middleware-request-content-security-policy');
@@ -132,11 +130,11 @@ function expectNonceContract(response: Response) {
 
 describe('middleware CSP nonce contract', () => {
   beforeEach(() => {
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
+    vi.unstubAllEnvs();
   });
 
   it('forwards the nonce-bearing CSP on public routes', async () => {

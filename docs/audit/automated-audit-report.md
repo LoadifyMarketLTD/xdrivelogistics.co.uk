@@ -1,6 +1,6 @@
 # XDrive Automated Audit Report
 
-> Generated: 2026-08-01T11:15:15.229Z
+> Generated: 2026-08-01T18:08:31.380Z
 > Script: `scripts/run-automated-audit.mjs`
 > Coverage: Static code analysis + lint + typecheck + unit tests
 > Note: Checks requiring a live Supabase database or browser are marked ⚠️ MANUAL
@@ -15,7 +15,7 @@
 | `DB-01-02` | ✅ PASS | No duplicate migration version numbers |
 | `DB-01-03` | ✅ PASS | Sequence 001–129 is complete |
 | `DB-01-04` | ✅ PASS | Migration 129 serialize_overpayment_guard found |
-| `DB-01-05` | ✅ PASS | Total migration files: 185 |
+| `DB-01-05` | ✅ PASS | Total migration files: 191 |
 
 **Section: 5 PASS · 0 FAIL · 0 MANUAL**
 

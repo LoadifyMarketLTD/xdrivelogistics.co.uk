@@ -4,14 +4,17 @@ import { GIT_SECRET_HISTORY_PATHS, checkGitSecrets } from '../scripts/run-automa
 
 describe('automated audit git history secret scan', () => {
   it('scans the intended history pathspecs', () => {
-    const calls: string[][] = [];
+    const calls: Array<{ paths: string[] | undefined; pattern: string | undefined }> = [];
 
-    checkGitSecrets((paths) => {
-      calls.push(paths);
+    checkGitSecrets((paths, pattern) => {
+      calls.push({ paths, pattern });
       return { ok: true, stdout: '', stderr: '', status: 0 };
     });
 
-    expect(calls).toEqual([GIT_SECRET_HISTORY_PATHS]);
+    expect(calls).toEqual([
+      { paths: GIT_SECRET_HISTORY_PATHS, pattern: 'service_role' },
+      { paths: GIT_SECRET_HISTORY_PATHS, pattern: 'eyJ' },
+    ]);
     expect(GIT_SECRET_HISTORY_PATHS).toEqual(['*.env', '*.json', '*.ts', '*.js']);
   });
 
