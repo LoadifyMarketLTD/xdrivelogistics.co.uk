@@ -175,11 +175,15 @@ export function BrokerCustomersPage() {
   return <PageFrame><PageHeader eyebrow="Broker customers" title="Customers" description="Customer records are built from managed loads and commercial activity. Add a load to create or extend a customer relationship." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Create Load</ActionButton>} /><Panel title="Customer book"><DataTable columns={['Customer', 'Loads', 'Active jobs', 'Revenue', 'Last activity', 'Action']} rows={customers.map((customer) => [<strong key="name">{customer.name}</strong>, customer.jobs, customer.active, money(customer.revenue), when(customer.last), <ActionButton key="action" tone="secondary" onClick={() => router.push(`/broker/loads?customer=${encodeURIComponent(customer.name)}`)}>View loads</ActionButton>])} empty={<EmptyState title="No customers yet" description="Post the first customer load to start the broker customer book." />} /></Panel></PageFrame>;
 }
 
+export function getBrokerCustomerFilter(searchParams: Pick<URLSearchParams, 'get'>): string | null {
+  return searchParams.get('customer');
+}
+
 export function BrokerLoadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobFilter = searchParams.get('job');
-  const customerFilter = searchParams.get('customer') ? decodeURIComponent(searchParams.get('customer')!) : null;
+  const customerFilter = getBrokerCustomerFilter(searchParams);
   const data = useCompanyWorkspaceData();
   const filteredJobs = useMemo(() => {
     let result = data.jobs;

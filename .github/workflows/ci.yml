@@ -108,11 +108,10 @@ jobs:
   expo-driver-typecheck:
     name: Expo Driver Typecheck
     runs-on: ubuntu-latest
-    # Run when Expo files or root shared dependencies change.
+    # Run on every PR so driver-mobile changes cannot bypass validation when labels are absent.
     if: |
       github.event_name == 'push' ||
-      contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
-      contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
+      github.event_name == 'pull_request'
     permissions:
       contents: read
 

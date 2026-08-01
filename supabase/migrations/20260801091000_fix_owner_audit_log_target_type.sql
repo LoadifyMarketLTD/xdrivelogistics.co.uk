@@ -20,15 +20,11 @@ BEGIN
     WHERE table_schema = 'public'
       AND table_name   = 'owner_audit_log'
       AND column_name  = 'target_type'
+      AND data_type = 'text'
   ) THEN
-    IF EXISTS (SELECT 1 FROM public.owner_audit_log LIMIT 1) THEN
-      RAISE EXCEPTION
-        'owner_audit_log.target_type is missing on a non-empty table. Apply the canonical target columns first; this migration will not invent fallback target values.'
-        USING ERRCODE = '23514';
-    END IF;
-
-    ALTER TABLE public.owner_audit_log
-      ADD COLUMN target_type text NOT NULL;
+    RAISE EXCEPTION
+      'owner_audit_log.target_type text NOT NULL must exist before applying 20260801091000_fix_owner_audit_log_target_type. Apply 20260801080000_canonical_owner_audit_log_target_columns first.'
+      USING ERRCODE = '23514';
   END IF;
 
   ALTER TABLE public.owner_audit_log

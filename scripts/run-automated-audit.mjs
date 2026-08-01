@@ -26,6 +26,7 @@
 import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ const ENV_EXAMPLE_FILE = path.join(ROOT, '.env.example');
 const OUT_DIR = path.join(ROOT, 'docs', 'audit');
 const OUT_JSON = path.join(OUT_DIR, 'automated-audit-results.json');
 const OUT_MD = path.join(OUT_DIR, 'automated-audit-report.md');
+export const GIT_SECRET_HISTORY_PATHS = ['*.env', '*.json', '*.ts', '*.js'];
 
 const SKIP_TESTS = process.argv.includes('--skip-tests');
 const SKIP_LINT = process.argv.includes('--skip-lint');
@@ -128,6 +130,16 @@ function fail(id, note = '') { return result(id, false, note); }
 /** Run a shell command; return { ok, stdout, stderr } */
 function run(cmd, options = {}) {
   const r = spawnSync(cmd, { shell: true, cwd: ROOT, ...options, encoding: 'utf8' });
+  return {
+    ok: r.status === 0,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+    status: r.status,
+  };
+}
+
+function runGit(args) {
+  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
   return {
     ok: r.status === 0,
     stdout: r.stdout ?? '',
@@ -417,15 +429,35 @@ async function checkEnvExample() {
 }
 
 // SEC-06-04: Git history secrets scan
-function checkGitSecrets() {
+function filterGitHistoryHits(stdout, pattern) {
+  return stdout
+    .split('\n')
+    .filter(Boolean)
+    .filter((line) => line.toLowerCase().includes(pattern.toLowerCase()))
+    .filter((line) => !/example|placeholder|your_|# /i.test(line))
+    .slice(0, 5);
+}
+
+function readGitSecretHistory(paths = GIT_SECRET_HISTORY_PATHS) {
+  return runGit(['log', '--all', '-p', '--', ...paths]);
+}
+
+export function checkGitSecrets(readHistory = readGitSecretHistory) {
   const results = [];
   const patterns = [
     { pattern: 'service_role', id: 'SEC-06-04-service_role' },
     { pattern: 'eyJ', id: 'SEC-06-04-jwt_prefix', note: 'JWT prefix (may be false positive for anon key)' },
   ];
+  const history = readHistory(GIT_SECRET_HISTORY_PATHS);
+
+  if (!history.ok) {
+    const failureNote = (history.stderr || history.stdout || 'git log failed').trim().slice(0, 200);
+    return patterns.map(({ id, pattern }) =>
+      fail(id, `Git history scan failed closed while checking "${pattern}": ${failureNote}`));
+  }
+
   for (const { pattern, id, note } of patterns) {
-    const r = run(`git log --all -p --follow -- "*.env" "*.json" "*.ts" "*.js" 2>/dev/null | grep -i '${pattern}' | grep -v 'example\\|placeholder\\|your_\\|# ' | head -5`);
-    const hits = r.stdout.trim().split('\n').filter(Boolean);
+    const hits = filterGitHistoryHits(history.stdout, pattern);
     if (hits.length === 0) {
       results.push(pass(id, `No "${pattern}" commits found in git history ${note ? `(${note})` : ''}`));
     } else {
@@ -649,7 +681,13 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error('Audit runner crashed:', err);
-  process.exit(2);
-});
+const isDirectExecution = process.argv[1]
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
+  : false;
+
+if (isDirectExecution) {
+  main().catch(err => {
+    console.error('Audit runner crashed:', err);
+    process.exit(2);
+  });
+}
