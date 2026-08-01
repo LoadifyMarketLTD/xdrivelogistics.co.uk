@@ -10,8 +10,7 @@ import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 
 export default function LoginPage() {
   const primaryHeroImage = 'https://github.com/user-attachments/assets/30065a9b-7da1-4133-8747-859697e02f12';
-  const fallbackHeroImage = '/xdrive-login-hero.webp.jpeg';
-  const lastResortHeroImage = '/hero-dispatch-control.webp';
+  const fallbackHeroImage = '/hero-dispatch-control.webp';
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -96,8 +95,6 @@ export default function LoginPage() {
             onError={(event) => {
               if (heroImageSrc !== fallbackHeroImage) {
                 setHeroImageSrc(fallbackHeroImage);
-              } else if (heroImageSrc !== lastResortHeroImage) {
-                setHeroImageSrc(lastResortHeroImage);
               } else {
                 event.currentTarget.style.display = 'none';
               }
