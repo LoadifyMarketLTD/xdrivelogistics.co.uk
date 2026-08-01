@@ -22,12 +22,9 @@
 --   history (20260730100000), not on a live pg_get_functiondef result.  Before applying
 --   this migration, the Platform Owner MUST run:
 --
---     SELECT pg_get_functiondef(p.oid)
---     FROM pg_proc p
---     JOIN pg_namespace n ON n.oid = p.pronamespace
---     WHERE n.nspname = 'public'
---       AND p.proname = 'owner_decide_fraud_review_case'
---       AND pg_get_function_identity_arguments(p.oid) = 'uuid, uuid, text, text';
+--     SELECT pg_get_functiondef(oid)
+--     FROM pg_proc
+--     WHERE oid = to_regprocedure('public.owner_decide_fraud_review_case(uuid,uuid,text,text)');
 --
 --   If the live body already contains target_type = 'fraud_case', this migration is
 --   NOT APPLICABLE.  If the function does not exist, this migration is NOT APPLICABLE.
@@ -112,14 +109,24 @@ END $$;
 -- below surface a clear error before the function creation is attempted.
 DO $$
 BEGIN
-  -- 2a. fraud_review_cases — table and all columns written or read by the function
+  -- 2a. fraud_review_cases — must be a base table (updatable relation) and all columns written or read by the function
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases'
+    WHERE table_schema = 'public'
+      AND table_name   = 'fraud_review_cases'
+      AND table_type   = 'BASE TABLE'
   ) THEN
     RAISE EXCEPTION
-      'public.fraud_review_cases does not exist. Resolve GAP 2 (schema cache warning) before applying 20260801163000.'
+      'public.fraud_review_cases does not exist as an updatable base table. Resolve GAP 2 (schema cache warning) before applying 20260801163000.'
       USING ERRCODE = '42P01';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'fraud_review_cases' AND column_name = 'id' AND udt_name = 'uuid'
+  ) THEN
+    RAISE EXCEPTION 'fraud_review_cases.id uuid must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
   END IF;
 
   -- Columns read by the function
@@ -228,6 +235,14 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'public.onboarding_applications does not exist. Required by onboarding backfill branch in 20260801163000.'
       USING ERRCODE = '42P01';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'onboarding_applications' AND column_name = 'id' AND udt_name = 'uuid'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_applications.id uuid must exist before applying 20260801163000.'
+      USING ERRCODE = '42703';
   END IF;
 
   IF NOT EXISTS (
