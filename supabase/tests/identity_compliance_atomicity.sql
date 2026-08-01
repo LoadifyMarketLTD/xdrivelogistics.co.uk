@@ -246,6 +246,8 @@ DECLARE
   v_approved_target_type text;
   v_approved_target_id text;
   v_approved_target_name text;
+  v_approved_actor_user_id text;
+  v_approved_document_family text;
 BEGIN
   SELECT status
   INTO v_doc_status
@@ -258,8 +260,8 @@ BEGIN
       v_doc_status;
   END IF;
 
-  SELECT count(*), min(target_type), min(target_id::text), min(target_name)
-  INTO v_approved_audit_count, v_approved_target_type, v_approved_target_id, v_approved_target_name
+  SELECT count(*), min(target_type), min(target_id::text), min(target_name), min(actor_user_id::text), min(metadata->>'document_family')
+  INTO v_approved_audit_count, v_approved_target_type, v_approved_target_id, v_approved_target_name, v_approved_actor_user_id, v_approved_document_family
   FROM public.owner_audit_log
   WHERE action_type = 'document_approved'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
@@ -268,13 +270,15 @@ BEGIN
     RAISE EXCEPTION 'Expected one approved document audit row, got %.', v_approved_audit_count;
   END IF;
 
-  IF v_approved_target_type IS DISTINCT FROM 'company_document'
+  IF v_approved_target_type IS DISTINCT FROM 'compliance_document'
      OR v_approved_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000202'
      OR COALESCE(v_approved_target_name, '') = ''
+     OR v_approved_actor_user_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000299'
+     OR v_approved_document_family IS DISTINCT FROM 'company'
   THEN
     RAISE EXCEPTION
-      'Approved document audit fields invalid. target_type=%, target_id=%, target_name=%',
-      v_approved_target_type, v_approved_target_id, v_approved_target_name;
+      'Approved document audit fields invalid. target_type=%, target_id=%, target_name=%, actor_user_id=%, family=%',
+      v_approved_target_type, v_approved_target_id, v_approved_target_name, v_approved_actor_user_id, v_approved_document_family;
   END IF;
 END;
 $$;
@@ -294,6 +298,8 @@ DECLARE
   v_rejected_target_type text;
   v_rejected_target_id text;
   v_rejected_target_name text;
+  v_rejected_actor_user_id text;
+  v_rejected_document_family text;
 BEGIN
   SELECT status
   INTO v_doc_status
@@ -306,8 +312,8 @@ BEGIN
       v_doc_status;
   END IF;
 
-  SELECT count(*), min(target_type), min(target_id::text), min(target_name)
-  INTO v_rejected_audit_count, v_rejected_target_type, v_rejected_target_id, v_rejected_target_name
+  SELECT count(*), min(target_type), min(target_id::text), min(target_name), min(actor_user_id::text), min(metadata->>'document_family')
+  INTO v_rejected_audit_count, v_rejected_target_type, v_rejected_target_id, v_rejected_target_name, v_rejected_actor_user_id, v_rejected_document_family
   FROM public.owner_audit_log
   WHERE action_type = 'document_rejected'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
@@ -316,13 +322,15 @@ BEGIN
     RAISE EXCEPTION 'Expected one rejected document audit row, got %.', v_rejected_audit_count;
   END IF;
 
-  IF v_rejected_target_type IS DISTINCT FROM 'company_document'
+  IF v_rejected_target_type IS DISTINCT FROM 'compliance_document'
      OR v_rejected_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000202'
      OR COALESCE(v_rejected_target_name, '') = ''
+     OR v_rejected_actor_user_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000299'
+     OR v_rejected_document_family IS DISTINCT FROM 'company'
   THEN
     RAISE EXCEPTION
-      'Rejected document audit fields invalid. target_type=%, target_id=%, target_name=%',
-      v_rejected_target_type, v_rejected_target_id, v_rejected_target_name;
+      'Rejected document audit fields invalid. target_type=%, target_id=%, target_name=%, actor_user_id=%, family=%',
+      v_rejected_target_type, v_rejected_target_id, v_rejected_target_name, v_rejected_actor_user_id, v_rejected_document_family;
   END IF;
 END;
 $$;

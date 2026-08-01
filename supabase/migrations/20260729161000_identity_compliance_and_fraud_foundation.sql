@@ -359,8 +359,6 @@ DECLARE
   v_reviewer_column text;
   v_reviewed_at_column text;
   v_reason_column text;
-  v_target_type text;
-  v_target_name text;
   v_old_status text;
   v_next_status text;
   v_reason text;
@@ -381,7 +379,6 @@ BEGIN
     v_reviewer_column := 'verified_by';
     v_reviewed_at_column := 'verified_at';
     v_reason_column := 'rejection_reason';
-    v_target_type := 'driver_document';
     v_next_status := CASE WHEN p_action = 'approve' THEN 'approved' ELSE 'rejected' END;
   ELSIF p_document_family = 'vehicle' THEN
     v_table := 'vehicle_documents';
@@ -389,7 +386,6 @@ BEGIN
     v_reviewer_column := 'verified_by';
     v_reviewed_at_column := 'verified_at';
     v_reason_column := 'rejection_reason';
-    v_target_type := 'vehicle_document';
     v_next_status := CASE WHEN p_action = 'approve' THEN 'approved' ELSE 'rejected' END;
   ELSIF p_document_family = 'company' THEN
     v_table := 'company_documents';
@@ -397,7 +393,6 @@ BEGIN
     v_reviewer_column := 'reviewed_by';
     v_reviewed_at_column := 'reviewed_at';
     v_reason_column := 'review_notes';
-    v_target_type := 'company_document';
     v_next_status := CASE WHEN p_action = 'approve' THEN 'approved' ELSE 'rejected' END;
   ELSE
     v_table := 'driver_identity_documents';
@@ -405,11 +400,8 @@ BEGIN
     v_reviewer_column := 'reviewed_by';
     v_reviewed_at_column := 'reviewed_at';
     v_reason_column := 'review_notes';
-    v_target_type := 'identity_document';
     v_next_status := CASE WHEN p_action = 'approve' THEN 'verified' ELSE 'rejected' END;
   END IF;
-
-  v_target_name := format('%s document %s', p_document_family, p_document_id);
 
   EXECUTE format(
     'SELECT %1$I FROM public.%2$I WHERE id = $1 FOR UPDATE',
@@ -445,9 +437,6 @@ BEGIN
 
   INSERT INTO public.owner_audit_log (
     actor_user_id,
-    target_type,
-    target_id,
-    target_name,
     target_company_id,
     action_type,
     old_status,
@@ -457,9 +446,6 @@ BEGIN
   )
   VALUES (
     p_actor_user_id,
-    v_target_type,
-    p_document_id,
-    v_target_name,
     NULL,
     CASE WHEN p_action = 'approve' THEN 'document_approved' ELSE 'document_rejected' END,
     v_old_status,
@@ -467,9 +453,7 @@ BEGIN
     COALESCE(NULLIF(trim(p_reason), ''), format('%s document %s %s by platform compliance.', p_document_family, p_document_id, v_next_status)),
     jsonb_build_object(
       'document_id', p_document_id,
-      'document_family', p_document_family,
-      'target_type', v_target_type,
-      'target_name', v_target_name
+      'document_family', p_document_family
     )
   );
 
