@@ -10,12 +10,13 @@
 | Report maintained by | Copilot Task Agent |
 | Audit mode | Repository-only static audit + committed automation evidence |
 | Last updated | 2026-08-01 |
-| Total defects logged | 8 |
+| Total defects logged | 9 |
 
 ## Active Defects
 
 | ID | Source Audit | Date Found | Description | Severity | Status | Affected Roles | Launch Blocker |
 |---|---|---|---|---|---|---|---|
+| **DEF-009** | **Platform Owner — live DB read** | **2026-08-01** | **P0 Production login blocker: `drivers.driver_type` and `drivers.can_commercial_bid` absent from live schema. Migrations 20260725184000 and 20260726060000 not applied. Every login for company-associated users redirects to `/forbidden`.** | **P0 CRITICAL** | **OPEN — MIGRATION PENDING APPROVAL** | **all authenticated roles** | **Yes** |
 | DEF-001 | Audit 18 — API Contract | 2026-08-01 | API contract coverage is critically incomplete: `docs/master-matrix/02-api-inventory.md` records 72 business routes, only 10 CLOSED and 62 PARTIAL. | CRITICAL | OPEN | all authenticated roles | Yes |
 | DEF-002 | Audit 19 — UX/UI Consistency | 2026-08-01 | Interactive surface audit regenerated at 334 targets with 281 duplicate targets and 63 inaccessible pages; navigation consistency is not certifiable. | CRITICAL | OPEN | public, customer, driver, broker, admin, super-admin | Yes |
 | DEF-003 | Audit 02 / 08 / 19 | 2026-08-01 | Legacy `/m/*` web routes coexist with the canonical Expo driver app, creating duplicated mobile behaviour and certification drift. | MAJOR | OPEN | driver, owner-driver | Yes |
@@ -138,6 +139,28 @@
 | Production impact | Launch would proceed without a measured performance baseline or stability proof. |
 | Recommendation | Add measured Lighthouse, API latency and mobile stability evidence before requesting release approval. |
 | Launch blocker | Yes |
+
+### DEF-009
+
+| Field | Value |
+|---|---|
+| ID | DEF-009 |
+| Severity | **P0 CRITICAL — Production Login Blocker** |
+| Source audit | Platform Owner — live Supabase DB read (2026-08-01) |
+| Evidence | Live DB query: `SELECT version FROM supabase_migrations.schema_migrations WHERE version IN ('20260725184000','20260726060000')` → 0 rows. `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='drivers' AND column_name IN ('driver_type','can_commercial_bid')` → 0 rows. |
+| Affected files | `supabase/migrations/20260725184000_driver_commercial_bidding_controls.sql`, `supabase/migrations/20260726060000_canonical_driver_type_architecture.sql`, `middleware.ts` (secondary bug: no 42703 fallback) |
+| Affected roles | All authenticated roles (login fails before role is resolved) |
+| Confirmed root cause | Two migrations never applied to the live Supabase project. `drivers.driver_type` and `drivers.can_commercial_bid` are absent from `public.drivers`. Every call to `GET /rest/v1/drivers?select=...driver_type,can_commercial_bid...` returns `400 Bad Request` (PostgreSQL `42703: column does not exist`). `middleware.ts` queries `can_commercial_bid` with no 42703 fallback and translates the error to `{ kind: 'forbidden' }`, redirecting every login to `/forbidden`. |
+| Reproduction | 1. Log in with any driver or company-admin account on production. 2. Observe redirect to `/forbidden`. 3. Check browser network tab: `GET /rest/v1/drivers?select=id,company_id,...,can_commercial_bid&user_id=eq.<id>` returns `HTTP 400`. |
+| Blast radius | 100% of users with a company membership (company admins, fleet managers, company drivers). Standalone drivers with no membership may partially authenticate but encounter failures at the driver-route gate. |
+| Secondary bug found | `middleware.ts` (line ≈321 before fix) queries `can_commercial_bid` inside `resolveRouteAuth` with no `isMissingDriverCommercialColumn` fallback. `authSession.ts` and `app/api/auth/context/route.ts` had the fallback from the July 2026 incident — middleware did not. |
+| Remediation — frontend | Add `isMissingDriverCanBidColumn` 42703 guard in `middleware.ts` (same pattern as `authSession.ts`). **This PR applies this fix.** Protects all future logins from column-absent errors. |
+| Remediation — schema | Apply `supabase/migrations/20260801000000_p0_driver_commercial_columns_catchup.sql` to production. This idempotent migration: (a) adds `driver_type` and `can_commercial_bid`, (b) backfills all existing driver rows to canonical values, (c) enforces `NOT NULL` + `CHECK` constraint, (d) sets `can_commercial_bid DEFAULT true`, (e) updates `review_onboarding_application_atomic` function, (f) updates `job_bids` RLS policy, (g) issues `NOTIFY pgrst, 'reload schema'`. **Requires explicit Platform Owner approval and staging validation before Production apply.** |
+| Migration dependency chain | Migrations 20260726091000 through 20260730140000 (11 files) are also likely unapplied; they must be applied in sequence after the catch-up. None of these are required to unblock login but they complete the full schema state. See `docs/incidents/2026-08-01-production-login-blocker-driver-schema-drift.md` for full plan. |
+| Rollback procedure | If catch-up migration causes issues: `BEGIN; ALTER TABLE public.drivers DROP COLUMN IF EXISTS driver_type; ALTER TABLE public.drivers DROP COLUMN IF EXISTS can_commercial_bid; COMMIT;` — restores pre-migration state. Frontend middleware fallback continues to protect login. |
+| Post-migration verification | (1) `SELECT driver_type, can_commercial_bid FROM public.drivers LIMIT 5;` → all rows populated. (2) Login as driver → no redirect to `/forbidden`. (3) Login as company admin → reaches dashboard. (4) Owner-driver login → owner-driver workspace available. (5) Marketplace bid insertion succeeds for eligible drivers. (6) Full unit test suite passes. |
+| Launch blocker | **Yes — P0. No user can log in on production until middleware fix is deployed AND schema migration is applied.** |
+| Status | **PARTIALLY MITIGATED** — Middleware fix deployed in this PR. Schema migration prepared and awaiting Platform Owner approval for staging validation and Production application. |
 
 ## Release Gate
 

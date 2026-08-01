@@ -147,6 +147,14 @@ const normalizeMembershipRows = (rows: MembershipQueryRow[]): RawMembershipRow[]
 const readFallbackRole = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
+const isMissingDriverCanBidColumn = (
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+): boolean => {
+  if (!error || error.code !== '42703') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return text.includes('can_commercial_bid');
+};
+
 const isServiceFailure = (message: string | null | undefined) => {
   const normalized = (message ?? '').toLowerCase();
   return (
@@ -316,13 +324,27 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
-  const { data: driverData, error: driverError } = await supabaseAdmin
+  const { data: driverDataInitial, error: driverErrorInitial } = await supabaseAdmin
     .from('drivers')
     .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
     .eq('user_id', authData.user.id)
     .eq('company_id', activeCompany.context.companyId)
     .limit(1)
     .maybeSingle();
+
+  // PostgreSQL 42703 compatibility: when the live schema is missing can_commercial_bid
+  // (production schema drift — unapplied migration 20260725184000), retry exactly once
+  // with the legacy column set.  Commercial bidding is fail-closed: null if unavailable.
+  const driverNeedsLegacyFallback = isMissingDriverCanBidColumn(driverErrorInitial);
+  const { data: driverData, error: driverError } = driverNeedsLegacyFallback
+    ? await supabaseAdmin
+        .from('drivers')
+        .select('id, company_id, app_access, must_change_password, status')
+        .eq('user_id', authData.user.id)
+        .eq('company_id', activeCompany.context.companyId)
+        .limit(1)
+        .maybeSingle()
+    : { data: driverDataInitial, error: driverErrorInitial };
 
   if (isServiceFailure(driverError?.message)) {
     return { kind: 'service_unavailable' };
@@ -396,7 +418,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     membershipId: activeCompany.context.membershipId,
     membershipRole,
     driverId: driver?.id ?? null,
-    canCommercialBid: driver?.can_commercial_bid ?? null,
+    canCommercialBid: driverNeedsLegacyFallback ? null : (driver?.can_commercial_bid ?? null),
     driverStatus: driver?.status ?? null,
     accountStatus: profileStatus,
     companyStatus,
