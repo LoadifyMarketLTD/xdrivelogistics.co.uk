@@ -266,6 +266,8 @@ DECLARE
   v_approved_new_status text;
   v_approved_reason text;
   v_approved_target_type text;
+  v_approved_target_id text;
+  v_approved_target_name text;
 BEGIN
   SELECT status
   INTO v_doc_status
@@ -278,8 +280,8 @@ BEGIN
       v_doc_status;
   END IF;
 
-  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason), min(target_type)
-  INTO v_approved_audit_count, v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason, v_approved_target_type
+  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason), min(target_type), min(target_id::text), min(target_name)
+  INTO v_approved_audit_count, v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason, v_approved_target_type, v_approved_target_id, v_approved_target_name
   FROM public.owner_audit_log
   WHERE action_type = 'document_approved'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
@@ -294,11 +296,13 @@ BEGIN
      OR v_approved_old_status IS DISTINCT FROM 'pending'
      OR v_approved_new_status IS DISTINCT FROM 'approved'
      OR COALESCE(v_approved_reason, '') = ''
-     OR v_approved_target_type IS DISTINCT FROM 'company_document'
+     OR v_approved_target_type IS DISTINCT FROM 'compliance_document'
+     OR v_approved_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000202'
+     OR COALESCE(v_approved_target_name, '') = ''
   THEN
     RAISE EXCEPTION
-      'Approved document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%, target_type=%',
-      v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason, v_approved_target_type;
+      'Approved document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%, target_type=%, target_id=%, target_name=%',
+      v_approved_actor_user_id, v_approved_document_family, v_approved_document_id, v_approved_old_status, v_approved_new_status, v_approved_reason, v_approved_target_type, v_approved_target_id, v_approved_target_name;
   END IF;
 END;
 $$;
@@ -322,6 +326,8 @@ DECLARE
   v_rejected_new_status text;
   v_rejected_reason text;
   v_rejected_target_type text;
+  v_rejected_target_id text;
+  v_rejected_target_name text;
 BEGIN
   SELECT status
   INTO v_doc_status
@@ -334,8 +340,8 @@ BEGIN
       v_doc_status;
   END IF;
 
-  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason), min(target_type)
-  INTO v_rejected_audit_count, v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason, v_rejected_target_type
+  SELECT count(*), min(actor_user_id::text), min(metadata->>'document_family'), min(metadata->>'document_id'), min(old_status), min(new_status), min(reason), min(target_type), min(target_id::text), min(target_name)
+  INTO v_rejected_audit_count, v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason, v_rejected_target_type, v_rejected_target_id, v_rejected_target_name
   FROM public.owner_audit_log
   WHERE action_type = 'document_rejected'
     AND metadata->>'document_id' = '65000000-0000-0000-0000-000000000202';
@@ -350,11 +356,176 @@ BEGIN
      OR v_rejected_old_status IS DISTINCT FROM 'approved'
      OR v_rejected_new_status IS DISTINCT FROM 'rejected'
      OR v_rejected_reason IS DISTINCT FROM 'failed verification'
-     OR v_rejected_target_type IS DISTINCT FROM 'company_document'
+     OR v_rejected_target_type IS DISTINCT FROM 'compliance_document'
+     OR v_rejected_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000202'
+     OR COALESCE(v_rejected_target_name, '') = ''
   THEN
     RAISE EXCEPTION
-      'Rejected document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%, target_type=%',
-      v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason, v_rejected_target_type;
+      'Rejected document audit fields invalid. actor_user_id=%, family=%, document_id=%, old_status=%, new_status=%, reason=%, target_type=%, target_id=%, target_name=%',
+      v_rejected_actor_user_id, v_rejected_document_family, v_rejected_document_id, v_rejected_old_status, v_rejected_new_status, v_rejected_reason, v_rejected_target_type, v_rejected_target_id, v_rejected_target_name;
+  END IF;
+END;
+$$;
+
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL;
+
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'draft';
+
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS exchange_visibility text NOT NULL DEFAULT 'private';
+
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS exchange_posted_at timestamptz;
+
+INSERT INTO public.companies (
+  id,
+  name,
+  status,
+  created_by
+)
+VALUES (
+  '65000000-0000-0000-0000-000000000501',
+  'Atomicity Marketplace Company',
+  'active',
+  '65000000-0000-0000-0000-0000000000aa'
+);
+
+INSERT INTO public.jobs (
+  id,
+  created_by,
+  company_id,
+  status,
+  exchange_visibility
+)
+VALUES (
+  '65000000-0000-0000-0000-000000000502',
+  '65000000-0000-0000-0000-0000000000aa',
+  '65000000-0000-0000-0000-000000000501',
+  'draft',
+  'private'
+);
+
+SELECT public.apply_marketplace_governance_action(
+  '65000000-0000-0000-0000-0000000000aa'::uuid,
+  '65000000-0000-0000-0000-000000000502'::uuid,
+  'publish_to_exchange',
+  'atomicity marketplace publish'
+);
+
+DO $$
+DECLARE
+  v_job_status text;
+  v_job_visibility text;
+  v_job_posted_at timestamptz;
+  v_audit_count bigint;
+  v_actor_user_id text;
+  v_target_type text;
+  v_target_id text;
+  v_target_name text;
+  v_target_company_id text;
+  v_action_type text;
+  v_old_status text;
+  v_new_status text;
+  v_reason text;
+BEGIN
+  SELECT status, exchange_visibility, exchange_posted_at
+  INTO v_job_status, v_job_visibility, v_job_posted_at
+  FROM public.jobs
+  WHERE id = '65000000-0000-0000-0000-000000000502';
+
+  IF v_job_status IS DISTINCT FROM 'draft'
+     OR v_job_visibility IS DISTINCT FROM 'exchange'
+     OR v_job_posted_at IS NULL
+  THEN
+    RAISE EXCEPTION
+      'Marketplace publish did not persist expected job state. status=%, exchange_visibility=%, exchange_posted_at=%',
+      v_job_status, v_job_visibility, v_job_posted_at;
+  END IF;
+
+  SELECT count(*), min(actor_user_id::text), min(target_type), min(target_id::text), min(target_name), min(target_company_id::text), min(action_type), min(old_status), min(new_status), min(reason)
+  INTO v_audit_count, v_actor_user_id, v_target_type, v_target_id, v_target_name, v_target_company_id, v_action_type, v_old_status, v_new_status, v_reason
+  FROM public.owner_audit_log
+  WHERE action_type = 'marketplace_published'
+    AND target_id = '65000000-0000-0000-0000-000000000502'::uuid;
+
+  IF v_audit_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one marketplace audit row, got %.', v_audit_count;
+  END IF;
+
+  IF v_actor_user_id IS DISTINCT FROM '65000000-0000-0000-0000-0000000000aa'
+     OR v_target_type IS DISTINCT FROM 'job'
+     OR v_target_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000502'
+     OR v_target_name IS DISTINCT FROM 'Marketplace job 65000000-0000-0000-0000-000000000502'
+     OR v_target_company_id IS DISTINCT FROM '65000000-0000-0000-0000-000000000501'
+     OR v_action_type IS DISTINCT FROM 'marketplace_published'
+     OR v_old_status IS DISTINCT FROM 'visibility:private'
+     OR v_new_status IS DISTINCT FROM 'visibility:exchange'
+     OR v_reason IS DISTINCT FROM 'atomicity marketplace publish'
+  THEN
+    RAISE EXCEPTION
+      'Marketplace audit fields invalid. actor_user_id=%, target_type=%, target_id=%, target_name=%, target_company_id=%, action_type=%, old_status=%, new_status=%, reason=%',
+      v_actor_user_id, v_target_type, v_target_id, v_target_name, v_target_company_id, v_action_type, v_old_status, v_new_status, v_reason;
+  END IF;
+END;
+$$;
+
+INSERT INTO public.jobs (
+  id,
+  created_by,
+  company_id,
+  status,
+  exchange_visibility
+)
+VALUES (
+  '65000000-0000-0000-0000-000000000503',
+  '65000000-0000-0000-0000-0000000000aa',
+  '65000000-0000-0000-0000-000000000501',
+  'draft',
+  'private'
+);
+
+SELECT pg_temp.expect_exception(
+  $sql$
+  SELECT public.apply_marketplace_governance_action(
+    '66000000-0000-0000-0000-000000000001'::uuid,
+    '65000000-0000-0000-0000-000000000503'::uuid,
+    'publish_to_exchange',
+    'atomicity marketplace invalid actor'
+  )
+  $sql$,
+  'Marketplace governance unexpectedly succeeded when audit insertion should fail.'
+);
+
+DO $$
+DECLARE
+  v_job_status text;
+  v_job_visibility text;
+  v_job_posted_at timestamptz;
+  v_audit_count bigint;
+BEGIN
+  SELECT status, exchange_visibility, exchange_posted_at
+  INTO v_job_status, v_job_visibility, v_job_posted_at
+  FROM public.jobs
+  WHERE id = '65000000-0000-0000-0000-000000000503';
+
+  IF v_job_status IS DISTINCT FROM 'draft'
+     OR v_job_visibility IS DISTINCT FROM 'private'
+     OR v_job_posted_at IS NOT NULL
+  THEN
+    RAISE EXCEPTION
+      'Marketplace governance was not rolled back atomically. status=%, exchange_visibility=%, exchange_posted_at=%',
+      v_job_status, v_job_visibility, v_job_posted_at;
+  END IF;
+
+  SELECT count(*)
+  INTO v_audit_count
+  FROM public.owner_audit_log
+  WHERE target_id = '65000000-0000-0000-0000-000000000503'::uuid;
+
+  IF v_audit_count <> 0 THEN
+    RAISE EXCEPTION 'Marketplace audit rows were written despite rollback.';
   END IF;
 END;
 $$;

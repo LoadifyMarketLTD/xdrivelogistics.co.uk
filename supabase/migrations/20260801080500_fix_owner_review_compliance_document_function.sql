@@ -1,5 +1,48 @@
 BEGIN;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_type'
+      AND data_type = 'text'
+      AND is_nullable = 'NO'
+  ) THEN
+    RAISE EXCEPTION
+      'owner_audit_log.target_type text NOT NULL must exist before applying 20260801080500_fix_owner_review_compliance_document_function.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_id'
+      AND udt_name = 'uuid'
+  ) THEN
+    RAISE EXCEPTION
+      'owner_audit_log.target_id uuid must exist before applying 20260801080500_fix_owner_review_compliance_document_function.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_name'
+      AND data_type = 'text'
+  ) THEN
+    RAISE EXCEPTION
+      'owner_audit_log.target_name text must exist before applying 20260801080500_fix_owner_review_compliance_document_function.'
+      USING ERRCODE = '23514';
+  END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.owner_review_compliance_document(
   p_actor_user_id uuid,
   p_document_family text,
@@ -18,6 +61,7 @@ DECLARE
   v_reviewer_column text;
   v_reviewed_at_column text;
   v_reason_column text;
+  v_target_name text;
   v_old_status text;
   v_next_status text;
   v_reason text;
@@ -62,6 +106,8 @@ BEGIN
     v_next_status := CASE WHEN p_action = 'approve' THEN 'verified' ELSE 'rejected' END;
   END IF;
 
+  v_target_name := format('%s document %s', p_document_family, p_document_id);
+
   EXECUTE format(
     'SELECT %1$I FROM public.%2$I WHERE id = $1 FOR UPDATE',
     v_status_column,
@@ -96,6 +142,9 @@ BEGIN
 
   INSERT INTO public.owner_audit_log (
     actor_user_id,
+    target_type,
+    target_id,
+    target_name,
     target_company_id,
     action_type,
     old_status,
@@ -105,6 +154,9 @@ BEGIN
   )
   VALUES (
     p_actor_user_id,
+    'compliance_document',
+    p_document_id,
+    v_target_name,
     NULL,
     CASE WHEN p_action = 'approve' THEN 'document_approved' ELSE 'document_rejected' END,
     v_old_status,
