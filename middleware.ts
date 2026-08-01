@@ -445,10 +445,11 @@ function buildCspHeader(nonce: string): string {
   const scriptSrc = isDev
     ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
     : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
+  const styleSrc = isDev ? `'self' 'unsafe-inline'` : `'self'`;
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
-    "style-src 'self' 'unsafe-inline'",
+    `style-src ${styleSrc}`,
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
@@ -460,6 +461,20 @@ function buildCspHeader(nonce: string): string {
   ].join('; ');
 }
 
+function buildNonceResponse(request: NextRequest, nonce: string) {
+  const csp = buildCspHeader(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set('Content-Security-Policy', csp);
+
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
@@ -469,11 +484,7 @@ export async function middleware(request: NextRequest) {
   const nonce = generateNonce();
 
   if (!isProtectedPath(request.nextUrl.pathname)) {
-    const response = NextResponse.next({
-      request: { headers: new Headers({ ...Object.fromEntries(request.headers), 'x-nonce': nonce }) },
-    });
-    response.headers.set('Content-Security-Policy', buildCspHeader(nonce));
-    return response;
+    return buildNonceResponse(request, nonce);
   }
 
   const auth = await resolveRouteAuth(request);
@@ -554,11 +565,7 @@ export async function middleware(request: NextRequest) {
     return buildRedirect(request, DRIVER_JOBS_PATH);
   }
 
-  const response = NextResponse.next({
-    request: { headers: new Headers({ ...Object.fromEntries(request.headers), 'x-nonce': nonce }) },
-  });
-  response.headers.set('Content-Security-Policy', buildCspHeader(nonce));
-  return response;
+  return buildNonceResponse(request, nonce);
 }
 
 export const config = {

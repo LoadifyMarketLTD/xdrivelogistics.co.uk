@@ -9,15 +9,15 @@
 
 ## Section 1 — Canonical PR scope
 
-The current GitHub title/body are stale. They still describe only the automated audit runner, while PR #326 now spans 82 changed files across web, Supabase, CI, governance, CSP, middleware, feature flags, incidents, runbooks, and audit evidence.
+The current GitHub title/body are aligned with the actual PR scope. PR #326 now spans web, Supabase, CI, governance, CSP, middleware, feature flags, incidents, staged runbooks, and audit evidence.
 
-### Required replacement PR title
+### Current PR title
 
-`chore: finalize audit evidence, CI governance, CSP hardening, middleware compatibility, and staged Supabase production runbooks`
+`chore: finalize audit evidence, CI governance, CSP hardening, middleware compatibility, and staged Supabase runbooks`
 
-### Required replacement PR body topics
+### Current PR body topics
 
-The final PR body must explicitly cover all of the following:
+The GitHub PR body explicitly covers all of the following:
 
 - automated audit runner and generated evidence
 - monorepo governance / `CODEOWNERS` / PR template / CI filters
@@ -39,7 +39,7 @@ The final PR body must explicitly cover all of the following:
 - Identity/compliance route and migration repairs
 - `owner_audit_log` remediation package split into marketplace, company-governance, and fraud-review tracks
 - Feature Flags `is_enabled` contract fix across API/UI/tests
-- Driver-commercial Production incident packet, reconciliation runbook, and staged narrow migrations
+- Driver-commercial incident packet, reconciliation runbook, staged narrow migrations, and blocked Production gates
 
 ---
 
@@ -49,7 +49,8 @@ Each migration below is classified as exactly one of the required labels.
 
 | Migration | Classification | Production interpretation / merge gate note |
 |---|---|---|
-| `20260801000000_p0_driver_commercial_columns_catchup.sql` | **DO NOT APPLY** | Broad mixed migration. Production drift was repaired manually in narrower steps; this file must not be used for Production. |
+| `20260801000000_p0_driver_commercial_columns_catchup.sql` | **DO NOT APPLY** | Repository copy is now an executable no-op; the retired broad catch-up SQL is archived under `docs/ops/20260801000000_p0_driver_commercial_columns_catchup.historical.sql` and must not be used for Production. |
+| `20260801080000_canonical_owner_audit_log_target_columns.sql` | **ACTIVE — candidate for later controlled apply** | Canonical schema normalization for `owner_audit_log.target_type`, `target_id`, and `target_name`; required before later repo function repairs but still needs staging validation and Platform Owner approval before any Production apply. |
 | `20260801080500_fix_owner_review_compliance_document_function.sql` | **ACTIVE — candidate for later controlled apply** | Repo repair remains available, but Production runtime evidence for any manual equivalent is still incomplete. |
 | `20260801091000_fix_owner_audit_log_target_type.sql` | **ACTIVE — candidate for later controlled apply** | Confirmed narrow patch for `apply_marketplace_governance_action`; requires staging evidence and Platform Owner approval before Production apply. |
 | `20260801120000_driver_columns_constraints_reconciliation_only.sql` | **ALREADY APPLIED MANUALLY** | Its Production intent is already satisfied by confirmed manual driver-column repairs and the manual `drivers_driver_type_check` apply. |
@@ -143,7 +144,7 @@ Production SQL guidance for this PR is split into narrow, evidence-driven runboo
 
 As of this task, PR review threads still include unresolved comments about:
 
-1. stale PR description / scope mismatch
+1. release checklist / PR-scope reconciliation against the final diff
 2. CSP request-header forwarding
 3. broker customer query decoding
 4. migration-chain safety around canonical `owner_audit_log` target columns
@@ -160,7 +161,7 @@ Those threads are not treated as accepted here unless the Platform Owner resolve
 
 Before merge can be considered, all of the following must be true:
 
-- [ ] GitHub PR title/body replaced with the canonical scope above
+- [x] GitHub PR title/body aligned with the canonical scope above
 - [ ] Final head SHA recorded after the last documentation commit
 - [ ] CI rerun on the final head and all required workflows conclude green
 - [ ] `20260801130000` still remains an executable no-op
