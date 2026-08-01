@@ -145,7 +145,9 @@ The trigger also tightens `notifications` RLS to:
 - `notifications_recipient_select`: `user_id = auth.uid()` (Android reads own rows only)
 - `notifications_service_role_all`: service_role bypass for the trigger
 
-**This migration requires manual application in Supabase SQL Editor.**  
+**Migration `20260725161000_notification_events_to_notifications_bridge.sql` applied 2026-08-01.**  
+Supabase SQL Editor returned `Success. No rows returned` — expected DDL success response.  
+**Run the three verification queries in ledger 09 to confirm all objects were created.**  
 **Expected result**: `Success. No rows returned`  
 **Effect**: All future `notification_events` inserts with a `recipient_user_id` automatically appear in `notifications` for Android.
 
