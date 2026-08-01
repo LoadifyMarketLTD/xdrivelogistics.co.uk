@@ -1,6 +1,6 @@
 # XDrive Automated Audit Report
 
-> Generated: 2026-08-01T18:08:31.380Z
+> Generated: 2026-08-01T18:11:46.530Z
 > Script: `scripts/run-automated-audit.mjs`
 > Coverage: Static code analysis + lint + typecheck + unit tests
 > Note: Checks requiring a live Supabase database or browser are marked ⚠️ MANUAL
@@ -179,9 +179,9 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `PR-02-03` | ⚠️ MANUAL | Lint skipped (--skip-lint) |
+| `PR-02-03` | ✅ PASS | ESLint passed with 0 warnings/errors |
 
-**Section: 0 PASS · 0 FAIL · 1 MANUAL**
+**Section: 1 PASS · 0 FAIL · 0 MANUAL**
 
 ---
 
@@ -189,9 +189,9 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `PR-02-02` | ⚠️ MANUAL | Typecheck skipped (--skip-lint) |
+| `PR-02-02` | ✅ PASS | TypeScript typecheck passed — 0 errors |
 
-**Section: 0 PASS · 0 FAIL · 1 MANUAL**
+**Section: 1 PASS · 0 FAIL · 0 MANUAL**
 
 ---
 
@@ -199,9 +199,9 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `UNIT-TESTS` | ⚠️ MANUAL | Unit tests skipped (--skip-tests) |
+| `UNIT-TESTS` | ✅ PASS | All unit tests passed ilter decoding[2m > [22mpreserves URLSearchParams decoding for "customer=ACME%2BLogistics"[32m  |
 
-**Section: 0 PASS · 0 FAIL · 1 MANUAL**
+**Section: 1 PASS · 0 FAIL · 0 MANUAL**
 
 ---
 
@@ -209,9 +209,9 @@
 
 | Status | Count |
 |---|---|
-| ✅ PASS | **74** |
+| ✅ PASS | **77** |
 | ❌ FAIL | **0** |
-| ⚠️ MANUAL | **7** |
+| ⚠️ MANUAL | **4** |
 | **TOTAL** | **81** |
 
 > 🟢 **All automatable checks PASS.** Proceed to manual audit phase for live DB and browser checks.
