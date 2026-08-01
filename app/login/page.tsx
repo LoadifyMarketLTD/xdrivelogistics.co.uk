@@ -414,7 +414,7 @@ export default function LoginPage() {
           }
         }
 
-        @media (max-width: 960px) {
+        @media (max-width: 768px) {
           .login-shell {
             flex-direction: column;
           }
