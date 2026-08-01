@@ -205,6 +205,22 @@ BEGIN
 END;
 $$;
 
+INSERT INTO auth.users (
+  id, aud, role, email, encrypted_password,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+VALUES (
+  '65000000-0000-0000-0000-000000000299',
+  'authenticated',
+  'authenticated',
+  'atomicity-compliance-reviewer@example.test',
+  '',
+  '{}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now()
+);
+
 INSERT INTO public.companies (
   id,
   name,
