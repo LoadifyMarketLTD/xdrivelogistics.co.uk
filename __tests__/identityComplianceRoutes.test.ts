@@ -181,33 +181,6 @@ describe('identity compliance route hardening', () => {
       error: null,
     });
 
-    it('uses atomic document-review RPC for reject decisions', async () => {
-      mocks.rpc.mockResolvedValue({
-        data: [{ document_id: 'doc-1', old_status: 'pending', new_status: 'rejected' }],
-        error: null,
-      });
-
-      const response = await reviewComplianceDocument(
-        patchRequest('http://localhost/api/super-admin/compliance/documents', {
-          documentFamily: 'company',
-          id: '11111111-1111-4111-8111-111111111111',
-          action: 'reject',
-          reason: 'Missing page',
-        }),
-      );
-      const body = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(body.status).toBe('rejected');
-      expect(mocks.rpc).toHaveBeenCalledWith(
-        'owner_review_compliance_document',
-        expect.objectContaining({
-          p_action: 'reject',
-          p_document_family: 'company',
-        }),
-      );
-    });
-
     const response = await reviewComplianceDocument(
       patchRequest('http://localhost/api/super-admin/compliance/documents', {
         documentFamily: 'company',
@@ -223,6 +196,33 @@ describe('identity compliance route hardening', () => {
       'owner_review_compliance_document',
       expect.objectContaining({
         p_action: 'approve',
+        p_document_family: 'company',
+      }),
+    );
+  });
+
+  it('uses atomic document-review RPC for reject decisions', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [{ document_id: 'doc-1', old_status: 'pending', new_status: 'rejected' }],
+      error: null,
+    });
+
+    const response = await reviewComplianceDocument(
+      patchRequest('http://localhost/api/super-admin/compliance/documents', {
+        documentFamily: 'company',
+        id: '11111111-1111-4111-8111-111111111111',
+        action: 'reject',
+        reason: 'Missing page',
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('rejected');
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'owner_review_compliance_document',
+      expect.objectContaining({
+        p_action: 'reject',
         p_document_family: 'company',
       }),
     );
