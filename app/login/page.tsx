@@ -228,31 +228,29 @@ export default function LoginPage() {
     </div>
       <style jsx>{`
         .login-page {
-          width: 100vw;
-          height: 100vh;
+          min-height: 100vh;
           margin: 0;
           padding: 0;
-          background: #ffffff;
-          overflow: hidden;
+          background: #0f172a;
+          overflow-x: hidden;
         }
 
         .login-shell {
-          width: 100vw;
-          height: 100vh;
-          display: grid;
-          grid-template-columns: 70% 30%;
+          min-height: 100vh;
+          display: flex;
+          align-items: stretch;
         }
 
         .login-hero {
-          width: 100%;
+          flex: 1 1 auto;
+          min-width: 0;
           min-height: 100vh;
-          height: 100%;
           overflow: hidden;
         }
 
         .login-hero-image {
           width: 100%;
-          height: 100%;
+          height: 100vh;
           min-height: 100vh;
           object-fit: cover;
           object-position: center;
@@ -260,13 +258,18 @@ export default function LoginPage() {
         }
 
         .login-form-panel {
+          box-sizing: border-box;
           background: #ffffff;
           padding: 2rem 2.2rem;
           display: flex;
           flex-direction: column;
           justify-content: center;
-          height: 100vh;
-          min-width: 420px;
+          flex: 0 0 clamp(380px, 32vw, 520px);
+          width: clamp(380px, 32vw, 520px);
+          min-height: 100vh;
+          position: relative;
+          z-index: 1;
+          box-shadow: -18px 0 40px rgba(15, 23, 42, 0.18);
           overflow-y: auto;
         }
 
@@ -315,6 +318,7 @@ export default function LoginPage() {
         }
 
         .field-group :global(input) {
+          box-sizing: border-box;
           width: 100%;
           border: 1px solid #d6dbe3;
           border-radius: 0.65rem;
@@ -401,17 +405,18 @@ export default function LoginPage() {
 
         @media (max-width: 1400px) and (min-width: 961px) {
           .login-shell {
-            grid-template-columns: 60% 40%;
+            align-items: stretch;
+          }
+
+          .login-form-panel {
+            flex-basis: clamp(360px, 36vw, 480px);
+            width: clamp(360px, 36vw, 480px);
           }
         }
 
         @media (max-width: 960px) {
           .login-shell {
-            grid-template-columns: 1fr;
-            grid-template-rows: 40vh minmax(60vh, auto);
-            min-height: 100vh;
-            height: auto;
-            width: 100%;
+            flex-direction: column;
           }
 
           .login-hero {
@@ -421,15 +426,16 @@ export default function LoginPage() {
 
           .login-hero-image {
             min-height: 0;
-            height: 100%;
+            height: 40vh;
           }
 
           .login-form-panel {
             padding: 1.75rem 1.25rem;
+            flex: 0 0 auto;
+            width: 100%;
             min-height: 60vh;
-            height: auto;
             min-width: 0;
-            border-left: none;
+            box-shadow: none;
           }
 
           .login-form-inner {
