@@ -63,12 +63,6 @@ run_file() {
   psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$db" -f "$file"
 }
 
-apply_contract_migrations() {
-  local db="$1"
-  run_file "$db" "$LEGACY_MIGRATION_SQL"
-  run_file "$db" "$AUTH_RPC_MIGRATION_SQL"
-}
-
 make_jwt() {
   local user_id="$1"
   local role="$2"
@@ -491,6 +485,45 @@ validate_sql_runtime_contract() {
   "
 }
 
+validate_first_migration_contract() {
+  local db="$1"
+
+  run_sql "$db" "
+    do \$\$
+    declare
+      v_public_signature regprocedure;
+      v_legacy_signature regprocedure;
+      v_authenticated_grant boolean;
+      v_service_grant boolean;
+    begin
+      select to_regprocedure('public.set_vehicle_advertising_state(uuid, text, text, jsonb)') into v_public_signature;
+      select to_regprocedure('public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb)') into v_legacy_signature;
+
+      if v_public_signature is null then
+        raise exception 'expected first migration to create auth-bound 4-argument RPC';
+      end if;
+
+      if v_legacy_signature is not null then
+        raise exception 'legacy 5-argument RPC must not exist after first migration';
+      end if;
+
+      select has_function_privilege('authenticated', 'public.set_vehicle_advertising_state(uuid, text, text, jsonb)', 'EXECUTE')
+      into v_authenticated_grant;
+      select has_function_privilege('service_role', 'public.set_vehicle_advertising_state(uuid, text, text, jsonb)', 'EXECUTE')
+      into v_service_grant;
+
+      if not coalesce(v_authenticated_grant, false) then
+        raise exception 'authenticated role is missing execute grant after first migration';
+      end if;
+
+      if coalesce(v_service_grant, false) then
+        raise exception 'service_role must not have execute grant after first migration';
+      end if;
+    end;
+    \$\$;
+  "
+}
+
 validate_postgrest_contract() {
   local db="$1"
   local owner_token dispatcher_token outsider_token body_file status_code
@@ -588,38 +621,43 @@ validate_postgrest_contract() {
   "
 }
 
-echo "[1/8] Starting disposable Supabase Postgres"
+echo "[1/9] Starting disposable Supabase Postgres"
 docker network create "$NETWORK_NAME" >/dev/null
 docker run -d --name "$POSTGRES_CONTAINER_NAME" --network "$NETWORK_NAME" --network-alias db -e POSTGRES_PASSWORD=postgres -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=postgres -p "$PGPORT":5432 supabase/postgres:15.1.0.117 >/dev/null
 wait_for_pg
 
-echo "[2/8] Creating disposable databases"
+echo "[2/9] Creating disposable databases"
 run_sql postgres "create database vehicle_advertising_fresh;"
 run_sql postgres "create database vehicle_advertising_existing;"
 
-echo "[3/8] Preparing prerequisites"
+echo "[3/9] Preparing prerequisites"
 setup_prereq_schema vehicle_advertising_fresh
 setup_prereq_schema vehicle_advertising_existing
 
-echo "[4/8] Fresh-path full migration chain"
-apply_contract_migrations vehicle_advertising_fresh
+echo "[4/9] Fresh-path first migration safety"
+run_file vehicle_advertising_fresh "$LEGACY_MIGRATION_SQL"
+validate_first_migration_contract vehicle_advertising_fresh
+
+echo "[5/9] Fresh-path auth RPC cleanup compatibility"
+run_file vehicle_advertising_fresh "$AUTH_RPC_MIGRATION_SQL"
 seed_contract_fixtures vehicle_advertising_fresh
 validate_sql_runtime_contract vehicle_advertising_fresh
 
-echo "[5/8] Existing-schema legacy path"
+echo "[6/9] Existing-schema legacy path"
 run_sql vehicle_advertising_existing "
   alter table public.vehicles add column if not exists advertising_state text;
   update public.vehicles set advertising_state = null;
 "
 run_file vehicle_advertising_existing "$LEGACY_MIGRATION_SQL"
+validate_first_migration_contract vehicle_advertising_existing
 seed_contract_fixtures vehicle_advertising_existing
 
-echo "[6/8] Auth-bound upgrade migration with PostgREST schema reload"
+echo "[7/9] Auth-bound upgrade migration with PostgREST schema reload"
 run_file vehicle_advertising_existing "$AUTH_RPC_MIGRATION_SQL"
 validate_postgrest_contract vehicle_advertising_existing
 
-echo "[7/8] Idempotency re-run"
+echo "[8/9] Idempotency re-run"
 run_file vehicle_advertising_existing "$AUTH_RPC_MIGRATION_SQL"
 
-echo "[8/8] Contract validation complete"
+echo "[9/9] Contract validation complete"
 echo "PASS: vehicle advertising migrations verified for fresh + existing disposable databases, including PostgREST RPC resolution"
