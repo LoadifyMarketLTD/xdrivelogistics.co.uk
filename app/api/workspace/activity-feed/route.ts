@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await client
     .from('notification_events')
-    .select('id, event_type, payload, created_at')
+    .select('event_type, payload, created_at')
     .eq('recipient_user_id', authData.user.id)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
     return json(500, { error: 'Unable to load activity feed.' });
   }
 
-  const items = (data ?? []).map((row) => ({
-    id: row.id,
+  const items = (data ?? []).map((row, index) => ({
+    id: `${String(row.created_at ?? 'event')}-${index}`,
     label: toLabel(row.event_type),
     reference: toReference(row.payload),
     created_at: row.created_at,

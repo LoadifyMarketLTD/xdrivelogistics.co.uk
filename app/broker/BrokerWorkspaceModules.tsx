@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
-import { invoiceNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
+import { invoiceNetAmount, invoiceSignedNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, DataTable, DateRangeSelector, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -23,8 +23,8 @@ export function BrokerDashboard() {
     const estimatedCarrierCost = accepted.reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
     const issuedRevenueInvoices = data.invoices.filter((inv) => isRevenueInvoice(inv, data.companyId));
     const supplierPayableInvoices = data.invoices.filter((inv) => isCarrierPayableInvoice(inv, data.companyId));
-    const invoicedRevenueNet = issuedRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
-    const supplierPayablesNet = supplierPayableInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
+    const invoicedRevenueNet = issuedRevenueInvoices.reduce((sum, inv) => sum + invoiceSignedNetAmount(inv), 0);
+    const supplierPayablesNet = supplierPayableInvoices.reduce((sum, inv) => sum + invoiceSignedNetAmount(inv), 0);
     const awaitingAwardJobs = data.jobs.filter((job) => !job.awarded_carrier_company_id && submitted.some((bid) => bid.job_id === job.id));
     const activeJobs = data.jobs.filter((job) => active.has(job.current_status ?? job.status));
     const podPending = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0);
@@ -51,7 +51,7 @@ export function BrokerDashboard() {
       if (!d) continue;
       const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
-      row.revenue += invoiceNetAmount(inv);
+      row.revenue += invoiceSignedNetAmount(inv);
       monthlyTotals[key] = row;
     }
     for (const inv of supplierPayableInvoices) {
@@ -59,7 +59,7 @@ export function BrokerDashboard() {
       if (!d) continue;
       const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
-      row.cost += invoiceNetAmount(inv);
+      row.cost += invoiceSignedNetAmount(inv);
       monthlyTotals[key] = row;
     }
     const monthlyRows = Object.entries(monthlyTotals).slice(-6);
@@ -72,7 +72,7 @@ export function BrokerDashboard() {
         const d = inv.invoice_date ?? inv.created_at;
         return d && new Date(d).getTime() >= periodStart;
       })
-      .reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
+      .reduce((sum, inv) => sum + invoiceSignedNetAmount(inv), 0);
 
     // Compliance summary from docs
     const docs = data.driverDocuments.concat(data.vehicleDocuments);
@@ -217,20 +217,16 @@ export function BrokerDashboard() {
           </Panel>
 
           <Panel title="Quick actions" description="Shortcuts for the broker control desk.">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {[
-                ['Post customer load', '/broker/post-load'],
-                ['Compare carrier quotes', '/broker/compare-quotes'],
-                ['Open disputes', '/broker/disputes'],
-                ['Manage carrier network', '/broker/carrier-network'],
-                ['Review invoices', '/broker/customer-invoices'],
-                ['View margins', '/broker/margins'],
-              ].map(([label, href]) => (
-                <button key={href} onClick={() => router.push(href)} style={summaryButton}>
-                  <span>{label}</span><span>→</span>
-                </button>
-              ))}
-            </div>
+            <QuickActionGrid
+              actions={[
+                { key: '/broker/post-load', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
+                { key: '/broker/compare-quotes', label: 'Compare carrier quotes', onClick: () => router.push('/broker/compare-quotes') },
+                { key: '/broker/disputes', label: 'Open disputes', onClick: () => router.push('/broker/disputes') },
+                { key: '/broker/carrier-network', label: 'Manage carrier network', onClick: () => router.push('/broker/carrier-network') },
+                { key: '/broker/customer-invoices', label: 'Review invoices', onClick: () => router.push('/broker/customer-invoices') },
+                { key: '/broker/margins', label: 'View margins', onClick: () => router.push('/broker/margins') },
+              ]}
+            />
           </Panel>
         </div>
       </TwoColumn>
@@ -274,15 +270,15 @@ export function BrokerDashboard() {
             title="Sub-contract spend"
             description="Total carrier costs excluding own-driver jobs."
             actions={
-              <select
+              <DateRangeSelector
                 value={spendPeriod}
-                onChange={(e) => setSpendPeriod(e.target.value as 'month' | 'quarter' | 'year')}
-                style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: '#fff' }}
-              >
-                <option value="month">Last 30 days</option>
-                <option value="quarter">Last 90 days</option>
-                <option value="year">Last 365 days</option>
-              </select>
+                onChange={(value) => setSpendPeriod(value as 'month' | 'quarter' | 'year')}
+                options={[
+                  { value: 'month', label: 'Last 30 days' },
+                  { value: 'quarter', label: 'Last 90 days' },
+                  { value: 'year', label: 'Last 365 days' },
+                ]}
+              />
             }
           >
             <div style={{ display: 'grid', gap: '0.45rem' }}>
