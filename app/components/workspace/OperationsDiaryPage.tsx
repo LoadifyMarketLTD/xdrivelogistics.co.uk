@@ -36,6 +36,8 @@ type DiaryJob = {
   pod_generated: boolean;
   delivery_photos: string[] | null;
   updated_at: string;
+  budget_amount?: number | null;
+  agreed_rate?: number | null;
 };
 
 type Driver = {
@@ -78,6 +80,9 @@ export default function OperationsDiaryPage() {
   const [statusFilter, setStatusFilter] = useState('active');
   const [driverFilter, setDriverFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [pickupWithin, setPickupWithin] = useState('all');
+  const [deliveryWithin, setDeliveryWithin] = useState('all');
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({});
   const [workingJobId, setWorkingJobId] = useState<string | null>(null);
 
@@ -106,7 +111,7 @@ export default function OperationsDiaryPage() {
     const [jobsResult, driversResult] = await Promise.all([
       supabase
         .from('jobs')
-        .select('id, company_id, awarded_carrier_company_id, assigned_company_id, assigned_driver_id, client_name, pickup_location, delivery_location, pickup_datetime, delivery_datetime, vehicle_type, status, current_status, pod_required, pod_generated, delivery_photos, updated_at')
+        .select('id, company_id, awarded_carrier_company_id, assigned_company_id, assigned_driver_id, client_name, pickup_location, delivery_location, pickup_datetime, delivery_datetime, vehicle_type, status, current_status, pod_required, pod_generated, delivery_photos, updated_at, budget_amount, agreed_rate')
         .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
         .order('pickup_datetime', { ascending: true })
         .limit(500),
@@ -190,6 +195,7 @@ export default function OperationsDiaryPage() {
     if (statusFilter === 'completed' && !finalStatuses.has(status)) return false;
     if (statusFilter === 'cancelled' && status !== 'cancelled') return false;
     if (driverFilter !== 'all' && job.assigned_driver_id !== driverFilter) return false;
+    if (customerFilter.trim() && !String(job.client_name ?? '').toLowerCase().includes(customerFilter.trim().toLowerCase())) return false;
     if (dateFilter !== 'all') {
       if (!job.pickup_datetime) return false;
       const pickup = new Date(job.pickup_datetime);
@@ -197,10 +203,20 @@ export default function OperationsDiaryPage() {
       if (dateFilter === 'today' && pickup.toDateString() !== now.toDateString()) return false;
       if (dateFilter === 'week' && Math.abs(pickup.getTime() - now.getTime()) > 7 * 86_400_000) return false;
     }
+    if (pickupWithin !== 'all' && job.pickup_datetime) {
+      const hoursUntil = (new Date(job.pickup_datetime).getTime() - Date.now()) / 3_600_000;
+      const window = Number(pickupWithin);
+      if (hoursUntil < 0 || hoursUntil > window) return false;
+    }
+    if (deliveryWithin !== 'all' && job.delivery_datetime) {
+      const hoursUntil = (new Date(job.delivery_datetime).getTime() - Date.now()) / 3_600_000;
+      const window = Number(deliveryWithin);
+      if (hoursUntil < 0 || hoursUntil > window) return false;
+    }
     const term = search.trim().toLowerCase();
     if (term && ![job.id, job.client_name, job.pickup_location, job.delivery_location].some((value) => String(value ?? '').toLowerCase().includes(term))) return false;
     return true;
-  }), [dateFilter, driverFilter, jobs, search, statusFilter]);
+  }), [customerFilter, dateFilter, deliveryWithin, driverFilter, jobs, pickupWithin, search, statusFilter]);
 
   const driverName = (id: string | null) => drivers.find((driver) => driver.id === id)?.display_name ?? 'Unassigned';
 
@@ -229,26 +245,33 @@ export default function OperationsDiaryPage() {
       </KpiGrid>
 
       <Panel title="Search and filters" description="Every filter below changes the booking register immediately." style={{ marginBottom: '0.9rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(3, minmax(150px, 0.6fr)) auto', gap: '0.65rem', alignItems: 'end' }} className="xdrive-diary-filters">
-          <label style={labelStyle}>Route, customer or reference<input value={search} onChange={(event) => setSearch(event.target.value)} style={inputStyle} placeholder="Search bookings" /></label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.4fr) repeat(3, minmax(140px, 0.6fr)) auto', gap: '0.65rem', alignItems: 'end', marginBottom: '0.55rem' }} className="xdrive-diary-filters">
+          <label style={labelStyle}>Load ID / reference or route<input value={search} onChange={(event) => setSearch(event.target.value)} style={inputStyle} placeholder="Search bookings" /></label>
           <label style={labelStyle}>View<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={inputStyle}><option value="active">Active</option><option value="all">All</option><option value="unallocated">Unallocated</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
           <label style={labelStyle}>Pickup date<select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} style={inputStyle}><option value="all">Any date</option><option value="today">Today</option><option value="week">Within 7 days</option></select></label>
-          <label style={labelStyle}>Driver<select value={driverFilter} onChange={(event) => setDriverFilter(event.target.value)} style={inputStyle}><option value="all">Any approved driver</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.id.slice(0, 8)}</option>)}</select></label>
-          <ActionButton tone="secondary" onClick={() => { setSearch(''); setStatusFilter('active'); setDateFilter('all'); setDriverFilter('all'); }}>Clear</ActionButton>
+          <label style={labelStyle}>Member / Driver<select value={driverFilter} onChange={(event) => setDriverFilter(event.target.value)} style={inputStyle}><option value="all">Any approved driver</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.id.slice(0, 8)}</option>)}</select></label>
+          <ActionButton tone="secondary" onClick={() => { setSearch(''); setStatusFilter('active'); setDateFilter('all'); setDriverFilter('all'); setCustomerFilter(''); setPickupWithin('all'); setDeliveryWithin('all'); }}>Clear</ActionButton>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.4fr) minmax(140px, 0.6fr) minmax(140px, 0.6fr)', gap: '0.65rem', alignItems: 'end' }} className="xdrive-diary-filters-row2">
+          <label style={labelStyle}>Customer name<input value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)} style={inputStyle} placeholder="Filter by customer" /></label>
+          <label style={labelStyle}>Pickup time within<select value={pickupWithin} onChange={(event) => setPickupWithin(event.target.value)} style={inputStyle}><option value="all">Any time</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></label>
+          <label style={labelStyle}>Delivery time within<select value={deliveryWithin} onChange={(event) => setDeliveryWithin(event.target.value)} style={inputStyle}><option value="all">Any time</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></label>
         </div>
       </Panel>
 
       <Panel title="Booking register" description={`${filteredJobs.length} booking(s) match the current filters.`}>
         <DataTable
-          columns={['Reference', 'Customer / route', 'Pickup', 'Driver allocation', 'Status', 'POD', 'Next action', 'Open']}
+          columns={['Reference', 'Customer / route', 'Pickup', 'Rate agreed', 'Driver allocation', 'Status', 'POD', 'Next action', 'Open']}
           rows={filteredJobs.map((job) => {
             const currentStatus = String(job.current_status ?? job.status).toLowerCase();
             const next = nextTransition[currentStatus];
             const selectedDriver = assignmentDrafts[job.id] ?? job.assigned_driver_id ?? '';
+            const rate = job.agreed_rate ?? job.budget_amount;
             return [
               job.id.slice(0, 8).toUpperCase(),
               <div key="route"><strong style={{ display: 'block' }}>{job.client_name ?? 'Customer'}</strong><span style={{ color: '#64748b' }}>{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</span></div>,
               <div key="time">{formatDateTime(job.pickup_datetime)}<div style={{ color: '#64748b', marginTop: '0.2rem' }}>{job.vehicle_type?.replaceAll('_', ' ') ?? 'Vehicle not set'}</div></div>,
+              rate != null ? <span key="rate" style={{ fontWeight: 700, color: '#15803d' }}>{new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(rate))}</span> : <span key="rate" style={{ color: '#94a3b8' }}>—</span>,
               <div key="driver" style={{ display: 'grid', gap: '0.35rem', minWidth: 190 }}><select value={selectedDriver} onChange={(event) => setAssignmentDrafts((current) => ({ ...current, [job.id]: event.target.value }))} style={inputStyle}><option value="">{driverName(job.assigned_driver_id)}</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.id.slice(0, 8)} · {driver.availability_status ?? 'unknown'}</option>)}</select>{selectedDriver && selectedDriver !== job.assigned_driver_id && <ActionButton tone="secondary" disabled={workingJobId === job.id} onClick={() => void assignDriver(job)}>Save driver</ActionButton>}</div>,
               <StatusBadge key="status" value={currentStatus} />,
               job.pod_generated || (job.delivery_photos?.length ?? 0) > 0 ? <StatusBadge key="pod" value="ready" tone="green" /> : <StatusBadge key="pod" value={job.pod_required ? 'required' : 'not required'} tone={job.pod_required ? 'orange' : 'grey'} />,
@@ -260,7 +283,10 @@ export default function OperationsDiaryPage() {
         />
       </Panel>
 
-      <style jsx global>{`@media (max-width: 1000px){.xdrive-diary-filters{grid-template-columns:1fr 1fr!important}}@media (max-width: 620px){.xdrive-diary-filters{grid-template-columns:1fr!important}}`}</style>
+      <style jsx global>{`
+        @media (max-width: 1000px){.xdrive-diary-filters{grid-template-columns:1fr 1fr!important}.xdrive-diary-filters-row2{grid-template-columns:1fr 1fr!important}}
+        @media (max-width: 620px){.xdrive-diary-filters{grid-template-columns:1fr!important}.xdrive-diary-filters-row2{grid-template-columns:1fr!important}}
+      `}</style>
     </PageFrame>
   );
 }
