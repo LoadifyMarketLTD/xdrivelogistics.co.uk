@@ -12,15 +12,23 @@ describe('login page CSP-safe styling', () => {
     expect(page).not.toContain('<style jsx>');
   });
 
-  it('uses repository assets that exist in public', () => {
-    expect(page).toContain('src="/hero-dispatch-control.webp"');
+  it('uses the canonical login hero and logo assets', () => {
+    expect(page).toContain('src="/login-hero-operations-centre.webp"');
     expect(page).toContain('src="/xdrive-logo-horizontal.png"');
+    expect(page).not.toContain('hero-dispatch-control.webp');
+    expect(page).not.toContain('xdrive-login-hero');
 
-    expect(fs.existsSync(path.join(process.cwd(), 'public/hero-dispatch-control.webp'))).toBe(true);
+    expect(fs.existsSync(path.join(process.cwd(), 'public/login-hero-operations-centre.webp'))).toBe(true);
     expect(fs.existsSync(path.join(process.cwd(), 'public/xdrive-logo-horizontal.png'))).toBe(true);
   });
 
-  it('keeps the responsive split-screen layout contract', () => {
+  it('keeps the complete authentication card and responsive split-screen layout', () => {
+    expect(page).toContain('Welcome Back');
+    expect(page).toContain('Forgot password?');
+    expect(page).toContain('Sign In');
+    expect(page).toContain('Register');
+    expect(page).toContain('Send Reset Email');
+
     expect(css).toContain('grid-template-columns: minmax(0, 1.3fr) minmax(420px, 0.7fr)');
     expect(css).toContain('@media (max-width: 820px)');
     expect(css).toContain('flex-direction: column');
