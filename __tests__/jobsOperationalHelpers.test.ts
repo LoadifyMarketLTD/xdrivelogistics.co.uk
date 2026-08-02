@@ -4,14 +4,17 @@
  * Tests cover:
  *   1. isDirectInviteEligible — all exchange_visibility / awarded combinations
  *   2. allowedStatusTransitions — every defined status
- *   3. jobToRow adapter — field-by-field mapping contract
+ *   3. jobToRow adapter — field-by-field mapping contract (including driver, contact)
+ *   4. filterJobsByDriver — matching, non-matching, empty, and unassigned cases
  */
 import { describe, expect, it } from 'vitest';
 import {
   isDirectInviteEligible,
   allowedStatusTransitions,
   jobToRow,
+  filterJobsByDriver,
   type AdminJobFields,
+  type JobRow,
 } from '../app/components/workspace/JobsOperationalTable';
 
 // ---------------------------------------------------------------------------
@@ -111,6 +114,7 @@ const FULL_JOB: AdminJobFields = {
   distanceMiles: '197.2 mi',
   createdAt: '2026-08-30T10:00:00Z',
   updatedAt: '2026-08-30T10:05:00Z',
+  assignedDriverId: 'driver-uuid-001',
   exchange_visibility: 'private',
   awarded_carrier_company_id: null,
   direct_invite_company_id: null,
@@ -127,12 +131,15 @@ describe('jobToRow adapter', () => {
     expect(row.status).toBe('draft');
   });
 
-  it('maps client.name and omits email/phone from the row', () => {
+  it('maps client name and preserves contact fields at top level', () => {
     const row = jobToRow(FULL_JOB);
     expect(row.client.name).toBe('Acme Logistics');
-    // email and phone are not part of JobRow — check they do not appear
+    // email and phone are carried as top-level fields (not nested in client)
+    // to restore pre-refactor contact visibility without changing client.name semantics
     expect('email' in row.client).toBe(false);
     expect('phone' in row.client).toBe(false);
+    expect(row.clientEmail).toBe('ops@acme.com');
+    expect(row.clientPhone).toBe('07700900000');
   });
 
   it('maps pickup with postcode', () => {
@@ -201,6 +208,21 @@ describe('jobToRow adapter', () => {
     expect(row.delivery.postcode).toBeUndefined();
   });
 
+  it('maps assignedDriverId', () => {
+    const row = jobToRow(FULL_JOB);
+    expect(row.assignedDriverId).toBe('driver-uuid-001');
+  });
+
+  it('handles null assignedDriverId gracefully', () => {
+    const row = jobToRow({ ...FULL_JOB, assignedDriverId: null });
+    expect(row.assignedDriverId).toBeNull();
+  });
+
+  it('handles missing assignedDriverId gracefully', () => {
+    const row = jobToRow({ ...FULL_JOB, assignedDriverId: undefined });
+    expect(row.assignedDriverId).toBeUndefined();
+  });
+
   it('handles missing optional operational fields gracefully', () => {
     const minimalJob: AdminJobFields = {
       id: 'min-001',
@@ -220,5 +242,73 @@ describe('jobToRow adapter', () => {
     expect(row.loadDetailSummary).toBeUndefined();
     expect(row.exchange_visibility).toBeUndefined();
     expect(row.awarded_carrier_company_id).toBeUndefined();
+    expect(row.assignedDriverId).toBeUndefined();
+    expect(row.clientEmail).toBeUndefined();
+    expect(row.clientPhone).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. filterJobsByDriver
+// ---------------------------------------------------------------------------
+
+function makeRow(id: string, assignedDriverId?: string | null): JobRow {
+  return {
+    id,
+    jobRef: id.toUpperCase(),
+    status: 'posted',
+    client: { name: 'Test Co' },
+    pickup: { location: 'A', date: '', time: '' },
+    delivery: { location: 'B', date: '', time: '' },
+    vehicleType: 'van',
+    distanceMiles: '',
+    createdAt: '',
+    updatedAt: '',
+    assignedDriverId,
+  };
+}
+
+describe('filterJobsByDriver', () => {
+  const DRIVER_A = 'driver-aaa';
+  const DRIVER_B = 'driver-bbb';
+
+  const rows: JobRow[] = [
+    makeRow('job-1', DRIVER_A),
+    makeRow('job-2', DRIVER_B),
+    makeRow('job-3', null),
+    makeRow('job-4', undefined),
+    makeRow('job-5', DRIVER_A),
+  ];
+
+  it('returns all jobs when driverFilter is empty string', () => {
+    expect(filterJobsByDriver(rows, '')).toHaveLength(5);
+  });
+
+  it('returns jobs matching the specified driver ID', () => {
+    const result = filterJobsByDriver(rows, DRIVER_A);
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.id)).toEqual(['job-1', 'job-5']);
+  });
+
+  it('returns only the single job matching driver B', () => {
+    const result = filterJobsByDriver(rows, DRIVER_B);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('job-2');
+  });
+
+  it('returns empty array when no jobs match the driver ID', () => {
+    expect(filterJobsByDriver(rows, 'driver-zzz')).toHaveLength(0);
+  });
+
+  it('does not include jobs with null assignedDriverId when filtering', () => {
+    const result = filterJobsByDriver(rows, DRIVER_A);
+    const ids = result.map((r) => r.id);
+    expect(ids).not.toContain('job-3');
+    expect(ids).not.toContain('job-4');
+  });
+
+  it('returns empty array on empty input regardless of filter', () => {
+    expect(filterJobsByDriver([], DRIVER_A)).toHaveLength(0);
+    expect(filterJobsByDriver([], '')).toHaveLength(0);
   });
 });

@@ -22,6 +22,7 @@
  */
 'use client';
 
+import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { LoadDetailItem } from '../../../lib/loadPostingDetails';
 import styles from './WorkspaceUI.module.css';
@@ -34,6 +35,9 @@ export interface JobRow {
   jobRef: string;
   status: string;
   client: { name: string };
+  /** Client contact — restored from pre-refactor presentation */
+  clientEmail?: string;
+  clientPhone?: string;
   pickup: { location: string; date: string; time: string; postcode?: string };
   delivery: { location: string; date: string; time: string; postcode?: string };
   vehicleType: string;
@@ -41,6 +45,8 @@ export interface JobRow {
   distanceMiles: string;
   createdAt: string;
   updatedAt: string;
+  /** Authoritative driver assignment UUID (FK to drivers.id). Null = unassigned. */
+  assignedDriverId?: string | null;
   exchange_visibility?: string | null;
   awarded_carrier_company_id?: string | null;
   direct_invite_company_id?: string | null;
@@ -66,6 +72,8 @@ export interface AdminJobFields {
   distanceMiles: string;
   createdAt: string;
   updatedAt: string;
+  /** Authoritative driver assignment UUID (FK to drivers.id). Null = unassigned. */
+  assignedDriverId?: string | null;
   exchange_visibility?: string | null;
   awarded_carrier_company_id?: string | null;
   direct_invite_company_id?: string | null;
@@ -85,6 +93,8 @@ export function jobToRow(job: AdminJobFields): JobRow {
     jobRef: job.jobRef,
     status: job.status,
     client: { name: job.client.name },
+    clientEmail: job.client.email || undefined,
+    clientPhone: job.client.phone || undefined,
     pickup: {
       location: job.pickup.location,
       date: job.pickup.date,
@@ -101,6 +111,7 @@ export function jobToRow(job: AdminJobFields): JobRow {
     distanceMiles: job.distanceMiles,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
+    assignedDriverId: job.assignedDriverId,
     exchange_visibility: job.exchange_visibility,
     awarded_carrier_company_id: job.awarded_carrier_company_id,
     direct_invite_company_id: job.direct_invite_company_id,
@@ -142,6 +153,16 @@ export function allowedStatusTransitions(status: string): readonly string[] {
   return ALLOWED_STATUS_TRANSITIONS[status.toLowerCase()] ?? [];
 }
 
+/**
+ * Pure driver filter helper.  Returns only jobs whose assignedDriverId matches
+ * driverFilter, or all jobs when driverFilter is empty.
+ * Exported for unit testing.
+ */
+export function filterJobsByDriver(jobs: JobRow[], driverFilter: string): JobRow[] {
+  if (!driverFilter) return jobs;
+  return jobs.filter((j) => j.assignedDriverId === driverFilter);
+}
+
 export interface JobsKpiTile {
   label: string;
   status: string;
@@ -166,6 +187,12 @@ export interface JobsOperationalTableProps {
   deliveryFilter: string;
   dateFilter: string;
   customerFilter: string;
+  /** Driver filter — empty string means "all drivers" */
+  driverFilter: string;
+  /** Driver filter setter */
+  onDriverFilterChange: (v: string) => void;
+  /** Company drivers available for the driver filter dropdown */
+  drivers: Array<{ id: string; displayName: string }>;
   /** Filter setters */
   onSearchTermChange: (v: string) => void;
   onStatusFilterChange: (v: string) => void;
@@ -271,6 +298,9 @@ export function JobsOperationalTable({
   deliveryFilter,
   dateFilter,
   customerFilter,
+  driverFilter,
+  onDriverFilterChange,
+  drivers,
   onSearchTermChange,
   onStatusFilterChange,
   onPickupFilterChange,
@@ -293,9 +323,25 @@ export function JobsOperationalTable({
   const start = page * perPage + 1;
   const end = Math.min((page + 1) * perPage, totalFiltered);
 
+  /* Track which rows are expanded to show detail panel */
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  function toggleRowExpanded(id: string) {
+    setExpandedRows((prev: Set<string>) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function getCount(status: string): number {
     if (status === 'All') return jobs.length;
     return jobs.filter((j) => j.status.toLowerCase() === status.toLowerCase()).length;
+  }
+
+  function resolveDriverName(driverId: string | null | undefined): string {
+    if (!driverId) return 'Unassigned';
+    return drivers.find((d) => d.id === driverId)?.displayName ?? driverId.slice(0, 8) + '…';
   }
 
   return (
@@ -453,6 +499,19 @@ export function JobsOperationalTable({
           aria-label="Filter by customer"
           style={{ width: 120 }}
         />
+        {drivers.length > 0 && (
+          <select
+            value={driverFilter}
+            onChange={(e) => { onDriverFilterChange(e.target.value); onPageChange(0); }}
+            className={`${styles.jobsToolbarInput} ${styles.jobsToolbarStatus}`}
+            aria-label="Filter by assigned driver"
+          >
+            <option value="">All drivers</option>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>{d.displayName}</option>
+            ))}
+          </select>
+        )}
         <div className={styles.jobsToolbarSpacer} />
         {totalFiltered > 0 && (
           <span className={styles.jobsToolbarCount} aria-live="polite">
@@ -512,148 +571,231 @@ export function JobsOperationalTable({
               ) : (
                 filteredJobs.map((job) => {
                   const s = statusStyle(job.status);
+                  const isExpanded = expandedRows.has(job.id);
                   return (
-                    <tr
-                      key={job.id}
-                      className={styles.operationalTableRow}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => onViewJob(job.id)}
-                    >
-                      {/* Status/priority — 92px */}
-                      <td className={styles.operationalTableCell}>
-                        <span className={styles.jobsStatusBadge} style={s}>
-                          {statusLabel(job.status)}
-                        </span>
-                      </td>
-
-                      {/* Job/reference — 110px */}
-                      <td className={styles.operationalTableCell}>
-                        <span style={{ fontWeight: 600, color: '#1D57D8', fontSize: '12.5px' }}>
-                          {job.jobRef}
-                        </span>
-                      </td>
-
-                      {/* Route — minmax(260px,1.6fr) */}
-                      <td className={styles.operationalTableCell}>
-                        <div className={styles.jobsRouteCell}>
-                          <span className={styles.jobsRouteOrigin}>
-                            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '45%', display: 'inline-block' }}>
-                              {job.pickup.location || '—'}
-                            </span>
-                            {job.pickup.postcode && (
-                              <span className={styles.jobsRoutePostcode}>{job.pickup.postcode}</span>
-                            )}
+                    <>
+                      <tr
+                        key={job.id}
+                        className={styles.operationalTableRow}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onViewJob(job.id)}
+                      >
+                        {/* Status/priority — 92px */}
+                        <td className={styles.operationalTableCell}>
+                          <span className={styles.jobsStatusBadge} style={s}>
+                            {statusLabel(job.status)}
                           </span>
-                          <span className={styles.jobsRouteDest}>
-                            <span className={styles.jobsRouteArrow} aria-hidden="true">↓</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%', display: 'inline-block' }}>
-                              {job.delivery.location || '—'}
-                            </span>
-                            {job.delivery.postcode && (
-                              <span className={styles.jobsRoutePostcode}>{job.delivery.postcode}</span>
-                            )}
+                          {job.exchange_visibility && job.exchange_visibility !== 'private' && (
+                            <div style={{ fontSize: '10px', color: '#64748B', marginTop: 2 }}>
+                              {job.exchange_visibility}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Job/reference — 110px */}
+                        <td className={styles.operationalTableCell}>
+                          <span style={{ fontWeight: 600, color: '#1D57D8', fontSize: '12.5px' }}>
+                            {job.jobRef}
                           </span>
-                        </div>
-                      </td>
+                          {job.createdAt && (
+                            <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '14px' }}>
+                              {fmtDate(job.createdAt)}
+                            </div>
+                          )}
+                        </td>
 
-                      {/* Pickup — 150px */}
-                      <td className={styles.operationalTableCell}>
-                        <div style={{ fontSize: '12.5px', lineHeight: '17px' }}>{fmtDate(job.pickup.date)}</div>
-                        {job.pickup.time && job.pickup.time !== 'ASAP' && (
-                          <div style={{ fontSize: '11px', lineHeight: '14px', color: '#64748B' }}>{job.pickup.time}</div>
-                        )}
-                        {job.pickup.time === 'ASAP' && (
-                          <div style={{ fontSize: '11px', lineHeight: '14px', color: '#B76E00', fontWeight: 600 }}>ASAP</div>
-                        )}
-                      </td>
+                        {/* Route — minmax(260px,1.6fr) */}
+                        <td className={styles.operationalTableCell}>
+                          <div className={styles.jobsRouteCell}>
+                            <span className={styles.jobsRouteOrigin}>
+                              <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '45%', display: 'inline-block' }}>
+                                {job.pickup.location || '—'}
+                              </span>
+                              {job.pickup.postcode && (
+                                <span className={styles.jobsRoutePostcode}>{job.pickup.postcode}</span>
+                              )}
+                            </span>
+                            <span className={styles.jobsRouteDest}>
+                              <span className={styles.jobsRouteArrow} aria-hidden="true">↓</span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%', display: 'inline-block' }}>
+                                {job.delivery.location || '—'}
+                              </span>
+                              {job.delivery.postcode && (
+                                <span className={styles.jobsRoutePostcode}>{job.delivery.postcode}</span>
+                              )}
+                            </span>
+                          </div>
+                        </td>
 
-                      {/* Delivery — 150px */}
-                      <td className={styles.operationalTableCell}>
-                        <div style={{ fontSize: '12.5px', lineHeight: '17px' }}>{fmtDate(job.delivery.date)}</div>
-                        {job.delivery.time && job.delivery.time !== 'ASAP' && (
-                          <div style={{ fontSize: '11px', lineHeight: '14px', color: '#64748B' }}>{job.delivery.time}</div>
-                        )}
-                        {job.delivery.time === 'ASAP' && (
-                          <div style={{ fontSize: '11px', lineHeight: '14px', color: '#B76E00', fontWeight: 600 }}>ASAP</div>
-                        )}
-                      </td>
+                        {/* Pickup — 150px */}
+                        <td className={styles.operationalTableCell}>
+                          <div style={{ fontSize: '12.5px', lineHeight: '17px' }}>{fmtDate(job.pickup.date)}</div>
+                          {job.pickup.time && job.pickup.time !== 'ASAP' && (
+                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#64748B' }}>{job.pickup.time}</div>
+                          )}
+                          {job.pickup.time === 'ASAP' && (
+                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#B76E00', fontWeight: 600 }}>ASAP</div>
+                          )}
+                        </td>
 
-                      {/* Vehicle — 110px */}
-                      <td className={styles.operationalTableCell} style={{ fontSize: '12px', color: '#64748B', textTransform: 'capitalize' }}>
-                        {job.vehicleType || '—'}
-                      </td>
+                        {/* Delivery — 150px */}
+                        <td className={styles.operationalTableCell}>
+                          <div style={{ fontSize: '12.5px', lineHeight: '17px' }}>{fmtDate(job.delivery.date)}</div>
+                          {job.delivery.time && job.delivery.time !== 'ASAP' && (
+                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#64748B' }}>{job.delivery.time}</div>
+                          )}
+                          {job.delivery.time === 'ASAP' && (
+                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#B76E00', fontWeight: 600 }}>ASAP</div>
+                          )}
+                        </td>
 
-                      {/* Customer — 150px */}
-                      <td className={styles.operationalTableCell} style={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>
-                        {job.client.name || '—'}
-                      </td>
+                        {/* Vehicle — 110px */}
+                        <td className={styles.operationalTableCell} style={{ fontSize: '12px', color: '#64748B', textTransform: 'capitalize' }}>
+                          <div>{job.vehicleType || '—'}</div>
+                          {job.cargo?.type && (
+                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                              {job.cargo.quantity > 0 ? `${job.cargo.quantity}× ` : ''}{job.cargo.type}
+                            </div>
+                          )}
+                        </td>
 
-                      {/* Distance — 96px */}
-                      <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} style={{ fontSize: '12px', color: '#64748B' }}>
-                        {job.distanceMiles || '—'}
-                      </td>
+                        {/* Customer — 150px (name + phone) */}
+                        <td className={styles.operationalTableCell} style={{ fontSize: '12.5px', overflow: 'hidden', maxWidth: 150 }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {job.client.name || '—'}
+                          </div>
+                          {job.clientPhone && (
+                            <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {job.clientPhone}
+                            </div>
+                          )}
+                        </td>
 
-                      {/* Actions — 92px
-                       * Compact action cell:
-                       *   • "View" always present
-                       *   • "Post" for draft jobs (primary workflow action)
-                       *   • Status select for jobs with allowed transitions
-                       *   • "Invite" only for private/unawarded jobs
-                       */}
-                      <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.jobsActionCell}>
-                          <button
-                            type="button"
-                            className={styles.jobsActionBtn}
-                            onClick={() => onViewJob(job.id)}
-                            aria-label={`View job ${job.jobRef}`}
-                          >
-                            View
-                          </button>
-                          {job.status === 'draft' && (
+                        {/* Distance — 96px */}
+                        <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} style={{ fontSize: '12px', color: '#64748B' }}>
+                          {job.distanceMiles || '—'}
+                        </td>
+
+                        {/* Actions — 92px
+                         * Compact action cell:
+                         *   • Expand toggle (detail row)
+                         *   • "View" always present
+                         *   • "Post" for draft jobs (primary workflow action)
+                         *   • Status select for jobs with allowed transitions
+                         *   • "Invite" only for private/unawarded jobs
+                         */}
+                        <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} onClick={(e) => e.stopPropagation()}>
+                          <div className={styles.jobsActionCell}>
+                            <button
+                              type="button"
+                              className={styles.jobsExpandBtn}
+                              onClick={() => toggleRowExpanded(job.id)}
+                              aria-label={isExpanded ? `Collapse details for job ${job.jobRef}` : `Expand details for job ${job.jobRef}`}
+                              aria-expanded={isExpanded}
+                            >
+                              {isExpanded ? '▲' : '▼'}
+                            </button>
                             <button
                               type="button"
                               className={styles.jobsActionBtn}
-                              style={{ background: '#0B2F6B', color: '#ffffff', borderColor: '#0B2F6B' }}
-                              onClick={() => onPostJob(job.id)}
-                              aria-label={`Post job ${job.jobRef} to marketplace`}
+                              onClick={() => onViewJob(job.id)}
+                              aria-label={`View job ${job.jobRef}`}
                             >
-                              Post
+                              View
                             </button>
-                          )}
-                          {job.status !== 'draft' && allowedStatusTransitions(job.status).length > 0 && (
-                            <select
-                              className={styles.jobsActionBtn}
-                              defaultValue=""
-                              aria-label={`Update status for job ${job.jobRef}`}
-                              onChange={(e) => {
-                                const next = e.target.value;
-                                if (next) {
-                                  onStatusChange(job.id, next);
-                                  e.target.value = '';
-                                }
-                              }}
-                              style={{ paddingRight: 4 }}
-                            >
-                              <option value="" disabled>Update…</option>
-                              {allowedStatusTransitions(job.status).map((s) => (
-                                <option key={s} value={s}>{statusLabel(s)}</option>
-                              ))}
-                            </select>
-                          )}
-                          {isDirectInviteEligible(job) && (
-                            <button
-                              type="button"
-                              className={styles.jobsActionBtn}
-                              onClick={() => onDirectInvite(job)}
-                              aria-label={`Invite carrier for job ${job.jobRef}`}
-                            >
-                              Invite
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                            {job.status === 'draft' && (
+                              <button
+                                type="button"
+                                className={styles.jobsActionBtn}
+                                style={{ background: '#0B2F6B', color: '#ffffff', borderColor: '#0B2F6B' }}
+                                onClick={() => onPostJob(job.id)}
+                                aria-label={`Post job ${job.jobRef} to marketplace`}
+                              >
+                                Post
+                              </button>
+                            )}
+                            {job.status !== 'draft' && allowedStatusTransitions(job.status).length > 0 && (
+                              <select
+                                className={styles.jobsActionBtn}
+                                defaultValue=""
+                                aria-label={`Update status for job ${job.jobRef}`}
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  if (next) {
+                                    onStatusChange(job.id, next);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                style={{ paddingRight: 4 }}
+                              >
+                                <option value="" disabled>Update…</option>
+                                {allowedStatusTransitions(job.status).map((s) => (
+                                  <option key={s} value={s}>{statusLabel(s)}</option>
+                                ))}
+                              </select>
+                            )}
+                            {isDirectInviteEligible(job) && (
+                              <button
+                                type="button"
+                                className={styles.jobsActionBtn}
+                                onClick={() => onDirectInvite(job)}
+                                aria-label={`Invite carrier for job ${job.jobRef}`}
+                              >
+                                Invite
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${job.id}-detail`} className={styles.operationalTableDetailRow}>
+                          <td colSpan={9} className={styles.operationalTableDetailCell}>
+                            <div className={styles.operationalJobDetailGrid}>
+                              <div className={styles.operationalJobDetailItem}>
+                                <span className={styles.operationalJobDetailLabel}>Driver</span>
+                                <span>{resolveDriverName(job.assignedDriverId)}</span>
+                              </div>
+                              {job.clientEmail && (
+                                <div className={styles.operationalJobDetailItem}>
+                                  <span className={styles.operationalJobDetailLabel}>Client email</span>
+                                  <span>{job.clientEmail}</span>
+                                </div>
+                              )}
+                              {job.paymentTerms && (
+                                <div className={styles.operationalJobDetailItem}>
+                                  <span className={styles.operationalJobDetailLabel}>Payment terms</span>
+                                  <span>{job.paymentTerms}</span>
+                                </div>
+                              )}
+                              {job.awarded_carrier_company_id && (
+                                <div className={styles.operationalJobDetailItem}>
+                                  <span className={styles.operationalJobDetailLabel}>Awarded carrier</span>
+                                  <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{job.awarded_carrier_company_id.slice(0, 13)}…</span>
+                                </div>
+                              )}
+                              {job.exchange_visibility && (
+                                <div className={styles.operationalJobDetailItem}>
+                                  <span className={styles.operationalJobDetailLabel}>Visibility</span>
+                                  <span style={{ textTransform: 'capitalize' }}>{job.exchange_visibility}</span>
+                                </div>
+                              )}
+                              {job.cargo?.notes && (
+                                <div className={styles.operationalJobDetailItem}>
+                                  <span className={styles.operationalJobDetailLabel}>Cargo notes</span>
+                                  <span>{job.cargo.notes}</span>
+                                </div>
+                              )}
+                              {job.loadDetailSummary && job.loadDetailSummary.length > 0 && (
+                                <div className={styles.operationalJobDetailItem} style={{ gridColumn: 'span 2' }}>
+                                  <span className={styles.operationalJobDetailLabel}>Load details</span>
+                                  <span>{job.loadDetailSummary.map((l) => `${l.label}: ${l.value}`).join(' · ')}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   );
                 })
               )}

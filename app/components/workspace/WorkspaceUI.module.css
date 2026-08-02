@@ -895,6 +895,64 @@
   color: #1D57D8;
 }
 
+.jobsExpandBtn {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+  border: 1px solid #D8DEE8;
+  border-radius: 3px;
+  background: #F4F6F8;
+  color: #64748B;
+  font-size: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.jobsExpandBtn:hover {
+  background: #EFF6FF;
+  border-color: #1D57D8;
+  color: #1D57D8;
+}
+
+/* ─── Jobs Expandable Detail Row ─────────────────────────────────────────────
+ * Inline operational detail shown when a row's expand toggle is activated.
+ */
+.operationalTableDetailRow {
+  background: #F8FAFC;
+}
+
+.operationalTableDetailCell {
+  padding: 8px 12px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.operationalJobDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 16px;
+}
+
+.operationalJobDetailItem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #1A1F2B;
+}
+
+.operationalJobDetailLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ─── KPI Tile ───────────────────────────────────────────────────────────────
  * Section 8: height 72px target (max 80px); padding 8px 10px;
  * label 11px/14px/600; value 22px/26px/700; accent bar 3px.
