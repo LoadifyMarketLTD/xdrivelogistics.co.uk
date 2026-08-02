@@ -77,7 +77,7 @@ export default function WorkspaceShell({
 
   useEffect(() => {
     setHydrated(true);
-    const update = () => setIsCompact(window.innerWidth <= 1050);
+    const update = () => setIsCompact(window.innerWidth <= 1024);
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
@@ -272,8 +272,8 @@ export default function WorkspaceShell({
   }
 
   const sidebarStyle: CSSProperties = {
-    width: '268px',
-    background: '#f8fafc',
+    width: '230px',
+    background: '#ffffff',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
     flexDirection: 'column',
@@ -319,7 +319,7 @@ export default function WorkspaceShell({
       <aside style={sidebarStyle} aria-label={`${definition.label} navigation`}>
         <div
           style={{
-            padding: '0.75rem',
+            padding: '12px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
           }}
@@ -335,17 +335,17 @@ export default function WorkspaceShell({
               textAlign: 'left',
             }}
           >
-            <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <div
                 style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '4px',
                   background: workspaceTheme.navy,
                   display: 'grid',
                   placeItems: 'center',
                   flexShrink: 0,
-                  boxShadow: '0 2px 6px rgba(11,47,107,0.18)',
+                  boxShadow: 'none',
                 }}
               >
                 <span style={{ color: workspaceTheme.orange, fontWeight: 950, fontSize: '1rem' }}>
@@ -356,8 +356,8 @@ export default function WorkspaceShell({
                 <div
                   style={{
                     color: workspaceTheme.text,
-                    fontSize: '0.92rem',
-                    fontWeight: 850,
+                    fontSize: '13px',
+                    fontWeight: 600,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -368,7 +368,7 @@ export default function WorkspaceShell({
                 <div
                   style={{
                     color: workspaceTheme.muted,
-                    fontSize: '0.72rem',
+                    fontSize: '11px',
                     marginTop: '0.08rem',
                   }}
                 >
@@ -383,21 +383,21 @@ export default function WorkspaceShell({
               display: 'flex',
               alignItems: 'center',
               gap: '0.32rem',
-              marginTop: '0.55rem',
+              marginTop: '8px',
               flexWrap: 'nowrap',
             }}
           >
             <span
               style={{
                 fontSize: '0.59rem',
-                fontWeight: 850,
+                fontWeight: 600,
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 color: '#92400e',
                 background: '#fffbeb',
                 border: '1px solid #fde68a',
-                padding: '0.18rem 0.4rem',
-                borderRadius: '999px',
+                padding: '2px 6px',
+                borderRadius: '4px',
               }}
             >
               {definition.label}
@@ -409,12 +409,12 @@ export default function WorkspaceShell({
                 <span
                   style={{
                     fontSize: '0.59rem',
-                    fontWeight: 800,
+                    fontWeight: 600,
                     color: '#1e40af',
                     background: '#eff6ff',
                     border: '1px solid #bfdbfe',
-                    padding: '0.18rem 0.4rem',
-                    borderRadius: '999px',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
                   }}
                 >
                   Company View
@@ -423,22 +423,22 @@ export default function WorkspaceShell({
           </div>
         </div>
 
-        <nav style={{ flex: 1, overflowY: 'auto', padding: '0.48rem' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
           {nav.map((group) => (
-            <div key={group.id} style={{ marginBottom: '0.42rem' }}>
+            <div key={group.id} style={{ marginBottom: '8px' }}>
               <div
                 style={{
-                  padding: '0.3rem 0.42rem 0.22rem',
+                  padding: '4px 8px',
                   color: '#64748b',
-                  fontSize: '0.68rem',
-                  fontWeight: 850,
+                  fontSize: '11px',
+                  fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                 }}
               >
                 {group.label}
               </div>
-              <div style={{ display: 'grid', gap: '0.1rem' }}>
+              <div style={{ display: 'grid', gap: '4px' }}>
                 {group.items.map((item) => {
                   const active = isActive(item.href);
                   return (
@@ -453,17 +453,17 @@ export default function WorkspaceShell({
                         display: 'grid',
                         gridTemplateColumns: '26px minmax(0,1fr) 7px',
                         alignItems: 'center',
-                        gap: '0.34rem',
+                        gap: '8px',
                         border: 0,
                         borderLeft: active
                           ? `3px solid ${workspaceTheme.blue}`
                           : '3px solid transparent',
-                        borderRadius: '7px',
+                        borderRadius: '4px',
                         background: active ? '#eff6ff' : 'transparent',
                         color: active ? workspaceTheme.blue : workspaceTheme.text,
-                        padding: '0.52rem 0.55rem',
-                        fontSize: '0.82rem',
-                        fontWeight: active ? 850 : 650,
+                        padding: '8px',
+                        fontSize: '13px',
+                        fontWeight: active ? 600 : 400,
                         textAlign: 'left',
                         cursor: 'pointer',
                       }}
@@ -471,9 +471,9 @@ export default function WorkspaceShell({
                       <span
                         aria-hidden="true"
                         style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '6px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '4px',
                           display: 'grid',
                           placeItems: 'center',
                           background: active ? '#dbeafe' : '#eef2f6',
@@ -515,7 +515,7 @@ export default function WorkspaceShell({
 
         <div
           style={{
-            padding: '0.65rem',
+            padding: '12px',
             borderTop: `1px solid ${workspaceTheme.border}`,
             background: '#fff',
           }}
@@ -523,26 +523,26 @@ export default function WorkspaceShell({
           <div
             style={{
               color: workspaceTheme.muted,
-              fontSize: '0.72rem',
+              fontSize: '11px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              marginBottom: '0.45rem',
+              marginBottom: '8px',
             }}
           >
             {user?.email ?? ''}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.34rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <button
               onClick={() => router.push(definition.homeHref)}
               style={{
                 border: `1px solid ${workspaceTheme.border}`,
-                borderRadius: '7px',
+                borderRadius: '4px',
                 background: '#fff',
                 color: workspaceTheme.text,
-                padding: '0.48rem',
-                fontSize: '0.74rem',
-                fontWeight: 800,
+                padding: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
@@ -552,12 +552,12 @@ export default function WorkspaceShell({
               onClick={() => void logout()}
               style={{
                 border: '1px solid #fecaca',
-                borderRadius: '7px',
+                borderRadius: '4px',
                 background: '#fff',
                 color: workspaceTheme.red,
-                padding: '0.48rem',
-                fontSize: '0.74rem',
-                fontWeight: 800,
+                padding: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
@@ -570,36 +570,36 @@ export default function WorkspaceShell({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header
           style={{
-            minHeight: '60px',
-            height: '60px',
+            minHeight: '50px',
+            height: '50px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0.56rem clamp(0.75rem,2vw,1.2rem)',
+            padding: '0 12px',
             position: 'sticky',
             top: 0,
             zIndex: 35,
-            gap: '0.75rem',
+            gap: '12px',
             flexWrap: 'nowrap',
             overflow: 'hidden',
-            boxShadow: '0 1px 5px rgba(15,23,42,0.04)',
+            boxShadow: 'none',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.58rem', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
             {isCompact && (
               <button
                 aria-label="Open menu"
                 onClick={() => setSidebarOpen(true)}
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '32px',
+                  height: '32px',
                   border: `1px solid ${workspaceTheme.border}`,
-                  borderRadius: '8px',
+                  borderRadius: '4px',
                   background: '#fff',
                   color: workspaceTheme.text,
-                  fontSize: '0.95rem',
+                  fontSize: '13px',
                   fontWeight: 900,
                   cursor: 'pointer',
                 }}
@@ -608,14 +608,14 @@ export default function WorkspaceShell({
               </button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.72rem', color: workspaceTheme.muted, fontWeight: 750 }}>
+              <div style={{ fontSize: '11px', color: workspaceTheme.muted, fontWeight: 600 }}>
                 {definition.label}
               </div>
               <div
                 style={{
-                  fontSize: '0.9rem',
+                  fontSize: '13px',
                   color: workspaceTheme.text,
-                  fontWeight: 850,
+                  fontWeight: 600,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -631,18 +631,18 @@ export default function WorkspaceShell({
               {fixtureMode ? (
                 <div
                   aria-label="Workspace context controls"
-                  style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'wrap' }}
+                  style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}
                 >
                   <span
                     aria-label="Active organisation"
                     style={{
-                      height: '34px',
+                      height: '32px',
                       border: `1px solid ${workspaceTheme.border}`,
-                      borderRadius: '8px',
+                      borderRadius: '4px',
                       background: '#fff',
                       color: workspaceTheme.text,
-                      fontSize: '0.66rem',
-                      fontWeight: 750,
+                      fontSize: '12px',
+                      fontWeight: 600,
                       padding: '0 0.55rem',
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -657,7 +657,7 @@ export default function WorkspaceShell({
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             {primaryAction && (
               <button
                 onClick={() => router.push(primaryAction.href)}
@@ -665,12 +665,12 @@ export default function WorkspaceShell({
                   border: 0,
                   background: workspaceTheme.orange,
                   color: '#172033',
-                  padding: '0.48rem 0.72rem',
-                  borderRadius: '8px',
-                  fontSize: '0.69rem',
-                  fontWeight: 850,
+                  padding: '8px 14px',
+                  borderRadius: '4px',
+                  fontSize: '13px',
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  boxShadow: '0 2px 7px rgba(245,163,0,0.22)',
+                  boxShadow: 'none',
                 }}
               >
                 + {primaryAction.label}
@@ -681,12 +681,12 @@ export default function WorkspaceShell({
               data-route={actionCentreHref}
               style={{
                 border: `1px solid ${workspaceTheme.border}`,
-                borderRadius: '8px',
+                borderRadius: '4px',
                 background: '#fff',
                 color: workspaceTheme.text,
-                padding: '0.45rem 0.62rem',
-                fontSize: '0.72rem',
-                fontWeight: 800,
+                padding: '8px 14px',
+                fontSize: '13px',
+                fontWeight: 600,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
               }}
@@ -700,13 +700,13 @@ export default function WorkspaceShell({
               data-route={notificationsHref}
               style={{
                 position: 'relative',
-                width: '36px',
-                height: '36px',
+                width: '32px',
+                height: '32px',
                 border: `1px solid ${workspaceTheme.border}`,
-                borderRadius: '50%',
+                borderRadius: '4px',
                 background: '#fff',
                 cursor: 'pointer',
-                fontSize: '0.9rem',
+                fontSize: '13px',
               }}
             >
               🔔
