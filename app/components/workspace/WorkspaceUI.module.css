@@ -1,0 +1,387 @@
+.operationalToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.72rem;
+}
+
+.exchangeKpiStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+}
+
+.financialSummaryPanel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.financialSummaryRow {
+  display: flex;
+  justify-content: space-between;
+  background: var(--xdrive-finance-row-bg, #f4f6f8);
+  border: 1px solid color-mix(in srgb, var(--xdrive-finance-row-color, #1d57d8) 20%, #ffffff);
+  border-radius: 8px;
+  padding: 0.62rem 0.75rem;
+  font-size: 0.76rem;
+  gap: 0.6rem;
+}
+
+.financialSummaryLabel {
+  color: #1a1f2b;
+}
+
+.financialSummaryValue {
+  color: var(--xdrive-finance-row-color, #1d57d8);
+}
+
+.complianceSummaryEmpty {
+  color: #1a1f2b;
+  font-size: 0.76rem;
+  padding: 0.4rem 0;
+}
+
+.complianceSummaryRows {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.complianceSummaryRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.complianceSummaryDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--xdrive-dot-bg, #f4f6f8);
+  border: 2px solid var(--xdrive-dot-border, #1d57d8);
+  flex-shrink: 0;
+}
+
+.complianceSummaryLabel {
+  flex: 1;
+  font-size: 0.73rem;
+  color: #1a1f2b;
+}
+
+.complianceSummaryCount {
+  font-size: 0.73rem;
+}
+
+.complianceSummaryPct {
+  font-size: 0.68rem;
+  color: #1a1f2b;
+  min-width: 32px;
+  text-align: right;
+}
+
+.complianceSummaryMeter {
+  margin-top: 0.6rem;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  background: #f4f6f8;
+}
+
+.quickActionGrid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.quickActionButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid #f4f6f8;
+  border-radius: 8px;
+  padding: 0.62rem 0.68rem;
+  background: #ffffff;
+  color: #1a1f2b;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.quickActionButton:hover {
+  border-color: #1d57d8;
+}
+
+.selectorControl {
+  border: 1px solid #f4f6f8;
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  background: #ffffff;
+  color: #1a1f2b;
+}
+
+.savedViewSelector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #1a1f2b;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.workspaceActivityFeed {
+  background: var(--xdrive-feed-bg, #0b2f6b);
+  color: #ffffff;
+}
+
+.workspaceActivityFeedTitle {
+  color: #f5a300;
+}
+
+.workspaceActivityFeedTrack {
+  display: flex;
+}
+
+.workspaceActivityFeedItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.workspaceActivityFeedItemButton {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.workspaceActivityFeedItemButton:hover,
+.workspaceActivityFeedItemButton:focus-visible {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.workspaceActivityFeedTime {
+  color: #f5a300;
+}
+
+.operationalTableContainer {
+  width: 100%;
+}
+
+.operationalTableToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.operationalTableFilters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.operationalTableMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.72rem;
+  color: #1a1f2b;
+}
+
+.operationalTableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.operationalTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.operationalTableCaption {
+  caption-side: top;
+  text-align: left;
+  padding: 0 0 0.45rem;
+  color: #1a1f2b;
+  font-size: 0.7rem;
+}
+
+.operationalTableMinWidth {
+  min-width: var(--xdrive-operational-table-min-width, 440px);
+}
+
+.operationalTableHeaderRow {
+  background: #f4f6f8;
+}
+
+.operationalTableHeadCell {
+  text-align: left;
+  padding: 0.58rem 0.65rem;
+  color: #1a1f2b;
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #f4f6f8;
+  background: #f4f6f8;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.operationalTableSortButton {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.operationalTableSortGlyph {
+  font-size: 0.7rem;
+}
+
+.operationalTableRow:hover {
+  background: #f4f6f8;
+}
+
+.operationalTableRow:focus-within {
+  outline: 2px solid #1d57d8;
+  outline-offset: -2px;
+}
+
+.operationalTableCell {
+  padding: 0.65rem;
+  color: #1a1f2b;
+  font-size: 0.74rem;
+  border-bottom: 1px solid #f4f6f8;
+  vertical-align: middle;
+  min-height: 40px;
+}
+
+.operationalTableActionHeadCell,
+.operationalTableActionCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.actionCentreList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.actionCentreItem {
+  background: #ffffff;
+  border: 1px solid #f4f6f8;
+  border-radius: 9px;
+  padding: 0.78rem 0.85rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.actionCentreItemRail {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--xdrive-action-rail, #1d57d8);
+}
+
+.actionCentreItemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.actionCentreItemContent {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.actionCentreItemTitle {
+  color: #1a1f2b;
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.actionCentreItemDescription {
+  color: #1a1f2b;
+  font-size: 0.7rem;
+  margin-top: 0.22rem;
+  line-height: 1.4;
+}
+
+.actionCentreItemBadges {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.actionCentreBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.16rem 0.42rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+  border: 1px solid var(--xdrive-action-badge-border, #f4f6f8);
+  background: var(--xdrive-action-badge-bg, #f4f6f8);
+  color: var(--xdrive-action-badge-color, #1a1f2b);
+}
+
+.actionCentreMeta {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.actionCentreMetaValue {
+  color: #1a1f2b;
+  font-size: 0.65rem;
+}
+
+.actionCentreDue {
+  color: #f5a300;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.actionCentreCta {
+  margin-top: 0.55rem;
+}
+
+.actionCentreLinkButton,
+.actionCentreLinkAnchor {
+  color: #1d57d8;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}

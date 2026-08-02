@@ -42,14 +42,20 @@ export type WorkspaceInvoice = {
   id: string;
   company_id?: string | null;
   buyer_company_id?: string | null;
+  supplier_company_id?: string | null;
+  commercial_agreement_id?: string | null;
   job_id?: string | null;
   invoice_number?: string | null;
   status: string;
   payment_status?: string | null;
   delivery_state?: string | null;
   amount: number | null;
+  net_amount?: number | null;
+  vat_amount?: number | null;
+  vat_rate?: number | null;
   currency?: string | null;
   due_date?: string | null;
+  invoice_date?: string | null;
   created_at: string;
   client_name?: string | null;
 };
@@ -196,7 +202,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         : Promise.resolve({ data: [] as WorkspaceBid[], error: null }),
       supabase
         .from('invoices')
-        .select('id, company_id, buyer_company_id, job_id, invoice_number, status, payment_status, delivery_state, amount, currency, due_date, created_at, client_name')
+        .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name')
         .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId}`)
         .order('created_at', { ascending: false })
         .limit(500),

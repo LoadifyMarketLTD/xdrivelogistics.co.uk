@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -14,14 +14,32 @@ import {
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
 import SharedContextControls from './SharedContextControls';
-import { workspaceTheme } from './WorkspaceUI';
+import { WorkspaceActivityFeed, workspaceTheme } from './WorkspaceUI';
+import {
+  getActionCentreRoute,
+  getNotificationsRoute,
+  resolveActionCentreRole,
+  resolveRoleScopedHref,
+} from './actionCentreConfig';
+import styles from './WorkspaceShell.module.css';
+
+type WorkspaceShellFixtureOverrides = {
+  companyName?: string;
+  unreadCount?: number;
+  tickerItems?: Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>;
+  tickerError?: string;
+  actionCentreHref?: string;
+  notificationsHref?: string;
+};
 
 export default function WorkspaceShell({
   children,
   forcedRole,
+  fixtureOverrides,
 }: {
   children: ReactNode;
   forcedRole?: WorkspaceRole;
+  fixtureOverrides?: WorkspaceShellFixtureOverrides;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,6 +49,11 @@ export default function WorkspaceShell({
   const [isCompact, setIsCompact] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  const [tickerItems, setTickerItems] = useState<Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>>([]);
+  const [tickerError, setTickerError] = useState('');
+  const tickerTimerRef = useRef<number | null>(null);
+  const tickerAbortRef = useRef<AbortController | null>(null);
+  const tickerBusyRef = useRef(false);
 
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
@@ -47,6 +70,10 @@ export default function WorkspaceShell({
       ),
     [nav],
   );
+  const actionRole = resolveActionCentreRole(role);
+  const notificationsHref = fixtureOverrides?.notificationsHref ?? getNotificationsRoute(actionRole);
+  const actionCentreHref = fixtureOverrides?.actionCentreHref ?? getActionCentreRoute(actionRole);
+  const fixtureMode = Boolean(fixtureOverrides);
 
   useEffect(() => {
     setHydrated(true);
@@ -57,6 +84,10 @@ export default function WorkspaceShell({
   }, []);
 
   useEffect(() => {
+    if (fixtureOverrides?.companyName) {
+      setCompanyName(fixtureOverrides.companyName);
+      return;
+    }
     if (!user?.companyId || !isSupabaseConfigured) {
       if (role === 'customer') setCompanyName('Customer Account');
       else if (role === 'broker') setCompanyName('Broker Company');
@@ -81,9 +112,13 @@ export default function WorkspaceShell({
     return () => {
       cancelled = true;
     };
-  }, [role, user?.companyId, user?.email]);
+  }, [fixtureOverrides?.companyName, role, user?.companyId, user?.email]);
 
   useEffect(() => {
+    if (typeof fixtureOverrides?.unreadCount === 'number') {
+      setUnreadCount(fixtureOverrides.unreadCount);
+      return;
+    }
     if (!user?.id || !isSupabaseConfigured) return;
 
     const fetchUnread = async () => {
@@ -98,7 +133,122 @@ export default function WorkspaceShell({
     void fetchUnread();
     const timer = window.setInterval(() => void fetchUnread(), 60_000);
     return () => window.clearInterval(timer);
-  }, [user?.id]);
+  }, [actionCentreHref, actionRole, fixtureOverrides?.unreadCount, role, user?.id]);
+
+  useEffect(() => {
+    if (fixtureOverrides?.tickerItems || fixtureOverrides?.tickerError) {
+      setTickerItems(fixtureOverrides.tickerItems ?? []);
+      setTickerError(fixtureOverrides.tickerError ?? '');
+      return;
+    }
+    if (!user?.id || !isSupabaseConfigured) {
+      setTickerItems([]);
+      setTickerError('');
+      return;
+    }
+
+    let cancelled = false;
+    const clearTimer = () => {
+      if (tickerTimerRef.current !== null) {
+        window.clearTimeout(tickerTimerRef.current);
+        tickerTimerRef.current = null;
+      }
+    };
+    const queueNext = (ms = 30_000) => {
+      clearTimer();
+      tickerTimerRef.current = window.setTimeout(() => {
+        void fetchTicker();
+      }, ms);
+    };
+
+    const fetchTicker = async (force = false) => {
+      if (cancelled) return;
+      if (!force && document.visibilityState !== 'visible') {
+        queueNext(5_000);
+        return;
+      }
+      if (tickerBusyRef.current) {
+        queueNext(5_000);
+        return;
+      }
+
+      tickerBusyRef.current = true;
+      tickerAbortRef.current?.abort();
+      const controller = new AbortController();
+      tickerAbortRef.current = controller;
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+          setTickerItems([]);
+          setTickerError('');
+          return;
+        }
+
+        const response = await fetch('/api/workspace/activity-feed?limit=12', {
+          method: 'GET',
+          headers: { Authorization: 'Bearer ' + token },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setTickerItems([]);
+          setTickerError('Activity feed unavailable');
+          return;
+        }
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          items?: Array<{
+            id: string;
+            label: string;
+            reference: string | null;
+            created_at: string;
+            entity_type?: string | null;
+            entity_id?: string | null;
+            event_id?: string | null;
+          }>;
+        };
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        setTickerError('');
+        const withHrefs = items
+          .slice()
+          .reverse()
+          .map((item) => ({
+            ...item,
+            href: resolveRoleScopedHref(actionRole, item.entity_type, item.event_id),
+          }));
+        setTickerItems(withHrefs);
+      } catch {
+        setTickerItems([]);
+        setTickerError('Activity feed unavailable');
+      } finally {
+        tickerBusyRef.current = false;
+        if (!cancelled) queueNext();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchTicker(true);
+      } else {
+        clearTimer();
+        tickerAbortRef.current?.abort();
+      }
+    };
+
+    void fetchTicker(true);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      tickerAbortRef.current?.abort();
+      tickerBusyRef.current = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [actionCentreHref, actionRole, fixtureOverrides?.tickerError, fixtureOverrides?.tickerItems, role, user?.id]);
 
   useEffect(() => {
     if (!isCompact) setSidebarOpen(false);
@@ -117,21 +267,12 @@ export default function WorkspaceShell({
       ? definition.primaryAction
       : null;
 
-  const notificationsHref =
-    role === 'broker'
-      ? '/broker/notifications'
-      : role === 'customer'
-        ? '/customer/notifications'
-        : role === 'driver' || role === 'owner_driver'
-          ? '/driver/notifications'
-          : '/admin/notifications';
-
   if (!hydrated) {
     return <div style={{ minHeight: '100vh', background: workspaceTheme.page }} />;
   }
 
   const sidebarStyle: CSSProperties = {
-    width: isCompact ? '292px' : '252px',
+    width: '268px',
     background: '#f8fafc',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
@@ -152,6 +293,7 @@ export default function WorkspaceShell({
 
   return (
     <div
+      className={styles.workspaceRoot}
       style={{
         display: 'flex',
         minHeight: '100vh',
@@ -214,7 +356,7 @@ export default function WorkspaceShell({
                 <div
                   style={{
                     color: workspaceTheme.text,
-                    fontSize: '0.8rem',
+                    fontSize: '0.92rem',
                     fontWeight: 850,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -226,7 +368,7 @@ export default function WorkspaceShell({
                 <div
                   style={{
                     color: workspaceTheme.muted,
-                    fontSize: '0.62rem',
+                    fontSize: '0.72rem',
                     marginTop: '0.08rem',
                   }}
                 >
@@ -242,7 +384,7 @@ export default function WorkspaceShell({
               alignItems: 'center',
               gap: '0.32rem',
               marginTop: '0.55rem',
-              flexWrap: 'wrap',
+              flexWrap: 'nowrap',
             }}
           >
             <span
@@ -286,9 +428,9 @@ export default function WorkspaceShell({
             <div key={group.id} style={{ marginBottom: '0.42rem' }}>
               <div
                 style={{
-                  padding: '0.25rem 0.42rem 0.18rem',
+                  padding: '0.3rem 0.42rem 0.22rem',
                   color: '#64748b',
-                  fontSize: '0.58rem',
+                  fontSize: '0.68rem',
                   fontWeight: 850,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
@@ -309,7 +451,7 @@ export default function WorkspaceShell({
                       style={{
                         width: '100%',
                         display: 'grid',
-                        gridTemplateColumns: '22px minmax(0,1fr) 7px',
+                        gridTemplateColumns: '26px minmax(0,1fr) 7px',
                         alignItems: 'center',
                         gap: '0.34rem',
                         border: 0,
@@ -319,8 +461,8 @@ export default function WorkspaceShell({
                         borderRadius: '7px',
                         background: active ? '#eff6ff' : 'transparent',
                         color: active ? workspaceTheme.blue : workspaceTheme.text,
-                        padding: '0.4rem 0.45rem',
-                        fontSize: '0.7rem',
+                        padding: '0.52rem 0.55rem',
+                        fontSize: '0.82rem',
                         fontWeight: active ? 850 : 650,
                         textAlign: 'left',
                         cursor: 'pointer',
@@ -329,14 +471,14 @@ export default function WorkspaceShell({
                       <span
                         aria-hidden="true"
                         style={{
-                          width: '21px',
-                          height: '21px',
+                          width: '24px',
+                          height: '24px',
                           borderRadius: '6px',
                           display: 'grid',
                           placeItems: 'center',
                           background: active ? '#dbeafe' : '#eef2f6',
                           color: active ? workspaceTheme.blue : '#475569',
-                          fontSize: item.icon === 'OC' ? '0.52rem' : '0.68rem',
+                          fontSize: item.icon === 'OC' ? '0.6rem' : '0.78rem',
                           fontWeight: 900,
                         }}
                       >
@@ -381,7 +523,7 @@ export default function WorkspaceShell({
           <div
             style={{
               color: workspaceTheme.muted,
-              fontSize: '0.63rem',
+              fontSize: '0.72rem',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -398,8 +540,8 @@ export default function WorkspaceShell({
                 borderRadius: '7px',
                 background: '#fff',
                 color: workspaceTheme.text,
-                padding: '0.4rem',
-                fontSize: '0.65rem',
+                padding: '0.48rem',
+                fontSize: '0.74rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -413,8 +555,8 @@ export default function WorkspaceShell({
                 borderRadius: '7px',
                 background: '#fff',
                 color: workspaceTheme.red,
-                padding: '0.4rem',
-                fontSize: '0.65rem',
+                padding: '0.48rem',
+                fontSize: '0.74rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -428,7 +570,8 @@ export default function WorkspaceShell({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header
           style={{
-            minHeight: '56px',
+            minHeight: '60px',
+            height: '60px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
             display: 'flex',
@@ -439,7 +582,8 @@ export default function WorkspaceShell({
             top: 0,
             zIndex: 35,
             gap: '0.75rem',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
             boxShadow: '0 1px 5px rgba(15,23,42,0.04)',
           }}
         >
@@ -464,12 +608,12 @@ export default function WorkspaceShell({
               </button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.65rem', color: workspaceTheme.muted, fontWeight: 750 }}>
+              <div style={{ fontSize: '0.72rem', color: workspaceTheme.muted, fontWeight: 750 }}>
                 {definition.label}
               </div>
               <div
                 style={{
-                  fontSize: '0.78rem',
+                  fontSize: '0.9rem',
                   color: workspaceTheme.text,
                   fontWeight: 850,
                   whiteSpace: 'nowrap',
@@ -482,9 +626,36 @@ export default function WorkspaceShell({
             </div>
           </div>
 
-          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <SharedContextControls navigation={navigationTargets} />
-          </div>
+          {!isCompact && (
+            <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+              {fixtureMode ? (
+                <div
+                  aria-label="Workspace context controls"
+                  style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'wrap' }}
+                >
+                  <span
+                    aria-label="Active organisation"
+                    style={{
+                      height: '34px',
+                      border: `1px solid ${workspaceTheme.border}`,
+                      borderRadius: '8px',
+                      background: '#fff',
+                      color: workspaceTheme.text,
+                      fontSize: '0.66rem',
+                      fontWeight: 750,
+                      padding: '0 0.55rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {companyName}
+                  </span>
+                </div>
+              ) : (
+                <SharedContextControls navigation={navigationTargets} />
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', flexShrink: 0 }}>
             {primaryAction && (
@@ -506,9 +677,27 @@ export default function WorkspaceShell({
               </button>
             )}
             <button
+              onClick={() => router.push(actionCentreHref)}
+              data-route={actionCentreHref}
+              style={{
+                border: `1px solid ${workspaceTheme.border}`,
+                borderRadius: '8px',
+                background: '#fff',
+                color: workspaceTheme.text,
+                padding: '0.45rem 0.62rem',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Action Centre
+            </button>
+            <button
               onClick={() => router.push(notificationsHref)}
               title="Notifications"
               aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+              data-route={notificationsHref}
               style={{
                 position: 'relative',
                 width: '36px',
@@ -545,25 +734,24 @@ export default function WorkspaceShell({
             </button>
           </div>
         </header>
+        <WorkspaceActivityFeed
+          items={tickerItems}
+          error={tickerError}
+          classNames={{
+            root: styles.tickerRoot,
+            title: styles.tickerLabel,
+            track: styles.tickerTrack,
+            item: styles.tickerItem,
+            time: styles.tickerTime,
+            error: styles.tickerError,
+          }}
+          labelColor={workspaceTheme.orange}
+          timeColor={workspaceTheme.orange}
+          background={workspaceTheme.navy}
+          onItemClick={(href) => router.push(href)}
+        />
         <main style={{ flex: 1, minWidth: 0 }}>{children}</main>
       </div>
-
-      <style jsx global>{`
-        * { box-sizing: border-box; }
-        body { background: ${workspaceTheme.page}; }
-        button, input, select, textarea { font: inherit; }
-        .xdrive-table-row:hover td { background: #fbfdff; }
-        @media (max-width: 820px) {
-          .xdrive-two-column, .xdrive-settings-layout { grid-template-columns: 1fr !important; }
-          .xdrive-settings-layout > aside { position: static !important; display: flex; overflow-x: auto; gap: 0.25rem; }
-          .xdrive-settings-layout > aside button { min-width: 155px; margin-bottom: 0 !important; }
-        }
-        @media (max-width: 560px) {
-          .xdrive-page-frame { padding-left: 0.65rem !important; padding-right: 0.65rem !important; }
-          .xdrive-page-header { margin-bottom: 0.75rem !important; }
-          .xdrive-kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
-        }
-      `}</style>
     </div>
   );
 }
