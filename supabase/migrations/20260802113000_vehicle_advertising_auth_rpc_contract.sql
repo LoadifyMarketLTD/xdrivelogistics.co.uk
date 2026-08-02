@@ -1,9 +1,9 @@
 -- Migration: vehicle advertising auth-bound RPC contract
 --
 -- Purpose:
---   1) Replace the public advertising RPC with an auth.uid()-bound signature
---   2) Remove caller-supplied actor impersonation from the authenticated path
---   3) Drop the legacy 5-argument RPC so PostgREST resolves the 4-argument contract only.
+--   1) Clean up any previously-deployed legacy advertising RPC
+--   2) Ensure PostgREST resolves the auth.uid()-bound 4-argument contract only
+--   3) Remain safe/idempotent for upgrade paths where the vulnerable function already exists.
 --
 -- Rollback notes (manual):
 --   - REVOKE/GRANT reversal + DROP FUNCTION public.set_vehicle_advertising_state(uuid, text, text, jsonb)

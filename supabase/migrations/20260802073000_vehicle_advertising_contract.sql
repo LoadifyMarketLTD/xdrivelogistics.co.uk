@@ -2,12 +2,12 @@
 --
 -- Purpose:
 --   1) Add canonical vehicles.advertising_state enum-like text field
---   2) Provide an authorised, audited mutation function
+--   2) Provide the final auth.uid()-bound authorised, audited mutation function
 --   3) Preserve migration safety for both fresh databases and existing tenants
 --      by using IF NOT EXISTS and additive constraints only.
 --
 -- Rollback notes (manual):
---   - REVOKE/GRANT reversal + DROP FUNCTION public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb)
+--   - REVOKE/GRANT reversal + DROP FUNCTION public.set_vehicle_advertising_state(uuid, text, text, jsonb)
 --   - ALTER TABLE public.vehicles DROP COLUMN advertising_state
 --   - Validate downstream code paths before dropping owner_audit_log entries
 
@@ -49,7 +49,6 @@ ALTER TABLE public.vehicles
 
 CREATE OR REPLACE FUNCTION public.set_vehicle_advertising_state(
   p_vehicle_id uuid,
-  p_actor_user_id uuid,
   p_state text,
   p_reason text,
   p_metadata jsonb DEFAULT '{}'::jsonb
@@ -65,8 +64,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_authenticated_actor_user_id uuid := auth.uid();
-  v_actor_user_id uuid;
+  v_actor_user_id uuid := auth.uid();
   v_company_id uuid;
   v_assigned_driver_id uuid;
   v_previous_state text;
@@ -75,22 +73,13 @@ DECLARE
   v_can_manage boolean := false;
   v_updated_count integer := 0;
 BEGIN
-  v_actor_user_id := coalesce(v_authenticated_actor_user_id, p_actor_user_id);
-
-  IF p_vehicle_id IS NULL THEN
-    RAISE EXCEPTION 'vehicle_id is required.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  IF v_authenticated_actor_user_id IS NOT NULL
-     AND p_actor_user_id IS NOT NULL
-     AND p_actor_user_id IS DISTINCT FROM v_authenticated_actor_user_id THEN
-    RAISE EXCEPTION 'Forbidden — actor_user_id must match auth.uid().'
+  IF v_actor_user_id IS NULL THEN
+    RAISE EXCEPTION 'Forbidden — auth.uid() is required for this RPC.'
       USING ERRCODE = '42501';
   END IF;
 
-  IF v_actor_user_id IS NULL THEN
-    RAISE EXCEPTION 'actor_user_id is required when auth.uid() is unavailable.'
+  IF p_vehicle_id IS NULL THEN
+    RAISE EXCEPTION 'vehicle_id is required.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -195,9 +184,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.set_vehicle_advertising_state(uuid, text, text, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.set_vehicle_advertising_state(uuid, text, text, jsonb) TO authenticated;
 
 COMMIT;
 
