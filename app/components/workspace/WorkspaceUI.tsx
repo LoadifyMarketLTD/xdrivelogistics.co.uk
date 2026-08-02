@@ -312,7 +312,11 @@ export function WorkspaceActivityFeed({
       {items.length > 0 ? (
         <div className={`${styles.workspaceActivityFeedTrack} ${classNames.track}`}>
           {[...items, ...items].map((item, index) => {
-            const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const time = new Date(item.created_at).toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'UTC',
+            });
             const text = `${item.label}${item.reference ? ` – ${item.reference}` : ''}`;
             return (
               <span key={`${item.id}-${index}`} className={`${styles.workspaceActivityFeedItem} ${classNames.item}`}>
