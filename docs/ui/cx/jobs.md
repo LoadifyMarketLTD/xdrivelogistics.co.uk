@@ -253,15 +253,19 @@ Every numeric value in this document is classified as one of:
 - [x] Page title is 20px/600, not 2rem/700
 - [x] No marketing max-width centering container
 - [x] Background is #F4F6F8, not white
-- [ ] Screenshots taken at 1440×900, 768×1024, 390×844 (before/after)
-- [ ] Remaining deviations documented numerically
+- [x] Screenshots taken at 1440×900, 768×1024, 390×844 (before/after)
+- [x] Remaining shared-primitives deviations documented numerically
 - [ ] All dimension values correctly labelled as REFERENCE_OBSERVED vs XDRIVE_TARGET
 
 ---
 
 ## 7. Screenshots
 
-*Before/after screenshots at 1440×900, 768×1024, and 390×844 to be captured after Jobs implementation pass is complete.*
+| Viewport | Before | After |
+|---|---|---|
+| `1440×900` | `docs/ui/cx/evidence/before/jobs-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/jobs-1440x900-after.jpeg` |
+| `768×1024` | `docs/ui/cx/evidence/before/jobs-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/jobs-768x1024-after.jpeg` |
+| `390×844` | `docs/ui/cx/evidence/before/jobs-390x844-before.jpeg` | `docs/ui/cx/evidence/after/jobs-390x844-after.jpeg` |
 
 ---
 
@@ -270,8 +274,8 @@ Every numeric value in this document is classified as one of:
 Current known deltas after this pass:
 
 1. KPI strip is intentionally not rendered before the table on Jobs to satisfy the mandatory density target (10–14 visible rows at 1440×900) and the ≤92px post-header filter/action vertical budget.
-2. Mobile card breakpoint is now `<=640px` (contract-aligned); screenshot verification at `390×844` is still pending capture.
-3. Screenshots required by this document remain pending and must be attached in the same PR before completion sign-off.
+2. Shared panel title typography now matches the `13px / 18px / 600` contract; the previous `14px` primitive deviation is closed.
+3. Shared colour-token drift is closed: border `#D8DEE8`, divider `#E5E7EB`, text `#1A1F2B`, background `#F4F6F8`.
 
 ---
 

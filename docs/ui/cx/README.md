@@ -20,28 +20,28 @@ Status: Mandatory implementation baseline.
 
 ## Typography baseline
 - Primary: Segoe UI, Arial, sans-serif
-- Page title: 28/600
-- Section title: 16/600
-- Card header: 14/600
+- Page title: 20/26/600
+- Section title: 14/20/600
+- Panel title: 13/18/600
 - Label: 12/600
-- Body: 13/400
+- Body: 12/400
 - Metadata: 11/400
 - Line height: 1.35
 
 ## Color baseline (XDrive)
 - Navy `#0B2F6B`
 - Blue `#1D57D8`
-- Background `#F5F7FA`
+- Background `#F4F6F8`
 - Card `#FFFFFF`
-- Border `#D9E2EC`
-- Divider `#E5EAF0`
+- Border `#D8DEE8`
+- Divider `#E5E7EB`
 - Hover `#F2F8FF`
 - Success `#35A853`
 - Warning `#F5A300`
 - Danger `#D93025`
-- Primary text `#202124`
-- Secondary text `#5F6368`
-- Muted text `#70757A`
+- Primary text `#1A1F2B`
+- Secondary text `#64748B`
+- Muted text `#64748B`
 
 ## Component sizing baseline
 - Button: 32px height, 8px 14px padding, radius 4px
@@ -69,3 +69,4 @@ See also:
 - `docs/ui/cx/implementation-checklist.md`
 - `docs/ui/cx/jobs.md`
 - `docs/ui/cx/dashboard-home-surfaces.md`
+- `docs/ui/cx/evidence/`

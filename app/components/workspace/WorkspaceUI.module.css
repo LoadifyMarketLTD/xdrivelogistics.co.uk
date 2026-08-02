@@ -136,12 +136,16 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px solid #eef2f6;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.operationalMetricRow:last-child {
+  border-bottom: none;
 }
 
 .operationalMetricLabel {
   font-size: 12px;
-  color: #202124;
+  color: #1A1F2B;
 }
 
 .operationalLinkList {
@@ -156,10 +160,10 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #D8DEE8;
   border-radius: 4px;
   background: #ffffff;
-  color: #202124;
+  color: #1A1F2B;
   padding: 6px 8px;
   text-align: left;
   font-size: 12px;
@@ -182,7 +186,7 @@
 
 .operationalLinkMeta {
   min-width: 0;
-  color: #64748b;
+  color: #64748B;
   font-size: 11px;
 }
 
@@ -520,7 +524,7 @@
 .operationalCard {
   /* Border-first: border always visible, shadow suppressed (reference pattern) */
   background: #ffffff;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #D8DEE8;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -532,7 +536,7 @@
   gap: 8px;
   /* Reference: compact CX-style control cards with 10px horizontal padding */
   padding: 8px 10px;
-  border-bottom: 1px solid #d9e2ec;
+  border-bottom: 1px solid #D8DEE8;
   flex-wrap: wrap;
 }
 
@@ -547,7 +551,7 @@
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
-  color: #202124;
+  color: #1A1F2B;
 }
 
 .operationalCardSubtitle {
@@ -555,7 +559,7 @@
   /* Metadata: 11px / 400 */
   font-size: 11px;
   font-weight: 400;
-  color: #5f6368;
+  color: #64748B;
   line-height: 1.35;
 }
 
@@ -577,11 +581,11 @@
 
 .operationalCardFooter {
   padding: 8px 12px;
-  border-top: 1px solid #d9e2ec;
+  border-top: 1px solid #D8DEE8;
   /* Soft background for footer — matches reference panel footer tones */
-  background: #f5f7fa;
+  background: #F4F6F8;
   font-size: 12px;
-  color: #5f6368;
+  color: #64748B;
 }
 
 /* ─── OperationalFilters ────────────────────────────────────────────────── */
@@ -601,15 +605,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-bottom: 1px solid #d9e2ec;
-  background: #f5f7fa;
+  border-bottom: 1px solid #D8DEE8;
+  background: #F4F6F8;
 }
 
 .operationalFiltersTitle {
   margin: 0;
   font-size: 12px;
   font-weight: 600;
-  color: #202124;
+  color: #1A1F2B;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -624,7 +628,7 @@
 
 .operationalFiltersFooter {
   padding: 8px 10px;
-  border-top: 1px solid #d9e2ec;
+  border-top: 1px solid #D8DEE8;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -636,7 +640,7 @@
   gap: 6px;
   padding: 4px 0;
   font-size: 12px;
-  color: #5f6368;
+  color: #64748B;
   cursor: pointer;
 }
 
@@ -674,10 +678,10 @@
 .operationalFiltersClearBtn {
   width: 100%;
   height: 32px;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #D8DEE8;
   border-radius: 4px;
   background: #ffffff;
-  color: #202124;
+  color: #1A1F2B;
   font-size: 13px;
   font-weight: 400;
   cursor: pointer;
@@ -687,8 +691,8 @@
 }
 
 .operationalFiltersClearBtn:hover:not(:disabled) {
-  background: #f5f7fa;
-  border-color: #c7d2df;
+  background: #F4F6F8;
+  border-color: #D8DEE8;
 }
 
 /* ─── OperationalFilterField ──────────────────────────────────────────────── */
@@ -703,18 +707,18 @@
 .operationalFilterLabel {
   font-size: 11px;
   font-weight: 600;
-  color: #202124;
+  color: #1A1F2B;
   line-height: 1.3;
 }
 
 .operationalFilterInput,
 .operationalFilterSelect {
   height: 32px;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #D8DEE8;
   border-radius: 4px;
   padding: 0 8px;
   font-size: 13px;
-  color: #202124;
+  color: #1A1F2B;
   background: #ffffff;
   width: 100%;
   box-sizing: border-box;
@@ -738,7 +742,7 @@
   height: 20px;
   border: none;
   background: transparent;
-  color: #5f6368;
+  color: #64748B;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -749,8 +753,8 @@
 }
 
 .operationalFilterClearBtn:hover {
-  background: #f5f7fa;
-  color: #202124;
+  background: #F4F6F8;
+  color: #1A1F2B;
 }
 
 /* ─── Status Tabs ────────────────────────────────────────────────────────────

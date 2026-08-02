@@ -4,14 +4,15 @@ import type { CSSProperties, ReactNode, FormEvent } from 'react';
 import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
-  page: '#f5f7fa',
+  page: '#F4F6F8',
   surface: '#ffffff',
-  surfaceSoft: '#f5f7fa',
-  surfaceMuted: '#f2f6fb',
-  border: '#d9e2ec',
-  borderStrong: '#c7d2df',
-  text: '#202124',
-  muted: '#5f6368',
+  surfaceSoft: '#F4F6F8',
+  surfaceMuted: '#F4F6F8',
+  border: '#D8DEE8',
+  borderStrong: '#D8DEE8',
+  divider: '#E5E7EB',
+  text: '#1A1F2B',
+  muted: '#64748B',
   blue: '#1d57d8',
   navy: '#0b2f6b',
   orange: '#f5a300',
@@ -185,7 +186,7 @@ export function KpiCard({
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
     <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '14px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '13px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
       <div style={{ padding: flush ? 0 : '10px' }}>{children}</div>
     </section>
   );
@@ -242,11 +243,11 @@ export function OperationalPageLayout({
  * OperationalCard
  *
  * Card primitive derived from CX reference card anatomy:
- * - Border: 1px solid #d9e2ec (border-first, no shadow)
+ * - Border: 1px solid #D8DEE8 (border-first, no shadow)
  * - Border-radius: 4px
  * - Header padding: 8px 12px — measured from CX diary and activity cards
  * - Body padding: 12px
- * - Footer padding: 8px 12px, background #f5f7fa
+ * - Footer padding: 8px 12px, background #F4F6F8
  * - Title: 14px / 600   Subtitle: 11px / 400
  *
  * Replaces ad-hoc `Panel` usage when strict CX density is required.
@@ -408,8 +409,8 @@ export function OperationalFilterSelect({
  *
  * CX Search Panel anatomy (screenshots: Diary, Loads pages):
  * - Panel width:  220px (spec: "left filter rail: 220px")
- * - Background:   #ffffff, border: 1px solid #d9e2ec
- * - Header:       8px 10px padding, uppercase 12px/600 title, #f5f7fa background
+ * - Background:   #ffffff, border: 1px solid #D8DEE8
+ * - Header:       8px 10px padding, uppercase 12px/600 title, #F4F6F8 background
  * - Body:         8px 10px padding, 6px gap between fields
  * - Footer:       8px 10px padding, 4px gap between buttons
  * - Search btn:   32px height, full-width, #35a853 green
@@ -510,12 +511,8 @@ export function OperationalMetricList({
 }) {
   return (
     <div className={styles.operationalMetricList}>
-      {items.map((item, index) => (
-        <div
-          key={item.label}
-          className={styles.operationalMetricRow}
-          style={{ borderBottom: index === items.length - 1 ? 'none' : undefined }}
-        >
+      {items.map((item) => (
+        <div key={item.label} className={styles.operationalMetricRow}>
           <span className={styles.operationalMetricLabel}>{item.label}</span>
           {typeof item.value === 'string' || typeof item.value === 'number'
             ? <StatusBadge value={String(item.value)} tone={item.tone} />

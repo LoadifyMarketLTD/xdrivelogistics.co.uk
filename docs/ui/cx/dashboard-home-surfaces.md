@@ -58,7 +58,7 @@
 | Eyebrow | `11px / 700 / uppercase / 16px` |
 | Page title | `20px / 600 / 26px` |
 | Page description | `12px / 400 / 16px` |
-| Panel title | `14px / 600 / 18px` |
+| Panel title | `13px / 600 / 18px` |
 | Metric / metadata | `11px–12px` |
 | Body text | `12px–12.5px` |
 
@@ -66,12 +66,13 @@
 
 | Semantic role | Token / hex |
 |---|---|
-| Page background | `#F5F7FA` |
+| Page background | `#F4F6F8` |
 | Surface | `#FFFFFF` |
-| Border | `#D9E2EC` |
-| Header / muted surface | `#F2F6FB` |
-| Primary text | `#202124` |
-| Muted text | `#5F6368` / `#64748B` |
+| Border | `#D8DEE8` |
+| Header / muted surface | `#F4F6F8` |
+| Divider | `#E5E7EB` |
+| Primary text | `#1A1F2B` |
+| Muted text | `#64748B` |
 | Primary action | `#1D57D8` |
 | Success | `#35A853` |
 | Warning | `#F5A300` |
@@ -87,6 +88,42 @@
 | `768×1024` | `56px` sidebar, control rail stacks above content, no body-level horizontal overflow |
 | `390×844` | drawer sidebar, page header wraps, controls remain `32px` tall, operational tables may scroll inside their own region only |
 
+## Rendered evidence set
+
+| Surface | Viewport | Before | After |
+|---|---|---|---|
+| `/admin` | `1440×900` | `docs/ui/cx/evidence/before/admin-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/admin-dashboard-1440x900-after.jpeg` |
+| `/admin` | `768×1024` | `docs/ui/cx/evidence/before/admin-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/admin-dashboard-768x1024-after.jpeg` |
+| `/admin` | `390×844` | `docs/ui/cx/evidence/before/admin-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/admin-dashboard-390x844-after.jpeg` |
+| `/broker` | `1440×900` | `docs/ui/cx/evidence/before/broker-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/broker-dashboard-1440x900-after.jpeg` |
+| `/broker` | `768×1024` | `docs/ui/cx/evidence/before/broker-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/broker-dashboard-768x1024-after.jpeg` |
+| `/broker` | `390×844` | `docs/ui/cx/evidence/before/broker-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/broker-dashboard-390x844-after.jpeg` |
+| `/customer` | `1440×900` | `docs/ui/cx/evidence/before/customer-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/customer-dashboard-1440x900-after.jpeg` |
+| `/customer` | `768×1024` | `docs/ui/cx/evidence/before/customer-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/customer-dashboard-768x1024-after.jpeg` |
+| `/customer` | `390×844` | `docs/ui/cx/evidence/before/customer-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/customer-dashboard-390x844-after.jpeg` |
+| `/driver` | `1440×900` | `docs/ui/cx/evidence/before/driver-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/driver-dashboard-1440x900-after.jpeg` |
+| `/driver` | `768×1024` | `docs/ui/cx/evidence/before/driver-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/driver-dashboard-768x1024-after.jpeg` |
+| `/driver` | `390×844` | `docs/ui/cx/evidence/before/driver-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/driver-dashboard-390x844-after.jpeg` |
+| `carrier / fleet` | `1440×900` | `docs/ui/cx/evidence/before/carrier-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-1440x900-after.jpeg` |
+| `carrier / fleet` | `768×1024` | `docs/ui/cx/evidence/before/carrier-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-768x1024-after.jpeg` |
+| `carrier / fleet` | `390×844` | `docs/ui/cx/evidence/before/carrier-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-390x844-after.jpeg` |
+| `/super-admin` | `1440×900` | `docs/ui/cx/evidence/before/super-admin-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-1440x900-after.jpeg` |
+| `/super-admin` | `768×1024` | `docs/ui/cx/evidence/before/super-admin-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-768x1024-after.jpeg` |
+| `/super-admin` | `390×844` | `docs/ui/cx/evidence/before/super-admin-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-390x844-after.jpeg` |
+
+## Numerical deviation record
+
+| Surface scope | Metric | Contract | Before | After | Status |
+|---|---:|---:|---:|---:|---|
+| Shared dashboard primitives | Panel title font size | `13px` | `14px` | `13px` | closed |
+| Shared dashboard primitives | Panel title line height | `18px` | `18px` | `18px` | retained |
+| Shared dashboard primitives | Panel body padding | `10px` | `10px` | `10px` | retained |
+| Shared dashboard primitives | Primary text token | `#1A1F2B` | `#202124` | `#1A1F2B` | closed |
+| Shared dashboard primitives | Standard border token | `#D8DEE8` | `#D9E2EC` | `#D8DEE8` | closed |
+| Shared dashboard primitives | Divider token | `#E5E7EB` | `#EEF2F6` | `#E5E7EB` | closed |
+| Shared dashboard primitives | Workspace background token | `#F4F6F8` | `#F5F7FA` | `#F4F6F8` | closed |
+| Shared dashboard primitives | Muted text token | `#64748B` | mixed legacy muted tokens | `#64748B` | closed |
+
 ## Acceptance checklist
 
 - [x] Shared `230px / 50px` shell retained
@@ -96,7 +133,8 @@
 - [x] KPI tiles remain within `72px` target / `80px` maximum
 - [x] Super Admin home surface converted to control-rail + table-first operational layout
 - [x] Visual fixture gate extended to cover carrier and super-admin dashboard surfaces
-- [ ] Before/after screenshot set attached at `1440×900`, `768×1024`, `390×844`
+- [x] Before/after screenshot set attached at `1440×900`, `768×1024`, `390×844`
+- [x] Numerical deviations recorded for the shared primitive correction pass
 - [ ] Numerical deviations fully closed on every principal dashboard route
 
 ## Deviation log

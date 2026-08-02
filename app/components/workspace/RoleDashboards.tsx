@@ -23,6 +23,7 @@ import {
   Panel,
   StatusBadge,
   TwoColumn,
+  workspaceTheme,
 } from './WorkspaceUI';
 
 const activeStatuses = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
@@ -33,8 +34,9 @@ const formatDate = (value: string | null | undefined) => value ? new Date(value)
 const daysUntil = (value: string | null | undefined) => value ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000) : null;
 const dashboardColumnStyle = { display: 'grid', gap: '12px' } as const;
 const railMetricListStyle = { display: 'grid', gap: '4px' } as const;
-const railMetricRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid #eef2f6', fontSize: '12px', color: '#202124' } as const;
-const summaryButtonStyle = { width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', border: '1px solid #d9e2ec', background: '#ffffff', borderRadius: '4px', padding: '8px 10px', cursor: 'pointer', color: '#202124', fontSize: '12px', textAlign: 'left' } as const;
+const dashboardDivider = `1px solid ${workspaceTheme.divider}`;
+const railMetricRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: dashboardDivider, fontSize: '12px', color: workspaceTheme.text } as const;
+const summaryButtonStyle = { width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, borderRadius: '4px', padding: '8px 10px', cursor: 'pointer', color: workspaceTheme.text, fontSize: '12px', textAlign: 'left' } as const;
 
 function RailMetricList({ items }: { items: Array<{ label: string; value: ReactNode; tone?: 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' }> }) {
   return (
@@ -178,7 +180,7 @@ export function CarrierDashboard() {
           </OperationalCard>
           <OperationalCard title="Compliance alerts" subtitle="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
             {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
-              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '8px 0', borderBottom: '1px solid #eef2f6', fontSize: '12px' }}>
+              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '8px 0', borderBottom: dashboardDivider, fontSize: '12px' }}>
                 <span>{doc.doc_type?.replace(/_/g, ' ') ?? 'Document'}</span>
                 <StatusBadge value={doc.expiry_date ? `${daysUntil(doc.expiry_date)} days` : 'missing'} tone="orange" />
               </div>
@@ -314,7 +316,7 @@ export function FleetDashboard() {
         <div style={dashboardColumnStyle}>
           <OperationalCard title="Drivers available now" subtitle="Availability and current assignment status." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>All drivers</ActionButton>}>
             {data.drivers.filter((d) => d.availability_status === 'available').slice(0, 6).map((driver) => (
-              <button key={driver.id} onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: '8px', border: 0, borderBottom: '1px solid #eef2f6', background: 'transparent', padding: '8px 0', cursor: 'pointer', textAlign: 'left' }}>
+              <button key={driver.id} onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: '8px', border: 0, borderBottom: dashboardDivider, background: 'transparent', padding: '8px 0', cursor: 'pointer', textAlign: 'left' }}>
                 <span><strong style={{ display: 'block', fontSize: '13px' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b', fontSize: '11px' }}>{driver.phone ?? 'No phone recorded'}</span></span>
                 <StatusBadge value="available" tone="green" />
               </button>
