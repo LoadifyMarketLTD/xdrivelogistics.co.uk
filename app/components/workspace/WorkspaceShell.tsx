@@ -131,7 +131,7 @@ export default function WorkspaceShell({
   }
 
   const sidebarStyle: CSSProperties = {
-    width: isCompact ? '292px' : '252px',
+    width: isCompact ? '292px' : '260px',
     background: '#f8fafc',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
@@ -214,7 +214,7 @@ export default function WorkspaceShell({
                 <div
                   style={{
                     color: workspaceTheme.text,
-                    fontSize: '0.8rem',
+                    fontSize: '0.92rem',
                     fontWeight: 850,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
