@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode, FormEvent } from 'react';
 import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
@@ -150,6 +150,301 @@ export function Panel({ title, description, actions, children, style, flush = fa
       {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', padding: '0.78rem 0.9rem', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '1rem' }}>{title}</h2>}{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.78rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
       <div style={{ padding: flush ? 0 : '0.9rem' }}>{children}</div>
     </section>
+  );
+}
+
+/**
+ * OperationalPageLayout
+ *
+ * Top-level page frame derived from CX reference measurements:
+ * - Viewport: 1920×1080
+ * - App frame padding: 12px
+ * - Max content width: 1480px
+ * - Two-panel variant: 230px search aside + 1fr main content, 12px gap
+ *
+ * Use `searchPanel` to render the left OperationalFilters sidebar.
+ * Omit `searchPanel` for full-width single-panel pages (e.g. Dashboard).
+ */
+export function OperationalPageLayout({
+  children,
+  searchPanel,
+  maxWidth = 1480,
+  style,
+}: {
+  children: ReactNode;
+  /** Optional left search/filter panel. When provided, the layout switches to
+   *  a 230px aside + flexible main two-column grid. */
+  searchPanel?: ReactNode;
+  maxWidth?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      className={styles.operationalPageLayout}
+      style={{ ['--xdrive-page-max-width' as string]: `${maxWidth}px`, ...style } as CSSProperties}
+    >
+      {searchPanel ? (
+        <div className={styles.operationalPageLayoutTwoPanel}>
+          <aside
+            className={styles.operationalPageLayoutSearchAside}
+            aria-label="Search and filters"
+          >
+            {searchPanel}
+          </aside>
+          <main className={styles.operationalPageLayoutMain}>{children}</main>
+        </div>
+      ) : (
+        <main className={styles.operationalPageLayoutMain}>{children}</main>
+      )}
+    </div>
+  );
+}
+
+/**
+ * OperationalCard
+ *
+ * Card primitive derived from CX reference card anatomy:
+ * - Border: 1px solid #d9e2ec (border-first, no shadow)
+ * - Border-radius: 4px
+ * - Header padding: 8px 12px — measured from CX diary and activity cards
+ * - Body padding: 12px
+ * - Footer padding: 8px 12px, background #f5f7fa
+ * - Title: 14px / 600   Subtitle: 11px / 400
+ *
+ * Replaces ad-hoc `Panel` usage when strict CX density is required.
+ */
+export function OperationalCard({
+  title,
+  subtitle,
+  actions,
+  children,
+  footer,
+  flush = false,
+  style,
+  as: Tag = 'section',
+}: {
+  title?: string;
+  subtitle?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  flush?: boolean;
+  style?: CSSProperties;
+  as?: 'section' | 'article' | 'div';
+}) {
+  return (
+    <Tag className={styles.operationalCard} style={style}>
+      {(title || subtitle || actions) && (
+        <div className={styles.operationalCardHeader}>
+          <div className={styles.operationalCardHeaderText}>
+            {title && <h3 className={styles.operationalCardTitle}>{title}</h3>}
+            {subtitle && <p className={styles.operationalCardSubtitle}>{subtitle}</p>}
+          </div>
+          {actions && (
+            <div className={styles.operationalCardHeaderActions}>{actions}</div>
+          )}
+        </div>
+      )}
+      <div className={flush ? styles.operationalCardBodyFlush : styles.operationalCardBody}>
+        {children}
+      </div>
+      {footer && <div className={styles.operationalCardFooter}>{footer}</div>}
+    </Tag>
+  );
+}
+
+/**
+ * OperationalFilterField
+ *
+ * Single labelled field row within an OperationalFilters panel.
+ * Provides consistent label + control layout with optional clear button.
+ *
+ * Measurements from CX search panel:
+ * - Label: 11px / 600 uppercase
+ * - Input/select height: 32px (XDrive spec, CX ≈ 28–30px)
+ * - Gap label→control: 2px
+ * - Clearable inputs show an × button inline
+ */
+export function OperationalFilterField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label?: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={styles.operationalFilterField}>
+      {label && (
+        <label htmlFor={htmlFor} className={styles.operationalFilterLabel}>
+          {label}
+        </label>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/**
+ * OperationalFilterInput
+ *
+ * Controlled text input for use inside OperationalFilterField.
+ * Optionally renders an inline × clear button (matches CX panel pattern).
+ */
+export function OperationalFilterInput({
+  id,
+  value,
+  onChange,
+  onClear,
+  placeholder,
+  type = 'text',
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onClear?: () => void;
+  placeholder?: string;
+  type?: 'text' | 'date' | 'number';
+}) {
+  return (
+    <div className={styles.operationalFilterInputRow}>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={styles.operationalFilterInput}
+      />
+      {onClear && value && (
+        <button
+          type="button"
+          onClick={onClear}
+          className={styles.operationalFilterClearBtn}
+          aria-label="Clear field"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * OperationalFilterSelect
+ *
+ * Controlled select for use inside OperationalFilterField.
+ */
+export function OperationalFilterSelect({
+  id,
+  value,
+  onChange,
+  options,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={styles.operationalFilterSelect}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/**
+ * OperationalFilters
+ *
+ * Full search/filter panel derived from CX reference measurements:
+ *
+ * CX Search Panel anatomy (screenshots: Diary, Loads pages):
+ * - Panel width:  230px (XDrive spec; CX ≈ 200px)
+ * - Background:   #ffffff, border: 1px solid #d9e2ec
+ * - Header:       8px 10px padding, uppercase 12px/600 title, #f5f7fa background
+ * - Body:         8px 10px padding, 6px gap between fields
+ * - Footer:       8px 10px padding, 4px gap between buttons
+ * - Search btn:   32px height, full-width, #35a853 green
+ * - Clear btn:    32px height, full-width, secondary (white + border)
+ *
+ * Compose fields using OperationalFilterField, OperationalFilterInput,
+ * OperationalFilterSelect as children.
+ */
+export function OperationalFilters({
+  title = 'Search Panel',
+  children,
+  onSearch,
+  onClear,
+  saveAsDefault,
+  onSaveAsDefaultChange,
+  footer,
+}: {
+  /** Panel heading. Defaults to "Search Panel". */
+  title?: string;
+  /** Filter fields — compose with OperationalFilterField. */
+  children?: ReactNode;
+  /** Called when the Search button is pressed. */
+  onSearch?: (e: FormEvent<HTMLFormElement>) => void;
+  /** Called when the Clear button is pressed. */
+  onClear?: () => void;
+  /** "Save as Default" checkbox state. */
+  saveAsDefault?: boolean;
+  onSaveAsDefaultChange?: (checked: boolean) => void;
+  /** Optional custom footer content rendered below the buttons. */
+  footer?: ReactNode;
+}) {
+  return (
+    <aside className={styles.operationalFilters} aria-label={title}>
+      <div className={styles.operationalFiltersHeader}>
+        <h2 className={styles.operationalFiltersTitle}>{title}</h2>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSearch?.(e);
+        }}
+      >
+        <div className={styles.operationalFiltersBody}>{children}</div>
+        <div className={styles.operationalFiltersFooter}>
+          {onSaveAsDefaultChange !== undefined && (
+            <label className={styles.operationalFiltersSaveRow}>
+              <input
+                type="checkbox"
+                checked={!!saveAsDefault}
+                onChange={(e) => onSaveAsDefaultChange(e.target.checked)}
+                className={styles.operationalFiltersSaveCheckbox}
+              />
+              Save as Default
+            </label>
+          )}
+          {onSearch && (
+            <button type="submit" className={styles.operationalFiltersSearchBtn}>
+              Search
+            </button>
+          )}
+          {onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              className={styles.operationalFiltersClearBtn}
+            >
+              Clear
+            </button>
+          )}
+          {footer}
+        </div>
+      </form>
+    </aside>
   );
 }
 

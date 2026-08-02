@@ -387,3 +387,269 @@
   padding: 0;
   cursor: pointer;
 }
+
+/* ─── OperationalPageLayout ─────────────────────────────────────────────── */
+
+.operationalPageLayout {
+  width: 100%;
+  max-width: var(--xdrive-page-max-width, 1480px);
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.operationalPageLayoutTwoPanel {
+  display: grid;
+  /* 230px search panel + flexible main content — measured from reference */
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.operationalPageLayoutSearchAside {
+  width: 230px;
+  /* Sticky so the search panel tracks scroll on tall result lists */
+  position: sticky;
+  top: 12px;
+}
+
+.operationalPageLayoutMain {
+  min-width: 0;
+}
+
+/* ─── OperationalCard ───────────────────────────────────────────────────── */
+
+.operationalCard {
+  /* Border-first: border always visible, shadow suppressed (reference pattern) */
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.operationalCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* Reference: 8px top/bottom, 12px left/right — measured from CX diary cards */
+  padding: 8px 12px;
+  border-bottom: 1px solid #d9e2ec;
+  flex-wrap: wrap;
+}
+
+.operationalCardHeaderText {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.operationalCardTitle {
+  margin: 0;
+  /* Reference card header: 14px / 600 */
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #202124;
+}
+
+.operationalCardSubtitle {
+  margin: 2px 0 0;
+  /* Metadata: 11px / 400 */
+  font-size: 11px;
+  font-weight: 400;
+  color: #5f6368;
+  line-height: 1.35;
+}
+
+.operationalCardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.operationalCardBody {
+  /* Reference: 12px inner padding on content area */
+  padding: 12px;
+}
+
+.operationalCardBodyFlush {
+  padding: 0;
+}
+
+.operationalCardFooter {
+  padding: 8px 12px;
+  border-top: 1px solid #d9e2ec;
+  /* Soft background for footer — matches reference panel footer tones */
+  background: #f5f7fa;
+  font-size: 12px;
+  color: #5f6368;
+}
+
+/* ─── OperationalFilters ────────────────────────────────────────────────── */
+
+.operationalFilters {
+  /* Fixed 230px — matches CX search panel width measured from reference */
+  width: 230px;
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.operationalFiltersHeader {
+  /* Reference: "Search Panel" / "Search Loads" header row */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #d9e2ec;
+  background: #f5f7fa;
+}
+
+.operationalFiltersTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #202124;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.operationalFiltersBody {
+  /* Reference: ~8px inner padding, ~6px gap between fields */
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.operationalFiltersFooter {
+  padding: 8px 10px;
+  border-top: 1px solid #d9e2ec;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.operationalFiltersSaveRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.operationalFiltersSaveCheckbox {
+  accent-color: #1d57d8;
+  cursor: pointer;
+}
+
+/* Search button: green — matches CX "Search" action tone */
+.operationalFiltersSearchBtn {
+  width: 100%;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  background: #35a853;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.operationalFiltersSearchBtn:hover:not(:disabled) {
+  background: #2d9148;
+}
+
+.operationalFiltersSearchBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Clear button: secondary — matches CX "Clear" button style */
+.operationalFiltersClearBtn {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #d9e2ec;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #202124;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.operationalFiltersClearBtn:hover:not(:disabled) {
+  background: #f5f7fa;
+  border-color: #c7d2df;
+}
+
+/* ─── OperationalFilterField ──────────────────────────────────────────────── */
+/* Individual field wrapper used inside OperationalFilters */
+
+.operationalFilterField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.operationalFilterLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #202124;
+  line-height: 1.3;
+}
+
+.operationalFilterInput,
+.operationalFilterSelect {
+  height: 32px;
+  border: 1px solid #d9e2ec;
+  border-radius: 4px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: #202124;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.operationalFilterInput:focus,
+.operationalFilterSelect:focus {
+  outline: 2px solid #1d57d8;
+  outline-offset: -1px;
+}
+
+.operationalFilterInputRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.operationalFilterClearBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 50%;
+  padding: 0;
+}
+
+.operationalFilterClearBtn:hover {
+  background: #f5f7fa;
+  color: #202124;
+}
