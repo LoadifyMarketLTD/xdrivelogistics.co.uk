@@ -7,6 +7,21 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
 import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
+import styles from './login.module.css';
+
+const MailIcon = () => (
+  <svg className={styles.inputIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M4 6.75h16v10.5H4V6.75Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    <path d="m5 8 7 5 7-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg className={styles.inputIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M7 10V8a5 5 0 0 1 10 0v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M5.5 10h13v10h-13V10Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +35,6 @@ export default function LoginPage() {
   const [resetMessage, setResetMessage] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const [heroImageSrc, setHeroImageSrc] = useState('/xdrive-login-hero.webp.jpeg');
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
@@ -38,8 +52,8 @@ export default function LoginPage() {
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
     setIsLoading(true);
 
@@ -47,24 +61,27 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (!result.success) {
         setError(result.error || 'Login failed');
-        return;
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResetPassword = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleResetPassword = async (event: FormEvent) => {
+    event.preventDefault();
     setResetError('');
     setResetMessage('');
     setResetLoading(true);
-    const result = await resetPassword(resetEmail);
-    setResetLoading(false);
-    if (result.success) {
-      setResetMessage('Password reset email sent. Please check your inbox.');
-    } else {
-      setResetError(result.error || 'Failed to send reset email.');
+
+    try {
+      const result = await resetPassword(resetEmail);
+      if (result.success) {
+        setResetMessage('Password reset email sent. Please check your inbox.');
+      } else {
+        setResetError(result.error || 'Failed to send reset email.');
+      }
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -83,374 +100,144 @@ export default function LoginPage() {
   const showResetSuccess = searchParams.get('reset') === 'success';
 
   return (
-    <div className="login-page">
-      <div className="login-shell">
-        <section className="login-hero" aria-label="XDrive logistics platform introduction">
-          <img
-            src={heroImageSrc}
-            alt="XDrive Logistics hero"
-            className="login-hero-image"
-            onError={(event) => {
-              if (heroImageSrc !== '/hero-dispatch-control.webp') {
-                setHeroImageSrc('/hero-dispatch-control.webp');
-              } else {
-                event.currentTarget.style.display = 'none';
-              }
-            }}
+    <main className={styles.loginPage}>
+      <div className={styles.loginShell}>
+        <section className={styles.loginHero} aria-label="XDrive Logistics operations centre">
+          <Image
+            src="/login-hero-operations-centre.webp"
+            alt="XDrive Logistics operations centre"
+            fill
+            priority
+            sizes="(max-width: 820px) 100vw, 62vw"
+            className={styles.loginHeroImage}
           />
         </section>
-        <aside className="login-form-panel">
-          <div className="login-form-inner">
-            <div className="login-logo-row">
-              <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={168} height={40} priority />
+
+        <aside className={styles.loginFormPanel}>
+          <div className={styles.loginFormInner}>
+            <div className={styles.loginLogoRow}>
+              <Image
+                src="/xdrive-logo-horizontal.png"
+                alt="XDrive Logistics"
+                width={300}
+                height={84}
+                priority
+                className={styles.loginLogo}
+              />
             </div>
-            <div className="login-form-header">
+
+            <header className={styles.loginFormHeader}>
               <h2>{showReset ? 'Reset your password' : 'Welcome Back'}</h2>
-              <p>{showReset ? 'Enter your email to receive reset instructions' : 'Sign in to your account'}</p>
-            </div>
+              <p>{showReset ? 'Enter your email to receive reset instructions' : 'Sign in to your account to continue'}</p>
+            </header>
 
-        {showResetSuccess && !showReset && (
-          <div className="login-message success">
-            Password updated successfully. Sign in with your new password.
+            {showResetSuccess && !showReset && (
+              <div className={`${styles.loginMessage} ${styles.success}`} role="status">
+                Password updated successfully. Sign in with your new password.
+              </div>
+            )}
+
+            {!showReset ? (
+              <form onSubmit={handleSubmit} className={styles.loginForm}>
+                <div className={styles.fieldGroup}>
+                  <label htmlFor="email">Email</label>
+                  <div className={styles.inputWrap}>
+                    <MailIcon />
+                    <input
+                      id="email"
+                      type="email"
+                      autoComplete="username"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="Enter your email address"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.fieldGroup}>
+                  <label htmlFor="password">Password</label>
+                  <div className={styles.inputWrap}>
+                    <LockIcon />
+                    <input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Enter your password"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.forgotRow}>
+                  <button type="button" onClick={handleShowReset} className={styles.linkButton}>
+                    Forgot password?
+                  </button>
+                </div>
+
+                {error && (
+                  <div className={`${styles.loginMessage} ${styles.error}`} role="alert">
+                    {error}
+                  </div>
+                )}
+
+                <button type="submit" disabled={isLoading} className={styles.signinButton}>
+                  {isLoading ? 'Signing in...' : 'Sign In'}
+                </button>
+
+                <p className={styles.registerRow}>
+                  Need an account? <Link href="/register">Register</Link>
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword} className={styles.loginForm}>
+                <div className={styles.fieldGroup}>
+                  <label htmlFor="reset-email">Email Address</label>
+                  <div className={styles.inputWrap}>
+                    <MailIcon />
+                    <input
+                      id="reset-email"
+                      type="email"
+                      autoComplete="email"
+                      value={resetEmail}
+                      onChange={(event) => setResetEmail(event.target.value)}
+                      placeholder="Enter your email address"
+                      required
+                      disabled={resetLoading}
+                    />
+                  </div>
+                </div>
+
+                {resetError && (
+                  <div className={`${styles.loginMessage} ${styles.error}`} role="alert">
+                    {resetError}
+                  </div>
+                )}
+
+                {resetMessage && (
+                  <div className={`${styles.loginMessage} ${styles.success}`} role="status">
+                    {resetMessage}
+                  </div>
+                )}
+
+                <button type="submit" disabled={resetLoading} className={styles.signinButton}>
+                  {resetLoading ? 'Sending...' : 'Send Reset Email'}
+                </button>
+
+                <p className={styles.registerRow}>
+                  <button type="button" onClick={handleBackToSignIn} className={styles.linkButton}>
+                    Back to sign in
+                  </button>
+                </p>
+              </form>
+            )}
           </div>
-        )}
-
-        {!showReset ? (
-          <form onSubmit={handleSubmit} className="login-form">
-            <div className="field-group">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                required
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="field-group">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="forgot-row">
-              <button
-                type="button"
-                onClick={handleShowReset}
-                className="link-button"
-              >
-                Forgot password?
-              </button>
-            </div>
-
-            {error && (
-              <div className="login-message error">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="signin-button"
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
-
-            <p className="register-row">
-              Need an account?{' '}
-              <Link href="/register">
-                Register
-              </Link>
-            </p>
-          </form>
-        ) : (
-          <form onSubmit={handleResetPassword} className="login-form">
-            <div className="field-group">
-              <label htmlFor="reset-email">Email Address</label>
-              <input
-                id="reset-email"
-                type="email"
-                autoComplete="email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="Enter your email address"
-                required
-                disabled={resetLoading}
-              />
-            </div>
-
-            {resetError && (
-              <div className="login-message error">
-                {resetError}
-              </div>
-            )}
-
-            {resetMessage && (
-              <div className="login-message success">
-                {resetMessage}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={resetLoading}
-              className="signin-button"
-            >
-              {resetLoading ? 'Sending...' : 'Send Reset Email'}
-            </button>
-
-            <p className="register-row">
-              <button
-                type="button"
-                onClick={handleBackToSignIn}
-                className="link-button"
-              >
-                Back to sign in
-              </button>
-            </p>
-          </form>
-        )}
-        </div>
-      </aside>
-    </div>
-      <style jsx>{`
-        .login-page {
-          min-height: 100vh;
-          margin: 0;
-          padding: 0;
-          background: #0f172a;
-          overflow-x: hidden;
-        }
-
-        .login-shell {
-          min-height: 100vh;
-          display: flex;
-          align-items: stretch;
-        }
-
-        .login-hero {
-          flex: 1 1 auto;
-          min-width: 0;
-          min-height: 100vh;
-          overflow: hidden;
-        }
-
-        .login-hero-image {
-          width: 100%;
-          height: 100vh;
-          min-height: 100vh;
-          object-fit: cover;
-          object-position: center;
-          display: block;
-        }
-
-        .login-form-panel {
-          box-sizing: border-box;
-          background: #ffffff;
-          padding: 2rem 2.2rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          flex: 0 0 clamp(380px, 32vw, 520px);
-          width: clamp(380px, 32vw, 520px);
-          min-height: 100vh;
-          position: relative;
-          z-index: 1;
-          box-shadow: -18px 0 40px rgba(15, 23, 42, 0.18);
-          overflow-y: auto;
-        }
-
-        .login-form-inner {
-          width: 100%;
-          max-width: 440px;
-          margin: 0 auto;
-        }
-
-        .login-logo-row {
-          margin-bottom: 1.5rem;
-        }
-
-        .login-form-header h2 {
-          margin: 0 0 0.6rem;
-          color: #111827;
-          font-size: clamp(1.9rem, 2vw, 2.4rem);
-          line-height: 1.05;
-          letter-spacing: -0.02em;
-        }
-
-        .login-form-header p {
-          margin: 0 0 1.7rem;
-          color: #4b5563;
-          font-size: 1rem;
-          line-height: 1.4;
-        }
-
-        .login-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .field-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .field-group label {
-          margin: 0;
-          color: #111827;
-          font-size: 0.96rem;
-          font-weight: 600;
-        }
-
-        .field-group :global(input) {
-          box-sizing: border-box;
-          width: 100%;
-          border: 1px solid #d6dbe3;
-          border-radius: 0.65rem;
-          background: #ffffff;
-          color: #111827;
-          font-size: 1rem;
-          line-height: 1.2;
-          padding: 0.95rem 1rem;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .field-group :global(input:focus) {
-          outline: none;
-          border-color: #2563eb;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
-        }
-
-        .forgot-row {
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        .link-button {
-          border: none;
-          background: none;
-          color: #2563eb;
-          font-size: 0.96rem;
-          font-weight: 500;
-          padding: 0;
-          cursor: pointer;
-        }
-
-        .signin-button {
-          width: 100%;
-          border: none;
-          border-radius: 0.7rem;
-          padding: 0.92rem 1rem;
-          background: #1d64d8;
-          color: #ffffff;
-          font-size: 1.15rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-        }
-
-        .signin-button:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        .signin-button:not(:disabled):hover {
-          background: #1553c0;
-        }
-
-        .register-row {
-          margin: 0.1rem 0 0;
-          text-align: center;
-          color: #4b5563;
-        }
-
-        .register-row :global(a) {
-          color: #2563eb;
-          font-weight: 600;
-        }
-
-        .login-message {
-          padding: 0.75rem;
-          border-radius: 0.55rem;
-          font-size: 0.9rem;
-          border: 1px solid transparent;
-        }
-
-        .login-message.error {
-          background: #fee2e2;
-          color: #dc2626;
-          border-color: #fecaca;
-        }
-
-        .login-message.success {
-          background: #dcfce7;
-          color: #166534;
-          border-color: #bbf7d0;
-        }
-
-        @media (max-width: 1400px) and (min-width: 961px) {
-          .login-shell {
-            align-items: stretch;
-          }
-
-          .login-form-panel {
-            flex-basis: clamp(360px, 36vw, 480px);
-            width: clamp(360px, 36vw, 480px);
-          }
-        }
-
-        @media (max-width: 768px) {
-          .login-shell {
-            flex-direction: column;
-          }
-
-          .login-hero {
-            min-height: 0;
-            height: 40vh;
-          }
-
-          .login-hero-image {
-            min-height: 0;
-            height: 40vh;
-          }
-
-          .login-form-panel {
-            padding: 1.75rem 1.25rem;
-            flex: 0 0 auto;
-            width: 100%;
-            min-height: 60vh;
-            min-width: 0;
-            box-shadow: none;
-          }
-
-          .login-form-inner {
-            max-width: 560px;
-          }
-
-          .login-form-header h2 {
-            font-size: 2rem;
-          }
-
-          .signin-button {
-            font-size: 1.35rem;
-          }
-        }
-      `}</style>
-    </div>
+        </aside>
+      </div>
+    </main>
   );
 }
