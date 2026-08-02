@@ -254,6 +254,24 @@ export function JobsOperationalTable({
         </div>
       )}
 
+      <div className={styles.jobsStatusTabs} role="tablist" aria-label="Filter jobs by status">
+        {STATUS_TABS.map((tab) => {
+          const selected = statusFilter === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={`${styles.jobsStatusTab} ${selected ? styles.jobsStatusTabActive : ''}`}
+              onClick={() => { onStatusFilterChange(tab.value); onPageChange(0); }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Toolbar ────────────────────────────────────────────────────────
        * Section 5: 40px height; 8px h-pad; 4px v-pad; controls 32px; gaps 8px
        */}
