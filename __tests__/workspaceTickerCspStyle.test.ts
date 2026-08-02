@@ -10,5 +10,7 @@ describe('workspace activity feed CSP-safe styling', () => {
     expect(shell).not.toContain('<style jsx');
     expect(css).toContain('@keyframes xdriveTicker');
     expect(css).toContain('prefers-reduced-motion');
+    expect(css).toContain('.workspaceRoot :global(.xdrive-two-column)');
+    expect(css).toContain('.workspaceRoot :global(.xdrive-settings-layout)');
   });
 });
