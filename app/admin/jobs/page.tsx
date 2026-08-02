@@ -761,7 +761,6 @@ export default function JobsPage() {
  return (
  <ProtectedRoute>
  <JobsOperationalTable
-  jobs={jobs.map(jobToRow)}
   filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map(jobToRow)}
   page={jobsPage}
   perPage={JOBS_PER_PAGE}

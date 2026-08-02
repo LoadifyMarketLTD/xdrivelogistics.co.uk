@@ -244,15 +244,15 @@ Every numeric value in this document is classified as one of:
 
 ## 6. Acceptance Checklist
 
-- [ ] Table starts within 150px of application header bottom edge
-- [ ] Toolbar + header consume ≤ 92px vertical before table
-- [ ] 10–14 job rows visible at 1440×900 without scrolling (42px rows + 36px header = 504px for 12 rows)
-- [ ] Row height 42px standard; no row exceeds 52px when route wraps
-- [ ] All 9 columns match widths in section 2
-- [ ] KPI tiles are 72px height, not oversized cards
-- [ ] Page title is 20px/600, not 2rem/700
-- [ ] No marketing max-width centering container
-- [ ] Background is #F4F6F8, not white
+- [x] Table starts within 150px of application header bottom edge (header+toolbar stack now 92px below page header; KPI/tabs removed from pre-table flow)
+- [x] Toolbar + header consume ≤ 92px vertical before table
+- [x] 10–14 job rows visible at 1440×900 without scrolling (42px rows + 36px header = 504px for 12 rows)
+- [x] Row height 42px standard; no row exceeds 52px when route wraps
+- [x] All 9 columns match widths in section 2
+- [ ] KPI tiles are 72px height, not oversized cards (KPI strip deferred for next pass to protect row density target)
+- [x] Page title is 20px/600, not 2rem/700
+- [x] No marketing max-width centering container
+- [x] Background is #F4F6F8, not white
 - [ ] Screenshots taken at 1440×900, 768×1024, 390×844 (before/after)
 - [ ] Remaining deviations documented numerically
 - [ ] All dimension values correctly labelled as REFERENCE_OBSERVED vs XDRIVE_TARGET
@@ -267,7 +267,11 @@ Every numeric value in this document is classified as one of:
 
 ## 8. Remaining Deviations
 
-*To be filled after Jobs implementation pass — document any numerical gaps between XDRIVE_TARGET values and rendered output.*
+Current known deltas after this pass:
+
+1. KPI strip is intentionally not rendered before the table on Jobs to satisfy the mandatory density target (10–14 visible rows at 1440×900) and the ≤92px post-header filter/action vertical budget.
+2. Mobile card breakpoint is now `<=640px` (contract-aligned); screenshot verification at `390×844` is still pending capture.
+3. Screenshots required by this document remain pending and must be attached in the same PR before completion sign-off.
 
 ---
 

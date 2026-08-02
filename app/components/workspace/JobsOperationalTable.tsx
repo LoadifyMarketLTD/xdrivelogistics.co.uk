@@ -47,17 +47,7 @@ export {
   filterJobsByDriver,
 } from '../../../lib/jobs/jobOperationalContract';
 
-export interface JobsKpiTile {
-  label: string;
-  status: string;
-  count: number;
-  /** XDrive palette accent colour */
-  accent: string;
-}
-
 export interface JobsOperationalTableProps {
-  /** All unfiltered jobs (for KPI counts) */
-  jobs: JobRow[];
   /** Filtered + paginated jobs to render in table */
   filteredJobs: JobRow[];
   page: number;
@@ -156,21 +146,9 @@ const STATUS_TABS = [
   { label: 'Cancelled',  value: 'cancelled' },
 ];
 
-/* ─── KPI tiles ──────────────────────────────────────────────────────────── */
-
-const DEFAULT_KPI_TILES: Array<{ label: string; value: string; accent: string }> = [
-  { label: 'All Jobs',   value: 'All',       accent: '#1D57D8' },
-  { label: 'Received',   value: 'draft',     accent: '#B76E00' },
-  { label: 'Posted',     value: 'posted',    accent: '#1D57D8' },
-  { label: 'Allocated',  value: 'allocated', accent: '#6D28D9' },
-  { label: 'Delivered',  value: 'delivered', accent: '#198754' },
-  { label: 'Cancelled',  value: 'cancelled', accent: '#C62828' },
-];
-
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
 export function JobsOperationalTable({
-  jobs,
   filteredJobs,
   page,
   perPage,
@@ -216,11 +194,6 @@ export function JobsOperationalTable({
       else next.add(id);
       return next;
     });
-  }
-
-  function getCount(status: string): number {
-    if (status === 'All') return jobs.length;
-    return jobs.filter((j) => j.status.toLowerCase() === status.toLowerCase()).length;
   }
 
   function resolveDriverName(driverId: string | null | undefined): string {
@@ -281,51 +254,6 @@ export function JobsOperationalTable({
         </div>
       )}
 
-      {/* ── KPI strip ──────────────────────────────────────────────────────
-       * Section 8: 72px tiles; 8px gap; max 6; label 11/14/600; value 22/26/700
-       */}
-      <div className={styles.exchangeKpiStrip} role="region" aria-label="Operational key performance indicators">
-        {DEFAULT_KPI_TILES.map(({ label, value: tileStatus, accent }) => (
-          <button
-            key={tileStatus}
-            type="button"
-            aria-label={`Filter by ${label}`}
-            aria-pressed={statusFilter === tileStatus}
-            onClick={() => { onStatusFilterChange(tileStatus); onPageChange(0); }}
-            className={styles.kpiTile}
-            style={{ '--xdrive-kpi-accent': accent, cursor: 'pointer', border: statusFilter === tileStatus ? `2px solid ${accent}` : undefined } as CSSProperties}
-          >
-            <span className={styles.kpiTileLabel}>{label}</span>
-            <span className={styles.kpiTileValue}>{getCount(tileStatus)}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── Status tabs ────────────────────────────────────────────────────
-       * Section 12: 36px; 12px h-padding; 12px/600; 2px active underline
-       */}
-      <div className={styles.statusTabs} role="tablist" aria-label="Filter jobs by status">
-        {STATUS_TABS.map(({ label, value: tabValue }) => {
-          const isActive = statusFilter === tabValue;
-          const count = getCount(tabValue);
-          return (
-            <button
-              key={tabValue}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`${styles.statusTab} ${isActive ? styles.statusTabActive : ''}`}
-              onClick={() => { onStatusFilterChange(tabValue); onPageChange(0); }}
-            >
-              {label}
-              {count > 0 && (
-                <span className={styles.statusTabBadge}>{count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
       {/* ── Toolbar ────────────────────────────────────────────────────────
        * Section 5: 40px height; 8px h-pad; 4px v-pad; controls 32px; gaps 8px
        */}
@@ -354,18 +282,16 @@ export function JobsOperationalTable({
           placeholder="Pickup location"
           value={pickupFilter}
           onChange={(e) => { onPickupFilterChange(e.target.value); onPageChange(0); }}
-          className={`${styles.jobsToolbarInput} ${styles.jobsToolbarStatus}`}
+          className={`${styles.jobsToolbarInput} ${styles.jobsToolbarPickup}`}
           aria-label="Filter by pickup location"
-          style={{ width: 132 }}
         />
         <input
           type="text"
           placeholder="Delivery location"
           value={deliveryFilter}
           onChange={(e) => { onDeliveryFilterChange(e.target.value); onPageChange(0); }}
-          className={`${styles.jobsToolbarInput} ${styles.jobsToolbarStatus}`}
+          className={`${styles.jobsToolbarInput} ${styles.jobsToolbarDelivery}`}
           aria-label="Filter by delivery location"
-          style={{ width: 132 }}
         />
         <input
           type="date"
@@ -379,9 +305,8 @@ export function JobsOperationalTable({
           placeholder="Customer"
           value={customerFilter}
           onChange={(e) => { onCustomerFilterChange(e.target.value); onPageChange(0); }}
-          className={`${styles.jobsToolbarInput}`}
+          className={`${styles.jobsToolbarInput} ${styles.jobsToolbarCustomer}`}
           aria-label="Filter by customer"
-          style={{ width: 120 }}
         />
         {drivers.length > 0 && (
           <select
@@ -412,22 +337,19 @@ export function JobsOperationalTable({
       <div className={styles.jobsTableSection} data-testid="jobs-desktop-table">
       <div className={styles.operationalTableContainer}>
         <div className={styles.operationalTableScroll}>
-          <table
-            className={`${styles.operationalTable} ${styles.operationalTableMinWidth}`}
-            style={{ '--xdrive-operational-table-min-width': '1060px' } as CSSProperties}
-          >
+          <table className={`${styles.operationalTable} ${styles.operationalTableMinWidth} ${styles.jobsOperationalTable}`}>
             <caption className={styles.operationalTableCaption}>Jobs list</caption>
             <colgroup>
               {/* Section 10 column widths */}
-              <col style={{ width: 92 }} />   {/* status/priority */}
-              <col style={{ width: 110 }} />  {/* job/reference */}
+              <col className={styles.jobsColStatusWidth} />   {/* status/priority */}
+              <col className={styles.jobsColRefWidth} />  {/* job/reference */}
               <col />                          {/* route — minmax(260px,1.6fr) */}
-              <col style={{ width: 150 }} />  {/* pickup */}
-              <col style={{ width: 150 }} />  {/* delivery */}
-              <col style={{ width: 110 }} />  {/* vehicle */}
-              <col style={{ width: 150 }} />  {/* customer */}
-              <col style={{ width: 96 }} />   {/* distance/quote */}
-              <col style={{ width: 92 }} />   {/* actions */}
+              <col className={styles.jobsColPickupWidth} />  {/* pickup */}
+              <col className={styles.jobsColDeliveryWidth} />  {/* delivery */}
+              <col className={styles.jobsColVehicleWidth} />  {/* vehicle */}
+              <col className={styles.jobsColCustomerWidth} />  {/* customer */}
+              <col className={styles.jobsColDistanceWidth} />   {/* distance/quote */}
+              <col className={styles.jobsColActionsWidth} />   {/* actions */}
             </colgroup>
             <thead>
               <tr className={styles.operationalTableHeaderRow}>
@@ -447,11 +369,7 @@ export function JobsOperationalTable({
             <tbody>
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className={styles.operationalTableCell}
-                    style={{ textAlign: 'center', height: 64, color: '#64748B', fontSize: 12 }}
-                  >
+                  <td colSpan={9} className={`${styles.operationalTableCell} ${styles.jobsEmptyTableCell}`}>
                     No jobs match the current filters.
                   </td>
                 </tr>
@@ -461,18 +379,14 @@ export function JobsOperationalTable({
                   const isExpanded = expandedRows.has(job.id);
                   return (
                     <Fragment key={job.id}>
-                      <tr
-                        className={styles.operationalTableRow}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => onViewJob(job.id)}
-                      >
+                      <tr className={`${styles.operationalTableRow} ${styles.jobsOperationalRow}`} onClick={() => onViewJob(job.id)}>
                         {/* Status/priority — 92px */}
                         <td className={styles.operationalTableCell}>
                           <span className={styles.jobsStatusBadge} style={s}>
                             {statusLabel(job.status)}
                           </span>
                           {job.exchange_visibility && job.exchange_visibility !== 'private' && (
-                            <div style={{ fontSize: '10px', color: '#64748B', marginTop: 2 }}>
+                            <div className={styles.jobsStatusMeta}>
                               {job.exchange_visibility}
                             </div>
                           )}
@@ -480,11 +394,11 @@ export function JobsOperationalTable({
 
                         {/* Job/reference — 110px */}
                         <td className={styles.operationalTableCell}>
-                          <span style={{ fontWeight: 600, color: '#1D57D8', fontSize: '12.5px' }}>
+                          <span className={styles.jobsRefValue}>
                             {job.jobRef}
                           </span>
                           {job.createdAt && (
-                            <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '14px' }}>
+                            <div className={styles.jobsSubMeta}>
                               {fmtDate(job.createdAt)}
                             </div>
                           )}
@@ -494,7 +408,7 @@ export function JobsOperationalTable({
                         <td className={styles.operationalTableCell}>
                           <div className={styles.jobsRouteCell}>
                             <span className={styles.jobsRouteOrigin}>
-                              <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '45%', display: 'inline-block' }}>
+                              <span className={styles.jobsRouteOriginPrimary}>
                                 {job.pickup.location || '—'}
                               </span>
                               {job.pickup.postcode && (
@@ -503,7 +417,7 @@ export function JobsOperationalTable({
                             </span>
                             <span className={styles.jobsRouteDest}>
                               <span className={styles.jobsRouteArrow} aria-hidden="true">↓</span>
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%', display: 'inline-block' }}>
+                              <span className={styles.jobsRouteDestPrimary}>
                                 {job.delivery.location || '—'}
                               </span>
                               {job.delivery.postcode && (
@@ -515,50 +429,50 @@ export function JobsOperationalTable({
 
                         {/* Pickup — 150px */}
                         <td className={styles.operationalTableCell}>
-                          <div style={{ fontSize: '12.5px', lineHeight: '17px' }}>{fmtDate(job.pickup.date)}</div>
+                          <div className={styles.jobsPrimaryDate}>{fmtDate(job.pickup.date)}</div>
                           {job.pickup.time && job.pickup.time !== 'ASAP' && (
-                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#64748B' }}>{job.pickup.time}</div>
+                            <div className={styles.jobsSubMeta}>{job.pickup.time}</div>
                           )}
                           {job.pickup.time === 'ASAP' && (
-                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#B76E00', fontWeight: 600 }}>ASAP</div>
+                            <div className={styles.jobsAsapMeta}>ASAP</div>
                           )}
                         </td>
 
                         {/* Delivery — 150px */}
                         <td className={styles.operationalTableCell}>
-                          <div style={{ fontSize: '12.5px', lineHeight: '17px' }}>{fmtDate(job.delivery.date)}</div>
+                          <div className={styles.jobsPrimaryDate}>{fmtDate(job.delivery.date)}</div>
                           {job.delivery.time && job.delivery.time !== 'ASAP' && (
-                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#64748B' }}>{job.delivery.time}</div>
+                            <div className={styles.jobsSubMeta}>{job.delivery.time}</div>
                           )}
                           {job.delivery.time === 'ASAP' && (
-                            <div style={{ fontSize: '11px', lineHeight: '14px', color: '#B76E00', fontWeight: 600 }}>ASAP</div>
+                            <div className={styles.jobsAsapMeta}>ASAP</div>
                           )}
                         </td>
 
                         {/* Vehicle — 110px */}
-                        <td className={styles.operationalTableCell} style={{ fontSize: '12px', color: '#64748B', textTransform: 'capitalize' }}>
+                        <td className={`${styles.operationalTableCell} ${styles.jobsVehicleCell}`}>
                           <div>{job.vehicleType || '—'}</div>
                           {job.cargo?.type && (
-                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                            <div className={styles.jobsVehicleMeta}>
                               {job.cargo.quantity > 0 ? `${job.cargo.quantity}× ` : ''}{job.cargo.type}
                             </div>
                           )}
                         </td>
 
                         {/* Customer — 150px (name + phone) */}
-                        <td className={`${styles.operationalTableCell} ${styles.jobsColCustomer}`} style={{ fontSize: '12.5px', overflow: 'hidden', maxWidth: 150 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td className={`${styles.operationalTableCell} ${styles.jobsColCustomer} ${styles.jobsCustomerCell}`}>
+                          <div className={styles.jobsCellEllipsis}>
                             {job.client.name || '—'}
                           </div>
                           {job.clientPhone && (
-                            <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div className={`${styles.jobsSubMeta} ${styles.jobsCellEllipsis}`}>
                               {job.clientPhone}
                             </div>
                           )}
                         </td>
 
                         {/* Distance — 96px */}
-                        <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell} ${styles.jobsColDistance}`} style={{ fontSize: '12px', color: '#64748B' }}>
+                        <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell} ${styles.jobsColDistance} ${styles.jobsDistanceCell}`}>
                           {job.distanceMiles || '—'}
                         </td>
 
@@ -592,8 +506,7 @@ export function JobsOperationalTable({
                             {job.status === 'draft' && (
                               <button
                                 type="button"
-                                className={styles.jobsActionBtn}
-                                style={{ background: '#0B2F6B', color: '#ffffff', borderColor: '#0B2F6B' }}
+                                className={`${styles.jobsActionBtn} ${styles.jobsActionBtnPrimary}`}
                                 onClick={() => onPostJob(job.id)}
                                 aria-label={`Post job ${job.jobRef} to marketplace`}
                               >
@@ -602,7 +515,7 @@ export function JobsOperationalTable({
                             )}
                             {job.status !== 'draft' && allowedStatusTransitions(job.status).length > 0 && (
                               <select
-                                className={styles.jobsActionBtn}
+                                className={`${styles.jobsActionBtn} ${styles.jobsActionSelect}`}
                                 defaultValue=""
                                 aria-label={`Update status for job ${job.jobRef}`}
                                 onChange={(e) => {
@@ -612,7 +525,6 @@ export function JobsOperationalTable({
                                     e.target.value = '';
                                   }
                                 }}
-                                style={{ paddingRight: 4 }}
                               >
                                 <option value="" disabled>Update…</option>
                                 {allowedStatusTransitions(job.status).map((s) => (
@@ -656,13 +568,13 @@ export function JobsOperationalTable({
                               {job.awarded_carrier_company_id && (
                                 <div className={styles.operationalJobDetailItem}>
                                   <span className={styles.operationalJobDetailLabel}>Awarded carrier</span>
-                                  <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{job.awarded_carrier_company_id.slice(0, 13)}…</span>
+                                  <span className={styles.jobsMonospaceMeta}>{job.awarded_carrier_company_id.slice(0, 13)}…</span>
                                 </div>
                               )}
                               {job.exchange_visibility && (
                                 <div className={styles.operationalJobDetailItem}>
                                   <span className={styles.operationalJobDetailLabel}>Visibility</span>
-                                  <span style={{ textTransform: 'capitalize' }}>{job.exchange_visibility}</span>
+                                  <span className={styles.jobsCapitalizeText}>{job.exchange_visibility}</span>
                                 </div>
                               )}
                               {job.cargo?.notes && (
@@ -672,7 +584,7 @@ export function JobsOperationalTable({
                                 </div>
                               )}
                               {job.loadDetailSummary && job.loadDetailSummary.length > 0 && (
-                                <div className={styles.operationalJobDetailItem} style={{ gridColumn: 'span 2' }}>
+                                <div className={`${styles.operationalJobDetailItem} ${styles.operationalJobDetailWideItem}`}>
                                   <span className={styles.operationalJobDetailLabel}>Load details</span>
                                   <span>{job.loadDetailSummary.map((l) => `${l.label}: ${l.value}`).join(' · ')}</span>
                                 </div>
@@ -716,7 +628,7 @@ export function JobsOperationalTable({
               >
                 ‹
               </button>
-              <span style={{ fontSize: 12, color: '#1A1F2B', padding: '0 4px' }}>
+              <span className={styles.operationalPaginationCurrent}>
                 {page + 1} / {totalPages}
               </span>
               <button
@@ -751,7 +663,7 @@ export function JobsOperationalTable({
        */}
       <div className={styles.jobsMobileCardList} data-testid="jobs-mobile-cards" aria-label="Jobs list">
         {filteredJobs.length === 0 ? (
-          <div style={{ padding: '24px 12px', textAlign: 'center', color: '#64748B', fontSize: 12 }}>
+          <div className={styles.jobsEmptyMobileState}>
             No jobs match the current filters.
           </div>
         ) : (
@@ -784,12 +696,12 @@ export function JobsOperationalTable({
                   <div className={styles.jobsMobileCardRoute}>
                     <div className={styles.jobsMobileCardRouteOrigin}>
                       {job.pickup.location || '—'}
-                      {job.pickup.postcode && <span style={{ color: '#64748B', fontWeight: 400, marginLeft: 4 }}>{job.pickup.postcode}</span>}
+                      {job.pickup.postcode && <span className={styles.jobsMobileRoutePostcode}>{job.pickup.postcode}</span>}
                     </div>
                     <div className={styles.jobsMobileCardRouteDest}>
-                      <span aria-hidden="true" style={{ color: '#64748B', fontSize: 10 }}>↓</span>
+                      <span aria-hidden="true" className={styles.jobsMobileRouteArrow}>↓</span>
                       {job.delivery.location || '—'}
-                      {job.delivery.postcode && <span style={{ color: '#94A3B8', marginLeft: 4 }}>{job.delivery.postcode}</span>}
+                      {job.delivery.postcode && <span className={styles.jobsMobileRouteMetaPostcode}>{job.delivery.postcode}</span>}
                     </div>
                   </div>
 
@@ -806,7 +718,7 @@ export function JobsOperationalTable({
                   {/* Vehicle + cargo */}
                   <div className={styles.jobsMobileCardRow}>
                     <span className={styles.jobsMobileCardLabel}>Vehicle</span>
-                    <span style={{ textTransform: 'capitalize' }}>
+                    <span className={styles.jobsCapitalizeText}>
                       {job.vehicleType || '—'}
                       {job.cargo?.type ? ` · ${job.cargo.quantity > 0 ? `${job.cargo.quantity}× ` : ''}${job.cargo.type}` : ''}
                     </span>
@@ -849,13 +761,13 @@ export function JobsOperationalTable({
                     {job.awarded_carrier_company_id && (
                       <div className={styles.jobsMobileCardRow}>
                         <span className={styles.jobsMobileCardLabel}>Carrier</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{job.awarded_carrier_company_id.slice(0, 13)}…</span>
+                        <span className={styles.jobsMonospaceMeta}>{job.awarded_carrier_company_id.slice(0, 13)}…</span>
                       </div>
                     )}
                     {job.exchange_visibility && (
                       <div className={styles.jobsMobileCardRow}>
                         <span className={styles.jobsMobileCardLabel}>Visibility</span>
-                        <span style={{ textTransform: 'capitalize' }}>{job.exchange_visibility}</span>
+                        <span className={styles.jobsCapitalizeText}>{job.exchange_visibility}</span>
                       </div>
                     )}
                     {job.cargo?.notes && (
@@ -892,8 +804,7 @@ export function JobsOperationalTable({
                   {job.status === 'draft' && (
                     <button
                       type="button"
-                      className={styles.jobsActionBtn}
-                      style={{ background: '#0B2F6B', color: '#ffffff', borderColor: '#0B2F6B' }}
+                      className={`${styles.jobsActionBtn} ${styles.jobsActionBtnPrimary}`}
                       onClick={() => onPostJob(job.id)}
                       aria-label={`Post job ${job.jobRef} to marketplace`}
                     >
