@@ -186,7 +186,7 @@ export function Panel({ title, description, actions, children, style, flush = fa
   return (
     <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
       {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '14px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
-      <div style={{ padding: flush ? 0 : '12px' }}>{children}</div>
+      <div style={{ padding: flush ? 0 : '10px' }}>{children}</div>
     </section>
   );
 }
@@ -499,6 +499,65 @@ export function FinancialSummaryPanel({
           <strong className={styles.financialSummaryValue}>{item.value}</strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+export function OperationalMetricList({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; tone?: StatusBadgeTone }>;
+}) {
+  return (
+    <div className={styles.operationalMetricList}>
+      {items.map((item, index) => (
+        <div
+          key={item.label}
+          className={styles.operationalMetricRow}
+          style={{ borderBottom: index === items.length - 1 ? 'none' : undefined }}
+        >
+          <span className={styles.operationalMetricLabel}>{item.label}</span>
+          {typeof item.value === 'string' || typeof item.value === 'number'
+            ? <StatusBadge value={String(item.value)} tone={item.tone} />
+            : item.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function OperationalLinkList({
+  items,
+}: {
+  items: Array<{ key: string; label: ReactNode; meta?: ReactNode; value?: ReactNode; onClick?: () => void }>;
+}) {
+  return (
+    <div className={styles.operationalLinkList}>
+      {items.map((item) => {
+        const content = (
+          <>
+            <span className={styles.operationalLinkCopy}>
+              <span className={styles.operationalLinkLabel}>{item.label}</span>
+              {item.meta ? <span className={styles.operationalLinkMeta}>{item.meta}</span> : null}
+            </span>
+            {item.value ? <span className={styles.operationalLinkValue}>{item.value}</span> : <span aria-hidden="true">→</span>}
+          </>
+        );
+
+        if (!item.onClick) {
+          return (
+            <div key={item.key} className={styles.operationalLinkRow}>
+              {content}
+            </div>
+          );
+        }
+
+        return (
+          <button key={item.key} type="button" onClick={item.onClick} className={styles.operationalLinkButton}>
+            {content}
+          </button>
+        );
+      })}
     </div>
   );
 }

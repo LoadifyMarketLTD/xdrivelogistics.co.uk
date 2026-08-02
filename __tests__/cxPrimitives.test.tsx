@@ -11,11 +11,13 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  OperationalLinkList,
   OperationalCard,
   OperationalFilterField,
   OperationalFilterInput,
   OperationalFilterSelect,
   OperationalFilters,
+  OperationalMetricList,
   OperationalPageLayout,
 } from '../app/components/workspace/WorkspaceUI';
 
@@ -232,6 +234,42 @@ describe('OperationalFilterField', () => {
     );
 
     expect(html).not.toContain('<label');
+  });
+});
+
+describe('OperationalMetricList', () => {
+  it('renders labelled compact metric rows with status badges for scalar values', () => {
+    const html = render(
+      <OperationalMetricList
+        items={[
+          { label: 'Open jobs', value: 4, tone: 'blue' },
+          { label: 'Exceptions', value: '1', tone: 'red' },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('Open jobs');
+    expect(html).toContain('Exceptions');
+    expect(html).toContain('4');
+  });
+});
+
+describe('OperationalLinkList', () => {
+  it('renders compact operational link rows for buttons and static rows', () => {
+    const html = render(
+      <OperationalLinkList
+        items={[
+          { key: 'a', label: 'Review approvals', meta: 'Company queue', onClick: () => undefined },
+          { key: 'b', label: 'Platform health', value: 'Stable' },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('Review approvals');
+    expect(html).toContain('Company queue');
+    expect(html).toContain('Platform health');
+    expect(html).toContain('Stable');
+    expect(html).toContain('<button');
   });
 });
 
