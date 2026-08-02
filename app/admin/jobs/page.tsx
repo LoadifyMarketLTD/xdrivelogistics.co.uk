@@ -10,6 +10,7 @@ import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
+import { JobsOperationalTable, type JobRow } from '../../components/workspace/JobsOperationalTable';
 
 interface Job {
  id: string;
@@ -697,403 +698,36 @@ export default function JobsPage() {
 
  return (
  <ProtectedRoute>
- <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
- <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
- {/* Header */}
- <div style={{ marginBottom: '1rem' }}>
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
- <div>
- <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
- Operations Workspace
- </h1>
- <p style={{ color: '#6b7280', margin: 0 }}>
- One board for assign, track and complete work.
- </p>
- </div>
- <div style={{ display: 'flex', gap: '1rem' }}>
- <button
- onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
- disabled={newJobDisabled}
- style={{
- padding: '0.75rem 1.5rem',
- backgroundColor: newJobDisabled ? '#6b7280' : '#1F7A3D',
- color: 'white',
- border: 'none',
- borderRadius: '8px',
- fontSize: '0.95rem',
- fontWeight: '600',
- cursor: newJobDisabled ? 'not-allowed' : 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#166534'; }}
- onMouseLeave={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
- >
- {newJobDisabled ? ' Loading...' : '+ New Job'}
- </button>
- </div>
- </div>
- </div>
-
- {/* Company profile error banner */}
- {companyError && (
- <div style={{
- backgroundColor: '#fef3c7',
- border: '1px solid #f59e0b',
- borderRadius: '8px',
- padding: '1rem 1.5rem',
- marginBottom: '1.5rem',
- display: 'flex',
- justifyContent: 'space-between',
- alignItems: 'center',
- gap: '1rem',
- }}>
- <span style={{ color: '#92400e', fontSize: '0.95rem' }}>Warning: {companyError}</span>
- {user?.id && (
- <button
- onClick={() => loadCompanyId(user.id)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#f59e0b',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- whiteSpace: 'nowrap',
- }}
- >
- Try Again
- </button>
- )}
- </div>
- )}
-
- {/* No-session warning banner */}
- {isSupabaseConfigured && !hasSupabaseSession && (
- <div style={{
- backgroundColor: '#fff7ed',
- border: '1px solid #fb923c',
- borderRadius: '8px',
- padding: '1rem 1.5rem',
- marginBottom: '1.5rem',
- color: '#9a3412',
- fontSize: '0.95rem',
- }}>
- Warning: Local sign-in detected. Jobs will be stored locally only. Sign in with a Supabase account to sync your jobs.
- </div>
- )}
-
- {/* Database error banner */}
- {dbError && (
- <div style={{
- backgroundColor: '#fef2f2',
- border: '1px solid #fca5a5',
- borderRadius: '8px',
- padding: '1rem 1.5rem',
- marginBottom: '1.5rem',
- display: 'flex',
- justifyContent: 'space-between',
- alignItems: 'center',
- gap: '1rem',
- }}>
- <span style={{ color: '#991b1b', fontSize: '0.95rem' }}> {dbError}</span>
- <button
- onClick={() => setDbError(null)}
- style={{ background: 'none', border: 'none', color: '#991b1b', fontSize: '1.25rem', cursor: 'pointer', lineHeight: 1 }}
- aria-label="Dismiss"
- >x</button>
- </div>
- )}
-
- {/* Stats Cards */}
- <div style={{
- display: 'grid',
- gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
- gap: '1rem',
- marginBottom: '2rem'
- }}>
- {[
- { label: 'All Jobs', status: 'All', icon: ' ', color: '#1d4ed8' },
- { label: 'Received', status: JOB_STATUS.RECEIVED, icon: ' ', color: '#fbbf24' },
- { label: 'Posted', status: JOB_STATUS.POSTED, icon: ' ', color: '#5C9FD8' },
- { label: 'Allocated', status: JOB_STATUS.ALLOCATED, icon: ' ', color: '#a855f7' },
- { label: 'Delivered', status: JOB_STATUS.DELIVERED, icon: ' ', color: '#1F7A3D' },
- ].map((stat) => (
- <div
- key={stat.status}
- style={{
- backgroundColor: 'white',
- padding: '1.25rem',
- borderRadius: '12px',
- boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
- borderLeft: `4px solid ${stat.color}`
- }}
- >
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
- <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>
- {stat.label}
- </div>
- <span style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
- </div>
- <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
- {getStatusCount(stat.status)}
- </div>
- </div>
- ))}
- </div>
-
- {/* Filters & Search */}
- <div style={{
- backgroundColor: 'white',
- padding: '1.5rem',
- borderRadius: '12px',
- boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
- marginBottom: '2rem'
- }}>
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
- <input
- type="text"
- placeholder="Search by job ref, client, or location..."
- value={searchTerm}
- onChange={(e) => setSearchTerm(e.target.value)}
- style={{
- padding: '0.75rem 1rem',
- border: '1px solid #d1d5db',
- borderRadius: '8px',
- fontSize: '0.95rem',
- width: '100%'
- }}
+ <JobsOperationalTable
+  jobs={jobs as unknown as JobRow[]}
+  filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE) as unknown as JobRow[]}
+  page={jobsPage}
+  perPage={JOBS_PER_PAGE}
+  totalFiltered={filteredJobs.length}
+  onPageChange={setJobsPage}
+  searchTerm={searchTerm}
+  statusFilter={statusFilter}
+  pickupFilter={pickupFilter}
+  deliveryFilter={deliveryFilter}
+  dateFilter={dateFilter}
+  customerFilter={customerFilter}
+  onSearchTermChange={setSearchTerm}
+  onStatusFilterChange={setStatusFilter}
+  onPickupFilterChange={setPickupFilter}
+  onDeliveryFilterChange={setDeliveryFilter}
+  onDateFilterChange={setDateFilter}
+  onCustomerFilterChange={setCustomerFilter}
+  onNewJob={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
+  onViewJob={(id) => router.push(`/admin/jobs/${id}`)}
+  onDirectInvite={(job) => setDirectInviteJob(job as unknown as Job)}
+  newJobDisabled={newJobDisabled}
+  companyError={companyError}
+  dbError={dbError}
+  hasSupabaseSession={hasSupabaseSession}
+  onRetryCompany={user?.id ? () => loadCompanyId(user.id) : undefined}
+  onDismissDbError={() => setDbError(null)}
  />
- <select
- value={statusFilter}
- onChange={(e) => setStatusFilter(e.target.value)}
- style={{
- padding: '0.75rem 1rem',
- border: '1px solid #d1d5db',
- borderRadius: '8px',
- fontSize: '0.95rem',
- backgroundColor: 'white',
- cursor: 'pointer',
- minWidth: '150px'
- }}
- >
- <option value="All">All Status</option>
- <option value={JOB_STATUS.RECEIVED}>Received</option>
- <option value={JOB_STATUS.POSTED}>Posted</option>
- <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
- <option value={JOB_STATUS.DELIVERED}>Delivered</option>
- </select>
- <input type="text" placeholder="Pickup" value={pickupFilter} onChange={(e) => setPickupFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="text" placeholder="Delivery" value={deliveryFilter} onChange={(e) => setDeliveryFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="text" placeholder="Customer/Company" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="text" placeholder="Driver" value={driverFilter} onChange={(e) => setDriverFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- </div>
- </div>
 
- {/* Jobs Table */}
- <div style={{
- backgroundColor: 'white',
- borderRadius: '12px',
- boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
- overflow: 'hidden'
- }}>
- <div style={{ overflowX: 'auto' }}>
- <table style={{ width: '100%', borderCollapse: 'collapse' }}>
- <thead>
- <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup to Delivery</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
- <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
- </tr>
- </thead>
- <tbody>
- {filteredJobs.length === 0 ? (
- <tr>
- <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
- <div style={{ fontSize: '3rem', marginBottom: '1rem' }}> </div>
- <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
- <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
- {searchTerm || statusFilter !== 'All'
- ? 'Try adjusting your filters'
- : 'Create your first job to get started'}
- </div>
- </td>
- </tr>
- ) : (
- filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
- const statusColor = getStatusColor(job.status);
- return (
- <tr
- key={job.id}
- style={{
- borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
- >
- <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
- {job.jobRef}
- </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
- <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
- {job.client.name}
- </div>
- <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
- {job.client.email}
- </div>
- </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
- <div style={{ marginBottom: '0.5rem' }}>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.pickup.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.pickup.date)} at {job.pickup.time}
- </div>
- </div>
- <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>to</div>
- <div>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.delivery.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.delivery.date)} at {job.delivery.time}
- </div>
- </div>
- {job.loadDetailSummary.length > 0 && (
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
- {job.loadDetailSummary.map((item) => (
- <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
- <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
- <div style={{ color: '#0f172a', fontSize: '0.75rem', fontWeight: 600 }}>{item.value}</div>
- </div>
- ))}
- </div>
- )}
- </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
- <td style={{ padding: '1rem' }}>
- <select
- value={job.status}
- onChange={(e) => handleStatusChange(job.id, e.target.value)}
- style={{
- padding: '0.5rem 0.75rem',
- backgroundColor: statusColor.bg,
- color: statusColor.text,
- border: `1px solid ${statusColor.border}`,
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- outline: 'none'
- }}
- >
- <option value={JOB_STATUS.RECEIVED}>Received</option>
- <option value={JOB_STATUS.POSTED}>Posted</option>
- <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
- <option value={JOB_STATUS.DELIVERED}>Delivered</option>
- </select>
- </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
- {formatDate(job.createdAt)}
- </td>
- <td style={{ padding: '1rem', textAlign: 'center' }}>
- <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
- {job.status === JOB_STATUS.RECEIVED && (
- <button
- onClick={() => handlePostJob(job.id)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#5C9FD8',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
- >
- Post
- </button>
- )}
- <button
- onClick={() => router.push(`/admin/jobs/${job.id}`)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#16a34a',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
- >
- View
- </button>
- {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
- <button
- onClick={() => void openDirectInvite(job)}
- style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
- >
- Invite Carrier
- </button>
- )}
- {job.exchange_visibility === 'direct' && (
- <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
- Direct 
- </span>
- )}
- </div>
- </td>
- </tr>
- );
- })
- )}
- </tbody>
- </table>
- </div>
- {filteredJobs.length > JOBS_PER_PAGE && (
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
- <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
- Showing {jobsPage * JOBS_PER_PAGE + 1} {Math.min((jobsPage + 1) * JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} jobs
- </span>
- <div style={{ display: 'flex', gap: '0.4rem' }}>
- <button
- onClick={() => setJobsPage((p) => Math.max(0, p - 1))}
- disabled={jobsPage === 0}
- style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: jobsPage === 0 ? '#f9fafb' : '#fff', cursor: jobsPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
- >
- Prev
- </button>
- <button
- onClick={() => setJobsPage((p) => p + 1)}
- disabled={(jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length}
- style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? '#f9fafb' : '#fff', cursor: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
- >
- Next
- </button>
- </div>
- </div>
- )}
- </div>
 
  {/* Full-screen Create Job Workspace */}
  {showModal && (
@@ -1560,8 +1194,6 @@ export default function JobsPage() {
  </div>
  </div>
  )}
- </div>
- </div>
  </ProtectedRoute>
  );
 }
