@@ -8,7 +8,6 @@ import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
-  ComplianceSummaryPanel,
   DataTable,
   EmptyState,
   OperationalCard,
