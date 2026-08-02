@@ -72,10 +72,9 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         await page.goto(`/visual-fixture/workspace/${role}`);
         await page.waitForLoadState('networkidle');
 
-        const header = page
-          .locator('header')
-          .filter({ has: page.getByRole('button', { name: 'Action Centre' }) })
-          .first();
+        const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
+        await expect(actionCentreButton).toBeVisible({ timeout: 15_000 });
+        const header = actionCentreButton.locator('xpath=ancestor::header[1]');
         await expect(header).toBeVisible();
 
         const sidebar = page.locator('aside[aria-label$="navigation"]');
@@ -103,7 +102,6 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         expect(headerHeight).toBeGreaterThanOrEqual(48);
         expect(headerHeight).toBeLessThanOrEqual(52);
 
-        const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
         const notificationsButton = page.getByRole('button', { name: /Notifications/i });
         await expect(actionCentreButton).toBeVisible();
         await expect(notificationsButton).toBeVisible();

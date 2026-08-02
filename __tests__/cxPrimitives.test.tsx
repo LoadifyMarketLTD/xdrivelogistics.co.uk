@@ -38,6 +38,7 @@ describe('OperationalPageLayout', () => {
     expect(html).toContain('<main');
     // No aside when search panel is absent
     expect(html).not.toContain('<aside');
+    expect(html).not.toContain('1480px');
   });
 
   it('renders an aside + main two-panel layout when searchPanel is provided', () => {
@@ -66,6 +67,17 @@ describe('OperationalPageLayout', () => {
     );
 
     expect(html).toContain('1200px');
+  });
+
+  it('uses full-width shell padding by default instead of a centred max-width container', () => {
+    const html = render(
+      <OperationalPageLayout>
+        <span>content</span>
+      </OperationalPageLayout>,
+    );
+
+    expect(html).not.toContain('margin:0 auto');
+    expect(html).not.toContain('max-width:1480px');
   });
 });
 

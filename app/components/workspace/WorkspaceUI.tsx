@@ -23,17 +23,28 @@ export const workspaceTheme = {
 
 const compactShadow = 'none';
 
-export function PageFrame({ children, maxWidth = 1480 }: { children: ReactNode; maxWidth?: number }) {
-  return <div className="xdrive-page-frame" style={{ width: '100%', maxWidth, margin: '0 auto', padding: '12px 16px' }}>{children}</div>;
+export function PageFrame({ children, maxWidth }: { children: ReactNode; maxWidth?: number }) {
+  return (
+    <div
+      className="xdrive-page-frame"
+      style={{
+        width: '100%',
+        ...(typeof maxWidth === 'number' ? { maxWidth } : {}),
+        padding: '12px 12px 16px',
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function PageHeader({ eyebrow, title, description, actions, meta }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
   return (
     <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
       <div style={{ minWidth: 0, flex: '1 1 520px' }}>
-        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>{eyebrow}</div>}
-        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '24px', fontWeight: 600, lineHeight: '30px' }}>{title}</h1>
-        {description && <p style={{ margin: '6px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '13px', lineHeight: '18px' }}>{description}</p>}
+        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px', lineHeight: '16px' }}>{eyebrow}</div>}
+        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>{title}</h1>
+        {description && <p style={{ margin: '4px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '12px', lineHeight: '16px' }}>{description}</p>}
         {meta && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
       </div>
       {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
@@ -53,7 +64,7 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
     danger: { bg: '#fff', color: workspaceTheme.red, border: '#fecaca' },
     secondary: { bg: '#fff', color: workspaceTheme.text, border: workspaceTheme.borderStrong },
   }[tone];
-  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '8px 14px', minHeight: '32px', fontSize: '13px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>{children}</button>;
+  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
@@ -174,7 +185,7 @@ export function KpiCard({
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
     <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '16px', fontWeight: 600, lineHeight: '22px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '12px', lineHeight: '16px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '14px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
       <div style={{ padding: flush ? 0 : '12px' }}>{children}</div>
     </section>
   );
@@ -195,7 +206,7 @@ export function Panel({ title, description, actions, children, style, flush = fa
 export function OperationalPageLayout({
   children,
   searchPanel,
-  maxWidth = 1480,
+  maxWidth,
   style,
 }: {
   children: ReactNode;
@@ -208,7 +219,7 @@ export function OperationalPageLayout({
   return (
     <div
       className={styles.operationalPageLayout}
-      style={{ ['--xdrive-page-max-width' as string]: `${maxWidth}px`, ...style } as CSSProperties}
+      style={{ ...(typeof maxWidth === 'number' ? { ['--xdrive-page-max-width' as string]: `${maxWidth}px` } : {}), ...style } as CSSProperties}
     >
       {searchPanel ? (
         <div className={styles.operationalPageLayoutTwoPanel}>

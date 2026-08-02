@@ -76,10 +76,9 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
       // ── Shell geometry (all viewports) ───────────────────────────────────
 
       // Header: 50px contract (±2px tolerance per §3)
-      const header = page
-        .locator('header')
-        .filter({ has: page.getByRole('button', { name: 'Action Centre' }) })
-        .first();
+      const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
+      await expect(actionCentreButton).toBeVisible({ timeout: 15_000 });
+      const header = actionCentreButton.locator('xpath=ancestor::header[1]');
       await expect(header).toBeVisible();
       const headerHeight = await header.evaluate((el) =>
         Math.round(el.getBoundingClientRect().height),

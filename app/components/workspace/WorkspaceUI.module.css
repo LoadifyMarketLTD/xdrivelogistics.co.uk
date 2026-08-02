@@ -427,16 +427,15 @@
 
 .operationalPageLayout {
   width: 100%;
-  max-width: var(--xdrive-page-max-width, 1480px);
-  margin: 0 auto;
-  padding: 12px 16px;
+  max-width: var(--xdrive-page-max-width, none);
+  padding: 12px 12px 16px;
 }
 
 .operationalPageLayoutTwoPanel {
   display: grid;
   /* 220px filter rail (spec) + flexible main content */
   grid-template-columns: 220px minmax(0, 1fr);
-  gap: 8px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -1135,17 +1134,20 @@
 .jobsStatusTabs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 8px;
+  border-bottom: 1px solid #D8DEE8;
+  padding-bottom: 1px;
 }
 
 .jobsStatusTab {
-  min-height: 30px;
-  padding: 6px 10px;
-  border: 1px solid #D8DEE8;
-  border-radius: 999px;
-  background: #FFFFFF;
+  min-height: 26px;
+  padding: 0 0 6px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
   color: #475569;
   font-size: 12px;
   font-weight: 600;
@@ -1154,8 +1156,7 @@
 }
 
 .jobsStatusTabActive {
-  border-color: #1D57D8;
-  background: #EFF6FF;
+  border-bottom-color: #1D57D8;
   color: #1D57D8;
 }
 
