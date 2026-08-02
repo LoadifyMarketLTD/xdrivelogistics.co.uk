@@ -7,8 +7,8 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
-
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
+import { PageFrame, PageHeader } from '../../components/workspace/WorkspaceUI';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -298,8 +298,8 @@ export default function VehiclesPage() {
     }
   };
 
-  const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
-  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const inputStyle = { width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' as const, backgroundColor: 'white' };
+  const labelStyle = { display: 'block', fontSize: '12px', fontWeight: '600' as const, color: '#5f6368', marginBottom: '4px' };
   const formatDate = (value: string | null | undefined) => {
     if (!value) return '—';
     const parsed = new Date(value);
@@ -314,40 +314,39 @@ export default function VehiclesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
-        <div style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>{isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}</p>
-            </div>
-            <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}>
+      <PageFrame>
+        <PageHeader
+          title={isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}
+          description={isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}
+          actions={
+            <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} style={{ height: '32px', padding: '0 16px', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1d57d8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '13px', fontWeight: 600, cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}>
               + Add Vehicle
             </button>
+          }
+        />
+
+        {companyError && (
+          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', marginBottom: '8px', color: '#92400e', fontSize: '13px' }}>
+            {companyError}
           </div>
+        )}
 
-          {companyError && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              {companyError}
-            </div>
-          )}
+        {!isSupabaseConfigured && (
+          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', marginBottom: '8px', color: '#92400e', fontSize: '13px' }}>
+            ⚠️ Supabase is not configured. Database features are disabled.
+          </div>
+        )}
 
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', overflow: 'hidden' }}>
             {!companyResolved || loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>Loading...</div>
             ) : !companyId ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>
                 <p>Company profile not available. Vehicles are hidden until company access resolves.</p>
               </div>
             ) : vehicles.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚛</div>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🚛</div>
                 <p>No vehicles yet. Add your first vehicle.</p>
               </div>
             ) : (
@@ -355,9 +354,9 @@ export default function VehiclesPage() {
               <div style={{ overflowX: 'auto', width: '100%' }}>
                 <table style={{ width: '100%', minWidth: '1120px', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <tr style={{ backgroundColor: '#f5f7fa', borderBottom: '1px solid #d9e2ec' }}>
                       {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', ...(isDriverWorkspace ? [] : ['Assigned Driver']), 'Advertise', 'Created', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                        <th key={h} style={{ height: '36px', padding: '0 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -368,44 +367,44 @@ export default function VehiclesPage() {
                       const feedback = advertisingFeedback[v.id];
                       const updating = Boolean(advertisingUpdating[v.id]);
                       return (
-                        <tr key={v.id} style={{ borderBottom: i < paginatedVehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                          <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
-                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.type.replace(/_/g, ' ')}</td>
-                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
-                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.manufacture_year ?? '—'}</td>
-                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
-                          <td style={{ padding: '0.8rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
-                          {!isDriverWorkspace && <td style={{ padding: '0.8rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>}
-                          <td style={{ padding: '0.8rem' }}>
+                        <tr key={v.id} style={{ height: '40px', borderBottom: i < paginatedVehicles.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                          <td style={{ padding: '0 12px', fontWeight: 600, color: '#202124', fontSize: '13px' }}>{v.reg_plate || '—'}</td>
+                          <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '13px' }}>{v.type.replace(/_/g, ' ')}</td>
+                          <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '13px' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                          <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '13px' }}>{v.manufacture_year ?? '—'}</td>
+                          <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '13px' }}>{v.payload_kg ?? '—'}</td>
+                          <td style={{ padding: '0 12px', fontSize: '13px' }}>{v.has_tail_lift ? '✅' : '—'}</td>
+                          {!isDriverWorkspace && <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '13px' }}>{assignedDriver?.display_name ?? '—'}</td>}
+                          <td style={{ padding: '0 12px' }}>
                             <select
                               value={currentAdvertisingState}
                               onChange={(e) => { void handleAdvertisingChange(v.id, e.target.value as AdvertisingState); }}
                               disabled={!advertisingStateAvailable || updating}
-                              style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.28rem 0.45rem', fontSize: '0.75rem', background: currentAdvertisingState === 'exchange' ? '#dcfce7' : currentAdvertisingState === 'partner' ? '#eff6ff' : '#f9fafb', color: currentAdvertisingState === 'exchange' ? '#166534' : currentAdvertisingState === 'partner' ? '#1e40af' : '#6b7280', cursor: !advertisingStateAvailable || updating ? 'not-allowed' : 'pointer', opacity: !advertisingStateAvailable || updating ? 0.7 : 1 }}
+                              style={{ border: '1px solid #d9e2ec', borderRadius: '4px', padding: '3px 8px', fontSize: '12px', background: currentAdvertisingState === 'exchange' ? '#dcfce7' : currentAdvertisingState === 'partner' ? '#eff6ff' : '#f5f7fa', color: currentAdvertisingState === 'exchange' ? '#166534' : currentAdvertisingState === 'partner' ? '#1e40af' : '#5f6368', cursor: !advertisingStateAvailable || updating ? 'not-allowed' : 'pointer', opacity: !advertisingStateAvailable || updating ? 0.7 : 1 }}
                             >
                               <option value="none">Not advertised</option>
                               <option value="exchange">General Exchange</option>
                               <option value="partner">Partner Only</option>
                             </select>
-                            {updating && <div style={{ fontSize: '0.67rem', color: '#475569', marginTop: '0.22rem' }}>Saving…</div>}
+                            {updating && <div style={{ fontSize: '11px', color: '#5f6368', marginTop: '2px' }}>Saving…</div>}
                             {feedback && (
-                              <div style={{ fontSize: '0.67rem', color: feedback.tone === 'error' ? '#b91c1c' : '#166534', marginTop: '0.22rem' }}>
+                              <div style={{ fontSize: '11px', color: feedback.tone === 'error' ? '#b91c1c' : '#166534', marginTop: '2px' }}>
                                 {feedback.message}
                               </div>
                             )}
                           </td>
-                          <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
-                          <td style={{ padding: '0.8rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '12px' }}>{formatDate(v.created_at)}</td>
+                          <td style={{ padding: '0 12px' }}>
+                            <div style={{ display: 'flex', gap: '4px' }}>
                               <button
                                 onClick={() => openEditModal(v)}
-                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                                style={{ height: '26px', padding: '0 8px', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setShowDeleteConfirm(v.id)}
-                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
+                                style={{ height: '26px', padding: '0 8px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                               >
                                 Delete
                               </button>
@@ -418,22 +417,22 @@ export default function VehiclesPage() {
                 </table>
               </div>
               {vehicles.length > VEHICLES_PER_PAGE && (
-                <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
+                <div style={{ borderTop: '1px solid #d9e2ec', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#5f6368' }}>
                   <span>
                     Showing {safeVehiclePage * VEHICLES_PER_PAGE + 1}–{Math.min((safeVehiclePage + 1) * VEHICLES_PER_PAGE, vehicles.length)} of {vehicles.length}
                   </span>
-                  <div style={{ display: 'flex', gap: '0.45rem' }}>
+                  <div style={{ display: 'flex', gap: '4px' }}>
                     <button
                       onClick={() => setVehiclePage((prev) => Math.max(prev - 1, 0))}
                       disabled={safeVehiclePage === 0}
-                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeVehiclePage === 0 ? '#f9fafb' : '#fff', cursor: safeVehiclePage === 0 ? 'not-allowed' : 'pointer' }}
+                      style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', backgroundColor: safeVehiclePage === 0 ? '#f5f7fa' : '#fff', cursor: safeVehiclePage === 0 ? 'not-allowed' : 'pointer', fontSize: '12px' }}
                     >
                       Previous
                     </button>
                     <button
                       onClick={() => setVehiclePage((prev) => Math.min(prev + 1, totalVehiclePages - 1))}
                       disabled={safeVehiclePage >= totalVehiclePages - 1}
-                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeVehiclePage >= totalVehiclePages - 1 ? '#f9fafb' : '#fff', cursor: safeVehiclePage >= totalVehiclePages - 1 ? 'not-allowed' : 'pointer' }}
+                      style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', backgroundColor: safeVehiclePage >= totalVehiclePages - 1 ? '#f5f7fa' : '#fff', cursor: safeVehiclePage >= totalVehiclePages - 1 ? 'not-allowed' : 'pointer', fontSize: '12px' }}
                     >
                       Next
                     </button>
@@ -443,22 +442,21 @@ export default function VehiclesPage() {
               </>
             )}
           </div>
-        </div>
 
         {/* Create Modal */}
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Add Vehicle</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#202124', lineHeight: '22px' }}>Add Vehicle</h2>
+                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#5f6368', lineHeight: 1 }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
+              <div style={{ padding: '16px', display: 'grid', gap: '8px' }}>
+                {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', color: '#dc2626', fontSize: '13px' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
                   <input
-                    style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                    style={{ ...inputStyle, backgroundColor: '#f5f7fa', color: '#5f6368' }}
                     value={companies[0]?.name ?? 'Company linked to your account'}
                     disabled
                     readOnly
@@ -471,7 +469,7 @@ export default function VehiclesPage() {
                   </select>
                 </div>
                 <div><label style={labelStyle}>Reg Plate</label><input style={inputStyle} value={formData.reg_plate} onChange={e => setFormData({...formData, reg_plate: e.target.value})} placeholder="AB12 CDE" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} placeholder="Ford" /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Transit" /></div>
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={formData.manufacture_year} onChange={e => setFormData({...formData, manufacture_year: e.target.value})} placeholder="2020" /></div>
@@ -486,14 +484,14 @@ export default function VehiclesPage() {
                     </select>
                   </div>
                 )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: '#202124' }}>
                   <input type="checkbox" checked={formData.has_tail_lift} onChange={e => setFormData({...formData, has_tail_lift: e.target.checked})} />
                   Has Tail Lift
                 </label>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: creating ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Adding...' : 'Add Vehicle'}</button>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button onClick={() => { setShowModal(false); setError(''); }} style={{ height: '32px', padding: '0 16px', backgroundColor: 'white', color: '#202124', border: '1px solid #d9e2ec', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button onClick={handleCreate} disabled={creating} style={{ height: '32px', padding: '0 16px', backgroundColor: creating ? '#9ca3af' : '#1d57d8', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: creating ? 'not-allowed' : 'pointer', fontSize: '13px' }}>{creating ? 'Adding...' : 'Add Vehicle'}</button>
               </div>
             </div>
           </div>
@@ -501,14 +499,14 @@ export default function VehiclesPage() {
 
         {/* Edit Modal */}
         {editingVehicle && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Vehicle</h2>
-                <button onClick={() => setEditingVehicle(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#202124', lineHeight: '22px' }}>Edit Vehicle</h2>
+                <button onClick={() => setEditingVehicle(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#5f6368', lineHeight: 1 }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
+              <div style={{ padding: '16px', display: 'grid', gap: '8px' }}>
+                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', color: '#dc2626', fontSize: '13px' }}>{editError}</div>}
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
                   <select style={inputStyle} value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as VehicleType})}>
@@ -516,7 +514,7 @@ export default function VehiclesPage() {
                   </select>
                 </div>
                 <div><label style={labelStyle}>Reg Plate</label><input style={inputStyle} value={editData.reg_plate} onChange={e => setEditData({...editData, reg_plate: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={editData.make} onChange={e => setEditData({...editData, make: e.target.value})} /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={editData.model} onChange={e => setEditData({...editData, model: e.target.value})} /></div>
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={editData.manufacture_year} onChange={e => setEditData({...editData, manufacture_year: e.target.value})} placeholder="2020" /></div>
@@ -531,14 +529,14 @@ export default function VehiclesPage() {
                     </select>
                   </div>
                 )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: '#202124' }}>
                   <input type="checkbox" checked={editData.has_tail_lift} onChange={e => setEditData({...editData, has_tail_lift: e.target.checked})} />
                   Has Tail Lift
                 </label>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => setEditingVehicle(null)} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
-                <button onClick={handleUpdate} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button onClick={() => setEditingVehicle(null)} disabled={saving} style={{ height: '32px', padding: '0 16px', backgroundColor: 'white', color: '#202124', border: '1px solid #d9e2ec', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button onClick={handleUpdate} disabled={saving} style={{ height: '32px', padding: '0 16px', backgroundColor: '#1d57d8', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '13px' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
               </div>
             </div>
           </div>
@@ -546,19 +544,19 @@ export default function VehiclesPage() {
 
         {/* Delete Confirm */}
         {showDeleteConfirm && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
-              <h3 style={{ color: '#1f2937', marginBottom: '0.75rem' }}>Delete Vehicle?</h3>
-              <p style={{ color: '#6b7280', marginBottom: '1.5rem', fontSize: '0.9rem' }}>This action cannot be undone.</p>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                <button onClick={() => setShowDeleteConfirm(null)} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={() => handleDelete(showDeleteConfirm)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Delete</button>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', padding: '24px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '12px' }}>⚠️</div>
+              <h3 style={{ color: '#202124', marginBottom: '8px', fontSize: '16px', fontWeight: 600 }}>Delete Vehicle?</h3>
+              <p style={{ color: '#5f6368', marginBottom: '16px', fontSize: '13px' }}>This action cannot be undone.</p>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <button onClick={() => setShowDeleteConfirm(null)} style={{ height: '32px', padding: '0 16px', backgroundColor: 'white', color: '#202124', border: '1px solid #d9e2ec', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button onClick={() => handleDelete(showDeleteConfirm)} style={{ height: '32px', padding: '0 16px', backgroundColor: '#d93025', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>Delete</button>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </PageFrame>
     </ProtectedRoute>
   );
 }

@@ -23,14 +23,16 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   emptyMessage: string;
 };
 
-const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  red: '#ef4444',
+const OP = {
+  page: '#f5f7fa',
+  surface: '#ffffff',
+  border: '#d9e2ec',
+  text: '#202124',
+  muted: '#5f6368',
+  blue: '#1d57d8',
+  orange: '#f5a300',
+  red: '#d93025',
+  amber: '#d97706',
 };
 
 export default function SuperAdminLiveTablePage<T extends Record<string, unknown>>({
@@ -96,7 +98,170 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
+      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
+        {/* Page header */}
+        <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: OP.blue }}>{sectionLabel}</span>
+            </div>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, lineHeight: '30px', color: OP.text }}>{icon} {title}</h1>
+            <p style={{ margin: '6px 0 0', fontSize: '13px', lineHeight: '18px', color: OP.muted }}>{description}</p>
+          </div>
+        </header>
+
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '8px 12px', color: OP.red, fontSize: '13px', marginBottom: '12px' }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {note && !loading && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', color: OP.amber, fontSize: '13px', marginBottom: '12px' }}>
+            ℹ️ {note}
+          </div>
+        )}
+
+        {summary && !loading && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+            {Object.entries(summary).map(([key, value]) => (
+              <div key={key} style={{ background: OP.surface, border: `1px solid ${OP.border}`, borderRadius: '4px', padding: '8px 12px' }}>
+                <div style={{ color: OP.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>
+                  {typeof value === 'number'
+                    ? key.toLowerCase().includes('amount') || key.toLowerCase().includes('revenue') || key.toLowerCase().includes('vat') || key.toLowerCase().includes('net')
+                      ? `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : key.toLowerCase().includes('rate')
+                        ? `${value}%`
+                        : value.toLocaleString()
+                    : String(value ?? '—')}
+                </div>
+                <div style={{ color: OP.muted, fontSize: '12px', lineHeight: '16px', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>
+                  {key.replace(/_/g, ' ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ background: OP.surface, border: `1px solid ${OP.border}`, borderRadius: '4px', overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: OP.muted, fontSize: '13px' }}>Loading…</div>
+          ) : rows.length === 0 ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: OP.muted, fontSize: '13px' }}>{emptyMessage}</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '880px', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${OP.border}`, background: '#f8fafc' }}>
+                    {stableColumns.map((column) => (
+                      <th
+                        key={column.key}
+                        style={{
+                          height: '36px',
+                          padding: '0 12px',
+                          textAlign: 'left',
+                          color: OP.muted,
+                          fontWeight: 600,
+                          fontSize: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {column.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, rowIndex) => (
+                    <tr
+                      key={String((row as { id?: string }).id ?? rowIndex)}
+                      className="xdrive-table-row"
+                      style={{ borderBottom: `1px solid ${OP.border}` }}
+                    >
+                      {stableColumns.map((column) => (
+                        <td key={column.key} style={{ height: '40px', padding: '0 12px', color: OP.text, verticalAlign: 'middle' }}>
+                          {column.render(row)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
+}
+
+
+export default function SuperAdminLiveTablePage<T extends Record<string, unknown>>({
+  icon,
+  title,
+  sectionLabel,
+  description,
+  endpoint,
+  rowsField = 'rows',
+  summaryField,
+  noteField,
+  columns,
+  emptyMessage,
+}: SuperAdminLiveTablePageProps<T>) {
+  const [rows, setRows] = useState<T[]>([]);
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const stableColumns = useMemo(() => columns, [columns]);
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const auth = await getAuthHeader();
+        if (!auth) {
+          setError('No active session.');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(endpoint, { headers: { Authorization: auth } });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError((body as { error?: string }).error ?? `HTTP ${res.status}`);
+          setLoading(false);
+          return;
+        }
+
+        const fieldValue = (body as Record<string, unknown>)[rowsField];
+        setRows(Array.isArray(fieldValue) ? (fieldValue as T[]) : []);
+
+        if (summaryField) {
+          const summaryValue = (body as Record<string, unknown>)[summaryField];
+          setSummary(summaryValue && typeof summaryValue === 'object' ? (summaryValue as Record<string, unknown>) : null);
+        }
+        if (noteField) {
+          const noteValue = (body as Record<string, unknown>)[noteField];
+          setNote(typeof noteValue === 'string' ? noteValue : null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fetch failed.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
+  }, [endpoint, rowsField, summaryField, noteField]);
+
+  return (
+    <ProtectedRoute allowedRoles={['owner']}>
+      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.5rem' }}>{icon}</span>
           <div>
@@ -111,13 +276,13 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         </div>
 
         {error && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: '#fef2f2', border: `1px solid ${THEME.red}`, borderRadius: '4px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
           </div>
         )}
 
         {note && !loading && (
-          <div style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.3)`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.8rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.3)`, borderRadius: '4px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.8rem', marginBottom: '1rem' }}>
             ℹ️ {note}
           </div>
         )}
@@ -125,7 +290,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         {summary && !loading && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', marginBottom: '1rem' }}>
             {Object.entries(summary).map(([key, value]) => (
-              <div key={key} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
+              <div key={key} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '0.6rem 0.75rem' }}>
                 <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>
                   {typeof value === 'number'
                     ? key.toLowerCase().includes('amount') || key.toLowerCase().includes('revenue') || key.toLowerCase().includes('vat') || key.toLowerCase().includes('net')
@@ -143,7 +308,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
           </div>
         )}
 
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden' }}>
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>Loading…</div>
           ) : rows.length === 0 ? (

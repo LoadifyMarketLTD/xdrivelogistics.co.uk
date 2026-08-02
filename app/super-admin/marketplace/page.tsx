@@ -56,14 +56,15 @@ type MarketplaceResponse = {
 };
 
 const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  green: '#22c55e',
-  red: '#ef4444',
+  pageBg: '#f5f7fa',
+  cardBg: '#ffffff',
+  cardBorder: '#d9e2ec',
+  text: '#202124',
+  muted: '#5f6368',
+  accent: '#f5a300',
+  green: '#35a853',
+  blue: '#1d57d8',
+  red: '#d93025',
 };
 
 function getActionsForRow(row: MarketplaceJobRow): MarketplaceAction[] {
@@ -194,13 +195,13 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
+      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.5rem' }}>🌍</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Marketplace Governance Feed</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: '#fffbeb', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
                 Marketplace
               </span>
             </div>
@@ -212,7 +213,7 @@ export default function Page() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.7rem', marginBottom: '1rem' }}>
           {quickStats.map((item) => (
-            <div key={item.label} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.75rem' }}>
+            <div key={item.label} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '0.75rem' }}>
               <div style={{ color: THEME.text, fontSize: '1.1rem', fontWeight: 700 }}>{item.value}</div>
               <div style={{ color: THEME.muted, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
             </div>
@@ -225,7 +226,7 @@ export default function Page() {
             style={{
               borderRadius: '7px',
               border: `1px solid ${THEME.cardBorder}`,
-              backgroundColor: '#0b1220',
+              backgroundColor: THEME.cardBg,
               color: THEME.text,
               padding: '0.45rem 0.7rem',
               fontSize: '0.75rem',
@@ -241,18 +242,18 @@ export default function Page() {
         </div>
 
         {message && (
-          <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '4px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
             {message}
           </div>
         )}
 
         {error && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: '#fef2f2', border: `1px solid ${THEME.red}`, borderRadius: '4px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
           </div>
         )}
 
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem' }}>
+        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>Loading…</div>
           ) : jobs.length === 0 ? (
@@ -346,7 +347,7 @@ export default function Page() {
           )}
         </div>
 
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '0.9rem' }}>
+        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '0.9rem' }}>
           <h2 style={{ margin: '0 0 0.6rem', color: THEME.text, fontSize: '0.92rem' }}>Marketplace Governance Audit Log</h2>
           {!governanceHistoryAvailable ? (
             <p style={{ margin: 0, color: THEME.red, fontSize: '0.8rem' }}>

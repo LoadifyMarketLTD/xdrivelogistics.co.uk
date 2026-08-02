@@ -429,19 +429,19 @@
   width: 100%;
   max-width: var(--xdrive-page-max-width, 1480px);
   margin: 0 auto;
-  padding: 12px;
+  padding: 12px 16px;
 }
 
 .operationalPageLayoutTwoPanel {
   display: grid;
-  /* 232px search panel (Section 5) + flexible main content */
-  grid-template-columns: 232px minmax(0, 1fr);
-  gap: 12px;
+  /* 220px filter rail (spec) + flexible main content */
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 8px;
   align-items: start;
 }
 
 .operationalPageLayoutSearchAside {
-  width: 232px;
+  width: 220px;
   /* Sticky so the search panel tracks scroll on tall result lists */
   position: sticky;
   top: 12px;
@@ -523,8 +523,8 @@
 /* ─── OperationalFilters ────────────────────────────────────────────────── */
 
 .operationalFilters {
-  /* Fixed 232px — Section 5: "Desktop load-search/filter rail: width 232px" */
-  width: 232px;
+  /* Fixed 220px — spec: "left filter rail: 220px" */
+  width: 220px;
   background: #ffffff;
   border: 1px solid #D8DEE8;
   border-radius: 4px;
