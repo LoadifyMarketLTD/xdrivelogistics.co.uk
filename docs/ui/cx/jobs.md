@@ -268,3 +268,36 @@ Every numeric value in this document is classified as one of:
 ## 8. Remaining Deviations
 
 *To be filled after Jobs implementation pass — document any numerical gaps between XDRIVE_TARGET values and rendered output.*
+
+---
+
+## 9. Driver Filter & Restored Information Fields
+
+### 9.1 Driver filter — canonical source
+
+| Field | Classification | Notes |
+|---|---|---|
+| `jobs.assigned_driver_id` | `EXISTING_CONTRACT` | FK → `public.drivers(id)`, set by `assign_job_driver_atomic` RPC (migration 069). Null = unassigned. |
+| Driver name | `XDRIVE_TARGET` | Resolved at render time from `drivers` table via `company_id` scoped query: `display_name`. |
+
+**Implementation:** The parent (`app/admin/jobs/page.tsx`) loads company-scoped drivers (status = `active`) into state and passes them as `drivers: Array<{id, displayName}>` to `JobsOperationalTable`. A `<select>` control appears in the toolbar when at least one driver exists. Filtering applies `job.assignedDriverId === driverFilter` and resets pagination. The pure helper `filterJobsByDriver(jobs, driverFilter)` is exported and unit-tested independently.
+
+**Blocker note:** Driver names are stored in `drivers.display_name`. There is no `driver_name` on the jobs row. If `assigned_driver_id` is present but the driver no longer exists in the loaded list, the component falls back to displaying the first 8 chars of the UUID with an ellipsis. This is defensive and does not fabricate data.
+
+### 9.2 Restored information fields
+
+The following fields were present in the pre-refactor Jobs presentation and have been restored as of this PR:
+
+| Field | Restoration mechanism | Classification |
+|---|---|---|
+| Created date | Shown as a secondary line in the Ref column (below the job reference) | `XDRIVE_TARGET` |
+| Cargo type + quantity | Shown as a secondary line in the Vehicle column | `XDRIVE_TARGET` |
+| Client phone | Shown as a secondary line in the Customer column | `XDRIVE_TARGET` |
+| Exchange visibility | Shown as a small label below the status badge (only when non-private) | `XDRIVE_TARGET` |
+| Client email, payment terms, awarded carrier, cargo notes, load detail summary, assigned driver | Accessible via per-row expand toggle (▼) which opens an inline detail row | `XDRIVE_TARGET` |
+
+**Intentional UX decision:** Full client email, payment terms, and load detail summary are placed in the expandable detail row rather than a main column to avoid making the table unreadable at 1060px. The information remains one click away and is visible without navigation to the job detail page.
+
+### 9.3 `assigned_driver_id` in `DbJob` interface
+
+`lib/types/database.ts` → `DbJob.assigned_driver_id: string | null` added to match the schema column defined in migration `017_complete_idempotent_setup.sql` and confirmed present in migrations `003`, `020`, and `069`.

@@ -44,6 +44,8 @@ interface Job {
  vehicleType: string;
  paymentTerms: string;
  loadDetailSummary: LoadDetailItem[];
+ /** FK to drivers.id — null when unassigned */
+ assignedDriverId?: string | null;
  exchange_visibility?: string | null;
  awarded_carrier_company_id?: string | null;
  direct_invite_company_id?: string | null;
@@ -114,6 +116,8 @@ export default function JobsPage() {
  const [deliveryFilter, setDeliveryFilter] = useState('');
  const [dateFilter, setDateFilter] = useState('');
  const [customerFilter, setCustomerFilter] = useState('');
+ const [driverFilter, setDriverFilter] = useState('');
+ const [drivers, setDrivers] = useState<Array<{ id: string; displayName: string }>>([]);
  const [showModal, setShowModal] = useState(false);
  // Direct invite state
  const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
@@ -198,9 +202,15 @@ export default function JobsPage() {
  }, [hasSupabaseSession, companyId]);
 
  useEffect(() => {
+ if (companyId && isSupabaseConfigured) {
+ loadDrivers(companyId);
+ }
+ }, [companyId]);
+
+ useEffect(() => {
  filterJobs();
  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter]);
+ }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
 
  const loadJobs = async () => {
  setDbError(null);
@@ -213,7 +223,7 @@ export default function JobsPage() {
 
  const { data, error } = await supabase
  .from('jobs')
- .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, direct_invite_company_id, created_at, updated_at')
+ .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, direct_invite_company_id, assigned_driver_id, created_at, updated_at')
  .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
  .order('created_at', { ascending: false });
 
@@ -270,6 +280,7 @@ export default function JobsPage() {
  vehicleType: ((row.requested_vehicle_label as string | null) || (row.vehicle_type as string | null) || 'unknown').replace(/_/g, ' '),
  paymentTerms: 'Not provided',
  loadDetailSummary: getLoadDetailSummary(row, 6),
+ assignedDriverId: (row.assigned_driver_id as string | null) ?? null,
  exchange_visibility: (row.exchange_visibility as string | null) ?? null,
  awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
  direct_invite_company_id: (row.direct_invite_company_id as string | null) ?? null,
@@ -281,6 +292,24 @@ export default function JobsPage() {
  }
  setJobs([]);
  setFilteredJobs([]);
+ };
+
+ const loadDrivers = async (cid: string) => {
+ if (!isSupabaseConfigured) return;
+ const { data } = await supabase
+ .from('drivers')
+ .select('id, display_name')
+ .eq('company_id', cid)
+ .eq('status', 'active')
+ .order('display_name');
+ if (data) {
+ setDrivers(
+ (data as Array<{ id: string; display_name: string }>).map((d) => ({
+  id: d.id,
+  displayName: d.display_name,
+ })),
+ );
+ }
  };
 
  const filterJobs = () => {
@@ -317,6 +346,10 @@ export default function JobsPage() {
 
  if (dateFilter) {
  filtered = filtered.filter((job) => job.pickup.date === dateFilter || job.delivery.date === dateFilter);
+ }
+
+ if (driverFilter) {
+ filtered = filtered.filter((job) => job.assignedDriverId === driverFilter);
  }
 
  setFilteredJobs(filtered);
@@ -686,6 +719,9 @@ export default function JobsPage() {
   deliveryFilter={deliveryFilter}
   dateFilter={dateFilter}
   customerFilter={customerFilter}
+  driverFilter={driverFilter}
+  onDriverFilterChange={setDriverFilter}
+  drivers={drivers}
   onSearchTermChange={setSearchTerm}
   onStatusFilterChange={setStatusFilter}
   onPickupFilterChange={setPickupFilter}
