@@ -22,7 +22,7 @@
  */
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import styles from './WorkspaceUI.module.css';
 
@@ -184,9 +184,17 @@ export function JobsOperationalTable({
   const totalPages = Math.ceil(totalFiltered / perPage);
   const start = page * perPage + 1;
   const end = Math.min((page + 1) * perPage, totalFiltered);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   /* Track which rows are expanded to show detail panel */
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth <= 480);
+    syncViewport();
+    window.addEventListener('resize', syncViewport);
+    return () => window.removeEventListener('resize', syncViewport);
+  }, []);
+
   function toggleRowExpanded(id: string) {
     setExpandedRows((prev: Set<string>) => {
       const next = new Set(prev);
@@ -353,6 +361,7 @@ export function JobsOperationalTable({
        * On mobile (≤480px): entire section hidden; mobile cards shown instead.
        */}
       <div className={styles.jobsTableSection} data-testid="jobs-desktop-table">
+      {!isMobileViewport && (
       <div className={styles.operationalTableContainer}>
         <div className={styles.operationalTableScroll}>
           <table className={`${styles.operationalTable} ${styles.operationalTableMinWidth} ${styles.jobsOperationalTable}`}>
@@ -671,6 +680,7 @@ export function JobsOperationalTable({
           </div>
         )}
       </div>
+      )}
       </div>{/* end .jobsTableSection */}
 
       {/* ── Mobile cards — ≤480px (hidden on tablet/desktop via CSS) ─────────
@@ -680,17 +690,18 @@ export function JobsOperationalTable({
        * visibility, cargo notes, load details.
        */}
       <div className={styles.jobsMobileCardList} data-testid="jobs-mobile-cards" aria-label="Jobs list">
-        {filteredJobs.length === 0 ? (
-          <div className={styles.jobsEmptyMobileState}>
-            No jobs match the current filters.
-          </div>
-        ) : (
-          filteredJobs.map((job) => {
-            const s = statusStyle(job.status);
-            const isExpanded = expandedRows.has(job.id);
-            const transitions = allowedStatusTransitions(job.status);
-            return (
-              <div key={job.id} className={styles.jobsMobileCard} data-testid="jobs-mobile-card">
+        {isMobileViewport ? (
+          filteredJobs.length === 0 ? (
+            <div className={styles.jobsEmptyMobileState}>
+              No jobs match the current filters.
+            </div>
+          ) : (
+            filteredJobs.map((job) => {
+              const s = statusStyle(job.status);
+              const isExpanded = expandedRows.has(job.id);
+              const transitions = allowedStatusTransitions(job.status);
+              return (
+                <div key={job.id} className={styles.jobsMobileCard} data-testid="jobs-mobile-card">
                 {/* Card header: ref + status badge + expand */}
                 <div className={styles.jobsMobileCardHeader}>
                   <span className={styles.jobsMobileCardRef}>{job.jobRef}</span>
@@ -859,10 +870,11 @@ export function JobsOperationalTable({
                     </button>
                   )}
                 </div>
-              </div>
-            );
-          })
-        )}
+                </div>
+              );
+            })
+          )
+        ) : null}
       </div>
     </div>
   );
