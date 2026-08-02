@@ -301,3 +301,51 @@ The following fields were present in the pre-refactor Jobs presentation and have
 ### 9.3 `assigned_driver_id` in `DbJob` interface
 
 `lib/types/database.ts` → `DbJob.assigned_driver_id: string | null` added to match the schema column defined in migration `017_complete_idempotent_setup.sql` and confirmed present in migrations `003`, `020`, and `069`.
+
+
+---
+
+## 10. Business Logic Module — `lib/jobs/jobOperationalContract.ts`
+
+All domain business rules for the Jobs operational surface are owned by a single canonical module:
+
+**Path:** `lib/jobs/jobOperationalContract.ts`
+
+This module is the authoritative source for the types and logic listed below. `app/components/workspace/JobsOperationalTable.tsx` re-exports all symbols from it for backward compatibility; new code must import directly from the contract module.
+
+### 10.1 Owned symbols
+
+| Symbol | Kind | Description |
+|---|---|---|
+| `JobRow` | interface | Full display + operational data for every table row |
+| `AdminJobFields` | interface | Supabase-mapped admin Job shape accepted by `jobToRow` |
+| `jobToRow` | function | Typed adapter — `AdminJobFields → JobRow`, no `as unknown as` |
+| `ALLOWED_STATUS_TRANSITIONS` | const | Admin-permitted status transitions keyed by canonical `JOB_STATUS` values |
+| `allowedStatusTransitions` | function | Returns allowed transitions for a given status string; case-insensitive |
+| `isDirectInviteEligible` | function | Canonical Direct Invite eligibility rule |
+| `filterJobsByDriver` | function | Pure driver filter helper |
+
+### 10.2 Status transitions
+
+All status values in `ALLOWED_STATUS_TRANSITIONS` are sourced from `JOB_STATUS` in `app/config/company.ts`. No string literals are duplicated.
+
+**Classification:** `XDRIVE_TARGET` — deliberate admin surface scope; statuses that require driver or carrier interaction are intentionally excluded.
+
+**Write-permission scope (XDRIVE_TARGET):** Mutations on this surface are restricted to jobs owned by `company_id`. Jobs visible through `assigned_company_id` or `awarded_carrier_company_id` are intentionally read-only; the parent page (`app/admin/jobs/page.tsx`) scopes all Supabase writes with `.eq('company_id', companyId)` before applying any transition.
+
+### 10.3 Direct Invite eligibility
+
+The canonical rule: both conditions must hold.
+
+1. `awarded_carrier_company_id` is null/undefined (job not yet awarded).
+2. `exchange_visibility` is null, undefined, or `'private'`.
+
+`'exchange'`, `'direct'`, or any other non-private value excludes the job from invitation. This rule must not be weakened without a documented business decision.
+
+### 10.4 Driver filter
+
+Driver identity is resolved exclusively from `job.assignedDriverId` (FK → `public.drivers(id)`). See §9.1 for the canonical source reference. Driver names are never inferred from cargo notes or any non-canonical field.
+
+### 10.5 Unit tests
+
+All symbols are covered by `__tests__/jobsOperationalHelpers.test.ts`, which imports directly from `lib/jobs/jobOperationalContract.ts`.
