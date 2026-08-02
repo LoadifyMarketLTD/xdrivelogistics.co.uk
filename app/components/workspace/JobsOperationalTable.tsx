@@ -23,10 +23,12 @@
 'use client';
 
 import type { CSSProperties } from 'react';
+import type { LoadDetailItem } from '../../../lib/loadPostingDetails';
 import styles from './WorkspaceUI.module.css';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
+/** Full display + operational data carried by every table row. */
 export interface JobRow {
   id: string;
   jobRef: string;
@@ -35,9 +37,109 @@ export interface JobRow {
   pickup: { location: string; date: string; time: string; postcode?: string };
   delivery: { location: string; date: string; time: string; postcode?: string };
   vehicleType: string;
+  /** Pre-formatted distance string, e.g. "42.3 mi", or empty string. */
   distanceMiles: string;
+  createdAt: string;
+  updatedAt: string;
   exchange_visibility?: string | null;
   awarded_carrier_company_id?: string | null;
+  direct_invite_company_id?: string | null;
+  paymentTerms?: string;
+  cargo?: { type: string; quantity: number; notes: string };
+  loadDetailSummary?: LoadDetailItem[];
+}
+
+/**
+ * Input shape accepted by jobToRow — a superset of JobRow that includes all
+ * fields present on the Supabase-mapped admin Job object.
+ * Exported so page.tsx can use it as a typed constraint without maintaining a
+ * duplicate interface.
+ */
+export interface AdminJobFields {
+  id: string;
+  jobRef: string;
+  status: string;
+  client: { name: string; email: string; phone: string };
+  pickup: { location: string; date: string; time: string; postcode?: string };
+  delivery: { location: string; date: string; time: string; postcode?: string };
+  vehicleType: string;
+  distanceMiles: string;
+  createdAt: string;
+  updatedAt: string;
+  exchange_visibility?: string | null;
+  awarded_carrier_company_id?: string | null;
+  direct_invite_company_id?: string | null;
+  paymentTerms?: string;
+  cargo?: { type: string; quantity: number; notes: string };
+  loadDetailSummary?: LoadDetailItem[];
+}
+
+/**
+ * Typed adapter — converts an AdminJobFields record to a JobRow without any
+ * `as unknown as` coercion.  Every field is mapped explicitly so that contract
+ * mismatches surface as compile-time errors rather than silent runtime bugs.
+ */
+export function jobToRow(job: AdminJobFields): JobRow {
+  return {
+    id: job.id,
+    jobRef: job.jobRef,
+    status: job.status,
+    client: { name: job.client.name },
+    pickup: {
+      location: job.pickup.location,
+      date: job.pickup.date,
+      time: job.pickup.time,
+      postcode: job.pickup.postcode,
+    },
+    delivery: {
+      location: job.delivery.location,
+      date: job.delivery.date,
+      time: job.delivery.time,
+      postcode: job.delivery.postcode,
+    },
+    vehicleType: job.vehicleType,
+    distanceMiles: job.distanceMiles,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    exchange_visibility: job.exchange_visibility,
+    awarded_carrier_company_id: job.awarded_carrier_company_id,
+    direct_invite_company_id: job.direct_invite_company_id,
+    paymentTerms: job.paymentTerms,
+    cargo: job.cargo,
+    loadDetailSummary: job.loadDetailSummary,
+  };
+}
+
+/* ─── Pure eligibility / transition helpers (exported for unit testing) ─── */
+
+/**
+ * Direct Invite is only available when the job has not yet been awarded to a
+ * carrier AND the exchange visibility is absent (null/undefined) or 'private'.
+ * Public/exchange records must not be offered for direct invitation unless the
+ * business rule explicitly changes.
+ */
+export function isDirectInviteEligible(
+  job: Pick<JobRow, 'exchange_visibility' | 'awarded_carrier_company_id'>,
+): boolean {
+  return (
+    !job.awarded_carrier_company_id &&
+    (!job.exchange_visibility || job.exchange_visibility === 'private')
+  );
+}
+
+/**
+ * Returns the set of status values this job's current status may transition to
+ * within the admin operations surface.  Only forward/terminal transitions that
+ * do not require driver or carrier interaction are included.
+ */
+export const ALLOWED_STATUS_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  draft:     ['posted', 'cancelled'],
+  posted:    ['cancelled'],
+  allocated: ['cancelled'],
+} as const;
+
+export function allowedStatusTransitions(status: string): readonly string[] {
+  return ALLOWED_STATUS_TRANSITIONS[status.toLowerCase()] ?? [];
 }
 
 export interface JobsKpiTile {
@@ -75,6 +177,17 @@ export interface JobsOperationalTableProps {
   onNewJob: () => void;
   onViewJob: (id: string) => void;
   onDirectInvite: (job: JobRow) => void;
+  /**
+   * Transition the job to a new status.  Called with the job id and the target
+   * status string.  The parent is responsible for the Supabase update, company
+   * scoping, and re-fetching the jobs list on success.
+   */
+  onStatusChange: (id: string, newStatus: string) => void;
+  /**
+   * Explicitly post a draft job to the marketplace.  Only called for jobs with
+   * status === 'draft'.  Parent applies the Supabase update and re-fetches.
+   */
+  onPostJob: (id: string) => void;
   newJobDisabled?: boolean;
   /** Alert content (pass null to suppress) */
   companyError?: string | null;
@@ -87,6 +200,7 @@ export interface JobsOperationalTableProps {
 /* ─── Status → badge colour mapping ─────────────────────────────────────── */
 
 const STATUS_STYLES: Record<string, CSSProperties> = {
+  draft:       { background: '#FFFBEB', borderColor: '#FCD34D', color: '#B76E00' },
   received:    { background: '#FFFBEB', borderColor: '#FCD34D', color: '#B76E00' },
   posted:      { background: '#EFF6FF', borderColor: '#BFDBFE', color: '#1D57D8' },
   allocated:   { background: '#F5F3FF', borderColor: '#DDD6FE', color: '#6D28D9' },
@@ -105,6 +219,7 @@ function statusStyle(status: string): CSSProperties {
 }
 
 function statusLabel(status: string): string {
+  if (status === 'draft') return 'Received';
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -121,7 +236,7 @@ function fmtDate(iso: string): string {
 
 const STATUS_TABS = [
   { label: 'All',        value: 'All' },
-  { label: 'Received',   value: 'received' },
+  { label: 'Received',   value: 'draft' },
   { label: 'Posted',     value: 'posted' },
   { label: 'Allocated',  value: 'allocated' },
   { label: 'In Transit', value: 'in_transit' },
@@ -134,7 +249,7 @@ const STATUS_TABS = [
 
 const DEFAULT_KPI_TILES: Array<{ label: string; value: string; accent: string }> = [
   { label: 'All Jobs',   value: 'All',       accent: '#1D57D8' },
-  { label: 'Received',   value: 'received',  accent: '#B76E00' },
+  { label: 'Received',   value: 'draft',     accent: '#B76E00' },
   { label: 'Posted',     value: 'posted',    accent: '#1D57D8' },
   { label: 'Allocated',  value: 'allocated', accent: '#6D28D9' },
   { label: 'Delivered',  value: 'delivered', accent: '#198754' },
@@ -165,6 +280,8 @@ export function JobsOperationalTable({
   onNewJob,
   onViewJob,
   onDirectInvite,
+  onStatusChange,
+  onPostJob,
   newJobDisabled = false,
   companyError,
   dbError,
@@ -473,10 +590,16 @@ export function JobsOperationalTable({
 
                       {/* Distance — 96px */}
                       <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} style={{ fontSize: '12px', color: '#64748B' }}>
-                        {job.distanceMiles ? `${job.distanceMiles} mi` : '—'}
+                        {job.distanceMiles || '—'}
                       </td>
 
-                      {/* Actions — 92px */}
+                      {/* Actions — 92px
+                       * Compact action cell:
+                       *   • "View" always present
+                       *   • "Post" for draft jobs (primary workflow action)
+                       *   • Status select for jobs with allowed transitions
+                       *   • "Invite" only for private/unawarded jobs
+                       */}
                       <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.jobsActionCell}>
                           <button
@@ -487,7 +610,38 @@ export function JobsOperationalTable({
                           >
                             View
                           </button>
-                          {!job.awarded_carrier_company_id && (
+                          {job.status === 'draft' && (
+                            <button
+                              type="button"
+                              className={styles.jobsActionBtn}
+                              style={{ background: '#0B2F6B', color: '#ffffff', borderColor: '#0B2F6B' }}
+                              onClick={() => onPostJob(job.id)}
+                              aria-label={`Post job ${job.jobRef} to marketplace`}
+                            >
+                              Post
+                            </button>
+                          )}
+                          {job.status !== 'draft' && allowedStatusTransitions(job.status).length > 0 && (
+                            <select
+                              className={styles.jobsActionBtn}
+                              defaultValue=""
+                              aria-label={`Update status for job ${job.jobRef}`}
+                              onChange={(e) => {
+                                const next = e.target.value;
+                                if (next) {
+                                  onStatusChange(job.id, next);
+                                  e.target.value = '';
+                                }
+                              }}
+                              style={{ paddingRight: 4 }}
+                            >
+                              <option value="" disabled>Update…</option>
+                              {allowedStatusTransitions(job.status).map((s) => (
+                                <option key={s} value={s}>{statusLabel(s)}</option>
+                              ))}
+                            </select>
+                          )}
+                          {isDirectInviteEligible(job) && (
                             <button
                               type="button"
                               className={styles.jobsActionBtn}
