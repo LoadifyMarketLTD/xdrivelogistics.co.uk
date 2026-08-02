@@ -156,6 +156,72 @@ export function allowedStatusTransitions(status: string): readonly string[] {
   return ALLOWED_STATUS_TRANSITIONS[status.toLowerCase() as JobStatus] ?? [];
 }
 
+/* ─── Runtime transition enforcement ───────────────────────────────────── */
+
+/**
+ * Slim job record required by validateJobTransition.  Using a narrow type keeps
+ * the function independent of the full Job/JobRow shapes used by the UI.
+ */
+export interface JobTransitionRecord {
+  id: string;
+  status: string;
+  /** company_id that owns this job (FK from the jobs table). */
+  companyId: string;
+}
+
+/** Discriminated union returned by validateJobTransition. */
+export type TransitionValidationResult =
+  | { ok: true }
+  | { ok: false; error: 'missing-job' | 'foreign-job' | 'invalid-transition'; message: string };
+
+/**
+ * Pure transition guard — validates that a status mutation is permitted
+ * before any Supabase call is made.  Fails closed on every error category.
+ *
+ * Checks (in order):
+ *  1. Job with `id` must exist in `jobs`.
+ *  2. The job's `companyId` must equal `activeCompanyId`
+ *     (foreign/assigned/awarded jobs are visible but not mutable here).
+ *  3. `newStatus` must be in `allowedStatusTransitions(currentStatus)`.
+ *
+ * Classification: XDRIVE_TARGET — domain enforcement rule for the admin
+ * operations surface.
+ */
+export function validateJobTransition(params: {
+  jobs: ReadonlyArray<JobTransitionRecord>;
+  id: string;
+  newStatus: string;
+  activeCompanyId: string;
+}): TransitionValidationResult {
+  const { jobs, id, newStatus, activeCompanyId } = params;
+
+  const job = jobs.find((j) => j.id === id);
+  if (!job) {
+    return { ok: false, error: 'missing-job', message: `Job ${id.slice(0, 8)} not found.` };
+  }
+
+  if (job.companyId !== activeCompanyId) {
+    return {
+      ok: false,
+      error: 'foreign-job',
+      message: `Job ${id.slice(0, 8)} is not owned by the active company and cannot be updated here.`,
+    };
+  }
+
+  const allowed = allowedStatusTransitions(job.status);
+  if (!allowed.includes(newStatus)) {
+    const current = job.status;
+    const allAllowed = allowed.length > 0 ? allowed.join(', ') : 'none';
+    return {
+      ok: false,
+      error: 'invalid-transition',
+      message: `Cannot transition job ${id.slice(0, 8)} from '${current}' to '${newStatus}'. Allowed: ${allAllowed}.`,
+    };
+  }
+
+  return { ok: true };
+}
+
 /* ─── Direct Invite eligibility ─────────────────────────────────────────── */
 
 /**

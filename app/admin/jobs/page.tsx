@@ -11,10 +11,16 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
+import {
+  validateJobTransition,
+} from '../../../lib/jobs/jobOperationalContract';
+import type { JobTransitionRecord } from '../../../lib/jobs/jobOperationalContract';
 
 interface Job {
  id: string;
  jobRef: string;
+ /** Owner company — used for mutation eligibility checks (company_id column). */
+ companyId: string;
  client: {
  name: string;
  email: string;
@@ -251,6 +257,7 @@ export default function JobsPage() {
  return {
  id: row.id as string,
  jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+ companyId: (row.company_id as string) || '',
  client: {
  name: clientFields.name,
  email: clientFields.email,
@@ -380,13 +387,36 @@ export default function JobsPage() {
  };
 
  /**
-  * Transition a job to a new status.  Company-scoped: only updates rows owned
-  * by the current company (company_id = companyId).  Re-fetches the jobs list
-  * on success so the table reflects the persisted state.
+  * Transition a job to a new status.
+  *
+  * Guard order (fail-closed):
+  *  1. Supabase and companyId must be available.
+  *  2. validateJobTransition — resolves job from local state, verifies
+  *     ownership (company_id = companyId), and checks the transition is in
+  *     ALLOWED_STATUS_TRANSITIONS before any network call is made.
+  *  3. Supabase update is additionally scoped with .eq('company_id', companyId)
+  *     as a defense-in-depth server-side guard.
   */
  const handleStatusChange = async (id: string, newStatus: string) => {
  if (!isSupabaseConfigured || !companyId) return;
  setDbError(null);
+
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
+  id: j.id,
+  status: j.status,
+  companyId: j.companyId,
+ }));
+ const validation = validateJobTransition({
+  jobs: transitionRecords,
+  id,
+  newStatus,
+  activeCompanyId: companyId,
+ });
+ if (!validation.ok) {
+  setDbError(validation.message);
+  return;
+ }
+
  const { error } = await supabase
   .from('jobs')
   .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -400,12 +430,36 @@ export default function JobsPage() {
  };
 
  /**
-  * Post an eligible draft job to the marketplace.  Only called for jobs with
-  * status === 'draft' (JOB_STATUS.RECEIVED).  Company-scoped.
+  * Post an eligible draft job to the marketplace.
+  *
+  * Reuses the same validateJobTransition guard as handleStatusChange.
+  * The transition draft→posted must be in ALLOWED_STATUS_TRANSITIONS, so a
+  * separate eligibility rule is not needed here.  The Supabase call also
+  * guards with .eq('status', JOB_STATUS.RECEIVED) to prevent double-posts
+  * in the event of a race condition.
+  *
+  * Preserves exchange_posted_at and updated_at on success.
   */
  const handlePostJob = async (id: string) => {
  if (!isSupabaseConfigured || !companyId) return;
  setDbError(null);
+
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
+  id: j.id,
+  status: j.status,
+  companyId: j.companyId,
+ }));
+ const validation = validateJobTransition({
+  jobs: transitionRecords,
+  id,
+  newStatus: JOB_STATUS.POSTED,
+  activeCompanyId: companyId,
+ });
+ if (!validation.ok) {
+  setDbError(validation.message);
+  return;
+ }
+
  const { error } = await supabase
   .from('jobs')
   .update({
