@@ -462,7 +462,7 @@ export default function JobsVisualFixture() {
         customerFilter={customerFilter}
         driverFilter={driverFilter}
         onDriverFilterChange={handleFilterChange(setDriverFilter)}
-        drivers={FIXTURE_DRIVERS as Array<{ id: string; displayName: string }>}
+        drivers={[...FIXTURE_DRIVERS]}
         onSearchTermChange={handleFilterChange(setSearchTerm)}
         onStatusFilterChange={handleFilterChange(setStatusFilter)}
         onPickupFilterChange={handleFilterChange(setPickupFilter)}

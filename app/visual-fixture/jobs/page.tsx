@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import JobsVisualFixture from '../../../components/workspace/JobsVisualFixture';
+import JobsVisualFixture from '../../components/workspace/JobsVisualFixture';
 
 /**
  * Deterministic visual fixture for the Jobs operational surface.
