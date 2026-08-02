@@ -14,7 +14,7 @@ import {
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
 import SharedContextControls from './SharedContextControls';
-import { workspaceTheme } from './WorkspaceUI';
+import { WorkspaceActivityFeed, workspaceTheme } from './WorkspaceUI';
 import styles from './WorkspaceShell.module.css';
 
 export default function WorkspaceShell({
@@ -649,33 +649,21 @@ export default function WorkspaceShell({
         <main style={{ flex: 1, minWidth: 0, paddingBottom: tickerItems.length > 0 || tickerError ? '28px' : 0 }}>{children}</main>
       </div>
 
-      {(tickerItems.length > 0 || tickerError) && (
-        <div
-          className={styles.tickerRoot}
-          style={{ background: workspaceTheme.navy, color: '#e2e8f0' }}
-          aria-live="polite"
-          aria-label="Activity feed"
-        >
-          <div className={styles.tickerLabel} style={{ color: workspaceTheme.orange }}>
-            ● ACTIVITY
-          </div>
-          {tickerItems.length > 0 ? (
-            <div className={styles.tickerTrack}>
-              {[...tickerItems, ...tickerItems].map((item, index) => {
-                const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-                return (
-                  <span key={`${item.id}-${index}`} className={styles.tickerItem}>
-                    <span className={styles.tickerTime} style={{ color: workspaceTheme.orange }}>{time}</span>
-                    {item.label}{item.reference ? ` – ${item.reference}` : ''}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <div className={styles.tickerError}>{tickerError}</div>
-          )}
-        </div>
-      )}
+      <WorkspaceActivityFeed
+        items={tickerItems}
+        error={tickerError}
+        classNames={{
+          root: styles.tickerRoot,
+          title: styles.tickerLabel,
+          track: styles.tickerTrack,
+          item: styles.tickerItem,
+          time: styles.tickerTime,
+          error: styles.tickerError,
+        }}
+        labelColor={workspaceTheme.orange}
+        timeColor={workspaceTheme.orange}
+        background={workspaceTheme.navy}
+      />
     </div>
   );
 }
