@@ -112,7 +112,7 @@ export default function JobsPage() {
  const [deliveryFilter, setDeliveryFilter] = useState('');
  const [dateFilter, setDateFilter] = useState('');
  const [customerFilter, setCustomerFilter] = useState('');
- const [driverFilter, setDriverFilter] = useState('');
+ const [driverFilter] = useState('');
  const [showModal, setShowModal] = useState(false);
  // Direct invite state
  const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
@@ -323,21 +323,6 @@ export default function JobsPage() {
 
  setFilteredJobs(filtered);
  setJobsPage(0);
- };
-
- const openDirectInvite = async (job: Job) => {
- setDirectInviteJob(job);
- setDirectInviteCarrierId('');
- setDirectInviteError('');
- if (!isSupabaseConfigured) return;
- // Load carrier companies (all companies except the current one)
- const { data } = await supabase
- .from('companies')
- .select('id, name')
- .neq('id', companyId ?? '')
- .eq('status', 'active')
- .order('name');
- setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
  };
 
  const sendDirectInvite = async () => {
@@ -576,33 +561,6 @@ export default function JobsPage() {
  closeModal();
  };
 
- const handleStatusChange = async (jobId: string, newStatus: string) => {
- if (hasSupabaseSession) {
- if (!companyId) {
- setDbError('Company profile not loaded. Job status cannot be updated safely.');
- return;
- }
- const { error } = await supabase
- .from('jobs')
- .update({ status: newStatus, updated_at: new Date().toISOString() })
- .eq('id', jobId)
- .eq('company_id', companyId);
- if (error) {
- console.error('Failed to update job status:', error.message);
- setDbError(`Failed to update job status: ${error.message}`);
- return;
- }
- // Re-fetch from DB to confirm the persisted state
- await loadJobs();
- return;
- }
- setDbError('A live Supabase session is required to update job status safely.');
- };
-
- const handlePostJob = async (jobId: string) => {
- await handleStatusChange(jobId, JOB_STATUS.POSTED);
- };
-
  const closeModal = () => {
  setShowModal(false);
  setJobFormStep(0);
@@ -657,31 +615,6 @@ export default function JobsPage() {
  setFormErrors({});
  };
 
- const getStatusColor = (status: string) => {
- switch (status) {
- case JOB_STATUS.RECEIVED:
- return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' };
- case JOB_STATUS.POSTED:
- return { bg: '#dbeafe', text: '#1e3a8a', border: '#5C9FD8' };
- case JOB_STATUS.ALLOCATED:
- return { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' };
- case JOB_STATUS.DELIVERED:
- return { bg: '#dcfce7', text: '#14532d', border: '#1F7A3D' };
- default:
- return { bg: '#f3f4f6', text: '#1f2937', border: '#9ca3af' };
- }
- };
-
- const getStatusCount = (status: string) => {
- if (status === 'All') return jobs.length;
- return jobs.filter(job => job.status === status).length;
- };
-
- const formatDate = (dateStr: string) => {
- const date = new Date(dateStr);
- return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
- };
-
  const toggleFormArrayValue = (field: MultiSelectField, value: string) => {
  setFormData((current) => {
  const selected = current[field];
@@ -719,7 +652,20 @@ export default function JobsPage() {
   onCustomerFilterChange={setCustomerFilter}
   onNewJob={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
   onViewJob={(id) => router.push(`/admin/jobs/${id}`)}
-  onDirectInvite={(job) => setDirectInviteJob(job as unknown as Job)}
+  onDirectInvite={async (job) => {
+   const typedJob = job as unknown as Job;
+   setDirectInviteJob(typedJob);
+   setDirectInviteCarrierId('');
+   setDirectInviteError('');
+   if (!isSupabaseConfigured) return;
+   const { data } = await supabase
+    .from('companies')
+    .select('id, name')
+    .neq('id', companyId ?? '')
+    .eq('status', 'active')
+    .order('name');
+   setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
+  }}
   newJobDisabled={newJobDisabled}
   companyError={companyError}
   dbError={dbError}
