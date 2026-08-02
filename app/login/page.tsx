@@ -8,6 +8,7 @@ import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
 import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 import styles from './login.module.css';
+import heroStyles from './loginHeroFix.module.css';
 
 const MailIcon = () => (
   <svg className={styles.inputIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -109,7 +110,7 @@ export default function LoginPage() {
             fill
             priority
             sizes="(max-width: 820px) 100vw, 62vw"
-            className={styles.loginHeroImage}
+            className={`${styles.loginHeroImage} ${heroStyles.fullBleed}`}
           />
         </section>
 
