@@ -19,6 +19,7 @@ import {
   type JobRow,
 } from '../../../lib/jobs/jobOperationalContract';
 import { JobsOperationalTable } from './JobsOperationalTable';
+import { ExchangeKpiStrip, KpiCard, PageFrame } from './WorkspaceUI';
 import WorkspaceShell from './WorkspaceShell';
 
 /* ── Fixture drivers ─────────────────────────────────────────────────────── */
@@ -447,38 +448,45 @@ export default function JobsVisualFixture() {
         ],
       }}
     >
-      <JobsOperationalTable
-        jobs={FIXTURE_JOBS}
-        filteredJobs={paginatedJobs}
-        page={page}
-        perPage={FIXTURE_PER_PAGE}
-        totalFiltered={allFiltered.length}
-        onPageChange={handlePageChange}
-        searchTerm={searchTerm}
-        statusFilter={statusFilter}
-        pickupFilter={pickupFilter}
-        deliveryFilter={deliveryFilter}
-        dateFilter={dateFilter}
-        customerFilter={customerFilter}
-        driverFilter={driverFilter}
-        onDriverFilterChange={handleFilterChange(setDriverFilter)}
-        drivers={[...FIXTURE_DRIVERS]}
-        onSearchTermChange={handleFilterChange(setSearchTerm)}
-        onStatusFilterChange={handleFilterChange(setStatusFilter)}
-        onPickupFilterChange={handleFilterChange(setPickupFilter)}
-        onDeliveryFilterChange={handleFilterChange(setDeliveryFilter)}
-        onDateFilterChange={handleFilterChange(setDateFilter)}
-        onCustomerFilterChange={handleFilterChange(setCustomerFilter)}
-        onNewJob={() => undefined}
-        onViewJob={() => undefined}
-        onDirectInvite={() => undefined}
-        onStatusChange={() => undefined}
-        onPostJob={() => undefined}
-        newJobDisabled={false}
-        companyError={null}
-        dbError={null}
-        hasSupabaseSession={false}
-      />
+      <PageFrame>
+        <ExchangeKpiStrip>
+          <KpiCard label="All jobs" value={FIXTURE_JOBS.length} tone="blue" onClick={() => undefined} />
+          <KpiCard label="Draft jobs" value={FIXTURE_JOBS.filter((job) => job.status === 'draft').length} tone="orange" onClick={() => undefined} />
+          <KpiCard label="Allocated jobs" value={FIXTURE_JOBS.filter((job) => job.status === 'allocated').length} tone="purple" onClick={() => undefined} />
+          <KpiCard label="Assigned drivers" value={new Set(FIXTURE_JOBS.map((job) => job.assignedDriverId).filter(Boolean)).size} tone="green" onClick={() => undefined} />
+        </ExchangeKpiStrip>
+        <JobsOperationalTable
+          filteredJobs={paginatedJobs}
+          page={page}
+          perPage={FIXTURE_PER_PAGE}
+          totalFiltered={allFiltered.length}
+          onPageChange={handlePageChange}
+          searchTerm={searchTerm}
+          statusFilter={statusFilter}
+          pickupFilter={pickupFilter}
+          deliveryFilter={deliveryFilter}
+          dateFilter={dateFilter}
+          customerFilter={customerFilter}
+          driverFilter={driverFilter}
+          onDriverFilterChange={handleFilterChange(setDriverFilter)}
+          drivers={[...FIXTURE_DRIVERS]}
+          onSearchTermChange={handleFilterChange(setSearchTerm)}
+          onStatusFilterChange={handleFilterChange(setStatusFilter)}
+          onPickupFilterChange={handleFilterChange(setPickupFilter)}
+          onDeliveryFilterChange={handleFilterChange(setDeliveryFilter)}
+          onDateFilterChange={handleFilterChange(setDateFilter)}
+          onCustomerFilterChange={handleFilterChange(setCustomerFilter)}
+          onNewJob={() => undefined}
+          onViewJob={() => undefined}
+          onDirectInvite={() => undefined}
+          onStatusChange={() => undefined}
+          onPostJob={() => undefined}
+          newJobDisabled={false}
+          companyError={null}
+          dbError={null}
+          hasSupabaseSession={false}
+        />
+      </PageFrame>
     </WorkspaceShell>
   );
 }
