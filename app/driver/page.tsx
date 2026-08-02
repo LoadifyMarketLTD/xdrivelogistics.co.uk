@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
+import { canonicalJobStatus, filterJobsForDriver, recentCompletedJobs } from '../../lib/driverDashboard';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import {
@@ -58,7 +59,6 @@ const activeStatuses = new Set([
 
 const upcomingStatuses = new Set(['awarded', 'allocated', 'accepted']);
 const completedStatuses = new Set(['delivered', 'completed', 'invoiced', 'paid']);
-const canonicalStatus = (status: string | null | undefined, fallback: string) => status ?? fallback;
 
 const BID_STATUS_TONE: Record<string, 'green' | 'orange' | 'red' | 'purple'> = {
   accepted: 'green',
@@ -90,23 +90,20 @@ export default function DriverDashboard() {
   useEffect(() => { void fetchOwnerBids(); }, [fetchOwnerBids]);
 
   const myJobs = useMemo(
-    () => data.jobs.filter((job) => !user?.driverId || job.assigned_driver_id === user.driverId || ownerDriver),
+    () => filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver }),
     [data.jobs, ownerDriver, user?.driverId]
   );
-  const currentJob = myJobs.find((job) => activeStatuses.has(canonicalStatus(job.current_status, job.status)));
+  const currentJob = myJobs.find((job) => activeStatuses.has(canonicalJobStatus(job.current_status, job.status)));
   const todaysJobs = myJobs.filter((job) =>
     job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === new Date().toDateString()
   );
   const upcomingJobs = myJobs.filter((job) =>
-    upcomingStatuses.has(canonicalStatus(job.current_status, job.status)) &&
+    upcomingStatuses.has(canonicalJobStatus(job.current_status, job.status)) &&
     job.pickup_datetime &&
     new Date(job.pickup_datetime).toDateString() !== new Date().toDateString() &&
     new Date(job.pickup_datetime).getTime() > Date.now()
   ).sort((a, b) => String(a.pickup_datetime).localeCompare(String(b.pickup_datetime)));
-  const recentCompletedJobs = [...myJobs]
-    .filter((job) => completedStatuses.has(canonicalStatus(job.current_status, job.status)))
-    .sort((a, b) => String(b.delivery_datetime ?? b.created_at ?? '').localeCompare(String(a.delivery_datetime ?? a.created_at ?? '')))
-    .slice(0, 5);
+  const recentCompleted = recentCompletedJobs(myJobs);
 
   // Use direct owner bids for owner drivers; fall back to company bids for fleet drivers
   const myQuotes = ownerDriver
@@ -119,7 +116,7 @@ export default function DriverDashboard() {
   const expiringDocuments = myDocuments.filter(
     (document) => document.expiry_date && new Date(document.expiry_date).getTime() < Date.now() + 30 * 86_400_000
   );
-  const completedJobs = myJobs.filter((job) => completedStatuses.has(canonicalStatus(job.current_status, job.status))).length;
+  const completedJobs = myJobs.filter((job) => completedStatuses.has(canonicalJobStatus(job.current_status, job.status))).length;
 
   const submittedQuotes = myQuotes.filter((q) => q.status === 'submitted').length;
   const wonWork = myQuotes.filter((q) => q.status === 'accepted').length;
@@ -228,7 +225,7 @@ export default function DriverDashboard() {
         <Panel title="Recent completed work" description="Delivered jobs and POD-ready history.">
           <DataTable
             columns={['Route', 'Delivered', 'Status', 'Action']}
-            rows={recentCompletedJobs.map((job) => [
+            rows={recentCompleted.map((job) => [
               <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
               formatDateTime(job.delivery_datetime),
               <StatusBadge key="status" value={job.current_status ?? job.status} />,

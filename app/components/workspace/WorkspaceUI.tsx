@@ -144,6 +144,52 @@ export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { 
   return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
 }
 
+export function QuickActionGrid({
+  actions,
+}: {
+  actions: Array<{ key: string; label: string; onClick: () => void; trailing?: ReactNode }>;
+}) {
+  return (
+    <div style={{ display: 'grid', gap: '0.5rem' }}>
+      {actions.map((action) => (
+        <button
+          key={action.key}
+          type="button"
+          onClick={action.onClick}
+          style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.62rem 0.68rem', background: '#f8fafc', color: '#0f172a', fontSize: '0.76rem', cursor: 'pointer' }}
+        >
+          <span>{action.label}</span>
+          {action.trailing ?? <span aria-hidden="true">→</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function DateRangeSelector({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: '#fff' }}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** Explicit tone values for StatusBadge — keyed by semantic intent, never inferred from display text. */
 export type StatusBadgeTone = 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple';
 

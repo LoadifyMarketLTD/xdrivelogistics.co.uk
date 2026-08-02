@@ -33,6 +33,7 @@ export default function WorkspaceShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [tickerItems, setTickerItems] = useState<Array<{ id: string; label: string; reference: string | null; created_at: string }>>([]);
+  const [tickerError, setTickerError] = useState('');
   const tickerTimerRef = useRef<number | null>(null);
   const tickerAbortRef = useRef<AbortController | null>(null);
   const tickerBusyRef = useRef(false);
@@ -108,6 +109,7 @@ export default function WorkspaceShell({
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) {
       setTickerItems([]);
+      setTickerError('');
       return;
     }
 
@@ -146,6 +148,7 @@ export default function WorkspaceShell({
         const token = sessionData.session?.access_token;
         if (!token) {
           setTickerItems([]);
+          setTickerError('');
           return;
         }
 
@@ -158,6 +161,7 @@ export default function WorkspaceShell({
 
         if (!response.ok) {
           setTickerItems([]);
+          setTickerError('Activity feed unavailable');
           return;
         }
 
@@ -165,9 +169,11 @@ export default function WorkspaceShell({
           items?: Array<{ id: string; label: string; reference: string | null; created_at: string }>;
         };
         const items = Array.isArray(payload.items) ? payload.items : [];
+        setTickerError('');
         setTickerItems(items.slice().reverse());
       } catch {
         setTickerItems([]);
+        setTickerError('Activity feed unavailable');
       } finally {
         tickerBusyRef.current = false;
         if (!cancelled) queueNext();
@@ -640,10 +646,10 @@ export default function WorkspaceShell({
             </button>
           </div>
         </header>
-        <main style={{ flex: 1, minWidth: 0, paddingBottom: tickerItems.length > 0 ? '28px' : 0 }}>{children}</main>
+        <main style={{ flex: 1, minWidth: 0, paddingBottom: tickerItems.length > 0 || tickerError ? '28px' : 0 }}>{children}</main>
       </div>
 
-      {tickerItems.length > 0 && (
+      {(tickerItems.length > 0 || tickerError) && (
         <div
           className={styles.tickerRoot}
           style={{ background: workspaceTheme.navy, color: '#e2e8f0' }}
@@ -653,36 +659,23 @@ export default function WorkspaceShell({
           <div className={styles.tickerLabel} style={{ color: workspaceTheme.orange }}>
             ● ACTIVITY
           </div>
-          <div className={styles.tickerTrack}>
-            {[...tickerItems, ...tickerItems].map((item, index) => {
-              const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-              return (
-                <span key={`${item.id}-${index}`} className={styles.tickerItem}>
-                  <span className={styles.tickerTime} style={{ color: workspaceTheme.orange }}>{time}</span>
-                  {item.label}{item.reference ? ` – ${item.reference}` : ''}
-                </span>
-              );
-            })}
-          </div>
+          {tickerItems.length > 0 ? (
+            <div className={styles.tickerTrack}>
+              {[...tickerItems, ...tickerItems].map((item, index) => {
+                const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <span key={`${item.id}-${index}`} className={styles.tickerItem}>
+                    <span className={styles.tickerTime} style={{ color: workspaceTheme.orange }}>{time}</span>
+                    {item.label}{item.reference ? ` – ${item.reference}` : ''}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.tickerError}>{tickerError}</div>
+          )}
         </div>
       )}
-
-      <style jsx global>{`
-        * { box-sizing: border-box; }
-        body { background: ${workspaceTheme.page}; }
-        button, input, select, textarea { font: inherit; }
-        .xdrive-table-row:hover td { background: #fbfdff; }
-        @media (max-width: 820px) {
-          .xdrive-two-column, .xdrive-settings-layout { grid-template-columns: 1fr !important; }
-          .xdrive-settings-layout > aside { position: static !important; display: flex; overflow-x: auto; gap: 0.25rem; }
-          .xdrive-settings-layout > aside button { min-width: 155px; margin-bottom: 0 !important; }
-        }
-        @media (max-width: 560px) {
-          .xdrive-page-frame { padding-left: 0.65rem !important; padding-right: 0.65rem !important; }
-          .xdrive-page-header { margin-bottom: 0.75rem !important; }
-          .xdrive-kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -14,6 +14,8 @@ const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small'
 
 interface DriverOption { id: string; display_name: string; }
 type AdvertisingState = 'none' | 'exchange' | 'partner';
+const isAdvertisingState = (value: unknown): value is AdvertisingState =>
+  value === 'none' || value === 'exchange' || value === 'partner';
 
 export default function VehiclesPage() {
   const { user } = useAuth();
@@ -52,17 +54,10 @@ export default function VehiclesPage() {
     let { data, error } = await query;
     if (error && isMissingColumnError(error, 'vehicles', 'advertising_state')) {
       setAdvertisingStateAvailable(false);
+      setVehicles([]);
       setError('Vehicle advertising contract is not installed in this environment yet.');
-      const noAdvertisingResult = await supabase
-        .from('vehicles')
-        .select('id, company_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
-      data = (noAdvertisingResult.data ?? []).map((row) => ({
-        ...row,
-        advertising_state: 'none',
-      })) as unknown as Vehicle[];
-      error = noAdvertisingResult.error;
+      setLoading(false);
+      return;
     }
     if (error && isMissingColumnError(error, 'vehicles', 'type')) {
       const legacyResult = await supabase
@@ -73,7 +68,7 @@ export default function VehiclesPage() {
       data = ((legacyResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
         ...row,
         type: (row.vehicle_type as VehicleType | undefined) ?? 'van_large',
-        advertising_state: ((row.advertising_state as AdvertisingState | undefined) ?? 'none'),
+        advertising_state: isAdvertisingState(row.advertising_state) ? row.advertising_state : 'none',
       })) as unknown as Vehicle[];
       error = legacyResult.error;
     }

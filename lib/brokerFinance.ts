@@ -16,6 +16,7 @@ const moneyValue = (value: unknown) => {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
 };
+const CREDIT_NOTE_MARKERS = ['credit', 'refund', 'reversal'];
 
 export const isRevenueInvoice = (invoice: InvoiceLike, companyId: string | null): boolean => {
   if (!companyId || invoice.company_id !== companyId) return false;
@@ -37,6 +38,31 @@ export const invoiceNetAmount = (invoice: InvoiceLike): number => {
   if (gross > 0 && vat >= 0 && gross >= vat) return gross - vat;
   return gross;
 };
+
+export const invoiceSignedNetAmount = (invoice: InvoiceLike): number => {
+  const net = invoiceNetAmount(invoice);
+  if (net < 0) return net;
+  const status = norm(invoice.status);
+  return CREDIT_NOTE_MARKERS.some((marker) => status.includes(marker)) ? -Math.abs(net) : net;
+};
+
+export const invoicePeriodTime = (invoice: InvoiceLike): number | null => {
+  const stamp = invoice.invoice_date ?? null;
+  if (!stamp) return null;
+  const value = new Date(stamp).getTime();
+  return Number.isFinite(value) ? value : null;
+};
+
+export const sumSignedNetInPeriod = (
+  invoices: InvoiceLike[],
+  startInclusive: number,
+  endExclusive: number
+): number =>
+  invoices.reduce((sum, invoice) => {
+    const stamp = invoicePeriodTime(invoice);
+    if (stamp === null || stamp < startInclusive || stamp >= endExclusive) return sum;
+    return sum + invoiceSignedNetAmount(invoice);
+  }, 0);
 
 export const isAwaitingPayment = (invoice: InvoiceLike, now = Date.now()): boolean => {
   const payment = norm(invoice.payment_status);
