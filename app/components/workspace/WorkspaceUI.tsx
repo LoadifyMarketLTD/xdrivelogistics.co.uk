@@ -120,22 +120,49 @@ export function KpiCard({
   ariaLabel?: string;
 }) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
-  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', padding: '12px', minHeight: '88px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  /*
+   * Section 8 numeric contract:
+   * tile height: 72px target, max 80px
+   * padding: 8px 10px
+   * label: 11px / 14px / 600
+   * value: 22px / 26px / 700
+   * accent bar: 3px left border
+   * No min-height 100px+.
+   */
+  const cardStyle: CSSProperties = {
+    textAlign: 'left',
+    background: workspaceTheme.surface,
+    border: `1px solid ${workspaceTheme.border}`,
+    borderLeft: `3px solid ${color}`,
+    borderRadius: '4px',
+    padding: '8px 10px',
+    minHeight: '72px',
+    maxHeight: '80px',
+    boxShadow: compactShadow,
+    cursor: onClick ? 'pointer' : 'default',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  };
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
-      <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'flex-start' }}>
-        <div style={{ color: workspaceTheme.muted, fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</div>
-        {icon && <div aria-hidden="true" style={{ color, fontSize: '13px' }}>{icon}</div>}
+      <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+        <span>{label}</span>
+        {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
       </div>
-      <div style={{ marginTop: '4px', color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: 1.35 }}>{value}</div>
-      {detail && <div style={{ color: workspaceTheme.muted, fontSize: '11px', marginTop: '8px', lineHeight: 1.35 }}>{detail}</div>}
-      {trend && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
-          <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
-          <span style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.68rem', fontWeight: 800 }}>{trend.delta}</span>
-          {trend.label && <span style={{ color: workspaceTheme.muted, fontSize: '0.64rem' }}>{trend.label}</span>}
+      <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', whiteSpace: 'nowrap' }}>{value}</div>
+      {(detail || trend) && (
+        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {trend && (
+            <>
+              <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
+              <span style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontWeight: 700 }}>{trend.delta}</span>
+              {trend.label && <span>{trend.label}</span>}
+            </>
+          )}
+          {!trend && detail}
         </div>
       )}
     </>
