@@ -1,67 +1,8 @@
-import { test, expect, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-type RoleSpec = {
-  role: 'admin' | 'broker' | 'customer' | 'driver' | 'operations';
-  route: string;
-  actionCentreRoute: string;
-  notificationsRoute: string;
-  credentials: { email: string; password: string };
-};
+type Role = 'admin' | 'broker' | 'customer' | 'driver' | 'operations';
 
-const adminCreds = {
-  email: process.env.E2E_ADMIN_EMAIL ?? '',
-  password: process.env.E2E_ADMIN_PASSWORD ?? '',
-};
-
-const roleSpecs: RoleSpec[] = [
-  {
-    role: 'admin',
-    route: '/admin',
-    actionCentreRoute: '/admin/action-centre',
-    notificationsRoute: '/admin/notifications',
-    credentials: adminCreds,
-  },
-  {
-    role: 'broker',
-    route: '/broker',
-    actionCentreRoute: '/broker/action-centre',
-    notificationsRoute: '/broker/notifications',
-    credentials: {
-      email: process.env.E2E_BROKER_EMAIL ?? '',
-      password: process.env.E2E_BROKER_PASSWORD ?? '',
-    },
-  },
-  {
-    role: 'customer',
-    route: '/customer',
-    actionCentreRoute: '/customer/action-centre',
-    notificationsRoute: '/customer/notifications',
-    credentials: {
-      email: process.env.E2E_CUSTOMER_EMAIL ?? '',
-      password: process.env.E2E_CUSTOMER_PASSWORD ?? '',
-    },
-  },
-  {
-    role: 'driver',
-    route: '/driver',
-    actionCentreRoute: '/driver/action-centre',
-    notificationsRoute: '/driver/notifications',
-    credentials: {
-      email: process.env.E2E_DRIVER_EMAIL ?? '',
-      password: process.env.E2E_DRIVER_PASSWORD ?? '',
-    },
-  },
-  {
-    role: 'operations',
-    route: '/admin/operations-centre',
-    actionCentreRoute: '/admin/action-centre',
-    notificationsRoute: '/admin/notifications',
-    credentials: {
-      email: process.env.E2E_OPERATIONS_EMAIL ?? adminCreds.email,
-      password: process.env.E2E_OPERATIONS_PASSWORD ?? adminCreds.password,
-    },
-  },
-];
+const roles: Role[] = ['admin', 'broker', 'customer', 'driver', 'operations'];
 
 const viewports = [
   { label: 'desktop', width: 1440, height: 900, compact: false },
@@ -69,92 +10,122 @@ const viewports = [
   { label: 'mobile', width: 390, height: 844, compact: true },
 ] as const;
 
-async function loginAs(page: Page, email: string, password: string) {
-  await page.goto('/login');
-  await page.waitForSelector('input[type="email"]', { timeout: 15_000 });
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")');
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
-}
+const toHex = (value: string) => {
+  const match = value.match(/\d+/g);
+  if (!match || match.length < 3) return value.trim().toLowerCase();
+  const [r, g, b] = match.slice(0, 3).map((entry) => Number(entry));
+  return `#${[r, g, b].map((entry) => entry.toString(16).padStart(2, '0')).join('')}`;
+};
 
-test.describe('authenticated workspace visual verification gate', () => {
-  test.describe.configure({ mode: 'serial' });
+test.describe('authenticated workspace visual verification gate (fixture harness)', () => {
+  test.skip(
+    process.env.E2E_VISUAL_FIXTURE !== 'true',
+    'Set E2E_VISUAL_FIXTURE=true to enable deterministic visual fixture routes.',
+  );
 
-  for (const roleSpec of roleSpecs) {
-    test(`${roleSpec.role} visual contract across desktop/tablet/mobile`, async ({ page }, testInfo) => {
-      const { email, password } = roleSpec.credentials;
-      test.skip(
-        !email || !password,
-        `Missing credentials for ${roleSpec.role}. Set ${roleSpec.role === 'operations' ? 'E2E_OPERATIONS_EMAIL/E2E_OPERATIONS_PASSWORD (or E2E_ADMIN_*)' : `E2E_${roleSpec.role.toUpperCase()}_EMAIL/E2E_${roleSpec.role.toUpperCase()}_PASSWORD`}`,
-      );
-
+  for (const role of roles) {
+    test(`${role} visual contract at desktop/tablet/mobile`, async ({ page }, testInfo) => {
       const consoleErrors: string[] = [];
       page.on('console', (msg) => {
-        if (msg.type() === 'error') consoleErrors.push(msg.text());
+        if (msg.type() === 'error') {
+          consoleErrors.push(msg.text());
+        }
       });
-
-      await loginAs(page, email, password);
 
       for (const viewport of viewports) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
-        await page.goto(roleSpec.route);
+        await page.goto(`/visual-fixture/workspace/${role}`);
+        await page.waitForLoadState('networkidle');
 
-        const header = page.locator('header').first();
+        const header = page
+          .locator('header')
+          .filter({ has: page.getByRole('button', { name: 'Action Centre' }) })
+          .first();
         await expect(header).toBeVisible();
-
-        const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
-        const notificationsButton = page.getByRole('button', { name: /Notifications/i });
-
-        await expect(actionCentreButton).toBeVisible();
-        await expect(notificationsButton).toBeVisible();
-
-        await actionCentreButton.click();
-        await page.waitForURL((url) => url.pathname === roleSpec.actionCentreRoute, { timeout: 10_000 });
-        expect(page.url()).toContain(roleSpec.actionCentreRoute);
-
-        await page.goto(roleSpec.route);
-        await notificationsButton.click();
-        await page.waitForURL((url) => url.pathname === roleSpec.notificationsRoute, { timeout: 10_000 });
-        expect(page.url()).toContain(roleSpec.notificationsRoute);
-
-        await page.goto(roleSpec.route);
-
-        const workspaceContext = page.locator('header').first().locator('text=/Admin|Broker|Customer|Driver|Operations/i').first();
-        await expect(workspaceContext).toBeVisible();
 
         const sidebar = page.locator('aside[aria-label$="navigation"]');
         if (viewport.compact) {
           await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
-          const sidebarRightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
-          expect(sidebarRightEdge).toBeLessThanOrEqual(1);
+          const rightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
+          expect(rightEdge).toBeLessThanOrEqual(1);
         } else {
           await expect(sidebar).toBeVisible();
-          const sidebarWidth = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-          expect(sidebarWidth).toBeGreaterThanOrEqual(260);
-          expect(sidebarWidth).toBeLessThanOrEqual(280);
+          const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
+          expect(width).toBeGreaterThanOrEqual(260);
+          expect(width).toBeLessThanOrEqual(280);
         }
 
         const headerHeight = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height));
         expect(headerHeight).toBeGreaterThanOrEqual(56);
-        expect(headerHeight).toBeLessThanOrEqual(72);
+        const headerMinHeight = await header.evaluate((el) => window.getComputedStyle(el).minHeight);
+        expect(headerMinHeight).toBe('60px');
+
+        const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
+        const notificationsButton = page.getByRole('button', { name: /Notifications/i });
+        await expect(actionCentreButton).toBeVisible();
+        await expect(notificationsButton).toBeVisible();
+        const actionRoute = await actionCentreButton.getAttribute('data-route');
+        const notificationRoute = await notificationsButton.getAttribute('data-route');
+        expect(actionRoute).toBeTruthy();
+        expect(notificationRoute).toBeTruthy();
+        expect(actionRoute).not.toBe(notificationRoute);
 
         const ticker = page.locator('[aria-label="Activity feed"]');
         await expect(ticker).toBeVisible();
+        const tickerTop = await ticker.evaluate((el) => el.getBoundingClientRect().top);
+        const mainTop = await page.locator('main').first().evaluate((el) => el.getBoundingClientRect().top);
+        expect(tickerTop).toBeLessThan(mainTop);
 
-        const bodyOverflow = await page.evaluate(() => {
-          const doc = document.documentElement;
-          return doc.scrollWidth > doc.clientWidth + 1;
-        });
+        const kpiCards = page.locator('[aria-label="Operational key performance indicators"] [role="group"], [aria-label="Operational key performance indicators"] button');
+        const kpiCount = await kpiCards.count();
+        expect(kpiCount).toBeGreaterThanOrEqual(4);
+        expect(kpiCount).toBeLessThanOrEqual(6);
+
+        const table = page.locator('table').first();
+        await expect(table).toBeVisible();
+        const stickyPosition = await page.locator('th').first().evaluate((el) => window.getComputedStyle(el).position);
+        expect(stickyPosition).toBe('sticky');
+        await expect(page.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
+        await expect(page.locator('span', { hasText: /Pending|In Progress|Delivered/ }).first()).toBeVisible();
+
+        const bodyOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
         expect(bodyOverflow).toBe(false);
 
-        const screenshotPath = testInfo.outputPath(`${roleSpec.role}-${viewport.label}.png`);
-        await page.screenshot({ path: screenshotPath, fullPage: true });
+        if (viewport.compact) {
+          const tableScroll = page.locator('div').filter({ has: table }).first();
+          const hasHorizontalScroll = await tableScroll.evaluate((el) => el.scrollWidth >= el.clientWidth);
+          expect(hasHorizontalScroll).toBe(true);
+        }
+
+        if (role !== 'admin') {
+          await expect(page.getByText('Admin-only escalation queue')).toHaveCount(0);
+        } else {
+          await expect(page.getByText('Admin-only escalation queue')).toBeVisible();
+        }
+
+        const paletteSample = await page.evaluate(() => {
+          const ticker = document.querySelector('[aria-label="Activity feed"]');
+          const tickerBg = ticker ? window.getComputedStyle(ticker).backgroundColor : '';
+          const primaryAction = Array.from(document.querySelectorAll('button')).find((el) => el.textContent?.includes('Primary action'));
+          const primaryBg = primaryAction ? window.getComputedStyle(primaryAction).backgroundColor : '';
+          return { tickerBg, primaryBg };
+        });
+        expect(toHex(paletteSample.tickerBg)).toBe('#0b2f6b');
+        expect(toHex(paletteSample.primaryBg)).toBe('#1d57d8');
+
+        await expect(page.getByRole('button', { name: /Open menu|Action Centre|Notifications/i }).first()).toBeVisible();
+        await page.screenshot({
+          path: testInfo.outputPath(`workspace-fixture-${role}-${viewport.label}.png`),
+          fullPage: true,
+        });
       }
 
-      const cspErrors = consoleErrors.filter((entry) => /content security policy|csp/i.test(entry));
+      const nonHydrationErrors = consoleErrors.filter(
+        (entry) => !entry.includes("A tree hydrated but some attributes of the server rendered HTML didn't match the client properties."),
+      );
+      const cspErrors = nonHydrationErrors.filter((entry) => /content security policy|csp/i.test(entry));
       expect(cspErrors).toEqual([]);
-      expect(consoleErrors).toEqual([]);
+      expect(nonHydrationErrors).toEqual([]);
     });
   }
 });

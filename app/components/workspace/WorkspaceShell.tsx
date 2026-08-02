@@ -23,12 +23,23 @@ import {
 } from './actionCentreConfig';
 import styles from './WorkspaceShell.module.css';
 
+type WorkspaceShellFixtureOverrides = {
+  companyName?: string;
+  unreadCount?: number;
+  tickerItems?: Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>;
+  tickerError?: string;
+  actionCentreHref?: string;
+  notificationsHref?: string;
+};
+
 export default function WorkspaceShell({
   children,
   forcedRole,
+  fixtureOverrides,
 }: {
   children: ReactNode;
   forcedRole?: WorkspaceRole;
+  fixtureOverrides?: WorkspaceShellFixtureOverrides;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -60,8 +71,9 @@ export default function WorkspaceShell({
     [nav],
   );
   const actionRole = resolveActionCentreRole(role);
-  const notificationsHref = getNotificationsRoute(actionRole);
-  const actionCentreHref = getActionCentreRoute(actionRole);
+  const notificationsHref = fixtureOverrides?.notificationsHref ?? getNotificationsRoute(actionRole);
+  const actionCentreHref = fixtureOverrides?.actionCentreHref ?? getActionCentreRoute(actionRole);
+  const fixtureMode = Boolean(fixtureOverrides);
 
   useEffect(() => {
     setHydrated(true);
@@ -72,6 +84,10 @@ export default function WorkspaceShell({
   }, []);
 
   useEffect(() => {
+    if (fixtureOverrides?.companyName) {
+      setCompanyName(fixtureOverrides.companyName);
+      return;
+    }
     if (!user?.companyId || !isSupabaseConfigured) {
       if (role === 'customer') setCompanyName('Customer Account');
       else if (role === 'broker') setCompanyName('Broker Company');
@@ -96,9 +112,13 @@ export default function WorkspaceShell({
     return () => {
       cancelled = true;
     };
-  }, [role, user?.companyId, user?.email]);
+  }, [fixtureOverrides?.companyName, role, user?.companyId, user?.email]);
 
   useEffect(() => {
+    if (typeof fixtureOverrides?.unreadCount === 'number') {
+      setUnreadCount(fixtureOverrides.unreadCount);
+      return;
+    }
     if (!user?.id || !isSupabaseConfigured) return;
 
     const fetchUnread = async () => {
@@ -113,9 +133,14 @@ export default function WorkspaceShell({
     void fetchUnread();
     const timer = window.setInterval(() => void fetchUnread(), 60_000);
     return () => window.clearInterval(timer);
-  }, [actionCentreHref, actionRole, role, user?.id]);
+  }, [actionCentreHref, actionRole, fixtureOverrides?.unreadCount, role, user?.id]);
 
   useEffect(() => {
+    if (fixtureOverrides?.tickerItems || fixtureOverrides?.tickerError) {
+      setTickerItems(fixtureOverrides.tickerItems ?? []);
+      setTickerError(fixtureOverrides.tickerError ?? '');
+      return;
+    }
     if (!user?.id || !isSupabaseConfigured) {
       setTickerItems([]);
       setTickerError('');
@@ -223,7 +248,7 @@ export default function WorkspaceShell({
       tickerBusyRef.current = false;
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [actionCentreHref, actionRole, role, user?.id]);
+  }, [actionCentreHref, actionRole, fixtureOverrides?.tickerError, fixtureOverrides?.tickerItems, role, user?.id]);
 
   useEffect(() => {
     if (!isCompact) setSidebarOpen(false);
@@ -600,7 +625,32 @@ export default function WorkspaceShell({
           </div>
 
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <SharedContextControls navigation={navigationTargets} />
+            {fixtureMode ? (
+              <div
+                aria-label="Workspace context controls"
+                style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'wrap' }}
+              >
+                <span
+                  aria-label="Active organisation"
+                  style={{
+                    height: '34px',
+                    border: `1px solid ${workspaceTheme.border}`,
+                    borderRadius: '8px',
+                    background: '#fff',
+                    color: workspaceTheme.text,
+                    fontSize: '0.66rem',
+                    fontWeight: 750,
+                    padding: '0 0.55rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {companyName}
+                </span>
+              </div>
+            ) : (
+              <SharedContextControls navigation={navigationTargets} />
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', flexShrink: 0 }}>
@@ -624,6 +674,7 @@ export default function WorkspaceShell({
             )}
             <button
               onClick={() => router.push(actionCentreHref)}
+              data-route={actionCentreHref}
               style={{
                 border: `1px solid ${workspaceTheme.border}`,
                 borderRadius: '8px',
@@ -642,6 +693,7 @@ export default function WorkspaceShell({
               onClick={() => router.push(notificationsHref)}
               title="Notifications"
               aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+              data-route={notificationsHref}
               style={{
                 position: 'relative',
                 width: '36px',
