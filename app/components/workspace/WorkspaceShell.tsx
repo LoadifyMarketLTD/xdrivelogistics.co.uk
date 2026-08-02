@@ -253,6 +253,7 @@ export default function WorkspaceShell({
 
   return (
     <div
+      className={styles.workspaceRoot}
       style={{
         display: 'flex',
         minHeight: '100vh',
