@@ -47,6 +47,7 @@ export default function WorkspaceShell({
   const [companyName, setCompanyName] = useState<string>('XDrive Logistics');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [tickerItems, setTickerItems] = useState<Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>>([]);
@@ -77,7 +78,10 @@ export default function WorkspaceShell({
 
   useEffect(() => {
     setHydrated(true);
-    const update = () => setIsCompact(window.innerWidth <= 1024);
+    const update = () => {
+      setIsCompact(window.innerWidth <= 1024);
+      setIsMobile(window.innerWidth <= 640);
+    };
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
@@ -251,8 +255,8 @@ export default function WorkspaceShell({
   }, [actionCentreHref, actionRole, fixtureOverrides?.tickerError, fixtureOverrides?.tickerItems, role, user?.id]);
 
   useEffect(() => {
-    if (!isCompact) setSidebarOpen(false);
-  }, [isCompact]);
+    if (!isMobile) setSidebarOpen(false);
+  }, [isMobile]);
 
   const isActive = (href: string) => {
     const [baseHref] = href.split('?');
@@ -272,23 +276,27 @@ export default function WorkspaceShell({
   }
 
   const sidebarStyle: CSSProperties = {
-    width: '230px',
+    /* Section 2: 230px desktop; 56px tablet (collapsed, icon-only); 280px mobile drawer */
+    width: isMobile ? '280px' : (isCompact ? '56px' : '230px'),
     background: '#ffffff',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    position: isCompact ? 'fixed' : 'sticky',
+    /* Mobile: fixed off-canvas drawer; tablet/desktop: sticky in flow */
+    position: isMobile ? 'fixed' : 'sticky',
     top: 0,
     left: 0,
     zIndex: 60,
     flexShrink: 0,
-    transform: isCompact
+    /* Only slide off-canvas for mobile drawer */
+    transform: isMobile
       ? sidebarOpen
         ? 'translateX(0)'
         : 'translateX(-100%)'
       : 'none',
     transition: 'transform 0.2s ease',
+    overflowX: 'hidden',
   };
 
   return (
@@ -301,7 +309,8 @@ export default function WorkspaceShell({
         color: workspaceTheme.text,
       }}
     >
-      {isCompact && sidebarOpen && (
+      {/* Mobile drawer overlay — Section 2: opacity 0.42, only on mobile */}
+      {isMobile && sidebarOpen && (
         <button
           aria-label="Close menu"
           onClick={() => setSidebarOpen(false)}
@@ -309,7 +318,7 @@ export default function WorkspaceShell({
             position: 'fixed',
             inset: 0,
             border: 0,
-            background: 'rgba(15,23,42,0.55)',
+            background: 'rgba(0,0,0,0.42)',
             zIndex: 50,
             cursor: 'pointer',
           }}
@@ -317,11 +326,18 @@ export default function WorkspaceShell({
       )}
 
       <aside style={sidebarStyle} aria-label={`${definition.label} navigation`}>
+        {/* Logo/header area — Section 2: 50px high */}
         <div
           style={{
-            padding: '12px',
+            minHeight: '50px',
+            height: '50px',
+            padding: isCompact ? '0' : '0 12px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+            flexShrink: 0,
           }}
         >
           <button
@@ -333,6 +349,10 @@ export default function WorkspaceShell({
               width: '100%',
               cursor: 'pointer',
               textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              /* When collapsed: center the icon in 56px */
+              justifyContent: isCompact ? 'center' : 'flex-start',
             }}
           >
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -352,134 +372,204 @@ export default function WorkspaceShell({
                   X
                 </span>
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    color: workspaceTheme.text,
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {companyName}
+              {/* Hide company name and subtitle when in collapsed (tablet) or mobile-drawer mode */}
+              {!isCompact && (
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      color: workspaceTheme.text,
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {companyName}
+                  </div>
+                  <div
+                    style={{
+                      color: workspaceTheme.muted,
+                      fontSize: '11px',
+                      marginTop: '0.08rem',
+                    }}
+                  >
+                    {definition.subtitle}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    color: workspaceTheme.muted,
-                    fontSize: '11px',
-                    marginTop: '0.08rem',
-                  }}
-                >
-                  {definition.subtitle}
-                </div>
-              </div>
+              )}
             </div>
           </button>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              marginTop: '8px',
-              flexWrap: 'nowrap',
-            }}
-          >
-            <span
+          {!isCompact && (
+            <div
               style={{
-                fontSize: '0.59rem',
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: '#92400e',
-                background: '#fffbeb',
-                border: '1px solid #fde68a',
-                padding: '2px 6px',
-                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.32rem',
+                marginTop: '8px',
+                flexWrap: 'nowrap',
               }}
             >
-              {definition.label}
-            </span>
-            {role !== 'driver' &&
-              role !== 'customer' &&
-              role !== 'broker' &&
-              role !== 'owner_driver' && (
-                <span
-                  style={{
-                    fontSize: '0.59rem',
-                    fontWeight: 600,
-                    color: '#1e40af',
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  Company View
-                </span>
-              )}
-          </div>
-        </div>
-
-        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-          {nav.map((group) => (
-            <div key={group.id} style={{ marginBottom: '8px' }}>
-              <div
+              <span
                 style={{
-                  padding: '4px 8px',
-                  color: '#64748b',
-                  fontSize: '11px',
+                  fontSize: '0.59rem',
                   fontWeight: 600,
+                  letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
+                  color: '#92400e',
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
                 }}
               >
-                {group.label}
-              </div>
-              <div style={{ display: 'grid', gap: '4px' }}>
+                {definition.label}
+              </span>
+              {role !== 'driver' &&
+                role !== 'customer' &&
+                role !== 'broker' &&
+                role !== 'owner_driver' && (
+                  <span
+                    style={{
+                      fontSize: '0.59rem',
+                      fontWeight: 600,
+                      color: '#1e40af',
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    Company View
+                  </span>
+                )}
+            </div>
+          )}
+        </div>
+
+        {/* Navigation — Section 2: scrollbar 8px; group top-margin 12px */}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 0', scrollbarWidth: 'thin', scrollbarColor: '#D8DEE8 transparent' }}>
+          {nav.map((group, groupIndex) => (
+            <div key={group.id} style={{ marginTop: groupIndex === 0 ? '8px' : '12px', marginBottom: '0' }}>
+              {/* Group heading — Section 2: 11px/700/uppercase; line-height 16px; bottom-margin 4px.
+                  Hidden in collapsed tablet mode (56px). */}
+              {!isCompact && (
+                <div
+                  style={{
+                    padding: '0 10px',
+                    marginBottom: '4px',
+                    color: '#64748b',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    lineHeight: '16px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {group.label}
+                </div>
+              )}
+              <div style={{ display: 'grid', gap: '2px', padding: '0 4px' }}>
                 {group.items.map((item) => {
                   const active = isActive(item.href);
+                  /* Collapsed tablet mode (56px): icon centred, no label */
+                  if (isCompact) {
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          router.push(item.href);
+                          if (isMobile) setSidebarOpen(false);
+                        }}
+                        title={item.label}
+                        aria-label={item.label}
+                        style={{
+                          width: '100%',
+                          height: '34px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: 0,
+                          /* Section 2: selected indicator 3px left border; radius 2px */
+                          borderLeft: active
+                            ? `3px solid ${workspaceTheme.blue}`
+                            : '3px solid transparent',
+                          borderRadius: '2px',
+                          background: active ? '#eff6ff' : 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {/* Section 2: icon box 18×18px */}
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '3px',
+                            display: 'grid',
+                            placeItems: 'center',
+                            background: active ? '#dbeafe' : '#eef2f6',
+                            color: active ? workspaceTheme.blue : '#475569',
+                            fontSize: item.icon === 'OC' ? '0.58rem' : '0.7rem',
+                            fontWeight: 900,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {item.icon ?? '•'}
+                        </span>
+                      </button>
+                    );
+                  }
+                  /* Full sidebar mode (desktop / mobile drawer): show icon + label */
                   return (
                     <button
                       key={item.id}
                       onClick={() => {
                         router.push(item.href);
-                        if (isCompact) setSidebarOpen(false);
+                        if (isMobile) setSidebarOpen(false);
                       }}
                       style={{
                         width: '100%',
+                        /* Section 2: nav item height 34px; h-padding 10px */
+                        height: '34px',
                         display: 'grid',
-                        gridTemplateColumns: '26px minmax(0,1fr) 7px',
+                        /* Section 2: icon-to-label gap 8px; icon box 18×18px */
+                        gridTemplateColumns: '18px minmax(0,1fr) 6px',
                         alignItems: 'center',
                         gap: '8px',
                         border: 0,
+                        /* Section 2: selected indicator 3px left border; radius 2px (not pill) */
                         borderLeft: active
                           ? `3px solid ${workspaceTheme.blue}`
                           : '3px solid transparent',
-                        borderRadius: '4px',
+                        borderRadius: '2px',
                         background: active ? '#eff6ff' : 'transparent',
                         color: active ? workspaceTheme.blue : workspaceTheme.text,
-                        padding: '8px',
+                        padding: '0 10px',
                         fontSize: '13px',
                         fontWeight: active ? 600 : 400,
                         textAlign: 'left',
                         cursor: 'pointer',
+                        boxSizing: 'border-box',
                       }}
                     >
+                      {/* Section 2: icon box 18×18px */}
                       <span
                         aria-hidden="true"
                         style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '4px',
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '3px',
                           display: 'grid',
                           placeItems: 'center',
                           background: active ? '#dbeafe' : '#eef2f6',
                           color: active ? workspaceTheme.blue : '#475569',
-                          fontSize: item.icon === 'OC' ? '0.6rem' : '0.78rem',
+                          fontSize: item.icon === 'OC' ? '0.58rem' : '0.7rem',
                           fontWeight: 900,
+                          flexShrink: 0,
                         }}
                       >
                         {item.icon ?? '•'}
@@ -513,6 +603,8 @@ export default function WorkspaceShell({
           ))}
         </nav>
 
+        {/* Sidebar footer — hidden in collapsed (tablet) mode, shown in desktop/mobile-drawer */}
+        {!isCompact && (
         <div
           style={{
             padding: '12px',
@@ -565,6 +657,7 @@ export default function WorkspaceShell({
             </button>
           </div>
         </div>
+        )}
       </aside>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -588,7 +681,8 @@ export default function WorkspaceShell({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-            {isCompact && (
+            {/* Hamburger only for mobile off-canvas; tablet keeps 56px icon sidebar */}
+            {isMobile && (
               <button
                 aria-label="Open menu"
                 onClick={() => setSidebarOpen(true)}
@@ -626,7 +720,7 @@ export default function WorkspaceShell({
             </div>
           </div>
 
-          {!isCompact && (
+          {!isMobile && (
             <div style={{ flex: '1 1 320px', minWidth: 0 }}>
               {fixtureMode ? (
                 <div

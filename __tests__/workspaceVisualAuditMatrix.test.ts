@@ -20,7 +20,12 @@ const viewports = [
 
 describe('workspace visual verification matrix evidence', () => {
   it('keeps shared-shell constants aligned with the visual gate', () => {
-    expect(shell).toContain("width: '230px'");
+    // Desktop sidebar width 230px
+    expect(shell).toContain("'230px'");
+    // Tablet collapsed sidebar 56px (Section 2)
+    expect(shell).toContain("'56px'");
+    // Mobile drawer width 280px (Section 2)
+    expect(shell).toContain("'280px'");
     expect(shell).toContain("minHeight: '50px'");
     expect(shell).toContain('Action Centre');
     expect(shell).toContain('Notifications');
