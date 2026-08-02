@@ -31,8 +31,9 @@ export function CarrierDashboard() {
   const data = useCompanyWorkspaceData();
   const metrics = useMemo(() => {
     const jobIds = new Set(data.jobs.map((job) => job.id));
-    const submittedQuotes = data.bids.filter((bid) => bid.company_id === data.companyId && ['submitted', 'pending'].includes(bid.status)).length;
-    const won = data.bids.filter((bid) => bid.company_id === data.companyId && bid.status === 'accepted').length;
+    const companyBids = data.bids.filter((bid) => bid.company_id === data.companyId);
+    const submittedQuotes = companyBids.filter((bid) => ['submitted', 'pending'].includes(bid.status)).length;
+    const won = companyBids.filter((bid) => bid.status === 'accepted').length;
     const unallocated = data.jobs.filter((job) => ['awarded', 'posted'].includes(job.status) && !job.assigned_driver_id).length;
     const active = data.jobs.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length;
     const podPending = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0).length;
@@ -42,7 +43,11 @@ export function CarrierDashboard() {
     const invoicedValue = carrierInvoices.filter((inv) => !['draft', 'pending', 'cancelled'].includes(String(inv.status).toLowerCase())).reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
     const paidValue = carrierInvoices.filter((inv) => ['paid', 'Paid'].includes(inv.status) || inv.payment_status === 'paid').reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
     const exceptionJobs = data.jobs.filter((job) => exceptionStatuses.has(job.current_status ?? job.status));
-    return { submittedQuotes, won, unallocated, active, podPending, overdueInvoices, acceptedRevenue, invoicedValue, paidValue, exceptionJobs };
+    const recentQuoteActivity = [...companyBids]
+      .filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status))
+      .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+      .slice(0, 5);
+    return { submittedQuotes, won, unallocated, active, podPending, overdueInvoices, acceptedRevenue, invoicedValue, paidValue, exceptionJobs, recentQuoteActivity };
   }, [data]);
 
   return (
@@ -98,6 +103,21 @@ export function CarrierDashboard() {
               ))}
             </div>
           </Panel>
+          <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {[
+                ['Find marketplace loads', '/admin/marketplace'],
+                ['Review submitted quotes', '/admin/quotes'],
+                ['Allocate awarded work', '/admin/fleet/assignments'],
+                ['Track active jobs', '/admin/fleet/active-jobs'],
+                ['Open invoices', '/admin/invoices'],
+              ].map(([label, href]) => (
+                <button key={href} onClick={() => router.push(href)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}>
+                  <span>{label}</span><span>→</span>
+                </button>
+              ))}
+            </div>
+          </Panel>
           <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
             {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
               <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '0.55rem 0', borderBottom: '1px solid #eef2f6', fontSize: '0.76rem' }}>
@@ -129,6 +149,27 @@ export function CarrierDashboard() {
             </div>
           ))}
         </div>
+      </Panel>
+
+      <Panel
+        title="Recent quote activity"
+        description="Latest commercial responses from the carrier account."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/quotes')}>All quotes</ActionButton>}
+      >
+        <DataTable
+          columns={['Route', 'Submitted', 'Value', 'Status', 'Action']}
+          rows={metrics.recentQuoteActivity.map((bid) => {
+            const job = data.jobs.find((item) => item.id === bid.job_id);
+            return [
+              <strong key="route">{job?.pickup_location ?? job?.pickup_postcode ?? 'Collection'} → {job?.delivery_location ?? job?.delivery_postcode ?? 'Delivery'}</strong>,
+              formatDate(bid.created_at),
+              money(Number(bid.bid_price_gbp ?? bid.amount ?? 0)),
+              <StatusBadge key="status" value={bid.status} />,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/quotes')}>Open</ActionButton>,
+            ];
+          })}
+          empty={<EmptyState title="No recent quote activity" description="Submitted or accepted quotes will appear here." />}
+        />
       </Panel>
     </PageFrame>
   );
