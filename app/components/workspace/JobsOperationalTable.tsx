@@ -365,19 +365,9 @@ export function JobsOperationalTable({
       <div className={styles.operationalTableContainer}>
         <div className={styles.operationalTableScroll}>
           <table className={`${styles.operationalTable} ${styles.operationalTableMinWidth} ${styles.jobsOperationalTable}`}>
-            <caption className={styles.operationalTableCaption}>Jobs list</caption>
-            <colgroup>
-              {/* Section 10 column widths */}
-              <col className={styles.jobsColStatusWidth} />   {/* status/priority */}
-              <col className={styles.jobsColRefWidth} />  {/* job/reference */}
-              <col />                          {/* route — minmax(260px,1.6fr) */}
-              <col className={styles.jobsColPickupWidth} />  {/* pickup */}
-              <col className={styles.jobsColDeliveryWidth} />  {/* delivery */}
-              <col className={styles.jobsColVehicleWidth} />  {/* vehicle */}
-              <col className={styles.jobsColCustomerWidth} />  {/* customer */}
-              <col className={styles.jobsColDistanceWidth} />   {/* distance/quote */}
-              <col className={styles.jobsColActionsWidth} />   {/* actions */}
-            </colgroup>
+          <caption className={styles.operationalTableCaption}>Jobs list</caption>
+          {/* Section 10 column widths: status, ref, route, pickup, delivery, vehicle, customer, distance, actions */}
+          <colgroup><col className={styles.jobsColStatusWidth} /><col className={styles.jobsColRefWidth} /><col /><col className={styles.jobsColPickupWidth} /><col className={styles.jobsColDeliveryWidth} /><col className={styles.jobsColVehicleWidth} /><col className={styles.jobsColCustomerWidth} /><col className={styles.jobsColDistanceWidth} /><col className={styles.jobsColActionsWidth} /></colgroup>
             <thead>
               <tr className={styles.operationalTableHeaderRow}>
                 <th scope="col" className={styles.operationalTableHeadCell}>Status</th>
