@@ -6,8 +6,8 @@ describe('workspace shell layout contract', () => {
   it('keeps sidebar width and compact header within the shared shell range', () => {
     const shell = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceShell.tsx'), 'utf8');
 
-    expect(shell).toContain("width: '268px'");
-    expect(shell).toContain("minHeight: '60px'");
+    expect(shell).toContain("width: '230px'");
+    expect(shell).toContain("minHeight: '50px'");
   });
 
   it('keeps Action Centre access in the shared shell header', () => {
