@@ -139,10 +139,10 @@ BEGIN
     RETURN;
   END IF;
 
-  UPDATE public.vehicles
+  UPDATE public.vehicles AS vehicle
   SET advertising_state = v_next_state
-  WHERE id = p_vehicle_id
-    AND company_id = v_company_id;
+  WHERE vehicle.id = p_vehicle_id
+    AND vehicle.company_id = v_company_id;
   GET DIAGNOSTICS v_updated_count = ROW_COUNT;
 
   IF v_updated_count <> 1 THEN
