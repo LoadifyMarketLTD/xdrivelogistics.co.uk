@@ -5,9 +5,9 @@ type Role = 'admin' | 'broker' | 'customer' | 'driver' | 'operations';
 const roles: Role[] = ['admin', 'broker', 'customer', 'driver', 'operations'];
 
 const viewports = [
-  { label: 'desktop', width: 1440, height: 900, compact: false },
-  { label: 'tablet', width: 768, height: 1024, compact: true },
-  { label: 'mobile', width: 390, height: 844, compact: true },
+  { label: 'desktop', width: 1440, height: 900, mobile: false, tablet: false },
+  { label: 'tablet', width: 768, height: 1024, mobile: false, tablet: true },
+  { label: 'mobile', width: 390, height: 844, mobile: true, tablet: false },
 ] as const;
 
 // Expected in Next.js dev-mode while keeping fixture route fail-closed in production builds.
@@ -79,20 +79,29 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         await expect(header).toBeVisible();
 
         const sidebar = page.locator('aside[aria-label$="navigation"]');
-        if (viewport.compact) {
+        if (viewport.mobile) {
+          // Mobile (≤640px): off-canvas drawer — "Open menu" button shown; sidebar transformed off-screen
           await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
           const rightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
           expect(rightEdge).toBeLessThanOrEqual(1);
-        } else {
+        } else if (viewport.tablet) {
+          // Tablet (≤1024px): collapsed icon-only sidebar (56px) in page flow — no hamburger
           await expect(sidebar).toBeVisible();
           const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-          expect(width).toBeGreaterThanOrEqual(260);
-          expect(width).toBeLessThanOrEqual(280);
+          expect(width).toBeGreaterThanOrEqual(54);
+          expect(width).toBeLessThanOrEqual(58);
+        } else {
+          // Desktop: full 230px sidebar in page flow
+          await expect(sidebar).toBeVisible();
+          const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
+          expect(width).toBeGreaterThanOrEqual(228);
+          expect(width).toBeLessThanOrEqual(232);
         }
 
+        // Header: 50px exactly (§3 contract, tolerance ±2px per §20)
         const headerHeight = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height));
-        expect(headerHeight).toBeGreaterThanOrEqual(56);
-        expect(headerHeight).toBeLessThanOrEqual(64);
+        expect(headerHeight).toBeGreaterThanOrEqual(48);
+        expect(headerHeight).toBeLessThanOrEqual(52);
 
         const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
         const notificationsButton = page.getByRole('button', { name: /Notifications/i });
