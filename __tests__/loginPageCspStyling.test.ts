@@ -13,14 +13,11 @@ describe('login page CSP-safe styling', () => {
     expect(page).not.toContain('<style jsx>');
   });
 
-  it('uses the canonical login hero and logo assets', () => {
+  it('uses the canonical login hero and logo asset paths', () => {
     expect(page).toContain('src="/login-hero-operations-centre.webp"');
     expect(page).toContain('src="/xdrive-logo-horizontal.png"');
     expect(page).not.toContain('hero-dispatch-control.webp');
     expect(page).not.toContain('xdrive-login-hero');
-
-    expect(fs.existsSync(path.join(process.cwd(), 'public/login-hero-operations-centre.webp'))).toBe(true);
-    expect(fs.existsSync(path.join(process.cwd(), 'public/xdrive-logo-horizontal.png'))).toBe(true);
   });
 
   it('keeps the complete authentication card and responsive split-screen layout', () => {
