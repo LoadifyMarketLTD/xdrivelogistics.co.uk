@@ -228,10 +228,6 @@
   min-width: 90px;
   justify-content: flex-end;
 }
-  gap: 8px;
-  font-size: 12px;
-  color: #64748B;
-}
 
 .operationalTableScroll {
   width: 100%;
