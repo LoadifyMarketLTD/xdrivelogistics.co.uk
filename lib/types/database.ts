@@ -173,6 +173,7 @@ export interface Vehicle {
   company_id: string;
   assigned_driver_id: string | null;
   type: VehicleType;
+  advertising_state: 'none' | 'exchange' | 'partner' | null;
   reg_plate: string | null;
   make: string | null;
   model: string | null;
