@@ -232,7 +232,7 @@ export default function WorkspaceShell({
   }
 
   const sidebarStyle: CSSProperties = {
-    width: isCompact ? '292px' : '260px',
+    width: '268px',
     background: '#f8fafc',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
@@ -607,6 +607,22 @@ export default function WorkspaceShell({
                 + {primaryAction.label}
               </button>
             )}
+            <button
+              onClick={() => router.push(notificationsHref)}
+              style={{
+                border: `1px solid ${workspaceTheme.border}`,
+                borderRadius: '8px',
+                background: '#fff',
+                color: workspaceTheme.text,
+                padding: '0.45rem 0.62rem',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Action Centre
+            </button>
             <button
               onClick={() => router.push(notificationsHref)}
               title="Notifications"
