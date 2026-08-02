@@ -11,6 +11,9 @@ describe('vehicle advertising persistence contract', () => {
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS advertising_state text");
     expect(sql).toContain("CHECK (advertising_state IN ('none', 'exchange', 'partner'))");
     expect(sql).toContain('ALTER COLUMN advertising_state SET NOT NULL');
+    expect(sql).toContain('v_authenticated_actor_user_id uuid := auth.uid();');
+    expect(sql).toContain("p_actor_user_id IS DISTINCT FROM v_authenticated_actor_user_id");
+    expect(sql).toContain("RAISE EXCEPTION 'Forbidden — actor_user_id must match auth.uid().'");
     expect(sql).toContain('FOR UPDATE');
     expect(sql).toContain("AND cm.role_in_company IN ('owner', 'admin', 'dispatcher')");
     expect(sql).toContain("RAISE EXCEPTION 'Forbidden — you cannot change this vehicle advertising state.'");
@@ -35,6 +38,7 @@ describe('vehicle advertising persistence contract', () => {
 
     expect(route).toContain("state: z.enum(['none', 'exchange', 'partner'])");
     expect(route).toContain('reason: z.string().trim().min(1).max(500)');
+    expect(route).not.toContain('p_actor_user_id');
     expect(route).toContain("error.code === '42501' ? 403");
   });
 

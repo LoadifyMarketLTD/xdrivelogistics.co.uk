@@ -60,6 +60,29 @@ setup_prereq_schema() {
       email text
     );
 
+    create or replace function auth.uid()
+    returns uuid
+    language plpgsql
+    stable
+    as \$\$
+    declare
+      v_sub text;
+      v_claims text;
+    begin
+      v_sub := nullif(current_setting('request.jwt.claim.sub', true), '');
+      if v_sub is not null then
+        return v_sub::uuid;
+      end if;
+
+      v_claims := nullif(current_setting('request.jwt.claims', true), '');
+      if v_claims is not null then
+        return (v_claims::jsonb ->> 'sub')::uuid;
+      end if;
+
+      return null;
+    end;
+    \$\$;
+
     create table if not exists public.company_memberships (
       id uuid primary key,
       company_id uuid not null,
@@ -96,6 +119,21 @@ setup_prereq_schema() {
   "
 }
 
+run_as_authenticated() {
+  local db="$1"
+  local user_id="$2"
+  local sql="$3"
+
+  run_sql "$db" "
+    begin;
+    set local role authenticated;
+    select set_config('request.jwt.claim.sub', '$user_id', true);
+    select set_config('request.jwt.claims', json_build_object('sub', '$user_id')::text, true);
+    $sql
+    commit;
+  "
+}
+
 seed_contract_fixtures() {
   local db="$1"
   run_sql "$db" "
@@ -126,22 +164,40 @@ seed_contract_fixtures() {
 validate_runtime_contract() {
   local db="$1"
 
-  run_sql "$db" "
+  run_as_authenticated "$db" "00000000-0000-0000-0000-000000000001" "
     select public.set_vehicle_advertising_state(
       '30000000-0000-0000-0000-000000000001',
-      '00000000-0000-0000-0000-000000000001',
+      null,
       'exchange',
       'owner approval',
       '{\"source\":\"gate-check\"}'::jsonb
     );
   "
 
-  run_sql "$db" "
+  run_as_authenticated "$db" "00000000-0000-0000-0000-000000000002" "
     do \$\$
     begin
       perform public.set_vehicle_advertising_state(
         '30000000-0000-0000-0000-000000000001',
-        '00000000-0000-0000-0000-000000000003',
+        '00000000-0000-0000-0000-000000000001',
+        'partner',
+        'impersonation attempt',
+        '{}'::jsonb
+      );
+      raise exception 'expected impersonation rejection';
+    exception
+      when sqlstate '42501' then
+        null;
+    end;
+    \$\$;
+  "
+
+  run_as_authenticated "$db" "00000000-0000-0000-0000-000000000003" "
+    do \$\$
+    begin
+      perform public.set_vehicle_advertising_state(
+        '30000000-0000-0000-0000-000000000001',
+        null,
         'partner',
         'cross-company attempt',
         '{}'::jsonb
@@ -223,12 +279,14 @@ validate_runtime_contract() {
       before insert on public.owner_audit_log
       for each row
       execute function public.raise_audit_blocker();
+  "
 
+  run_as_authenticated "$db" "00000000-0000-0000-0000-000000000002" "
     do \$\$
     begin
       perform public.set_vehicle_advertising_state(
         '30000000-0000-0000-0000-000000000001',
-        '00000000-0000-0000-0000-000000000002',
+        null,
         'partner',
         'attempt with blocked audit log',
         '{}'::jsonb
@@ -239,7 +297,9 @@ validate_runtime_contract() {
         null;
     end;
     \$\$;
+  "
 
+  run_sql "$db" "
     drop trigger if exists block_owner_audit_log_insert on public.owner_audit_log;
   "
 
@@ -251,6 +311,7 @@ validate_runtime_contract() {
       v_constraint text;
       v_audit_count int;
       v_metadata_logged boolean;
+      v_audit_actor uuid;
     begin
       select advertising_state into v_state
       from public.vehicles
@@ -295,6 +356,16 @@ validate_runtime_contract() {
 
       if not coalesce(v_metadata_logged, false) then
         raise exception 'metadata audit suffix missing';
+      end if;
+
+      select actor_user_id into v_audit_actor
+      from public.owner_audit_log
+      where target_id = '30000000-0000-0000-0000-000000000001'
+      order by id desc
+      limit 1;
+
+      if v_audit_actor <> '00000000-0000-0000-0000-000000000001'::uuid then
+        raise exception 'expected audit actor to equal auth.uid(), got %', v_audit_actor;
       end if;
     end;
     \$\$;

@@ -58,7 +58,6 @@ export async function PATCH(
 
   const { data, error } = await client.rpc('set_vehicle_advertising_state', {
     p_vehicle_id: vehicleId,
-    p_actor_user_id: authData.user.id,
     p_state: parsed.data.state,
     p_reason: parsed.data.reason,
     p_metadata: parsed.data.metadata ?? { source: 'admin_vehicles_page' },

@@ -63,9 +63,9 @@ describe('PATCH /api/admin/vehicles/[id]/advertising', () => {
     expect(res.status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledWith('set_vehicle_advertising_state', expect.objectContaining({
       p_vehicle_id: 'veh-1',
-      p_actor_user_id: 'user-1',
       p_state: 'exchange',
     }));
+    expect(mocks.rpc.mock.calls[0]?.[1]).not.toHaveProperty('p_actor_user_id');
   });
 
   it('rejects invalid state values before RPC call', async () => {
