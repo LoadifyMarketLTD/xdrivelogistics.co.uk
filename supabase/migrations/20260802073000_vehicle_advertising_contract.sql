@@ -3,6 +3,8 @@
 -- Purpose:
 --   1) Add canonical vehicles.advertising_state enum-like text field
 --   2) Provide an authorised, audited mutation function
+--   3) Preserve migration safety for both fresh databases and existing tenants
+--      by using IF NOT EXISTS and additive constraints only.
 --
 -- Rollback notes (manual):
 --   - REVOKE/GRANT reversal + DROP FUNCTION public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb)
@@ -49,7 +51,7 @@ CREATE OR REPLACE FUNCTION public.set_vehicle_advertising_state(
   p_vehicle_id uuid,
   p_actor_user_id uuid,
   p_state text,
-  p_reason text DEFAULT NULL,
+  p_reason text,
   p_metadata jsonb DEFAULT '{}'::jsonb
 )
 RETURNS TABLE (
@@ -69,6 +71,7 @@ DECLARE
   v_next_state text := lower(trim(coalesce(p_state, '')));
   v_reason text := nullif(trim(coalesce(p_reason, '')), '');
   v_can_manage boolean := false;
+  v_updated_count integer := 0;
 BEGIN
   IF p_vehicle_id IS NULL OR p_actor_user_id IS NULL THEN
     RAISE EXCEPTION 'vehicle_id and actor_user_id are required.'
@@ -77,6 +80,16 @@ BEGIN
 
   IF v_next_state NOT IN ('none', 'exchange', 'partner') THEN
     RAISE EXCEPTION 'Invalid advertising state: %', p_state
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_reason IS NULL THEN
+    RAISE EXCEPTION 'A non-empty reason is required for advertising-state changes.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF jsonb_typeof(coalesce(p_metadata, '{}'::jsonb)) <> 'object' THEN
+    RAISE EXCEPTION 'metadata must be a JSON object.'
       USING ERRCODE = '22023';
   END IF;
 
@@ -130,6 +143,12 @@ BEGIN
   SET advertising_state = v_next_state
   WHERE id = p_vehicle_id
     AND company_id = v_company_id;
+  GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+
+  IF v_updated_count <> 1 THEN
+    RAISE EXCEPTION 'Advertising-state update failed for vehicle %.', p_vehicle_id
+      USING ERRCODE = 'P0001';
+  END IF;
 
   INSERT INTO public.owner_audit_log (
     actor_user_id,
@@ -151,7 +170,7 @@ BEGIN
     'vehicle_advertising_state_updated',
     v_previous_state,
     v_next_state,
-    coalesce(v_reason, 'Vehicle advertising state update')
+    v_reason
       || ' | metadata='
       || coalesce(p_metadata::text, '{}'::text)
   );

@@ -15,6 +15,12 @@ import {
 } from '../../../lib/workspaceRole';
 import SharedContextControls from './SharedContextControls';
 import { WorkspaceActivityFeed, workspaceTheme } from './WorkspaceUI';
+import {
+  getActionCentreRoute,
+  getNotificationsRoute,
+  resolveActionCentreRole,
+  resolveRoleScopedHref,
+} from './actionCentreConfig';
 import styles from './WorkspaceShell.module.css';
 
 export default function WorkspaceShell({
@@ -53,22 +59,9 @@ export default function WorkspaceShell({
       ),
     [nav],
   );
-  const notificationsHref =
-    role === 'broker'
-      ? '/broker/notifications'
-      : role === 'customer'
-        ? '/customer/notifications'
-        : role === 'driver' || role === 'owner_driver'
-          ? '/driver/notifications'
-          : '/admin/notifications';
-  const actionCentreHref =
-    role === 'broker'
-      ? '/broker/action-centre'
-      : role === 'customer'
-        ? '/customer/action-centre'
-        : role === 'driver' || role === 'owner_driver'
-          ? '/driver/action-centre'
-          : '/admin/action-centre';
+  const actionRole = resolveActionCentreRole(role);
+  const notificationsHref = getNotificationsRoute(actionRole);
+  const actionCentreHref = getActionCentreRoute(actionRole);
 
   useEffect(() => {
     setHydrated(true);
@@ -120,7 +113,7 @@ export default function WorkspaceShell({
     void fetchUnread();
     const timer = window.setInterval(() => void fetchUnread(), 60_000);
     return () => window.clearInterval(timer);
-  }, [actionCentreHref, role, user?.id]);
+  }, [actionCentreHref, actionRole, role, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -194,19 +187,13 @@ export default function WorkspaceShell({
         };
         const items = Array.isArray(payload.items) ? payload.items : [];
         setTickerError('');
-        const withHrefs = items.slice().reverse().map((item) => {
-          const safeEntity = item.entity_type?.toLowerCase() ?? '';
-          const id = item.entity_id?.trim() ?? '';
-          const href =
-            safeEntity === 'job' && id
-              ? `${role === 'customer' ? '/customer' : role === 'driver' || role === 'owner_driver' ? '/driver' : '/admin'}/jobs/${id}`
-              : safeEntity === 'invoice' && id
-                ? `${role === 'customer' ? '/customer' : role === 'driver' || role === 'owner_driver' ? '/driver' : '/admin'}/invoices/${id}`
-                : safeEntity === 'quote'
-                  ? `${role === 'customer' ? '/customer/quotes' : role === 'driver' || role === 'owner_driver' ? '/driver/quotes' : '/admin/quotes'}`
-                  : `${actionCentreHref}${item.event_id ? `?event=${encodeURIComponent(item.event_id)}` : ''}`;
-          return { ...item, href };
-        });
+        const withHrefs = items
+          .slice()
+          .reverse()
+          .map((item) => ({
+            ...item,
+            href: resolveRoleScopedHref(actionRole, item.entity_type, item.event_id),
+          }));
         setTickerItems(withHrefs);
       } catch {
         setTickerItems([]);
@@ -236,7 +223,7 @@ export default function WorkspaceShell({
       tickerBusyRef.current = false;
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [actionCentreHref, role, user?.id]);
+  }, [actionCentreHref, actionRole, role, user?.id]);
 
   useEffect(() => {
     if (!isCompact) setSidebarOpen(false);

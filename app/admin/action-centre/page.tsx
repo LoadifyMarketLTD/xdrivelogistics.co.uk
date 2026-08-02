@@ -1,7 +1,7 @@
 'use client';
 
-import { ActionCentrePage } from '../AdminWorkspaceModules';
+import ActionCentrePage from '../../components/workspace/ActionCentrePage';
 
 export default function Page() {
-  return <ActionCentrePage />;
+  return <ActionCentrePage role="admin" />;
 }

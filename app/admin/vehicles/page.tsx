@@ -275,8 +275,8 @@ export default function VehiclesPage() {
         },
         body: JSON.stringify({
           state: nextState,
-          reason: 'Updated from Vehicles workspace',
-          metadata: { source: 'admin_vehicles_page' },
+          reason: `Updated from Vehicles workspace to ${nextState}`,
+          metadata: { source: 'admin_vehicles_page', requested_state: nextState },
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; newState?: AdvertisingState };
