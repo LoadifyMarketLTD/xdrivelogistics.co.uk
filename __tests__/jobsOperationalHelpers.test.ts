@@ -1,5 +1,9 @@
 /**
- * Unit tests for the pure helper functions exported from JobsOperationalTable.
+ * Unit tests for the pure helper functions defined in the canonical contract
+ * module lib/jobs/jobOperationalContract.ts.
+ *
+ * Imports are sourced directly from the contract module; the component
+ * re-exports the same symbols for backward compatibility.
  *
  * Tests cover:
  *   1. isDirectInviteEligible — all exchange_visibility / awarded combinations
@@ -15,7 +19,7 @@ import {
   filterJobsByDriver,
   type AdminJobFields,
   type JobRow,
-} from '../app/components/workspace/JobsOperationalTable';
+} from '../lib/jobs/jobOperationalContract';
 
 // ---------------------------------------------------------------------------
 // 1. isDirectInviteEligible
