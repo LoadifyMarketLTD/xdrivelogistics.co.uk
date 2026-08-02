@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
+import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
   page: '#f4f6f8',
@@ -41,7 +42,7 @@ export function PageHeader({ eyebrow, title, description, actions, meta }: { eye
 }
 
 export function OperationalToolbar({ children }: { children: ReactNode }) {
-  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.72rem' }}>{children}</div>;
+  return <div className={styles.operationalToolbar}>{children}</div>;
 }
 
 export function ActionButton({ children, onClick, tone = 'primary', disabled = false, type = 'button', title }: { children: ReactNode; onClick?: () => void; tone?: 'primary' | 'success' | 'warning' | 'danger' | 'secondary'; disabled?: boolean; type?: 'button' | 'submit'; title?: string }) {
@@ -56,11 +57,15 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
-  return <div className="xdrive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.65rem', marginBottom: '0.9rem' }}>{children}</div>;
+  return <ExchangeKpiStrip>{children}</ExchangeKpiStrip>;
 }
 
 export function ExchangeKpiStrip({ children }: { children: ReactNode }) {
-  return <KpiGrid>{children}</KpiGrid>;
+  return (
+    <section className={styles.exchangeKpiStrip} aria-label="Operational key performance indicators">
+      {children}
+    </section>
+  );
 }
 
 /** Trend / delta indicator for a KpiCard. Direction controls the arrow glyph; sentiment controls colour. */
@@ -154,11 +159,11 @@ export function FinancialSummaryPanel({
   items: Array<{ label: string; value: ReactNode; color: string; background: string }>;
 }) {
   return (
-    <div style={{ display: 'grid', gap: '0.55rem' }}>
+    <div className={styles.financialSummaryPanel}>
       {items.map((item) => (
-        <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', background: item.background, border: `1px solid ${item.color}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
-          <span style={{ color: '#475569' }}>{item.label}</span>
-          <strong style={{ color: item.color }}>{item.value}</strong>
+        <div key={item.label} className={styles.financialSummaryRow} style={{ ['--xdrive-finance-row-bg' as const]: item.background, ['--xdrive-finance-row-color' as const]: item.color } as CSSProperties}>
+          <span className={styles.financialSummaryLabel}>{item.label}</span>
+          <strong className={styles.financialSummaryValue}>{item.value}</strong>
         </div>
       ))}
     </div>
@@ -173,24 +178,24 @@ export function ComplianceSummaryPanel({
   total: number;
 }) {
   if (total <= 0) {
-    return <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.4rem 0' }}>No compliance documents on record.</div>;
+    return <div className={styles.complianceSummaryEmpty}>No compliance documents on record.</div>;
   }
   return (
     <div>
-      <div style={{ display: 'grid', gap: '0.42rem' }}>
+      <div className={styles.complianceSummaryRows}>
         {rows.map((row) => {
           const pct = Math.round((row.count / total) * 100);
           return (
-            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: row.background, border: `2px solid ${row.border}`, flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: '0.73rem', color: '#475569' }}>{row.label}</span>
-              <strong style={{ fontSize: '0.73rem', color: row.color }}>{row.count}</strong>
-              <span style={{ fontSize: '0.68rem', color: '#94a3b8', minWidth: '32px', textAlign: 'right' }}>{pct}%</span>
+            <div key={row.label} className={styles.complianceSummaryRow}>
+              <div className={styles.complianceSummaryDot} style={{ ['--xdrive-dot-bg' as const]: row.background, ['--xdrive-dot-border' as const]: row.border } as CSSProperties} />
+              <span className={styles.complianceSummaryLabel}>{row.label}</span>
+              <strong className={styles.complianceSummaryCount} style={{ color: row.color }}>{row.count}</strong>
+              <span className={styles.complianceSummaryPct}>{pct}%</span>
             </div>
           );
         })}
       </div>
-      <div style={{ marginTop: '0.6rem', height: '8px', borderRadius: '999px', overflow: 'hidden', display: 'flex', background: '#e2e8f0' }}>
+      <div className={styles.complianceSummaryMeter}>
         {rows.filter((row) => row.count > 0).map((row) => (
           <div key={`bar-${row.label}`} style={{ width: `${(row.count / total) * 100}%`, background: row.color }} />
         ))}
@@ -209,13 +214,13 @@ export function QuickActionGrid({
   actions: Array<{ key: string; label: string; onClick: () => void; trailing?: ReactNode }>;
 }) {
   return (
-    <div style={{ display: 'grid', gap: '0.5rem' }}>
+    <div className={styles.quickActionGrid}>
       {actions.map((action) => (
         <button
           key={action.key}
           type="button"
           onClick={action.onClick}
-          style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.62rem 0.68rem', background: '#f8fafc', color: '#0f172a', fontSize: '0.76rem', cursor: 'pointer' }}
+          className={styles.quickActionButton}
         >
           <span>{action.label}</span>
           {action.trailing ?? <span aria-hidden="true">→</span>}
@@ -238,7 +243,7 @@ export function DateRangeSelector({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: '#fff' }}
+      className={styles.selectorControl}
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -253,12 +258,25 @@ export function SavedViewSelector({
   value,
   onChange,
   options,
+  label = 'Saved view',
 }: {
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
+  label?: string;
 }) {
-  return <DateRangeSelector value={value} onChange={onChange} options={options} />;
+  return (
+    <label className={styles.savedViewSelector}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className={styles.selectorControl}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 export function WorkspaceActivityFeed({
@@ -285,17 +303,17 @@ export function WorkspaceActivityFeed({
 }) {
   if (items.length === 0 && !error) return null;
   return (
-    <div className={classNames.root} style={{ background, color: '#e2e8f0' }} aria-live="polite" aria-label="Activity feed">
-      <div className={classNames.title} style={{ color: labelColor }}>
+    <div className={`${styles.workspaceActivityFeed} ${classNames.root}`} style={{ ['--xdrive-feed-bg' as const]: background } as CSSProperties} aria-live="polite" aria-label="Activity feed">
+      <div className={`${styles.workspaceActivityFeedTitle} ${classNames.title}`} style={{ color: labelColor }}>
         ● ACTIVITY
       </div>
       {items.length > 0 ? (
-        <div className={classNames.track}>
+        <div className={`${styles.workspaceActivityFeedTrack} ${classNames.track}`}>
           {[...items, ...items].map((item, index) => {
             const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
             return (
-              <span key={`${item.id}-${index}`} className={classNames.item}>
-                <span className={classNames.time} style={{ color: timeColor }}>
+              <span key={`${item.id}-${index}`} className={`${styles.workspaceActivityFeedItem} ${classNames.item}`}>
+                <span className={`${styles.workspaceActivityFeedTime} ${classNames.time}`} style={{ color: timeColor }}>
                   {time}
                 </span>
                 {item.label}
@@ -571,13 +589,24 @@ export function WorkspaceState(props: WorkspaceStateProps) {
 }
 
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
-  if (rows.length === 0) return <>{empty ?? <EmptyState title="No records found" />}</>;
-  return <div style={{ width: '100%', overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: `${Math.max(columns.length * 138, 660)}px` }}><thead><tr>{columns.map((column) => <th key={column} style={{ textAlign: 'left', padding: '0.58rem 0.65rem', color: '#475569', fontSize: '0.62rem', fontWeight: 850, letterSpacing: '0.045em', textTransform: 'uppercase', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceSoft, position: 'sticky', top: 0 }}>{column}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className="xdrive-table-row">{row.map((cell, cellIndex) => <td key={cellIndex} style={{ padding: '0.65rem', color: workspaceTheme.text, fontSize: '0.74rem', borderBottom: '1px solid #edf2f7', verticalAlign: 'middle' }}>{cell}</td>)}</tr>)}</tbody></table></div>;
+  return (
+    <OperationalTable
+      columns={columns.map((column, index) => ({
+        id: `column-${index}`,
+        header: column,
+        cell: (row: ReactNode[]) => row[index] ?? '—',
+        isAction: /action/i.test(column),
+      }))}
+      rows={rows}
+      getRowKey={(row) => String(row[0] ?? row.map((cell) => String(cell)).join('|'))}
+      empty={empty}
+    />
+  );
 }
 
 export function AlertBanner({ tone = 'warning', children }: { tone?: 'warning' | 'danger' | 'success' | 'info'; children: ReactNode }) {
-  const styles = { warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }, danger: { bg: '#fef2f2', border: '#fecaca', color: '#991b1b' }, success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' }, info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' } }[tone];
-  return <div style={{ background: styles.bg, border: `1px solid ${styles.border}`, color: styles.color, borderRadius: '8px', padding: '0.65rem 0.78rem', fontSize: '0.76rem', fontWeight: 650, marginBottom: '0.75rem', lineHeight: 1.45 }}>{children}</div>;
+  const alertStyles = { warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }, danger: { bg: '#fef2f2', border: '#fecaca', color: '#991b1b' }, success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' }, info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' } }[tone];
+  return <div style={{ background: alertStyles.bg, border: `1px solid ${alertStyles.border}`, color: alertStyles.color, borderRadius: '8px', padding: '0.65rem 0.78rem', fontSize: '0.76rem', fontWeight: 650, marginBottom: '0.75rem', lineHeight: 1.45 }}>{children}</div>;
 }
 
 export function QuickActions({ actions }: { actions: Array<{ label: string; description?: string; onClick: () => void; badge?: ReactNode }> }) {
@@ -737,6 +766,19 @@ export type OperationalTableColumn<TRow> = {
   align?: OperationalTableAlign;
   /** Optional CSS width hint applied to the column, e.g. `'120px'` or `'10%'`. */
   width?: string;
+  /** Enables table-header sorting affordance for this column. */
+  sortable?: boolean;
+  /** Extracts a sortable value used when `sortable` is enabled. */
+  sortValue?: (row: TRow) => string | number | null | undefined;
+  /** Marks this as a canonical action column. */
+  isAction?: boolean;
+  /** Renders plain string content as canonical status badges. */
+  semanticStatus?: boolean;
+};
+
+export type OperationalTableSort = {
+  columnId: string;
+  direction: 'asc' | 'desc';
 };
 
 /** Props for OperationalTable. */
@@ -751,6 +793,22 @@ export type OperationalTableProps<TRow> = {
   caption?: string;
   /** Custom empty-table content. Defaults to a standard empty-state message. */
   empty?: ReactNode;
+  /** Loading state before rows are available. */
+  loading?: boolean;
+  /** Error text for failed data load. */
+  error?: string | null;
+  /** Retry handler for error state. */
+  onRetry?: () => void;
+  /** Optional search/filter/action slots rendered above the table. */
+  searchSlot?: ReactNode;
+  filterSlot?: ReactNode;
+  actionsSlot?: ReactNode;
+  /** Optional result count shown in the toolbar. */
+  resultsCount?: number;
+  /** Controlled sort state. */
+  sort?: OperationalTableSort | null;
+  /** Sort change callback. */
+  onSortChange?: (next: OperationalTableSort | null) => void;
 };
 
 /** Reusable, accessible, presentation-only operational data table. */
@@ -760,19 +818,56 @@ export function OperationalTable<TRow>({
   getRowKey,
   caption,
   empty,
+  loading,
+  error,
+  onRetry,
+  searchSlot,
+  filterSlot,
+  actionsSlot,
+  resultsCount,
+  sort,
+  onSortChange,
 }: OperationalTableProps<TRow>) {
+  if (loading) return <WorkspaceState variant="loading" label="Loading records…" rows={5} />;
+  if (error) return <WorkspaceState variant="error" message={error} onRetry={onRetry} />;
   if (rows.length === 0) {
     return <>{empty ?? <EmptyState title="No records found" />}</>;
   }
+  const activeSortColumn = sort ? columns.find((column) => column.id === sort.columnId) : null;
+  const sortedRows =
+    activeSortColumn?.sortable && activeSortColumn.sortValue && sort
+      ? rows.slice().sort((left, right) => {
+        const leftValue = activeSortColumn.sortValue?.(left);
+        const rightValue = activeSortColumn.sortValue?.(right);
+        if (leftValue === rightValue) return 0;
+        const safeLeft = leftValue ?? '';
+        const safeRight = rightValue ?? '';
+        const result =
+          typeof safeLeft === 'number' && typeof safeRight === 'number'
+            ? safeLeft - safeRight
+            : String(safeLeft).localeCompare(String(safeRight), 'en-GB', {
+              numeric: true,
+              sensitivity: 'base',
+            });
+        return sort.direction === 'asc' ? result : result * -1;
+      })
+      : rows;
   return (
-    <div style={{ width: '100%', overflowX: 'auto' }}>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          minWidth: `${Math.max(columns.length * 138, 440)}px`,
-        }}
-      >
+    <section className={styles.operationalTableContainer}>
+      {(searchSlot || filterSlot || actionsSlot || typeof resultsCount === 'number') && (
+        <div className={styles.operationalTableToolbar}>
+          <div className={styles.operationalTableFilters}>
+            {searchSlot}
+            {filterSlot}
+          </div>
+          <div className={styles.operationalTableMeta}>
+            {typeof resultsCount === 'number' && <span>{resultsCount.toLocaleString('en-GB')} results</span>}
+            {actionsSlot}
+          </div>
+        </div>
+      )}
+      <div className={styles.operationalTableScroll} style={{ overflowX: 'auto' }}>
+        <table className={styles.operationalTable} style={{ minWidth: `${Math.max(columns.length * 138, 440)}px` }}>
         {caption && (
           <caption
             style={{
@@ -787,53 +882,65 @@ export function OperationalTable<TRow>({
           </caption>
         )}
         <thead>
-          <tr>
+          <tr className={styles.operationalTableHeaderRow}>
             {columns.map((col) => (
               <th
                 key={col.id}
                 scope="col"
-                style={{
-                  textAlign: col.align ?? 'left',
-                  padding: '0.58rem 0.65rem',
-                  color: '#475569',
-                  fontSize: '0.62rem',
-                  fontWeight: 850,
-                  letterSpacing: '0.045em',
-                  textTransform: 'uppercase' as CSSProperties['textTransform'],
-                  borderBottom: `1px solid ${workspaceTheme.border}`,
-                  background: workspaceTheme.surfaceSoft,
-                  position: 'sticky' as CSSProperties['position'],
-                  top: 0,
-                  ...(col.width ? { width: col.width } : {}),
-                }}
+                className={`${styles.operationalTableHeadCell} ${col.isAction ? styles.operationalTableActionHeadCell : ''}`}
+                style={{ textAlign: col.align ?? 'left', ...(col.width ? { width: col.width } : {}) }}
               >
-                {col.header}
+                {col.sortable ? (
+                  <button
+                    type="button"
+                    className={styles.operationalTableSortButton}
+                    onClick={() => {
+                      if (!onSortChange) return;
+                      if (!sort || sort.columnId !== col.id) {
+                        onSortChange({ columnId: col.id, direction: 'asc' });
+                        return;
+                      }
+                      if (sort.direction === 'asc') {
+                        onSortChange({ columnId: col.id, direction: 'desc' });
+                        return;
+                      }
+                      onSortChange(null);
+                    }}
+                    aria-label={`Sort by ${col.header}`}
+                  >
+                    {col.header}
+                    <span aria-hidden="true" className={styles.operationalTableSortGlyph}>
+                      {sort?.columnId === col.id ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
+                    </span>
+                  </button>
+                ) : (
+                  col.header
+                )}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={getRowKey(row)} className="xdrive-table-row">
+          {sortedRows.map((row) => (
+            <tr key={getRowKey(row)} className={styles.operationalTableRow}>
               {columns.map((col) => (
                 <td
                   key={col.id}
-                  style={{
-                    padding: '0.65rem',
-                    color: workspaceTheme.text,
-                    fontSize: '0.74rem',
-                    borderBottom: '1px solid #edf2f7',
-                    verticalAlign: 'middle',
-                    textAlign: col.align ?? 'left',
-                  }}
+                  className={`${styles.operationalTableCell} ${col.isAction ? styles.operationalTableActionCell : ''}`}
+                  style={{ textAlign: col.align ?? 'left' }}
                 >
-                  {col.cell(row)}
+                  {(() => {
+                    const content = col.cell(row);
+                    if (!col.semanticStatus || typeof content !== 'string') return content;
+                    return <StatusBadge value={content} />;
+                  })()}
                 </td>
               ))}
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </section>
   );
 }

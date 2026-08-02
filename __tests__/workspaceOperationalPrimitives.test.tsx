@@ -7,6 +7,7 @@ import {
   ExchangeKpiStrip,
   FinancialSummaryPanel,
   KpiCard,
+  OperationalTable,
   SavedViewSelector,
   WorkspaceActivityFeed,
 } from '../app/components/workspace/WorkspaceUI';
@@ -25,6 +26,7 @@ describe('workspace operational primitives', () => {
 
     expect(html).toContain('Active jobs');
     expect(html).toContain('12');
+    expect(html).toContain('Operational key performance indicators');
   });
 
   it('renders FinancialSummaryPanel rows', () => {
@@ -97,5 +99,45 @@ describe('workspace operational primitives', () => {
 
     expect(html).toContain('All loads');
     expect(html).toContain('Priority only');
+    expect(html).toContain('Saved view');
+  });
+
+  it('renders OperationalTable sorted rows and semantic status', () => {
+    const html = render(
+      <OperationalTable
+        columns={[
+          { id: 'job', header: 'Job', cell: (row: { job: string }) => row.job },
+          {
+            id: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (row: { status: string }) => row.status,
+            semanticStatus: true,
+            cell: (row: { status: string }) => row.status,
+          },
+        ]}
+        rows={[
+          { id: '2', job: 'LON-MAN', status: 'pending' },
+          { id: '1', job: 'MAN-LON', status: 'delivered' },
+        ]}
+        getRowKey={(row) => row.id}
+        sort={{ columnId: 'status', direction: 'asc' }}
+      />,
+    );
+
+    expect(html).toContain('Sort by Status');
+    expect(html).toContain('Delivered');
+  });
+
+  it('renders OperationalTable loading and error states', () => {
+    const loading = render(
+      <OperationalTable columns={[]} rows={[]} getRowKey={() => 'row'} loading />,
+    );
+    const error = render(
+      <OperationalTable columns={[]} rows={[]} getRowKey={() => 'row'} error="Feed unavailable" />,
+    );
+
+    expect(loading).toContain('Loading records');
+    expect(error).toContain('Feed unavailable');
   });
 });
