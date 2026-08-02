@@ -20,11 +20,11 @@ const viewports = [
 
 describe('workspace visual verification matrix evidence', () => {
   it('keeps shared-shell constants aligned with the visual gate', () => {
-    expect(shell).toContain("width: '268px'");
-    expect(shell).toContain("minHeight: '60px'");
+    expect(shell).toContain("width: '230px'");
+    expect(shell).toContain("minHeight: '50px'");
     expect(shell).toContain('Action Centre');
     expect(shell).toContain('Notifications');
-    expect(shell).toContain("window.innerWidth <= 1050");
+    expect(shell).toContain("window.innerWidth <= 1024");
   });
 
   it.each(roleRoutes)('ensures role route pages exist for $role', ({ route, actionCentre, notifications }) => {
@@ -34,7 +34,7 @@ describe('workspace visual verification matrix evidence', () => {
   });
 
   it.each(viewports)('documents expected sidebar compact behaviour at $label width', ({ width, expectedCompact }) => {
-    const computedCompact = width <= 1050;
+    const computedCompact = width <= 1024;
     expect(computedCompact).toBe(expectedCompact);
   });
 });
