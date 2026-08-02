@@ -13,6 +13,10 @@ const matrix = [
   { source: 'Driver readiness summary', label: 'Jobs completed', route: '/driver/history', role: 'driver', queryParams: [] as string[] },
   { source: 'Driver readiness summary', label: 'Documents expiring', route: '/driver/documents', role: 'driver', queryParams: [] as string[] },
   { source: 'Driver readiness summary', label: 'Availability', route: '/driver/availability', role: 'driver', queryParams: [] as string[] },
+  { source: 'Workspace shell action centre', label: 'Broker action centre', route: '/broker/action-centre', role: 'broker', queryParams: [] as string[] },
+  { source: 'Workspace shell action centre', label: 'Customer action centre', route: '/customer/action-centre', role: 'customer', queryParams: [] as string[] },
+  { source: 'Workspace shell action centre', label: 'Driver action centre', route: '/driver/action-centre', role: 'driver', queryParams: [] as string[] },
+  { source: 'Workspace shell action centre', label: 'Admin action centre', route: '/admin/action-centre', role: 'admin', queryParams: [] as string[] },
 ];
 
 describe('workspace route verification matrix', () => {

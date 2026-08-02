@@ -1,20 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from './fleet/FleetPositionMap';
 import {
+  ActionCentreList,
   ActionButton,
+  DateRangeSelector,
   DataTable,
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalToolbar,
   PageFrame,
   PageHeader,
   Panel,
+  SavedViewSelector,
   StatusBadge,
   TwoColumn,
 } from '../components/workspace/WorkspaceUI';
@@ -853,6 +857,95 @@ export function NotificationsPage() {
           ])}
           empty={<EmptyState title="No notifications" />}
         />
+      </Panel>
+    </PageFrame>
+  );
+}
+
+export function ActionCentrePage() {
+  const { user } = useAuth();
+  const [savedView, setSavedView] = useState('all');
+  const [dateRange, setDateRange] = useState('7d');
+  const [rows, setRows] = useState<
+    Array<{ id: string; event_type: string; entity_type: string | null; status: string; created_at: string }>
+  >([]);
+
+  const loadRows = useCallback(async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('notification_events')
+      .select('id,event_type,entity_type,status,created_at')
+      .eq('recipient_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    setRows((data ?? []) as typeof rows);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void loadRows();
+  }, [loadRows, user?.id]);
+
+  const since = useMemo(() => {
+    if (dateRange === '24h') return Date.now() - 24 * 60 * 60 * 1000;
+    if (dateRange === '30d') return Date.now() - 30 * 24 * 60 * 60 * 1000;
+    return Date.now() - 7 * 24 * 60 * 60 * 1000;
+  }, [dateRange]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      const inRange = new Date(row.created_at).getTime() >= since;
+      if (!inRange) return false;
+      if (savedView === 'open') return row.status !== 'sent';
+      if (savedView === 'failed') return row.status === 'failed';
+      return true;
+    });
+  }, [rows, savedView, since]);
+
+  const actionItems = filteredRows.slice(0, 20).map((row) => ({
+    id: row.id,
+    title: row.event_type.replace(/_/g, ' '),
+    description: row.entity_type ? `Entity: ${row.entity_type}` : 'Operational event',
+    priority: row.status === 'failed' ? 'high' : 'medium',
+    status: row.status === 'failed' ? 'open' : row.status === 'pending' ? 'in_progress' : 'resolved',
+    dueLabel: row.status === 'failed' ? 'Requires retry' : undefined,
+    entityLabel: row.id.slice(0, 8).toUpperCase(),
+    cta: { label: 'Open notifications', href: '/admin/notifications' },
+  })) as Parameters<typeof ActionCentreList>[0]['items'];
+
+  return (
+    <PageFrame>
+      <PageHeader
+        eyebrow="Workspace operations"
+        title="Action Centre"
+        description="Prioritised operational actions requiring review or acknowledgement."
+      />
+      <OperationalToolbar>
+        <SavedViewSelector
+          value={savedView}
+          onChange={setSavedView}
+          options={[
+            { value: 'all', label: 'All events' },
+            { value: 'open', label: 'Open actions' },
+            { value: 'failed', label: 'Failed only' },
+          ]}
+        />
+        <DateRangeSelector
+          value={dateRange}
+          onChange={setDateRange}
+          options={[
+            { value: '24h', label: 'Last 24h' },
+            { value: '7d', label: 'Last 7 days' },
+            { value: '30d', label: 'Last 30 days' },
+          ]}
+        />
+      </OperationalToolbar>
+      <Panel
+        title="Action queue"
+        description={`${filteredRows.length} item(s) in selected view.`}
+        actions={<ActionButton tone="secondary" onClick={() => void loadRows()}>Refresh view</ActionButton>}
+      >
+        <ActionCentreList items={actionItems} />
       </Panel>
     </PageFrame>
   );
