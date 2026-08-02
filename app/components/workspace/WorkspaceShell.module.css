@@ -1,3 +1,5 @@
+.workspaceRoot {}
+
 .tickerRoot {
   position: fixed;
   bottom: 0;
@@ -55,55 +57,55 @@
     transform: translateX(0);
   }
 
-  :global(*) {
+  .workspaceRoot :global(*) {
     box-sizing: border-box;
   }
 
-  :global(body) {
+  .workspaceRoot :global(body) {
     background: #f4f6f8;
   }
 
-  :global(button),
-  :global(input),
-  :global(select),
-  :global(textarea) {
+  .workspaceRoot :global(button),
+  .workspaceRoot :global(input),
+  .workspaceRoot :global(select),
+  .workspaceRoot :global(textarea) {
     font: inherit;
   }
 
-  :global(.xdrive-table-row:hover td) {
+  .workspaceRoot :global(.xdrive-table-row:hover td) {
     background: #fbfdff;
   }
 
   @media (max-width: 820px) {
-    :global(.xdrive-two-column),
-    :global(.xdrive-settings-layout) {
+    .workspaceRoot :global(.xdrive-two-column),
+    .workspaceRoot :global(.xdrive-settings-layout) {
       grid-template-columns: 1fr !important;
     }
 
-    :global(.xdrive-settings-layout > aside) {
+    .workspaceRoot :global(.xdrive-settings-layout > aside) {
       position: static !important;
       display: flex;
       overflow-x: auto;
       gap: 0.25rem;
     }
 
-    :global(.xdrive-settings-layout > aside button) {
+    .workspaceRoot :global(.xdrive-settings-layout > aside button) {
       min-width: 155px;
       margin-bottom: 0 !important;
     }
   }
 
   @media (max-width: 560px) {
-    :global(.xdrive-page-frame) {
+    .workspaceRoot :global(.xdrive-page-frame) {
       padding-left: 0.65rem !important;
       padding-right: 0.65rem !important;
     }
 
-    :global(.xdrive-page-header) {
+    .workspaceRoot :global(.xdrive-page-header) {
       margin-bottom: 0.75rem !important;
     }
 
-    :global(.xdrive-kpi-grid) {
+    .workspaceRoot :global(.xdrive-kpi-grid) {
       grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
   }
