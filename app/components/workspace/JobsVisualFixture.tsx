@@ -112,7 +112,7 @@ export const FIXTURE_JOBS: JobRow[] = [
     distanceMiles: '127.3 mi',
     createdAt: '2026-08-03T06:30:00.000Z',
     updatedAt: '2026-08-03T09:00:00.000Z',
-    assignedDriverId: 'fixture-driver-aaa-111',
+    assignedDriverId: null,
     exchange_visibility: 'private',
     awarded_carrier_company_id: null,
     direct_invite_company_id: null,
