@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
+import { invoiceNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
@@ -18,20 +19,22 @@ export function BrokerDashboard() {
   const metrics = useMemo(() => {
     const submitted = data.bids.filter((bid) => bid.status === 'submitted');
     const accepted = data.bids.filter((bid) => bid.status === 'accepted');
-    const customerRevenue = data.jobs.reduce((sum, job) => sum + Number(job.budget_amount ?? 0), 0);
-    const carrierCost = accepted.reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const estimatedCustomerBudget = data.jobs.reduce((sum, job) => sum + Number(job.budget_amount ?? 0), 0);
+    const estimatedCarrierCost = accepted.reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const issuedRevenueInvoices = data.invoices.filter((inv) => isRevenueInvoice(inv, data.companyId));
+    const supplierPayableInvoices = data.invoices.filter((inv) => isCarrierPayableInvoice(inv, data.companyId));
+    const invoicedRevenueNet = issuedRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
+    const supplierPayablesNet = supplierPayableInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
     const awaitingAwardJobs = data.jobs.filter((job) => !job.awarded_carrier_company_id && submitted.some((bid) => bid.job_id === job.id));
     const activeJobs = data.jobs.filter((job) => active.has(job.current_status ?? job.status));
     const podPending = data.jobs.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0);
-    const customerInvoices = data.invoices.filter((inv) => inv.buyer_company_id === data.companyId || inv.client_name);
-    const unpaidCustomerInvoices = customerInvoices.filter((inv) => inv.payment_status !== 'paid' && !['paid', 'Paid', 'cancelled', 'draft'].includes(inv.status));
-    const unpaidCustomerValue = unpaidCustomerInvoices.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
-    const carrierObligations = data.invoices.filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status));
-    const carrierObligationValue = carrierObligations.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+    const awaitingRevenueInvoices = issuedRevenueInvoices.filter((inv) => isAwaitingPayment(inv));
+    const awaitingRevenueValue = awaitingRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
+    const overdueRevenueInvoices = issuedRevenueInvoices.filter((inv) => isOverdue(inv));
 
     const now = Date.now();
-    const dueForPayment = unpaidCustomerInvoices.filter((inv) => inv.due_date && new Date(inv.due_date).getTime() <= now + 7 * 86_400_000);
-    const latestInvoices = [...customerInvoices].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')).slice(0, 5);
+    const dueForPayment = awaitingRevenueInvoices.filter((inv) => inv.due_date && new Date(inv.due_date).getTime() <= now + 7 * 86_400_000);
+    const latestInvoices = [...issuedRevenueInvoices].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')).slice(0, 5);
 
     // Monthly totals (last 6 months)
     const monthlyTotals: Record<string, { revenue: number; cost: number }> = {};
@@ -40,16 +43,23 @@ export function BrokerDashboard() {
       if (!d) continue;
       const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
-      row.revenue += Number(job.budget_amount ?? 0);
+      row.revenue += 0;
       monthlyTotals[key] = row;
     }
-    for (const bid of accepted) {
-      const job = data.jobs.find((j) => j.id === bid.job_id);
-      const d = job?.pickup_datetime ?? job?.created_at;
+    for (const inv of issuedRevenueInvoices) {
+      const d = inv.invoice_date ?? inv.created_at;
       if (!d) continue;
       const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
-      row.cost += Number(bid.bid_price_gbp ?? bid.amount ?? 0);
+      row.revenue += invoiceNetAmount(inv);
+      monthlyTotals[key] = row;
+    }
+    for (const inv of supplierPayableInvoices) {
+      const d = inv.invoice_date ?? inv.created_at;
+      if (!d) continue;
+      const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
+      row.cost += invoiceNetAmount(inv);
       monthlyTotals[key] = row;
     }
     const monthlyRows = Object.entries(monthlyTotals).slice(-6);
@@ -57,11 +67,12 @@ export function BrokerDashboard() {
     // Sub-contract spend by period
     const periodMs = spendPeriod === 'month' ? 30 : spendPeriod === 'quarter' ? 91 : 365;
     const periodStart = now - periodMs * 86_400_000;
-    const subcontractSpend = accepted.filter((bid) => {
-      const job = data.jobs.find((j) => j.id === bid.job_id);
-      const d = job?.pickup_datetime ?? job?.created_at;
-      return d && new Date(d).getTime() >= periodStart;
-    }).reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const subcontractSpend = supplierPayableInvoices
+      .filter((inv) => {
+        const d = inv.invoice_date ?? inv.created_at;
+        return d && new Date(d).getTime() >= periodStart;
+      })
+      .reduce((sum, inv) => sum + invoiceNetAmount(inv), 0);
 
     // Compliance summary from docs
     const docs = data.driverDocuments.concat(data.vehicleDocuments);
@@ -76,14 +87,16 @@ export function BrokerDashboard() {
       awaitingAwardJobs,
       activeJobs,
       podPending,
-      margin: customerRevenue - carrierCost,
-      marginPct: customerRevenue > 0 ? ((customerRevenue - carrierCost) / customerRevenue) * 100 : 0,
-      customerRevenue,
-      carrierCost,
-      unpaidCustomerInvoices,
-      unpaidCustomerValue,
-      carrierObligations,
-      carrierObligationValue,
+      margin: invoicedRevenueNet - supplierPayablesNet,
+      marginPct: invoicedRevenueNet > 0 ? ((invoicedRevenueNet - supplierPayablesNet) / invoicedRevenueNet) * 100 : 0,
+      invoicedRevenueNet,
+      supplierPayablesNet,
+      estimatedCustomerBudget,
+      estimatedCarrierCost,
+      awaitingRevenueInvoices,
+      awaitingRevenueValue,
+      overdueRevenueInvoices,
+      supplierPayableInvoices,
       dueForPayment,
       latestInvoices,
       monthlyRows,
@@ -110,9 +123,9 @@ export function BrokerDashboard() {
         <KpiCard label="Active jobs" value={metrics.activeJobs.length} detail="Collections and deliveries" tone="green" onClick={() => router.push('/broker/jobs')} />
         <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
         <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% margin`} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
-        <KpiCard label="Unpaid (customer)" value={metrics.unpaidCustomerInvoices.length} detail={money(metrics.unpaidCustomerValue)} tone={metrics.unpaidCustomerInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Awaiting customer payment" value={metrics.awaitingRevenueInvoices.length} detail={money(metrics.awaitingRevenueValue)} tone={metrics.awaitingRevenueInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
         <KpiCard label="Due for payment" value={metrics.dueForPayment.length} detail="Due within 7 days" tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Awaiting payment" value={metrics.carrierObligations.length} detail={money(metrics.carrierObligationValue)} tone={metrics.carrierObligations.length ? 'orange' : 'green'} onClick={() => router.push('/broker/carrier-costs')} />
+        <KpiCard label="Overdue customer invoices" value={metrics.overdueRevenueInvoices.length} detail={money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0))} tone={metrics.overdueRevenueInvoices.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
       </KpiGrid>
 
       {metrics.awaitingAwardJobs.length > 0 && (
@@ -122,7 +135,7 @@ export function BrokerDashboard() {
           actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
         >
           <DataTable
-            columns={['Customer load', 'Route', 'Quotes', 'Customer price', 'Best carrier cost', 'Margin', 'Action']}
+            columns={['Customer load', 'Route', 'Quotes', 'Customer budget (est.)', 'Best carrier quote (est.)', 'Estimated margin', 'Action']}
             rows={metrics.awaitingAwardJobs.slice(0, 6).map((job) => {
               const quotes = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
               const costs = quotes.map((b) => Number(b.bid_price_gbp ?? b.amount ?? 0)).filter((p) => p > 0);
@@ -168,15 +181,15 @@ export function BrokerDashboard() {
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel
             title="Commercial summary"
-            description="Revenue, carrier cost and margin position across all active loads."
+            description="Invoiced net amounts are shown separately from operational estimates."
           >
             <div style={{ display: 'grid', gap: '0.55rem' }}>
               {[
-                ['Customer revenue', money(metrics.customerRevenue), '#f0fdf4', '#166534'],
-                ['Carrier cost (awarded)', money(metrics.carrierCost), '#fff7ed', '#c2410c'],
+                ['Invoiced revenue (net)', money(metrics.invoicedRevenueNet), '#f0fdf4', '#166534'],
+                ['Carrier payables (net)', money(metrics.supplierPayablesNet), '#fff7ed', '#c2410c'],
                 ['Gross margin', money(metrics.margin), metrics.margin >= 0 ? '#f0fdf4' : '#fef2f2', metrics.margin >= 0 ? '#166534' : '#dc2626'],
-                ['Carrier obligations (invoices)', money(metrics.carrierObligationValue), '#eff6ff', '#1e40af'],
-                ['Outstanding customer invoices', money(metrics.unpaidCustomerValue), metrics.unpaidCustomerValue > 0 ? '#fff7ed' : '#f8fafc', metrics.unpaidCustomerValue > 0 ? '#c2410c' : '#64748b'],
+                ['Estimated customer budget', money(metrics.estimatedCustomerBudget), '#eff6ff', '#1e40af'],
+                ['Estimated carrier quote cost', money(metrics.estimatedCarrierCost), metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b'],
               ].map(([label, value, bg, color]) => (
                 <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
                   <span style={{ color: '#475569' }}>{label}</span>
@@ -225,7 +238,7 @@ export function BrokerDashboard() {
       <TwoColumn>
         <Panel
           title="Monthly totals"
-          description="Revenue vs carrier cost per month across your managed loads."
+          description="Invoiced net revenue vs supplier payable net by invoice month."
           actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/margins')}>Full report</ActionButton>}
         >
           {metrics.monthlyRows.length > 0 ? (
@@ -239,7 +252,7 @@ export function BrokerDashboard() {
                   <div key={month} style={{ display: 'grid', gridTemplateColumns: '60px 1fr auto', gap: '0.6rem', alignItems: 'center', fontSize: '0.73rem' }}>
                     <span style={{ color: '#64748b', fontWeight: 700 }}>{month}</span>
                     <div style={{ display: 'grid', gap: '2px' }}>
-                      <div style={{ background: '#dcfce7', borderRadius: '3px', height: '7px', width: `${Math.max(2, (rev / maxVal) * 100)}%` }} title={`Revenue: ${money(rev)}`} />
+                      <div style={{ background: '#dcfce7', borderRadius: '3px', height: '7px', width: `${Math.max(2, (rev / maxVal) * 100)}%` }} title={`Invoiced net: ${money(rev)}`} />
                       <div style={{ background: '#fed7aa', borderRadius: '3px', height: '7px', width: `${Math.max(2, (cost / maxVal) * 100)}%` }} title={`Cost: ${money(cost)}`} />
                     </div>
                     <span style={{ color: margin >= 0 ? '#15803d' : '#dc2626', fontWeight: 800, minWidth: '70px', textAlign: 'right' }}>{money(margin)}</span>
@@ -247,7 +260,7 @@ export function BrokerDashboard() {
                 );
               })}
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.3rem', fontSize: '0.64rem', color: '#64748b' }}>
-                <span><span style={{ background: '#dcfce7', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Revenue</span>
+                <span><span style={{ background: '#dcfce7', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Invoiced net</span>
                 <span><span style={{ background: '#fed7aa', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Carrier cost</span>
               </div>
             </div>
@@ -379,7 +392,7 @@ export function BrokerLoadsPage() {
     return result;
   }, [data.jobs, jobFilter, customerFilter]);
   const filterNote = jobFilter ? `Showing load ${jobFilter.slice(0, 8).toUpperCase()} only. ` : customerFilter ? `Showing loads for customer "${customerFilter}" only. ` : '';
-  return <PageFrame><PageHeader eyebrow="Customer loads" title="Customer Loads" description="All transport requests managed by the broker, from draft through POD and completion." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />{data.error && <AlertBanner>{data.error}</AlertBanner>}{filterNote && <AlertBanner tone="info">{filterNote}<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>Show all loads</ActionButton></AlertBanner>}<Panel title="Load register" description="Use the commercial status to move work from publication to award and operation."><DataTable columns={['Reference', 'Customer', 'Route', 'Pickup', 'Price', 'Quotes', 'Status', 'Action']} rows={filteredJobs.map((job) => [job.id.slice(0, 8).toUpperCase(), job.client_name ?? 'Customer', <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>, when(job.pickup_datetime), money(Number(job.budget_amount ?? 0)), data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted').length, <StatusBadge key="status" value={job.current_status ?? job.status} />, <ActionButton key="action" tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Open</ActionButton>])} empty={<EmptyState title="No customer loads" action={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post first load</ActionButton>} />} /></Panel></PageFrame>;
+  return <PageFrame><PageHeader eyebrow="Customer loads" title="Customer Loads" description="All transport requests managed by the broker, from draft through POD and completion." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />{data.error && <AlertBanner>{data.error}</AlertBanner>}{filterNote && <AlertBanner tone="info">{filterNote}<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>Show all loads</ActionButton></AlertBanner>}<Panel title="Load register" description="Use the commercial status to move work from publication to award and operation."><DataTable columns={['Reference', 'Customer', 'Route', 'Pickup', 'Budget (est.)', 'Quotes', 'Status', 'Action']} rows={filteredJobs.map((job) => [job.id.slice(0, 8).toUpperCase(), job.client_name ?? 'Customer', <strong key="route">{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</strong>, when(job.pickup_datetime), money(Number(job.budget_amount ?? 0)), data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted').length, <StatusBadge key="status" value={job.current_status ?? job.status} />, <ActionButton key="action" tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Open</ActionButton>])} empty={<EmptyState title="No customer loads" action={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post first load</ActionButton>} />} /></Panel></PageFrame>;
 }
 
 export function BrokerPostLoadPage() { return <PageFrame><PageHeader eyebrow="Customer load" title="Post Load" description="Create the customer transport request, set the commercial target and publish it to carrier capacity." /><LoadPostingForm mode="broker" /></PageFrame>; }
@@ -468,11 +481,11 @@ export function BrokerQuotesPage({ compare = false }: { compare?: boolean }) {
         <Panel
           key={job.id}
           title={`${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`}
-          description={`${job.client_name ?? 'Customer'} · customer revenue ${money(Number(job.budget_amount ?? 0))}`}
+          description={`${job.client_name ?? 'Customer'} · customer budget estimate ${money(Number(job.budget_amount ?? 0))}`}
           style={{ marginBottom: '0.85rem' }}
         >
           <DataTable
-            columns={compare ? ['Carrier', 'Quote', 'Customer revenue', 'Gross profit', 'Margin', 'Status', 'Decision'] : ['Carrier', 'Quote', 'Message', 'Submitted', 'Status', 'Decision']}
+            columns={compare ? ['Carrier', 'Quote', 'Customer budget (est.)', 'Estimated gross profit', 'Estimated margin', 'Status', 'Decision'] : ['Carrier', 'Quote', 'Message', 'Submitted', 'Status', 'Decision']}
             rows={quotes.sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)).map((bid) => {
               const cost = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
               const revenue = Number(job.budget_amount ?? 0);
@@ -512,7 +525,7 @@ export function BrokerPodPage() {
 export function BrokerMarginsPage() {
   const data = useCompanyWorkspaceData();
   const rows = data.jobs.map((job) => { const acceptedBid = data.bids.find((bid) => bid.job_id === job.id && bid.status === 'accepted'); const revenue = Number(job.budget_amount ?? 0); const cost = Number(acceptedBid?.bid_price_gbp ?? acceptedBid?.amount ?? 0); return { job, revenue, cost, margin: revenue - cost, pct: revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0 }; });
-  return <PageFrame><PageHeader eyebrow="Broker finance" title="Margin / Profit" description="Customer revenue and carrier cost remain separate for every load." /><KpiGrid><KpiCard label="Customer revenue" value={money(rows.reduce((sum, row) => sum + row.revenue, 0))} /><KpiCard label="Carrier cost" value={money(rows.reduce((sum, row) => sum + row.cost, 0))} tone="orange" /><KpiCard label="Gross profit" value={money(rows.reduce((sum, row) => sum + row.margin, 0))} tone="green" /></KpiGrid><Panel title="Job margin register"><DataTable columns={['Load', 'Customer', 'Revenue', 'Carrier cost', 'Gross profit', 'Margin']} rows={rows.map(({ job, revenue, cost, margin, pct }) => [job.id.slice(0, 8).toUpperCase(), job.client_name ?? 'Customer', money(revenue), money(cost), <strong key="margin" style={{ color: margin >= 0 ? '#15803d' : '#dc2626' }}>{money(margin)}</strong>, `${pct.toFixed(1)}%`])} /></Panel></PageFrame>;
+  return <PageFrame><PageHeader eyebrow="Broker finance" title="Estimated Margin" description="This view is estimate-only (customer budget vs accepted/lowest carrier quote), not invoiced accounting." /><KpiGrid><KpiCard label="Customer budget estimate" value={money(rows.reduce((sum, row) => sum + row.revenue, 0))} /><KpiCard label="Carrier quote estimate" value={money(rows.reduce((sum, row) => sum + row.cost, 0))} tone="orange" /><KpiCard label="Estimated gross margin" value={money(rows.reduce((sum, row) => sum + row.margin, 0))} tone="green" /></KpiGrid><Panel title="Estimated job margin register"><DataTable columns={['Load', 'Customer', 'Budget (est.)', 'Carrier quote (est.)', 'Estimated gross margin', 'Estimated margin']} rows={rows.map(({ job, revenue, cost, margin, pct }) => [job.id.slice(0, 8).toUpperCase(), job.client_name ?? 'Customer', money(revenue), money(cost), <strong key="margin" style={{ color: margin >= 0 ? '#15803d' : '#dc2626' }}>{money(margin)}</strong>, `${pct.toFixed(1)}%`])} /></Panel></PageFrame>;
 }
 
 export function BrokerInvoicesPage({ type }: { type: 'customer' | 'carrier' }) {

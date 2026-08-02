@@ -13,6 +13,7 @@ import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
 interface DriverOption { id: string; display_name: string; }
+type AdvertisingState = 'none' | 'exchange' | 'partner';
 
 export default function VehiclesPage() {
   const { user } = useAuth();
@@ -29,7 +30,9 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [advertisingMap, setAdvertisingMap] = useState<Record<string, 'none' | 'exchange' | 'partner'>>({});
+  const [advertisingUpdating, setAdvertisingUpdating] = useState<Record<string, boolean>>({});
+  const [advertisingFeedback, setAdvertisingFeedback] = useState<Record<string, { tone: 'success' | 'error'; message: string }>>({});
+  const [advertisingStateAvailable, setAdvertisingStateAvailable] = useState(true);
   const VEHICLES_PER_PAGE = 12;
   const [vehiclePage, setVehiclePage] = useState(0);
   const isDriverWorkspace = user?.role === 'driver' || user?.ownerDriverWorkspace === true;
@@ -38,14 +41,29 @@ export default function VehiclesPage() {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
     if (!companyId) { setVehicles([]); setLoading(false); return; }
-    const selectColumns = 'id, company_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
-    const legacySelectColumns = 'id, company_id, vehicle_type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    setAdvertisingStateAvailable(true);
+    const selectColumns = 'id, company_id, type, advertising_state, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    const legacySelectColumns = 'id, company_id, vehicle_type, advertising_state, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
     const query = supabase
       .from('vehicles')
       .select(selectColumns)
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     let { data, error } = await query;
+    if (error && isMissingColumnError(error, 'vehicles', 'advertising_state')) {
+      setAdvertisingStateAvailable(false);
+      setError('Vehicle advertising contract is not installed in this environment yet.');
+      const noAdvertisingResult = await supabase
+        .from('vehicles')
+        .select('id, company_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+      data = (noAdvertisingResult.data ?? []).map((row) => ({
+        ...row,
+        advertising_state: 'none',
+      })) as unknown as Vehicle[];
+      error = noAdvertisingResult.error;
+    }
     if (error && isMissingColumnError(error, 'vehicles', 'type')) {
       const legacyResult = await supabase
         .from('vehicles')
@@ -55,6 +73,7 @@ export default function VehiclesPage() {
       data = ((legacyResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
         ...row,
         type: (row.vehicle_type as VehicleType | undefined) ?? 'van_large',
+        advertising_state: ((row.advertising_state as AdvertisingState | undefined) ?? 'none'),
       })) as unknown as Vehicle[];
       error = legacyResult.error;
     }
@@ -62,7 +81,7 @@ export default function VehiclesPage() {
     if (error && isMissingColumnError(error, 'vehicles', 'manufacture_year')) {
       const fallbackResult = await supabase
         .from('vehicles')
-        .select('id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at')
+        .select('id, company_id, type, advertising_state, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
       data = fallbackResult.data as Vehicle[] | null;
@@ -144,6 +163,7 @@ export default function VehiclesPage() {
       const insertPayload: Record<string, string | number | boolean | null> = {
         ...formData,
         company_id: companyId,
+        advertising_state: 'none',
         type: formData.type,
         vehicle_type: formData.type,
         reg_plate: formData.reg_plate.trim() || null,
@@ -237,6 +257,52 @@ export default function VehiclesPage() {
     loadVehicles();
   };
 
+  const handleAdvertisingChange = async (vehicleId: string, nextState: AdvertisingState) => {
+    if (!isSupabaseConfigured) return;
+    setAdvertisingUpdating((prev) => ({ ...prev, [vehicleId]: true }));
+    setAdvertisingFeedback((prev) => {
+      const next = { ...prev };
+      delete next[vehicleId];
+      return next;
+    });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        setAdvertisingFeedback((prev) => ({ ...prev, [vehicleId]: { tone: 'error', message: 'Authentication required.' } }));
+        return;
+      }
+      const response = await fetch(`/api/admin/vehicles/${vehicleId}/advertising`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          state: nextState,
+          reason: 'Updated from Vehicles workspace',
+          metadata: { source: 'admin_vehicles_page' },
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; newState?: AdvertisingState };
+      if (!response.ok) {
+        setAdvertisingFeedback((prev) => ({
+          ...prev,
+          [vehicleId]: { tone: 'error', message: payload.error ?? 'Unable to persist advertising state.' },
+        }));
+        return;
+      }
+      const committedState = payload.newState ?? nextState;
+      setVehicles((prev) => prev.map((row) => (row.id === vehicleId ? { ...row, advertising_state: committedState } : row)));
+      setAdvertisingFeedback((prev) => ({
+        ...prev,
+        [vehicleId]: { tone: 'success', message: 'Saved' },
+      }));
+    } finally {
+      setAdvertisingUpdating((prev) => ({ ...prev, [vehicleId]: false }));
+    }
+  };
+
   const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
   const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
   const formatDate = (value: string | null | undefined) => {
@@ -303,6 +369,9 @@ export default function VehiclesPage() {
                   <tbody>
                     {paginatedVehicles.map((v, i) => {
                       const assignedDriver = drivers.find(d => d.id === v.assigned_driver_id);
+                      const currentAdvertisingState = (v.advertising_state ?? 'none') as AdvertisingState;
+                      const feedback = advertisingFeedback[v.id];
+                      const updating = Boolean(advertisingUpdating[v.id]);
                       return (
                         <tr key={v.id} style={{ borderBottom: i < paginatedVehicles.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                           <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{v.reg_plate || '—'}</td>
@@ -314,14 +383,21 @@ export default function VehiclesPage() {
                           {!isDriverWorkspace && <td style={{ padding: '0.8rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>}
                           <td style={{ padding: '0.8rem' }}>
                             <select
-                              value={advertisingMap[v.id] ?? 'none'}
-                              onChange={(e) => setAdvertisingMap((prev) => ({ ...prev, [v.id]: e.target.value as 'none' | 'exchange' | 'partner' }))}
-                              style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.28rem 0.45rem', fontSize: '0.75rem', background: advertisingMap[v.id] === 'exchange' ? '#dcfce7' : advertisingMap[v.id] === 'partner' ? '#eff6ff' : '#f9fafb', color: advertisingMap[v.id] === 'exchange' ? '#166534' : advertisingMap[v.id] === 'partner' ? '#1e40af' : '#6b7280', cursor: 'pointer' }}
+                              value={currentAdvertisingState}
+                              onChange={(e) => { void handleAdvertisingChange(v.id, e.target.value as AdvertisingState); }}
+                              disabled={!advertisingStateAvailable || updating}
+                              style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.28rem 0.45rem', fontSize: '0.75rem', background: currentAdvertisingState === 'exchange' ? '#dcfce7' : currentAdvertisingState === 'partner' ? '#eff6ff' : '#f9fafb', color: currentAdvertisingState === 'exchange' ? '#166534' : currentAdvertisingState === 'partner' ? '#1e40af' : '#6b7280', cursor: !advertisingStateAvailable || updating ? 'not-allowed' : 'pointer', opacity: !advertisingStateAvailable || updating ? 0.7 : 1 }}
                             >
                               <option value="none">Not advertised</option>
                               <option value="exchange">General Exchange</option>
                               <option value="partner">Partner Only</option>
                             </select>
+                            {updating && <div style={{ fontSize: '0.67rem', color: '#475569', marginTop: '0.22rem' }}>Saving…</div>}
+                            {feedback && (
+                              <div style={{ fontSize: '0.67rem', color: feedback.tone === 'error' ? '#b91c1c' : '#166534', marginTop: '0.22rem' }}>
+                                {feedback.message}
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
                           <td style={{ padding: '0.8rem' }}>

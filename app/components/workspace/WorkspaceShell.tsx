@@ -15,6 +15,7 @@ import {
 } from '../../../lib/workspaceRole';
 import SharedContextControls from './SharedContextControls';
 import { workspaceTheme } from './WorkspaceUI';
+import styles from './WorkspaceShell.module.css';
 
 export default function WorkspaceShell({
   children,
@@ -31,8 +32,10 @@ export default function WorkspaceShell({
   const [isCompact, setIsCompact] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
-  const [tickerItems, setTickerItems] = useState<Array<{ id: string; event_type: string; entity_id: string | null; created_at: string }>>([]);
-  const tickerRef = useRef<HTMLDivElement>(null);
+  const [tickerItems, setTickerItems] = useState<Array<{ id: string; label: string; reference: string | null; created_at: string }>>([]);
+  const tickerTimerRef = useRef<number | null>(null);
+  const tickerAbortRef = useRef<AbortController | null>(null);
+  const tickerBusyRef = useRef(false);
 
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
@@ -103,23 +106,93 @@ export default function WorkspaceShell({
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !isSupabaseConfigured) return;
+    if (!user?.id || !isSupabaseConfigured) {
+      setTickerItems([]);
+      return;
+    }
 
-    const fetchTicker = async () => {
-      const { data } = await supabase
-        .from('notification_events')
-        .select('id, event_type, entity_id, created_at')
-        .eq('recipient_user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(12);
-      if (data && data.length > 0) {
-        setTickerItems((data as Array<{ id: string; event_type: string; entity_id: string | null; created_at: string }>).reverse());
+    let cancelled = false;
+    const clearTimer = () => {
+      if (tickerTimerRef.current !== null) {
+        window.clearTimeout(tickerTimerRef.current);
+        tickerTimerRef.current = null;
+      }
+    };
+    const queueNext = (ms = 30_000) => {
+      clearTimer();
+      tickerTimerRef.current = window.setTimeout(() => {
+        void fetchTicker();
+      }, ms);
+    };
+
+    const fetchTicker = async (force = false) => {
+      if (cancelled) return;
+      if (!force && document.visibilityState !== 'visible') {
+        queueNext(5_000);
+        return;
+      }
+      if (tickerBusyRef.current) {
+        queueNext(5_000);
+        return;
+      }
+
+      tickerBusyRef.current = true;
+      tickerAbortRef.current?.abort();
+      const controller = new AbortController();
+      tickerAbortRef.current = controller;
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+          setTickerItems([]);
+          return;
+        }
+
+        const response = await fetch('/api/workspace/activity-feed?limit=12', {
+          method: 'GET',
+          headers: { Authorization: 'Bearer ' + token },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setTickerItems([]);
+          return;
+        }
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          items?: Array<{ id: string; label: string; reference: string | null; created_at: string }>;
+        };
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        setTickerItems(items.slice().reverse());
+      } catch {
+        setTickerItems([]);
+      } finally {
+        tickerBusyRef.current = false;
+        if (!cancelled) queueNext();
       }
     };
 
-    void fetchTicker();
-    const timer = window.setInterval(() => void fetchTicker(), 30_000);
-    return () => window.clearInterval(timer);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchTicker(true);
+      } else {
+        clearTimer();
+        tickerAbortRef.current?.abort();
+      }
+    };
+
+    void fetchTicker(true);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      tickerAbortRef.current?.abort();
+      tickerBusyRef.current = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [user?.id]);
 
   useEffect(() => {
@@ -572,61 +645,21 @@ export default function WorkspaceShell({
 
       {tickerItems.length > 0 && (
         <div
-          ref={tickerRef}
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '26px',
-            background: workspaceTheme.navy,
-            color: '#e2e8f0',
-            zIndex: 55,
-            display: 'flex',
-            alignItems: 'center',
-            overflow: 'hidden',
-            borderTop: '1px solid rgba(255,255,255,0.08)',
-          }}
+          className={styles.tickerRoot}
+          style={{ background: workspaceTheme.navy, color: '#e2e8f0' }}
           aria-live="polite"
-          aria-label="Live activity feed"
+          aria-label="Activity feed"
         >
-          <div
-            style={{
-              flexShrink: 0,
-              padding: '0 0.6rem',
-              fontSize: '0.6rem',
-              fontWeight: 900,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: workspaceTheme.orange,
-              borderRight: '1px solid rgba(255,255,255,0.12)',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            ● LIVE
+          <div className={styles.tickerLabel} style={{ color: workspaceTheme.orange }}>
+            ● ACTIVITY
           </div>
-          <div
-            className="xdrive-ticker-track"
-            style={{
-              display: 'flex',
-              gap: '2.5rem',
-              animation: 'xdriveTicker 40s linear infinite',
-              whiteSpace: 'nowrap',
-              fontSize: '0.66rem',
-              paddingLeft: '1.5rem',
-            }}
-          >
+          <div className={styles.tickerTrack}>
             {[...tickerItems, ...tickerItems].map((item, index) => {
               const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-              const label = item.event_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-              const ref = item.entity_id ? ` – ${item.entity_id.slice(0, 8).toUpperCase()}` : '';
               return (
-                <span key={`${item.id}-${index}`} style={{ color: '#cbd5e1' }}>
-                  <span style={{ color: workspaceTheme.orange, fontWeight: 800, marginRight: '0.3rem' }}>{time}</span>
-                  {label}{ref}
+                <span key={`${item.id}-${index}`} className={styles.tickerItem}>
+                  <span className={styles.tickerTime} style={{ color: workspaceTheme.orange }}>{time}</span>
+                  {item.label}{item.reference ? ` – ${item.reference}` : ''}
                 </span>
               );
             })}
@@ -639,11 +672,6 @@ export default function WorkspaceShell({
         body { background: ${workspaceTheme.page}; }
         button, input, select, textarea { font: inherit; }
         .xdrive-table-row:hover td { background: #fbfdff; }
-        @keyframes xdriveTicker {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .xdrive-ticker-track { will-change: transform; }
         @media (max-width: 820px) {
           .xdrive-two-column, .xdrive-settings-layout { grid-template-columns: 1fr !important; }
           .xdrive-settings-layout > aside { position: static !important; display: flex; overflow-x: auto; gap: 0.25rem; }
