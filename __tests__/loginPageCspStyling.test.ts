@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('login page CSP-safe styling', () => {
   const pagePath = path.join(process.cwd(), 'app/login/page.tsx');
