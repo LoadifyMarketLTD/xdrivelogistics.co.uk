@@ -14,9 +14,12 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
-  PageFrame,
+  OperationalCard,
+  OperationalFilterField,
+  OperationalFilters,
+  OperationalPageLayout,
   PageHeader,
-  Panel,
+  QuickActionGrid,
   StatusBadge,
   TwoColumn,
 } from '../components/workspace/WorkspaceUI';
@@ -128,7 +131,37 @@ export default function DriverDashboard() {
     .reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
 
   return (
-    <PageFrame>
+    <OperationalPageLayout
+      searchPanel={(
+        <OperationalFilters title={ownerDriver ? 'Owner-driver control desk' : 'Driver control desk'}>
+          <OperationalFilterField label="Shift picture">
+            <div style={{ display: 'grid', gap: '4px' }}>
+              {[
+                ['Jobs today', todaysJobs.length, todaysJobs.length ? 'green' : 'grey'],
+                ['Current job', currentJob ? 1 : 0, currentJob ? 'green' : 'grey'],
+                ['Upcoming work', upcomingJobs.length, upcomingJobs.length ? 'orange' : 'green'],
+                ['Documents expiring', expiringDocuments.length, expiringDocuments.length ? 'red' : 'green'],
+              ].map(([label, value, tone], index, items) => (
+                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: index === items.length - 1 ? 'none' : '1px solid #eef2f6', fontSize: '12px', color: '#202124' }}>
+                  <span>{label}</span>
+                  <StatusBadge value={String(value)} tone={tone as 'green' | 'orange' | 'red' | 'grey'} />
+                </div>
+              ))}
+            </div>
+          </OperationalFilterField>
+          <OperationalFilterField label="Quick actions">
+            <QuickActionGrid
+              actions={[
+                ...(ownerDriver ? [{ key: 'find-loads', label: 'Find loads', onClick: () => router.push('/driver/loads') }] : []),
+                { key: 'jobs', label: 'Open jobs', onClick: () => router.push('/driver/jobs') },
+                { key: 'availability', label: 'Update availability', onClick: () => router.push('/driver/availability') },
+                { key: 'documents', label: 'Manage documents', onClick: () => router.push('/driver/documents') },
+              ]}
+            />
+          </OperationalFilterField>
+        </OperationalFilters>
+      )}
+    >
       <PageHeader
         eyebrow={ownerDriver ? 'Owner-driver business' : 'Driver operations'}
         title={ownerDriver ? 'Owner Driver Dashboard' : 'Driver Dashboard'}
@@ -160,9 +193,9 @@ export default function DriverDashboard() {
       </KpiGrid>
 
       <TwoColumn>
-        <Panel
+        <OperationalCard
           title={currentJob ? 'Current job' : 'Next operational work'}
-          description="The job card shows the authoritative route, timing and next driver action."
+          subtitle="The job card shows the authoritative route, timing and next driver action."
           actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>All jobs</ActionButton>}
         >
           {currentJob ? (
@@ -183,9 +216,9 @@ export default function DriverDashboard() {
           ) : (
             <EmptyState title="No active job" description="Assigned work appears here as soon as it is allocated." />
           )}
-        </Panel>
+        </OperationalCard>
 
-        <Panel title="Today's schedule" description="All collections scheduled for today in pickup-time order.">
+        <OperationalCard title="Today's schedule" subtitle="All collections scheduled for today in pickup-time order." flush>
           <DataTable
             columns={['Route', 'Pickup', 'Status', 'Action']}
             rows={[...todaysJobs]
@@ -198,11 +231,11 @@ export default function DriverDashboard() {
               ])}
             empty={<EmptyState title="No jobs scheduled today" description="Use availability to keep dispatch informed." />}
           />
-        </Panel>
+        </OperationalCard>
       </TwoColumn>
 
       <TwoColumn>
-        <Panel title="Readiness summary" description="Operational shortcuts and account readiness for the next shift.">
+        <OperationalCard title="Readiness summary" subtitle="Operational shortcuts and account readiness for the next shift.">
           <div style={{ display: 'grid', gap: '0.55rem' }}>
             {[
               ['Upcoming allocated work', upcomingJobs.length, '/driver/jobs'],
@@ -213,16 +246,16 @@ export default function DriverDashboard() {
               <button
                 key={String(label)}
                 onClick={() => router.push(String(href))}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #d9e2ec', background: '#ffffff', borderRadius: '4px', padding: '8px 10px', cursor: 'pointer', color: '#202124', fontSize: '12px' }}
               >
                 <span>{label}</span>
                 {value !== null && <strong>{value}</strong>}
               </button>
             ))}
           </div>
-        </Panel>
+        </OperationalCard>
 
-        <Panel title="Recent completed work" description="Delivered jobs and POD-ready history.">
+        <OperationalCard title="Recent completed work" subtitle="Delivered jobs and POD-ready history." flush>
           <DataTable
             columns={['Route', 'Delivered', 'Status', 'Action']}
             rows={recentCompleted.map((job) => [
@@ -233,11 +266,11 @@ export default function DriverDashboard() {
             ])}
             empty={<EmptyState title="No completed jobs yet" description="Finished work appears here once delivery is confirmed." />}
           />
-        </Panel>
+        </OperationalCard>
       </TwoColumn>
 
       {upcomingJobs.length > 0 && (
-        <Panel title="Upcoming allocated work" description="Jobs already allocated to you scheduled for future dates." actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>All jobs</ActionButton>}>
+        <OperationalCard title="Upcoming allocated work" subtitle="Jobs already allocated to you scheduled for future dates." actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>All jobs</ActionButton>} flush>
           <DataTable
             columns={['Route', 'Pickup date', 'Vehicle', 'Status', 'Action']}
             rows={upcomingJobs.slice(0, 6).map((job) => [
@@ -249,18 +282,19 @@ export default function DriverDashboard() {
             ])}
             empty={<EmptyState title="No upcoming allocated work" />}
           />
-        </Panel>
+        </OperationalCard>
       )}
 
       {ownerDriver && (
         <TwoColumn>
-          <Panel
+          <OperationalCard
             title="Recent marketplace activity"
-            description="Your latest quote submissions and their commercial outcomes."
+            subtitle="Your latest quote submissions and their commercial outcomes."
             actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/quotes')}>All quotes</ActionButton>}
+            flush
           >
             <DataTable
-              columns={['Route', 'Your quote', 'Submitted', 'Result']}
+            columns={['Route', 'Your quote', 'Submitted', 'Result']}
               rows={myQuotes.slice(0, 6).map((bid) => {
                 const ownerBid = bid as OwnerBid;
                 const job = Array.isArray(ownerBid.jobs) ? ownerBid.jobs[0] : ownerBid.jobs;
@@ -273,10 +307,10 @@ export default function DriverDashboard() {
               })}
               empty={<EmptyState title="No quotes yet" description="Browse available loads and submit your first quote." action={<ActionButton tone="success" onClick={() => router.push('/driver/loads')}>Find loads</ActionButton>} />}
             />
-          </Panel>
+          </OperationalCard>
 
-          <div style={{ display: 'grid', gap: '0.9rem' }}>
-            <Panel title="Business summary" description="Financial and operational position for your owner-driver account.">
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <OperationalCard title="Business summary" subtitle="Financial and operational position for your owner-driver account.">
               <div style={{ display: 'grid', gap: '0.55rem' }}>
                 {[
                   ['Quotes submitted', submittedQuotes, '/driver/quotes'],
@@ -288,17 +322,17 @@ export default function DriverDashboard() {
                   <button
                     key={String(href)}
                     onClick={() => router.push(String(href))}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #d9e2ec', background: '#ffffff', borderRadius: '4px', padding: '8px 10px', cursor: 'pointer', color: '#202124', fontSize: '12px' }}
                   >
                     <span>{label}</span>
                     {value !== null && <strong>{value}</strong>}
                   </button>
                 ))}
               </div>
-            </Panel>
+            </OperationalCard>
 
             {expiringDocuments.length > 0 && (
-              <Panel title="Document expiry alerts" description="Take action before these documents expire.">
+              <OperationalCard title="Document expiry alerts" subtitle="Take action before these documents expire.">
                 {expiringDocuments.slice(0, 4).map((doc) => {
                   const days = Math.ceil((new Date(doc.expiry_date!).getTime() - Date.now()) / 86_400_000);
                   return (
@@ -309,14 +343,14 @@ export default function DriverDashboard() {
                   );
                 })}
                 <div style={{ marginTop: '0.6rem' }}><ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Manage documents</ActionButton></div>
-              </Panel>
+              </OperationalCard>
             )}
           </div>
         </TwoColumn>
       )}
 
       {!ownerDriver && expiringDocuments.length > 0 && (
-        <Panel title="Document expiry alerts" description="Action required before these documents expire." actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Manage</ActionButton>}>
+        <OperationalCard title="Document expiry alerts" subtitle="Action required before these documents expire." actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Manage</ActionButton>} flush>
           <DataTable
             columns={['Document', 'Expires']}
             rows={expiringDocuments.slice(0, 5).map((doc) => {
@@ -328,8 +362,8 @@ export default function DriverDashboard() {
             })}
             empty={<EmptyState title="No expiry alerts" />}
           />
-        </Panel>
+        </OperationalCard>
       )}
-    </PageFrame>
+    </OperationalPageLayout>
   );
 }

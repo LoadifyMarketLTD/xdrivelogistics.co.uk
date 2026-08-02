@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { invoiceNetAmount, invoiceSignedNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, OperationalCard, OperationalFilterField, OperationalFilters, OperationalPageLayout, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -106,7 +106,47 @@ export function BrokerDashboard() {
   }, [data, spendPeriod]);
 
   return (
-    <PageFrame>
+    <OperationalPageLayout
+      searchPanel={(
+        <OperationalFilters title="Broker control desk">
+          <OperationalFilterField label="Commercial pressure">
+            <div style={{ display: 'grid', gap: '4px' }}>
+              {[
+                ['Awaiting award', metrics.awaitingAwardJobs.length, metrics.awaitingAwardJobs.length ? 'orange' : 'green'],
+                ['POD missing', metrics.podPending.length, metrics.podPending.length ? 'red' : 'green'],
+                ['Customer payments due', metrics.dueForPayment.length, metrics.dueForPayment.length ? 'orange' : 'green'],
+                ['Overdue invoices', metrics.overdueRevenueInvoices.length, metrics.overdueRevenueInvoices.length ? 'red' : 'green'],
+              ].map(([label, value, tone], index, items) => (
+                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: index === items.length - 1 ? 'none' : '1px solid #eef2f6', fontSize: '12px', color: '#202124' }}>
+                  <span>{label}</span>
+                  <StatusBadge value={String(value)} tone={tone as 'green' | 'orange' | 'red'} />
+                </div>
+              ))}
+            </div>
+          </OperationalFilterField>
+          <OperationalFilterField label="Quick actions">
+            <QuickActionGrid
+              actions={[
+                { key: 'post-load', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
+                { key: 'compare', label: 'Compare carrier quotes', onClick: () => router.push('/broker/compare-quotes') },
+                { key: 'pod-review', label: 'Check POD review', onClick: () => router.push('/broker/pod-review') },
+                { key: 'invoices', label: 'Review invoices', onClick: () => router.push('/broker/customer-invoices') },
+              ]}
+            />
+          </OperationalFilterField>
+          <OperationalFilterField label="Compliance picture">
+            <ComplianceSummaryPanel
+              total={metrics.complianceSummary.total}
+              rows={[
+                { label: 'Current', count: metrics.complianceSummary.current, color: '#166534', background: '#ecfdf3', border: '#bbf7d0' },
+                { label: 'Expiring', count: metrics.complianceSummary.expiring, color: '#92400e', background: '#fffbeb', border: '#fde68a' },
+                { label: 'Expired', count: metrics.complianceSummary.expired, color: '#b91c1c', background: '#fef2f2', border: '#fecaca' },
+              ]}
+            />
+          </OperationalFilterField>
+        </OperationalFilters>
+      )}
+    >
       <PageHeader
         eyebrow="Broker commercial desk"
         title="Broker Dashboard"
@@ -129,10 +169,11 @@ export function BrokerDashboard() {
       </ExchangeKpiStrip>
 
       {metrics.awaitingAwardJobs.length > 0 && (
-        <Panel
+        <OperationalCard
           title="Award decisions needed"
-          description="These loads have carrier quotes waiting. Select the best option and award before capacity moves elsewhere."
+          subtitle="These loads have carrier quotes waiting. Select the best option and award before capacity moves elsewhere."
           actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
+          flush
         >
           <DataTable
             columns={['Customer load', 'Route', 'Quotes', 'Customer budget (est.)', 'Best carrier quote (est.)', 'Estimated margin', 'Action']}
@@ -153,14 +194,15 @@ export function BrokerDashboard() {
             })}
             empty={<EmptyState title="No loads awaiting award" />}
           />
-        </Panel>
+        </OperationalCard>
       )}
 
       <TwoColumn>
-        <Panel
+        <OperationalCard
           title="Active jobs"
-          description="Carrier-confirmed jobs in transit. Monitor for delays and exceptions before the customer is affected."
+          subtitle="Carrier-confirmed jobs in transit. Monitor for delays and exceptions before the customer is affected."
           actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>All jobs</ActionButton>}
+          flush
         >
           <DataTable
             columns={['Route', 'Customer', 'Pickup', 'Status', 'POD', 'Action']}
@@ -176,12 +218,12 @@ export function BrokerDashboard() {
             ])}
             empty={<EmptyState title="No active jobs" description="Jobs appear here once a carrier is awarded and confirmed." />}
           />
-        </Panel>
+        </OperationalCard>
 
-        <div style={{ display: 'grid', gap: '0.9rem' }}>
-          <Panel
+        <div style={{ display: 'grid', gap: '12px' }}>
+          <OperationalCard
             title="Commercial summary"
-            description="Invoiced net amounts are shown separately from operational estimates."
+            subtitle="Invoiced net amounts are shown separately from operational estimates."
           >
             <FinancialSummaryPanel
               items={[
@@ -192,9 +234,9 @@ export function BrokerDashboard() {
                 { label: 'Estimated carrier quote cost', value: money(metrics.estimatedCarrierCost), background: metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', color: metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b' },
               ]}
             />
-          </Panel>
+          </OperationalCard>
 
-          <Panel title="Recent customer loads" description="Latest activity in the broker book." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>All loads</ActionButton>}>
+          <OperationalCard title="Recent customer loads" subtitle="Latest activity in the broker book." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>All loads</ActionButton>}>
             {data.jobs.slice(0, 5).map((job) => (
               <button
                 key={job.id}
@@ -209,9 +251,9 @@ export function BrokerDashboard() {
               </button>
             ))}
             {data.jobs.length === 0 && <EmptyState title="No customer loads" />}
-          </Panel>
+          </OperationalCard>
 
-          <Panel title="Quick actions" description="Shortcuts for the broker control desk.">
+          <OperationalCard title="Quick actions" subtitle="Shortcuts for the broker control desk.">
             <QuickActionGrid
               actions={[
                 { key: '/broker/post-load', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
@@ -222,14 +264,14 @@ export function BrokerDashboard() {
                 { key: '/broker/margins', label: 'View margins', onClick: () => router.push('/broker/margins') },
               ]}
             />
-          </Panel>
+          </OperationalCard>
         </div>
       </TwoColumn>
 
       <TwoColumn>
-        <Panel
+        <OperationalCard
           title="Monthly totals"
-          description="Invoiced net revenue vs supplier payable net by invoice month."
+          subtitle="Invoiced net revenue vs supplier payable net by invoice month."
           actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/margins')}>Full report</ActionButton>}
         >
           {metrics.monthlyRows.length > 0 ? (
@@ -258,12 +300,12 @@ export function BrokerDashboard() {
           ) : (
             <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.8rem 0' }}>No load history to display.</div>
           )}
-        </Panel>
+        </OperationalCard>
 
-        <div style={{ display: 'grid', gap: '0.9rem' }}>
-          <Panel
+        <div style={{ display: 'grid', gap: '12px' }}>
+          <OperationalCard
             title="Sub-contract spend"
-            description="Total carrier costs excluding own-driver jobs."
+            subtitle="Total carrier costs excluding own-driver jobs."
             actions={
               <DateRangeSelector
                 value={spendPeriod}
@@ -290,11 +332,11 @@ export function BrokerDashboard() {
                 ))}
               </div>
             </div>
-          </Panel>
+          </OperationalCard>
 
-          <Panel
+          <OperationalCard
             title="Supplier compliance"
-            description="Document status across carriers in your network."
+            subtitle="Document status across carriers in your network."
             actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}
           >
             <ComplianceSummaryPanel
@@ -305,14 +347,15 @@ export function BrokerDashboard() {
                 { label: 'Updates needed', count: metrics.complianceSummary.expired, color: '#b91c1c', background: '#fef2f2', border: '#fecaca' },
               ]}
             />
-          </Panel>
+          </OperationalCard>
         </div>
       </TwoColumn>
 
-      <Panel
+      <OperationalCard
         title="Latest invoices received"
-        description="Most recent customer invoices across all loads."
+        subtitle="Most recent customer invoices across all loads."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/customer-invoices')}>All invoices</ActionButton>}
+        flush
       >
         <DataTable
           columns={['Invoice', 'Customer', 'Amount', 'Due', 'Status']}
@@ -325,12 +368,12 @@ export function BrokerDashboard() {
           ])}
           empty={<EmptyState title="No invoices yet" />}
         />
-      </Panel>
-    </PageFrame>
+      </OperationalCard>
+    </OperationalPageLayout>
   );
 }
 
-const summaryButton = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.62rem 0.68rem', background: '#f8fafc', color: '#0f172a', fontSize: '0.76rem', cursor: 'pointer' } as const;
+const summaryButton = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '8px 10px', background: '#ffffff', color: '#202124', fontSize: '12px', cursor: 'pointer' } as const;
 
 export function BrokerCustomersPage() {
   const router = useRouter(); const data = useCompanyWorkspaceData();
