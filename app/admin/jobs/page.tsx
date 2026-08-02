@@ -10,7 +10,7 @@ import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
-import { JobsOperationalTable, type JobRow } from '../../components/workspace/JobsOperationalTable';
+import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
 
 interface Job {
  id: string;
@@ -24,11 +24,13 @@ interface Job {
  location: string;
  date: string;
  time: string;
+ postcode?: string;
  };
  delivery: {
  location: string;
  date: string;
  time: string;
+ postcode?: string;
  };
  cargo: {
  type: string;
@@ -224,7 +226,7 @@ export default function JobsPage() {
  return;
  }
  if (data) {
- const mapped = data.map((row: Record<string, unknown>) => {
+ const mapped: Job[] = data.map((row: Record<string, unknown>) => {
  const clientFields = getJobClientFields(row);
  const rawDistanceMiles =
  typeof row.job_distance_miles === 'number'
@@ -235,7 +237,7 @@ export default function JobsPage() {
  const distanceMiles =
  rawDistanceMiles !== null && Number.isFinite(rawDistanceMiles)
  ? `${rawDistanceMiles.toFixed(1)} mi`
- : ' ';
+ : '';
 
  return {
  id: row.id as string,
@@ -249,11 +251,13 @@ export default function JobsPage() {
  location: (row.pickup_location as string) || '',
  date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
  time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+ postcode: (row.pickup_postcode as string) || undefined,
  },
  delivery: {
  location: (row.delivery_location as string) || '',
  date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
  time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+ postcode: (row.delivery_postcode as string) || undefined,
  },
  cargo: {
  type: (row.cargo_type as string) || 'Other',
@@ -346,6 +350,50 @@ export default function JobsPage() {
  void loadJobs();
  }
  setDirectInviteSending(false);
+ };
+
+ /**
+  * Transition a job to a new status.  Company-scoped: only updates rows owned
+  * by the current company (company_id = companyId).  Re-fetches the jobs list
+  * on success so the table reflects the persisted state.
+  */
+ const handleStatusChange = async (id: string, newStatus: string) => {
+ if (!isSupabaseConfigured || !companyId) return;
+ setDbError(null);
+ const { error } = await supabase
+  .from('jobs')
+  .update({ status: newStatus, updated_at: new Date().toISOString() })
+  .eq('id', id)
+  .eq('company_id', companyId);
+ if (error) {
+  setDbError(`Failed to update job status: ${error.message}`);
+ } else {
+  void loadJobs();
+ }
+ };
+
+ /**
+  * Post an eligible draft job to the marketplace.  Only called for jobs with
+  * status === 'draft' (JOB_STATUS.RECEIVED).  Company-scoped.
+  */
+ const handlePostJob = async (id: string) => {
+ if (!isSupabaseConfigured || !companyId) return;
+ setDbError(null);
+ const { error } = await supabase
+  .from('jobs')
+  .update({
+   status: JOB_STATUS.POSTED,
+   exchange_posted_at: new Date().toISOString(),
+   updated_at: new Date().toISOString(),
+  })
+  .eq('id', id)
+  .eq('company_id', companyId)
+  .eq('status', JOB_STATUS.RECEIVED);
+ if (error) {
+  setDbError(`Failed to post job: ${error.message}`);
+ } else {
+  void loadJobs();
+ }
  };
 
  const validateForm = () => {
@@ -632,8 +680,8 @@ export default function JobsPage() {
  return (
  <ProtectedRoute>
  <JobsOperationalTable
-  jobs={jobs as unknown as JobRow[]}
-  filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE) as unknown as JobRow[]}
+  jobs={jobs.map(jobToRow)}
+  filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map(jobToRow)}
   page={jobsPage}
   perPage={JOBS_PER_PAGE}
   totalFiltered={filteredJobs.length}
@@ -652,9 +700,12 @@ export default function JobsPage() {
   onCustomerFilterChange={setCustomerFilter}
   onNewJob={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
   onViewJob={(id) => router.push(`/admin/jobs/${id}`)}
-  onDirectInvite={async (job) => {
-   const typedJob = job as unknown as Job;
-   setDirectInviteJob(typedJob);
+  onDirectInvite={async (row) => {
+   // Resolve the canonical Job from the source collection by ID to preserve
+   // all fields (exchange_visibility, direct_invite_company_id, etc.).
+   const canonical = jobs.find((j) => j.id === row.id) ?? null;
+   if (!canonical) return;
+   setDirectInviteJob(canonical);
    setDirectInviteCarrierId('');
    setDirectInviteError('');
    if (!isSupabaseConfigured) return;
@@ -666,6 +717,8 @@ export default function JobsPage() {
     .order('name');
    setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
   }}
+  onStatusChange={(id, newStatus) => { void handleStatusChange(id, newStatus); }}
+  onPostJob={(id) => { void handlePostJob(id); }}
   newJobDisabled={newJobDisabled}
   companyError={companyError}
   dbError={dbError}
