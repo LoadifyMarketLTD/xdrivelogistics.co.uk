@@ -202,6 +202,23 @@ export function BrokerDashboard() {
             ))}
             {data.jobs.length === 0 && <EmptyState title="No customer loads" />}
           </Panel>
+
+          <Panel title="Quick actions" description="Shortcuts for the broker control desk.">
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {[
+                ['Post customer load', '/broker/post-load'],
+                ['Compare carrier quotes', '/broker/compare-quotes'],
+                ['Open disputes', '/broker/disputes'],
+                ['Manage carrier network', '/broker/carrier-network'],
+                ['Review invoices', '/broker/customer-invoices'],
+                ['View margins', '/broker/margins'],
+              ].map(([label, href]) => (
+                <button key={href} onClick={() => router.push(href)} style={summaryButton}>
+                  <span>{label}</span><span>→</span>
+                </button>
+              ))}
+            </div>
+          </Panel>
         </div>
       </TwoColumn>
 
