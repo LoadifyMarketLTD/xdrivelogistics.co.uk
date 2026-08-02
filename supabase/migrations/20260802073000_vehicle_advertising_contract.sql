@@ -65,6 +65,8 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_authenticated_actor_user_id uuid := auth.uid();
+  v_actor_user_id uuid;
   v_company_id uuid;
   v_assigned_driver_id uuid;
   v_previous_state text;
@@ -73,8 +75,22 @@ DECLARE
   v_can_manage boolean := false;
   v_updated_count integer := 0;
 BEGIN
-  IF p_vehicle_id IS NULL OR p_actor_user_id IS NULL THEN
-    RAISE EXCEPTION 'vehicle_id and actor_user_id are required.'
+  v_actor_user_id := coalesce(v_authenticated_actor_user_id, p_actor_user_id);
+
+  IF p_vehicle_id IS NULL THEN
+    RAISE EXCEPTION 'vehicle_id is required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF v_authenticated_actor_user_id IS NOT NULL
+     AND p_actor_user_id IS NOT NULL
+     AND p_actor_user_id IS DISTINCT FROM v_authenticated_actor_user_id THEN
+    RAISE EXCEPTION 'Forbidden — actor_user_id must match auth.uid().'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_actor_user_id IS NULL THEN
+    RAISE EXCEPTION 'actor_user_id is required when auth.uid() is unavailable.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -113,7 +129,7 @@ BEGIN
   SELECT EXISTS (
     SELECT 1
     FROM public.company_memberships cm
-    WHERE cm.user_id = p_actor_user_id
+    WHERE cm.user_id = v_actor_user_id
       AND cm.company_id = v_company_id
       AND cm.status = 'active'
       AND cm.role_in_company IN ('owner', 'admin', 'dispatcher')
@@ -124,7 +140,7 @@ BEGIN
       SELECT 1
       FROM public.drivers d
       WHERE d.id = v_assigned_driver_id
-        AND d.user_id = p_actor_user_id
+        AND d.user_id = v_actor_user_id
         AND d.company_id = v_company_id
     ) INTO v_can_manage;
   END IF;
@@ -162,7 +178,7 @@ BEGIN
     reason
   )
   VALUES (
-    p_actor_user_id,
+    v_actor_user_id,
     v_company_id,
     'vehicle',
     p_vehicle_id,
