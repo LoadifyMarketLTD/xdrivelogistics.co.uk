@@ -6,6 +6,13 @@ import { useAuth } from '../../components/AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getLoadDetailSummary } from '../../../lib/loadPostingDetails';
+import {
+  OperationalFilterField,
+  OperationalFilterInput,
+  OperationalFilterSelect,
+  OperationalFilters,
+  OperationalPageLayout,
+} from '../../components/workspace/WorkspaceUI';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -433,99 +440,91 @@ export default function MarketplacePage() {
   const safeBidsPage = Math.min(bidsPage, totalBidsPages - 1);
   const paginatedBids = bids.slice(safeBidsPage * BIDS_PER_PAGE, (safeBidsPage + 1) * BIDS_PER_PAGE);
 
+  const filterPanel = (
+    <OperationalFilters
+      title="Search Loads"
+      onSearch={() => void loadExchangeLoads()}
+      onClear={clearFilters}
+    >
+      {!isSupabaseConfigured && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '6px 8px', marginBottom: '6px', color: '#92400e', fontSize: '12px' }}>
+          Supabase not configured
+        </div>
+      )}
+      <OperationalFilterField label="FROM">
+        <OperationalFilterInput
+          value={pickupPostcodeFilter}
+          onChange={(v) => setPickupPostcodeFilter(v)}
+          placeholder="Pickup postcode"
+        />
+      </OperationalFilterField>
+      <OperationalFilterField label="TO">
+        <OperationalFilterInput value="" onChange={() => {}} placeholder="United Kingdom" />
+      </OperationalFilterField>
+      <OperationalFilterField label="VEHICLE SIZE">
+        <OperationalFilterSelect
+          value={vehicleFilter}
+          onChange={(v) => setVehicleFilter(v)}
+          options={[{ value: 'any', label: 'Any' }, ...Object.entries(VEHICLE_LABEL).map(([value, label]) => ({ value, label }))]}
+        />
+      </OperationalFilterField>
+      <OperationalFilterField label="DATE FROM">
+        <input type="date" value={dateFromFilter} onChange={(e) => setDateFromFilter(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
+      </OperationalFilterField>
+      <OperationalFilterField label="DATE TO">
+        <input type="date" value={dateToFilter} onChange={(e) => setDateToFilter(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
+      </OperationalFilterField>
+      <OperationalFilterField label="FREIGHT TYPE">
+        <OperationalFilterInput value={cargoTypeFilter} onChange={(v) => setCargoTypeFilter(v)} placeholder="e.g. pallets" />
+      </OperationalFilterField>
+      <OperationalFilterField label="MIN WEIGHT (KG)">
+        <input type="number" min="0" value={weightMinFilter} onChange={(e) => setWeightMinFilter(e.target.value)} placeholder="0" style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
+      </OperationalFilterField>
+      <OperationalFilterField label="SORT">
+        <OperationalFilterSelect
+          value={sortBy}
+          onChange={(v) => setSortBy(v as 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc')}
+          options={[
+            { value: 'date_desc', label: 'Date (newest)' },
+            { value: 'date_asc', label: 'Date (oldest)' },
+            { value: 'price_desc', label: 'Price (high-low)' },
+            { value: 'price_asc', label: 'Price (low-high)' },
+          ]}
+        />
+      </OperationalFilterField>
+    </OperationalFilters>
+  );
+
   return (
     <ProtectedRoute allowedRoles={['owner', 'broker', 'company_admin', 'company_staff', 'driver']}>
-      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
-
-        {/* ── Left search panel ───────────────────────────────────────────── */}
-        <aside style={{ width: '210px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.9rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', fontSize: '0.8rem' }}>🔍 Search Loads</div>
-
-          {!isSupabaseConfigured && (
-            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '0.5rem', marginBottom: '0.75rem', color: '#92400e', fontSize: '0.72rem' }}>
-              Supabase not configured
-            </div>
-          )}
-
-          <FieldLabel>FROM:</FieldLabel>
-          <input
-            value={pickupPostcodeFilter}
-            onChange={(e) => setPickupPostcodeFilter(e.target.value)}
-            placeholder="Pickup postcode"
-            style={inputStyle}
-          />
-
-          <FieldLabel>TO:</FieldLabel>
-          <input placeholder="United Kingdom" style={inputStyle} />
-
-          <FieldLabel>VEHICLE SIZE:</FieldLabel>
-          <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={inputStyle}>
-            <option value="any">Any</option>
-            {Object.entries(VEHICLE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-
-          <FieldLabel>DATE FROM:</FieldLabel>
-          <input type="date" value={dateFromFilter} onChange={(e) => setDateFromFilter(e.target.value)} style={inputStyle} />
-
-          <FieldLabel>DATE TO:</FieldLabel>
-          <input type="date" value={dateToFilter} onChange={(e) => setDateToFilter(e.target.value)} style={inputStyle} />
-
-          <FieldLabel>FREIGHT TYPE:</FieldLabel>
-          <input value={cargoTypeFilter} onChange={(e) => setCargoTypeFilter(e.target.value)} placeholder="e.g. pallets" style={inputStyle} />
-
-          <FieldLabel>MIN WEIGHT (KG):</FieldLabel>
-          <input type="number" min="0" value={weightMinFilter} onChange={(e) => setWeightMinFilter(e.target.value)} placeholder="0" style={inputStyle} />
-
-          <FieldLabel>SORT:</FieldLabel>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc')} style={{ ...inputStyle, marginBottom: '0.9rem' }}>
-            <option value="date_desc">Date (newest)</option>
-            <option value="date_asc">Date (oldest)</option>
-            <option value="price_desc">Price (high-low)</option>
-            <option value="price_asc">Price (low-high)</option>
-          </select>
-
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button
-              onClick={() => void loadExchangeLoads()}
-              style={{ flex: 1, background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}
-            >
-              Search
-            </button>
-            <button
-              onClick={clearFilters}
-              style={{ padding: '0.5rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}
-            >
-              Clear
-            </button>
-          </div>
-        </aside>
+      <OperationalPageLayout searchPanel={filterPanel}>
 
         {/* ── Main content ─────────────────────────────────────────────────── */}
-        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div>
 
           {/* Top bar: tabs + refresh */}
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '40px', marginBottom: '8px' }}>
             <div style={{ display: 'flex', gap: 0 }}>
               {tabs.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
                   style={{
-                    padding: '0.65rem 0.9rem',
+                    height: '40px',
+                    padding: '0 12px',
                     border: 'none',
-                    borderBottom: tab === t.id ? '2px solid #1d4ed8' : '2px solid transparent',
+                    borderBottom: tab === t.id ? '2px solid #1d57d8' : '2px solid transparent',
                     background: 'none',
                     cursor: 'pointer',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.03em',
-                    color: tab === t.id ? '#1d4ed8' : '#64748b',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: tab === t.id ? '#1d57d8' : '#5f6368',
                     marginBottom: '-1px',
                   }}
                 >
                   {t.label}
                   {t.count !== undefined && t.count > 0 && (
-                    <span style={{ marginLeft: '0.35rem', background: tab === t.id ? '#dbeafe' : '#f1f5f9', color: tab === t.id ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>
+                    <span style={{ marginLeft: '6px', background: tab === t.id ? '#dbeafe' : '#f1f5f9', color: tab === t.id ? '#1d57d8' : '#5f6368', borderRadius: '999px', padding: '1px 6px', fontSize: '11px', fontWeight: 600 }}>
                       {t.count}
                     </span>
                   )}
@@ -534,14 +533,14 @@ export default function MarketplacePage() {
             </div>
             <button
               onClick={() => void loadExchangeLoads()}
-              style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.75rem', color: '#64748b' }}
+              style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px', color: '#5f6368' }}
             >
               ↻ Refresh
             </button>
           </div>
 
           {/* Content area */}
-          <div style={{ padding: '0.85rem', flex: 1 }}>
+          <div>
 
             {/* ── All Live Loads ──────────────────────────────────────────── */}
             {tab === 'loads' && (
@@ -685,54 +684,54 @@ export default function MarketplacePage() {
             )}
 
           </div>
-        </main>
+        </div>
 
         {/* ── Bid Modal ──────────────────────────────────────────────────────── */}
         {bidTarget && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
-              <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.1rem', color: '#0f172a' }}>Quote Now</h2>
+            <div style={{ background: '#fff', borderRadius: '4px', padding: '1.5rem', width: '100%', maxWidth: '480px', boxShadow: '0 1px 2px rgba(15,35,79,.08)', border: '1px solid #d9e2ec' }}>
+              <h2 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: '#202124' }}>Quote Now</h2>
 
-              <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#374151', borderLeft: '3px solid #1d4ed8' }}>
-                <div style={{ fontWeight: 700 }}>{bidTarget.pickup_location || '—'} → {bidTarget.delivery_location || '—'}</div>
-                <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
+              <div style={{ background: '#f8fafc', borderRadius: '4px', padding: '8px 12px', marginBottom: '12px', fontSize: '13px', color: '#374151', borderLeft: '3px solid #1d57d8' }}>
+                <div style={{ fontWeight: 600 }}>{bidTarget.pickup_location || '—'} → {bidTarget.delivery_location || '—'}</div>
+                <div style={{ marginTop: '2px', color: '#5f6368', fontSize: '12px' }}>
                   {bidTarget.vehicle_type ? VEHICLE_LABEL[bidTarget.vehicle_type] ?? bidTarget.vehicle_type : 'Vehicle TBC'}
                   {bidTarget.pickup_datetime ? ` · ${fmtDate(bidTarget.pickup_datetime)}` : ''}
                   {bidTarget.budget_amount ? ` · Proposed: £${bidTarget.budget_amount.toFixed(2)}` : ''}
                 </div>
               </div>
 
-              <div style={{ marginBottom: '0.85rem' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#374151', marginBottom: '0.3rem' }}>Your Quote Amount (£) *</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>Your Quote Amount (£) *</label>
                 <input
                   type="number" min="0" step="0.01"
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
                   placeholder="e.g. 250.00"
-                  style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }}
+                  style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#374151', marginBottom: '0.3rem' }}>Notes (optional)</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>Notes (optional)</label>
                 <textarea
                   rows={3} value={bidMessage}
                   onChange={(e) => setBidMessage(e.target.value)}
                   placeholder="Vehicle availability, ETA, or any special notes…"
-                  style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.88rem', resize: 'vertical', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }}
                 />
               </div>
 
               {bidError && <ErrorBanner msg={bidError} />}
 
-              <div style={{ display: 'flex', gap: '0.65rem', justifyContent: 'flex-end' }}>
-                <button onClick={closeBidModal} style={{ padding: '0.55rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={closeBidModal} style={{ height: '32px', padding: '0 14px', border: '1px solid #c7d2df', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151', fontSize: '13px' }}>
                   Cancel
                 </button>
                 <button
                   onClick={() => void submitBid()}
                   disabled={bidSubmitting}
-                  style={{ padding: '0.55rem 1.25rem', border: 'none', borderRadius: '6px', background: bidSubmitting ? '#9ca3af' : '#16a34a', color: '#fff', cursor: bidSubmitting ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+                  style={{ height: '32px', padding: '0 14px', border: 'none', borderRadius: '4px', background: bidSubmitting ? '#9ca3af' : '#35a853', color: '#fff', cursor: bidSubmitting ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px' }}
                 >
                   {bidSubmitting ? 'Submitting…' : 'Submit Quote'}
                 </button>
@@ -740,27 +739,9 @@ export default function MarketplacePage() {
             </div>
           </div>
         )}
-      </div>
+      </OperationalPageLayout>
     </ProtectedRoute>
   );
-}
-
-// ── Shared style constants ─────────────────────────────────────────────────────
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.38rem 0.5rem',
-  border: '1px solid #e2e8f0',
-  borderRadius: '4px',
-  fontSize: '0.77rem',
-  color: '#374151',
-  background: '#fff',
-  marginBottom: '0.6rem',
-  boxSizing: 'border-box',
-};
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>{children}</div>;
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -772,29 +753,30 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
   const myBidAmount = load.myBid ? resolveBidAmountGbp(load.myBid) : null;
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderTop: hasBid ? '3px solid #3b82f6' : '3px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+    <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderLeft: hasBid ? '3px solid #1d57d8' : '1px solid #d9e2ec', borderRadius: '4px', overflow: 'hidden', marginBottom: '6px' }}>
       {/* Card body — 3 columns like CX */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', padding: '0.75rem 1rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', padding: '8px 12px', alignItems: 'start' }}>
 
         {/* Column 1: From / To */}
         <div>
-          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline' }}>
-            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '38px' }}>From:</span>
-            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'baseline' }}>
+            <span style={{ fontSize: '11px', color: '#5f6368', fontWeight: 600, minWidth: '38px' }}>From:</span>
+            <span style={{ fontWeight: 600, color: '#202124', fontSize: '13px' }}>
               {load.pickup_location || '—'}{load.pickup_postcode ? `, ${load.pickup_postcode}` : ''}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
-            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '38px' }}>To:</span>
-            <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'baseline', marginTop: '2px' }}>
+            <span style={{ fontSize: '11px', color: '#5f6368', fontWeight: 600, minWidth: '38px' }}>To:</span>
+            <span style={{ fontWeight: 400, color: '#202124', fontSize: '13px' }}>
               {load.delivery_location || '—'}{load.delivery_postcode ? `, ${load.delivery_postcode}` : ''}
             </span>
-          </div>          {getLoadDetailSummary(load, 4).length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.3rem', marginTop: '0.45rem' }}>
+          </div>
+          {getLoadDetailSummary(load, 4).length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '4px', marginTop: '6px' }}>
               {getLoadDetailSummary(load, 4).map((item) => (
-                <div key={`${load.id}-${item.label}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '5px', padding: '0.3rem 0.4rem' }}>
-                  <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#0f172a', fontWeight: 600 }}>{item.value}</div>
+                <div key={`${load.id}-${item.label}`} style={{ background: '#f5f7fa', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '3px 6px' }}>
+                  <div style={{ fontSize: '11px', color: '#5f6368', fontWeight: 600, textTransform: 'uppercase' }}>{item.label}</div>
+                  <div style={{ fontSize: '12px', color: '#202124', fontWeight: 600 }}>{item.value}</div>
                 </div>
               ))}
             </div>
@@ -803,47 +785,47 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
 
         {/* Column 2: Pickup / Deliver times */}
         <div>
-          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline' }}>
-            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Pickup:</span>
-            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{fmtDate(load.pickup_datetime)}</span>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'baseline' }}>
+            <span style={{ fontSize: '11px', color: '#5f6368', fontWeight: 600, minWidth: '44px' }}>Pickup:</span>
+            <span style={{ fontSize: '13px', color: '#202124' }}>{fmtDate(load.pickup_datetime)}</span>
           </div>
-          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'baseline', marginTop: '0.2rem' }}>
-            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, minWidth: '44px' }}>Deliver:</span>
-            <span style={{ fontSize: '0.82rem', color: '#374151' }}>{load.delivery_datetime ? fmtDate(load.delivery_datetime) : 'ASAP'}</span>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'baseline', marginTop: '2px' }}>
+            <span style={{ fontSize: '11px', color: '#5f6368', fontWeight: 600, minWidth: '44px' }}>Deliver:</span>
+            <span style={{ fontSize: '13px', color: '#202124' }}>{load.delivery_datetime ? fmtDate(load.delivery_datetime) : 'ASAP'}</span>
           </div>
-          {load.weight_kg && <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#94a3b8' }}>{load.weight_kg}kg{load.pallets ? ` · ${load.pallets} pallets` : ''}</div>}
+          {load.weight_kg && <div style={{ marginTop: '2px', fontSize: '12px', color: '#5f6368' }}>{load.weight_kg}kg{load.pallets ? ` · ${load.pallets} pallets` : ''}</div>}
         </div>
 
         {/* Column 3: Posted by / badge / vehicle */}
-        <div style={{ minWidth: '150px', textAlign: 'right' }}>
+        <div style={{ minWidth: '140px', textAlign: 'right' }}>
           {load.companies?.name && (
-            <div style={{ fontSize: '0.75rem', color: '#374151', fontWeight: 600, marginBottom: '0.15rem' }}>
+            <div style={{ fontSize: '13px', color: '#202124', fontWeight: 600, marginBottom: '2px' }}>
               {load.companies.name}
             </div>
           )}
           {load.exchange_posted_at && (
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
+            <div style={{ fontSize: '12px', color: '#5f6368', marginBottom: '2px' }}>
               Posted: {fmtDate(load.exchange_posted_at)}
             </div>
           )}
           {load.budget_amount && (
-            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
+            <div style={{ fontWeight: 600, color: '#202124', fontSize: '13px' }}>
               £{load.budget_amount.toFixed(2)}
-              {load.is_fixed_price && <span style={{ fontSize: '0.68rem', color: '#15803d', marginLeft: '0.25rem' }}>proposed</span>}
+              {load.is_fixed_price && <span style={{ fontSize: '11px', color: '#35a853', marginLeft: '4px' }}>proposed</span>}
             </div>
           )}
           {load.vehicle_type && (
-            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
-              🚛 {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
+            <div style={{ fontSize: '12px', color: '#5f6368', marginTop: '2px' }}>
+              {load.requested_vehicle_label ?? VEHICLE_LABEL[load.vehicle_type] ?? load.vehicle_type}
             </div>
           )}
         </div>
       </div>
 
       {/* Card footer — action row */}
-      <div style={{ borderTop: '1px solid #f1f5f9', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafbfc' }}>
+      <div style={{ borderTop: '1px solid #f5f7fa', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
         {hasBid && load.myBid && bidStyle ? (
-          <span style={{ background: bidStyle.bg, color: bidStyle.color, padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.73rem', fontWeight: 700 }}>
+          <span style={{ background: bidStyle.bg, color: bidStyle.color, padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
             {bidAccepted
               ? `✓ Bid Accepted`
               : `Bid: ${myBidAmount == null ? 'N/A' : `£${myBidAmount.toFixed(2)}`} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
@@ -851,12 +833,12 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
         ) : (
           <button
             onClick={onBid}
-            style={{ padding: '0.35rem 0.9rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}
+            style={{ height: '28px', padding: '0 12px', border: 'none', borderRadius: '4px', background: '#35a853', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}
           >
             Quote Now
           </button>
         )}
-        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Load ID: {load.id.slice(0, 8).toUpperCase()}</span>
+        <span style={{ fontSize: '11px', color: '#5f6368' }}>Load ID: {load.id.slice(0, 8).toUpperCase()}</span>
       </div>
     </div>
   );
@@ -864,7 +846,7 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
 
 function ErrorBanner({ msg }: { msg: string }) {
   return (
-    <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#991b1b', fontSize: '0.88rem' }}>
+    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', marginBottom: '8px', color: '#d93025', fontSize: '13px' }}>
       {msg}
     </div>
   );
@@ -872,7 +854,7 @@ function ErrorBanner({ msg }: { msg: string }) {
 
 function LoadingCard({ text }: { text: string }) {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+    <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '48px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>
       {text}
     </div>
   );
@@ -880,9 +862,9 @@ function LoadingCard({ text }: { text: string }) {
 
 function EmptyCard({ icon, text }: { icon: string; text: string }) {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-      <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{icon}</div>
-      <p style={{ margin: 0, fontSize: '0.9rem' }}>{text}</p>
+    <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '48px', textAlign: 'center', color: '#5f6368' }}>
+      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{icon}</div>
+      <p style={{ margin: 0, fontSize: '13px' }}>{text}</p>
     </div>
   );
 }

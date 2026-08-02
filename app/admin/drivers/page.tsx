@@ -10,6 +10,12 @@ import { logRuntimeProof } from '../../../lib/runtimeProof';
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
 import { usePasswordSetup } from '../_hooks/usePasswordSetup';
 import { getAccessToken } from '../_lib/getAccessToken';
+import {
+  OperationalFilterField,
+  OperationalFilters,
+  OperationalPageLayout,
+  PageHeader,
+} from '../../components/workspace/WorkspaceUI';
 
 const DRIVER_SELECT_COLUMNS = [
   'id',
@@ -296,8 +302,8 @@ export default function DriversPage() {
     resetSetupState();
   };
 
-  const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const };
-  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
+  const inputStyle = { width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' as const };
+  const labelStyle = { display: 'block', fontSize: '12px', fontWeight: '600' as const, color: '#5f6368', marginBottom: '4px' };
   const statusColor = (s: string) => s === 'active' ? '#1F7A3D' : s === 'suspended' ? '#92400e' : '#ef4444';
   const statusBg = (s: string) => s === 'active' ? '#d1fae5' : s === 'suspended' ? '#fef3c7' : '#fee2e2';
   const formatDate = (value: string | null | undefined) => {
@@ -316,217 +322,197 @@ export default function DriversPage() {
   });
   const paginatedDrivers = filteredDrivers.slice(driverPage * DRIVERS_PER_PAGE, (driverPage + 1) * DRIVERS_PER_PAGE);
 
+  const sidePanel = (
+    <OperationalFilters
+      title="Driver filters"
+      onClear={undefined}
+    >
+      <div style={{ fontSize: '12px', color: '#5f6368', marginBottom: '8px' }}>Company: {companies[0]?.name ?? 'Current account company'}</div>
+      <div style={{ display: 'grid', gap: '4px', marginBottom: '12px' }}>
+        {[
+          { label: 'Total drivers', value: drivers.length.toString() },
+          { label: 'App access disabled', value: appDisabledCount.toString() },
+          { label: 'Suspended / inactive', value: inactiveDriverCount.toString() },
+        ].map((item) => (
+          <div key={item.label} style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '8px 10px' }}>
+            <div style={{ fontSize: '11px', color: '#5f6368', fontWeight: 600 }}>{item.label}</div>
+            <div style={{ marginTop: '2px', fontSize: '16px', fontWeight: 700, color: '#202124' }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+      <OperationalFilterField label="">
+        <button
+          onClick={() => {
+            setCreatedCredentials(null);
+            setCopiedTemporaryPassword(false);
+            setPasswordSetupState({ status: 'idle', message: '' });
+            setError('');
+            setShowModal(true);
+          }}
+          disabled={!companyResolved || !companyId}
+          style={{ width: '100%', height: '32px', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1d57d8', color: 'white', border: 'none', borderRadius: '4px', fontSize: '13px', fontWeight: 600, cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
+        >
+          + Add Driver
+        </button>
+      </OperationalFilterField>
+    </OperationalFilters>
+  );
+
   return (
     <ProtectedRoute>
-      <div style={{ background: '#eef2f7', minHeight: '100vh', padding: '1rem' }}>
-        <div style={{ background: '#111827', color: '#e5e7eb', borderRadius: '14px', border: '1px solid #1f2937', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontWeight: '600' }}>
-            <span style={{ width: '0.6rem', height: '0.6rem', borderRadius: '999px', background: '#4ade80' }} />
-            Driver Operations Board
+      <OperationalPageLayout searchPanel={sidePanel}>
+        <PageHeader
+          title="Drivers"
+          description="Manage driver accounts and app access."
+        />
+
+        {companyError && (
+          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', marginBottom: '8px', color: '#92400e', fontSize: '13px' }}>
+            {companyError}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        )}
+        {!isSupabaseConfigured && (
+          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 12px', marginBottom: '8px', color: '#92400e', fontSize: '13px' }}>
+            ⚠️ Supabase is not configured. Database features are disabled.
+          </div>
+        )}
+
+        <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ borderBottom: '1px solid #d9e2ec', padding: '0 12px', display: 'flex', alignItems: 'center', height: '40px', gap: '4px' }}>
             {[
-              `All ${drivers.length}`,
-              `Active ${activeDriverCount}`,
-              `Attention ${inactiveDriverCount}`,
-            ].map((item) => (
-              <span key={item} style={{ border: '1px solid #374151', borderRadius: '999px', padding: '0.25rem 0.65rem', fontSize: '0.75rem', color: '#cbd5e1' }}>{item}</span>
+              { key: 'all' as const, label: `All (${drivers.length})` },
+              { key: 'active' as const, label: `Active (${activeDriverCount})` },
+              { key: 'app-disabled' as const, label: `App Disabled (${appDisabledCount})` },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  height: '40px',
+                  padding: '0 10px',
+                  border: 'none',
+                  borderBottom: activeTab === tab.key ? '2px solid #1d57d8' : '2px solid transparent',
+                  background: 'none',
+                  color: activeTab === tab.key ? '#1d57d8' : '#5f6368',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  marginBottom: '-1px',
+                }}
+              >
+                {tab.label}
+              </button>
             ))}
           </div>
-        </div>
 
-        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(220px, 260px) minmax(0, 1fr)' }}>
-          <aside style={{ background: '#f8fafc', border: '1px solid #dbe3ef', borderRadius: '14px', padding: '1rem', display: 'grid', gap: '1rem', alignContent: 'start' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '0.88rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>Driver filters</h2>
-              <p style={{ margin: '0.45rem 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>Company: {companies[0]?.name ?? 'Current account company'}</p>
+          {!companyResolved || loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>Loading...</div>
+          ) : !companyId ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>
+              <p>Company profile not available. Drivers are hidden until company access resolves.</p>
             </div>
-            <div style={{ display: 'grid', gap: '0.6rem' }}>
-              {[
-                { label: 'Total drivers', value: drivers.length.toString() },
-                { label: 'App access disabled', value: appDisabledCount.toString() },
-                { label: 'Suspended / inactive', value: inactiveDriverCount.toString() },
-              ].map((item) => (
-                <div key={item.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '0.72rem 0.78rem' }}>
-                  <div style={{ fontSize: '0.76rem', color: '#6b7280' }}>{item.label}</div>
-                  <div style={{ marginTop: '0.3rem', fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>{item.value}</div>
+          ) : filteredDrivers.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368', fontSize: '13px' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🚚</div>
+              <p style={{ margin: 0, fontWeight: 600, color: '#202124' }}>
+                {drivers.length === 0 ? 'No drivers yet. Add your first driver.' : 'No drivers match this tab filter.'}
+              </p>
+            </div>
+          ) : (
+            <div>
+              {paginatedDrivers.map((d) => (
+                <div key={d.id} style={{ borderBottom: '1px solid #f1f5f9', padding: '10px 12px', display: 'grid', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#202124', fontSize: '13px' }}>{d.display_name}</div>
+                      <div style={{ color: '#5f6368', fontSize: '12px', marginTop: '2px' }}>{d.email || '—'} • {d.phone || 'No phone'}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status), padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 700 }}>{d.status}</span>
+                      <span style={{ border: '1px solid #d9e2ec', borderRadius: '999px', padding: '2px 8px', color: d.app_access ? '#166534' : '#5f6368', fontSize: '11px', fontWeight: 700 }}>
+                        {d.app_access ? 'App enabled' : 'App disabled'}
+                      </span>
+                      <span style={{ color: '#5f6368', fontSize: '11px' }}>Created {formatDate(d.created_at)}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => openEditModal(d)}
+                      style={{ height: '26px', padding: '0 8px', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => void handleToggleStatus(d)}
+                      style={{ height: '26px', padding: '0 8px', backgroundColor: d.status === 'active' ? '#fee2e2' : '#d1fae5', color: d.status === 'active' ? '#991b1b' : '#065f46', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      {d.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                    {d.status !== 'suspended' && (
+                      <button
+                        onClick={() => void handleSuspendDriver(d)}
+                        style={{ height: '26px', padding: '0 8px', backgroundColor: '#fffbeb', color: '#92400e', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Suspend
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void handleRemoveDriver(d)}
+                      style={{ height: '26px', padding: '0 8px', backgroundColor: '#d93025', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => {
-                setCreatedCredentials(null);
-                setCopiedTemporaryPassword(false);
-                setPasswordSetupState({ status: 'idle', message: '' });
-                setError('');
-                setShowModal(true);
-              }}
-              disabled={!companyResolved || !companyId}
-              style={{ padding: '0.72rem 0.9rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
-            >
-              + Add Driver
-            </button>
-          </aside>
+          )}
 
-          <section style={{ background: '#fff', border: '1px solid #dbe3ef', borderRadius: '14px', overflow: 'hidden' }}>
-            <div style={{ borderBottom: '1px solid #e5e7eb', padding: '1rem', display: 'grid', gap: '0.9rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div>
-                  <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#111827' }}>Drivers</h1>
-                  <p style={{ margin: '0.35rem 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>Manage driver accounts with board-style visibility.</p>
-                </div>
-              </div>
-
-              {companyError && (
-                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '10px', padding: '0.85rem', color: '#92400e', fontSize: '0.9rem' }}>
-                  {companyError}
-                </div>
-              )}
-              {!isSupabaseConfigured && (
-                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '10px', padding: '0.85rem', color: '#92400e', fontSize: '0.9rem' }}>
-                  ⚠️ Supabase is not configured. Database features are disabled.
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {[
-                  { key: 'all' as const, label: `All Drivers (${drivers.length})` },
-                  { key: 'active' as const, label: `Active (${activeDriverCount})` },
-                  { key: 'app-disabled' as const, label: `App Disabled (${appDisabledCount})` },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    style={{
-                      border: activeTab === tab.key ? '1px solid #1d4ed8' : '1px solid #d1d5db',
-                      background: activeTab === tab.key ? '#eff6ff' : '#f8fafc',
-                      color: activeTab === tab.key ? '#1d4ed8' : '#475569',
-                      borderRadius: '999px',
-                      padding: '0.42rem 0.85rem',
-                      fontSize: '0.82rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+          {filteredDrivers.length > DRIVERS_PER_PAGE && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderTop: '1px solid #d9e2ec' }}>
+              <span style={{ fontSize: '12px', color: '#5f6368' }}>
+                Showing {driverPage * DRIVERS_PER_PAGE + 1}–{Math.min((driverPage + 1) * DRIVERS_PER_PAGE, filteredDrivers.length)} of {filteredDrivers.length} drivers
+              </span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
+                  disabled={driverPage === 0}
+                  style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', background: driverPage === 0 ? '#f5f7fa' : '#fff', cursor: driverPage === 0 ? 'not-allowed' : 'pointer', fontSize: '12px', color: '#202124' }}
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => setDriverPage((p) => p + 1)}
+                  disabled={(driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length}
+                  style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', background: (driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length ? '#f5f7fa' : '#fff', cursor: (driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length ? 'not-allowed' : 'pointer', fontSize: '12px', color: '#202124' }}
+                >
+                  Next →
+                </button>
               </div>
             </div>
-
-            {!companyResolved || loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : !companyId ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <p>Company profile not available. Drivers are hidden until company access resolves.</p>
-              </div>
-            ) : filteredDrivers.length === 0 ? (
-              <div style={{ padding: '3rem', display: 'grid', placeItems: 'center' }}>
-                <div style={{ width: '100%', maxWidth: '560px', border: '1px dashed #cbd5e1', borderRadius: '16px', background: '#f8fafc', padding: '2.2rem', textAlign: 'center', color: '#64748b' }}>
-                  <div style={{ fontSize: '2.3rem', marginBottom: '0.85rem' }}>🚚</div>
-                  <p style={{ margin: 0, fontWeight: '600', color: '#334155' }}>
-                    {drivers.length === 0 ? 'No drivers yet. Add your first driver.' : 'No drivers match this tab filter.'}
-                  </p>
-                  <p style={{ margin: '0.6rem 0 0 0', fontSize: '0.88rem' }}>
-                    Use the Add Driver action to onboard new team members and populate this board.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div style={{ padding: '1rem', display: 'grid', gap: '0.75rem' }}>
-                {paginatedDrivers.map((d) => (
-                  <article key={d.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', background: '#ffffff', padding: '0.9rem', display: 'grid', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <div>
-                        <div style={{ fontWeight: '700', color: '#0f172a' }}>{d.display_name}</div>
-                        <div style={{ color: '#64748b', fontSize: '0.86rem', marginTop: '0.25rem' }}>{d.email || '—'} • {d.phone || 'No phone'}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status), padding: '0.25rem 0.7rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: '600' }}>{d.status}</span>
-                        <span style={{ border: '1px solid #d1d5db', borderRadius: '999px', padding: '0.25rem 0.7rem', color: d.app_access ? '#166534' : '#64748b', fontSize: '0.76rem', fontWeight: '600' }}>
-                          {d.app_access ? 'App access enabled' : 'App access disabled'}
-                        </span>
-                        <span style={{ color: '#64748b', fontSize: '0.78rem' }}>Created {formatDate(d.created_at)}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => openEditModal(d)}
-                        style={{ padding: '0.4rem 0.8rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => void handleToggleStatus(d)}
-                        style={{ padding: '0.4rem 0.8rem', backgroundColor: d.status === 'active' ? '#fee2e2' : '#d1fae5', color: d.status === 'active' ? '#991b1b' : '#065f46', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                      >
-                        {d.status === 'active' ? 'Deactivate' : 'Activate'}
-                      </button>
-                      {d.status !== 'suspended' && (
-                        <button
-                          onClick={() => void handleSuspendDriver(d)}
-                          style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                        >
-                          Suspend
-                        </button>
-                      )}
-                      <button
-                        onClick={() => void handleRemoveDriver(d)}
-                        style={{ padding: '0.4rem 0.8rem', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-
-            {filteredDrivers.length > DRIVERS_PER_PAGE && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1rem', borderTop: '1px solid #e5e7eb', background: '#f8fafc' }}>
-                <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-                  Showing {driverPage * DRIVERS_PER_PAGE + 1}–{Math.min((driverPage + 1) * DRIVERS_PER_PAGE, filteredDrivers.length)} of {filteredDrivers.length} drivers
-                </span>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <button
-                    onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
-                    disabled={driverPage === 0}
-                    style={{ padding: '0.35rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', background: driverPage === 0 ? '#f1f5f9' : '#fff', cursor: driverPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
-                  >
-                    ← Prev
-                  </button>
-                  <button
-                    onClick={() => setDriverPage((p) => p + 1)}
-                    disabled={(driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length}
-                    style={{ padding: '0.35rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '8px', background: (driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length ? '#f1f5f9' : '#fff', cursor: (driverPage + 1) * DRIVERS_PER_PAGE >= filteredDrivers.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
+          )}
         </div>
 
         {/* Create Driver Modal */}
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Add Driver</h2>
-                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#202124', lineHeight: '22px' }}>Add Driver</h2>
+                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#5f6368', lineHeight: 1 }}>×</button>
               </div>
               {createdCredentials ? (
                 <>
-                  <div style={{ padding: '1.5rem', display: 'grid', gap: '0.8rem' }}>
-                  <div style={{ backgroundColor: createdCredentials.onboardingOutcome === 'invite_sent' ? '#ecfdf3' : '#eff6ff', border: `1px solid ${createdCredentials.onboardingOutcome === 'invite_sent' ? '#86efac' : '#93c5fd'}`, borderRadius: '8px', padding: '0.9rem', color: createdCredentials.onboardingOutcome === 'invite_sent' ? '#166534' : '#1d4ed8', fontSize: '0.9rem' }}>
+                  <div style={{ padding: '16px', display: 'grid', gap: '8px' }}>
+                  <div style={{ backgroundColor: createdCredentials.onboardingOutcome === 'invite_sent' ? '#f0fdf4' : '#eff6ff', border: `1px solid ${createdCredentials.onboardingOutcome === 'invite_sent' ? '#86efac' : '#93c5fd'}`, borderRadius: '4px', padding: '10px 12px', color: createdCredentials.onboardingOutcome === 'invite_sent' ? '#166534' : '#1d4ed8', fontSize: '13px' }}>
                     {createdCredentials.onboardingOutcome === 'invite_sent'
                         ? 'Driver invited successfully. A password setup email was sent.'
                       : createdCredentials.onboardingOutcome === 'temporary_password_created'
                       ? 'Driver created with a temporary password because invite delivery failed.'
                       : 'Driver account linked without sending a fresh invite.'}
                   </div>
-                  <div style={{ fontSize: '0.88rem', color: '#334155' }}>
+                  <div style={{ fontSize: '13px', color: '#202124' }}>
                     <strong>Driver:</strong> {createdCredentials.displayName}
                     <br />
                     <strong>Email:</strong> {createdCredentials.email}
@@ -538,40 +524,40 @@ export default function DriversPage() {
                       ) : null}
                     </div>
                     {createdCredentials.onboardingOutcome === 'temporary_password_created' ? (
-                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '4px', padding: '10px 12px', color: '#9a3412', fontSize: '13px', lineHeight: 1.6 }}>
                         <strong>Next action:</strong> copy the temporary password now, share it securely with the driver, and require an immediate password change on first sign-in.
                       </div>
                     ) : (
-                      <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', padding: '0.9rem', color: '#1d4ed8', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      <div style={{ backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '4px', padding: '10px 12px', color: '#1d4ed8', fontSize: '13px', lineHeight: 1.6 }}>
                         <strong>Next action:</strong> ask the driver to open their password setup email. If they need a fresh message, use the password setup action below.
                       </div>
                     )}
                     {createdCredentials.inviteFallbackReason ? (
-                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '0.9rem', color: '#9a3412', fontSize: '0.85rem' }}>
+                      <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '4px', padding: '10px 12px', color: '#9a3412', fontSize: '13px' }}>
                         {createdCredentials.inviteFallbackReason}
                       </div>
                     ) : null}
                     {passwordSetupState.message ? (
-                      <div style={{ backgroundColor: passwordSetupState.status === 'error' ? '#fef2f2' : '#ecfdf3', border: `1px solid ${passwordSetupState.status === 'error' ? '#fca5a5' : '#86efac'}`, borderRadius: '8px', padding: '0.9rem', color: passwordSetupState.status === 'error' ? '#dc2626' : '#166534', fontSize: '0.85rem' }}>
+                      <div style={{ backgroundColor: passwordSetupState.status === 'error' ? '#fef2f2' : '#f0fdf4', border: `1px solid ${passwordSetupState.status === 'error' ? '#fca5a5' : '#86efac'}`, borderRadius: '4px', padding: '10px 12px', color: passwordSetupState.status === 'error' ? '#dc2626' : '#166534', fontSize: '13px' }}>
                         {passwordSetupState.message}
                       </div>
                     ) : null}
                     {copiedTemporaryPassword ? (
-                      <div style={{ backgroundColor: '#ecfdf3', border: '1px solid #86efac', borderRadius: '8px', padding: '0.9rem', color: '#166534', fontSize: '0.85rem' }}>
+                      <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', padding: '10px 12px', color: '#166534', fontSize: '13px' }}>
                         Temporary password copied.
                       </div>
                     ) : null}
                   </div>
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
                     {createdCredentials.temporaryPassword ? (
-                      <button onClick={handleCopyTemporaryPassword} style={{ padding: '0.75rem 1rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                      <button onClick={handleCopyTemporaryPassword} style={{ height: '32px', padding: '0 12px', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>
                         Copy temporary password
                       </button>
                     ) : null}
                     <button
                       onClick={handleSendPasswordSetup}
                       disabled={passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil}
-                      style={{ padding: '0.75rem 1rem', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 'not-allowed' : 'pointer' }}
+                      style={{ height: '32px', padding: '0 12px', backgroundColor: '#1d57d8', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: passwordSetupState.status === 'sending' || Date.now() < passwordSetupCooldownUntil ? 'not-allowed' : 'pointer', fontSize: '13px' }}
                     >
                       {passwordSetupState.status === 'sending'
                         ? 'Sending...'
@@ -579,18 +565,18 @@ export default function DriversPage() {
                           ? `Retry in ${Math.ceil((passwordSetupCooldownUntil - Date.now()) / 1000)}s`
                           : 'Send password setup email'}
                     </button>
-                    <button onClick={closeModal} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Done</button>
+                    <button onClick={closeModal} style={{ height: '32px', padding: '0 12px', backgroundColor: '#35a853', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>Done</button>
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                    {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
+                  <div style={{ padding: '16px', display: 'grid', gap: '8px' }}>
+                    {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', color: '#dc2626', fontSize: '13px' }}>{error}</div>}
                     <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
                     <div>
                       <label style={labelStyle}>Company</label>
                       <input
-                        style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
+                        style={{ ...inputStyle, backgroundColor: '#f5f7fa', color: '#5f6368' }}
                         value={companies[0]?.name ?? 'Company linked to your account'}
                         disabled
                         readOnly
@@ -599,9 +585,9 @@ export default function DriversPage() {
                     <div><label style={labelStyle}>Email *</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
                     <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
                   </div>
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                    <button onClick={closeModal} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: creating ? 'not-allowed' : 'pointer' }}>Cancel</button>
-                    <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Creating...' : 'Add Driver'}</button>
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button onClick={closeModal} disabled={creating} style={{ height: '32px', padding: '0 16px', backgroundColor: 'white', color: '#202124', border: '1px solid #d9e2ec', borderRadius: '4px', cursor: creating ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Cancel</button>
+                    <button onClick={handleCreate} disabled={creating} style={{ height: '32px', padding: '0 16px', backgroundColor: '#35a853', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: creating ? 'not-allowed' : 'pointer', fontSize: '13px' }}>{creating ? 'Creating...' : 'Add Driver'}</button>
                   </div>
                 </>
               )}
@@ -611,14 +597,14 @@ export default function DriversPage() {
 
         {/* Edit Driver Modal */}
         {editingDriver && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Driver</h2>
-                <button onClick={() => setEditingDriver(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '90%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#202124', lineHeight: '22px' }}>Edit Driver</h2>
+                <button onClick={() => setEditingDriver(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#5f6368', lineHeight: 1 }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
+              <div style={{ padding: '16px', display: 'grid', gap: '8px' }}>
+                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', color: '#dc2626', fontSize: '13px' }}>{editError}</div>}
                 <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={editData.display_name} onChange={e => setEditData({...editData, display_name: e.target.value})} /></div>
                 <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={editData.phone} onChange={e => setEditData({...editData, phone: e.target.value})} /></div>
                 <div>
@@ -628,25 +614,25 @@ export default function DriversPage() {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#202124' }}>
                   <input
                     type="checkbox"
                     id="app_access"
                     checked={editData.app_access}
                     onChange={e => setEditData({...editData, app_access: e.target.checked})}
-                    style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer' }}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                   />
-                  <label htmlFor="app_access" style={{ fontSize: '0.9rem', fontWeight: '500', color: '#374151', cursor: 'pointer' }}>App Access (driver can log in to driver portal)</label>
-                </div>
+                  App Access (driver can log in to driver portal)
+                </label>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => setEditingDriver(null)} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
-                <button onClick={handleUpdate} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button onClick={() => setEditingDriver(null)} disabled={saving} style={{ height: '32px', padding: '0 16px', backgroundColor: 'white', color: '#202124', border: '1px solid #d9e2ec', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button onClick={handleUpdate} disabled={saving} style={{ height: '32px', padding: '0 16px', backgroundColor: '#1d57d8', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontSize: '13px' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </OperationalPageLayout>
     </ProtectedRoute>
   );
 }

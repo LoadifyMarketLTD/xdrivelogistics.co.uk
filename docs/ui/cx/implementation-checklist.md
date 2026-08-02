@@ -128,5 +128,65 @@ Unit tests: `__tests__/cxPrimitives.test.tsx` — 21 tests, all passing.
 
 ---
 
-*Phase 2 (reference screen analysis) and Phase 3 (screen reconstruction) are pending Phase 1 sign-off.*
+## Phase 3 — Screen-by-Screen Geometry Application
+
+### Shell Geometry Fixes (Phase 3.0)
+
+| Element | Before | After | Status |
+|---|---|---|---|
+| Ticker strip height | 32px | 26px | ✅ |
+| Ticker font | 12px | 11px | ✅ |
+| PageHeader title | 28px/700 | 24px/600/30px | ✅ |
+| PageFrame padding | 12px all | 12px top, 16px sides | ✅ |
+| Filter rail width | 232px | 220px | ✅ |
+| Panel border-radius | 9px | 4px | ✅ |
+| TwoColumn ratio | 65%/35% | 44%/56% (0.79fr/1fr) | ✅ |
+| Super-admin sidebar | 254px | 230px | ✅ |
+| Super-admin header | — | 50px height | ✅ |
+| Section title | 1rem | 16px/600/22px | ✅ |
+| Body text line-height | — | 18px | ✅ |
+
+### Super-Admin Dark Theme Migration (Phase 3.1)
+
+All 14 super-admin pages migrated from dark `#0f172a` theme to XDrive operational shell:
+
+| Route | Before | After | Status |
+|---|---|---|---|
+| `/super-admin/analytics` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/finance/revenue` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/companies/approvals` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/companies/active` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/companies/suspended` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/companies/verification` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/companies` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/marketplace` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/settings/roles-permissions` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/settings/global` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/settings/feature-flags` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/users/platform-admins` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/users` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+| `/super-admin/health` | Dark `#0f172a` bg | Operational `#f5f7fa` bg | ✅ |
+
+Shared components `SuperAdminLiveTablePage`, `SuperAdminModulePage`, `SuperAdminUserListPage` all rewritten to operational shell.
+
+### Production Routes — OperationalPageLayout Application (Phase 3.2)
+
+| Route | CX Ref | Layout | Table header | Table rows | Filter rail | Status |
+|---|---|---|---|---|---|---|
+| `/admin/marketplace` | refs 6–10 | OperationalPageLayout + OperationalFilters | — | 4px radius rows | 220px | ✅ |
+| `/admin/quotes` | ref 4 | OperationalPageLayout + OperationalFilters | 36px, 11px | 40px, 13px | 220px | ✅ |
+| `/admin/vehicles` | ref 2 | PageFrame + PageHeader | 36px, 11px | 40px, 13px | — | ✅ |
+| `/admin/drivers` | ref 1 | OperationalPageLayout + OperationalFilters | — | 40px rows | 220px | ✅ |
+
+### Remaining Routes (Phase 3.3 — pending)
+
+| Route | Status |
+|---|---|
+| `/admin/diary` | 🔲 Pending review |
+| `/admin/fleet-positions` | 🔲 Pending |
+| `/admin/returns` | 🔲 Pending |
+| `/admin/driver-availability` | 🔲 Pending |
+| `/driver` (driver dashboard) | 🔲 Pending |
+
+---
 

@@ -24,7 +24,7 @@ export const workspaceTheme = {
 const compactShadow = 'none';
 
 export function PageFrame({ children, maxWidth = 1480 }: { children: ReactNode; maxWidth?: number }) {
-  return <div className="xdrive-page-frame" style={{ width: '100%', maxWidth, margin: '0 auto', padding: '12px' }}>{children}</div>;
+  return <div className="xdrive-page-frame" style={{ width: '100%', maxWidth, margin: '0 auto', padding: '12px 16px' }}>{children}</div>;
 }
 
 export function PageHeader({ eyebrow, title, description, actions, meta }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
@@ -32,8 +32,8 @@ export function PageHeader({ eyebrow, title, description, actions, meta }: { eye
     <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
       <div style={{ minWidth: 0, flex: '1 1 520px' }}>
         {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>{eyebrow}</div>}
-        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '28px', fontWeight: 600, lineHeight: 1.35 }}>{title}</h1>
-        {description && <p style={{ margin: '8px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '13px', lineHeight: 1.35 }}>{description}</p>}
+        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '24px', fontWeight: 600, lineHeight: '30px' }}>{title}</h1>
+        {description && <p style={{ margin: '6px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '13px', lineHeight: '18px' }}>{description}</p>}
         {meta && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
       </div>
       {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
@@ -173,9 +173,9 @@ export function KpiCard({
 
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
-    <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', padding: '0.78rem 0.9rem', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '1rem' }}>{title}</h2>}{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.78rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
-      <div style={{ padding: flush ? 0 : '0.9rem' }}>{children}</div>
+    <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
+      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', alignItems: 'center' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '16px', fontWeight: 600, lineHeight: '22px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '12px', lineHeight: '16px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      <div style={{ padding: flush ? 0 : '12px' }}>{children}</div>
     </section>
   );
 }
@@ -396,7 +396,7 @@ export function OperationalFilterSelect({
  * Full search/filter panel derived from CX reference measurements:
  *
  * CX Search Panel anatomy (screenshots: Diary, Loads pages):
- * - Panel width:  230px (XDrive spec; CX ≈ 200px)
+ * - Panel width:  220px (spec: "left filter rail: 220px")
  * - Background:   #ffffff, border: 1px solid #d9e2ec
  * - Header:       8px 10px padding, uppercase 12px/600 title, #f5f7fa background
  * - Body:         8px 10px padding, 6px gap between fields
@@ -526,8 +526,8 @@ export function ComplianceSummaryPanel({
   );
 }
 
-export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { children: ReactNode; rightWidth?: string }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
+export function TwoColumn({ children, rightWidth = 'minmax(290px, 1fr)' }: { children: ReactNode; rightWidth?: string }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 0.79fr) ${rightWidth}`, gap: '12px', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
 }
 
 export function QuickActionGrid({

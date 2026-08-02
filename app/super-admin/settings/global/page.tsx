@@ -5,14 +5,15 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  green: '#22c55e',
-  red: '#ef4444',
+  pageBg: '#f5f7fa',
+  cardBg: '#ffffff',
+  cardBorder: '#d9e2ec',
+  text: '#202124',
+  muted: '#5f6368',
+  accent: '#f5a300',
+  green: '#35a853',
+  blue: '#1d57d8',
+  red: '#d93025',
 };
 
 type Setting = {
@@ -110,7 +111,7 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
+      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
         <div
           style={{
             display: 'flex',
@@ -135,7 +136,7 @@ export default function Page() {
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
                     color: THEME.accent,
-                    backgroundColor: 'rgba(245,158,11,0.12)',
+                    backgroundColor: '#fffbeb',
                     padding: '0.15rem 0.5rem',
                     borderRadius: '4px',
                   }}
@@ -155,9 +156,9 @@ export default function Page() {
               disabled={loading || saving}
               style={{
                 border: `1px solid ${THEME.cardBorder}`,
-                backgroundColor: '#0b1220',
+                backgroundColor: THEME.cardBg,
                 color: THEME.text,
-                borderRadius: '8px',
+                borderRadius: '4px',
                 padding: '0.5rem 0.75rem',
                 fontSize: '0.76rem',
                 cursor: loading || saving ? 'not-allowed' : 'pointer',
@@ -173,7 +174,7 @@ export default function Page() {
                 border: `1px solid ${THEME.green}`,
                 backgroundColor: THEME.green,
                 color: '#052e16',
-                borderRadius: '8px',
+                borderRadius: '4px',
                 padding: '0.5rem 0.75rem',
                 fontSize: '0.76rem',
                 fontWeight: 700,
@@ -190,9 +191,9 @@ export default function Page() {
             style={{
               marginBottom: '0.75rem',
               border: `1px solid ${THEME.red}`,
-              borderRadius: '8px',
+              borderRadius: '4px',
               color: THEME.red,
-              backgroundColor: 'rgba(239,68,68,0.1)',
+              backgroundColor: '#fef2f2',
               padding: '0.6rem 0.8rem',
               fontSize: '0.8rem',
             }}
@@ -205,7 +206,7 @@ export default function Page() {
             style={{
               marginBottom: '0.75rem',
               border: `1px solid ${THEME.green}`,
-              borderRadius: '8px',
+              borderRadius: '4px',
               color: THEME.green,
               backgroundColor: 'rgba(34,197,94,0.1)',
               padding: '0.6rem 0.8rem',
@@ -226,7 +227,7 @@ export default function Page() {
                 style={{
                   backgroundColor: THEME.cardBg,
                   border: `1px solid ${THEME.cardBorder}`,
-                  borderRadius: '12px',
+                  borderRadius: '4px',
                   overflow: 'hidden',
                 }}
               >
@@ -234,7 +235,7 @@ export default function Page() {
                   style={{
                     padding: '0.75rem 1rem',
                     borderBottom: `1px solid ${THEME.cardBorder}`,
-                    backgroundColor: '#0b1220',
+                    backgroundColor: THEME.cardBg,
                   }}
                 >
                   <h3
@@ -282,7 +283,7 @@ export default function Page() {
                         value={setting.value}
                         onChange={(event) => setValue(setting.key, event.target.value)}
                         style={{
-                          backgroundColor: '#0b1220',
+                          backgroundColor: THEME.cardBg,
                           border: `1px solid ${THEME.cardBorder}`,
                           borderRadius: '6px',
                           padding: '0.42rem 0.6rem',

@@ -24,13 +24,13 @@ function PlatformAdminsContent() {
   const router = useRouter();
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
+    <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '1.5rem' }}>🛡️</span>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Platform Administrators</h1>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: '#fffbeb', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
               Platform
             </span>
           </div>
@@ -40,7 +40,7 @@ function PlatformAdminsContent() {
         </div>
       </div>
 
-      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }}>
+      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '1.25rem', marginBottom: '1rem' }}>
         <h2 style={{ color: THEME.text, fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Administrator governance</h2>
         <p style={{ color: THEME.muted, fontSize: '0.82rem', margin: '0 0 1rem', lineHeight: 1.55 }}>
           Platform administrator accounts are managed through Supabase Auth and role assignments in the <strong style={{ color: THEME.accent }}>profiles</strong> table (role = <code style={{ color: THEME.accent }}>&apos;owner&apos;</code> or <code style={{ color: THEME.accent }}>&apos;admin&apos;</code>). Use the governance links below to manage roles and review admin actions.
@@ -51,8 +51,8 @@ function PlatformAdminsContent() {
               key={link.href}
               onClick={() => router.push(link.href)}
               style={{
-                textAlign: 'left', cursor: 'pointer', background: '#0b1220',
-                border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px',
+                textAlign: 'left', cursor: 'pointer', background: THEME.cardBg,
+                border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px',
                 padding: '0.75rem 1rem', color: THEME.text, display: 'flex',
                 alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
               }}
