@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 const requestSchema = z.object({
   state: z.enum(['none', 'exchange', 'partner']),
-  reason: z.string().trim().max(500).optional(),
+  reason: z.string().trim().min(1).max(500),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -60,7 +60,7 @@ export async function PATCH(
     p_vehicle_id: vehicleId,
     p_actor_user_id: authData.user.id,
     p_state: parsed.data.state,
-    p_reason: parsed.data.reason ?? null,
+    p_reason: parsed.data.reason,
     p_metadata: parsed.data.metadata ?? { source: 'admin_vehicles_page' },
   });
 

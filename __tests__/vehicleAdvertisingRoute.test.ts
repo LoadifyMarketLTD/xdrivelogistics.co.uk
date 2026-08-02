@@ -70,7 +70,16 @@ describe('PATCH /api/admin/vehicles/[id]/advertising', () => {
 
   it('rejects invalid state values before RPC call', async () => {
     ({ PATCH } = await import('../app/api/admin/vehicles/[id]/advertising/route'));
-    const res = await PATCH(makePatchRequest({ state: 'invalid' }), {
+    const res = await PATCH(makePatchRequest({ state: 'invalid', reason: 'publish' }), {
+      params: Promise.resolve({ id: 'veh-1' }),
+    });
+    expect(res.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('requires a non-empty reason before RPC call', async () => {
+    ({ PATCH } = await import('../app/api/admin/vehicles/[id]/advertising/route'));
+    const res = await PATCH(makePatchRequest({ state: 'none', reason: '' }), {
       params: Promise.resolve({ id: 'veh-1' }),
     });
     expect(res.status).toBe(400);
@@ -83,16 +92,40 @@ describe('PATCH /api/admin/vehicles/[id]/advertising', () => {
       data: null,
       error: { code: '42501', message: 'Forbidden' },
     });
-    const res = await PATCH(makePatchRequest({ state: 'partner' }), {
+    const res = await PATCH(makePatchRequest({ state: 'partner', reason: 'publish for exchange visibility' }), {
       params: Promise.resolve({ id: 'veh-1' }),
     });
     expect(res.status).toBe(403);
   });
 
+  it('maps cross-company rejection to 403', async () => {
+    ({ PATCH } = await import('../app/api/admin/vehicles/[id]/advertising/route'));
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'Forbidden — you cannot change this vehicle advertising state.' },
+    });
+    const res = await PATCH(makePatchRequest({ state: 'exchange', reason: 'cross-company attempt should fail' }), {
+      params: Promise.resolve({ id: 'veh-1' }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('maps audit-write or transactional RPC failures to 500', async () => {
+    ({ PATCH } = await import('../app/api/admin/vehicles/[id]/advertising/route'));
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message: 'owner_audit_log write failed' },
+    });
+    const res = await PATCH(makePatchRequest({ state: 'exchange', reason: 'must fail atomically' }), {
+      params: Promise.resolve({ id: 'veh-1' }),
+    });
+    expect(res.status).toBe(500);
+  });
+
   it('returns 401 when token is missing', async () => {
     ({ PATCH } = await import('../app/api/admin/vehicles/[id]/advertising/route'));
     mocks.getBearerToken.mockReturnValue(null);
-    const res = await PATCH(makePatchRequest({ state: 'none' }), {
+    const res = await PATCH(makePatchRequest({ state: 'none', reason: 'unpublish' }), {
       params: Promise.resolve({ id: 'veh-1' }),
     });
     expect(res.status).toBe(401);
