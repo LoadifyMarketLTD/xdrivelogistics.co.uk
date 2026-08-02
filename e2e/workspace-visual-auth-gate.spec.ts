@@ -10,6 +10,23 @@ const viewports = [
   { label: 'mobile', width: 390, height: 844, compact: true },
 ] as const;
 
+// Expected in Next.js dev-mode while keeping fixture route fail-closed in production builds.
+const EXPECTED_FAILED_REQUEST_ALLOWLIST = [
+  /\/__next\/webpack-hmr\b/i,
+  /\/__nextjs_original-stack-frame\b/i,
+  /\/__nextjs_source-map\b/i,
+];
+
+// Only known, non-user-facing development endpoints are allowlisted.
+const EXPECTED_HTTP_ERROR_ALLOWLIST = [
+  /\/__nextjs_original-stack-frame\b/i,
+  /\/__nextjs_source-map\b/i,
+  /\/favicon\.ico$/i,
+];
+
+const isAllowlisted = (url: string, allowlist: RegExp[]) =>
+  allowlist.some((pattern) => pattern.test(url));
+
 const toHex = (value: string) => {
   const match = value.match(/\d+/g);
   if (!match || match.length < 3) return value.trim().toLowerCase();
@@ -26,9 +43,27 @@ test.describe('authenticated workspace visual verification gate (fixture harness
   for (const role of roles) {
     test(`${role} visual contract at desktop/tablet/mobile`, async ({ page }, testInfo) => {
       const consoleErrors: string[] = [];
+      const failedRequests: string[] = [];
+      const failingResponses: string[] = [];
+
       page.on('console', (msg) => {
         if (msg.type() === 'error') {
           consoleErrors.push(msg.text());
+        }
+      });
+      page.on('requestfailed', (request) => {
+        const url = request.url();
+        if (!isAllowlisted(url, EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
+          failedRequests.push(`${request.method()} ${url} :: ${request.failure()?.errorText ?? 'unknown error'}`);
+        }
+      });
+      page.on('response', (response) => {
+        const status = response.status();
+        if (status >= 400) {
+          const url = response.url();
+          if (!isAllowlisted(url, EXPECTED_HTTP_ERROR_ALLOWLIST)) {
+            failingResponses.push(`${status} ${response.request().method()} ${url}`);
+          }
         }
       });
 
@@ -57,8 +92,7 @@ test.describe('authenticated workspace visual verification gate (fixture harness
 
         const headerHeight = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height));
         expect(headerHeight).toBeGreaterThanOrEqual(56);
-        const headerMinHeight = await header.evaluate((el) => window.getComputedStyle(el).minHeight);
-        expect(headerMinHeight).toBe('60px');
+        expect(headerHeight).toBeLessThanOrEqual(64);
 
         const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
         const notificationsButton = page.getByRole('button', { name: /Notifications/i });
@@ -72,9 +106,33 @@ test.describe('authenticated workspace visual verification gate (fixture harness
 
         const ticker = page.locator('[aria-label="Activity feed"]');
         await expect(ticker).toBeVisible();
-        const tickerTop = await ticker.evaluate((el) => el.getBoundingClientRect().top);
-        const mainTop = await page.locator('main').first().evaluate((el) => el.getBoundingClientRect().top);
-        expect(tickerTop).toBeLessThan(mainTop);
+        const layoutRects = await page.evaluate(() => {
+          const headerEl = document.querySelector('header');
+          const tickerEl = document.querySelector('[aria-label="Activity feed"]');
+          const mainEl = document.querySelector('main');
+          const toRect = (el: Element | null) => {
+            if (!el) return null;
+            const rect = el.getBoundingClientRect();
+            return {
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+              width: rect.width,
+              height: rect.height,
+            };
+          };
+          return {
+            header: toRect(headerEl),
+            ticker: toRect(tickerEl),
+            main: toRect(mainEl),
+          };
+        });
+        expect(layoutRects.header).toBeTruthy();
+        expect(layoutRects.ticker).toBeTruthy();
+        expect(layoutRects.main).toBeTruthy();
+        expect(layoutRects.header!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
+        expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
 
         const kpiCards = page.locator('[aria-label="Operational key performance indicators"] [role="group"], [aria-label="Operational key performance indicators"] button');
         const kpiCount = await kpiCards.count();
@@ -88,13 +146,27 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         await expect(page.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
         await expect(page.locator('span', { hasText: /Pending|In Progress|Delivered/ }).first()).toBeVisible();
 
-        const bodyOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-        expect(bodyOverflow).toBe(false);
-
-        if (viewport.compact) {
-          const tableScroll = page.locator('div').filter({ has: table }).first();
-          const hasHorizontalScroll = await tableScroll.evaluate((el) => el.scrollWidth >= el.clientWidth);
-          expect(hasHorizontalScroll).toBe(true);
+        const tableScroll = table.locator('xpath=ancestor::div[1]');
+        const overflowContract = await tableScroll.evaluate((el) => {
+          const table = el.querySelector('table');
+          const tableWidth = table ? table.scrollWidth : 0;
+          return {
+            containerOverflowX: window.getComputedStyle(el).overflowX,
+            containerClientWidth: el.clientWidth,
+            containerScrollWidth: el.scrollWidth,
+            tableWidth,
+            pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+            hasHorizontalScroll: el.scrollWidth > el.clientWidth + 1,
+            tableExceedsContainer: tableWidth > el.clientWidth + 1,
+          };
+        });
+        expect(overflowContract.pageOverflow).toBe(false);
+        expect(['auto', 'scroll']).toContain(overflowContract.containerOverflowX);
+        if (overflowContract.hasHorizontalScroll) {
+          expect(overflowContract.tableExceedsContainer).toBe(true);
+        }
+        if (viewport.width <= 440) {
+          expect(overflowContract.hasHorizontalScroll).toBe(true);
         }
 
         if (role !== 'admin') {
@@ -126,6 +198,8 @@ test.describe('authenticated workspace visual verification gate (fixture harness
       const cspErrors = nonHydrationErrors.filter((entry) => /content security policy|csp/i.test(entry));
       expect(cspErrors).toEqual([]);
       expect(nonHydrationErrors).toEqual([]);
+      expect(failedRequests).toEqual([]);
+      expect(failingResponses).toEqual([]);
     });
   }
 });

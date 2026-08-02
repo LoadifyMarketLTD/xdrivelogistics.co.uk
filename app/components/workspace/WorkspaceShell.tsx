@@ -384,7 +384,7 @@ export default function WorkspaceShell({
               alignItems: 'center',
               gap: '0.32rem',
               marginTop: '0.55rem',
-              flexWrap: 'wrap',
+              flexWrap: 'nowrap',
             }}
           >
             <span
@@ -571,6 +571,7 @@ export default function WorkspaceShell({
         <header
           style={{
             minHeight: '60px',
+            height: '60px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
             display: 'flex',
@@ -581,7 +582,8 @@ export default function WorkspaceShell({
             top: 0,
             zIndex: 35,
             gap: '0.75rem',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
             boxShadow: '0 1px 5px rgba(15,23,42,0.04)',
           }}
         >
@@ -624,34 +626,36 @@ export default function WorkspaceShell({
             </div>
           </div>
 
-          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            {fixtureMode ? (
-              <div
-                aria-label="Workspace context controls"
-                style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'wrap' }}
-              >
-                <span
-                  aria-label="Active organisation"
-                  style={{
-                    height: '34px',
-                    border: `1px solid ${workspaceTheme.border}`,
-                    borderRadius: '8px',
-                    background: '#fff',
-                    color: workspaceTheme.text,
-                    fontSize: '0.66rem',
-                    fontWeight: 750,
-                    padding: '0 0.55rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                  }}
+          {!isCompact && (
+            <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+              {fixtureMode ? (
+                <div
+                  aria-label="Workspace context controls"
+                  style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'wrap' }}
                 >
-                  {companyName}
-                </span>
-              </div>
-            ) : (
-              <SharedContextControls navigation={navigationTargets} />
-            )}
-          </div>
+                  <span
+                    aria-label="Active organisation"
+                    style={{
+                      height: '34px',
+                      border: `1px solid ${workspaceTheme.border}`,
+                      borderRadius: '8px',
+                      background: '#fff',
+                      color: workspaceTheme.text,
+                      fontSize: '0.66rem',
+                      fontWeight: 750,
+                      padding: '0 0.55rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {companyName}
+                  </span>
+                </div>
+              ) : (
+                <SharedContextControls navigation={navigationTargets} />
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', flexShrink: 0 }}>
             {primaryAction && (
