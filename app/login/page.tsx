@@ -102,41 +102,15 @@ export default function LoginPage() {
   return (
     <main className={styles.loginPage}>
       <div className={styles.loginShell}>
-        <section className={styles.loginHero} aria-label="XDrive Logistics platform introduction">
+        <section className={styles.loginHero} aria-label="XDrive Logistics operations centre">
           <Image
-            src="/hero-dispatch-control.webp"
-            alt="XDrive Logistics operations control centre"
+            src="/login-hero-operations-centre.webp"
+            alt="XDrive Logistics operations centre"
             fill
             priority
             sizes="(max-width: 820px) 100vw, 62vw"
             className={styles.loginHeroImage}
           />
-          <div className={styles.heroOverlay}>
-            <div className={styles.heroCopy}>
-              <h1>XDrive Logistics</h1>
-              <h2>Premium Transport Services</h2>
-              <div className={styles.heroAccent} aria-hidden="true" />
-              <p>Courier &amp; Delivery Management Platform</p>
-            </div>
-
-            <div className={styles.heroFeatures} aria-label="Platform benefits">
-              <div className={styles.heroFeature}>
-                <span className={styles.featureIcon} aria-hidden="true">01</span>
-                <strong>Real-time Tracking</strong>
-                <span>Live operational updates</span>
-              </div>
-              <div className={styles.heroFeature}>
-                <span className={styles.featureIcon} aria-hidden="true">02</span>
-                <strong>Secure &amp; Reliable</strong>
-                <span>Your freight, our priority</span>
-              </div>
-              <div className={styles.heroFeature}>
-                <span className={styles.featureIcon} aria-hidden="true">03</span>
-                <strong>Smart Operations</strong>
-                <span>Data-driven delivery</span>
-              </div>
-            </div>
-          </div>
         </section>
 
         <aside className={styles.loginFormPanel}>
