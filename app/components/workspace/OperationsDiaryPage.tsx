@@ -291,5 +291,5 @@ export default function OperationsDiaryPage() {
   );
 }
 
-const inputStyle = { width: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '0.55rem 0.65rem', background: '#fff', color: '#0f172a', fontSize: '0.76rem', boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: '0.3rem', color: '#475569', fontSize: '0.68rem', fontWeight: 800 } as const;
+const inputStyle = { width: '100%', height: '32px', border: '1px solid #d9e2ec', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#202124', fontSize: '13px', boxSizing: 'border-box' as const };
+const labelStyle = { display: 'grid', gap: '4px', color: '#5f6368', fontSize: '11px', fontWeight: 700 } as const;
