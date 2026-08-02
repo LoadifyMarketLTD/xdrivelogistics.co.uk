@@ -1160,3 +1160,170 @@
   min-width: 90px;
   text-align: right;
 }
+
+/* ─── Jobs Responsive Layout ─────────────────────────────────────────────────
+ * Desktop ≥769px : full dense table (default).
+ * Tablet 481–768px : compact table; hide Customer/Distance columns; allow
+ *   horizontal scroll only inside the table container.
+ * Mobile ≤480px  : table hidden; stacked mobile cards shown.
+ */
+
+/* Column-level tablet-hide helpers — applied to both th and td */
+.jobsColCustomer {}
+.jobsColDistance {}
+
+/* Table section wrapper — shown on desktop and tablet, hidden on mobile */
+.jobsTableSection {
+  display: block;
+}
+
+/* Mobile card list — hidden on desktop and tablet */
+.jobsMobileCardList {
+  display: none;
+}
+
+/* ── Tablet ──────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Toolbar: allow wrapping; auto height */
+  .jobsToolbar {
+    height: auto;
+    min-height: 40px;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .jobsToolbarSearch { width: 160px; }
+  .jobsToolbarStatus { width: 120px; }
+  .jobsToolbarDate   { width: 120px; }
+
+  /* KPI strip: allow horizontal scroll on narrow viewports */
+  .exchangeKpiStrip {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    overflow-x: auto;
+  }
+
+  /* Hide Customer and Distance columns on tablet */
+  .jobsColCustomer,
+  .jobsColDistance {
+    display: none;
+  }
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Hide dense table; show card list */
+  .jobsTableSection  { display: none; }
+  .jobsMobileCardList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Card container */
+  .jobsMobileCard {
+    background: #ffffff;
+    border: 1px solid #D8DEE8;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  /* Card header: ref + status badge + expand control */
+  .jobsMobileCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #E5E7EB;
+    min-height: 40px;
+  }
+
+  .jobsMobileCardRef {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1D57D8;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body of the card */
+  .jobsMobileCardBody {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  /* Route block: pickup → delivery stacked */
+  .jobsMobileCardRoute {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .jobsMobileCardRouteOrigin {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1A1F2B;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .jobsMobileCardRouteDest {
+    font-size: 12px;
+    color: #64748B;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Generic field row: label + value */
+  .jobsMobileCardRow {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 18px;
+    color: #1A1F2B;
+    min-height: 18px;
+  }
+
+  .jobsMobileCardLabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 80px;
+  }
+
+  /* Expandable detail inside card */
+  .jobsMobileCardDetail {
+    padding: 8px 10px;
+    background: #F8FAFC;
+    border-top: 1px solid #E5E7EB;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Primary action row at card bottom */
+  .jobsMobileCardActions {
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid #E5E7EB;
+    flex-wrap: wrap;
+  }
+}
