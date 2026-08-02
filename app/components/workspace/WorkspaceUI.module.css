@@ -1124,7 +1124,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  height: 40px;
+  min-height: 40px;
   padding: 4px 8px;
   border: 1px solid #D8DEE8;
   border-radius: 4px;
@@ -1150,6 +1150,9 @@
 .jobsToolbarSearch { width: 220px; }
 .jobsToolbarStatus { width: 140px; }
 .jobsToolbarDate { width: 132px; }
+.jobsToolbarPickup { width: 132px; }
+.jobsToolbarDelivery { width: 132px; }
+.jobsToolbarCustomer { width: 120px; }
 
 .jobsToolbarSpacer { flex: 1 1 0; }
 
@@ -1177,6 +1180,155 @@
   display: block;
 }
 
+.jobsOperationalTable {
+  min-width: 1060px;
+}
+
+.jobsColStatusWidth { width: 92px; }
+.jobsColRefWidth { width: 110px; }
+.jobsColPickupWidth { width: 150px; }
+.jobsColDeliveryWidth { width: 150px; }
+.jobsColVehicleWidth { width: 110px; }
+.jobsColCustomerWidth { width: 150px; }
+.jobsColDistanceWidth { width: 96px; }
+.jobsColActionsWidth { width: 92px; }
+
+.jobsEmptyTableCell {
+  text-align: center;
+  height: 64px;
+  color: #64748B;
+  font-size: 12px;
+}
+
+.jobsOperationalRow {
+  cursor: pointer;
+}
+
+.jobsStatusMeta {
+  font-size: 10px;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.jobsRefValue {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1D57D8;
+}
+
+.jobsSubMeta {
+  font-size: 11px;
+  line-height: 14px;
+  color: #64748B;
+}
+
+.jobsPrimaryDate {
+  font-size: 12.5px;
+  line-height: 17px;
+}
+
+.jobsAsapMeta {
+  font-size: 11px;
+  line-height: 14px;
+  color: #B76E00;
+  font-weight: 600;
+}
+
+.jobsRouteOriginPrimary {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+  display: inline-block;
+}
+
+.jobsRouteDestPrimary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 75%;
+  display: inline-block;
+}
+
+.jobsVehicleCell {
+  font-size: 12px;
+  color: #64748B;
+  text-transform: capitalize;
+}
+
+.jobsVehicleMeta {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+.jobsCustomerCell {
+  font-size: 12.5px;
+  overflow: hidden;
+  max-width: 150px;
+}
+
+.jobsDistanceCell {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.jobsCellEllipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jobsActionBtnPrimary {
+  background: #0B2F6B;
+  color: #ffffff;
+  border-color: #0B2F6B;
+}
+
+.jobsActionSelect {
+  padding-right: 4px;
+}
+
+.jobsMonospaceMeta {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.jobsCapitalizeText {
+  text-transform: capitalize;
+}
+
+.operationalJobDetailWideItem {
+  grid-column: span 2;
+}
+
+.operationalPaginationCurrent {
+  font-size: 12px;
+  color: #1A1F2B;
+  padding: 0 4px;
+}
+
+.jobsEmptyMobileState {
+  padding: 24px 12px;
+  text-align: center;
+  color: #64748B;
+  font-size: 12px;
+}
+
+.jobsMobileRoutePostcode {
+  color: #64748B;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.jobsMobileRouteArrow {
+  color: #64748B;
+  font-size: 10px;
+}
+
+.jobsMobileRouteMetaPostcode {
+  color: #94A3B8;
+  margin-left: 4px;
+}
+
 /* Mobile card list — hidden on desktop and tablet */
 .jobsMobileCardList {
   display: none;
@@ -1194,7 +1346,10 @@
   }
   .jobsToolbarSearch { width: 160px; }
   .jobsToolbarStatus { width: 120px; }
-  .jobsToolbarDate   { width: 120px; }
+  .jobsToolbarDate { width: 120px; }
+  .jobsToolbarPickup { width: 120px; }
+  .jobsToolbarDelivery { width: 120px; }
+  .jobsToolbarCustomer { width: 120px; }
 
   /* KPI strip: allow horizontal scroll on narrow viewports */
   .exchangeKpiStrip {
@@ -1210,7 +1365,7 @@
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   /* Hide dense table; show card list */
   .jobsTableSection  { display: none; }
   .jobsMobileCardList {
