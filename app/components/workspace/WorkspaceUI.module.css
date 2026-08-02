@@ -2,16 +2,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 0.72rem;
+  margin-bottom: 12px;
 }
 
 .exchangeKpiStrip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-  gap: 0.65rem;
-  margin-bottom: 0.9rem;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .financialSummaryPanel {
@@ -24,10 +24,10 @@
   justify-content: space-between;
   background: var(--xdrive-finance-row-bg, #f4f6f8);
   border: 1px solid color-mix(in srgb, var(--xdrive-finance-row-color, #1d57d8) 20%, #ffffff);
-  border-radius: 8px;
-  padding: 0.62rem 0.75rem;
-  font-size: 0.76rem;
-  gap: 0.6rem;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  gap: 8px;
 }
 
 .financialSummaryLabel {
@@ -40,19 +40,19 @@
 
 .complianceSummaryEmpty {
   color: #1a1f2b;
-  font-size: 0.76rem;
-  padding: 0.4rem 0;
+  font-size: 13px;
+  padding: 8px 0;
 }
 
 .complianceSummaryRows {
   display: grid;
-  gap: 0.42rem;
+  gap: 8px;
 }
 
 .complianceSummaryRow {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 8px;
 }
 
 .complianceSummaryDot {
@@ -92,7 +92,7 @@
 
 .quickActionGrid {
   display: grid;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .quickActionButton {
@@ -100,14 +100,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
+  gap: 8px;
   border: 1px solid #f4f6f8;
-  border-radius: 8px;
-  padding: 0.62rem 0.68rem;
+  border-radius: 4px;
+  padding: 8px 12px;
   background: #ffffff;
   color: #1a1f2b;
-  font-size: 0.76rem;
+  font-size: 13px;
   cursor: pointer;
+  min-height: 32px;
 }
 
 .quickActionButton:hover {
@@ -116,20 +117,21 @@
 
 .selectorControl {
   border: 1px solid #f4f6f8;
-  border-radius: 6px;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.72rem;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 13px;
   background: #ffffff;
   color: #1a1f2b;
+  min-height: 32px;
 }
 
 .savedViewSelector {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
   color: #1a1f2b;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .workspaceActivityFeed {
@@ -181,23 +183,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 0.5rem;
+  margin-bottom: 8px;
 }
 
 .operationalTableFilters {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .operationalTableMeta {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.72rem;
+  gap: 8px;
+  font-size: 12px;
   color: #1a1f2b;
 }
 
@@ -229,13 +231,13 @@
 
 .operationalTableHeadCell {
   text-align: left;
-  padding: 0.58rem 0.65rem;
+  padding: 8px 12px;
   color: #1a1f2b;
-  font-size: 0.62rem;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.045em;
   text-transform: uppercase;
-  border-bottom: 1px solid #f4f6f8;
+  border-bottom: 1px solid #e5eaf0;
   background: #f4f6f8;
   position: sticky;
   top: 0;
@@ -261,7 +263,7 @@
 }
 
 .operationalTableRow:hover {
-  background: #f4f6f8;
+  background: #f2f8ff;
 }
 
 .operationalTableRow:focus-within {
@@ -270,12 +272,12 @@
 }
 
 .operationalTableCell {
-  padding: 0.65rem;
+  padding: 8px 12px;
   color: #1a1f2b;
-  font-size: 0.74rem;
-  border-bottom: 1px solid #f4f6f8;
+  font-size: 13px;
+  border-bottom: 1px solid #e5eaf0;
   vertical-align: middle;
-  min-height: 40px;
+  height: 40px;
 }
 
 .operationalTableActionHeadCell,
@@ -286,15 +288,15 @@
 
 .actionCentreList {
   display: grid;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .actionCentreItem {
   background: #ffffff;
   border: 1px solid #f4f6f8;
-  border-radius: 9px;
-  padding: 0.78rem 0.85rem;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  border-radius: 4px;
+  padding: 12px;
+  box-shadow: none;
   position: relative;
   overflow: hidden;
 }

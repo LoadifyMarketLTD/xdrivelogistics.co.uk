@@ -4,39 +4,39 @@ import type { CSSProperties, ReactNode } from 'react';
 import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
-  page: '#f4f6f8',
+  page: '#f5f7fa',
   surface: '#ffffff',
-  surfaceSoft: '#f8fafc',
-  surfaceMuted: '#eef2f6',
-  border: '#d7e0ea',
+  surfaceSoft: '#f5f7fa',
+  surfaceMuted: '#f2f6fb',
+  border: '#d9e2ec',
   borderStrong: '#c7d2df',
-  text: '#0f172a',
-  muted: '#64748b',
+  text: '#202124',
+  muted: '#5f6368',
   blue: '#1d57d8',
   navy: '#0b2f6b',
   orange: '#f5a300',
-  green: '#15803d',
-  red: '#dc2626',
+  green: '#35a853',
+  red: '#d93025',
   amber: '#d97706',
   purple: '#7c3aed',
 };
 
-const compactShadow = '0 2px 8px rgba(15,23,42,0.05)';
+const compactShadow = 'none';
 
 export function PageFrame({ children, maxWidth = 1480 }: { children: ReactNode; maxWidth?: number }) {
-  return <div className="xdrive-page-frame" style={{ width: '100%', maxWidth, margin: '0 auto', padding: '1.15rem clamp(0.85rem, 2vw, 1.5rem) 2.5rem' }}>{children}</div>;
+  return <div className="xdrive-page-frame" style={{ width: '100%', maxWidth, margin: '0 auto', padding: '12px' }}>{children}</div>;
 }
 
 export function PageHeader({ eyebrow, title, description, actions, meta }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
   return (
-    <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+    <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
       <div style={{ minWidth: 0, flex: '1 1 520px' }}>
-        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '0.67rem', fontWeight: 850, letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: '0.24rem' }}>{eyebrow}</div>}
-        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: 'clamp(1.35rem, 2vw, 1.85rem)', lineHeight: 1.15, letterSpacing: '-0.025em' }}>{title}</h1>
-        {description && <p style={{ margin: '0.35rem 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '0.88rem', lineHeight: 1.5 }}>{description}</p>}
-        {meta && <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.55rem' }}>{meta}</div>}
+        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>{eyebrow}</div>}
+        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '28px', fontWeight: 600, lineHeight: 1.35 }}>{title}</h1>
+        {description && <p style={{ margin: '8px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '13px', lineHeight: 1.35 }}>{description}</p>}
+        {meta && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
       </div>
-      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>{actions}</div>}
+      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
     </header>
   );
 }
@@ -53,7 +53,7 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
     danger: { bg: '#fff', color: workspaceTheme.red, border: '#fecaca' },
     secondary: { bg: '#fff', color: workspaceTheme.text, border: workspaceTheme.borderStrong },
   }[tone];
-  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '8px', padding: '0.54rem 0.82rem', minHeight: '36px', fontSize: '0.75rem', fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>{children}</button>;
+  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '8px 14px', minHeight: '32px', fontSize: '13px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>{children}</button>;
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
@@ -120,17 +120,17 @@ export function KpiCard({
   ariaLabel?: string;
 }) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
-  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '92px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', padding: '12px', minHeight: '88px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
       <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
-        <div style={{ color: workspaceTheme.muted, fontSize: '0.72rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
-        {icon && <div aria-hidden="true" style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'flex-start' }}>
+        <div style={{ color: workspaceTheme.muted, fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</div>
+        {icon && <div aria-hidden="true" style={{ color, fontSize: '13px' }}>{icon}</div>}
       </div>
-      <div style={{ marginTop: '0.26rem', color: workspaceTheme.text, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.05 }}>{value}</div>
-      {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.76rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
+      <div style={{ marginTop: '4px', color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: 1.35 }}>{value}</div>
+      {detail && <div style={{ color: workspaceTheme.muted, fontSize: '11px', marginTop: '8px', lineHeight: 1.35 }}>{detail}</div>}
       {trend && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
           <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
