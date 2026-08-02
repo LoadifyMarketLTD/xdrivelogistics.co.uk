@@ -29,6 +29,7 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [advertisingMap, setAdvertisingMap] = useState<Record<string, 'none' | 'exchange' | 'partner'>>({});
   const VEHICLES_PER_PAGE = 12;
   const [vehiclePage, setVehiclePage] = useState(0);
   const isDriverWorkspace = user?.role === 'driver' || user?.ownerDriverWorkspace === true;
@@ -294,7 +295,7 @@ export default function VehiclesPage() {
                 <table style={{ width: '100%', minWidth: '1120px', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', ...(isDriverWorkspace ? [] : ['Assigned Driver']), 'Created', 'Actions'].map(h => (
+                      {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', ...(isDriverWorkspace ? [] : ['Assigned Driver']), 'Advertise', 'Created', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
@@ -311,6 +312,17 @@ export default function VehiclesPage() {
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{v.payload_kg ?? '—'}</td>
                           <td style={{ padding: '0.8rem' }}>{v.has_tail_lift ? '✅' : '—'}</td>
                           {!isDriverWorkspace && <td style={{ padding: '0.8rem', color: '#6b7280' }}>{assignedDriver?.display_name ?? '—'}</td>}
+                          <td style={{ padding: '0.8rem' }}>
+                            <select
+                              value={advertisingMap[v.id] ?? 'none'}
+                              onChange={(e) => setAdvertisingMap((prev) => ({ ...prev, [v.id]: e.target.value as 'none' | 'exchange' | 'partner' }))}
+                              style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '0.28rem 0.45rem', fontSize: '0.75rem', background: advertisingMap[v.id] === 'exchange' ? '#dcfce7' : advertisingMap[v.id] === 'partner' ? '#eff6ff' : '#f9fafb', color: advertisingMap[v.id] === 'exchange' ? '#166534' : advertisingMap[v.id] === 'partner' ? '#1e40af' : '#6b7280', cursor: 'pointer' }}
+                            >
+                              <option value="none">Not advertised</option>
+                              <option value="exchange">General Exchange</option>
+                              <option value="partner">Partner Only</option>
+                            </select>
+                          </td>
                           <td style={{ padding: '0.8rem', color: '#6b7280' }}>{formatDate(v.created_at)}</td>
                           <td style={{ padding: '0.8rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

@@ -14,6 +14,7 @@ const active = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_
 export function BrokerDashboard() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const [spendPeriod, setSpendPeriod] = useState<'month' | 'quarter' | 'year'>('month');
   const metrics = useMemo(() => {
     const submitted = data.bids.filter((bid) => bid.status === 'submitted');
     const accepted = data.bids.filter((bid) => bid.status === 'accepted');
@@ -27,6 +28,47 @@ export function BrokerDashboard() {
     const unpaidCustomerValue = unpaidCustomerInvoices.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
     const carrierObligations = data.invoices.filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status));
     const carrierObligationValue = carrierObligations.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+
+    const now = Date.now();
+    const dueForPayment = unpaidCustomerInvoices.filter((inv) => inv.due_date && new Date(inv.due_date).getTime() <= now + 7 * 86_400_000);
+    const latestInvoices = [...customerInvoices].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')).slice(0, 5);
+
+    // Monthly totals (last 6 months)
+    const monthlyTotals: Record<string, { revenue: number; cost: number }> = {};
+    for (const job of data.jobs) {
+      const d = job.pickup_datetime ?? job.created_at;
+      if (!d) continue;
+      const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
+      row.revenue += Number(job.budget_amount ?? 0);
+      monthlyTotals[key] = row;
+    }
+    for (const bid of accepted) {
+      const job = data.jobs.find((j) => j.id === bid.job_id);
+      const d = job?.pickup_datetime ?? job?.created_at;
+      if (!d) continue;
+      const key = new Date(d).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const row = monthlyTotals[key] ?? { revenue: 0, cost: 0 };
+      row.cost += Number(bid.bid_price_gbp ?? bid.amount ?? 0);
+      monthlyTotals[key] = row;
+    }
+    const monthlyRows = Object.entries(monthlyTotals).slice(-6);
+
+    // Sub-contract spend by period
+    const periodMs = spendPeriod === 'month' ? 30 : spendPeriod === 'quarter' ? 91 : 365;
+    const periodStart = now - periodMs * 86_400_000;
+    const subcontractSpend = accepted.filter((bid) => {
+      const job = data.jobs.find((j) => j.id === bid.job_id);
+      const d = job?.pickup_datetime ?? job?.created_at;
+      return d && new Date(d).getTime() >= periodStart;
+    }).reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+
+    // Compliance summary from docs
+    const docs = data.driverDocuments.concat(data.vehicleDocuments);
+    const expiredDocs = docs.filter((doc) => { const d = doc.expiry_date ? Math.ceil((new Date(doc.expiry_date).getTime() - now) / 86_400_000) : null; return d !== null && d < 0; }).length;
+    const soonDocs = docs.filter((doc) => { const d = doc.expiry_date ? Math.ceil((new Date(doc.expiry_date).getTime() - now) / 86_400_000) : null; return d !== null && d >= 0 && d <= 30; }).length;
+    const currentDocs = docs.length - expiredDocs - soonDocs;
+
     return {
       draft: data.jobs.filter((job) => job.status === 'draft').length,
       open: data.jobs.filter((job) => ['posted', 'quoted'].includes(job.status)).length,
@@ -42,8 +84,13 @@ export function BrokerDashboard() {
       unpaidCustomerValue,
       carrierObligations,
       carrierObligationValue,
+      dueForPayment,
+      latestInvoices,
+      monthlyRows,
+      subcontractSpend,
+      complianceSummary: { current: currentDocs, expiring: soonDocs, expired: expiredDocs, total: docs.length },
     };
-  }, [data]);
+  }, [data, spendPeriod]);
 
   return (
     <PageFrame>
@@ -64,6 +111,8 @@ export function BrokerDashboard() {
         <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
         <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% margin`} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
         <KpiCard label="Unpaid (customer)" value={metrics.unpaidCustomerInvoices.length} detail={money(metrics.unpaidCustomerValue)} tone={metrics.unpaidCustomerInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Due for payment" value={metrics.dueForPayment.length} detail="Due within 7 days" tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Awaiting payment" value={metrics.carrierObligations.length} detail={money(metrics.carrierObligationValue)} tone={metrics.carrierObligations.length ? 'orange' : 'green'} onClick={() => router.push('/broker/carrier-costs')} />
       </KpiGrid>
 
       {metrics.awaitingAwardJobs.length > 0 && (
@@ -155,6 +204,127 @@ export function BrokerDashboard() {
           </Panel>
         </div>
       </TwoColumn>
+
+      <TwoColumn>
+        <Panel
+          title="Monthly totals"
+          description="Revenue vs carrier cost per month across your managed loads."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/margins')}>Full report</ActionButton>}
+        >
+          {metrics.monthlyRows.length > 0 ? (
+            <div style={{ display: 'grid', gap: '0.45rem' }}>
+              {metrics.monthlyRows.map(([month, row]) => {
+                const rev = row.revenue;
+                const cost = row.cost;
+                const margin = rev - cost;
+                const maxVal = Math.max(rev, 1);
+                return (
+                  <div key={month} style={{ display: 'grid', gridTemplateColumns: '60px 1fr auto', gap: '0.6rem', alignItems: 'center', fontSize: '0.73rem' }}>
+                    <span style={{ color: '#64748b', fontWeight: 700 }}>{month}</span>
+                    <div style={{ display: 'grid', gap: '2px' }}>
+                      <div style={{ background: '#dcfce7', borderRadius: '3px', height: '7px', width: `${Math.max(2, (rev / maxVal) * 100)}%` }} title={`Revenue: ${money(rev)}`} />
+                      <div style={{ background: '#fed7aa', borderRadius: '3px', height: '7px', width: `${Math.max(2, (cost / maxVal) * 100)}%` }} title={`Cost: ${money(cost)}`} />
+                    </div>
+                    <span style={{ color: margin >= 0 ? '#15803d' : '#dc2626', fontWeight: 800, minWidth: '70px', textAlign: 'right' }}>{money(margin)}</span>
+                  </div>
+                );
+              })}
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.3rem', fontSize: '0.64rem', color: '#64748b' }}>
+                <span><span style={{ background: '#dcfce7', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Revenue</span>
+                <span><span style={{ background: '#fed7aa', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Carrier cost</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.8rem 0' }}>No load history to display.</div>
+          )}
+        </Panel>
+
+        <div style={{ display: 'grid', gap: '0.9rem' }}>
+          <Panel
+            title="Sub-contract spend"
+            description="Total carrier costs excluding own-driver jobs."
+            actions={
+              <select
+                value={spendPeriod}
+                onChange={(e) => setSpendPeriod(e.target.value as 'month' | 'quarter' | 'year')}
+                style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: '#fff' }}
+              >
+                <option value="month">Last 30 days</option>
+                <option value="quarter">Last 90 days</option>
+                <option value="year">Last 365 days</option>
+              </select>
+            }
+          >
+            <div style={{ display: 'grid', gap: '0.45rem' }}>
+              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#c2410c' }}>{money(metrics.subcontractSpend)}</div>
+              <div style={{ fontSize: '0.73rem', color: '#64748b' }}>Total agreed with sub-contractors ({spendPeriod === 'month' ? '30' : spendPeriod === 'quarter' ? '90' : '365'} days)</div>
+              <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                {[
+                  ['Latest invoices received', '/broker/carrier-costs'],
+                  ['Invoices due for payment', '/broker/customer-invoices'],
+                  ['Invoices awaiting payment', '/broker/customer-invoices'],
+                  ['Monthly totals', '/broker/margins'],
+                ].map(([label, href]) => (
+                  <button key={label} onClick={() => router.push(href)} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#0f172a', padding: '0.32rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+                ))}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel
+            title="Supplier compliance"
+            description="Document status across carriers in your network."
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}
+          >
+            {metrics.complianceSummary.total > 0 ? (
+              <div>
+                <div style={{ display: 'grid', gap: '0.42rem' }}>
+                  {[
+                    ['Fully compliant', metrics.complianceSummary.current, '#166534', '#ecfdf3', '#bbf7d0'],
+                    ['About to expire', metrics.complianceSummary.expiring, '#92400e', '#fffbeb', '#fde68a'],
+                    ['Updates needed', metrics.complianceSummary.expired, '#b91c1c', '#fef2f2', '#fecaca'],
+                  ].map(([label, count, color, bg, border]) => {
+                    const pct = metrics.complianceSummary.total > 0 ? Math.round((Number(count) / metrics.complianceSummary.total) * 100) : 0;
+                    return (
+                      <div key={String(label)} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: String(bg), border: `2px solid ${String(border)}`, flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: '0.73rem', color: '#475569' }}>{label}</span>
+                        <strong style={{ fontSize: '0.73rem', color: String(color) }}>{count}</strong>
+                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', minWidth: '32px', textAlign: 'right' }}>{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: '0.6rem', height: '8px', borderRadius: '999px', overflow: 'hidden', display: 'flex', background: '#e2e8f0' }}>
+                  {metrics.complianceSummary.current > 0 && <div style={{ width: `${(metrics.complianceSummary.current / metrics.complianceSummary.total) * 100}%`, background: '#16a34a' }} />}
+                  {metrics.complianceSummary.expiring > 0 && <div style={{ width: `${(metrics.complianceSummary.expiring / metrics.complianceSummary.total) * 100}%`, background: '#f59e0b' }} />}
+                  {metrics.complianceSummary.expired > 0 && <div style={{ width: `${(metrics.complianceSummary.expired / metrics.complianceSummary.total) * 100}%`, background: '#ef4444' }} />}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.4rem 0' }}>No compliance documents on record.</div>
+            )}
+          </Panel>
+        </div>
+      </TwoColumn>
+
+      <Panel
+        title="Latest invoices received"
+        description="Most recent customer invoices across all loads."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/customer-invoices')}>All invoices</ActionButton>}
+      >
+        <DataTable
+          columns={['Invoice', 'Customer', 'Amount', 'Due', 'Status']}
+          rows={metrics.latestInvoices.map((inv) => [
+            inv.invoice_number ?? inv.id.slice(0, 8).toUpperCase(),
+            inv.client_name ?? 'Customer',
+            money(Number(inv.amount ?? 0)),
+            inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB') : 'Not set',
+            <StatusBadge key="status" value={inv.payment_status ?? inv.status} />,
+          ])}
+          empty={<EmptyState title="No invoices yet" />}
+        />
+      </Panel>
     </PageFrame>
   );
 }
@@ -198,12 +368,115 @@ export function BrokerLoadsPage() {
 export function BrokerPostLoadPage() { return <PageFrame><PageHeader eyebrow="Customer load" title="Post Load" description="Create the customer transport request, set the commercial target and publish it to carrier capacity." /><LoadPostingForm mode="broker" /></PageFrame>; }
 
 export function BrokerQuotesPage({ compare = false }: { compare?: boolean }) {
-  const data = useCompanyWorkspaceData(); const router = useRouter(); const searchParams = useSearchParams(); const jobId = searchParams.get('job'); const [working, setWorking] = useState<string | null>(null); const [message, setMessage] = useState('');
-  const grouped = useMemo(() => { const all = data.jobs.map((job) => ({ job, quotes: data.bids.filter((bid) => bid.job_id === job.id && ['submitted', 'accepted', 'rejected'].includes(bid.status)) })).filter((group) => group.quotes.length > 0); return jobId ? all.filter(({ job }) => job.id === jobId) : all; }, [data, jobId]);
-  const award = async (bidId: string) => { setWorking(bidId); setMessage(''); const { data: session } = await supabase.auth.getSession(); const response = await fetch(`/api/customer/bids/${bidId}/award`, { method: 'POST', headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}` } : {} }); const payload = await response.json().catch(() => ({})) as { error?: string }; setWorking(null); if (!response.ok) { setMessage(payload.error ?? 'Unable to award this carrier quote.'); return; } setMessage('Carrier quote awarded successfully.'); await data.refresh(); };
-  return <PageFrame><PageHeader eyebrow="Carrier sourcing" title={compare ? 'Compare Quotes' : 'Carrier Quotes'} description={compare ? 'Compare carrier price, estimated margin and compliance context before award.' : 'All carrier commercial responses received for broker-managed customer loads.'} actions={<ActionButton tone="secondary" onClick={() => router.push(compare ? '/broker/bids' : '/broker/compare-quotes')}>{compare ? 'All Quotes' : 'Compare'}</ActionButton>} />{message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}{grouped.map(({ job, quotes }) => <Panel key={job.id} title={`${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`} description={`${job.client_name ?? 'Customer'} · customer revenue ${money(Number(job.budget_amount ?? 0))}`} style={{ marginBottom: '0.85rem' }}><DataTable columns={compare ? ['Carrier', 'Quote', 'Customer revenue', 'Gross profit', 'Margin', 'Status', 'Decision'] : ['Carrier', 'Quote', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)).map((bid) => { const cost = Number(bid.bid_price_gbp ?? bid.amount ?? 0); const revenue = Number(job.budget_amount ?? 0); return compare ? [bid.companies?.name ?? 'Carrier', money(cost), money(revenue), money(revenue - cost), revenue > 0 ? `${(((revenue - cost) / revenue) * 100).toFixed(1)}%` : '—', <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award'}</ActionButton> : '—'] : [bid.companies?.name ?? 'Carrier', money(cost), bid.message ?? 'No message', when(bid.created_at), <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award'}</ActionButton> : '—']; })} /></Panel>)}{grouped.length === 0 && <Panel><EmptyState title="No carrier quotes received" description="Quotes will appear after a customer load is published to the exchange." /></Panel>}</PageFrame>;
-}
+  const data = useCompanyWorkspaceData();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobId = searchParams.get('job');
+  const [working, setWorking] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<'received' | 'archived' | 'unsuccessful'>('received');
 
+  const grouped = useMemo(() => {
+    const all = data.jobs.map((job) => ({
+      job,
+      quotes: data.bids.filter((bid) => bid.job_id === job.id && ['submitted', 'accepted', 'rejected', 'archived', 'unsuccessful', 'cancelled'].includes(bid.status)),
+    })).filter((group) => group.quotes.length > 0);
+    return jobId ? all.filter(({ job }) => job.id === jobId) : all;
+  }, [data, jobId]);
+
+  const filteredGrouped = useMemo(() => {
+    if (activeTab === 'received') {
+      return grouped.map(({ job, quotes }) => ({ job, quotes: quotes.filter((b) => ['submitted', 'accepted'].includes(b.status)) })).filter((g) => g.quotes.length > 0);
+    }
+    if (activeTab === 'archived') {
+      return grouped.map(({ job, quotes }) => ({ job, quotes: quotes.filter((b) => ['archived', 'cancelled'].includes(b.status)) })).filter((g) => g.quotes.length > 0);
+    }
+    return grouped.map(({ job, quotes }) => ({ job, quotes: quotes.filter((b) => b.status === 'rejected') })).filter((g) => g.quotes.length > 0);
+  }, [grouped, activeTab]);
+
+  const award = async (bidId: string) => {
+    setWorking(bidId);
+    setMessage('');
+    const { data: session } = await supabase.auth.getSession();
+    const response = await fetch(`/api/customer/bids/${bidId}/award`, {
+      method: 'POST',
+      headers: session.session?.access_token ? { Authorization: 'Bearer ' + session.session.access_token } : {},
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setWorking(null);
+    if (!response.ok) { setMessage(payload.error ?? 'Unable to award this carrier quote.'); return; }
+    setMessage('Carrier quote awarded successfully.');
+    await data.refresh();
+  };
+
+  const tabs: Array<{ id: typeof activeTab; label: string }> = [
+    { id: 'received', label: 'Received' },
+    { id: 'archived', label: 'Archived' },
+    { id: 'unsuccessful', label: 'Unsuccessful' },
+  ];
+
+  return (
+    <PageFrame>
+      <PageHeader
+        eyebrow="Carrier sourcing"
+        title={compare ? 'Compare Quotes' : 'Carrier Quotes'}
+        description={compare ? 'Compare carrier price, estimated margin and compliance context before award.' : 'All carrier commercial responses received for broker-managed customer loads.'}
+        actions={<ActionButton tone="secondary" onClick={() => router.push(compare ? '/broker/bids' : '/broker/compare-quotes')}>{compare ? 'All Quotes' : 'Compare'}</ActionButton>}
+      />
+      {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
+
+      <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.9rem', borderBottom: '1px solid #e2e8f0' }}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              border: 0,
+              borderBottom: activeTab === tab.id ? '2px solid #1d57d8' : '2px solid transparent',
+              background: 'transparent',
+              color: activeTab === tab.id ? '#1d57d8' : '#64748b',
+              padding: '0.52rem 0.85rem',
+              fontSize: '0.78rem',
+              fontWeight: activeTab === tab.id ? 800 : 600,
+              cursor: 'pointer',
+              marginBottom: '-1px',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {filteredGrouped.map(({ job, quotes }) => (
+        <Panel
+          key={job.id}
+          title={`${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`}
+          description={`${job.client_name ?? 'Customer'} · customer revenue ${money(Number(job.budget_amount ?? 0))}`}
+          style={{ marginBottom: '0.85rem' }}
+        >
+          <DataTable
+            columns={compare ? ['Carrier', 'Quote', 'Customer revenue', 'Gross profit', 'Margin', 'Status', 'Decision'] : ['Carrier', 'Quote', 'Message', 'Submitted', 'Status', 'Decision']}
+            rows={quotes.sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)).map((bid) => {
+              const cost = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
+              const revenue = Number(job.budget_amount ?? 0);
+              return compare
+                ? [bid.companies?.name ?? 'Carrier', money(cost), money(revenue), money(revenue - cost), revenue > 0 ? `${(((revenue - cost) / revenue) * 100).toFixed(1)}%` : '—', <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award'}</ActionButton> : '—']
+                : [bid.companies?.name ?? 'Carrier', money(cost), bid.message ?? 'No message', when(bid.created_at), <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award'}</ActionButton> : '—'];
+            })}
+          />
+        </Panel>
+      ))}
+      {filteredGrouped.length === 0 && (
+        <Panel>
+          <EmptyState
+            title={activeTab === 'received' ? 'No carrier quotes received' : activeTab === 'archived' ? 'No archived quotes' : 'No unsuccessful quotes'}
+            description={activeTab === 'received' ? 'Quotes will appear after a customer load is published to the exchange.' : activeTab === 'archived' ? 'Cancelled or archived quotes will appear here.' : 'Rejected carrier quotes will appear here.'}
+          />
+        </Panel>
+      )}
+    </PageFrame>
+  );
+}
 export function BrokerAwardsPage() {
   const data = useCompanyWorkspaceData(); const router = useRouter(); const awarded = data.jobs.filter((job) => job.awarded_carrier_company_id || ['awarded', 'allocated'].includes(job.status));
   return <PageFrame><PageHeader eyebrow="Carrier awards" title="Awards" description="Loads with a selected carrier and the transition into operational confirmation." /><Panel title="Award register"><DataTable columns={['Load', 'Customer', 'Route', 'Pickup', 'Status', 'Action']} rows={awarded.map((job) => [job.id.slice(0, 8).toUpperCase(), job.client_name ?? 'Customer', `${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`, when(job.pickup_datetime), <StatusBadge key="status" value={job.current_status ?? job.status} />, <ActionButton key="action" tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Track</ActionButton>])} empty={<EmptyState title="No carrier awards" description="Awarded carrier quotes will appear here." />} /></Panel></PageFrame>;

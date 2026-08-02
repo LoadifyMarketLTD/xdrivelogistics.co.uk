@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -31,6 +31,8 @@ export default function WorkspaceShell({
   const [isCompact, setIsCompact] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  const [tickerItems, setTickerItems] = useState<Array<{ id: string; event_type: string; entity_id: string | null; created_at: string }>>([]);
+  const tickerRef = useRef<HTMLDivElement>(null);
 
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
@@ -97,6 +99,26 @@ export default function WorkspaceShell({
 
     void fetchUnread();
     const timer = window.setInterval(() => void fetchUnread(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured) return;
+
+    const fetchTicker = async () => {
+      const { data } = await supabase
+        .from('notification_events')
+        .select('id, event_type, entity_id, created_at')
+        .eq('recipient_user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(12);
+      if (data && data.length > 0) {
+        setTickerItems((data as Array<{ id: string; event_type: string; entity_id: string | null; created_at: string }>).reverse());
+      }
+    };
+
+    void fetchTicker();
+    const timer = window.setInterval(() => void fetchTicker(), 30_000);
     return () => window.clearInterval(timer);
   }, [user?.id]);
 
@@ -226,7 +248,7 @@ export default function WorkspaceShell({
                 <div
                   style={{
                     color: workspaceTheme.muted,
-                    fontSize: '0.62rem',
+                    fontSize: '0.72rem',
                     marginTop: '0.08rem',
                   }}
                 >
@@ -286,9 +308,9 @@ export default function WorkspaceShell({
             <div key={group.id} style={{ marginBottom: '0.42rem' }}>
               <div
                 style={{
-                  padding: '0.25rem 0.42rem 0.18rem',
+                  padding: '0.3rem 0.42rem 0.22rem',
                   color: '#64748b',
-                  fontSize: '0.58rem',
+                  fontSize: '0.68rem',
                   fontWeight: 850,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
@@ -309,7 +331,7 @@ export default function WorkspaceShell({
                       style={{
                         width: '100%',
                         display: 'grid',
-                        gridTemplateColumns: '22px minmax(0,1fr) 7px',
+                        gridTemplateColumns: '26px minmax(0,1fr) 7px',
                         alignItems: 'center',
                         gap: '0.34rem',
                         border: 0,
@@ -319,8 +341,8 @@ export default function WorkspaceShell({
                         borderRadius: '7px',
                         background: active ? '#eff6ff' : 'transparent',
                         color: active ? workspaceTheme.blue : workspaceTheme.text,
-                        padding: '0.4rem 0.45rem',
-                        fontSize: '0.7rem',
+                        padding: '0.52rem 0.55rem',
+                        fontSize: '0.82rem',
                         fontWeight: active ? 850 : 650,
                         textAlign: 'left',
                         cursor: 'pointer',
@@ -329,14 +351,14 @@ export default function WorkspaceShell({
                       <span
                         aria-hidden="true"
                         style={{
-                          width: '21px',
-                          height: '21px',
+                          width: '24px',
+                          height: '24px',
                           borderRadius: '6px',
                           display: 'grid',
                           placeItems: 'center',
                           background: active ? '#dbeafe' : '#eef2f6',
                           color: active ? workspaceTheme.blue : '#475569',
-                          fontSize: item.icon === 'OC' ? '0.52rem' : '0.68rem',
+                          fontSize: item.icon === 'OC' ? '0.6rem' : '0.78rem',
                           fontWeight: 900,
                         }}
                       >
@@ -381,7 +403,7 @@ export default function WorkspaceShell({
           <div
             style={{
               color: workspaceTheme.muted,
-              fontSize: '0.63rem',
+              fontSize: '0.72rem',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -398,8 +420,8 @@ export default function WorkspaceShell({
                 borderRadius: '7px',
                 background: '#fff',
                 color: workspaceTheme.text,
-                padding: '0.4rem',
-                fontSize: '0.65rem',
+                padding: '0.48rem',
+                fontSize: '0.74rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -413,8 +435,8 @@ export default function WorkspaceShell({
                 borderRadius: '7px',
                 background: '#fff',
                 color: workspaceTheme.red,
-                padding: '0.4rem',
-                fontSize: '0.65rem',
+                padding: '0.48rem',
+                fontSize: '0.74rem',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -428,7 +450,7 @@ export default function WorkspaceShell({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header
           style={{
-            minHeight: '56px',
+            minHeight: '60px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
             display: 'flex',
@@ -464,12 +486,12 @@ export default function WorkspaceShell({
               </button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.65rem', color: workspaceTheme.muted, fontWeight: 750 }}>
+              <div style={{ fontSize: '0.72rem', color: workspaceTheme.muted, fontWeight: 750 }}>
                 {definition.label}
               </div>
               <div
                 style={{
-                  fontSize: '0.78rem',
+                  fontSize: '0.9rem',
                   color: workspaceTheme.text,
                   fontWeight: 850,
                   whiteSpace: 'nowrap',
@@ -545,14 +567,83 @@ export default function WorkspaceShell({
             </button>
           </div>
         </header>
-        <main style={{ flex: 1, minWidth: 0 }}>{children}</main>
+        <main style={{ flex: 1, minWidth: 0, paddingBottom: tickerItems.length > 0 ? '28px' : 0 }}>{children}</main>
       </div>
+
+      {tickerItems.length > 0 && (
+        <div
+          ref={tickerRef}
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '26px',
+            background: workspaceTheme.navy,
+            color: '#e2e8f0',
+            zIndex: 55,
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+          }}
+          aria-live="polite"
+          aria-label="Live activity feed"
+        >
+          <div
+            style={{
+              flexShrink: 0,
+              padding: '0 0.6rem',
+              fontSize: '0.6rem',
+              fontWeight: 900,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: workspaceTheme.orange,
+              borderRight: '1px solid rgba(255,255,255,0.12)',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ● LIVE
+          </div>
+          <div
+            className="xdrive-ticker-track"
+            style={{
+              display: 'flex',
+              gap: '2.5rem',
+              animation: 'xdriveTicker 40s linear infinite',
+              whiteSpace: 'nowrap',
+              fontSize: '0.66rem',
+              paddingLeft: '1.5rem',
+            }}
+          >
+            {[...tickerItems, ...tickerItems].map((item, index) => {
+              const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+              const label = item.event_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+              const ref = item.entity_id ? ` – ${item.entity_id.slice(0, 8).toUpperCase()}` : '';
+              return (
+                <span key={`${item.id}-${index}`} style={{ color: '#cbd5e1' }}>
+                  <span style={{ color: workspaceTheme.orange, fontWeight: 800, marginRight: '0.3rem' }}>{time}</span>
+                  {label}{ref}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         * { box-sizing: border-box; }
         body { background: ${workspaceTheme.page}; }
         button, input, select, textarea { font: inherit; }
         .xdrive-table-row:hover td { background: #fbfdff; }
+        @keyframes xdriveTicker {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .xdrive-ticker-track { will-change: transform; }
         @media (max-width: 820px) {
           .xdrive-two-column, .xdrive-settings-layout { grid-template-columns: 1fr !important; }
           .xdrive-settings-layout > aside { position: static !important; display: flex; overflow-x: auto; gap: 0.25rem; }
