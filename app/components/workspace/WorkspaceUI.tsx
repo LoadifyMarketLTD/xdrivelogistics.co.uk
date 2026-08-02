@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
+import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
   page: '#f4f6f8',
@@ -32,12 +33,16 @@ export function PageHeader({ eyebrow, title, description, actions, meta }: { eye
       <div style={{ minWidth: 0, flex: '1 1 520px' }}>
         {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '0.67rem', fontWeight: 850, letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: '0.24rem' }}>{eyebrow}</div>}
         <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: 'clamp(1.35rem, 2vw, 1.85rem)', lineHeight: 1.15, letterSpacing: '-0.025em' }}>{title}</h1>
-        {description && <p style={{ margin: '0.35rem 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '0.84rem', lineHeight: 1.5 }}>{description}</p>}
+        {description && <p style={{ margin: '0.35rem 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '0.88rem', lineHeight: 1.5 }}>{description}</p>}
         {meta && <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.55rem' }}>{meta}</div>}
       </div>
       {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>{actions}</div>}
     </header>
   );
+}
+
+export function OperationalToolbar({ children }: { children: ReactNode }) {
+  return <div className={styles.operationalToolbar}>{children}</div>;
 }
 
 export function ActionButton({ children, onClick, tone = 'primary', disabled = false, type = 'button', title }: { children: ReactNode; onClick?: () => void; tone?: 'primary' | 'success' | 'warning' | 'danger' | 'secondary'; disabled?: boolean; type?: 'button' | 'submit'; title?: string }) {
@@ -52,7 +57,15 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
-  return <div className="xdrive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.65rem', marginBottom: '0.9rem' }}>{children}</div>;
+  return <ExchangeKpiStrip>{children}</ExchangeKpiStrip>;
+}
+
+export function ExchangeKpiStrip({ children }: { children: ReactNode }) {
+  return (
+    <section className={styles.exchangeKpiStrip} aria-label="Operational key performance indicators">
+      {children}
+    </section>
+  );
 }
 
 /** Trend / delta indicator for a KpiCard. Direction controls the arrow glyph; sentiment controls colour. */
@@ -107,17 +120,17 @@ export function KpiCard({
   ariaLabel?: string;
 }) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
-  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '98px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '92px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
       <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
-        <div style={{ color: workspaceTheme.muted, fontSize: '0.64rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
+        <div style={{ color: workspaceTheme.muted, fontSize: '0.72rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
         {icon && <div aria-hidden="true" style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
       </div>
       <div style={{ marginTop: '0.26rem', color: workspaceTheme.text, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.05 }}>{value}</div>
-      {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.69rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
+      {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.76rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
       {trend && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
           <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
@@ -134,14 +147,203 @@ export function KpiCard({
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
     <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', padding: '0.78rem 0.9rem', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.94rem' }}>{title}</h2>}{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.72rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', padding: '0.78rem 0.9rem', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '1rem' }}>{title}</h2>}{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.78rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
       <div style={{ padding: flush ? 0 : '0.9rem' }}>{children}</div>
     </section>
   );
 }
 
+export function FinancialSummaryPanel({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; color: string; background: string }>;
+}) {
+  return (
+    <div className={styles.financialSummaryPanel}>
+      {items.map((item) => (
+        <div key={item.label} className={styles.financialSummaryRow} style={{ ['--xdrive-finance-row-bg' as const]: item.background, ['--xdrive-finance-row-color' as const]: item.color } as CSSProperties}>
+          <span className={styles.financialSummaryLabel}>{item.label}</span>
+          <strong className={styles.financialSummaryValue}>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ComplianceSummaryPanel({
+  rows,
+  total,
+}: {
+  rows: Array<{ label: string; count: number; color: string; background: string; border: string }>;
+  total: number;
+}) {
+  if (total <= 0) {
+    return <div className={styles.complianceSummaryEmpty}>No compliance documents on record.</div>;
+  }
+  return (
+    <div>
+      <div className={styles.complianceSummaryRows}>
+        {rows.map((row) => {
+          const pct = Math.round((row.count / total) * 100);
+          return (
+            <div key={row.label} className={styles.complianceSummaryRow}>
+              <div className={styles.complianceSummaryDot} style={{ ['--xdrive-dot-bg' as const]: row.background, ['--xdrive-dot-border' as const]: row.border } as CSSProperties} />
+              <span className={styles.complianceSummaryLabel}>{row.label}</span>
+              <strong className={styles.complianceSummaryCount} style={{ color: row.color }}>{row.count}</strong>
+              <span className={styles.complianceSummaryPct}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className={styles.complianceSummaryMeter}>
+        {rows.filter((row) => row.count > 0).map((row) => (
+          <div key={`bar-${row.label}`} style={{ width: `${(row.count / total) * 100}%`, background: row.color }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { children: ReactNode; rightWidth?: string }) {
   return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
+}
+
+export function QuickActionGrid({
+  actions,
+}: {
+  actions: Array<{ key: string; label: string; onClick: () => void; trailing?: ReactNode }>;
+}) {
+  return (
+    <div className={styles.quickActionGrid}>
+      {actions.map((action) => (
+        <button
+          key={action.key}
+          type="button"
+          onClick={action.onClick}
+          className={styles.quickActionButton}
+        >
+          <span>{action.label}</span>
+          {action.trailing ?? <span aria-hidden="true">→</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function DateRangeSelector({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={styles.selectorControl}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function SavedViewSelector({
+  value,
+  onChange,
+  options,
+  label = 'Saved view',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  label?: string;
+}) {
+  return (
+    <label className={styles.savedViewSelector}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className={styles.selectorControl}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function WorkspaceActivityFeed({
+  items,
+  error,
+  classNames,
+  labelColor,
+  timeColor,
+  background,
+  onItemClick,
+}: {
+  items: Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>;
+  error: string;
+  classNames: {
+    root: string;
+    title: string;
+    track: string;
+    item: string;
+    time: string;
+    error: string;
+  };
+  labelColor: string;
+  timeColor: string;
+  background: string;
+  onItemClick?: (href: string, itemId: string) => void;
+}) {
+  if (items.length === 0 && !error) return null;
+  return (
+    <div className={`${styles.workspaceActivityFeed} ${classNames.root}`} style={{ ['--xdrive-feed-bg' as const]: background } as CSSProperties} aria-live="polite" aria-label="Activity feed">
+      <div className={`${styles.workspaceActivityFeedTitle} ${classNames.title}`} style={{ color: labelColor }}>
+        ● ACTIVITY
+      </div>
+      {items.length > 0 ? (
+        <div className={`${styles.workspaceActivityFeedTrack} ${classNames.track}`}>
+          {[...items, ...items].map((item, index) => {
+            const time = new Date(item.created_at).toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'UTC',
+            });
+            const text = `${item.label}${item.reference ? ` – ${item.reference}` : ''}`;
+            return (
+              <span key={`${item.id}-${index}`} className={`${styles.workspaceActivityFeedItem} ${classNames.item}`}>
+                <span className={`${styles.workspaceActivityFeedTime} ${classNames.time}`} style={{ color: timeColor }}>
+                  {time}
+                </span>
+                {item.href ? (
+                  <button
+                    type="button"
+                    className={styles.workspaceActivityFeedItemButton}
+                    onClick={() => onItemClick?.(item.href as string, item.id)}
+                    aria-label={`Open activity item ${text}`}
+                  >
+                    {text}
+                  </button>
+                ) : (
+                  text
+                )}
+              </span>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={classNames.error}>{error}</div>
+      )}
+    </div>
+  );
 }
 
 /** Explicit tone values for StatusBadge — keyed by semantic intent, never inferred from display text. */
@@ -164,7 +366,7 @@ export function StatusBadge({ value, tone, ariaLabel }: { value: string; tone?: 
   const resolvedTone: StatusBadgeTone = tone ?? (normalised.includes('delivered') || normalised.includes('completed') || normalised.includes('active') || normalised.includes('approved') || normalised === 'paid' || normalised === 'ready' ? 'green' : normalised.includes('late') || normalised.includes('overdue') || normalised.includes('failed') || normalised.includes('cancel') || normalised.includes('error') || normalised.includes('dispute') ? 'red' : normalised.includes('pending') || normalised.includes('waiting') || normalised.includes('quoted') ? 'orange' : normalised.includes('draft') ? 'grey' : 'blue');
   const colors = STATUS_BADGE_COLORS[resolvedTone];
   const label = normalised.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
 /** Semantic tone values for SemanticStatusBadge — keyed by intent, never inferred from display text. */
@@ -188,12 +390,12 @@ export const SEMANTIC_STATUS_BADGE_COLORS: Record<SemanticStatusBadgeTone, Seman
  */
 export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { label: string; tone?: SemanticStatusBadgeTone; ariaLabel?: string }) {
   const colors = SEMANTIC_STATUS_BADGE_COLORS[tone];
-  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.64rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
 export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
   const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
-  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.9rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.74rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
+  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.95rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.78rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
 
 // ─── Standardized state primitives ──────────────────────────────────────────
@@ -404,13 +606,24 @@ export function WorkspaceState(props: WorkspaceStateProps) {
 }
 
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
-  if (rows.length === 0) return <>{empty ?? <EmptyState title="No records found" />}</>;
-  return <div style={{ width: '100%', overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: `${Math.max(columns.length * 138, 660)}px` }}><thead><tr>{columns.map((column) => <th key={column} style={{ textAlign: 'left', padding: '0.58rem 0.65rem', color: '#475569', fontSize: '0.62rem', fontWeight: 850, letterSpacing: '0.045em', textTransform: 'uppercase', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceSoft, position: 'sticky', top: 0 }}>{column}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className="xdrive-table-row">{row.map((cell, cellIndex) => <td key={cellIndex} style={{ padding: '0.65rem', color: workspaceTheme.text, fontSize: '0.74rem', borderBottom: '1px solid #edf2f7', verticalAlign: 'middle' }}>{cell}</td>)}</tr>)}</tbody></table></div>;
+  return (
+    <OperationalTable
+      columns={columns.map((column, index) => ({
+        id: `column-${index}`,
+        header: column,
+        cell: (row: ReactNode[]) => row[index] ?? '—',
+        isAction: /action/i.test(column),
+      }))}
+      rows={rows}
+      getRowKey={(row) => String(row[0] ?? row.map((cell) => String(cell)).join('|'))}
+      empty={empty}
+    />
+  );
 }
 
 export function AlertBanner({ tone = 'warning', children }: { tone?: 'warning' | 'danger' | 'success' | 'info'; children: ReactNode }) {
-  const styles = { warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }, danger: { bg: '#fef2f2', border: '#fecaca', color: '#991b1b' }, success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' }, info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' } }[tone];
-  return <div style={{ background: styles.bg, border: `1px solid ${styles.border}`, color: styles.color, borderRadius: '8px', padding: '0.65rem 0.78rem', fontSize: '0.76rem', fontWeight: 650, marginBottom: '0.75rem', lineHeight: 1.45 }}>{children}</div>;
+  const alertStyles = { warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }, danger: { bg: '#fef2f2', border: '#fecaca', color: '#991b1b' }, success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' }, info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' } }[tone];
+  return <div style={{ background: alertStyles.bg, border: `1px solid ${alertStyles.border}`, color: alertStyles.color, borderRadius: '8px', padding: '0.65rem 0.78rem', fontSize: '0.76rem', fontWeight: 650, marginBottom: '0.75rem', lineHeight: 1.45 }}>{children}</div>;
 }
 
 export function QuickActions({ actions }: { actions: Array<{ label: string; description?: string; onClick: () => void; badge?: ReactNode }> }) {
@@ -503,36 +716,54 @@ export const ACTION_CENTRE_STATUS_LABELS: Record<ActionCentreItemStatus, string>
 export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
   const priorityPalette = ACTION_CENTRE_PRIORITY_COLORS[item.priority];
   const statusPalette = ACTION_CENTRE_STATUS_COLORS[item.status];
-  const badgeBase: CSSProperties = { display: 'inline-flex', alignItems: 'center', borderRadius: '999px', padding: '0.16rem 0.42rem', fontSize: '0.62rem', fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid' };
   return (
-    <article
-      aria-label={item.title}
-      style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.78rem 0.85rem', boxShadow: compactShadow, position: 'relative', overflow: 'hidden' }}
-    >
-      <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: priorityPalette.color }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0, flex: '1 1 0' }}>
-          <div style={{ color: workspaceTheme.text, fontSize: '0.8rem', fontWeight: 750, lineHeight: 1.35 }}>{item.title}</div>
-          {item.description && <div style={{ color: workspaceTheme.muted, fontSize: '0.7rem', marginTop: '0.22rem', lineHeight: 1.4 }}>{item.description}</div>}
+    <article aria-label={item.title} className={styles.actionCentreItem}>
+      <span
+        aria-hidden="true"
+        className={styles.actionCentreItemRail}
+        style={{ ['--xdrive-action-rail' as const]: priorityPalette.color } as CSSProperties}
+      />
+      <div className={styles.actionCentreItemHeader}>
+        <div className={styles.actionCentreItemContent}>
+          <div className={styles.actionCentreItemTitle}>{item.title}</div>
+          {item.description && <div className={styles.actionCentreItemDescription}>{item.description}</div>}
         </div>
-        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
-          <span style={{ ...badgeBase, background: priorityPalette.bg, color: priorityPalette.color, borderColor: priorityPalette.border }}>{ACTION_CENTRE_PRIORITY_LABELS[item.priority]}</span>
-          <span style={{ ...badgeBase, background: statusPalette.bg, color: statusPalette.color, borderColor: statusPalette.border }}>{ACTION_CENTRE_STATUS_LABELS[item.status]}</span>
+        <div className={styles.actionCentreItemBadges}>
+          <span
+            className={styles.actionCentreBadge}
+            style={{
+              ['--xdrive-action-badge-bg' as const]: priorityPalette.bg,
+              ['--xdrive-action-badge-color' as const]: priorityPalette.color,
+              ['--xdrive-action-badge-border' as const]: priorityPalette.border,
+            } as CSSProperties}
+          >
+            {ACTION_CENTRE_PRIORITY_LABELS[item.priority]}
+          </span>
+          <span
+            className={styles.actionCentreBadge}
+            style={{
+              ['--xdrive-action-badge-bg' as const]: statusPalette.bg,
+              ['--xdrive-action-badge-color' as const]: statusPalette.color,
+              ['--xdrive-action-badge-border' as const]: statusPalette.border,
+            } as CSSProperties}
+          >
+            {ACTION_CENTRE_STATUS_LABELS[item.status]}
+          </span>
         </div>
       </div>
       {(item.dueLabel || item.entityLabel || item.assigneeLabel) && (
-        <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
-          {item.entityLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>{item.entityLabel}</span>}
-          {item.dueLabel && <span style={{ color: workspaceTheme.amber, fontSize: '0.65rem', fontWeight: 700 }}>{item.dueLabel}</span>}
-          {item.assigneeLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>→ {item.assigneeLabel}</span>}
+        <div className={styles.actionCentreMeta}>
+          {item.entityLabel && <span className={styles.actionCentreMetaValue}>{item.entityLabel}</span>}
+          {item.dueLabel && <span className={styles.actionCentreDue}>{item.dueLabel}</span>}
+          {item.assigneeLabel && <span className={styles.actionCentreMetaValue}>→ {item.assigneeLabel}</span>}
         </div>
       )}
       {item.cta && (
-        <div style={{ marginTop: '0.55rem' }}>
+        <div className={styles.actionCentreCta}>
           {item.cta.href ? (
-            <a href={item.cta.href} style={{ color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, textDecoration: 'none' }}>{item.cta.label} →</a>
+            <a href={item.cta.href} className={styles.actionCentreLinkAnchor}>{item.cta.label} →</a>
           ) : (
-            <button type="button" onClick={item.cta.onClick} style={{ background: 'none', border: 'none', padding: 0, color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}>{item.cta.label} →</button>
+            <button type="button" onClick={item.cta.onClick} className={styles.actionCentreLinkButton}>{item.cta.label} →</button>
           )}
         </div>
       )}
@@ -544,7 +775,7 @@ export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
 export function ActionCentreList({ items, empty }: { items: ActionCentreItem[]; empty?: ReactNode }) {
   if (items.length === 0) return <>{empty ?? <EmptyState title="No action items" description="There are no outstanding action items at this time." />}</>;
   return (
-    <div style={{ display: 'grid', gap: '0.5rem' }}>
+    <div className={styles.actionCentreList}>
       {items.map((item) => <ActionCentreItemCard key={item.id} item={item} />)}
     </div>
   );
@@ -570,6 +801,19 @@ export type OperationalTableColumn<TRow> = {
   align?: OperationalTableAlign;
   /** Optional CSS width hint applied to the column, e.g. `'120px'` or `'10%'`. */
   width?: string;
+  /** Enables table-header sorting affordance for this column. */
+  sortable?: boolean;
+  /** Extracts a sortable value used when `sortable` is enabled. */
+  sortValue?: (row: TRow) => string | number | null | undefined;
+  /** Marks this as a canonical action column. */
+  isAction?: boolean;
+  /** Renders plain string content as canonical status badges. */
+  semanticStatus?: boolean;
+};
+
+export type OperationalTableSort = {
+  columnId: string;
+  direction: 'asc' | 'desc';
 };
 
 /** Props for OperationalTable. */
@@ -584,6 +828,22 @@ export type OperationalTableProps<TRow> = {
   caption?: string;
   /** Custom empty-table content. Defaults to a standard empty-state message. */
   empty?: ReactNode;
+  /** Loading state before rows are available. */
+  loading?: boolean;
+  /** Error text for failed data load. */
+  error?: string | null;
+  /** Retry handler for error state. */
+  onRetry?: () => void;
+  /** Optional search/filter/action slots rendered above the table. */
+  searchSlot?: ReactNode;
+  filterSlot?: ReactNode;
+  actionsSlot?: ReactNode;
+  /** Optional result count shown in the toolbar. */
+  resultsCount?: number;
+  /** Controlled sort state. */
+  sort?: OperationalTableSort | null;
+  /** Sort change callback. */
+  onSortChange?: (next: OperationalTableSort | null) => void;
 };
 
 /** Reusable, accessible, presentation-only operational data table. */
@@ -593,80 +853,124 @@ export function OperationalTable<TRow>({
   getRowKey,
   caption,
   empty,
+  loading,
+  error,
+  onRetry,
+  searchSlot,
+  filterSlot,
+  actionsSlot,
+  resultsCount,
+  sort,
+  onSortChange,
 }: OperationalTableProps<TRow>) {
+  if (loading) return <WorkspaceState variant="loading" label="Loading records…" rows={5} />;
+  if (error) return <WorkspaceState variant="error" message={error} onRetry={onRetry} />;
   if (rows.length === 0) {
     return <>{empty ?? <EmptyState title="No records found" />}</>;
   }
+  const activeSortColumn = sort ? columns.find((column) => column.id === sort.columnId) : null;
+  const sortedRows =
+    activeSortColumn?.sortable && activeSortColumn.sortValue && sort
+      ? rows.slice().sort((left, right) => {
+        const leftValue = activeSortColumn.sortValue?.(left);
+        const rightValue = activeSortColumn.sortValue?.(right);
+        if (leftValue === rightValue) return 0;
+        const safeLeft = leftValue ?? '';
+        const safeRight = rightValue ?? '';
+        const result =
+          typeof safeLeft === 'number' && typeof safeRight === 'number'
+            ? safeLeft - safeRight
+            : String(safeLeft).localeCompare(String(safeRight), 'en-GB', {
+              numeric: true,
+              sensitivity: 'base',
+            });
+        return sort.direction === 'asc' ? result : result * -1;
+      })
+      : rows;
   return (
-    <div style={{ width: '100%', overflowX: 'auto' }}>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          minWidth: `${Math.max(columns.length * 138, 440)}px`,
-        }}
-      >
+    <section className={styles.operationalTableContainer}>
+      {(searchSlot || filterSlot || actionsSlot || typeof resultsCount === 'number') && (
+        <div className={styles.operationalTableToolbar}>
+          <div className={styles.operationalTableFilters}>
+            {searchSlot}
+            {filterSlot}
+          </div>
+          <div className={styles.operationalTableMeta}>
+            {typeof resultsCount === 'number' && <span>{resultsCount.toLocaleString('en-GB')} results</span>}
+            {actionsSlot}
+          </div>
+        </div>
+      )}
+      <div className={styles.operationalTableScroll} style={{ overflowX: 'auto' }}>
+        <table
+          className={`${styles.operationalTable} ${styles.operationalTableMinWidth}`}
+          style={{ ['--xdrive-operational-table-min-width' as const]: `${Math.max(columns.length * 138, 440)}px` } as CSSProperties}
+        >
         {caption && (
-          <caption
-            style={{
-              captionSide: 'top',
-              textAlign: 'left',
-              padding: '0 0 0.45rem',
-              color: workspaceTheme.muted,
-              fontSize: '0.7rem',
-            }}
-          >
+          <caption className={styles.operationalTableCaption}>
             {caption}
           </caption>
         )}
         <thead>
-          <tr>
+          <tr className={styles.operationalTableHeaderRow}>
             {columns.map((col) => (
               <th
                 key={col.id}
                 scope="col"
-                style={{
-                  textAlign: col.align ?? 'left',
-                  padding: '0.58rem 0.65rem',
-                  color: '#475569',
-                  fontSize: '0.62rem',
-                  fontWeight: 850,
-                  letterSpacing: '0.045em',
-                  textTransform: 'uppercase' as CSSProperties['textTransform'],
-                  borderBottom: `1px solid ${workspaceTheme.border}`,
-                  background: workspaceTheme.surfaceSoft,
-                  position: 'sticky' as CSSProperties['position'],
-                  top: 0,
-                  ...(col.width ? { width: col.width } : {}),
-                }}
+                className={`${styles.operationalTableHeadCell} ${col.isAction ? styles.operationalTableActionHeadCell : ''}`}
+                style={{ textAlign: col.align ?? 'left', ...(col.width ? { width: col.width } : {}) }}
               >
-                {col.header}
+                {col.sortable ? (
+                  <button
+                    type="button"
+                    className={styles.operationalTableSortButton}
+                    onClick={() => {
+                      if (!onSortChange) return;
+                      if (!sort || sort.columnId !== col.id) {
+                        onSortChange({ columnId: col.id, direction: 'asc' });
+                        return;
+                      }
+                      if (sort.direction === 'asc') {
+                        onSortChange({ columnId: col.id, direction: 'desc' });
+                        return;
+                      }
+                      onSortChange(null);
+                    }}
+                    aria-label={`Sort by ${col.header}`}
+                  >
+                    {col.header}
+                    <span aria-hidden="true" className={styles.operationalTableSortGlyph}>
+                      {sort?.columnId === col.id ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
+                    </span>
+                  </button>
+                ) : (
+                  col.header
+                )}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={getRowKey(row)} className="xdrive-table-row">
+          {sortedRows.map((row) => (
+            <tr key={getRowKey(row)} className={styles.operationalTableRow}>
               {columns.map((col) => (
                 <td
                   key={col.id}
-                  style={{
-                    padding: '0.65rem',
-                    color: workspaceTheme.text,
-                    fontSize: '0.74rem',
-                    borderBottom: '1px solid #edf2f7',
-                    verticalAlign: 'middle',
-                    textAlign: col.align ?? 'left',
-                  }}
+                  className={`${styles.operationalTableCell} ${col.isAction ? styles.operationalTableActionCell : ''}`}
+                  style={{ textAlign: col.align ?? 'left' }}
                 >
-                  {col.cell(row)}
+                  {(() => {
+                    const content = col.cell(row);
+                    if (!col.semanticStatus || typeof content !== 'string') return content;
+                    return <StatusBadge value={content} />;
+                  })()}
                 </td>
               ))}
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </section>
   );
 }

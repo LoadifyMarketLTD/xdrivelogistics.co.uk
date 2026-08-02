@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
+import { canonicalJobStatus, filterJobsForDriver, recentCompletedJobs } from '../../lib/driverDashboard';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import {
@@ -57,6 +58,7 @@ const activeStatuses = new Set([
 ]);
 
 const upcomingStatuses = new Set(['awarded', 'allocated', 'accepted']);
+const completedStatuses = new Set(['delivered', 'completed', 'invoiced', 'paid']);
 
 const BID_STATUS_TONE: Record<string, 'green' | 'orange' | 'red' | 'purple'> = {
   accepted: 'green',
@@ -88,19 +90,20 @@ export default function DriverDashboard() {
   useEffect(() => { void fetchOwnerBids(); }, [fetchOwnerBids]);
 
   const myJobs = useMemo(
-    () => data.jobs.filter((job) => !user?.driverId || job.assigned_driver_id === user.driverId || ownerDriver),
+    () => filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver }),
     [data.jobs, ownerDriver, user?.driverId]
   );
-  const currentJob = myJobs.find((job) => activeStatuses.has(job.current_status ?? job.status));
+  const currentJob = myJobs.find((job) => activeStatuses.has(canonicalJobStatus(job.current_status, job.status)));
   const todaysJobs = myJobs.filter((job) =>
     job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === new Date().toDateString()
   );
   const upcomingJobs = myJobs.filter((job) =>
-    upcomingStatuses.has(job.current_status ?? job.status) &&
+    upcomingStatuses.has(canonicalJobStatus(job.current_status, job.status)) &&
     job.pickup_datetime &&
     new Date(job.pickup_datetime).toDateString() !== new Date().toDateString() &&
     new Date(job.pickup_datetime).getTime() > Date.now()
   ).sort((a, b) => String(a.pickup_datetime).localeCompare(String(b.pickup_datetime)));
+  const recentCompleted = recentCompletedJobs(myJobs);
 
   // Use direct owner bids for owner drivers; fall back to company bids for fleet drivers
   const myQuotes = ownerDriver
@@ -113,7 +116,7 @@ export default function DriverDashboard() {
   const expiringDocuments = myDocuments.filter(
     (document) => document.expiry_date && new Date(document.expiry_date).getTime() < Date.now() + 30 * 86_400_000
   );
-  const completedJobs = myJobs.filter((job) => ['delivered', 'completed', 'invoiced', 'paid'].includes(job.status)).length;
+  const completedJobs = myJobs.filter((job) => completedStatuses.has(canonicalJobStatus(job.current_status, job.status))).length;
 
   const submittedQuotes = myQuotes.filter((q) => q.status === 'submitted').length;
   const wonWork = myQuotes.filter((q) => q.status === 'accepted').length;
@@ -194,6 +197,41 @@ export default function DriverDashboard() {
                 <ActionButton key="action" tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton>,
               ])}
             empty={<EmptyState title="No jobs scheduled today" description="Use availability to keep dispatch informed." />}
+          />
+        </Panel>
+      </TwoColumn>
+
+      <TwoColumn>
+        <Panel title="Readiness summary" description="Operational shortcuts and account readiness for the next shift.">
+          <div style={{ display: 'grid', gap: '0.55rem' }}>
+            {[
+              ['Upcoming allocated work', upcomingJobs.length, '/driver/jobs'],
+              ['Jobs completed', completedJobs, '/driver/history'],
+              ['Documents expiring', expiringDocuments.length, '/driver/documents'],
+              [ownerDriver ? 'Quote pipeline' : 'Vehicle & profile', ownerDriver ? submittedQuotes + wonWork : null, ownerDriver ? '/driver/quotes' : '/driver/vehicles'],
+            ].map(([label, value, href]) => (
+              <button
+                key={String(label)}
+                onClick={() => router.push(String(href))}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
+              >
+                <span>{label}</span>
+                {value !== null && <strong>{value}</strong>}
+              </button>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Recent completed work" description="Delivered jobs and POD-ready history.">
+          <DataTable
+            columns={['Route', 'Delivered', 'Status', 'Action']}
+            rows={recentCompleted.map((job) => [
+              <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
+              formatDateTime(job.delivery_datetime),
+              <StatusBadge key="status" value={job.current_status ?? job.status} />,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton>,
+            ])}
+            empty={<EmptyState title="No completed jobs yet" description="Finished work appears here once delivery is confirmed." />}
           />
         </Panel>
       </TwoColumn>

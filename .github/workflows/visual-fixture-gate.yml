@@ -1,0 +1,51 @@
+name: Visual Fixture Gate
+
+on:
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-visual-fixture-gate:
+    name: Workspace Visual Fixture Gate
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: development
+      E2E_VISUAL_FIXTURE: "true"
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+      EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run workspace visual fixture gate
+        run: npx playwright test e2e/workspace-visual-auth-gate.spec.ts --project=chromium --reporter=html
+
+      - name: Upload Playwright visual gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-visual-fixture-gate-artifacts
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            playwright-report/**
+            test-results/**

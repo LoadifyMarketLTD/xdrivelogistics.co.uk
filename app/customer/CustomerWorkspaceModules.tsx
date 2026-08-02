@@ -31,6 +31,11 @@ export function CustomerDashboard() {
     const customerInvoices = data.invoices.filter((inv) => inv.buyer_company_id === data.companyId && isCustomerVisibleInvoice(inv));
     const unpaidInvoices = customerInvoices.filter((inv) => inv.payment_status !== 'paid' && !['paid', 'Paid'].includes(inv.status));
     const unpaidValue = unpaidInvoices.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+    const dueSoonInvoices = unpaidInvoices.filter((inv) => inv.due_date && new Date(inv.due_date).getTime() <= Date.now() + 7 * 86_400_000);
+    const recentQuoteActivity = data.bids
+      .filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status))
+      .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+      .slice(0, 5);
     return {
       draft: data.jobs.filter((j) => j.status === 'draft').length,
       open: data.jobs.filter((j) => ['posted', 'quoted'].includes(j.status)).length,
@@ -42,6 +47,8 @@ export function CustomerDashboard() {
       pod: data.jobs.filter((j) => (j.delivery_photos?.length ?? 0) > 0).length,
       unpaidInvoices,
       unpaidValue,
+      dueSoonInvoices,
+      recentQuoteActivity,
     };
   }, [data]);
 
@@ -110,6 +117,22 @@ export function CustomerDashboard() {
         </Panel>
 
         <div style={{ display: 'grid', gap: '0.9rem' }}>
+          <Panel title="Commercial summary" description="Pipeline, delivery evidence and invoice urgency in one place.">
+            <div style={{ display: 'grid', gap: '0.55rem' }}>
+              {[
+                ['Loads awaiting quotes', metrics.open, '#eff6ff', '#1d4ed8'],
+                ['Carrier awards made', metrics.awarded, '#f0fdf4', '#166534'],
+                ['POD ready', metrics.pod, '#f8fafc', '#334155'],
+                ['Invoices due soon', metrics.dueSoonInvoices.length, metrics.dueSoonInvoices.length ? '#fff7ed' : '#f8fafc', metrics.dueSoonInvoices.length ? '#c2410c' : '#475569'],
+              ].map(([label, value, bg, color]) => (
+                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
+                  <span style={{ color: '#475569' }}>{label}</span>
+                  <strong style={{ color: String(color) }}>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
           <Panel
             title="Outstanding invoices"
             description="Invoices addressed to your company that are pending payment."
@@ -136,6 +159,27 @@ export function CustomerDashboard() {
               </>
             ) : (
               <EmptyState title="No outstanding invoices" description="All invoices are paid or none have been issued yet." />
+            )}
+          </Panel>
+
+          <Panel title="Recent quote activity" description="Latest carrier responses and decisions.">
+            {metrics.recentQuoteActivity.length > 0 ? (
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                {metrics.recentQuoteActivity.map((bid) => {
+                  const job = data.jobs.find((item) => item.id === bid.job_id);
+                  return (
+                    <button key={bid.id} onClick={() => router.push(`/customer/jobs/${bid.job_id}`)} style={quickButton}>
+                      <span>
+                        <strong style={{ display: 'block' }}>{job?.pickup_postcode ?? job?.pickup_location ?? 'Load'} → {job?.delivery_postcode ?? job?.delivery_location ?? 'Destination'}</strong>
+                        <small style={{ color: '#64748b' }}>{bid.companies?.name ?? 'Carrier'} · {money(Number(bid.bid_price_gbp ?? bid.amount ?? 0))}</small>
+                      </span>
+                      <StatusBadge value={bid.status} />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState title="No quote activity yet" description="Carrier responses will appear here after publication." />
             )}
           </Panel>
 

@@ -6,6 +6,7 @@ import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from './fleet/FleetPositionMap';
+import SharedActionCentrePage from '../components/workspace/ActionCentrePage';
 import {
   ActionButton,
   DataTable,
@@ -856,4 +857,8 @@ export function NotificationsPage() {
       </Panel>
     </PageFrame>
   );
+}
+
+export function ActionCentrePage() {
+  return <SharedActionCentrePage role="admin" />;
 }
