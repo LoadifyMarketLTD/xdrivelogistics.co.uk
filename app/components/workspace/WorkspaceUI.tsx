@@ -40,6 +40,10 @@ export function PageHeader({ eyebrow, title, description, actions, meta }: { eye
   );
 }
 
+export function OperationalToolbar({ children }: { children: ReactNode }) {
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.72rem' }}>{children}</div>;
+}
+
 export function ActionButton({ children, onClick, tone = 'primary', disabled = false, type = 'button', title }: { children: ReactNode; onClick?: () => void; tone?: 'primary' | 'success' | 'warning' | 'danger' | 'secondary'; disabled?: boolean; type?: 'button' | 'submit'; title?: string }) {
   const palette = {
     primary: { bg: workspaceTheme.blue, color: '#fff', border: workspaceTheme.blue },
@@ -53,6 +57,10 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
 
 export function KpiGrid({ children }: { children: ReactNode }) {
   return <div className="xdrive-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.65rem', marginBottom: '0.9rem' }}>{children}</div>;
+}
+
+export function ExchangeKpiStrip({ children }: { children: ReactNode }) {
+  return <KpiGrid>{children}</KpiGrid>;
 }
 
 /** Trend / delta indicator for a KpiCard. Direction controls the arrow glyph; sentiment controls colour. */
@@ -140,6 +148,57 @@ export function Panel({ title, description, actions, children, style, flush = fa
   );
 }
 
+export function FinancialSummaryPanel({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; color: string; background: string }>;
+}) {
+  return (
+    <div style={{ display: 'grid', gap: '0.55rem' }}>
+      {items.map((item) => (
+        <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', background: item.background, border: `1px solid ${item.color}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
+          <span style={{ color: '#475569' }}>{item.label}</span>
+          <strong style={{ color: item.color }}>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ComplianceSummaryPanel({
+  rows,
+  total,
+}: {
+  rows: Array<{ label: string; count: number; color: string; background: string; border: string }>;
+  total: number;
+}) {
+  if (total <= 0) {
+    return <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.4rem 0' }}>No compliance documents on record.</div>;
+  }
+  return (
+    <div>
+      <div style={{ display: 'grid', gap: '0.42rem' }}>
+        {rows.map((row) => {
+          const pct = Math.round((row.count / total) * 100);
+          return (
+            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: row.background, border: `2px solid ${row.border}`, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: '0.73rem', color: '#475569' }}>{row.label}</span>
+              <strong style={{ fontSize: '0.73rem', color: row.color }}>{row.count}</strong>
+              <span style={{ fontSize: '0.68rem', color: '#94a3b8', minWidth: '32px', textAlign: 'right' }}>{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: '0.6rem', height: '8px', borderRadius: '999px', overflow: 'hidden', display: 'flex', background: '#e2e8f0' }}>
+        {rows.filter((row) => row.count > 0).map((row) => (
+          <div key={`bar-${row.label}`} style={{ width: `${(row.count / total) * 100}%`, background: row.color }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { children: ReactNode; rightWidth?: string }) {
   return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
 }
@@ -187,6 +246,68 @@ export function DateRangeSelector({
         </option>
       ))}
     </select>
+  );
+}
+
+export function SavedViewSelector({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return <DateRangeSelector value={value} onChange={onChange} options={options} />;
+}
+
+export function WorkspaceActivityFeed({
+  items,
+  error,
+  classNames,
+  labelColor,
+  timeColor,
+  background,
+}: {
+  items: Array<{ id: string; label: string; reference: string | null; created_at: string }>;
+  error: string;
+  classNames: {
+    root: string;
+    title: string;
+    track: string;
+    item: string;
+    time: string;
+    error: string;
+  };
+  labelColor: string;
+  timeColor: string;
+  background: string;
+}) {
+  if (items.length === 0 && !error) return null;
+  return (
+    <div className={classNames.root} style={{ background, color: '#e2e8f0' }} aria-live="polite" aria-label="Activity feed">
+      <div className={classNames.title} style={{ color: labelColor }}>
+        ● ACTIVITY
+      </div>
+      {items.length > 0 ? (
+        <div className={classNames.track}>
+          {[...items, ...items].map((item, index) => {
+            const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            return (
+              <span key={`${item.id}-${index}`} className={classNames.item}>
+                <span className={classNames.time} style={{ color: timeColor }}>
+                  {time}
+                </span>
+                {item.label}
+                {item.reference ? ` – ${item.reference}` : ''}
+              </span>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={classNames.error}>{error}</div>
+      )}
+    </div>
   );
 }
 

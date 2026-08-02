@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { invoiceNetAmount, invoiceSignedNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, DateRangeSelector, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -115,7 +115,7 @@ export function BrokerDashboard() {
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
-      <KpiGrid>
+      <ExchangeKpiStrip>
         <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/broker/loads')} />
         <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" onClick={() => router.push('/broker/loads')} />
         <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" onClick={() => router.push('/broker/bids')} />
@@ -126,7 +126,7 @@ export function BrokerDashboard() {
         <KpiCard label="Awaiting customer payment" value={metrics.awaitingRevenueInvoices.length} detail={money(metrics.awaitingRevenueValue)} tone={metrics.awaitingRevenueInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
         <KpiCard label="Due for payment" value={metrics.dueForPayment.length} detail="Due within 7 days" tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
         <KpiCard label="Overdue customer invoices" value={metrics.overdueRevenueInvoices.length} detail={money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0))} tone={metrics.overdueRevenueInvoices.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-      </KpiGrid>
+      </ExchangeKpiStrip>
 
       {metrics.awaitingAwardJobs.length > 0 && (
         <Panel
@@ -183,20 +183,15 @@ export function BrokerDashboard() {
             title="Commercial summary"
             description="Invoiced net amounts are shown separately from operational estimates."
           >
-            <div style={{ display: 'grid', gap: '0.55rem' }}>
-              {[
-                ['Invoiced revenue (net)', money(metrics.invoicedRevenueNet), '#f0fdf4', '#166534'],
-                ['Carrier payables (net)', money(metrics.supplierPayablesNet), '#fff7ed', '#c2410c'],
-                ['Gross margin', money(metrics.margin), metrics.margin >= 0 ? '#f0fdf4' : '#fef2f2', metrics.margin >= 0 ? '#166534' : '#dc2626'],
-                ['Estimated customer budget', money(metrics.estimatedCustomerBudget), '#eff6ff', '#1e40af'],
-                ['Estimated carrier quote cost', money(metrics.estimatedCarrierCost), metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b'],
-              ].map(([label, value, bg, color]) => (
-                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
-                  <span style={{ color: '#475569' }}>{label}</span>
-                  <strong style={{ color: String(color) }}>{value}</strong>
-                </div>
-              ))}
-            </div>
+            <FinancialSummaryPanel
+              items={[
+                { label: 'Invoiced revenue (net)', value: money(metrics.invoicedRevenueNet), background: '#f0fdf4', color: '#166534' },
+                { label: 'Carrier payables (net)', value: money(metrics.supplierPayablesNet), background: '#fff7ed', color: '#c2410c' },
+                { label: 'Gross margin', value: money(metrics.margin), background: metrics.margin >= 0 ? '#f0fdf4' : '#fef2f2', color: metrics.margin >= 0 ? '#166534' : '#dc2626' },
+                { label: 'Estimated customer budget', value: money(metrics.estimatedCustomerBudget), background: '#eff6ff', color: '#1e40af' },
+                { label: 'Estimated carrier quote cost', value: money(metrics.estimatedCarrierCost), background: metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', color: metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b' },
+              ]}
+            />
           </Panel>
 
           <Panel title="Recent customer loads" description="Latest activity in the broker book." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>All loads</ActionButton>}>
@@ -302,34 +297,14 @@ export function BrokerDashboard() {
             description="Document status across carriers in your network."
             actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}
           >
-            {metrics.complianceSummary.total > 0 ? (
-              <div>
-                <div style={{ display: 'grid', gap: '0.42rem' }}>
-                  {[
-                    ['Fully compliant', metrics.complianceSummary.current, '#166534', '#ecfdf3', '#bbf7d0'],
-                    ['About to expire', metrics.complianceSummary.expiring, '#92400e', '#fffbeb', '#fde68a'],
-                    ['Updates needed', metrics.complianceSummary.expired, '#b91c1c', '#fef2f2', '#fecaca'],
-                  ].map(([label, count, color, bg, border]) => {
-                    const pct = metrics.complianceSummary.total > 0 ? Math.round((Number(count) / metrics.complianceSummary.total) * 100) : 0;
-                    return (
-                      <div key={String(label)} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: String(bg), border: `2px solid ${String(border)}`, flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: '0.73rem', color: '#475569' }}>{label}</span>
-                        <strong style={{ fontSize: '0.73rem', color: String(color) }}>{count}</strong>
-                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', minWidth: '32px', textAlign: 'right' }}>{pct}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ marginTop: '0.6rem', height: '8px', borderRadius: '999px', overflow: 'hidden', display: 'flex', background: '#e2e8f0' }}>
-                  {metrics.complianceSummary.current > 0 && <div style={{ width: `${(metrics.complianceSummary.current / metrics.complianceSummary.total) * 100}%`, background: '#16a34a' }} />}
-                  {metrics.complianceSummary.expiring > 0 && <div style={{ width: `${(metrics.complianceSummary.expiring / metrics.complianceSummary.total) * 100}%`, background: '#f59e0b' }} />}
-                  {metrics.complianceSummary.expired > 0 && <div style={{ width: `${(metrics.complianceSummary.expired / metrics.complianceSummary.total) * 100}%`, background: '#ef4444' }} />}
-                </div>
-              </div>
-            ) : (
-              <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.4rem 0' }}>No compliance documents on record.</div>
-            )}
+            <ComplianceSummaryPanel
+              total={metrics.complianceSummary.total}
+              rows={[
+                { label: 'Fully compliant', count: metrics.complianceSummary.current, color: '#166534', background: '#ecfdf3', border: '#bbf7d0' },
+                { label: 'About to expire', count: metrics.complianceSummary.expiring, color: '#92400e', background: '#fffbeb', border: '#fde68a' },
+                { label: 'Updates needed', count: metrics.complianceSummary.expired, color: '#b91c1c', background: '#fef2f2', border: '#fecaca' },
+              ]}
+            />
           </Panel>
         </div>
       </TwoColumn>
