@@ -286,8 +286,9 @@ export function WorkspaceActivityFeed({
   labelColor,
   timeColor,
   background,
+  onItemClick,
 }: {
-  items: Array<{ id: string; label: string; reference: string | null; created_at: string }>;
+  items: Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>;
   error: string;
   classNames: {
     root: string;
@@ -300,6 +301,7 @@ export function WorkspaceActivityFeed({
   labelColor: string;
   timeColor: string;
   background: string;
+  onItemClick?: (href: string, itemId: string) => void;
 }) {
   if (items.length === 0 && !error) return null;
   return (
@@ -311,13 +313,24 @@ export function WorkspaceActivityFeed({
         <div className={`${styles.workspaceActivityFeedTrack} ${classNames.track}`}>
           {[...items, ...items].map((item, index) => {
             const time = new Date(item.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const text = `${item.label}${item.reference ? ` – ${item.reference}` : ''}`;
             return (
               <span key={`${item.id}-${index}`} className={`${styles.workspaceActivityFeedItem} ${classNames.item}`}>
                 <span className={`${styles.workspaceActivityFeedTime} ${classNames.time}`} style={{ color: timeColor }}>
                   {time}
                 </span>
-                {item.label}
-                {item.reference ? ` – ${item.reference}` : ''}
+                {item.href ? (
+                  <button
+                    type="button"
+                    className={styles.workspaceActivityFeedItemButton}
+                    onClick={() => onItemClick?.(item.href as string, item.id)}
+                    aria-label={`Open activity item ${text}`}
+                  >
+                    {text}
+                  </button>
+                ) : (
+                  text
+                )}
               </span>
             );
           })}
@@ -699,36 +712,54 @@ export const ACTION_CENTRE_STATUS_LABELS: Record<ActionCentreItemStatus, string>
 export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
   const priorityPalette = ACTION_CENTRE_PRIORITY_COLORS[item.priority];
   const statusPalette = ACTION_CENTRE_STATUS_COLORS[item.status];
-  const badgeBase: CSSProperties = { display: 'inline-flex', alignItems: 'center', borderRadius: '999px', padding: '0.16rem 0.42rem', fontSize: '0.62rem', fontWeight: 800, whiteSpace: 'nowrap', border: '1px solid' };
   return (
-    <article
-      aria-label={item.title}
-      style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.78rem 0.85rem', boxShadow: compactShadow, position: 'relative', overflow: 'hidden' }}
-    >
-      <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: priorityPalette.color }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0, flex: '1 1 0' }}>
-          <div style={{ color: workspaceTheme.text, fontSize: '0.8rem', fontWeight: 750, lineHeight: 1.35 }}>{item.title}</div>
-          {item.description && <div style={{ color: workspaceTheme.muted, fontSize: '0.7rem', marginTop: '0.22rem', lineHeight: 1.4 }}>{item.description}</div>}
+    <article aria-label={item.title} className={styles.actionCentreItem}>
+      <span
+        aria-hidden="true"
+        className={styles.actionCentreItemRail}
+        style={{ ['--xdrive-action-rail' as const]: priorityPalette.color } as CSSProperties}
+      />
+      <div className={styles.actionCentreItemHeader}>
+        <div className={styles.actionCentreItemContent}>
+          <div className={styles.actionCentreItemTitle}>{item.title}</div>
+          {item.description && <div className={styles.actionCentreItemDescription}>{item.description}</div>}
         </div>
-        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
-          <span style={{ ...badgeBase, background: priorityPalette.bg, color: priorityPalette.color, borderColor: priorityPalette.border }}>{ACTION_CENTRE_PRIORITY_LABELS[item.priority]}</span>
-          <span style={{ ...badgeBase, background: statusPalette.bg, color: statusPalette.color, borderColor: statusPalette.border }}>{ACTION_CENTRE_STATUS_LABELS[item.status]}</span>
+        <div className={styles.actionCentreItemBadges}>
+          <span
+            className={styles.actionCentreBadge}
+            style={{
+              ['--xdrive-action-badge-bg' as const]: priorityPalette.bg,
+              ['--xdrive-action-badge-color' as const]: priorityPalette.color,
+              ['--xdrive-action-badge-border' as const]: priorityPalette.border,
+            } as CSSProperties}
+          >
+            {ACTION_CENTRE_PRIORITY_LABELS[item.priority]}
+          </span>
+          <span
+            className={styles.actionCentreBadge}
+            style={{
+              ['--xdrive-action-badge-bg' as const]: statusPalette.bg,
+              ['--xdrive-action-badge-color' as const]: statusPalette.color,
+              ['--xdrive-action-badge-border' as const]: statusPalette.border,
+            } as CSSProperties}
+          >
+            {ACTION_CENTRE_STATUS_LABELS[item.status]}
+          </span>
         </div>
       </div>
       {(item.dueLabel || item.entityLabel || item.assigneeLabel) && (
-        <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
-          {item.entityLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>{item.entityLabel}</span>}
-          {item.dueLabel && <span style={{ color: workspaceTheme.amber, fontSize: '0.65rem', fontWeight: 700 }}>{item.dueLabel}</span>}
-          {item.assigneeLabel && <span style={{ color: workspaceTheme.muted, fontSize: '0.65rem' }}>→ {item.assigneeLabel}</span>}
+        <div className={styles.actionCentreMeta}>
+          {item.entityLabel && <span className={styles.actionCentreMetaValue}>{item.entityLabel}</span>}
+          {item.dueLabel && <span className={styles.actionCentreDue}>{item.dueLabel}</span>}
+          {item.assigneeLabel && <span className={styles.actionCentreMetaValue}>→ {item.assigneeLabel}</span>}
         </div>
       )}
       {item.cta && (
-        <div style={{ marginTop: '0.55rem' }}>
+        <div className={styles.actionCentreCta}>
           {item.cta.href ? (
-            <a href={item.cta.href} style={{ color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, textDecoration: 'none' }}>{item.cta.label} →</a>
+            <a href={item.cta.href} className={styles.actionCentreLinkAnchor}>{item.cta.label} →</a>
           ) : (
-            <button type="button" onClick={item.cta.onClick} style={{ background: 'none', border: 'none', padding: 0, color: workspaceTheme.blue, fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer' }}>{item.cta.label} →</button>
+            <button type="button" onClick={item.cta.onClick} className={styles.actionCentreLinkButton}>{item.cta.label} →</button>
           )}
         </div>
       )}
@@ -740,7 +771,7 @@ export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
 export function ActionCentreList({ items, empty }: { items: ActionCentreItem[]; empty?: ReactNode }) {
   if (items.length === 0) return <>{empty ?? <EmptyState title="No action items" description="There are no outstanding action items at this time." />}</>;
   return (
-    <div style={{ display: 'grid', gap: '0.5rem' }}>
+    <div className={styles.actionCentreList}>
       {items.map((item) => <ActionCentreItemCard key={item.id} item={item} />)}
     </div>
   );
@@ -867,17 +898,12 @@ export function OperationalTable<TRow>({
         </div>
       )}
       <div className={styles.operationalTableScroll} style={{ overflowX: 'auto' }}>
-        <table className={styles.operationalTable} style={{ minWidth: `${Math.max(columns.length * 138, 440)}px` }}>
+        <table
+          className={`${styles.operationalTable} ${styles.operationalTableMinWidth}`}
+          style={{ ['--xdrive-operational-table-min-width' as const]: `${Math.max(columns.length * 138, 440)}px` } as CSSProperties}
+        >
         {caption && (
-          <caption
-            style={{
-              captionSide: 'top',
-              textAlign: 'left',
-              padding: '0 0 0.45rem',
-              color: workspaceTheme.muted,
-              fontSize: '0.7rem',
-            }}
-          >
+          <caption className={styles.operationalTableCaption}>
             {caption}
           </caption>
         )}

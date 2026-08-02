@@ -32,7 +32,7 @@ export default function WorkspaceShell({
   const [isCompact, setIsCompact] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
-  const [tickerItems, setTickerItems] = useState<Array<{ id: string; label: string; reference: string | null; created_at: string }>>([]);
+  const [tickerItems, setTickerItems] = useState<Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>>([]);
   const [tickerError, setTickerError] = useState('');
   const tickerTimerRef = useRef<number | null>(null);
   const tickerAbortRef = useRef<AbortController | null>(null);
@@ -53,6 +53,22 @@ export default function WorkspaceShell({
       ),
     [nav],
   );
+  const notificationsHref =
+    role === 'broker'
+      ? '/broker/notifications'
+      : role === 'customer'
+        ? '/customer/notifications'
+        : role === 'driver' || role === 'owner_driver'
+          ? '/driver/notifications'
+          : '/admin/notifications';
+  const actionCentreHref =
+    role === 'broker'
+      ? '/broker/action-centre'
+      : role === 'customer'
+        ? '/customer/action-centre'
+        : role === 'driver' || role === 'owner_driver'
+          ? '/driver/action-centre'
+          : '/admin/action-centre';
 
   useEffect(() => {
     setHydrated(true);
@@ -104,7 +120,7 @@ export default function WorkspaceShell({
     void fetchUnread();
     const timer = window.setInterval(() => void fetchUnread(), 60_000);
     return () => window.clearInterval(timer);
-  }, [user?.id]);
+  }, [actionCentreHref, role, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -166,11 +182,32 @@ export default function WorkspaceShell({
         }
 
         const payload = (await response.json().catch(() => ({}))) as {
-          items?: Array<{ id: string; label: string; reference: string | null; created_at: string }>;
+          items?: Array<{
+            id: string;
+            label: string;
+            reference: string | null;
+            created_at: string;
+            entity_type?: string | null;
+            entity_id?: string | null;
+            event_id?: string | null;
+          }>;
         };
         const items = Array.isArray(payload.items) ? payload.items : [];
         setTickerError('');
-        setTickerItems(items.slice().reverse());
+        const withHrefs = items.slice().reverse().map((item) => {
+          const safeEntity = item.entity_type?.toLowerCase() ?? '';
+          const id = item.entity_id?.trim() ?? '';
+          const href =
+            safeEntity === 'job' && id
+              ? `${role === 'customer' ? '/customer' : role === 'driver' || role === 'owner_driver' ? '/driver' : '/admin'}/jobs/${id}`
+              : safeEntity === 'invoice' && id
+                ? `${role === 'customer' ? '/customer' : role === 'driver' || role === 'owner_driver' ? '/driver' : '/admin'}/invoices/${id}`
+                : safeEntity === 'quote'
+                  ? `${role === 'customer' ? '/customer/quotes' : role === 'driver' || role === 'owner_driver' ? '/driver/quotes' : '/admin/quotes'}`
+                  : `${actionCentreHref}${item.event_id ? `?event=${encodeURIComponent(item.event_id)}` : ''}`;
+          return { ...item, href };
+        });
+        setTickerItems(withHrefs);
       } catch {
         setTickerItems([]);
         setTickerError('Activity feed unavailable');
@@ -199,7 +236,7 @@ export default function WorkspaceShell({
       tickerBusyRef.current = false;
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [user?.id]);
+  }, [actionCentreHref, role, user?.id]);
 
   useEffect(() => {
     if (!isCompact) setSidebarOpen(false);
@@ -217,15 +254,6 @@ export default function WorkspaceShell({
       hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
-
-  const notificationsHref =
-    role === 'broker'
-      ? '/broker/notifications'
-      : role === 'customer'
-        ? '/customer/notifications'
-        : role === 'driver' || role === 'owner_driver'
-          ? '/driver/notifications'
-          : '/admin/notifications';
 
   if (!hydrated) {
     return <div style={{ minHeight: '100vh', background: workspaceTheme.page }} />;
@@ -608,7 +636,7 @@ export default function WorkspaceShell({
               </button>
             )}
             <button
-              onClick={() => router.push(notificationsHref)}
+              onClick={() => router.push(actionCentreHref)}
               style={{
                 border: `1px solid ${workspaceTheme.border}`,
                 borderRadius: '8px',
@@ -663,24 +691,24 @@ export default function WorkspaceShell({
             </button>
           </div>
         </header>
-        <main style={{ flex: 1, minWidth: 0, paddingBottom: tickerItems.length > 0 || tickerError ? '28px' : 0 }}>{children}</main>
+        <WorkspaceActivityFeed
+          items={tickerItems}
+          error={tickerError}
+          classNames={{
+            root: styles.tickerRoot,
+            title: styles.tickerLabel,
+            track: styles.tickerTrack,
+            item: styles.tickerItem,
+            time: styles.tickerTime,
+            error: styles.tickerError,
+          }}
+          labelColor={workspaceTheme.orange}
+          timeColor={workspaceTheme.orange}
+          background={workspaceTheme.navy}
+          onItemClick={(href) => router.push(href)}
+        />
+        <main style={{ flex: 1, minWidth: 0 }}>{children}</main>
       </div>
-
-      <WorkspaceActivityFeed
-        items={tickerItems}
-        error={tickerError}
-        classNames={{
-          root: styles.tickerRoot,
-          title: styles.tickerLabel,
-          track: styles.tickerTrack,
-          item: styles.tickerItem,
-          time: styles.tickerTime,
-          error: styles.tickerError,
-        }}
-        labelColor={workspaceTheme.orange}
-        timeColor={workspaceTheme.orange}
-        background={workspaceTheme.navy}
-      />
     </div>
   );
 }

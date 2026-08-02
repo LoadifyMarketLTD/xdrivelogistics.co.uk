@@ -39,6 +39,21 @@ const toReference = (payload: unknown): string | null => {
   return value.length > 18 ? value.slice(0, 18) : value;
 };
 
+const toEntityId = (
+  entityId: unknown,
+  payload: unknown,
+): string | null => {
+  if (typeof entityId === 'string' && entityId.trim()) return entityId.trim();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const data = payload as Record<string, unknown>;
+  const raw =
+    (typeof data.job_id === 'string' && data.job_id)
+    || (typeof data.invoice_id === 'string' && data.invoice_id)
+    || (typeof data.bid_id === 'string' && data.bid_id)
+    || null;
+  return raw ? raw.trim() : null;
+};
+
 export async function GET(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey || !supabaseValidator) {
     return json(503, { error: 'Authentication service is not configured.' });
@@ -60,7 +75,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await client
     .from('notification_events')
-    .select('event_type, payload, created_at')
+    .select('id, event_type, entity_type, entity_id, payload, created_at')
     .eq('recipient_user_id', authData.user.id)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -73,6 +88,9 @@ export async function GET(request: NextRequest) {
     id: `${String(row.created_at ?? 'event')}-${index}`,
     label: toLabel(row.event_type),
     reference: toReference(row.payload),
+    entity_type: typeof row.entity_type === 'string' ? row.entity_type : null,
+    entity_id: toEntityId(row.entity_id, row.payload),
+    event_id: typeof row.id === 'string' ? row.id : null,
     created_at: row.created_at,
   }));
 

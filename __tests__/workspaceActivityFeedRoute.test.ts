@@ -57,7 +57,10 @@ describe('GET /api/workspace/activity-feed', () => {
     mocks.limitResult = {
       data: [
         {
+          id: 'event-id-1',
           event_type: 'bid_accepted',
+          entity_type: 'job',
+          entity_id: 'job-123',
           payload: { job_ref: 'ABCDEFGHIJKL1234567890' },
           created_at: '2026-08-01T12:00:00.000Z',
         },
@@ -68,11 +71,16 @@ describe('GET /api/workspace/activity-feed', () => {
     const res = await GET(new NextRequest('http://localhost/api/workspace/activity-feed?limit=5'));
     expect(res.status).toBe(200);
     expect(mocks.eq).toHaveBeenCalledWith('recipient_user_id', 'user-1');
-    const body = await res.json() as { items: Array<{ id: string; label: string; reference: string | null }> };
+    const body = await res.json() as {
+      items: Array<{ id: string; label: string; reference: string | null; entity_type: string | null; entity_id: string | null; event_id: string | null }>;
+    };
     expect(body.items).toHaveLength(1);
     expect(body.items[0]?.id).toBe('2026-08-01T12:00:00.000Z-0');
     expect(body.items[0]?.label).toBe('Bid Accepted');
     expect(body.items[0]?.reference).toBe('ABCDEFGHIJKL123456');
+    expect(body.items[0]?.entity_type).toBe('job');
+    expect(body.items[0]?.entity_id).toBe('job-123');
+    expect(body.items[0]?.event_id).toBe('event-id-1');
   });
 
   it('returns 401 when token is missing', async () => {

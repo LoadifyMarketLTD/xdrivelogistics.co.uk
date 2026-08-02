@@ -63,7 +63,7 @@ describe('workspace operational primitives', () => {
     const html = render(
       <WorkspaceActivityFeed
         items={[
-          { id: 'evt-1', label: 'Job updated', reference: 'LOAD-2041', created_at: '2026-08-01T12:00:00.000Z' },
+          { id: 'evt-1', label: 'Job updated', reference: 'LOAD-2041', created_at: '2026-08-01T12:00:00.000Z', href: '/admin/jobs/abc' },
         ]}
         error=""
         classNames={{
@@ -83,6 +83,7 @@ describe('workspace operational primitives', () => {
     expect(html).toContain('ACTIVITY');
     expect(html).toContain('Job updated');
     expect(html).toContain('LOAD-2041');
+    expect(html).toContain('Open activity item');
   });
 
   it('renders SavedViewSelector options', () => {

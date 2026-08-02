@@ -1,16 +1,13 @@
 .workspaceRoot {}
 
 .tickerRoot {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 26px;
-  z-index: 55;
+  margin: 0.25rem 0 0.7rem;
+  min-height: 28px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   overflow: hidden;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tickerLabel {
