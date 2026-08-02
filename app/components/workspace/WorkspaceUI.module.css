@@ -1365,7 +1365,7 @@
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   /* Hide dense table; show card list */
   .jobsTableSection  { display: none; }
   .jobsMobileCardList {
