@@ -114,7 +114,6 @@ export default function JobsPage() {
  const [deliveryFilter, setDeliveryFilter] = useState('');
  const [dateFilter, setDateFilter] = useState('');
  const [customerFilter, setCustomerFilter] = useState('');
- const [driverFilter] = useState('');
  const [showModal, setShowModal] = useState(false);
  // Direct invite state
  const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
@@ -201,7 +200,7 @@ export default function JobsPage() {
  useEffect(() => {
  filterJobs();
  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
+ }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter]);
 
  const loadJobs = async () => {
  setDbError(null);
@@ -314,11 +313,6 @@ export default function JobsPage() {
  if (customerFilter.trim()) {
  const term = customerFilter.trim().toLowerCase();
  filtered = filtered.filter((job) => job.client.name.toLowerCase().includes(term));
- }
-
- if (driverFilter.trim()) {
- const term = driverFilter.trim().toLowerCase();
- filtered = filtered.filter((job) => job.cargo.notes.toLowerCase().includes(term));
  }
 
  if (dateFilter) {
