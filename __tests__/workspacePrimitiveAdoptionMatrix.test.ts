@@ -21,6 +21,11 @@ function hasCompactKpiStrip(filePath: string): boolean {
   return /\bExchangeKpiStrip\b|\bKpiGrid\b/.test(source);
 }
 
+function hasOperationalPageLayout(filePath: string): boolean {
+  const source = read(filePath);
+  return /\bOperationalPageLayout\b/.test(source);
+}
+
 function hasActionCentreRoute(filePath: string): boolean {
   if (!existsSync(resolve(process.cwd(), filePath))) return false;
   const source = read(filePath);
@@ -59,6 +64,11 @@ describe('workspace primitive adoption matrix', () => {
     expect(hasPageHeader('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
     expect(hasOperationalTablePrimitive('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
     expect(hasCompactKpiStrip('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
+
+    expect(hasPageHeader('app/super-admin/page.tsx')).toBe(true);
+    expect(hasOperationalTablePrimitive('app/super-admin/page.tsx')).toBe(true);
+    expect(hasCompactKpiStrip('app/super-admin/page.tsx')).toBe(true);
+    expect(hasOperationalPageLayout('app/super-admin/page.tsx')).toBe(true);
   });
 
   it('ensures action-centre routes for all operational roles use the shared primitive page', () => {

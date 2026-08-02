@@ -10,12 +10,14 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
-  PageFrame,
   PageHeader,
-  Panel,
-  StatusBadge,
+  OperationalCard,
+  OperationalFilterField,
+  OperationalFilters,
+  OperationalLinkList,
+  OperationalMetricList,
+  OperationalPageLayout,
   TwoColumn,
-  workspaceTheme,
 } from '../components/workspace/WorkspaceUI';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -41,24 +43,12 @@ type NotificationRow = {
   created_at: string;
 };
 
-type ModuleTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
-
 type ModuleCard = {
   title: string;
   detail: string;
   metric: number;
   label: string;
   href: string;
-  tone: ModuleTone;
-};
-
-const toneColor: Record<ModuleTone, string> = {
-  blue: workspaceTheme.blue,
-  green: workspaceTheme.green,
-  orange: workspaceTheme.orange,
-  red: workspaceTheme.red,
-  purple: workspaceTheme.purple,
-  navy: workspaceTheme.navy,
 };
 
 const formatDateTime = (value: string) =>
@@ -110,24 +100,50 @@ function OwnerConsole() {
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
   const modules = useMemo<ModuleCard[]>(() => [
-    { title: 'Marketplace', detail: 'Global jobs, carrier quotes and exchange exceptions.', metric: stats?.jobsOpen ?? 0, label: 'Open jobs', href: '/super-admin/marketplace', tone: 'blue' },
-    { title: 'Operations', detail: 'Execution, allocation, POD and delivery visibility.', metric: stats?.jobsTotal ?? 0, label: 'All jobs', href: '/super-admin/operations/jobs', tone: 'green' },
-    { title: 'Companies', detail: 'Approval, suspension and company workspace governance.', metric: stats?.companiesTotal ?? 0, label: 'Companies', href: '/super-admin/companies', tone: 'navy' },
-    { title: 'Drivers', detail: 'Driver access, readiness and operating capacity.', metric: stats?.driversTotal ?? 0, label: 'Drivers', href: '/super-admin/users/drivers', tone: 'purple' },
-    { title: 'Finance', detail: 'Invoices, payment state and commercial exceptions.', metric: stats?.invoicesUnpaid ?? 0, label: 'Unpaid invoices', href: '/super-admin/finance/invoices', tone: 'orange' },
-    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.companiesSuspended ?? 0, label: 'Suspended', href: '/super-admin/compliance/documents', tone: 'red' },
+    { title: 'Marketplace', detail: 'Global jobs, carrier quotes and exchange exceptions.', metric: stats?.jobsOpen ?? 0, label: 'Open jobs', href: '/super-admin/marketplace' },
+    { title: 'Operations', detail: 'Execution, allocation, POD and delivery visibility.', metric: stats?.jobsTotal ?? 0, label: 'All jobs', href: '/super-admin/operations/jobs' },
+    { title: 'Companies', detail: 'Approval, suspension and company workspace governance.', metric: stats?.companiesTotal ?? 0, label: 'Companies', href: '/super-admin/companies' },
+    { title: 'Drivers', detail: 'Driver access, readiness and operating capacity.', metric: stats?.driversTotal ?? 0, label: 'Drivers', href: '/super-admin/users/drivers' },
+    { title: 'Finance', detail: 'Invoices, payment state and commercial exceptions.', metric: stats?.invoicesUnpaid ?? 0, label: 'Unpaid invoices', href: '/super-admin/finance/invoices' },
+    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.companiesSuspended ?? 0, label: 'Suspended', href: '/super-admin/compliance/documents' },
   ], [stats]);
 
   return (
-    <PageFrame>
+    <OperationalPageLayout
+      searchPanel={(
+        <OperationalFilters title="Owner control desk">
+          <OperationalFilterField label="Immediate watch">
+            <OperationalMetricList
+              items={[
+                { label: 'Pending approvals', value: loading ? '…' : stats?.companiesPending ?? 0, tone: (stats?.companiesPending ?? 0) > 0 ? 'orange' : 'green' },
+                { label: 'Suspended companies', value: loading ? '…' : stats?.companiesSuspended ?? 0, tone: (stats?.companiesSuspended ?? 0) > 0 ? 'red' : 'green' },
+                { label: 'Open jobs', value: loading ? '…' : stats?.jobsOpen ?? 0, tone: (stats?.jobsOpen ?? 0) > 0 ? 'blue' : 'grey' },
+                { label: 'Unpaid invoices', value: loading ? '…' : stats?.invoicesUnpaid ?? 0, tone: (stats?.invoicesUnpaid ?? 0) > 0 ? 'red' : 'green' },
+              ]}
+            />
+          </OperationalFilterField>
+          <OperationalFilterField label="Priority actions">
+            <OperationalLinkList
+              items={[
+                { key: 'approvals', label: 'Review approvals', meta: 'Company onboarding queue', onClick: () => router.push('/super-admin/companies/approvals') },
+                { key: 'health', label: 'Platform health', meta: 'Queues, runtime and webhooks', onClick: () => router.push('/super-admin/health') },
+                { key: 'notifications', label: 'Notifications queue', meta: 'Failed and pending events', onClick: () => router.push('/super-admin/notifications') },
+              ]}
+            />
+          </OperationalFilterField>
+          <OperationalFilterField label="Refresh">
+            <ActionButton tone="secondary" onClick={() => void loadDashboard()}>Refresh dashboard</ActionButton>
+          </OperationalFilterField>
+        </OperationalFilters>
+      )}
+    >
       <PageHeader
         eyebrow="Global platform view"
         title="XDrive Owner Console"
-        description="One consistent operating view across marketplace, companies, jobs, drivers, finance, compliance and platform health."
+        description="One operating view across marketplace, companies, jobs, drivers, finance, compliance and platform health."
         actions={<>
           <ActionButton tone="warning" onClick={() => router.push('/super-admin/companies/approvals')}>Review approvals</ActionButton>
           <ActionButton tone="secondary" onClick={() => router.push('/super-admin/health')}>Platform health</ActionButton>
-          <ActionButton tone="secondary" onClick={() => void loadDashboard()}>Refresh</ActionButton>
         </>}
       />
 
@@ -139,70 +155,82 @@ function OwnerConsole() {
         <KpiCard label="Pending approval" value={loading ? '…' : stats?.companiesPending ?? 0} tone="orange" onClick={() => router.push('/super-admin/companies/approvals')} />
         <KpiCard label="Open jobs" value={loading ? '…' : stats?.jobsOpen ?? 0} tone="blue" onClick={() => router.push('/super-admin/marketplace')} />
         <KpiCard label="Delivered jobs" value={loading ? '…' : stats?.jobsDelivered ?? 0} tone="green" onClick={() => router.push('/super-admin/operations/completed-jobs')} />
-        <KpiCard label="Drivers" value={loading ? '…' : stats?.driversTotal ?? 0} tone="purple" onClick={() => router.push('/super-admin/users/drivers')} />
-        <KpiCard label="Invoices" value={loading ? '…' : stats?.invoicesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/finance/invoices')} />
         <KpiCard label="Unpaid invoices" value={loading ? '…' : stats?.invoicesUnpaid ?? 0} tone="red" onClick={() => router.push('/super-admin/finance/invoices')} />
       </KpiGrid>
 
-      <Panel title="Platform workspaces" description="Every workspace follows the same navigation, status language and page hierarchy." style={{ marginBottom: '0.9rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.75rem' }}>
-          {modules.map((module) => (
-            <section key={module.title} style={{ border: `1px solid ${workspaceTheme.border}`, borderTop: `3px solid ${toneColor[module.tone]}`, borderRadius: 10, background: workspaceTheme.surfaceSoft, padding: '0.9rem', minHeight: 165 }}>
-              <div style={{ color: workspaceTheme.muted, fontSize: '0.66rem', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{module.label}</div>
-              <div style={{ marginTop: '0.3rem', color: toneColor[module.tone], fontSize: '1.7rem', fontWeight: 900 }}>{loading ? '…' : module.metric}</div>
-              <h3 style={{ margin: '0.75rem 0 0.25rem', color: workspaceTheme.text, fontSize: '0.95rem' }}>{module.title}</h3>
-              <p style={{ margin: '0 0 0.75rem', color: workspaceTheme.muted, fontSize: '0.76rem', lineHeight: 1.45 }}>{module.detail}</p>
-              <ActionButton tone="secondary" onClick={() => router.push(module.href)}>Open {module.title}</ActionButton>
-            </section>
-          ))}
+      <TwoColumn rightWidth="minmax(300px, 0.78fr)">
+        <div style={{ display: 'grid', gap: '12px' }}>
+          <OperationalCard
+            title="Platform workspace register"
+            subtitle="Every principal workspace follows the same shell, density and action hierarchy."
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/super-admin/marketplace')}>Open marketplace</ActionButton>}
+            flush
+          >
+            <DataTable
+              columns={['Workspace', 'Operational focus', 'Metric', 'Action']}
+              rows={modules.map((module) => [
+                <strong key="workspace">{module.title}</strong>,
+                module.detail,
+                <span key="metric"><strong>{loading ? '…' : module.metric}</strong> · {module.label}</span>,
+                <ActionButton key="action" tone="secondary" onClick={() => router.push(module.href)}>Open</ActionButton>,
+              ])}
+              empty={<EmptyState title="No workspace modules available" />}
+            />
+          </OperationalCard>
+
+          <OperationalCard
+            title="Live platform activity"
+            subtitle="Recent queued and delivered operational notifications."
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/super-admin/notifications')}>All notifications</ActionButton>}
+            flush
+          >
+            <DataTable
+              columns={['Event', 'Detail', 'Time']}
+              rows={notifications.map((row) => [
+                row.title || row.type.replace(/_/g, ' '),
+                row.message || 'No event detail',
+                formatDateTime(row.created_at),
+              ])}
+              empty={<EmptyState title={loading ? 'Loading activity…' : 'No platform activity found'} />}
+            />
+          </OperationalCard>
         </div>
-      </Panel>
 
-      <TwoColumn rightWidth="minmax(320px, 0.8fr)">
-        <Panel title="Live platform activity" description="Recent queued and delivered operational notifications." actions={<ActionButton tone="secondary" onClick={() => router.push('/super-admin/notifications')}>All notifications</ActionButton>}>
-          <DataTable
-            columns={['Event', 'Detail', 'Time', 'Status']}
-            rows={notifications.map((row) => [
-              row.title || row.type.replace(/_/g, ' '),
-              row.message || 'No event detail',
-              formatDateTime(row.created_at),
-              <StatusBadge key="status" value={row.status} />,
-            ])}
-            empty={<EmptyState title={loading ? 'Loading activity…' : 'No platform activity found'} />}
-          />
-        </Panel>
+        <div style={{ display: 'grid', gap: '12px' }}>
+          <OperationalCard title="Platform health" subtitle="Queues, runtime, audit and feature controls.">
+            <OperationalLinkList
+              items={[
+                { key: 'queue', label: 'Email and notification queue', meta: 'Pending and failed event review', onClick: () => router.push('/super-admin/notifications') },
+                { key: 'runtime', label: 'Webhook and runtime health', meta: 'Background services and checks', onClick: () => router.push('/super-admin/health') },
+                { key: 'audit', label: 'Audit events', meta: 'Global changes and actor history', onClick: () => router.push('/super-admin/settings/audit-logs') },
+                { key: 'flags', label: 'Feature flags', meta: 'Controlled rollout settings', onClick: () => router.push('/super-admin/settings/feature-flags') },
+              ]}
+            />
+          </OperationalCard>
 
-        <div style={{ display: 'grid', gap: '0.9rem' }}>
-          <Panel title="Platform health" description="Fast access to queues, webhooks, audit and feature controls.">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {[
-                ['Email and notification queue', '/super-admin/notifications'],
-                ['Webhook and runtime health', '/super-admin/health'],
-                ['Audit events', '/super-admin/settings/audit-logs'],
-                ['Feature flags', '/super-admin/settings/feature-flags'],
-              ].map(([label, href]) => <button key={href} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
-            </div>
-          </Panel>
+          <OperationalCard title="Governance actions" subtitle="High-risk controls remain explicit and separate from daily operations.">
+            <OperationalLinkList
+              items={[
+                { key: 'approve', label: 'Approve companies', meta: 'Pending onboarding decisions', onClick: () => router.push('/super-admin/companies/approvals') },
+                { key: 'verify', label: 'Review onboarding', meta: 'Company verification queue', onClick: () => router.push('/super-admin/companies/verification') },
+                { key: 'compliance', label: 'Review compliance', meta: 'Expired and pending documents', onClick: () => router.push('/super-admin/companies/compliance') },
+                { key: 'disputes', label: 'Review disputes', meta: 'Escalated operational issues', onClick: () => router.push('/super-admin/operations/disputes') },
+              ]}
+            />
+          </OperationalCard>
 
-          <Panel title="Governance actions" description="High-risk controls remain explicit and separated from daily operations.">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {[
-                ['Approve companies', '/super-admin/companies/approvals'],
-                ['Review onboarding', '/super-admin/companies/verification'],
-                ['Review compliance', '/super-admin/companies/compliance'],
-                ['Review disputes', '/super-admin/operations/disputes'],
-              ].map(([label, href]) => <button key={label} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
-            </div>
-          </Panel>
+          <OperationalCard title="Urgent platform watch" subtitle="Quick numeric view of the highest-risk platform queues.">
+            <OperationalMetricList
+              items={[
+                { label: 'Companies suspended', value: loading ? '…' : stats?.companiesSuspended ?? 0, tone: (stats?.companiesSuspended ?? 0) > 0 ? 'red' : 'green' },
+                { label: 'Invoices total', value: loading ? '…' : stats?.invoicesTotal ?? 0, tone: 'blue' },
+                { label: 'Drivers total', value: loading ? '…' : stats?.driversTotal ?? 0, tone: 'purple' },
+                { label: 'Jobs total', value: loading ? '…' : stats?.jobsTotal ?? 0, tone: 'green' },
+              ]}
+            />
+          </OperationalCard>
         </div>
       </TwoColumn>
-    </PageFrame>
+    </OperationalPageLayout>
   );
 }
-
-const rowButton = {
-  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
-  border: `1px solid ${workspaceTheme.border}`, borderRadius: 8, background: workspaceTheme.surfaceSoft,
-  color: workspaceTheme.text, padding: '0.65rem 0.7rem', fontSize: '0.76rem', fontWeight: 750,
-  textAlign: 'left' as const, cursor: 'pointer',
-};

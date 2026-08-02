@@ -39,8 +39,8 @@
   background: var(--xdrive-finance-row-bg, #f4f6f8);
   border: 1px solid color-mix(in srgb, var(--xdrive-finance-row-color, #1d57d8) 20%, #ffffff);
   border-radius: 4px;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 8px 10px;
+  font-size: 12px;
   gap: 8px;
 }
 
@@ -80,16 +80,16 @@
 
 .complianceSummaryLabel {
   flex: 1;
-  font-size: 0.73rem;
+  font-size: 12px;
   color: #1a1f2b;
 }
 
 .complianceSummaryCount {
-  font-size: 0.73rem;
+  font-size: 12px;
 }
 
 .complianceSummaryPct {
-  font-size: 0.68rem;
+  font-size: 11px;
   color: #1a1f2b;
   min-width: 32px;
   text-align: right;
@@ -117,12 +117,77 @@
   gap: 8px;
   border: 1px solid #f4f6f8;
   border-radius: 4px;
-  padding: 8px 12px;
+  padding: 6px 8px;
   background: #ffffff;
   color: #1a1f2b;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   min-height: 32px;
+}
+
+.operationalMetricList {
+  display: grid;
+  gap: 4px;
+}
+
+.operationalMetricRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.operationalMetricLabel {
+  font-size: 12px;
+  color: #202124;
+}
+
+.operationalLinkList {
+  display: grid;
+  gap: 8px;
+}
+
+.operationalLinkRow,
+.operationalLinkButton {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d9e2ec;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #202124;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.operationalLinkButton {
+  cursor: pointer;
+}
+
+.operationalLinkCopy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.operationalLinkLabel {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.operationalLinkMeta {
+  min-width: 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.operationalLinkValue {
+  font-weight: 700;
 }
 
 .quickActionButton:hover {
@@ -465,8 +530,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  /* Reference: 8px top/bottom, 12px left/right — measured from CX diary cards */
-  padding: 8px 12px;
+  /* Reference: compact CX-style control cards with 10px horizontal padding */
+  padding: 8px 10px;
   border-bottom: 1px solid #d9e2ec;
   flex-wrap: wrap;
 }
@@ -502,8 +567,8 @@
 }
 
 .operationalCardBody {
-  /* Reference: 12px inner padding on content area */
-  padding: 12px;
+  /* Operational dashboard body target */
+  padding: 10px;
 }
 
 .operationalCardBodyFlush {

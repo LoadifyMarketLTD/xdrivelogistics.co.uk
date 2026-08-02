@@ -42,11 +42,11 @@ describe('workspace visual fixture harness contract', () => {
   });
 
   it('allowlists only the required deterministic role fixtures', () => {
-    const expectedRoles = ['admin', 'broker', 'customer', 'driver', 'operations'];
+    const expectedRoles = ['admin', 'broker', 'customer', 'driver', 'operations', 'carrier', 'super-admin'];
     expect(allowedRolesFromRoute).toEqual(expectedRoles);
     for (const role of expectedRoles) {
       expect(fixtureRoute).toContain(`'${role}'`);
-      expect(fixtureComponent).toContain(`${role}:`);
+      expect(fixtureComponent).toContain(role === 'super-admin' ? `'${role}':` : `${role}:`);
     }
     expect(fixtureComponent).not.toContain('finance:');
     expect(fixtureComponent).not.toContain('compliance:');

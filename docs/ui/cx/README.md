@@ -67,3 +67,5 @@ Status: Mandatory implementation baseline.
 See also:
 - `docs/ui/cx/screen-inventory.md`
 - `docs/ui/cx/implementation-checklist.md`
+- `docs/ui/cx/jobs.md`
+- `docs/ui/cx/dashboard-home-surfaces.md`

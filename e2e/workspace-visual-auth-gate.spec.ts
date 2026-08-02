@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-type Role = 'admin' | 'broker' | 'customer' | 'driver' | 'operations';
+type Role = 'admin' | 'broker' | 'customer' | 'driver' | 'operations' | 'carrier' | 'super-admin';
 
-const roles: Role[] = ['admin', 'broker', 'customer', 'driver', 'operations'];
+const roles: Role[] = ['admin', 'broker', 'customer', 'driver', 'operations', 'carrier', 'super-admin'];
 
 const viewports = [
   { label: 'desktop', width: 1440, height: 900, mobile: false, tablet: false },
