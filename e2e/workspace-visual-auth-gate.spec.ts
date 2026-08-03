@@ -79,20 +79,24 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         await expect(header).toBeVisible();
 
         const sidebar = page.locator('aside[aria-label$="navigation"]');
-        if (viewport.compact) {
+        if (viewport.width <= 640) {
           await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
           const rightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
           expect(rightEdge).toBeLessThanOrEqual(1);
+          const mainLeft = await page.locator('main').evaluate((el) => Math.round(el.getBoundingClientRect().left));
+          expect(mainLeft).toBeLessThanOrEqual(1);
+        } else if (viewport.width <= 1024) {
+          await expect(sidebar).toBeVisible();
+          const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
+          expect(width).toBe(56);
         } else {
           await expect(sidebar).toBeVisible();
           const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-          expect(width).toBeGreaterThanOrEqual(260);
-          expect(width).toBeLessThanOrEqual(280);
+          expect(width).toBe(230);
         }
 
         const headerHeight = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height));
-        expect(headerHeight).toBeGreaterThanOrEqual(56);
-        expect(headerHeight).toBeLessThanOrEqual(64);
+        expect(headerHeight).toBe(50);
 
         const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
         const notificationsButton = page.getByRole('button', { name: /Notifications/i });
