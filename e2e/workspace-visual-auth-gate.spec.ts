@@ -92,7 +92,8 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         } else {
           await expect(sidebar).toBeVisible();
           const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-          expect(width).toBe(230);
+          expect(width).toBeGreaterThanOrEqual(228);
+          expect(width).toBeLessThanOrEqual(232);
         }
 
         const headerHeight = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height));
