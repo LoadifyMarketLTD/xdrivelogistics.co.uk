@@ -178,7 +178,7 @@ export function CarrierDashboard() {
           items={[
             { label: 'Won work value', value: money(metrics.acceptedRevenue), background: workspaceTheme.surfaceSoft, color: workspaceTheme.green },
             { label: 'Invoiced', value: money(metrics.invoicedValue), background: workspaceTheme.surfaceSoft, color: workspaceTheme.blue },
-            { label: 'Paid', value: money(metrics.paidValue), background: workspaceTheme.surfaceSoft, color: workspaceTheme.purple },
+            { label: 'Paid', value: money(metrics.paidValue), background: workspaceTheme.surfaceSoft, color: workspaceTheme.green },
             { label: 'Outstanding', value: money(Math.max(0, metrics.invoicedValue - metrics.paidValue)), background: workspaceTheme.surfaceSoft, color: metrics.invoicedValue - metrics.paidValue > 0 ? workspaceTheme.orange : workspaceTheme.green },
           ]}
         />

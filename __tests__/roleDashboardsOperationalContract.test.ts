@@ -33,4 +33,17 @@ describe('Role dashboard operational contract', () => {
     expect(workspaceUiCss).toMatch(/\.operationalCardTitle\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*18px;/);
     expect(workspaceUiCss).toMatch(/\.operationalCardSubtitle\s*\{[\s\S]*font-size:\s*11px;[\s\S]*line-height:\s*14px;/);
   });
+
+  it('maps paid financial state to an allowed token', () => {
+    expect(roleDashboardsSource).toContain("{ label: 'Paid', value: money(metrics.paidValue), background: workspaceTheme.surfaceSoft, color: workspaceTheme.green }");
+    expect(roleDashboardsSource).not.toContain("{ label: 'Paid', value: money(metrics.paidValue), background: workspaceTheme.surfaceSoft, color: workspaceTheme.purple }");
+  });
+
+  it('pins role dashboard typography and interaction states to the operational contract', () => {
+    expect(workspaceUiCss).toMatch(/\.roleDashboardSummaryButton\s*\{[\s\S]*font-size:\s*12px;[\s\S]*line-height:\s*16px;[\s\S]*font-weight:\s*600;/);
+    expect(workspaceUiCss).toMatch(/\.roleDashboardListRow,\s*\.roleDashboardDriverButton\s*\{[\s\S]*font-size:\s*12px;[\s\S]*line-height:\s*16px;[\s\S]*font-weight:\s*400;/);
+    expect(workspaceUiCss).toMatch(/\.roleDashboardDriverName\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*18px;[\s\S]*font-weight:\s*600;/);
+    expect(workspaceUiCss).toMatch(/\.roleDashboardSummaryButton:hover,\s*\.roleDashboardDriverButton:hover\s*\{[\s\S]*border-color:\s*#1D57D8;[\s\S]*background:\s*#F1F6FF;/);
+    expect(workspaceUiCss).toMatch(/\.roleDashboardSummaryButton:focus-visible,\s*\.roleDashboardDriverButton:focus-visible\s*\{[\s\S]*outline:\s*2px solid #1D57D8;[\s\S]*border-color:\s*#1D57D8;[\s\S]*background:\s*#F1F6FF;/);
+  });
 });
