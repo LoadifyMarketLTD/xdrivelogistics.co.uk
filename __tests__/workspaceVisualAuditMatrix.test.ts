@@ -1,14 +1,24 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  WORKSPACE_SHELL_BREAKPOINTS,
+  WORKSPACE_SHELL_DIMENSIONS,
+  WORKSPACE_SHELL_MEASUREMENT_TOLERANCE,
+} from '../app/components/workspace/workspaceShellContract';
 
 const shell = readFileSync(resolve(process.cwd(), 'app/components/workspace/WorkspaceShell.tsx'), 'utf8');
+const superAdminShell = readFileSync(
+  resolve(process.cwd(), 'app/super-admin/_components/SuperAdminWorkspaceShell.tsx'),
+  'utf8',
+);
 
 const roleRoutes = [
   { role: 'admin', route: '/admin', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
   { role: 'broker', route: '/broker', actionCentre: '/broker/action-centre', notifications: '/broker/notifications' },
   { role: 'customer', route: '/customer', actionCentre: '/customer/action-centre', notifications: '/customer/notifications' },
   { role: 'driver', route: '/driver', actionCentre: '/driver/action-centre', notifications: '/driver/notifications' },
+  { role: 'super-admin', route: '/super-admin', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
   { role: 'operations', route: '/admin/operations-centre', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
 ] as const;
 
@@ -20,16 +30,29 @@ const viewports = [
 
 describe('workspace visual verification matrix evidence', () => {
   it('keeps shared-shell constants aligned with the visual gate', () => {
-    // Desktop sidebar width 230px
-    expect(shell).toContain("'230px'");
-    // Tablet collapsed sidebar 56px (Section 2)
-    expect(shell).toContain("'56px'");
-    // Mobile drawer width 280px (Section 2)
-    expect(shell).toContain("'280px'");
-    expect(shell).toContain("minHeight: '50px'");
+    expect(WORKSPACE_SHELL_DIMENSIONS.desktopSidebar).toBe(230);
+    expect(WORKSPACE_SHELL_DIMENSIONS.compactSidebar).toBe(56);
+    expect(WORKSPACE_SHELL_DIMENSIONS.mobileDrawer).toBe(280);
+    expect(WORKSPACE_SHELL_DIMENSIONS.headerHeight).toBe(50);
+    expect(WORKSPACE_SHELL_MEASUREMENT_TOLERANCE.desktopSidebarMin).toBe(228);
+    expect(WORKSPACE_SHELL_MEASUREMENT_TOLERANCE.desktopSidebarMax).toBe(232);
+    expect(shell).toContain('WORKSPACE_SHELL_DIMENSIONS.desktopSidebar');
+    expect(shell).toContain('WORKSPACE_SHELL_DIMENSIONS.compactSidebar');
+    expect(shell).toContain('WORKSPACE_SHELL_DIMENSIONS.mobileDrawer');
     expect(shell).toContain('Action Centre');
     expect(shell).toContain('Notifications');
-    expect(shell).toContain("window.innerWidth <= 1024");
+    expect(shell).toContain('WORKSPACE_SHELL_BREAKPOINTS.compactMaxWidth');
+    expect(shell).toContain('WORKSPACE_SHELL_BREAKPOINTS.mobileMaxWidth');
+  });
+
+  it('routes super-admin through the shared workspace shell primitive', () => {
+    expect(superAdminShell).toContain('<WorkspaceShell');
+    expect(superAdminShell).toContain('forcedRole="platform_owner"');
+    expect(superAdminShell).toContain('definitionOverride={SUPER_ADMIN_WORKSPACE_DEFINITION}');
+    expect(superAdminShell).not.toContain('254px');
+    expect(superAdminShell).not.toContain('292px');
+    expect(superAdminShell).toContain('/super-admin/compliance/documents');
+    expect(superAdminShell).toContain('/super-admin/compliance/fraud-cases');
   });
 
   it.each(roleRoutes)('ensures role route pages exist for $role', ({ route, actionCentre, notifications }) => {
@@ -39,7 +62,7 @@ describe('workspace visual verification matrix evidence', () => {
   });
 
   it.each(viewports)('documents expected sidebar compact behaviour at $label width', ({ width, expectedCompact }) => {
-    const computedCompact = width <= 1024;
+    const computedCompact = width <= WORKSPACE_SHELL_BREAKPOINTS.compactMaxWidth;
     expect(computedCompact).toBe(expectedCompact);
   });
 });

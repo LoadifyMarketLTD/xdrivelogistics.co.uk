@@ -10,6 +10,7 @@ import {
   getWorkspaceDefinition,
   hasWorkspaceCapability,
   resolveWorkspaceSurfaceRole,
+  type WorkspaceDefinition,
   resolveWorkspaceRole,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
@@ -21,6 +22,11 @@ import {
   resolveActionCentreRole,
   resolveRoleScopedHref,
 } from './actionCentreConfig';
+import {
+  WORKSPACE_SHELL_BREAKPOINTS,
+  WORKSPACE_SHELL_DIMENSIONS,
+  workspaceShellPx,
+} from './workspaceShellContract';
 import styles from './WorkspaceShell.module.css';
 
 type WorkspaceShellFixtureOverrides = {
@@ -36,10 +42,12 @@ export default function WorkspaceShell({
   children,
   forcedRole,
   fixtureOverrides,
+  definitionOverride,
 }: {
   children: ReactNode;
   forcedRole?: WorkspaceRole;
   fixtureOverrides?: WorkspaceShellFixtureOverrides;
+  definitionOverride?: WorkspaceDefinition;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -58,8 +66,17 @@ export default function WorkspaceShell({
 
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
-  const definition = getWorkspaceDefinition(role);
-  const nav = useMemo(() => getVisibleWorkspaceNav(role), [role]);
+  const definition = definitionOverride ?? getWorkspaceDefinition(role);
+  const nav = useMemo(
+    () =>
+      (definitionOverride?.nav ?? getVisibleWorkspaceNav(role))
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => !item.capability || hasWorkspaceCapability(role, item.capability)),
+        }))
+        .filter((group) => group.items.length > 0),
+    [definitionOverride?.nav, role],
+  );
   const navigationTargets = useMemo(
     () =>
       nav.flatMap((group) =>
@@ -79,8 +96,8 @@ export default function WorkspaceShell({
   useEffect(() => {
     setHydrated(true);
     const update = () => {
-      setIsCompact(window.innerWidth <= 1024);
-      setIsMobile(window.innerWidth <= 640);
+      setIsCompact(window.innerWidth <= WORKSPACE_SHELL_BREAKPOINTS.compactMaxWidth);
+      setIsMobile(window.innerWidth <= WORKSPACE_SHELL_BREAKPOINTS.mobileMaxWidth);
     };
     update();
     window.addEventListener('resize', update);
@@ -277,7 +294,11 @@ export default function WorkspaceShell({
 
   const sidebarStyle: CSSProperties = {
     /* Section 2: 230px desktop; 56px tablet (collapsed, icon-only); 280px mobile drawer */
-    width: isMobile ? '280px' : (isCompact ? '56px' : '230px'),
+    width: isMobile
+      ? workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.mobileDrawer)
+      : isCompact
+        ? workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.compactSidebar)
+        : workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.desktopSidebar),
     background: '#ffffff',
     borderRight: `1px solid ${workspaceTheme.border}`,
     display: 'flex',
@@ -329,8 +350,8 @@ export default function WorkspaceShell({
         {/* Logo/header area — Section 2: 50px high */}
         <div
           style={{
-            minHeight: '50px',
-            height: '50px',
+            minHeight: workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.headerHeight),
+            height: workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.headerHeight),
             padding: isCompact ? '0' : '0 12px',
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
@@ -663,8 +684,8 @@ export default function WorkspaceShell({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header
           style={{
-            minHeight: '50px',
-            height: '50px',
+            minHeight: workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.headerHeight),
+            height: workspaceShellPx(WORKSPACE_SHELL_DIMENSIONS.headerHeight),
             background: '#fff',
             borderBottom: `1px solid ${workspaceTheme.border}`,
             display: 'flex',
