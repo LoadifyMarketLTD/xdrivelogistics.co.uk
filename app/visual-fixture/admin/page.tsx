@@ -1,11 +1,9 @@
-import { notFound } from 'next/navigation';
+'use client';
+
 import WorkspaceFixtureProvider from '../../components/workspace/WorkspaceFixtureProvider';
 import WorkspaceShell from '../../components/workspace/WorkspaceShell';
 import { CarrierDashboard } from '../../components/workspace/RoleDashboards';
 import type { WorkspaceDataState } from '../../components/workspace/useCompanyWorkspaceData';
-
-const VISUAL_FIXTURE_ENABLED =
-  process.env.NODE_ENV !== 'production' && process.env.E2E_VISUAL_FIXTURE === 'true';
 
 // ---------------------------------------------------------------------------
 // Static fixture data — realistic mock for the admin / CarrierDashboard view.
@@ -82,10 +80,6 @@ const FIXTURE_DATA: WorkspaceDataState = {
 };
 
 export default function AdminDashboardFixturePage() {
-  if (!VISUAL_FIXTURE_ENABLED) {
-    notFound();
-  }
-
   return (
     <WorkspaceFixtureProvider data={FIXTURE_DATA}>
       <WorkspaceShell

@@ -1,11 +1,9 @@
-import { notFound } from 'next/navigation';
+'use client';
+
 import WorkspaceFixtureProvider from '../../components/workspace/WorkspaceFixtureProvider';
 import WorkspaceShell from '../../components/workspace/WorkspaceShell';
 import DriverDashboard from '../../driver/page';
 import type { WorkspaceDataState } from '../../components/workspace/useCompanyWorkspaceData';
-
-const VISUAL_FIXTURE_ENABLED =
-  process.env.NODE_ENV !== 'production' && process.env.E2E_VISUAL_FIXTURE === 'true';
 
 const COMPANY_ID = 'fixture-driver-001';
 
@@ -38,10 +36,6 @@ const FIXTURE_DATA: WorkspaceDataState = {
 };
 
 export default function DriverDashboardFixturePage() {
-  if (!VISUAL_FIXTURE_ENABLED) {
-    notFound();
-  }
-
   return (
     <WorkspaceFixtureProvider data={FIXTURE_DATA}>
       <WorkspaceShell
