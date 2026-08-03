@@ -70,8 +70,8 @@ test.describe('driver dashboard visual contract gate', () => {
         nodes.map((node) => Math.round(node.getBoundingClientRect().height)),
       );
       for (const height of actionHeights) {
-        expect(height, `${viewport.label}: page header action height`).toBeGreaterThanOrEqual(30);
-        expect(height, `${viewport.label}: page header action height`).toBeLessThanOrEqual(34);
+        expect(height, `${viewport.label}: page header action height`).toBeGreaterThanOrEqual(31);
+        expect(height, `${viewport.label}: page header action height`).toBeLessThanOrEqual(33);
       }
 
       const panelHeaderHeight = await page.evaluate(() => {
@@ -80,6 +80,14 @@ test.describe('driver dashboard visual contract gate', () => {
         return headerNode ? Math.round(headerNode.getBoundingClientRect().height) : 0;
       });
       expect(panelHeaderHeight, `${viewport.label}: panel header height`).toBeGreaterThanOrEqual(36);
+
+      const firstStandardRowHeight = await page.evaluate(() => {
+        const row = document.querySelector('tbody tr');
+        return row instanceof HTMLElement ? Math.round(row.getBoundingClientRect().height) : 0;
+      });
+      expect(firstStandardRowHeight, `${viewport.label}: first standard row height > 0`).toBeGreaterThan(0);
+      expect(firstStandardRowHeight, `${viewport.label}: first standard row height`).toBeGreaterThanOrEqual(38);
+      expect(firstStandardRowHeight, `${viewport.label}: first standard row height`).toBeLessThanOrEqual(48);
 
       const railLayout = await page.evaluate(() => {
         const layout = document.querySelector('[class*="operationalPageLayoutTwoPanel"]');

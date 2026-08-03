@@ -23,7 +23,8 @@
 | KPI height | `72px` target / `80px` max |
 | Panel header | `36px` minimum |
 | Panel body padding | `10px` |
-| Standard table row | `42px` target / `52px` max |
+| Dense table row | `38px` target |
+| Standard table row | `42px` target / `48px` max |
 
 ## Typography and control contract
 
@@ -71,9 +72,10 @@
 | Desktop shell | `230px sidebar / 50px header` | referenced only in docs | rendered validation at `230px / 50px` | closed |
 | Tablet shell | `56px sidebar` | referenced only in docs | rendered validation at `56px` | closed |
 | Mobile shell | `280px drawer` | referenced only in docs | rendered validation confirms off-canvas drawer with no body overflow | closed |
-| Page header actions | `32px` controls | referenced only in docs | rendered validation `30–34px` tolerance | closed |
+| Page header actions | `32px` controls | referenced only in docs | rendered validation `31–33px` tolerance | closed |
 | Panel header | `>= 36px` | referenced only in docs | rendered validation `>= 36px` | closed |
 | KPI height | `72px target / 80px max` | referenced only in docs | rendered validation `72–80px` | closed |
+| Standard table row | `42px target / 48px max` | referenced only in docs | rendered validation `42px target / <=48px max` | closed |
 | Two-column collapse | single column at `<=768px` | referenced only in docs | rendered validation confirms stacked layout at `768×1024` and `390×844` | closed |
 | Body overflow | none | referenced only in docs | rendered validation confirms none at all mandatory viewports | closed |
 | Shift-picture control rail rows | shared compact rail | route-local inline rows with `#202124` / `#EEF2F6` | shared `OperationalMetricList` | closed |

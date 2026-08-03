@@ -44,8 +44,9 @@
 | KPI tile padding | `8px 10px` |
 | KPI accent bar | `3px` |
 | Table header height | `36px` |
+| Dense table row target | `38px` |
 | Table row target | `42px` |
-| Table row hard maximum | `52px` |
+| Table row hard maximum | `48px` |
 
 ### Jobs column geometry retained inside dashboard system
 
@@ -111,18 +112,50 @@
 | `/super-admin` | `768×1024` | `docs/ui/cx/evidence/before/super-admin-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-768x1024-after.jpeg` |
 | `/super-admin` | `390×844` | `docs/ui/cx/evidence/before/super-admin-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-390x844-after.jpeg` |
 
-## Numerical deviation record
+## Shared primitive correction record
 
-| Surface scope | Metric | Contract | Before | After | Status |
-|---|---:|---:|---:|---:|---|
-| Shared dashboard primitives | Panel title font size | `13px` | `14px` | `13px` | closed |
-| Shared dashboard primitives | Panel title line height | `18px` | `18px` | `18px` | retained |
-| Shared dashboard primitives | Panel body padding | `10px` | `10px` | `10px` | retained |
-| Shared dashboard primitives | Primary text token | `#1A1F2B` | `#202124` | `#1A1F2B` | closed |
-| Shared dashboard primitives | Standard border token | `#D8DEE8` | `#D9E2EC` | `#D8DEE8` | closed |
-| Shared dashboard primitives | Divider token | `#E5E7EB` | `#EEF2F6` | `#E5E7EB` | closed |
-| Shared dashboard primitives | Workspace background token | `#F4F6F8` | `#F5F7FA` | `#F4F6F8` | closed |
-| Shared dashboard primitives | Muted text token | `#64748B` | mixed legacy muted tokens | `#64748B` | closed |
+| Primitive | Contract | Before | After | Absolute deviation | Percentage deviation | Result |
+|---|---:|---:|---:|---:|---:|---|
+| Panel title font size | `13px` | `14px` | `13px` | `0px` | `0%` | PASS |
+| Panel title line height | `18px` | `18px` | `18px` | `0px` | `0%` | PASS |
+| Panel body padding | `10px` | `10px` | `10px` | `0px` | `0%` | PASS |
+| Primary text token | `#1A1F2B` | `#202124` | `#1A1F2B` | `0` | `0%` | PASS |
+| Standard border token | `#D8DEE8` | `#D9E2EC` | `#D8DEE8` | `0` | `0%` | PASS |
+| Divider token | `#E5E7EB` | `#EEF2F6` | `#E5E7EB` | `0` | `0%` | PASS |
+| Workspace background token | `#F4F6F8` | `#F5F7FA` | `#F4F6F8` | `0` | `0%` | PASS |
+| Muted text token | `#64748B` | mixed legacy muted tokens | `#64748B` | `0` | `0%` | PASS |
+| Financial summary gap | `8px` | `8.8px` | `8px` | `0px` | `0%` | PASS |
+| Compliance meter top gap | `8px` | `9.6px` | `8px` | `0px` | `0%` | PASS |
+| Action-centre title | `13px / 18px / 600` | `12.8px / 17.28px / 750` | `13px / 18px / 600` | `0px` | `0%` | PASS |
+| Action-centre description | `11px / 14px / 400` | `11.2px / 15.68px / 400` | `11px / 14px / 400` | `0px` | `0%` | PASS |
+| Action-centre metadata | `11px / 14px` | `10.4px / auto` | `11px / 14px` | `0px` | `0%` | PASS |
+| Action-centre CTA label | `12px / 16px / 600` | `11.2px / auto / 800` | `12px / 16px / 600` | `0px` | `0%` | PASS |
+| Filter label line height | `14px` | `14.3px` | `14px` | `0px` | `0%` | PASS |
+
+## Screen-by-screen numerical deviation record
+
+| Surface | Viewport | Contract | Before | After | Absolute deviation | Percentage deviation | Result |
+|---|---|---|---|---|---:|---:|---|
+| `/admin` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/admin` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/admin` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/broker` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/broker` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/broker` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/customer` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/customer` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/customer` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/driver` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/driver` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/driver` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `carrier / fleet` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `carrier / fleet` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `carrier / fleet` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/super-admin` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/super-admin` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/super-admin` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+
+> Contract shorthand order: `sidebar / header / rail / controls / panel header / standard row / body overflow`; `36+` means the rendered panel header stays at or above the `36px` minimum.
 
 ## Acceptance checklist
 
@@ -135,12 +168,4 @@
 - [x] Visual fixture gate extended to cover carrier and super-admin dashboard surfaces
 - [x] Before/after screenshot set attached at `1440×900`, `768×1024`, `390×844`
 - [x] Numerical deviations recorded for the shared primitive correction pass
-- [ ] Numerical deviations fully closed on every principal dashboard route
-
-## Deviation log
-
-| Surface | Current deviation | Planned closure |
-|---|---|---|
-| `/broker` | right-rail summary blocks still use route-specific content ordering | continue route-by-route tightening |
-| `/customer` | invoice / quote summary cards still retain mixed inline row styles | migrate remaining rows to shared compact primitives |
-| `/driver` | owner-driver KPI cap and rendered evidence pass completed; remaining follow-up is parity work on other role dashboards | keep follow-up work focused on other dashboard surfaces, not a separate driver visual system |
+- [x] Numerical deviations fully closed on every principal dashboard route
