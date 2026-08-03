@@ -91,6 +91,9 @@
 
 ## Rendered evidence set
 
+All dashboard evidence in this section must be captured from the authenticated real routes (`/admin`, `/broker`, `/customer`, `/driver`, `/super-admin`, and carrier via `/admin` with a carrier account) using `e2e/workspace-visual-auth-gate.spec.ts`.
+`/visual-fixture/workspace/[role]` is restricted to fixture-harness checks and is not accepted as route-proof evidence for this table.
+
 | Surface | Viewport | Before | After |
 |---|---|---|---|
 | `/admin` | `1440×900` | `docs/ui/cx/evidence/before/admin-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/admin-dashboard-1440x900-after.jpeg` |
