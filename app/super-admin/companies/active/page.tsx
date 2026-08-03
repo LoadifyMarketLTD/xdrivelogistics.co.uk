@@ -5,15 +5,14 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#f5f7fa',
-  cardBg: '#ffffff',
-  cardBorder: '#d9e2ec',
-  text: '#202124',
-  muted: '#5f6368',
-  accent: '#f5a300',
-  green: '#35a853',
-  blue: '#1d57d8',
-  red: '#d93025',
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
+  green: '#22c55e',
+  red: '#ef4444',
 };
 
 type Company = {
@@ -58,13 +57,13 @@ function ActiveCompaniesContent() {
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
   return (
-    <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '1.5rem' }}>🟢</span>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Active Companies</h1>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: '#fffbeb', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
               Companies
             </span>
           </div>
@@ -75,12 +74,12 @@ function ActiveCompaniesContent() {
       </div>
 
       {error && (
-        <div style={{ backgroundColor: '#fef2f2', border: `1px solid ${THEME.red}`, borderRadius: '4px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
+        <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
           ⚠️ {error}
         </div>
       )}
 
-      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>Loading…</div>
         ) : companies.length === 0 ? (

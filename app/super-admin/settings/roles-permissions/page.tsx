@@ -5,15 +5,12 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { supabase } from '@/lib/supabaseClient';
 
 const THEME = {
-  pageBg: '#f5f7fa',
-  cardBg: '#ffffff',
-  cardBorder: '#d9e2ec',
-  text: '#202124',
-  muted: '#5f6368',
-  accent: '#f5a300',
-  green: '#35a853',
-  blue: '#1d57d8',
-  red: '#d93025',
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
 };
 
 type RoleDefinition = {
@@ -165,13 +162,13 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
           <span style={{ fontSize: '1.5rem' }}>🔐</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Roles &amp; Permissions</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: '#fffbeb', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Settings</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Settings</span>
             </div>
             <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>
               Platform role model and permission matrix. Click a role card to edit its description and scopes.
@@ -180,8 +177,8 @@ export default function Page() {
         </div>
 
         {loading && <p style={{ color: THEME.muted, fontSize: '0.85rem', marginBottom: '1rem' }}>Loading saved role configuration…</p>}
-        {error && <div style={{ backgroundColor: 'rgba(220,38,38,0.1)', border: '1px solid #dc2626', color: '#fca5a5', borderRadius: '4px', padding: '0.65rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem' }}>{error}</div>}
-        {notice && <div style={{ backgroundColor: 'rgba(21,128,61,0.15)', border: '1px solid #15803d', color: '#86efac', borderRadius: '4px', padding: '0.65rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem' }}>{notice}</div>}
+        {error && <div style={{ backgroundColor: 'rgba(220,38,38,0.1)', border: '1px solid #dc2626', color: '#fca5a5', borderRadius: '8px', padding: '0.65rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem' }}>{error}</div>}
+        {notice && <div style={{ backgroundColor: 'rgba(21,128,61,0.15)', border: '1px solid #15803d', color: '#86efac', borderRadius: '8px', padding: '0.65rem 0.9rem', marginBottom: '1rem', fontSize: '0.82rem' }}>{notice}</div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '0.75rem' }}>
           {roles.map((role) => {
@@ -189,14 +186,14 @@ export default function Page() {
             return (
               <div
                 key={role.role}
-                style={{ backgroundColor: THEME.cardBg, border: `1px solid ${isEditing ? role.color : THEME.cardBorder}`, borderRadius: '4px', padding: '1rem' }}
+                style={{ backgroundColor: THEME.cardBg, border: `1px solid ${isEditing ? role.color : THEME.cardBorder}`, borderRadius: '10px', padding: '1rem' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <span style={{ fontSize: '1rem' }}>{role.label.split(' ')[0]}</span>
                   <span style={{ color: role.color, fontWeight: 700, fontSize: '0.88rem' }}>
                     {role.label.split(' ').slice(1).join(' ')}
                   </span>
-                  <span style={{ fontSize: '0.65rem', fontFamily: 'monospace', color: '#475569', backgroundColor: THEME.cardBg, padding: '0.15rem 0.45rem', borderRadius: '3px', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: '0.65rem', fontFamily: 'monospace', color: '#475569', backgroundColor: '#0b1220', padding: '0.15rem 0.45rem', borderRadius: '3px', marginLeft: 'auto' }}>
                     {role.role}
                   </span>
                 </div>
@@ -209,7 +206,7 @@ export default function Page() {
                         value={editBuffer.description ?? role.description}
                         onChange={(e) => setEditBuffer((prev) => ({ ...prev, description: e.target.value }))}
                         rows={3}
-                        style={{ width: '100%', background: THEME.cardBg, border: '1px solid #475569', color: THEME.text, borderRadius: '6px', padding: '0.45rem 0.6rem', fontSize: '0.78rem', resize: 'vertical' }}
+                        style={{ width: '100%', background: '#0b1220', border: '1px solid #475569', color: THEME.text, borderRadius: '6px', padding: '0.45rem 0.6rem', fontSize: '0.78rem', resize: 'vertical' }}
                       />
                     </div>
                     <div>
@@ -219,7 +216,7 @@ export default function Page() {
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                         {(editBuffer.scopes ?? role.scopes).map((scope, index) => (
-                          <span key={index} style={{ fontSize: '0.65rem', backgroundColor: THEME.cardBg, border: `1px solid ${role.color}33`, color: '#94a3b8', padding: '0.15rem 0.45rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span key={index} style={{ fontSize: '0.65rem', backgroundColor: '#0b1220', border: `1px solid ${role.color}33`, color: '#94a3b8', padding: '0.15rem 0.45rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                             {scope}
                             <button type="button" onClick={() => removeScope(index)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 0, fontSize: '0.7rem', lineHeight: 1 }}>×</button>
                           </span>
@@ -249,7 +246,7 @@ export default function Page() {
                     <p style={{ color: THEME.muted, fontSize: '0.78rem', margin: '0 0 0.65rem' }}>{role.description}</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.65rem' }}>
                       {role.scopes.map((scope) => (
-                        <span key={scope} style={{ fontSize: '0.65rem', backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, color: '#94a3b8', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                        <span key={scope} style={{ fontSize: '0.65rem', backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, color: '#94a3b8', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
                           {scope}
                         </span>
                       ))}

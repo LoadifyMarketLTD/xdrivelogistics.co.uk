@@ -47,7 +47,6 @@ const EXPECTED_PROTECTED_PREFIXES = [
   '/super-admin',
   '/broker',
   '/admin',
-  '/carrier',
   '/driver',
   '/customer',
   '/m',

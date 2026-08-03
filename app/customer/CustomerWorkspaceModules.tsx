@@ -6,7 +6,7 @@ import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalCard, OperationalFilterField, OperationalFilters, OperationalPageLayout, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number, currency = 'GBP') => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -53,37 +53,7 @@ export function CustomerDashboard() {
   }, [data]);
 
   return (
-    <OperationalPageLayout
-      searchPanel={(
-        <OperationalFilters title="Customer control desk">
-          <OperationalFilterField label="Decision queue">
-            <div style={{ display: 'grid', gap: '4px' }}>
-              {[
-                ['Awaiting award', metrics.awaitingAward.length, metrics.awaitingAward.length ? 'orange' : 'green'],
-                ['Active deliveries', metrics.activeDeliveries.length, metrics.activeDeliveries.length ? 'green' : 'grey'],
-                ['Delayed', metrics.delayed.length, metrics.delayed.length ? 'red' : 'green'],
-                ['Unpaid invoices', metrics.unpaidInvoices.length, metrics.unpaidInvoices.length ? 'orange' : 'green'],
-              ].map(([label, value, tone], index, items) => (
-                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: index === items.length - 1 ? 'none' : '1px solid #eef2f6', fontSize: '12px', color: '#202124' }}>
-                  <span>{label}</span>
-                  <StatusBadge value={String(value)} tone={tone as 'green' | 'orange' | 'red' | 'grey'} />
-                </div>
-              ))}
-            </div>
-          </OperationalFilterField>
-          <OperationalFilterField label="Quick actions">
-            <QuickActionGrid
-              actions={[
-                { key: 'post-load', label: 'Post a new load', onClick: () => router.push('/customer/post-load') },
-                { key: 'quotes', label: 'Review carrier quotes', onClick: () => router.push('/customer/quotes') },
-                { key: 'deliveries', label: 'Track active deliveries', onClick: () => router.push('/customer/deliveries') },
-                { key: 'invoices', label: 'Open invoices', onClick: () => router.push('/customer/invoices') },
-              ]}
-            />
-          </OperationalFilterField>
-        </OperationalFilters>
-      )}
-    >
+    <PageFrame>
       <PageHeader
         eyebrow="Customer transport"
         title="Customer Dashboard"
@@ -93,21 +63,21 @@ export function CustomerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <KpiGrid>
-        {/* Section 8: maximum 6 KPI tiles. Draft loads and unpaid invoices surfaced in Commercial summary. */}
+        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/customer/loads')} />
         <KpiCard label="Open loads" value={metrics.open} detail="Awaiting carrier quotes" tone="blue" onClick={() => router.push('/customer/loads')} />
-        <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="blue" onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="purple" onClick={() => router.push('/customer/quotes')} />
         <KpiCard label="Awaiting award" value={metrics.awaitingAward.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/customer/quotes')} />
         <KpiCard label="Active deliveries" value={metrics.activeDeliveries.length} detail="In transit now" tone="green" onClick={() => router.push('/customer/deliveries')} />
         <KpiCard label="Delayed" value={metrics.delayed.length} detail="Past delivery window" tone="red" onClick={() => router.push('/customer/deliveries')} />
         <KpiCard label="POD ready" value={metrics.pod} detail="Proof of delivery available" tone="navy" onClick={() => router.push('/customer/documents')} />
+        <KpiCard label="Unpaid invoices" value={metrics.unpaidInvoices.length} detail={metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding'} tone={metrics.unpaidInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/customer/invoices')} />
       </KpiGrid>
 
       {metrics.awaitingAward.length > 0 && (
-        <OperationalCard
+        <Panel
           title="Action required — awaiting your award decision"
-          subtitle="These loads have carrier quotes ready. Review prices and award before quotes expire."
+          description="These loads have carrier quotes ready. Review prices and award before quotes expire."
           actions={<ActionButton tone="warning" onClick={() => router.push('/customer/quotes')}>Review all quotes</ActionButton>}
-          flush
         >
           <DataTable
             columns={['Route', 'Pickup', 'Quotes received', 'Best price', 'Action']}
@@ -124,15 +94,14 @@ export function CustomerDashboard() {
             })}
             empty={<EmptyState title="No loads awaiting award" />}
           />
-        </OperationalCard>
+        </Panel>
       )}
 
       <TwoColumn>
-        <OperationalCard
+        <Panel
           title="Active deliveries"
-          subtitle="Live transport — track progress, identify delays and access POD when ready."
+          description="Live transport — track progress, identify delays and access POD when ready."
           actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/deliveries')}>All deliveries</ActionButton>}
-          flush
         >
           <DataTable
             columns={['Route', 'Pickup', 'Delivery window', 'Status', 'Action']}
@@ -145,30 +114,28 @@ export function CustomerDashboard() {
             ])}
             empty={<EmptyState title="No active deliveries" description="Active deliveries appear here once a carrier accepts and starts a job." />}
           />
-        </OperationalCard>
+        </Panel>
 
-        <div style={{ display: 'grid', gap: '12px' }}>
-          <OperationalCard title="Commercial summary" subtitle="Pipeline, delivery evidence and invoice urgency in one place.">
-            <div style={{ display: 'grid', gap: '8px' }}>
+        <div style={{ display: 'grid', gap: '0.9rem' }}>
+          <Panel title="Commercial summary" description="Pipeline, delivery evidence and invoice urgency in one place.">
+            <div style={{ display: 'grid', gap: '0.55rem' }}>
               {[
-                ['Draft loads', metrics.draft, '#f8fafc', '#475569'],
                 ['Loads awaiting quotes', metrics.open, '#eff6ff', '#1d4ed8'],
                 ['Carrier awards made', metrics.awarded, '#f0fdf4', '#166534'],
                 ['POD ready', metrics.pod, '#f8fafc', '#334155'],
-                ['Unpaid invoices', metrics.unpaidInvoices.length, metrics.unpaidInvoices.length ? '#fff7ed' : '#f8fafc', metrics.unpaidInvoices.length ? '#C62828' : '#475569'],
                 ['Invoices due soon', metrics.dueSoonInvoices.length, metrics.dueSoonInvoices.length ? '#fff7ed' : '#f8fafc', metrics.dueSoonInvoices.length ? '#c2410c' : '#475569'],
               ].map(([label, value, bg, color]) => (
-                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '4px', padding: '8px 10px', fontSize: '12px' }}>
+                <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
                   <span style={{ color: '#475569' }}>{label}</span>
                   <strong style={{ color: String(color) }}>{value}</strong>
                 </div>
               ))}
             </div>
-          </OperationalCard>
+          </Panel>
 
-          <OperationalCard
+          <Panel
             title="Outstanding invoices"
-            subtitle="Invoices addressed to your company that are pending payment."
+            description="Invoices addressed to your company that are pending payment."
             actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>All invoices</ActionButton>}
           >
             {metrics.unpaidInvoices.length > 0 ? (
@@ -193,9 +160,9 @@ export function CustomerDashboard() {
             ) : (
               <EmptyState title="No outstanding invoices" description="All invoices are paid or none have been issued yet." />
             )}
-          </OperationalCard>
+          </Panel>
 
-          <OperationalCard title="Recent quote activity" subtitle="Latest carrier responses and decisions.">
+          <Panel title="Recent quote activity" description="Latest carrier responses and decisions.">
             {metrics.recentQuoteActivity.length > 0 ? (
               <div style={{ display: 'grid', gap: '0.5rem' }}>
                 {metrics.recentQuoteActivity.map((bid) => {
@@ -214,28 +181,31 @@ export function CustomerDashboard() {
             ) : (
               <EmptyState title="No quote activity yet" description="Carrier responses will appear here after publication." />
             )}
-          </OperationalCard>
+          </Panel>
 
-          <OperationalCard title="Quick actions">
-            <QuickActionGrid
-              actions={[
-                { key: 'new-load', label: 'Post a new load', onClick: () => router.push('/customer/post-load') },
-                { key: 'review-quotes', label: 'Review carrier quotes', onClick: () => router.push('/customer/quotes') },
-                { key: 'track-deliveries', label: 'Track active deliveries', onClick: () => router.push('/customer/deliveries') },
-                { key: 'pod', label: 'Download POD', onClick: () => router.push('/customer/documents') },
-                { key: 'view-invoices', label: 'View all invoices', onClick: () => router.push('/customer/invoices') },
-                { key: 'settings', label: 'Team & settings', onClick: () => router.push('/customer/settings') },
-              ]}
-            />
-          </OperationalCard>
+          <Panel title="Quick actions">
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {([
+                ['Post a new load', '/customer/post-load'],
+                ['Review carrier quotes', '/customer/quotes'],
+                ['Track active deliveries', '/customer/deliveries'],
+                ['Download POD', '/customer/documents'],
+                ['View all invoices', '/customer/invoices'],
+                ['Team & settings', '/customer/settings'],
+              ] as const).map(([label, href]) => (
+                <button key={href} onClick={() => router.push(href)} style={quickButton}>
+                  <span>{label}</span><span>→</span>
+                </button>
+              ))}
+            </div>
+          </Panel>
         </div>
       </TwoColumn>
 
-      <OperationalCard
+      <Panel
         title="Recent transport activity"
-        subtitle="All your loads — sorted by most recent update."
+        description="All your loads — sorted by most recent update."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>View all loads</ActionButton>}
-        flush
       >
         <DataTable
           columns={['Reference', 'Route', 'Pickup', 'Status', 'Quotes', 'Action']}
@@ -249,11 +219,11 @@ export function CustomerDashboard() {
           ])}
           empty={<EmptyState title="No transport activity yet" action={<ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post your first load</ActionButton>} />}
         />
-      </OperationalCard>
-    </OperationalPageLayout>
+      </Panel>
+    </PageFrame>
   );
 }
-const quickButton = {width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px',border:'1px solid #d9e2ec',borderRadius:'4px',padding:'8px 10px',background:'#ffffff',color:'#202124',fontSize:'12px',cursor:'pointer',textAlign:'left'} as const;
+const quickButton = {width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'0.6rem',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'0.62rem 0.68rem',background:'#f8fafc',color:'#0f172a',fontSize:'0.76rem',cursor:'pointer',textAlign:'left'} as const;
 
 export function CustomerPostLoadPage(){return <PageFrame><PageHeader eyebrow="New transport" title="Post Load" description="The form is grouped by collection, delivery, cargo, vehicle, references and commercial requirements."/><LoadPostingForm mode="customer"/></PageFrame>}
 
@@ -339,7 +309,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
       <KpiCard label="Pickup" value={<span style={{fontSize:'0.9rem'}}>{when(job.pickup_datetime)}</span>}/>
       <KpiCard label="Delivery" value={<span style={{fontSize:'0.9rem'}}>{when(job.delivery_datetime)}</span>}/>
       <KpiCard label="POD files" value={podPaths.length} tone="green"/>
-      <KpiCard label="Quotes" value={jobQuotes.length} tone="blue"/>
+      <KpiCard label="Quotes" value={jobQuotes.length} tone="purple"/>
     </KpiGrid>
     <TwoColumn>
       <div style={{display:'grid',gap:'0.9rem'}}>

@@ -8,13 +8,12 @@ import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
 
 const THEME = {
-  pageBg: '#f5f7fa',
-  cardBg: '#ffffff',
-  cardBorder: '#d9e2ec',
-  text: '#202124',
-  muted: '#5f6368',
-  accent: '#f5a300',
-  blue: '#1d57d8',
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
 };
 
 interface SuperAdminModulePageProps {
@@ -130,26 +129,29 @@ export default function SuperAdminModulePage({
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
-        {/* Page header */}
-        <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <span style={{ fontSize: '1.5rem' }}>{icon}</span>
           <div>
-            <div style={{ color: THEME.blue, fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>{section}</div>
-            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, lineHeight: '30px', color: THEME.text }}>{icon} {title}</h1>
-            <p style={{ margin: '6px 0 0', fontSize: '13px', lineHeight: '18px', color: THEME.muted }}>{description}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>{title}</h1>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+                {section}
+              </span>
+            </div>
+            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>{description}</p>
           </div>
-        </header>
+        </div>
 
         {children ?? (
-          <div>
+          <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem' }}>
             {dataError && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '8px 12px', color: '#d93025', fontSize: '13px', marginBottom: '12px' }}>
+              <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
                 ⚠️ {dataError}
               </div>
             )}
 
-            {/* KPI strip */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
               {[
                 { label: 'Companies', value: stats?.companiesTotal ?? '—' },
                 { label: 'Active companies', value: stats?.companiesActive ?? '—' },
@@ -158,65 +160,60 @@ export default function SuperAdminModulePage({
                 { label: 'Drivers', value: stats?.driversTotal ?? '—' },
                 { label: 'Unpaid invoices', value: stats?.invoicesUnpaid ?? '—' },
               ].map((item) => (
-                <div key={item.label} style={{ background: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '8px 12px' }}>
-                  <div style={{ color: THEME.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>{loading ? '…' : item.value}</div>
-                  <div style={{ color: THEME.muted, fontSize: '12px', lineHeight: '16px', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>{item.label}</div>
+                <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
+                  <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>{loading ? '…' : item.value}</div>
+                  <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
                 </div>
               ))}
             </div>
 
-            {/* Two-panel preview */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.79fr) minmax(0, 1fr)', gap: '12px' }}>
-              <div style={{ background: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ padding: '8px 12px', borderBottom: `1px solid ${THEME.cardBorder}`, background: '#f8fafc' }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: THEME.text }}>Recent platform jobs</h3>
-                </div>
-                <div style={{ padding: '12px' }}>
-                  {loading ? (
-                    <div style={{ color: THEME.muted, fontSize: '13px' }}>Loading…</div>
-                  ) : jobsPreview.length === 0 ? (
-                    <div style={{ color: THEME.muted, fontSize: '13px' }}>No jobs found.</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {jobsPreview.map((job) => (
-                        <div key={job.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '8px 10px' }}>
-                          <div style={{ color: THEME.text, fontWeight: 600, fontSize: '13px' }}>
-                            {routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}
-                          </div>
-                          <div style={{ color: THEME.muted, fontSize: '12px', lineHeight: '16px', marginTop: '2px' }}>
-                            {job.posting_company_name} · {job.status} · {job.bids_count} bids · {formatDateTime(job.created_at)}
-                          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
+              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+                <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent platform jobs</h3>
+                {loading ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
+                ) : jobsPreview.length === 0 ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>No jobs found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {jobsPreview.map((job) => (
+                      <div key={job.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '7px', padding: '0.55rem' }}>
+                        <div style={{ color: THEME.text, fontWeight: 700, fontSize: '0.77rem' }}>
+                          {routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.72rem', marginTop: '0.15rem' }}>
+                          {job.posting_company_name} · {job.status} · bids {job.bids_count}
+                        </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.68rem', marginTop: '0.1rem' }}>{formatDateTime(job.created_at)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div style={{ background: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ padding: '8px 12px', borderBottom: `1px solid ${THEME.cardBorder}`, background: '#f8fafc' }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: THEME.text }}>Recent quote requests</h3>
-                </div>
-                <div style={{ padding: '12px' }}>
-                  {loading ? (
-                    <div style={{ color: THEME.muted, fontSize: '13px' }}>Loading…</div>
-                  ) : quotesPreview.length === 0 ? (
-                    <div style={{ color: THEME.muted, fontSize: '13px' }}>No quotes found.</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {quotesPreview.map((quote) => (
-                        <div key={quote.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '8px 10px' }}>
-                          <div style={{ color: THEME.text, fontWeight: 600, fontSize: '13px' }}>
-                            {quote.company_name} · {quote.status}
-                          </div>
-                          <div style={{ color: THEME.muted, fontSize: '12px', lineHeight: '16px', marginTop: '2px' }}>
-                            {quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'} · {quote.amount ? `£${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}
-                          </div>
+              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
+                <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent quote requests</h3>
+                {loading ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
+                ) : quotesPreview.length === 0 ? (
+                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>No quotes found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {quotesPreview.map((quote) => (
+                      <div key={quote.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '7px', padding: '0.55rem' }}>
+                        <div style={{ color: THEME.text, fontWeight: 700, fontSize: '0.77rem' }}>
+                          {quote.company_name} · {quote.status}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.72rem', marginTop: '0.15rem' }}>
+                          {quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}
+                        </div>
+                        <div style={{ color: THEME.muted, fontSize: '0.68rem', marginTop: '0.1rem' }}>
+                          {quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -231,7 +228,7 @@ export function BackToSuperAdminButton() {
   return (
     <button
       onClick={() => router.push('/super-admin')}
-      style={{ height: '32px', padding: '0 14px', background: '#ffffff', color: '#202124', border: '1px solid #c7d2df', borderRadius: '4px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+      style={{ padding: '0.5rem 1rem', backgroundColor: THEME.accent, color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
     >
       ← Back to Dashboard
     </button>

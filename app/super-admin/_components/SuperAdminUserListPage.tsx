@@ -5,15 +5,15 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#f5f7fa',
-  cardBg: '#ffffff',
-  cardBorder: '#d9e2ec',
-  text: '#202124',
-  muted: '#5f6368',
-  accent: '#f5a300',
-  green: '#35a853',
-  blue: '#1d57d8',
-  red: '#d93025',
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
+  green: '#22c55e',
+  red: '#ef4444',
+  blue: '#3b82f6',
 };
 
 type UserRow = {
@@ -149,7 +149,7 @@ export default function SuperAdminUserListPage({
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
         {/* Header */}
         <div
           style={{
@@ -184,7 +184,7 @@ export default function SuperAdminUserListPage({
                 style={{
                   fontSize: '0.7rem',
                   color: THEME.muted,
-                  backgroundColor: THEME.cardBg,
+                  backgroundColor: '#0b1220',
                   border: `1px solid ${THEME.cardBorder}`,
                   padding: '0.15rem 0.5rem',
                   borderRadius: '4px',
@@ -205,7 +205,7 @@ export default function SuperAdminUserListPage({
               backgroundColor: THEME.accent,
               color: '#0f172a',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '8px',
               fontWeight: 700,
               fontSize: '0.78rem',
               cursor: loading ? 'not-allowed' : 'pointer',
@@ -220,9 +220,9 @@ export default function SuperAdminUserListPage({
         {error && (
           <div
             style={{
-              backgroundColor: '#fef2f2',
+              backgroundColor: 'rgba(239,68,68,0.1)',
               border: '1px solid #ef4444',
-              borderRadius: '4px',
+              borderRadius: '8px',
               padding: '0.65rem 0.9rem',
               color: '#ef4444',
               fontSize: '0.82rem',
@@ -244,9 +244,9 @@ export default function SuperAdminUserListPage({
               width: '100%',
               maxWidth: '360px',
               border: `1px solid ${THEME.cardBorder}`,
-              borderRadius: '4px',
+              borderRadius: '8px',
               padding: '0.5rem 0.75rem',
-              backgroundColor: THEME.cardBg,
+              backgroundColor: '#0b1220',
               color: THEME.text,
               fontSize: '0.82rem',
               boxSizing: 'border-box',
@@ -259,14 +259,14 @@ export default function SuperAdminUserListPage({
           style={{
             backgroundColor: THEME.cardBg,
             border: `1px solid ${THEME.cardBorder}`,
-            borderRadius: '4px',
+            borderRadius: '12px',
             overflow: 'hidden',
           }}
         >
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>
-                <tr style={{ backgroundColor: THEME.cardBg }}>
+                <tr style={{ backgroundColor: '#0b1220' }}>
                   {columns.map((col) => (
                     <th
                       key={col.label}
