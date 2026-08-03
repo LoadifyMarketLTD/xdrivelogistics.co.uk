@@ -7,6 +7,8 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { DriverDocument, VehicleDocument, DocStatus } from '../../../lib/types/database';
 import { selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
+import { PageHeader, ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import cssStyles from '../../components/workspace/WorkspaceUI.module.css';
 
 interface DriverOption { id: string; display_name: string; }
 interface VehicleOption { id: string; reg_plate: string; }
@@ -16,12 +18,6 @@ const VEHICLE_DOC_TYPES = ['MOT', 'Road Tax', 'Insurance', 'Operator Licence', '
 
 type AnyDoc = (DriverDocument & { kind: 'driver'; subject_name?: string }) | (VehicleDocument & { kind: 'vehicle'; subject_name?: string });
 
-const STATUS_COLORS: Record<DocStatus, { bg: string; text: string }> = {
-  pending: { bg: '#fef3c7', text: '#92400e' },
-  approved: { bg: '#d1fae5', text: '#065f46' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
-  expired: { bg: '#f3f4f6', text: '#6b7280' },
-};
 const ALLOWED_DOC_STATUS = new Set<DocStatus>(['pending', 'approved', 'rejected', 'expired']);
 
 interface UploadForm {
@@ -309,195 +305,154 @@ export default function DocumentsPage() {
     }
   };
 
-  const tabStyle = (active: boolean) => ({
-    padding: '0.75rem 1.5rem', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600' as const, cursor: 'pointer',
-    backgroundColor: active ? '#1F7A3D' : 'white', color: active ? 'white' : '#6b7280',
-  });
   const totalDocsPages = Math.max(1, Math.ceil(docs.length / DOCS_PER_PAGE));
   const safeDocsPage = Math.min(docsPage, totalDocsPages - 1);
   const paginatedDocs = docs.slice(safeDocsPage * DOCS_PER_PAGE, (safeDocsPage + 1) * DOCS_PER_PAGE);
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
-        <div style={{ width: '100%' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>{isDriverWorkspace ? 'POD / Documents' : 'Documents'}</h1>
-            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Upload and view your driver and vehicle documents.' : 'Review and verify driver & vehicle documents'}</p>
-          </div>
+      <PageHeader
+        title={isDriverWorkspace ? 'POD / Documents' : 'Documents'}
+        description={isDriverWorkspace ? 'Upload and view your driver and vehicle documents.' : 'Review and verify driver & vehicle documents'}
+        actions={
+          <ActionButton tone="primary" onClick={() => { setShowUpload(true); setForm({ ...DEFAULT_UPLOAD, kind: tab }); setUploadError(''); }}>
+            + Upload Document
+          </ActionButton>
+        }
+      />
 
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
+      {!isSupabaseConfigured && <AlertBanner tone="warning">⚠️ Supabase is not configured. Database features are disabled.</AlertBanner>}
+      {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+
+      {/* Tab bar */}
+      <div className={cssStyles.jobsStatusTabs}>
+        <button className={`${cssStyles.jobsStatusTab}${tab === 'driver' ? ` ${cssStyles.jobsStatusTabActive}` : ''}`} onClick={() => setTab('driver')}>🪪 Driver Documents</button>
+        <button className={`${cssStyles.jobsStatusTab}${tab === 'vehicle' ? ` ${cssStyles.jobsStatusTabActive}` : ''}`} onClick={() => setTab('vehicle')}>🚛 Vehicle Documents</button>
+      </div>
+
+      {/* Upload modal */}
+      {showUpload && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.42)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '40px' }}>
+              <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#202124' }}>Upload Document</h2>
+              <button type="button" onClick={() => { setShowUpload(false); setForm(DEFAULT_UPLOAD); setUploadError(''); }} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#5f6368', lineHeight: 1, padding: '0 4px' }} aria-label="Close">×</button>
             </div>
-          )}
-
-          {error && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#991b1b' }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button style={tabStyle(tab === 'driver')} onClick={() => setTab('driver')}>🪪 Driver Documents</button>
-              <button style={tabStyle(tab === 'vehicle')} onClick={() => setTab('vehicle')}>🚛 Vehicle Documents</button>
-            </div>
-            <button
-              onClick={() => { setShowUpload(true); setForm({ ...DEFAULT_UPLOAD, kind: tab }); setUploadError(''); }}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}
-            >
-              + Upload Document
-            </button>
-          </div>
-
-          {/* Upload modal */}
-          {showUpload && (
-            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflow: 'auto' }}>
-                <h2 style={{ margin: '0 0 1.5rem', fontSize: '1.4rem', fontWeight: '700', color: '#1f2937' }}>Upload Document</h2>
-                {uploadError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#991b1b', fontSize: '0.9rem' }}>{uploadError}</div>}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Document Type *</label>
-                    <select value={form.kind} onChange={e => setForm(f => ({ ...f, kind: e.target.value as 'driver' | 'vehicle', subjectId: '', docType: '' }))}
-                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem' }}>
-                      <option value="driver">Driver Document</option>
-                      <option value="vehicle">Vehicle Document</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>{form.kind === 'driver' ? 'Driver' : 'Vehicle'} *</label>
-                    <select value={form.subjectId} onChange={e => setForm(f => ({ ...f, subjectId: e.target.value }))}
-                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem' }}>
-                      <option value="">— Select —</option>
-                      {form.kind === 'driver'
-                        ? drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)
-                        : vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_plate}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Document Category *</label>
-                    <select value={form.docType} onChange={e => setForm(f => ({ ...f, docType: e.target.value }))}
-                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem' }}>
-                      <option value="">— Select —</option>
-                      {(form.kind === 'driver' ? DRIVER_DOC_TYPES : VEHICLE_DOC_TYPES).map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Issued Date</label>
-                      <input type="date" value={form.issuedDate} onChange={e => setForm(f => ({ ...f, issuedDate: e.target.value }))}
-                        style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Expiry Date</label>
-                      <input type="date" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))}
-                        style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>File * (PDF, JPG, PNG — max 10 MB)</label>
-                    <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      onChange={e => setForm(f => ({ ...f, file: e.target.files?.[0] ?? null }))}
-                      style={{ width: '100%', padding: '0.6rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' }} />
-                  </div>
+            <div style={{ padding: '12px 16px', display: 'grid', gap: '8px' }}>
+              {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>Document Type *</label>
+                <select className={cssStyles.settingsInput} value={form.kind} onChange={e => setForm(f => ({ ...f, kind: e.target.value as 'driver' | 'vehicle', subjectId: '', docType: '' }))}>
+                  <option value="driver">Driver Document</option>
+                  <option value="vehicle">Vehicle Document</option>
+                </select>
+              </div>
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>{form.kind === 'driver' ? 'Driver' : 'Vehicle'} *</label>
+                <select className={cssStyles.settingsInput} value={form.subjectId} onChange={e => setForm(f => ({ ...f, subjectId: e.target.value }))}>
+                  <option value="">— Select —</option>
+                  {form.kind === 'driver'
+                    ? drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)
+                    : vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_plate}</option>)}
+                </select>
+              </div>
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>Document Category *</label>
+                <select className={cssStyles.settingsInput} value={form.docType} onChange={e => setForm(f => ({ ...f, docType: e.target.value }))}>
+                  <option value="">— Select —</option>
+                  {(form.kind === 'driver' ? DRIVER_DOC_TYPES : VEHICLE_DOC_TYPES).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Issued Date</label>
+                  <input type="date" className={cssStyles.settingsInput} value={form.issuedDate} onChange={e => setForm(f => ({ ...f, issuedDate: e.target.value }))} />
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                  <button onClick={() => { setShowUpload(false); setForm(DEFAULT_UPLOAD); setUploadError(''); }}
-                    style={{ padding: '0.75rem 1.5rem', border: '1px solid #d1d5db', borderRadius: '8px', backgroundColor: 'white', color: '#374151', fontWeight: '600', cursor: 'pointer' }}>
-                    Cancel
-                  </button>
-                  <button onClick={handleUpload} disabled={uploading}
-                    style={{ padding: '0.75rem 1.5rem', backgroundColor: uploading ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: uploading ? 'not-allowed' : 'pointer' }}>
-                    {uploading ? 'Uploading…' : 'Upload'}
-                  </button>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Expiry Date</label>
+                  <input type="date" className={cssStyles.settingsInput} value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} />
                 </div>
               </div>
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>File * (PDF, JPG, PNG — max 10 MB)</label>
+                <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className={cssStyles.settingsInput}
+                  onChange={e => setForm(f => ({ ...f, file: e.target.files?.[0] ?? null }))} />
+              </div>
             </div>
-          )}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : docs.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-                <p>No documents found.</p>
-              </div>
-            ) : (
-              <>
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{ width: '100%', minWidth: '860px', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      {[tab === 'driver' ? 'Driver' : 'Vehicle', 'Doc Type', 'Issued', 'Expires', 'Status', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '1rem', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedDocs.map((d, i) => {
-                      const sc = STATUS_COLORS[d.status] ?? STATUS_COLORS.pending;
-                      return (
-                        <tr key={d.id} style={{ borderBottom: i < paginatedDocs.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                          <td style={{ padding: '1rem', fontWeight: '600', color: '#1f2937' }}>{d.subject_name || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{d.doc_type}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{d.issued_date || '—'}</td>
-                          <td style={{ padding: '1rem', color: '#6b7280' }}>{d.expiry_date || '—'}</td>
-                          <td style={{ padding: '1rem' }}><span style={{ backgroundColor: sc.bg, color: sc.text, padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>{d.status}</span></td>
-                          <td style={{ padding: '1rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              {d.file_path && (
-                                <a href={d.file_path} target="_blank" rel="noopener noreferrer"
-                                  style={{ padding: '0.375rem 0.75rem', backgroundColor: '#eff6ff', color: '#1d4ed8', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none' }}>View</a>
-                              )}
-                              {d.file_path && (
-                                <button
-                                  type="button"
-                                  onClick={() => downloadDocument(d.file_path as string, d.id)}
-                                  style={{ padding: '0.375rem 0.75rem', backgroundColor: '#ecfdf5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                  Download
-                                </button>
-                              )}
-                              {canVerifyDocuments && d.status !== 'approved' && <button onClick={() => updateStatus(d.id, 'approved')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#d1fae5', color: '#065f46', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Approve</button>}
-                              {canVerifyDocuments && d.status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '0.375rem 0.75rem', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {docs.length > DOCS_PER_PAGE && (
-                <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
-                  <span>
-                    Showing {safeDocsPage * DOCS_PER_PAGE + 1}–{Math.min((safeDocsPage + 1) * DOCS_PER_PAGE, docs.length)} of {docs.length}
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.45rem' }}>
-                    <button
-                      onClick={() => setDocsPage((prev) => Math.max(prev - 1, 0))}
-                      disabled={safeDocsPage === 0}
-                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDocsPage === 0 ? '#f9fafb' : '#fff', cursor: safeDocsPage === 0 ? 'not-allowed' : 'pointer' }}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setDocsPage((prev) => Math.min(prev + 1, totalDocsPages - 1))}
-                      disabled={safeDocsPage >= totalDocsPages - 1}
-                      style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeDocsPage >= totalDocsPages - 1 ? '#f9fafb' : '#fff', cursor: safeDocsPage >= totalDocsPages - 1 ? 'not-allowed' : 'pointer' }}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-              </>
-            )}
+            <div style={{ padding: '8px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <ActionButton tone="secondary" onClick={() => { setShowUpload(false); setForm(DEFAULT_UPLOAD); setUploadError(''); }}>Cancel</ActionButton>
+              <ActionButton tone="primary" disabled={uploading} onClick={handleUpload}>{uploading ? 'Uploading…' : 'Upload'}</ActionButton>
+            </div>
           </div>
         </div>
+      )}
+
+      <div className={cssStyles.operationalTableContainer}>
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: '#5f6368', fontSize: '12px' }}>Loading…</div>
+        ) : docs.length === 0 ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: '#5f6368', fontSize: '12px' }}>
+            <p style={{ margin: 0 }}>No documents found.</p>
+          </div>
+        ) : (
+          <>
+            <div className={cssStyles.operationalTableScroll}>
+              <table className={cssStyles.operationalTable} style={{ minWidth: '860px' }}>
+                <caption className={cssStyles.operationalTableCaption}>Documents</caption>
+                <thead>
+                  <tr className={cssStyles.operationalTableHeaderRow}>
+                    {[tab === 'driver' ? 'Driver' : 'Vehicle', 'Doc Type', 'Issued', 'Expires', 'Status', 'Actions'].map(h => (
+                      <th key={h} scope="col" className={cssStyles.operationalTableHeadCell}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedDocs.map((d) => (
+                    <tr key={d.id} className={cssStyles.operationalTableRow}>
+                      <td className={cssStyles.operationalTableCell} style={{ fontWeight: 600 }}>{d.subject_name || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>{d.doc_type}</td>
+                      <td className={cssStyles.operationalTableCell}>{d.issued_date || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>{d.expiry_date || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>
+                        <StatusBadge value={d.status} />
+                      </td>
+                      <td className={`${cssStyles.operationalTableCell} ${cssStyles.operationalTableActionCell}`}>
+                        <div style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {d.file_path && (
+                            <a href={d.file_path} target="_blank" rel="noopener noreferrer"
+                              style={{ display: 'inline-flex', alignItems: 'center', height: '28px', padding: '0 10px', backgroundColor: '#e0f2fe', color: '#075985', borderRadius: '4px', fontSize: '12px', fontWeight: 600, textDecoration: 'none' }}>
+                              View
+                            </a>
+                          )}
+                          {d.file_path && (
+                            <ActionButton tone="secondary" onClick={() => downloadDocument(d.file_path as string, d.id)}>Download</ActionButton>
+                          )}
+                          {canVerifyDocuments && d.status !== 'approved' && (
+                            <ActionButton tone="secondary" onClick={() => updateStatus(d.id, 'approved')}>Approve</ActionButton>
+                          )}
+                          {canVerifyDocuments && d.status !== 'rejected' && (
+                            <ActionButton tone="danger" onClick={() => updateStatus(d.id, 'rejected')}>Reject</ActionButton>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {docs.length > DOCS_PER_PAGE && (
+              <div className={cssStyles.operationalTableMeta}>
+                <span>
+                  Showing {safeDocsPage * DOCS_PER_PAGE + 1}–{Math.min((safeDocsPage + 1) * DOCS_PER_PAGE, docs.length)} of {docs.length}
+                </span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <ActionButton tone="secondary" disabled={safeDocsPage === 0} onClick={() => setDocsPage((prev) => Math.max(prev - 1, 0))}>Previous</ActionButton>
+                  <ActionButton tone="secondary" disabled={safeDocsPage >= totalDocsPages - 1} onClick={() => setDocsPage((prev) => Math.min(prev + 1, totalDocsPages - 1))}>Next</ActionButton>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </ProtectedRoute>
   );
