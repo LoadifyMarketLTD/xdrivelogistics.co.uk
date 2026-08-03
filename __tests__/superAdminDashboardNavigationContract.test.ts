@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(resolve(process.cwd(), 'app/super-admin/page.tsx'), 'utf8');
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 describe('super admin dashboard navigation contract', () => {
   it('keeps owner-only protection on the live dashboard surface', () => {
@@ -20,7 +21,7 @@ describe('super admin dashboard navigation contract', () => {
       ['Review compliance', '/super-admin/companies/compliance'],
       ['Review disputes', '/super-admin/operations/disputes'],
     ]) {
-      expect(source).toMatch(new RegExp(`label: '${label}'[\\s\\S]*?router\\.push\\('${route.replace(/\//g, '\\/')}'\\)`));
+      expect(source).toMatch(new RegExp(`label: '${escapeRegExp(label)}'[\\s\\S]*?router\\.push\\('${escapeRegExp(route)}'\\)`));
     }
   });
 
