@@ -27,11 +27,12 @@
 }
 
 /* ─── ExchangeKpiStrip ──────────────────────────────────────────────────────
- * Section 8: gap 8px; max 6 tiles; minmax(120px, 1fr).
+ * Section 8: gap 8px; max 6 tiles; equal-width columns.
+ * Uses auto-fit so dashboards with <6 tiles still fill the row evenly.
+ * The 6-tile maximum is enforced by each dashboard component (not the grid).
  */
 .exchangeKpiStrip {
   display: grid;
-  /* Max 6 equal-width columns; each at least 120px */
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
   margin-bottom: 12px;

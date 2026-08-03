@@ -101,6 +101,7 @@ export function CarrierDashboard() {
         actions={<><ActionButton tone="success" onClick={() => router.push('/admin/marketplace')}>Find Loads</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton></>}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
+      {/* Section 8: maximum 6 KPI tiles. Exceptions and won-work value surfaced in right rail. */}
       <KpiGrid>
         <KpiCard label="Quotes submitted" value={metrics.submittedQuotes} detail="Awaiting a commercial decision" onClick={() => router.push('/admin/quotes')} />
         <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" onClick={() => router.push('/admin/bids')} />
@@ -108,8 +109,6 @@ export function CarrierDashboard() {
         <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
         <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" onClick={() => router.push('/admin/documents?view=pod')} />
         <KpiCard label="Overdue invoices" value={metrics.overdueInvoices} detail="Past due date" tone={metrics.overdueInvoices ? 'red' : 'navy'} onClick={() => router.push('/admin/invoices')} />
-        <KpiCard label="Exceptions" value={metrics.exceptionJobs.length} detail="Failed or disputed jobs" tone={metrics.exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/incidents')} />
-        <KpiCard label="Won work value" value={money(metrics.acceptedRevenue)} detail="Accepted bid total" tone="navy" />
       </KpiGrid>
 
       <TwoColumn>
@@ -132,13 +131,15 @@ export function CarrierDashboard() {
           />
         </OperationalCard>
         <div className={styles.roleDashboardColumn}>
-          <OperationalCard title="Resource readiness" subtitle="Live capacity from your company roster.">
+          <OperationalCard title="Resource readiness" subtitle="Live capacity, exceptions and commercial position.">
             <div className={styles.roleDashboardSummaryList}>
               {[
                 ['Available drivers', data.drivers.filter((d) => d.availability_status === 'available').length, '/admin/drivers'],
                 ['Busy drivers', data.drivers.filter((d) => d.availability_status === 'busy').length, '/admin/drivers'],
                 ['Total vehicles', data.vehicles.length, '/admin/vehicles'],
                 ['Unassigned vehicles', data.vehicles.filter((v) => !v.assigned_driver_id).length, '/admin/vehicles'],
+                ['Exceptions', metrics.exceptionJobs.length, '/admin/incidents'],
+                ['Won work value', money(metrics.acceptedRevenue), '/admin/invoices'],
               ].map(([label, value, href]) => (
                 <button key={String(label)} type="button" onClick={() => router.push(String(href))} className={styles.roleDashboardSummaryButton}>
                   <span>{label}</span><strong>{value}</strong>
@@ -262,15 +263,14 @@ export function FleetDashboard() {
         actions={<><ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Work</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton></>}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
+      {/* Section 8: maximum 6 KPI tiles. Offline drivers and exceptions surfaced in right rail. */}
       <KpiGrid>
         <KpiCard label="Available drivers" value={data.drivers.filter((d) => d.availability_status === 'available').length} tone="green" detail="Ready for allocation" onClick={() => router.push('/admin/drivers')} />
         <KpiCard label="Busy drivers" value={data.drivers.filter((d) => d.availability_status === 'busy').length} tone="purple" detail="Assigned or on a job" onClick={() => router.push('/admin/drivers')} />
-        <KpiCard label="Offline drivers" value={data.drivers.filter((d) => !d.availability_status || d.availability_status === 'offline').length} tone="navy" detail="Not available now" onClick={() => router.push('/admin/driver-availability')} />
         <KpiCard label="Available vehicles" value={data.vehicles.filter((v) => !v.assigned_driver_id).length} tone="blue" detail={`${data.vehicles.length} total vehicles`} onClick={() => router.push('/admin/vehicles')} />
         <KpiCard label="Unassigned jobs" value={unassignedJobs.length} tone="orange" detail="Driver and vehicle required" onClick={() => router.push('/admin/fleet/assignments')} />
         <KpiCard label="Active jobs" value={activeJobs.length} tone="green" detail="Collections and deliveries" onClick={() => router.push('/admin/fleet/active-jobs')} />
         <KpiCard label="Expiry alerts" value={expiring} tone={expiring ? 'red' : 'green'} detail="Due within 30 days" onClick={() => router.push('/admin/documents/expiry')} />
-        <KpiCard label="Exceptions" value={exceptionJobs.length} tone={exceptionJobs.length ? 'red' : 'green'} detail="Failed or disputed jobs" onClick={() => router.push('/admin/incidents')} />
       </KpiGrid>
 
       <TwoColumn>
@@ -305,10 +305,12 @@ export function FleetDashboard() {
             ))}
             {data.drivers.filter((d) => d.availability_status === 'available').length === 0 && <EmptyState title="No drivers marked available" />}
           </OperationalCard>
-          <OperationalCard title="Readiness alerts" subtitle="Expiry and location issues that can stop operations.">
+          <OperationalCard title="Readiness alerts" subtitle="Expiry, offline drivers and exceptions that can stop operations.">
             <div className={styles.roleDashboardSummaryList}>
               <button type="button" onClick={() => router.push('/admin/documents/expiry')} className={styles.roleDashboardSummaryButton}><span>Documents expiring</span><strong>{expiring}</strong></button>
               <button type="button" onClick={() => router.push('/admin/fleet/positions')} className={styles.roleDashboardSummaryButton}><span>Stale GPS positions</span><strong>{staleDrivers}</strong></button>
+              <button type="button" onClick={() => router.push('/admin/driver-availability')} className={styles.roleDashboardSummaryButton}><span>Offline drivers</span><strong>{data.drivers.filter((d) => !d.availability_status || d.availability_status === 'offline').length}</strong></button>
+              <button type="button" onClick={() => router.push('/admin/incidents')} className={styles.roleDashboardSummaryButton}><span>Exceptions</span><strong>{exceptionJobs.length}</strong></button>
               <button type="button" onClick={() => router.push('/admin/fleet/maintenance')} className={styles.roleDashboardSummaryButton}><span>Unassigned vehicles</span><strong>{data.vehicles.filter((v) => !v.assigned_driver_id).length}</strong></button>
             </div>
           </OperationalCard>
