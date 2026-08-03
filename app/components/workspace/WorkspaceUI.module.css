@@ -284,6 +284,35 @@
   line-height: 14px;
 }
 
+.driverDashboardCurrentJob {
+  display: grid;
+  gap: 8px;
+}
+
+.driverDashboardRoute {
+  display: block;
+  color: #1A1F2B;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.driverDashboardMeta {
+  display: block;
+  margin-top: 4px;
+  color: #64748B;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.driverDashboardAlertList {
+  display: grid;
+}
+
+.driverDashboardAlertAction {
+  margin-top: 8px;
+}
+
 .quickActionButton:hover {
   border-color: #1d57d8;
 }
