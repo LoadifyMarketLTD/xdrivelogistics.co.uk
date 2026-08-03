@@ -42,7 +42,7 @@ describe('Dashboard conformance docs and shared CSS contract', () => {
     expect(dashboardHomeSurfacesDoc).toContain('| Table row hard maximum | `48px` |');
     expect(dashboardHomeSurfacesDoc).toContain('## Screen-by-screen numerical deviation record');
     expect((dashboardHomeSurfacesDoc.match(/\| PASS \|/g) ?? []).length).toBeGreaterThanOrEqual(18);
-    for (const route of ['/admin', '/broker', '/customer', '/driver', 'carrier / fleet', '/super-admin']) {
+    for (const route of ['/admin', '/broker', '/customer', '/driver', '/carrier', '/super-admin']) {
       expect(dashboardHomeSurfacesDoc).toContain(route);
     }
     for (const viewport of ['1440×900', '768×1024', '390×844']) {
@@ -69,6 +69,7 @@ describe('Dashboard conformance docs and shared CSS contract', () => {
   it('keeps workspace visual proof bound to real routes instead of shared role fixtures', () => {
     expect(workspaceVisualGate).toContain("page.goto(role.route)");
     expect(workspaceVisualGate).toContain("test.skip(!role.email || !role.password");
+    expect(workspaceVisualGate).toContain("route: '/carrier'");
     expect(workspaceVisualGate).not.toContain('/visual-fixture/workspace/');
   });
 });

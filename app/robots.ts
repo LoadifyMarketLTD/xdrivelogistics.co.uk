@@ -7,6 +7,7 @@ const canonicalSiteOrigin = getCanonicalSiteOrigin()
 const PRIVATE_PREFIXES = [
   '/super-admin',
   '/admin',
+  '/carrier',
   '/broker',
   '/driver',
   '/customer',
