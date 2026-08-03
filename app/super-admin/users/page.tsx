@@ -44,13 +44,13 @@ function AllUsersContent() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '1.5rem' }}>👥</span>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>All Users</h1>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: '#fffbeb', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
               Platform
             </span>
           </div>
@@ -68,7 +68,7 @@ function AllUsersContent() {
             style={{
               textAlign: 'left', cursor: 'pointer', background: THEME.cardBg,
               border: `1px solid ${THEME.cardBorder}`, borderTop: `3px solid ${THEME.blue}`,
-              borderRadius: '4px', padding: '1rem', color: THEME.text,
+              borderRadius: '10px', padding: '1rem', color: THEME.text,
             }}
           >
             <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>{section.icon}</div>

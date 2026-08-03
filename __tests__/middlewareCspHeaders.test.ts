@@ -143,7 +143,6 @@ describe('middleware CSP nonce contract', () => {
     expectNonceContract(response);
     expect(response.headers.get('content-security-policy')).not.toContain('unsafe-inline');
     expect(response.headers.get('content-security-policy')).not.toContain('unsafe-eval');
-    expect(response.headers.get('content-security-policy')).toContain('upgrade-insecure-requests');
   });
 
   it('forwards the nonce-bearing CSP on protected routes while preserving x-nonce', async () => {
@@ -157,12 +156,5 @@ describe('middleware CSP nonce contract', () => {
 
     expect(response.status).toBe(200);
     expectNonceContract(response);
-  });
-
-  it('omits upgrade-insecure-requests on localhost fixture routes so webkit can load local assets over http', async () => {
-    const response = await middleware(new NextRequest('http://127.0.0.1:3000/visual-fixture/workspace/admin'));
-
-    expectNonceContract(response);
-    expect(response.headers.get('content-security-policy')).not.toContain('upgrade-insecure-requests');
   });
 });

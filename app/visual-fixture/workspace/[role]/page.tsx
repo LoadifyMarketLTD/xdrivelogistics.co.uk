@@ -4,7 +4,7 @@ import WorkspaceVisualFixture from '../../../components/workspace/WorkspaceVisua
 const VISUAL_FIXTURE_ENABLED =
   process.env.NODE_ENV !== 'production' && process.env.E2E_VISUAL_FIXTURE === 'true';
 
-const ALLOWED_ROLES = new Set(['admin', 'broker', 'customer', 'driver', 'operations', 'carrier', 'super-admin'] as const);
+const ALLOWED_ROLES = new Set(['admin', 'broker', 'customer', 'driver', 'operations'] as const);
 
 export default async function WorkspaceVisualFixturePage({
   params,
@@ -16,9 +16,9 @@ export default async function WorkspaceVisualFixturePage({
   }
 
   const { role } = await params;
-  if (!ALLOWED_ROLES.has(role as 'admin' | 'broker' | 'customer' | 'driver' | 'operations' | 'carrier' | 'super-admin')) {
+  if (!ALLOWED_ROLES.has(role as 'admin' | 'broker' | 'customer' | 'driver' | 'operations')) {
     notFound();
   }
 
-  return <WorkspaceVisualFixture role={role as 'admin' | 'broker' | 'customer' | 'driver' | 'operations' | 'carrier' | 'super-admin'} />;
+  return <WorkspaceVisualFixture role={role as 'admin' | 'broker' | 'customer' | 'driver' | 'operations'} />;
 }

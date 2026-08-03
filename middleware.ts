@@ -16,7 +16,7 @@ const DRIVER_JOBS_PATH = '/driver/jobs';
 const DRIVER_CHANGE_PASSWORD_PATH = '/driver/change-password';
 const FORBIDDEN_PATH = '/forbidden';
 const LOGIN_PATH = '/login';
-const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/carrier', '/driver', '/customer', '/m'];
+const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/driver', '/customer', '/m'];
 
 type RouteAuthResult =
   | { kind: 'unauthenticated' }
@@ -530,10 +530,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (
-    (url.pathname === '/admin' || url.pathname === '/carrier') &&
-    (auth.workspaceRole === 'driver' || auth.workspaceRole === 'owner_driver')
-  ) {
+  if (url.pathname === '/admin' && (auth.workspaceRole === 'driver' || auth.workspaceRole === 'owner_driver')) {
     return buildRedirect(request, '/driver');
   }
 

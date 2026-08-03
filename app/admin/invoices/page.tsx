@@ -16,15 +16,6 @@ import {
   toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
 } from '../../../lib/invoiceStatus';
-import {
-  ActionButton,
-  AlertBanner,
-  ExchangeKpiStrip,
-  KpiCard,
-  PageHeader,
-  StatusBadge,
-} from '../../components/workspace/WorkspaceUI';
-import styles from '../../components/workspace/WorkspaceUI.module.css';
 
 type InvoiceListItem = InvoiceData & { jobId: string | null; paymentStatus: string | null };
 
@@ -153,188 +144,319 @@ export default function InvoicesPage() {
     (safeInvoicePage + 1) * INVOICES_PER_PAGE,
   );
 
+  const getStatusStyle = (status: string) => {
+    const baseStyle: React.CSSProperties = {
+      padding: '0.375rem 0.75rem',
+      borderRadius: '9999px',
+      fontSize: '0.875rem',
+      fontWeight: '600',
+      display: 'inline-block',
+    };
+
+    switch (status) {
+      case 'Paid':
+        return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'Draft':
+        return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' };
+      case 'Sent':
+        return { ...baseStyle, backgroundColor: '#e0e7ff', color: '#3730a3' };
+      case 'Overdue':
+        return { ...baseStyle, backgroundColor: '#fee2e2', color: '#991b1b' };
+      case 'Disputed':
+        return { ...baseStyle, backgroundColor: '#fce7f3', color: '#9d174d' };
+      case 'Cancelled':
+        return { ...baseStyle, backgroundColor: '#e2e8f0', color: '#475569' };
+      default:
+        return { ...baseStyle, backgroundColor: '#f3f4f6', color: '#374151' };
+    }
+  };
+
   return (
     <ProtectedRoute>
-      {/* Page background — contract Section 1: #f4f6f8, 12px padding */}
-      <div style={{ background: '#f4f6f8', padding: '12px' }}>
+      <div style={{ background: '#f5f7fa', minHeight: 'calc(100vh - 89px)' }}>
 
-        {/* Page header — Section 4: title 20px/26px/600; subtitle 12px/16px */}
-        <PageHeader
-          eyebrow="Invoices"
-          title="Invoice Register"
-          description="Manage, send and track all company invoices."
-          actions={
-            <ActionButton tone="success" onClick={() => router.push('/admin/invoices/new')}>
-              + Create Invoice
-            </ActionButton>
-          }
-        />
+        {/* SmartPay-style tab bar + create button */}
+        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 0 }}>
+            {(['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled'] as const).map((s) => {
+              const active = statusFilter === s;
+              const count = s === 'All' ? invoices.length : invoices.filter(i => i.status === s).length;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  style={{
+                    padding: '0.65rem 0.85rem',
+                    border: 'none',
+                    borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
+                    background: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    color: active ? '#1d4ed8' : '#64748b',
+                    marginBottom: '-1px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {s}
+                  {count > 0 && (
+                    <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => router.push('/admin/invoices/new')}
+            style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            + Create Invoice
+          </button>
+        </div>
 
-        {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
+        {/* Main Content */}
+        <div style={{ padding: '0.85rem', maxWidth: '1400px', margin: '0 auto' }}>
+          {loadError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem 1rem', marginBottom: '0.85rem', color: '#b91c1c', fontSize: '0.85rem' }}>
+              {loadError}
+            </div>
+          )}
 
-        {/* Status tabs — Section 9: 36px row, 26px tab height, border-bottom indicator */}
-        <div className={styles.jobsStatusTabs} role="tablist" aria-label="Filter invoices by status" style={{ marginBottom: '8px' }}>
-          {(['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled'] as const).map((s) => {
-            const isActive = statusFilter === s;
-            const count = s === 'All' ? invoices.length : invoices.filter(i => i.status === s).length;
-            return (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`${styles.jobsStatusTab} ${isActive ? styles.jobsStatusTabActive : ''}`}
-                onClick={() => setStatusFilter(s)}
-              >
-                {s}
-                {count > 0 && (
-                  <span style={{ marginLeft: '4px', background: isActive ? '#dbeafe' : '#f1f5f9', color: isActive ? '#1d57d8' : '#64748b', borderRadius: '999px', padding: '0 4px', fontSize: '10px', fontWeight: 700 }}>
-                    {count}
-                  </span>
+          {/* Search bar */}
+          <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', marginBottom: '0.85rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search invoices..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ flex: 1, minWidth: '200px', padding: '0.45rem 0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+            />
+            <button onClick={() => void loadInvoices()} style={{ padding: '0.45rem 0.75rem', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
+          </div>
+
+          {/* Invoices Table */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            overflow: 'hidden'
+          }}>
+            {loading ? (
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2.5rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
+                Loading invoices...
+              </div>
+            ) : filteredInvoices.length === 0 ? (
+              <div style={{
+                padding: '3rem 2rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}></div>
+                <h3 style={{ fontSize: '1.25rem', color: '#1f2937', marginBottom: '0.5rem' }}>
+                  No invoices found
+                </h3>
+                <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+                  {searchTerm || statusFilter !== 'All'
+                    ? 'Try adjusting your search or filters'
+                    : 'Get started by creating your first invoice'}
+                </p>
+                {!searchTerm && statusFilter === 'All' && (
+                  <button
+                    onClick={() => router.push('/admin/invoices/new')}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.95rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                  >
+                    Create First Invoice
+                  </button>
                 )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Search toolbar — Section 5: 40px height, 4px v-pad, 8px h-pad, 32px controls */}
-        <div className={styles.jobsToolbar} role="search" aria-label="Filter invoices" style={{ marginBottom: '8px' }}>
-          <input
-            type="search"
-            placeholder="Search invoices…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.jobsToolbarInput}
-            style={{ flex: '1 1 220px' }}
-            aria-label="Search invoices"
-          />
-          <ActionButton tone="secondary" onClick={() => void loadInvoices()}>Refresh</ActionButton>
-        </div>
-
-        {/* Invoice table — Section 9+10: header 36px; rows 42px; radius 4px */}
-        <div className={styles.operationalTableContainer}>
-          {loading ? (
-            <div className={styles.jobsEmptyTableCell} style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
-              Loading invoices…
-            </div>
-          ) : filteredInvoices.length === 0 ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 600, color: '#1a1f2b' }}>No invoices found</p>
-              <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#64748b' }}>
-                {searchTerm || statusFilter !== 'All'
-                  ? 'Try adjusting your search or filters'
-                  : 'Get started by creating your first invoice'}
-              </p>
-              {!searchTerm && statusFilter === 'All' && (
-                <ActionButton tone="success" onClick={() => router.push('/admin/invoices/new')}>
-                  Create First Invoice
-                </ActionButton>
-              )}
-            </div>
-          ) : (
-            <div className={styles.operationalTableScroll}>
-              <table className={styles.operationalTable}>
-                <caption className={styles.operationalTableCaption}>Invoice register</caption>
-                <thead>
-                  <tr className={styles.operationalTableHeaderRow}>
-                    <th scope="col" className={styles.operationalTableHeadCell}>Invoice #</th>
-                    <th scope="col" className={styles.operationalTableHeadCell}>Job Ref</th>
-                    <th scope="col" className={styles.operationalTableHeadCell}>Client</th>
-                    <th scope="col" className={styles.operationalTableHeadCell}>Date</th>
-                    <th scope="col" className={styles.operationalTableHeadCell}>Due Date</th>
-                    <th scope="col" className={`${styles.operationalTableHeadCell} ${styles.operationalTableActionHeadCell}`} style={{ textAlign: 'right' }}>Amount</th>
-                    <th scope="col" className={styles.operationalTableHeadCell}>Status</th>
-                    <th scope="col" className={`${styles.operationalTableHeadCell} ${styles.operationalTableActionHeadCell}`}><span className="sr-only">Actions</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedInvoices.map((invoice) => (
-                    <tr
-                      key={invoice.id}
-                      className={`${styles.operationalTableRow} xdrive-table-row`}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
-                    >
-                      <td className={styles.operationalTableCell}>
-                        <strong>{invoice.invoiceNumber}</strong>
-                      </td>
-                      <td className={styles.operationalTableCell}>{invoice.jobRef}</td>
-                      <td className={styles.operationalTableCell}>{invoice.clientName}</td>
-                      <td className={styles.operationalTableCell}>{new Date(invoice.date).toLocaleDateString('en-GB')}</td>
-                      <td className={styles.operationalTableCell}>{new Date(invoice.dueDate).toLocaleDateString('en-GB')}</td>
-                      <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`} style={{ textAlign: 'right', fontWeight: 600 }}>
-                        {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(invoice.amount)}
-                      </td>
-                      <td className={styles.operationalTableCell}>
-                        <StatusBadge value={invoice.status} />
-                      </td>
-                      <td className={`${styles.operationalTableCell} ${styles.operationalTableActionCell}`}>
-                        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-                        <div style={{ display: 'inline-flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
-                          <ActionButton
-                            tone="secondary"
-                            onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
-                          >
-                            View
-                          </ActionButton>
-                          {toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && (
-                            <ActionButton
-                              tone="success"
-                              onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
-                            >
-                              Record Payment
-                            </ActionButton>
-                          )}
-                        </div>
-                      </td>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Invoice #
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Job Ref
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Client
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Date
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Due Date
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'right', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Amount
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Status
+                      </th>
+                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {paginatedInvoices.map((invoice) => (
+                      <tr
+                        key={invoice.id}
+                        style={{
+                          borderBottom: '1px solid #e5e7eb',
+                          transition: 'background-color 0.2s',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
+                      >
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '500' }}>
+                          {invoice.invoiceNumber}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
+                          {invoice.jobRef}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
+                          {invoice.clientName}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                          {new Date(invoice.date).toLocaleDateString('en-GB')}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                          {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
+                        </td>
+                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
+                          GBP {invoice.amount.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                          <span style={getStatusStyle(invoice.status)}>
+                            {invoice.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.45rem' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/admin/invoices/${invoice.id}`);
+                              }}
+                              style={{
+                                padding: '0.4rem 0.8rem',
+                                backgroundColor: '#eff6ff',
+                                color: '#2563eb',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: '500',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              View
+                            </button>
+                            {toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/admin/invoices/${invoice.id}`);
+                                }}
+                                style={{
+                                  padding: '0.4rem 0.8rem',
+                                  backgroundColor: '#dcfce7',
+                                  color: '#166534',
+                                  border: '1px solid #bbf7d0',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Record Payment
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
+            <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+              <span>
+                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}-{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
+              </span>
+              <div style={{ display: 'flex', gap: '0.45rem' }}>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}
+                  disabled={safeInvoicePage === 0}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage === 0 ? '#f9fafb' : '#fff', cursor: safeInvoicePage === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setInvoicePage((prev) => Math.min(prev + 1, totalInvoicePages - 1))}
+                  disabled={safeInvoicePage >= totalInvoicePages - 1}
+                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage >= totalInvoicePages - 1 ? '#f9fafb' : '#fff', cursor: safeInvoicePage >= totalInvoicePages - 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Stats */}
+          {filteredInvoices.length > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+              marginTop: '1.5rem'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #3b82f6'
+              }}>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Invoices</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
+                  {filteredInvoices.length}
+                </div>
+              </div>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                borderLeft: '4px solid #10b981'
+              }}>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Amount</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
+                  GBP {filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
+                </div>
+              </div>
             </div>
           )}
         </div>
-
-        {/* Pagination — Section 11: 36px controls; 12px/600 text */}
-        {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
-          <div className={styles.operationalTableMeta} style={{ marginTop: '8px' }}>
-            <span>
-              Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}–{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length}
-            </span>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <ActionButton tone="secondary" disabled={safeInvoicePage === 0} onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}>
-                Previous
-              </ActionButton>
-              <ActionButton tone="secondary" disabled={safeInvoicePage >= totalInvoicePages - 1} onClick={() => setInvoicePage((prev) => Math.min(prev + 1, totalInvoicePages - 1))}>
-                Next
-              </ActionButton>
-            </div>
-          </div>
-        )}
-
-        {/* Summary KPI strip — Section 8: gap 8px, equal-width tiles */}
-        {filteredInvoices.length > 0 && (
-          <div style={{ marginTop: '12px' }}>
-            <ExchangeKpiStrip>
-              <KpiCard label="Total invoices" value={filteredInvoices.length} tone="navy" />
-              <KpiCard
-                label="Total amount"
-                value={new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0))}
-                tone="green"
-              />
-              <KpiCard
-                label="Overdue"
-                value={filteredInvoices.filter(i => i.status === 'Overdue').length}
-                tone={filteredInvoices.some(i => i.status === 'Overdue') ? 'red' : 'grey'}
-              />
-              <KpiCard
-                label="Pending payment"
-                value={filteredInvoices.filter(i => i.status === 'Sent').length}
-                tone="blue"
-              />
-            </ExchangeKpiStrip>
-          </div>
-        )}
       </div>
     </ProtectedRoute>
   );

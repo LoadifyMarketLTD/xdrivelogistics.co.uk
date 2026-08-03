@@ -9,7 +9,6 @@ const roleRoutes = [
   { role: 'broker', route: '/broker', actionCentre: '/broker/action-centre', notifications: '/broker/notifications' },
   { role: 'customer', route: '/customer', actionCentre: '/customer/action-centre', notifications: '/customer/notifications' },
   { role: 'driver', route: '/driver', actionCentre: '/driver/action-centre', notifications: '/driver/notifications' },
-  { role: 'carrier', route: '/carrier', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
   { role: 'operations', route: '/admin/operations-centre', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
 ] as const;
 

@@ -5,15 +5,14 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#f5f7fa',
-  cardBg: '#ffffff',
-  cardBorder: '#d9e2ec',
-  text: '#202124',
-  muted: '#5f6368',
-  accent: '#f5a300',
-  green: '#35a853',
-  blue: '#1d57d8',
-  red: '#d93025',
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
+  green: '#22c55e',
+  blue: '#3b82f6',
 };
 
 type Kpis = {
@@ -78,20 +77,20 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ padding: '12px 16px', maxWidth: '1480px', margin: '0 auto' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
           <span style={{ fontSize: '1.5rem' }}>📊</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Platform Analytics</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: '#fffbeb', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform</span>
             </div>
             <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Cross-company KPI dashboard and operational trend reporting.</p>
           </div>
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #ef4444', borderRadius: '4px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
+          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
             ⚠️ {error}
           </div>
         )}
@@ -102,7 +101,7 @@ export default function Page() {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.65rem', marginBottom: '1.25rem' }}>
               {kpiCards.map((card) => (
-                <div key={card.label} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '0.75rem' }}>
+                <div key={card.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.75rem' }}>
                   <div style={{ color: card.color, fontSize: '1.15rem', fontWeight: 700 }}>{card.value}</div>
                   <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '0.15rem' }}>{card.label}</div>
                 </div>
@@ -110,7 +109,7 @@ export default function Page() {
             </div>
 
             {weekly.length > 0 && (
-              <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '1rem' }}>
+              <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem' }}>
                 <h3 style={{ color: THEME.text, fontSize: '0.9rem', fontWeight: 700, margin: '0 0 1rem' }}>Jobs Created (last 30 days by week)</h3>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', height: '120px' }}>
                   {weekly.map((w) => {

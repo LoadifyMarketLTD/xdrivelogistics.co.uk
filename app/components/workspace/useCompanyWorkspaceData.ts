@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -98,7 +98,7 @@ export type WorkspaceLocation = {
   updated_at?: string | null;
 };
 
-export type WorkspaceDataState = {
+type WorkspaceDataState = {
   companyId: string | null;
   loading: boolean;
   error: string;
@@ -112,14 +112,6 @@ export type WorkspaceDataState = {
   locations: WorkspaceLocation[];
   refresh: () => Promise<void>;
 };
-
-/**
- * CompanyWorkspaceDataContext — when a non-null value is provided through this
- * context (e.g. from a visual fixture), the hook returns it immediately and
- * skips all Supabase queries. This lets fixture pages render the real
- * authenticated route components with static mock data without live auth.
- */
-export const CompanyWorkspaceDataContext = createContext<WorkspaceDataState | null>(null);
 
 type QueryResult<T> = { data: T[] | null; error: { message?: string | null } | null };
 
@@ -145,7 +137,6 @@ const customerInvoiceVisible = (invoice: WorkspaceInvoice) => {
 };
 
 export function useCompanyWorkspaceData(): WorkspaceDataState {
-  const fixtureOverride = useContext(CompanyWorkspaceDataContext);
   const { user } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(user?.companyId ?? null);
   const [loading, setLoading] = useState(true);
@@ -281,11 +272,6 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
   }, [companyId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
-
-  // If fixture data is provided via context, return it — the Supabase state
-  // computed above is ignored. This allows visual fixtures to render real
-  // authenticated route components with static mock data.
-  if (fixtureOverride) return fixtureOverride;
 
   return {
     companyId,

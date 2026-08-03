@@ -15,7 +15,6 @@ import {
 const mainNav = [
   { label: 'Exchange', href: '#platform' },
   { label: 'How It Works', href: '#workflow' },
-  { label: 'Visual Proof', href: '#proof' },
   { label: 'Customers', href: '#customers' },
   { label: 'Couriers', href: '#couriers' },
   { label: 'Access', href: '#access' },
@@ -69,30 +68,6 @@ const audienceSections = [
     headline: 'Find available work. Quote fast. Operate cleanly.',
     copy: 'Courier companies and owner drivers can view relevant work, respond with quotes, and manage awarded jobs through dispatch, status updates and proof of delivery.',
     points: ['Available exchange work', 'Awarded job workspace', 'Evidence returned to the record'],
-  },
-] as const;
-
-const visualProofFrames = [
-  {
-    label: 'Marketplace',
-    title: 'Live load visibility',
-    detail: 'Posted work, route context and quote activity shown in one exchange view.',
-    image: '/marketplace-loading.webp',
-    alt: 'XDrive marketplace workspace showing live load and quote activity',
-  },
-  {
-    label: 'Driver POD',
-    title: 'Delivery evidence returned',
-    detail: 'Driver-side mobile workflow showing proof of delivery tied back to the job record.',
-    image: '/xdrive-driver-pod-real.webp',
-    alt: 'XDrive driver proof of delivery workflow on mobile',
-  },
-  {
-    label: 'Finance',
-    title: 'Records stay connected',
-    detail: 'Invoice readiness and POD checks remain visible against the same operational history.',
-    image: '/xdrive-finance-records-real.webp',
-    alt: 'XDrive finance workspace showing linked POD and invoice records',
   },
 ] as const;
 
@@ -165,7 +140,6 @@ const footerGroups = [
     links: [
       { label: 'Exchange', href: '#platform' },
       { label: 'How It Works', href: '#workflow' },
-      { label: 'Visual Proof', href: '#proof' },
       { label: 'Customers', href: '#customers' },
       { label: 'Couriers', href: '#couriers' },
     ],
@@ -345,33 +319,6 @@ export function LandingPage() {
                   </article>
                 ))}
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="proof" className="border-t border-[#D7E6FA] bg-white px-5 py-20 sm:px-8 lg:py-24">
-          <div className="mx-auto max-w-[1440px]">
-            <div className="max-w-3xl">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Visual Proof</p>
-              <h2 className="mt-4 text-4xl font-black leading-tight text-[#002B6C] sm:text-6xl">See the workflow before you apply.</h2>
-              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-[#49607F]">
-                Real XDrive workspace visuals show how posted work, POD evidence and invoice readiness stay connected across the same job record.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-6 lg:grid-cols-3">
-              {visualProofFrames.map((frame) => (
-                <article key={frame.label} className="overflow-hidden border border-[#D7E6FA] bg-[#F7FAFF] shadow-[0_18px_50px_rgba(0,43,108,0.08)]">
-                  <div className="relative aspect-[16/10] bg-[#EEF6FF]">
-                    <Image src={frame.image} alt={frame.alt} fill className="object-cover" />
-                  </div>
-                  <div className="p-6">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]">{frame.label}</p>
-                    <h3 className="mt-2 text-2xl font-black text-[#002B6C]">{frame.title}</h3>
-                    <p className="mt-3 text-sm font-semibold leading-6 text-[#49607F]">{frame.detail}</p>
-                  </div>
-                </article>
-              ))}
             </div>
           </div>
         </section>
