@@ -1,9 +1,7 @@
-import { notFound } from 'next/navigation';
-import WorkspaceShell from '../../components/workspace/WorkspaceShell';
-import { OwnerConsole, PlatformStatsContext, type PlatformStats, type NotificationRow } from '../../super-admin/page';
+'use client';
 
-const VISUAL_FIXTURE_ENABLED =
-  process.env.NODE_ENV !== 'production' && process.env.E2E_VISUAL_FIXTURE === 'true';
+import WorkspaceShell from '../../components/workspace/WorkspaceShell';
+import { OwnerConsole, PlatformStatsContext, type PlatformStats, type NotificationRow } from '../../super-admin/OwnerConsole';
 
 const FIXTURE_STATS: PlatformStats = {
   companiesTotal: 7,
@@ -27,10 +25,6 @@ const FIXTURE_NOTIFICATIONS: NotificationRow[] = [
 ];
 
 export default function SuperAdminDashboardFixturePage() {
-  if (!VISUAL_FIXTURE_ENABLED) {
-    notFound();
-  }
-
   return (
     <PlatformStatsContext.Provider value={{ stats: FIXTURE_STATS, notifications: FIXTURE_NOTIFICATIONS }}>
       <WorkspaceShell
