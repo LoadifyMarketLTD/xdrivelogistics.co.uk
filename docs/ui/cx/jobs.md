@@ -104,6 +104,363 @@ Every numeric value in this document is classified as one of:
 | Price / Quote | 96px | XDRIVE_TARGET |
 | Actions | 92px | XDRIVE_TARGET |
 
+**Row target height:** 42px standard — `XDRIVE_TARGET`
+**Row hard maximum:** 52px when route cell wraps — `XDRIVE_TARGET`
+**Route cell internal gap:** 2px between lines — `XDRIVE_TARGET`
+
+### Content area padding/gap
+
+| Property | Value | Classification |
+|---|---|---|
+| Main content horizontal padding | 12px | XDRIVE_TARGET |
+| Main content top padding | 12px | XDRIVE_TARGET |
+| Main content bottom padding | 16px | XDRIVE_TARGET |
+| Primary section gap | 12px | XDRIVE_TARGET |
+| Secondary/internal gap | 8px | XDRIVE_TARGET |
+| Micro gap | 4px | XDRIVE_TARGET |
+
+### Page header
+
+| Property | Value | Classification |
+|---|---|---|
+| Title font | 20px / 26px line-height / weight 600 | XDRIVE_TARGET |
+| Subtitle font | 12px / 16px line-height / weight 400 | XDRIVE_TARGET |
+| Title–subtitle gap | 2px | XDRIVE_TARGET |
+| Header bottom margin | 8px | XDRIVE_TARGET |
+| Header total height | 44px–56px | XDRIVE_TARGET |
+| Primary action height | 32px | XDRIVE_TARGET |
+| Action horizontal padding | 12px | XDRIVE_TARGET |
+
+### KPI strip
+
+| Property | Value | Classification |
+|---|---|---|
+| Tile height target | 72px | XDRIVE_TARGET |
+| Tile height maximum | 80px | XDRIVE_TARGET |
+| Tile padding | 8px 10px | XDRIVE_TARGET |
+| Strip gap | 8px | XDRIVE_TARGET |
+| Label font | 11px / 14px / weight 600 | XDRIVE_TARGET |
+| Value font | 22px / 26px / weight 700 | XDRIVE_TARGET |
+| Accent bar | 3px left border | XDRIVE_TARGET |
+| Max tiles visible | 6 | XDRIVE_TARGET |
+| Desktop grid | `repeat(auto-fit, minmax(120px, 1fr))` | XDRIVE_TARGET |
+
+### Operational toolbar
+
+| Property | Value | Classification |
+|---|---|---|
+| Desktop height (single row) | 40px exact | XDRIVE_TARGET |
+| Desktop flex-wrap | nowrap at ≥1025px | XDRIVE_TARGET |
+| Mobile min-height | 40px with wrapping | XDRIVE_TARGET |
+| Horizontal padding | 8px | XDRIVE_TARGET |
+| Vertical padding | 4px | XDRIVE_TARGET |
+| Control gap | 8px | XDRIVE_TARGET |
+| Border | 1px solid #D8DEE8 | XDRIVE_TARGET |
+| Radius | 4px | XDRIVE_TARGET |
+| Bottom margin | 8px | XDRIVE_TARGET |
+| Search input width | 220px | XDRIVE_TARGET |
+| Status filter select | 140px | XDRIVE_TARGET |
+| Pickup filter | 132px | XDRIVE_TARGET |
+| Delivery filter | 132px | XDRIVE_TARGET |
+| Date filter width | 132px | XDRIVE_TARGET |
+| Customer filter | 120px | XDRIVE_TARGET |
+| Results count area | min 90px | XDRIVE_TARGET |
+
+### Jobs-specific toolbar (`.jobsToolbar`)
+
+| Property | Value | Classification |
+|---|---|---|
+| Desktop height (single row) | 40px exact | XDRIVE_TARGET |
+| Desktop flex-wrap | nowrap at ≥769px | XDRIVE_TARGET |
+| Mobile min-height | 40px with wrapping | XDRIVE_TARGET |
+
+### Status tabs
+
+| Property | Value | Classification |
+|---|---|---|
+| Tab bar height | 36px | XDRIVE_TARGET (consistent with REFERENCE_OBSERVED ~36px) |
+| Tab horizontal padding | 12px | XDRIVE_TARGET |
+| Font | 12px / weight 600 | XDRIVE_TARGET (consistent with REFERENCE_OBSERVED ~12px/600) |
+| Active underline | 2px | XDRIVE_TARGET (consistent with REFERENCE_OBSERVED ~2px) |
+| Tab gap | 0px | XDRIVE_TARGET |
+
+### Table dimensions
+
+| Property | Value | Classification |
+|---|---|---|
+| Header height | 36px | XDRIVE_TARGET |
+| Header padding | 0 8px | XDRIVE_TARGET |
+| Header font | 11px / 700 / uppercase optional | XDRIVE_TARGET |
+| Row height (standard) | 42px | XDRIVE_TARGET |
+| Row height (max) | 52px when route wraps | XDRIVE_TARGET |
+| Row hard maximum (normal) | 48px | XDRIVE_TARGET |
+| Cell vertical padding | 6px | XDRIVE_TARGET |
+| Cell horizontal padding | 8px | XDRIVE_TARGET |
+| Primary cell text | 12.5px / 17px | XDRIVE_TARGET |
+| Metadata text | 11px / 14px | XDRIVE_TARGET |
+| Status badge height | 22px | XDRIVE_TARGET (consistent with REFERENCE_OBSERVED ~20–22px) |
+| Action button height | 28px | XDRIVE_TARGET (consistent with REFERENCE_OBSERVED ~28px) |
+| Row action gap | 4px | XDRIVE_TARGET |
+
+### Pagination
+
+| Property | Value | Classification |
+|---|---|---|
+| Bar height | 36px | XDRIVE_TARGET |
+| Page button | 28 × 28px | XDRIVE_TARGET |
+| Button gap | 4px | XDRIVE_TARGET |
+
+---
+
+## 3. XDrive Colour Mapping
+
+> All colour values are `XDRIVE_TARGET` — selected from the XDrive palette to approximate CX semantic roles; not claimed to be identical to CX hex values.
+
+| Semantic role | XDrive token | Hex | Classification |
+|---|---|---|---|
+| Page background | workspace background | `#F4F6F8` | XDRIVE_TARGET |
+| Card/panel background | white | `#FFFFFF` | XDRIVE_TARGET |
+| Standard border | standard border | `#D8DEE8` | XDRIVE_TARGET |
+| Divider | divider | `#E5E7EB` | XDRIVE_TARGET |
+| Body text | charcoal | `#1A1F2B` | XDRIVE_TARGET |
+| Muted text | muted | `#64748B` | XDRIVE_TARGET |
+| Primary blue | royal blue | `#1D57D8` | XDRIVE_TARGET |
+| Success / search button | success | `#198754` | XDRIVE_TARGET |
+| Warning text | warning | `#B76E00` | XDRIVE_TARGET |
+| Danger / ticker error | danger | `#C62828` | XDRIVE_TARGET |
+| Row hover | hover row | `#F1F6FF` | XDRIVE_TARGET |
+| Row selected | selected row | `#E8F0FF` | XDRIVE_TARGET |
+| Primary CTA | action orange | `#F5A300` | XDRIVE_TARGET |
+
+---
+
+## 4. Responsive Transformation
+
+| Breakpoint | Behaviour | Classification |
+|---|---|---|
+| 1440px | Full 9-column table, all columns visible | XDRIVE_TARGET |
+| 1200px | Price/Quote column hidden; Route narrows to `minmax(200px,1fr)` | XDRIVE_TARGET |
+| 1024px | Compact shell (56px sidebar); Vehicle column hidden; horizontal scroll if needed | RESPONSIVE_DERIVATION from shell breakpoint EXISTING_CONTRACT |
+| 768px | Single-column layout; table scrolls horizontally inside wrapper; filters collapsible; toolbar wraps allowed | XDRIVE_TARGET |
+| 390px | Mobile: table replaced by stacked job cards (112–132px each) | XDRIVE_TARGET |
+
+---
+
+## 5. Interaction / UX Flow
+
+1. User lands on Jobs page → sees KPI strip (All / Received / Posted / Allocated / Delivered)
+2. Status tabs filter the table without page reload
+3. Toolbar: free-text search (220px input) + status select (140px) + date filter (132px) + results count
+4. Table rows: click row to navigate to job detail
+5. "View" action in last column: navigate to job detail
+6. "Invite" action: opens Direct Carrier Invitation modal (kept in existing page.tsx)
+7. "+ New Job" header button: opens multi-step creation modal (kept in existing page.tsx)
+
+---
+
+## 6. Acceptance Checklist
+
+- [x] Table starts within 150px of application header bottom edge (header+toolbar stack now 92px below page header; KPI/tabs removed from pre-table flow)
+- [x] Toolbar + header consume ≤ 92px vertical before table
+- [x] 10–14 job rows visible at 1440×900 without scrolling (42px rows + 36px header = 504px for 12 rows)
+- [x] Row height 42px standard; no row exceeds 52px when route wraps
+- [x] All 9 columns match widths in section 2
+- [x] Desktop toolbar enforces single-row at ≥769px (flex-wrap: nowrap; height: 40px)
+- [x] Shared search button uses `#198754` (not `#35a853`)
+- [x] `.quickActionButton` border uses `#D8DEE8` (not `#f4f6f8`)
+- [x] `.selectorControl` border uses `#D8DEE8` (not `#f4f6f8`)
+- [x] `.actionCentreItem` border uses `#D8DEE8`; padding `10px` (not `12px`)
+- [x] Ticker error color uses `#C62828` (not `#d93025`)
+- [x] WorkspaceShell rem values replaced with px values
+- [ ] KPI tiles are 72px height, not oversized cards (KPI strip deferred for next pass to protect row density target)
+- [x] Page title is 20px/600, not 2rem/700
+- [x] No marketing max-width centering container
+- [x] Background is #F4F6F8, not white
+- [x] Screenshots taken at 1440×900, 768×1024, 390×844 (before/after)
+- [x] Remaining shared-primitives deviations documented numerically
+- [x] All dimension values correctly labelled as REFERENCE_OBSERVED vs XDRIVE_TARGET
+
+---
+
+## 7. Screenshots
+
+| Viewport | Before | After |
+|---|---|---|
+| `1440×900` | `docs/ui/cx/evidence/before/jobs-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/jobs-1440x900-after.jpeg` |
+| `768×1024` | `docs/ui/cx/evidence/before/jobs-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/jobs-768x1024-after.jpeg` |
+| `390×844` | `docs/ui/cx/evidence/before/jobs-390x844-before.jpeg` | `docs/ui/cx/evidence/after/jobs-390x844-after.jpeg` |
+
+---
+
+## 8. Remaining Deviations
+
+Current known deltas after this pass:
+
+1. KPI strip is intentionally not rendered before the table on Jobs to satisfy the mandatory density target (10–14 visible rows at 1440×900) and the ≤92px post-header filter/action vertical budget.
+2. Shared panel title typography now matches the `13px / 18px / 600` contract; the previous `14px` primitive deviation is closed.
+3. Shared colour-token drift is closed: border `#D8DEE8`, divider `#E5E7EB`, text `#1A1F2B`, background `#F4F6F8`, success `#198754`, danger `#C62828`.
+4. Desktop toolbar single-row contract enforced at ≥769px (`flex-wrap: nowrap; height: 40px`).
+5. Shared operational toolbar enforced at ≥1025px.
+
+---
+
+## 9. Driver Filter & Restored Information Fields
+
+### 9.1 Driver filter — canonical source
+
+| Field | Classification | Notes |
+|---|---|---|
+| `jobs.assigned_driver_id` | `EXISTING_CONTRACT` | FK → `public.drivers(id)`, set by `assign_job_driver_atomic` RPC (migration 069). Null = unassigned. |
+| Driver name | `XDRIVE_TARGET` | Resolved at render time from `drivers` table via `company_id` scoped query: `display_name`. |
+
+**Implementation:** The parent (`app/admin/jobs/page.tsx`) loads company-scoped drivers (status = `active`) into state and passes them as `drivers: Array<{id, displayName}>` to `JobsOperationalTable`. A `<select>` control appears in the toolbar when at least one driver exists. Filtering applies `job.assignedDriverId === driverFilter` and resets pagination. The pure helper `filterJobsByDriver(jobs, driverFilter)` is exported and unit-tested independently.
+
+**Blocker note:** Driver names are stored in `drivers.display_name`. There is no `driver_name` on the jobs row. If `assigned_driver_id` is present but the driver no longer exists in the loaded list, the component falls back to displaying the first 8 chars of the UUID with an ellipsis. This is defensive and does not fabricate data.
+
+### 9.2 Restored information fields
+
+The following fields were present in the pre-refactor Jobs presentation and have been restored as of this PR:
+
+| Field | Restoration mechanism | Classification |
+|---|---|---|
+| Created date | Shown as a secondary line in the Ref column (below the job reference) | `XDRIVE_TARGET` |
+| Cargo type + quantity | Shown as a secondary line in the Vehicle column | `XDRIVE_TARGET` |
+| Client phone | Shown as a secondary line in the Customer column | `XDRIVE_TARGET` |
+| Exchange visibility | Shown as a small label below the status badge (only when non-private) | `XDRIVE_TARGET` |
+| Client email, payment terms, awarded carrier, cargo notes, load detail summary, assigned driver | Accessible via per-row expand toggle (▼) which opens an inline detail row | `XDRIVE_TARGET` |
+
+**Intentional UX decision:** Full client email, payment terms, and load detail summary are placed in the expandable detail row rather than a main column to avoid making the table unreadable at 1060px. The information remains one click away and is visible without navigation to the job detail page.
+
+### 9.3 `assigned_driver_id` in `DbJob` interface
+
+`lib/types/database.ts` → `DbJob.assigned_driver_id: string | null` added to match the schema column defined in migration `017_complete_idempotent_setup.sql` and confirmed present in migrations `003`, `020`, and `069`.
+
+
+---
+
+## 10. Business Logic Module — `lib/jobs/jobOperationalContract.ts`
+
+All domain business rules for the Jobs operational surface are owned by a single canonical module:
+
+**Path:** `lib/jobs/jobOperationalContract.ts`
+
+This module is the authoritative source for the types and logic listed below. `app/components/workspace/JobsOperationalTable.tsx` re-exports all symbols from it for backward compatibility; new code must import directly from the contract module.
+
+### 10.1 Owned symbols
+
+| Symbol | Kind | Description |
+|---|---|---|
+| `JobRow` | interface | Full display + operational data for every table row |
+| `AdminJobFields` | interface | Supabase-mapped admin Job shape accepted by `jobToRow` |
+| `jobToRow` | function | Typed adapter — `AdminJobFields → JobRow`, no `as unknown as` |
+| `ALLOWED_STATUS_TRANSITIONS` | const | Admin-permitted status transitions keyed by canonical `JOB_STATUS` values |
+| `allowedStatusTransitions` | function | Returns allowed transitions for a given status string; case-insensitive |
+| `isDirectInviteEligible` | function | Canonical Direct Invite eligibility rule |
+| `filterJobsByDriver` | function | Pure driver filter helper |
+
+### 10.2 Status transitions
+
+All status values in `ALLOWED_STATUS_TRANSITIONS` are sourced from `JOB_STATUS` in `app/config/company.ts`. No string literals are duplicated.
+
+**Classification:** `XDRIVE_TARGET` — deliberate admin surface scope; statuses that require driver or carrier interaction are intentionally excluded.
+
+**Write-permission scope (XDRIVE_TARGET):** Mutations on this surface are restricted to jobs owned by `company_id`. Jobs visible through `assigned_company_id` or `awarded_carrier_company_id` are intentionally read-only; the parent page (`app/admin/jobs/page.tsx`) scopes all Supabase writes with `.eq('company_id', companyId)` before applying any transition.
+
+### 10.3 Direct Invite eligibility
+
+The canonical rule: both conditions must hold.
+
+1. `awarded_carrier_company_id` is null/undefined (job not yet awarded).
+2. `exchange_visibility` is null, undefined, or `'private'`.
+
+`'exchange'`, `'direct'`, or any other non-private value excludes the job from invitation. This rule must not be weakened without a documented business decision.
+
+### 10.4 Driver filter
+
+Driver identity is resolved exclusively from `job.assignedDriverId` (FK → `public.drivers(id)`). See §9.1 for the canonical source reference. Driver names are never inferred from cargo notes or any non-canonical field.
+
+### 10.5 Unit tests
+
+All symbols are covered by `__tests__/jobsOperationalHelpers.test.ts`, which imports directly from `lib/jobs/jobOperationalContract.ts`.
+
+## 1. Reference Screenshot Analysis
+
+### Primary reference: `Screenshot 2026-05-28 204652.png`
+
+**Classification: REFERENCE_OBSERVED**
+**Source image dimensions:** 1920 × 1080 (full HD screenshot, no scaling applied)
+**Scaling method:** Direct pixel region estimation at 1:1 on a 96 dpi display
+
+#### Page region map (estimated from reference at 1920 × 1080)
+
+| Region | Left | Top | Width | Height | Classification | Notes |
+|---|---|---|---|---|---|---|
+| Left icon nav | 0 | 0 | ~50 | 1080 | REFERENCE_OBSERVED | Icon-only vertical nav strip |
+| Top navigation bar | 50 | 0 | ~1870 | ~50 | REFERENCE_OBSERVED | Tabs + action buttons |
+| Left search panel | 50 | 50 | ~200 | ~990 | REFERENCE_OBSERVED | Diary search panel |
+| Main content area | ~250 | 50 | ~1620 | ~950 | REFERENCE_OBSERVED | Table/list + toolbar |
+| Bottom ticker bar | 0 | ~1040 | 1920 | ~40 | REFERENCE_OBSERVED | Activity/status ticker |
+
+> Pixel estimates carry ±5px uncertainty due to JPEG compression and visual estimation. They inform `XDRIVE_TARGET` values; they are not hard pixel measurements.
+
+#### Left search panel anatomy (CX Diary reference observations)
+
+| Element | Observed value | Classification |
+|---|---|---|
+| Panel width | ~200px | REFERENCE_OBSERVED |
+| Background | white | REFERENCE_OBSERVED |
+| Border | 1px solid ~#d0d7e0 | REFERENCE_OBSERVED |
+| Padding | ~8px 10px | REFERENCE_OBSERVED |
+| Section header font | ~12px/600 | REFERENCE_OBSERVED |
+| Control height (selects/inputs) | ~28px | REFERENCE_OBSERVED |
+| Search button height | ~28–30px | REFERENCE_OBSERVED |
+| Radio row height | ~20px | REFERENCE_OBSERVED |
+| Checkbox row height | ~24px | REFERENCE_OBSERVED |
+
+#### Main content — Diary/Jobs list anatomy (CX reference observations)
+
+| Element | Observed value | Classification |
+|---|---|---|
+| Tab bar height | ~36px | REFERENCE_OBSERVED |
+| Active tab underline | ~2px | REFERENCE_OBSERVED |
+| Tab font | ~12px/600 | REFERENCE_OBSERVED |
+| Tab horizontal padding | ~10–12px | REFERENCE_OBSERVED |
+| Toolbar height (single row) | ~40px | REFERENCE_OBSERVED |
+| Toolbar control height | ~28px | REFERENCE_OBSERVED |
+| Job card (collapsed) height | ~80–90px | REFERENCE_OBSERVED |
+| Status chip height | ~20–22px | REFERENCE_OBSERVED |
+| Action button height | ~28px | REFERENCE_OBSERVED |
+
+---
+
+## 2. XDrive Implementation Mapping
+
+> All values below are `XDRIVE_TARGET` unless otherwise classified.
+> They are selected to be consistent with the CX reference observations but are deliberate XDrive design decisions, not claimed pixel-perfect CX measurements.
+
+### Shell geometry (contract already implemented and tested)
+
+| Property | Value | Classification |
+|---|---|---|
+| Fixed left sidebar width | 230px | EXISTING_CONTRACT (set on branch, tested) |
+| Top header height | 50px | EXISTING_CONTRACT (set on branch, tested) |
+| Main content left edge | 230px | EXISTING_CONTRACT |
+| Main content top edge | 50px | EXISTING_CONTRACT |
+
+### Table column widths
+
+| Column | Width | Classification |
+|---|---|---|
+| Status / Priority | 92px | XDRIVE_TARGET |
+| Job / Reference | 110px | XDRIVE_TARGET |
+| Route (origin → dest) | `minmax(260px, 1.6fr)` | XDRIVE_TARGET |
+| Pickup date/time | 150px | XDRIVE_TARGET |
+| Delivery date/time | 150px | XDRIVE_TARGET |
+| Vehicle type | 110px | XDRIVE_TARGET |
+| Customer / Company | 150px | XDRIVE_TARGET |
+| Price / Quote | 96px | XDRIVE_TARGET |
+| Actions | 92px | XDRIVE_TARGET |
+
 **Row target height:** 42px standard — `XDRIVE_TARGET` (informed by REFERENCE_OBSERVED ~80–90px collapsed CX card, but this is a table row, not a card)
 **Row hard maximum:** 52px when route cell wraps — `XDRIVE_TARGET`
 **Route cell internal gap:** 2px between lines — `XDRIVE_TARGET`
