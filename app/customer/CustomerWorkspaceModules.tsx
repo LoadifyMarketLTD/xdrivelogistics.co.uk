@@ -93,14 +93,13 @@ export function CustomerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/customer/loads')} />
+        {/* Section 8: maximum 6 KPI tiles. Draft loads and unpaid invoices surfaced in Commercial summary. */}
         <KpiCard label="Open loads" value={metrics.open} detail="Awaiting carrier quotes" tone="blue" onClick={() => router.push('/customer/loads')} />
         <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="purple" onClick={() => router.push('/customer/quotes')} />
         <KpiCard label="Awaiting award" value={metrics.awaitingAward.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/customer/quotes')} />
         <KpiCard label="Active deliveries" value={metrics.activeDeliveries.length} detail="In transit now" tone="green" onClick={() => router.push('/customer/deliveries')} />
         <KpiCard label="Delayed" value={metrics.delayed.length} detail="Past delivery window" tone="red" onClick={() => router.push('/customer/deliveries')} />
         <KpiCard label="POD ready" value={metrics.pod} detail="Proof of delivery available" tone="navy" onClick={() => router.push('/customer/documents')} />
-        <KpiCard label="Unpaid invoices" value={metrics.unpaidInvoices.length} detail={metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding'} tone={metrics.unpaidInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/customer/invoices')} />
       </KpiGrid>
 
       {metrics.awaitingAward.length > 0 && (
@@ -152,9 +151,11 @@ export function CustomerDashboard() {
           <OperationalCard title="Commercial summary" subtitle="Pipeline, delivery evidence and invoice urgency in one place.">
             <div style={{ display: 'grid', gap: '8px' }}>
               {[
+                ['Draft loads', metrics.draft, '#f8fafc', '#475569'],
                 ['Loads awaiting quotes', metrics.open, '#eff6ff', '#1d4ed8'],
                 ['Carrier awards made', metrics.awarded, '#f0fdf4', '#166534'],
                 ['POD ready', metrics.pod, '#f8fafc', '#334155'],
+                ['Unpaid invoices', metrics.unpaidInvoices.length, metrics.unpaidInvoices.length ? '#fff7ed' : '#f8fafc', metrics.unpaidInvoices.length ? '#C62828' : '#475569'],
                 ['Invoices due soon', metrics.dueSoonInvoices.length, metrics.dueSoonInvoices.length ? '#fff7ed' : '#f8fafc', metrics.dueSoonInvoices.length ? '#c2410c' : '#475569'],
               ].map(([label, value, bg, color]) => (
                 <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '4px', padding: '8px 10px', fontSize: '12px' }}>
