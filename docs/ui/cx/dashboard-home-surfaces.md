@@ -29,6 +29,17 @@
 | Micro gap | `4px` |
 | Decorative whitespace maximum | `16px` |
 
+### Shared shell verification
+
+| Surface | Authenticated route | Shared layout primitive | Shared width token | Notes |
+|---|---|---|---|---|
+| Admin | `/admin` | `WorkspaceShell` | `WORKSPACE_SHELL_DIMENSIONS.desktopSidebar` | Company admin shell |
+| Broker | `/broker` | `WorkspaceShell` | `WORKSPACE_SHELL_DIMENSIONS.desktopSidebar` | Broker layout mounts shared shell directly |
+| Customer | `/customer` | `WorkspaceShell` | `WORKSPACE_SHELL_DIMENSIONS.desktopSidebar` | Customer layout mounts shared shell directly |
+| Driver | `/driver` | `WorkspaceShell` | `WORKSPACE_SHELL_DIMENSIONS.desktopSidebar` | Driver layout mounts shared shell directly |
+| Carrier | `/admin` (carrier role) | `WorkspaceShell` | `WORKSPACE_SHELL_DIMENSIONS.desktopSidebar` | Carrier dashboard resolves inside the authenticated admin shell for `carrier_admin` users |
+| Super Admin | `/super-admin` | `WorkspaceShell` via `SuperAdminWorkspaceShell` wrapper | `WORKSPACE_SHELL_DIMENSIONS.desktopSidebar` | Super-admin navigation now delegates to the shared shell primitive |
+
 ### Dashboard panel contract
 
 | Element | Value |
@@ -182,10 +193,14 @@ All dashboard evidence in this section must be captured from the authenticated r
 | `/super-admin` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
 
 > Contract shorthand order: `sidebar / header / rail / controls / panel header / standard row / body overflow`; `36+` means the rendered panel header stays at or above the `36px` minimum.
+>
+> Desktop sidebar measurements may read anywhere inside `228–232px`; that tolerance is accepted only for browser/layout measurement variance while every dashboard continues to consume the same shared shell primitive and shared width token.
 
 ## Acceptance checklist
 
 - [x] Shared `230px / 50px` shell retained
+- [x] All six authenticated dashboard surfaces consume the shared `WorkspaceShell` sidebar primitive
+- [x] Sidebar width comes from one shared token/constant rather than per-dashboard literals
 - [x] Compact dashboard headers retained
 - [x] Dashboard panel headers aligned to `36px` minimum and `8px 10px` padding
 - [x] Panel bodies tightened to `10px`

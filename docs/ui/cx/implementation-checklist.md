@@ -141,7 +141,7 @@ Unit tests: `__tests__/cxPrimitives.test.tsx` — 21 tests, all passing.
 | Filter rail width | 232px | 220px | ✅ |
 | Panel border-radius | 9px | 4px | ✅ |
 | TwoColumn ratio | 65%/35% | 44%/56% (0.79fr/1fr) | ✅ |
-| Super-admin sidebar | 254px | 230px | ✅ |
+| Super-admin sidebar | 254px custom shell | shared `230px` token via `WorkspaceShell` | ✅ |
 | Super-admin header | — | 50px height | ✅ |
 | Section title | 1rem | 16px/600/22px | ✅ |
 | Body text line-height | — | 18px | ✅ |
@@ -189,4 +189,3 @@ Shared components `SuperAdminLiveTablePage`, `SuperAdminModulePage`, `SuperAdmin
 | `/driver` (driver dashboard) | 🔲 Pending |
 
 ---
-
