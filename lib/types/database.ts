@@ -281,7 +281,9 @@ export interface DbJob {
   client_signature_name: string | null;
   exchange_visibility: 'private' | 'exchange' | 'direct' | null;
   awarded_carrier_company_id: string | null;
+  direct_invite_company_id: string | null;
   exchange_posted_at: string | null;
+  assigned_driver_id: string | null;
   created_at: string;
   updated_at: string;
 }

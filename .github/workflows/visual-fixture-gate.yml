@@ -19,6 +19,18 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
       EXPECTED_NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || '' }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || '' }}
+      E2E_BROKER_EMAIL: ${{ secrets.E2E_BROKER_EMAIL || '' }}
+      E2E_BROKER_PASSWORD: ${{ secrets.E2E_BROKER_PASSWORD || '' }}
+      E2E_CUSTOMER_EMAIL: ${{ secrets.E2E_CUSTOMER_EMAIL || '' }}
+      E2E_CUSTOMER_PASSWORD: ${{ secrets.E2E_CUSTOMER_PASSWORD || '' }}
+      E2E_DRIVER_EMAIL: ${{ secrets.E2E_DRIVER_EMAIL || '' }}
+      E2E_DRIVER_PASSWORD: ${{ secrets.E2E_DRIVER_PASSWORD || '' }}
+      E2E_CARRIER_EMAIL: ${{ secrets.E2E_CARRIER_EMAIL || '' }}
+      E2E_CARRIER_PASSWORD: ${{ secrets.E2E_CARRIER_PASSWORD || '' }}
+      E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL || '' }}
+      E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD || '' }}
 
     steps:
       - name: Checkout
@@ -36,8 +48,8 @@ jobs:
       - name: Install Playwright browser (Chromium)
         run: npx playwright install --with-deps chromium
 
-      - name: Run workspace visual fixture gate
-        run: npx playwright test e2e/workspace-visual-auth-gate.spec.ts --project=chromium --reporter=html
+      - name: Run workspace visual route proof gate
+        run: npx playwright test e2e/workspace-visual-auth-gate.spec.ts e2e/jobs-visual-gate.spec.ts --project=chromium --reporter=html
 
       - name: Upload Playwright visual gate artifacts
         if: always()

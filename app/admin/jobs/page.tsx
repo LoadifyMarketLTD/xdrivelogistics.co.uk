@@ -10,10 +10,17 @@ import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
+import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
+import {
+  validateJobTransition,
+} from '../../../lib/jobs/jobOperationalContract';
+import type { JobTransitionRecord } from '../../../lib/jobs/jobOperationalContract';
 
 interface Job {
  id: string;
  jobRef: string;
+ /** Owner company — used for mutation eligibility checks (company_id column). */
+ companyId: string;
  client: {
  name: string;
  email: string;
@@ -23,11 +30,13 @@ interface Job {
  location: string;
  date: string;
  time: string;
+ postcode?: string;
  };
  delivery: {
  location: string;
  date: string;
  time: string;
+ postcode?: string;
  };
  cargo: {
  type: string;
@@ -41,6 +50,8 @@ interface Job {
  vehicleType: string;
  paymentTerms: string;
  loadDetailSummary: LoadDetailItem[];
+ /** FK to drivers.id — null when unassigned */
+ assignedDriverId?: string | null;
  exchange_visibility?: string | null;
  awarded_carrier_company_id?: string | null;
  direct_invite_company_id?: string | null;
@@ -112,6 +123,7 @@ export default function JobsPage() {
  const [dateFilter, setDateFilter] = useState('');
  const [customerFilter, setCustomerFilter] = useState('');
  const [driverFilter, setDriverFilter] = useState('');
+ const [drivers, setDrivers] = useState<Array<{ id: string; displayName: string }>>([]);
  const [showModal, setShowModal] = useState(false);
  // Direct invite state
  const [directInviteJob, setDirectInviteJob] = useState<Job | null>(null);
@@ -196,6 +208,12 @@ export default function JobsPage() {
  }, [hasSupabaseSession, companyId]);
 
  useEffect(() => {
+ if (companyId && isSupabaseConfigured) {
+ loadDrivers(companyId);
+ }
+ }, [companyId]);
+
+ useEffect(() => {
  filterJobs();
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [jobs, searchTerm, statusFilter, pickupFilter, deliveryFilter, dateFilter, customerFilter, driverFilter]);
@@ -211,7 +229,7 @@ export default function JobsPage() {
 
  const { data, error } = await supabase
  .from('jobs')
- .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, direct_invite_company_id, created_at, updated_at')
+ .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, direct_invite_company_id, assigned_driver_id, created_at, updated_at')
  .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
  .order('created_at', { ascending: false });
 
@@ -223,7 +241,7 @@ export default function JobsPage() {
  return;
  }
  if (data) {
- const mapped = data.map((row: Record<string, unknown>) => {
+ const mapped: Job[] = data.map((row: Record<string, unknown>) => {
  const clientFields = getJobClientFields(row);
  const rawDistanceMiles =
  typeof row.job_distance_miles === 'number'
@@ -234,11 +252,12 @@ export default function JobsPage() {
  const distanceMiles =
  rawDistanceMiles !== null && Number.isFinite(rawDistanceMiles)
  ? `${rawDistanceMiles.toFixed(1)} mi`
- : ' ';
+ : '';
 
  return {
  id: row.id as string,
  jobRef: (row.id as string).slice(0, 13).toUpperCase(),
+ companyId: (row.company_id as string) || '',
  client: {
  name: clientFields.name,
  email: clientFields.email,
@@ -248,11 +267,13 @@ export default function JobsPage() {
  location: (row.pickup_location as string) || '',
  date: row.pickup_datetime ? (row.pickup_datetime as string).slice(0, 10) : '',
  time: row.pickup_datetime ? (row.pickup_datetime as string).slice(11, 16) : '',
+ postcode: (row.pickup_postcode as string) || undefined,
  },
  delivery: {
  location: (row.delivery_location as string) || '',
  date: row.delivery_datetime ? (row.delivery_datetime as string).slice(0, 10) : '',
  time: row.delivery_datetime ? (row.delivery_datetime as string).slice(11, 16) : '',
+ postcode: (row.delivery_postcode as string) || undefined,
  },
  cargo: {
  type: (row.cargo_type as string) || 'Other',
@@ -266,6 +287,7 @@ export default function JobsPage() {
  vehicleType: ((row.requested_vehicle_label as string | null) || (row.vehicle_type as string | null) || 'unknown').replace(/_/g, ' '),
  paymentTerms: 'Not provided',
  loadDetailSummary: getLoadDetailSummary(row, 6),
+ assignedDriverId: (row.assigned_driver_id as string | null) ?? null,
  exchange_visibility: (row.exchange_visibility as string | null) ?? null,
  awarded_carrier_company_id: (row.awarded_carrier_company_id as string | null) ?? null,
  direct_invite_company_id: (row.direct_invite_company_id as string | null) ?? null,
@@ -277,6 +299,24 @@ export default function JobsPage() {
  }
  setJobs([]);
  setFilteredJobs([]);
+ };
+
+ const loadDrivers = async (cid: string) => {
+ if (!isSupabaseConfigured) return;
+ const { data } = await supabase
+ .from('drivers')
+ .select('id, display_name')
+ .eq('company_id', cid)
+ .eq('status', 'active')
+ .order('display_name');
+ if (data) {
+ setDrivers(
+ (data as Array<{ id: string; display_name: string }>).map((d) => ({
+  id: d.id,
+  displayName: d.display_name,
+ })),
+ );
+ }
  };
 
  const filterJobs = () => {
@@ -311,32 +351,16 @@ export default function JobsPage() {
  filtered = filtered.filter((job) => job.client.name.toLowerCase().includes(term));
  }
 
- if (driverFilter.trim()) {
- const term = driverFilter.trim().toLowerCase();
- filtered = filtered.filter((job) => job.cargo.notes.toLowerCase().includes(term));
- }
-
  if (dateFilter) {
  filtered = filtered.filter((job) => job.pickup.date === dateFilter || job.delivery.date === dateFilter);
  }
 
+ if (driverFilter) {
+ filtered = filtered.filter((job) => job.assignedDriverId === driverFilter);
+ }
+
  setFilteredJobs(filtered);
  setJobsPage(0);
- };
-
- const openDirectInvite = async (job: Job) => {
- setDirectInviteJob(job);
- setDirectInviteCarrierId('');
- setDirectInviteError('');
- if (!isSupabaseConfigured) return;
- // Load carrier companies (all companies except the current one)
- const { data } = await supabase
- .from('companies')
- .select('id, name')
- .neq('id', companyId ?? '')
- .eq('status', 'active')
- .order('name');
- setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
  };
 
  const sendDirectInvite = async () => {
@@ -360,6 +384,97 @@ export default function JobsPage() {
  void loadJobs();
  }
  setDirectInviteSending(false);
+ };
+
+ /**
+  * Transition a job to a new status.
+  *
+  * Guard order (fail-closed):
+  *  1. Supabase and companyId must be available.
+  *  2. validateJobTransition — resolves job from local state, verifies
+  *     ownership (company_id = companyId), and checks the transition is in
+  *     ALLOWED_STATUS_TRANSITIONS before any network call is made.
+  *  3. Supabase update is additionally scoped with .eq('company_id', companyId)
+  *     as a defense-in-depth server-side guard.
+  */
+ const handleStatusChange = async (id: string, newStatus: string) => {
+ if (!isSupabaseConfigured || !companyId) return;
+ setDbError(null);
+
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
+  id: j.id,
+  status: j.status,
+  companyId: j.companyId,
+ }));
+ const validation = validateJobTransition({
+  jobs: transitionRecords,
+  id,
+  newStatus,
+  activeCompanyId: companyId,
+ });
+ if (!validation.ok) {
+  setDbError(validation.message);
+  return;
+ }
+
+ const { error } = await supabase
+  .from('jobs')
+  .update({ status: newStatus, updated_at: new Date().toISOString() })
+  .eq('id', id)
+  .eq('company_id', companyId);
+ if (error) {
+  setDbError(`Failed to update job status: ${error.message}`);
+ } else {
+  void loadJobs();
+ }
+ };
+
+ /**
+  * Post an eligible draft job to the marketplace.
+  *
+  * Reuses the same validateJobTransition guard as handleStatusChange.
+  * The transition draft→posted must be in ALLOWED_STATUS_TRANSITIONS, so a
+  * separate eligibility rule is not needed here.  The Supabase call also
+  * guards with .eq('status', JOB_STATUS.RECEIVED) to prevent double-posts
+  * in the event of a race condition.
+  *
+  * Preserves exchange_posted_at and updated_at on success.
+  */
+ const handlePostJob = async (id: string) => {
+ if (!isSupabaseConfigured || !companyId) return;
+ setDbError(null);
+
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
+  id: j.id,
+  status: j.status,
+  companyId: j.companyId,
+ }));
+ const validation = validateJobTransition({
+  jobs: transitionRecords,
+  id,
+  newStatus: JOB_STATUS.POSTED,
+  activeCompanyId: companyId,
+ });
+ if (!validation.ok) {
+  setDbError(validation.message);
+  return;
+ }
+
+ const { error } = await supabase
+  .from('jobs')
+  .update({
+   status: JOB_STATUS.POSTED,
+   exchange_posted_at: new Date().toISOString(),
+   updated_at: new Date().toISOString(),
+  })
+  .eq('id', id)
+  .eq('company_id', companyId)
+  .eq('status', JOB_STATUS.RECEIVED);
+ if (error) {
+  setDbError(`Failed to post job: ${error.message}`);
+ } else {
+  void loadJobs();
+ }
  };
 
  const validateForm = () => {
@@ -575,33 +690,6 @@ export default function JobsPage() {
  closeModal();
  };
 
- const handleStatusChange = async (jobId: string, newStatus: string) => {
- if (hasSupabaseSession) {
- if (!companyId) {
- setDbError('Company profile not loaded. Job status cannot be updated safely.');
- return;
- }
- const { error } = await supabase
- .from('jobs')
- .update({ status: newStatus, updated_at: new Date().toISOString() })
- .eq('id', jobId)
- .eq('company_id', companyId);
- if (error) {
- console.error('Failed to update job status:', error.message);
- setDbError(`Failed to update job status: ${error.message}`);
- return;
- }
- // Re-fetch from DB to confirm the persisted state
- await loadJobs();
- return;
- }
- setDbError('A live Supabase session is required to update job status safely.');
- };
-
- const handlePostJob = async (jobId: string) => {
- await handleStatusChange(jobId, JOB_STATUS.POSTED);
- };
-
  const closeModal = () => {
  setShowModal(false);
  setJobFormStep(0);
@@ -656,31 +744,6 @@ export default function JobsPage() {
  setFormErrors({});
  };
 
- const getStatusColor = (status: string) => {
- switch (status) {
- case JOB_STATUS.RECEIVED:
- return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' };
- case JOB_STATUS.POSTED:
- return { bg: '#dbeafe', text: '#1e3a8a', border: '#5C9FD8' };
- case JOB_STATUS.ALLOCATED:
- return { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' };
- case JOB_STATUS.DELIVERED:
- return { bg: '#dcfce7', text: '#14532d', border: '#1F7A3D' };
- default:
- return { bg: '#f3f4f6', text: '#1f2937', border: '#9ca3af' };
- }
- };
-
- const getStatusCount = (status: string) => {
- if (status === 'All') return jobs.length;
- return jobs.filter(job => job.status === status).length;
- };
-
- const formatDate = (dateStr: string) => {
- const date = new Date(dateStr);
- return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
- };
-
  const toggleFormArrayValue = (field: MultiSelectField, value: string) => {
  setFormData((current) => {
  const selected = current[field];
@@ -697,403 +760,56 @@ export default function JobsPage() {
 
  return (
  <ProtectedRoute>
- <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
- <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
- {/* Header */}
- <div style={{ marginBottom: '1rem' }}>
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
- <div>
- <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
- Operations Workspace
- </h1>
- <p style={{ color: '#6b7280', margin: 0 }}>
- One board for assign, track and complete work.
- </p>
- </div>
- <div style={{ display: 'flex', gap: '1rem' }}>
- <button
- onClick={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
- disabled={newJobDisabled}
- style={{
- padding: '0.75rem 1.5rem',
- backgroundColor: newJobDisabled ? '#6b7280' : '#1F7A3D',
- color: 'white',
- border: 'none',
- borderRadius: '8px',
- fontSize: '0.95rem',
- fontWeight: '600',
- cursor: newJobDisabled ? 'not-allowed' : 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#166534'; }}
- onMouseLeave={(e) => { if (!newJobDisabled) e.currentTarget.style.backgroundColor = '#1F7A3D'; }}
- >
- {newJobDisabled ? ' Loading...' : '+ New Job'}
- </button>
- </div>
- </div>
- </div>
-
- {/* Company profile error banner */}
- {companyError && (
- <div style={{
- backgroundColor: '#fef3c7',
- border: '1px solid #f59e0b',
- borderRadius: '8px',
- padding: '1rem 1.5rem',
- marginBottom: '1.5rem',
- display: 'flex',
- justifyContent: 'space-between',
- alignItems: 'center',
- gap: '1rem',
- }}>
- <span style={{ color: '#92400e', fontSize: '0.95rem' }}>Warning: {companyError}</span>
- {user?.id && (
- <button
- onClick={() => loadCompanyId(user.id)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#f59e0b',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- whiteSpace: 'nowrap',
- }}
- >
- Try Again
- </button>
- )}
- </div>
- )}
-
- {/* No-session warning banner */}
- {isSupabaseConfigured && !hasSupabaseSession && (
- <div style={{
- backgroundColor: '#fff7ed',
- border: '1px solid #fb923c',
- borderRadius: '8px',
- padding: '1rem 1.5rem',
- marginBottom: '1.5rem',
- color: '#9a3412',
- fontSize: '0.95rem',
- }}>
- Warning: Local sign-in detected. Jobs will be stored locally only. Sign in with a Supabase account to sync your jobs.
- </div>
- )}
-
- {/* Database error banner */}
- {dbError && (
- <div style={{
- backgroundColor: '#fef2f2',
- border: '1px solid #fca5a5',
- borderRadius: '8px',
- padding: '1rem 1.5rem',
- marginBottom: '1.5rem',
- display: 'flex',
- justifyContent: 'space-between',
- alignItems: 'center',
- gap: '1rem',
- }}>
- <span style={{ color: '#991b1b', fontSize: '0.95rem' }}> {dbError}</span>
- <button
- onClick={() => setDbError(null)}
- style={{ background: 'none', border: 'none', color: '#991b1b', fontSize: '1.25rem', cursor: 'pointer', lineHeight: 1 }}
- aria-label="Dismiss"
- >x</button>
- </div>
- )}
-
- {/* Stats Cards */}
- <div style={{
- display: 'grid',
- gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
- gap: '1rem',
- marginBottom: '2rem'
- }}>
- {[
- { label: 'All Jobs', status: 'All', icon: ' ', color: '#1d4ed8' },
- { label: 'Received', status: JOB_STATUS.RECEIVED, icon: ' ', color: '#fbbf24' },
- { label: 'Posted', status: JOB_STATUS.POSTED, icon: ' ', color: '#5C9FD8' },
- { label: 'Allocated', status: JOB_STATUS.ALLOCATED, icon: ' ', color: '#a855f7' },
- { label: 'Delivered', status: JOB_STATUS.DELIVERED, icon: ' ', color: '#1F7A3D' },
- ].map((stat) => (
- <div
- key={stat.status}
- style={{
- backgroundColor: 'white',
- padding: '1.25rem',
- borderRadius: '12px',
- boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
- borderLeft: `4px solid ${stat.color}`
- }}
- >
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
- <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>
- {stat.label}
- </div>
- <span style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
- </div>
- <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
- {getStatusCount(stat.status)}
- </div>
- </div>
- ))}
- </div>
-
- {/* Filters & Search */}
- <div style={{
- backgroundColor: 'white',
- padding: '1.5rem',
- borderRadius: '12px',
- boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
- marginBottom: '2rem'
- }}>
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
- <input
- type="text"
- placeholder="Search by job ref, client, or location..."
- value={searchTerm}
- onChange={(e) => setSearchTerm(e.target.value)}
- style={{
- padding: '0.75rem 1rem',
- border: '1px solid #d1d5db',
- borderRadius: '8px',
- fontSize: '0.95rem',
- width: '100%'
- }}
+ <JobsOperationalTable
+  filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map(jobToRow)}
+  page={jobsPage}
+  perPage={JOBS_PER_PAGE}
+  totalFiltered={filteredJobs.length}
+  onPageChange={setJobsPage}
+  searchTerm={searchTerm}
+  statusFilter={statusFilter}
+  pickupFilter={pickupFilter}
+  deliveryFilter={deliveryFilter}
+  dateFilter={dateFilter}
+  customerFilter={customerFilter}
+  driverFilter={driverFilter}
+  onDriverFilterChange={setDriverFilter}
+  drivers={drivers}
+  onSearchTermChange={setSearchTerm}
+  onStatusFilterChange={setStatusFilter}
+  onPickupFilterChange={setPickupFilter}
+  onDeliveryFilterChange={setDeliveryFilter}
+  onDateFilterChange={setDateFilter}
+  onCustomerFilterChange={setCustomerFilter}
+  onNewJob={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
+  onViewJob={(id) => router.push(`/admin/jobs/${id}`)}
+  onDirectInvite={async (row) => {
+   // Resolve the canonical Job from the source collection by ID to preserve
+   // all fields (exchange_visibility, direct_invite_company_id, etc.).
+   const canonical = jobs.find((j) => j.id === row.id) ?? null;
+   if (!canonical) return;
+   setDirectInviteJob(canonical);
+   setDirectInviteCarrierId('');
+   setDirectInviteError('');
+   if (!isSupabaseConfigured) return;
+   const { data } = await supabase
+    .from('companies')
+    .select('id, name')
+    .neq('id', companyId ?? '')
+    .eq('status', 'active')
+    .order('name');
+   setCarrierCompanies((data ?? []) as Array<{ id: string; name: string }>);
+  }}
+  onStatusChange={(id, newStatus) => { void handleStatusChange(id, newStatus); }}
+  onPostJob={(id) => { void handlePostJob(id); }}
+  newJobDisabled={newJobDisabled}
+  companyError={companyError}
+  dbError={dbError}
+  hasSupabaseSession={hasSupabaseSession}
+  onRetryCompany={user?.id ? () => loadCompanyId(user.id) : undefined}
+  onDismissDbError={() => setDbError(null)}
  />
- <select
- value={statusFilter}
- onChange={(e) => setStatusFilter(e.target.value)}
- style={{
- padding: '0.75rem 1rem',
- border: '1px solid #d1d5db',
- borderRadius: '8px',
- fontSize: '0.95rem',
- backgroundColor: 'white',
- cursor: 'pointer',
- minWidth: '150px'
- }}
- >
- <option value="All">All Status</option>
- <option value={JOB_STATUS.RECEIVED}>Received</option>
- <option value={JOB_STATUS.POSTED}>Posted</option>
- <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
- <option value={JOB_STATUS.DELIVERED}>Delivered</option>
- </select>
- <input type="text" placeholder="Pickup" value={pickupFilter} onChange={(e) => setPickupFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="text" placeholder="Delivery" value={deliveryFilter} onChange={(e) => setDeliveryFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="text" placeholder="Customer/Company" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- <input type="text" placeholder="Driver" value={driverFilter} onChange={(e) => setDriverFilter(e.target.value)} style={{ padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.9rem' }} />
- </div>
- </div>
 
- {/* Jobs Table */}
- <div style={{
- backgroundColor: 'white',
- borderRadius: '12px',
- boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
- overflow: 'hidden'
- }}>
- <div style={{ overflowX: 'auto' }}>
- <table style={{ width: '100%', borderCollapse: 'collapse' }}>
- <thead>
- <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Job Ref</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Client</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Pickup to Delivery</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Distance</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Vehicle Type</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Payment Terms</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Status</th>
- <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Created Date</th>
- <th style={{ padding: '0.8rem', textAlign: 'center', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Actions</th>
- </tr>
- </thead>
- <tbody>
- {filteredJobs.length === 0 ? (
- <tr>
- <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
- <div style={{ fontSize: '3rem', marginBottom: '1rem' }}> </div>
- <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>No jobs found</div>
- <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
- {searchTerm || statusFilter !== 'All'
- ? 'Try adjusting your filters'
- : 'Create your first job to get started'}
- </div>
- </td>
- </tr>
- ) : (
- filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map((job, index) => {
- const statusColor = getStatusColor(job.status);
- return (
- <tr
- key={job.id}
- style={{
- borderBottom: index < Math.min(JOBS_PER_PAGE, filteredJobs.length) - 1 ? '1px solid #e5e7eb' : 'none',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
- >
- <td style={{ padding: '1rem', fontWeight: '600', color: '#1d4ed8', fontSize: '0.9rem' }}>
- {job.jobRef}
- </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem' }}>
- <div style={{ fontWeight: '600', color: '#1f2937', marginBottom: '0.25rem' }}>
- {job.client.name}
- </div>
- <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
- {job.client.email}
- </div>
- </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
- <div style={{ marginBottom: '0.5rem' }}>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.pickup.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.pickup.date)} at {job.pickup.time}
- </div>
- </div>
- <div style={{ color: '#9ca3af', fontSize: '0.8rem', margin: '0.25rem 0' }}>to</div>
- <div>
- <div style={{ color: '#1f2937', fontWeight: '500' }}>
- {job.delivery.location}
- </div>
- <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
- {formatDate(job.delivery.date)} at {job.delivery.time}
- </div>
- </div>
- {job.loadDetailSummary.length > 0 && (
- <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.35rem', marginTop: '0.7rem' }}>
- {job.loadDetailSummary.map((item) => (
- <div key={`${job.id}-${item.label}`} style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.45rem' }}>
- <div style={{ color: '#64748b', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</div>
- <div style={{ color: '#0f172a', fontSize: '0.75rem', fontWeight: 600 }}>{item.value}</div>
- </div>
- ))}
- </div>
- )}
- </td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.distanceMiles}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#374151', textTransform: 'capitalize' }}>{job.vehicleType}</td>
- <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#6b7280' }}>{job.paymentTerms}</td>
- <td style={{ padding: '1rem' }}>
- <select
- value={job.status}
- onChange={(e) => handleStatusChange(job.id, e.target.value)}
- style={{
- padding: '0.5rem 0.75rem',
- backgroundColor: statusColor.bg,
- color: statusColor.text,
- border: `1px solid ${statusColor.border}`,
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- outline: 'none'
- }}
- >
- <option value={JOB_STATUS.RECEIVED}>Received</option>
- <option value={JOB_STATUS.POSTED}>Posted</option>
- <option value={JOB_STATUS.ALLOCATED}>Allocated</option>
- <option value={JOB_STATUS.DELIVERED}>Delivered</option>
- </select>
- </td>
- <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6b7280' }}>
- {formatDate(job.createdAt)}
- </td>
- <td style={{ padding: '1rem', textAlign: 'center' }}>
- <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
- {job.status === JOB_STATUS.RECEIVED && (
- <button
- onClick={() => handlePostJob(job.id)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#5C9FD8',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2F6FB3'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5C9FD8'}
- >
- Post
- </button>
- )}
- <button
- onClick={() => router.push(`/admin/jobs/${job.id}`)}
- style={{
- padding: '0.5rem 1rem',
- backgroundColor: '#16a34a',
- color: 'white',
- border: 'none',
- borderRadius: '6px',
- fontSize: '0.85rem',
- fontWeight: '600',
- cursor: 'pointer',
- transition: 'background-color 0.2s'
- }}
- onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
- onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
- >
- View
- </button>
- {(!job.exchange_visibility || job.exchange_visibility === 'private') && (
- <button
- onClick={() => void openDirectInvite(job)}
- style={{ padding: '0.5rem 0.85rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: '600', cursor: 'pointer' }}
- >
- Invite Carrier
- </button>
- )}
- {job.exchange_visibility === 'direct' && (
- <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', backgroundColor: '#ede9fe', padding: '0.2rem 0.5rem', borderRadius: '999px' }}>
- Direct 
- </span>
- )}
- </div>
- </td>
- </tr>
- );
- })
- )}
- </tbody>
- </table>
- </div>
- {filteredJobs.length > JOBS_PER_PAGE && (
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderTop: '1px solid #e5e7eb' }}>
- <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
- Showing {jobsPage * JOBS_PER_PAGE + 1} {Math.min((jobsPage + 1) * JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} jobs
- </span>
- <div style={{ display: 'flex', gap: '0.4rem' }}>
- <button
- onClick={() => setJobsPage((p) => Math.max(0, p - 1))}
- disabled={jobsPage === 0}
- style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: jobsPage === 0 ? '#f9fafb' : '#fff', cursor: jobsPage === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
- >
- Prev
- </button>
- <button
- onClick={() => setJobsPage((p) => p + 1)}
- disabled={(jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length}
- style={{ padding: '0.35rem 0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? '#f9fafb' : '#fff', cursor: (jobsPage + 1) * JOBS_PER_PAGE >= filteredJobs.length ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#374151' }}
- >
- Next
- </button>
- </div>
- </div>
- )}
- </div>
 
  {/* Full-screen Create Job Workspace */}
  {showModal && (
@@ -1560,8 +1276,6 @@ export default function JobsPage() {
  </div>
  </div>
  )}
- </div>
- </div>
  </ProtectedRoute>
  );
 }

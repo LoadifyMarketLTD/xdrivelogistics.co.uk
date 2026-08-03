@@ -55,11 +55,11 @@ export default {
         },
       },
       borderRadius: {
-        xl: "calc(var(--radius) + 4px)",
+        xl: "4px",
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-        xs: "calc(var(--radius) - 6px)",
+        md: "4px",
+        sm: "2px",
+        xs: "2px",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
