@@ -1552,6 +1552,20 @@
 
 /* ── Tablet ──────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .operationalPageLayoutTwoPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .operationalPageLayoutSearchAside,
+  .operationalFilters {
+    width: 100%;
+  }
+
+  .operationalPageLayoutSearchAside {
+    position: static;
+    top: auto;
+  }
+
   /* Toolbar: allow wrapping; auto height */
   .jobsToolbar {
     height: auto;

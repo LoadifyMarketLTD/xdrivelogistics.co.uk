@@ -39,8 +39,21 @@ describe('Driver dashboard operational contract', () => {
   it('uses allowed dashboard tones for owner-driver quote summaries', () => {
     expect(driverDashboardSource).toContain('const BID_STATUS_TONE: Record<string, \'green\' | \'orange\' | \'red\' | \'grey\'> = {');
     expect(driverDashboardSource).toContain("withdrawn: 'grey'");
-    expect(driverDashboardSource).toContain('<KpiCard label="Quotes submitted" value={submittedQuotes} detail="Awaiting customer decision" tone="blue"');
+    expect(driverDashboardSource).toContain("label: 'Quotes submitted'");
+    expect(driverDashboardSource).toContain("tone: 'blue' as const");
     expect(driverDashboardSource).not.toContain("withdrawn: 'purple'");
     expect(driverDashboardSource).not.toContain('tone="purple"');
+  });
+
+  it('caps the owner-driver KPI strip at six visible tiles and moves lower-priority finance metrics into summaries', () => {
+    const dashboardKpiConfigMatch = driverDashboardSource.match(/const dashboardKpis:[\s\S]*?=\s*\[([\s\S]*?)\n\s*\];/);
+    expect(dashboardKpiConfigMatch).toBeTruthy();
+    const dashboardKpiConfigSource = dashboardKpiConfigMatch?.[1] ?? '';
+    expect((dashboardKpiConfigSource.match(/label:\s*'/g) ?? []).length).toBe(6);
+    expect(dashboardKpiConfigSource).toContain("label: 'Quotes submitted'");
+    expect(dashboardKpiConfigSource).not.toContain("label: 'Won work'");
+    expect(dashboardKpiConfigSource).not.toContain("label: 'Pending invoices'");
+    expect(driverDashboardSource).toContain("['Won work (accepted)', wonWork, '/driver/won-work']");
+    expect(driverDashboardSource).toContain("['Pending invoices', pendingInvoices, '/driver/finance']");
   });
 });

@@ -128,9 +128,40 @@ export default function DriverDashboard() {
   const pendingInvoices = data.invoices.filter(
     (inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid'
   ).length;
-  const pendingInvoiceValue = data.invoices
-    .filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid')
-    .reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+  const dashboardKpis: Array<{
+    label: string;
+    value: number;
+    detail: string;
+    tone?: 'blue' | 'green' | 'orange' | 'red' | 'navy';
+    onClick?: () => void;
+  }> = [
+    { label: 'Jobs today', value: todaysJobs.length, detail: 'Scheduled collections', onClick: () => router.push('/driver/jobs') },
+    {
+      label: 'Active job',
+      value: currentJob ? 1 : 0,
+      detail: 'Current execution',
+      tone: 'green',
+      onClick: currentJob ? () => router.push(`/driver/jobs/${currentJob.id}`) : undefined,
+    },
+    { label: 'Awaiting start', value: myJobs.filter((job) => upcomingStatuses.has(job.current_status ?? job.status)).length, detail: 'Allocated, not yet active', tone: 'orange' },
+    { label: 'Completed', value: completedJobs, detail: 'Delivered or invoiced', tone: 'navy', onClick: () => router.push('/driver/history') },
+    {
+      label: 'Documents expiring',
+      value: expiringDocuments.length,
+      detail: 'Within 30 days',
+      tone: expiringDocuments.length ? 'red' : 'green',
+      onClick: () => router.push('/driver/documents'),
+    },
+    ...(ownerDriver
+      ? [{
+        label: 'Quotes submitted',
+        value: submittedQuotes,
+        detail: 'Awaiting customer decision',
+        tone: 'blue' as const,
+        onClick: () => router.push('/driver/quotes'),
+      }]
+      : []),
+  ];
 
   return (
     <OperationalPageLayout
@@ -179,14 +210,16 @@ export default function DriverDashboard() {
       {data.error && !ownerDriver && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Jobs today" value={todaysJobs.length} detail="Scheduled collections" onClick={() => router.push('/driver/jobs')} />
-        <KpiCard label="Active job" value={currentJob ? 1 : 0} detail="Current execution" tone="green" onClick={currentJob ? () => router.push(`/driver/jobs/${currentJob.id}`) : undefined} />
-        <KpiCard label="Awaiting start" value={myJobs.filter((job) => upcomingStatuses.has(job.current_status ?? job.status)).length} detail="Allocated, not yet active" tone="orange" />
-        <KpiCard label="Completed" value={completedJobs} detail="Delivered or invoiced" tone="navy" onClick={() => router.push('/driver/history')} />
-        <KpiCard label="Documents expiring" value={expiringDocuments.length} detail="Within 30 days" tone={expiringDocuments.length ? 'red' : 'green'} onClick={() => router.push('/driver/documents')} />
-        {ownerDriver && <KpiCard label="Quotes submitted" value={submittedQuotes} detail="Awaiting customer decision" tone="blue" onClick={() => router.push('/driver/quotes')} />}
-        {ownerDriver && <KpiCard label="Won work" value={wonWork} detail="Accepted quotes" tone="green" onClick={() => router.push('/driver/won-work')} />}
-        {ownerDriver && pendingInvoices > 0 && <KpiCard label="Pending invoices" value={pendingInvoices} detail={money(pendingInvoiceValue)} tone="orange" onClick={() => router.push('/driver/finance')} />}
+        {dashboardKpis.map((kpi) => (
+          <KpiCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.value}
+            detail={kpi.detail}
+            tone={kpi.tone}
+            onClick={kpi.onClick}
+          />
+        ))}
       </KpiGrid>
 
       <TwoColumn>
