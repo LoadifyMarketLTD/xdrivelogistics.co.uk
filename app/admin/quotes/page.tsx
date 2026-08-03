@@ -8,23 +8,18 @@ import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { useAuth } from '../../components/AuthContext';
 import {
+  ActionButton,
+  AlertBanner,
   OperationalFilterField,
   OperationalFilterInput,
   OperationalFilterSelect,
   OperationalFilters,
   OperationalPageLayout,
+  StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
+import cssStyles from '../../components/workspace/WorkspaceUI.module.css';
 
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'machinery', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'equipment', 'other'];
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: '#f3f4f6', text: '#6b7280' },
-  sent: { bg: '#e0f2fe', text: '#075985' },
-  accepted: { bg: '#d1fae5', text: '#065f46' },
-  declined: { bg: '#fee2e2', text: '#991b1b' },
-  converted: { bg: '#ede9fe', text: '#5b21b6' },
-  withdrawn: { bg: '#e2e8f0', text: '#475569' },
-};
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
   { id: 'received', label: 'Received', statuses: ['draft'] },
@@ -203,8 +198,6 @@ export default function QuotesPage() {
     }
   };
 
-  const inputStyle = { width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' as const, backgroundColor: 'white' };
-  const labelStyle = { display: 'block', fontSize: '12px', fontWeight: '600' as const, color: '#5f6368', marginBottom: '4px' };
   const filteredQuotes = useMemo(() => {
     const activeStatuses = QUOTE_TABS.find((tab) => tab.id === activeTab)?.statuses ?? [];
     return quotes.filter((quote) => {
@@ -278,108 +271,86 @@ export default function QuotesPage() {
         {/* ── Main content ─────────────────────────────────────────────────── */}
         <div>
 
-          {/* Tab bar + New Quote button */}
-          <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '40px', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', gap: 0 }}>
-              {QUOTE_TABS.map((tab) => {
-                const count = quotes.filter((q) => tab.statuses.includes((q.status || '').toLowerCase())).length;
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      height: '40px',
-                      padding: '0 12px',
-                      border: 'none',
-                      borderBottom: active ? '2px solid #1d57d8' : '2px solid transparent',
-                      background: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: active ? '#1d57d8' : '#5f6368',
-                      marginBottom: '-1px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {tab.label}
-                    {count > 0 && (
-                      <span style={{ marginLeft: '6px', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d57d8' : '#5f6368', borderRadius: '999px', padding: '1px 6px', fontSize: '11px', fontWeight: 600 }}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              style={{ height: '28px', padding: '0 12px', background: '#35a853', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + New Quote
-            </button>
+          {/* Status tabs + New Quote button — contract 36px row */}
+          <div className={cssStyles.jobsStatusTabs} role="tablist" aria-label="Filter quotes by status" style={{ marginBottom: '8px' }}>
+            {QUOTE_TABS.map((tab) => {
+              const count = quotes.filter((q) => tab.statuses.includes((q.status || '').toLowerCase())).length;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`${cssStyles.jobsStatusTab} ${active ? cssStyles.jobsStatusTabActive : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.label}
+                  {count > 0 && (
+                    <span style={{ marginLeft: '4px', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d57d8' : '#5f6368', borderRadius: '999px', padding: '0 4px', fontSize: '10px', fontWeight: 700 }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            <div style={{ flex: 1 }} />
+            <ActionButton tone="success" onClick={() => setShowModal(true)}>+ New Quote</ActionButton>
           </div>
-          {flowMessage && (
-            <div style={{ marginBottom: '8px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', padding: '8px 12px', color: '#166534', fontSize: '13px', fontWeight: 600 }}>
-              {flowMessage}
-            </div>
-          )}
+          {flowMessage && <AlertBanner tone="success">{flowMessage}</AlertBanner>}
 
           {/* Table */}
           <div>
-            <div style={{ background: '#fff', borderRadius: '4px', border: '1px solid #d9e2ec', overflow: 'hidden' }}>
+            <div className={cssStyles.operationalTableContainer}>
               {loading ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>Loading…</div>
+                <div style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>Loading…</div>
               ) : filteredQuotes.length === 0 ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💬</div>
-                  <div style={{ fontSize: '0.88rem' }}>No quotes in this category.</div>
-                </div>
+                <div style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>No quotes in this category.</div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse' }}>
+                <div className={cssStyles.operationalTableScroll}>
+                  <table className={cssStyles.operationalTable} style={{ minWidth: '820px' }}>
+                    <caption className={cssStyles.operationalTableCaption}>Quotes register</caption>
                     <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <tr className={cssStyles.operationalTableHeaderRow}>
                         {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions'].map((h) => (
-                          <th key={h} style={{ height: '36px', padding: '0 12px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          <th key={h} scope="col" className={cssStyles.operationalTableHeadCell}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedQuotes.map((q, i) => {
-                        const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
+                      {paginatedQuotes.map((q) => {
                         return (
-                          <tr key={q.id} style={{ height: '40px', borderBottom: i < paginatedQuotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                            <td style={{ padding: '0 12px', fontWeight: 600, color: '#202124', fontSize: '13px' }}>{q.customer_name || '—'}</td>
-                            <td style={{ padding: '0 12px', color: '#202124', fontSize: '13px' }}>{q.pickup_location || '—'}</td>
-                            <td style={{ padding: '0 12px', color: '#202124', fontSize: '13px' }}>{q.delivery_location || '—'}</td>
-                            <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '13px' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                            <td style={{ padding: '0 12px', fontWeight: 600, color: '#202124', fontSize: '13px' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                            <td style={{ padding: '0 12px' }}>
-                              <span style={{ background: sc.bg, color: sc.text, padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 700 }}>{q.status}</span>
+                          <tr key={q.id} className={`${cssStyles.operationalTableRow} xdrive-table-row`}>
+                            <td className={cssStyles.operationalTableCell} style={{ fontWeight: 600 }}>{q.customer_name || '—'}</td>
+                            <td className={cssStyles.operationalTableCell}>{q.pickup_location || '—'}</td>
+                            <td className={cssStyles.operationalTableCell}>{q.delivery_location || '—'}</td>
+                            <td className={cssStyles.operationalTableCell}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
+                            <td className={cssStyles.operationalTableCell} style={{ fontWeight: 600 }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
+                            <td className={cssStyles.operationalTableCell}>
+                              <StatusBadge value={q.status} />
                             </td>
-                            <td style={{ padding: '0 12px', color: '#5f6368', fontSize: '12px' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</td>
-                            <td style={{ padding: '0 12px' }}>
-                              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <td className={cssStyles.operationalTableCell}>{new Date(q.created_at).toLocaleDateString('en-GB')}</td>
+                            <td className={`${cssStyles.operationalTableCell} ${cssStyles.operationalTableActionCell}`}>
+                              <div style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap' }}>
                                 {q.status === 'draft' && (
-                                  <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={actionBtn('#e0f2fe', '#075985')}>Send</button>
+                                  <ActionButton tone="secondary" onClick={() => handleUpdateStatus(q.id, 'sent')}>Send</ActionButton>
                                 )}
                                 {(q.status === 'draft' || q.status === 'sent') && (
                                   <>
-                                    <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={actionBtn('#dcfce7', '#15803d')}>Accept</button>
-                                    <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={actionBtn('#fee2e2', '#991b1b')}>Decline</button>
+                                    <ActionButton tone="success" onClick={() => handleUpdateStatus(q.id, 'accepted')}>Accept</ActionButton>
+                                    <ActionButton tone="danger" onClick={() => handleUpdateStatus(q.id, 'declined')}>Decline</ActionButton>
                                   </>
                                 )}
                                 {q.status === 'sent' && (
-                                  <button onClick={() => void handleReviseQuote(q.id)} style={actionBtn('#fef3c7', '#92400e')}>Revise</button>
+                                  <ActionButton tone="warning" onClick={() => void handleReviseQuote(q.id)}>Revise</ActionButton>
                                 )}
                                 {(q.status === 'draft' || q.status === 'sent' || q.status === 'accepted') && (
-                                  <button onClick={() => void handleWithdrawQuote(q.id)} style={actionBtn('#e2e8f0', '#475569')}>Withdraw</button>
+                                  <ActionButton tone="secondary" onClick={() => void handleWithdrawQuote(q.id)}>Withdraw</ActionButton>
                                 )}
                                 {q.status === 'accepted' && (
-                                  <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ height: '26px', padding: '0 10px', border: 'none', borderRadius: '4px', background: '#35a853', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                                  <ActionButton tone="success" disabled={convertingId === q.id} onClick={() => handleConvertToJob(q)}>
                                     {convertingId === q.id ? 'Converting…' : '→ Job'}
-                                  </button>
+                                  </ActionButton>
                                 )}
                               </div>
                             </td>
@@ -392,25 +363,17 @@ export default function QuotesPage() {
               )}
             </div>
             {!loading && filteredQuotes.length > QUOTES_PER_PAGE && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', fontSize: '12px', color: '#5f6368' }}>
+              <div className={cssStyles.operationalTableMeta} style={{ marginTop: '8px' }}>
                 <span>
                   Showing {safeQuotePage * QUOTES_PER_PAGE + 1}–{Math.min((safeQuotePage + 1) * QUOTES_PER_PAGE, filteredQuotes.length)} of {filteredQuotes.length}
                 </span>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button
-                    onClick={() => setQuotePage((prev) => Math.max(prev - 1, 0))}
-                    disabled={safeQuotePage === 0}
-                    style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', background: safeQuotePage === 0 ? '#f5f7fa' : '#fff', color: '#202124', cursor: safeQuotePage === 0 ? 'not-allowed' : 'pointer', fontSize: '12px' }}
-                  >
+                  <ActionButton tone="secondary" disabled={safeQuotePage === 0} onClick={() => setQuotePage((prev) => Math.max(prev - 1, 0))}>
                     Previous
-                  </button>
-                  <button
-                    onClick={() => setQuotePage((prev) => Math.min(prev + 1, totalQuotePages - 1))}
-                    disabled={safeQuotePage >= totalQuotePages - 1}
-                    style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', background: safeQuotePage >= totalQuotePages - 1 ? '#f5f7fa' : '#fff', color: '#202124', cursor: safeQuotePage >= totalQuotePages - 1 ? 'not-allowed' : 'pointer', fontSize: '12px' }}
-                  >
+                  </ActionButton>
+                  <ActionButton tone="secondary" disabled={safeQuotePage >= totalQuotePages - 1} onClick={() => setQuotePage((prev) => Math.min(prev + 1, totalQuotePages - 1))}>
                     Next
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             )}
@@ -418,32 +381,47 @@ export default function QuotesPage() {
         </div>
 
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
             <div style={{ background: '#fff', borderRadius: '4px', border: '1px solid #d9e2ec', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#202124', lineHeight: '22px' }}>New Quote</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#5f6368', lineHeight: 1 }}>×</button>
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '40px' }}>
+                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#202124', lineHeight: '20px' }}>New Quote</h2>
+                <button type="button" onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#5f6368', lineHeight: 1, padding: '0 4px' }} aria-label="Close">×</button>
               </div>
-              <div style={{ padding: '16px', display: 'grid', gap: '8px' }}>
-                {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', color: '#dc2626', fontSize: '13px' }}>{error}</div>}
-                <div>
-                  <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
+              <div style={{ padding: '12px 16px', display: 'grid', gap: '8px' }}>
+                {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+                <div className={cssStyles.settingsFieldRow}>
+                  <label className={cssStyles.settingsLabel}>Company *</label>
+                  <select className={cssStyles.settingsInput} value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
                     <option value="">Select a company…</option>
                     {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div><label style={labelStyle}>Customer Name *</label><input style={inputStyle} value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="John Smith" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.customer_email} onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })} placeholder="customer@email.com" /></div>
-                  <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.customer_phone} onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })} placeholder="07123456789" /></div>
+                <div className={cssStyles.settingsFieldRow}>
+                  <label className={cssStyles.settingsLabel}>Customer Name *</label>
+                  <input className={cssStyles.settingsInput} value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="John Smith" />
                 </div>
-                <div><label style={labelStyle}>Pickup Location</label><input style={inputStyle} value={formData.pickup_location} onChange={(e) => setFormData({ ...formData, pickup_location: e.target.value })} placeholder="London, SW1A 1AA" /></div>
-                <div><label style={labelStyle}>Delivery Location</label><input style={inputStyle} value={formData.delivery_location} onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })} placeholder="Manchester, M1 1AE" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div className={cssStyles.settingsFieldGrid}>
                   <div>
-                    <label style={labelStyle}>Vehicle Type</label>
-                    <select style={inputStyle} value={formData.vehicle_type} onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value as VehicleType })}>
+                    <label className={cssStyles.settingsLabel}>Email</label>
+                    <input type="email" className={cssStyles.settingsInput} value={formData.customer_email} onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })} placeholder="customer@email.com" />
+                  </div>
+                  <div>
+                    <label className={cssStyles.settingsLabel}>Phone</label>
+                    <input className={cssStyles.settingsInput} value={formData.customer_phone} onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })} placeholder="07123456789" />
+                  </div>
+                </div>
+                <div className={cssStyles.settingsFieldRow}>
+                  <label className={cssStyles.settingsLabel}>Pickup Location</label>
+                  <input className={cssStyles.settingsInput} value={formData.pickup_location} onChange={(e) => setFormData({ ...formData, pickup_location: e.target.value })} placeholder="London, SW1A 1AA" />
+                </div>
+                <div className={cssStyles.settingsFieldRow}>
+                  <label className={cssStyles.settingsLabel}>Delivery Location</label>
+                  <input className={cssStyles.settingsInput} value={formData.delivery_location} onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })} placeholder="Manchester, M1 1AE" />
+                </div>
+                <div className={cssStyles.settingsFieldGrid}>
+                  <div>
+                    <label className={cssStyles.settingsLabel}>Vehicle Type</label>
+                    <select className={cssStyles.settingsInput} value={formData.vehicle_type} onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value as VehicleType })}>
                       {VEHICLE_GROUPS.map(([group, options]) => (
                         <optgroup key={group} label={group}>
                           {options.map(([label, value]) => (
@@ -454,17 +432,20 @@ export default function QuotesPage() {
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Cargo Type</label>
-                    <select style={inputStyle} value={formData.cargo_type} onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value as CargoType })}>
+                    <label className={cssStyles.settingsLabel}>Cargo Type</label>
+                    <select className={cssStyles.settingsInput} value={formData.cargo_type} onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value as CargoType })}>
                       {CARGO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
-                <div><label style={labelStyle}>Amount (£)</label><input style={inputStyle} type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} placeholder="250.00" /></div>
+                <div className={cssStyles.settingsFieldRow}>
+                  <label className={cssStyles.settingsLabel}>Amount (£)</label>
+                  <input type="number" step="0.01" className={cssStyles.settingsInput} value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} placeholder="250.00" />
+                </div>
               </div>
-              <div style={{ padding: '12px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ height: '32px', padding: '0 16px', background: '#fff', color: '#202124', border: '1px solid #d9e2ec', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ height: '32px', padding: '0 16px', background: '#35a853', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>Create Quote</button>
+              <div style={{ padding: '8px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Cancel</ActionButton>
+                <ActionButton tone="success" onClick={handleCreate}>Create Quote</ActionButton>
               </div>
             </div>
           </div>
@@ -472,10 +453,4 @@ export default function QuotesPage() {
       </OperationalPageLayout>
     </ProtectedRoute>
   );
-}
-
-// ── Style helpers ──────────────────────────────────────────────────────────────
-
-function actionBtn(bg: string, color: string): React.CSSProperties {
-  return { height: '26px', padding: '0 8px', border: 'none', borderRadius: '4px', background: bg, color, cursor: 'pointer', fontSize: '12px', fontWeight: 600 };
 }
