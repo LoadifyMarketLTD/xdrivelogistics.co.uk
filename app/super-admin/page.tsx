@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../components/ProtectedRoute';
 import {
@@ -21,7 +21,7 @@ import {
 } from '../components/workspace/WorkspaceUI';
 import { supabase } from '../../lib/supabaseClient';
 
-type PlatformStats = {
+export type PlatformStats = {
   companiesTotal: number;
   companiesActive: number;
   companiesSuspended: number;
@@ -34,7 +34,7 @@ type PlatformStats = {
   invoicesUnpaid: number;
 };
 
-type NotificationRow = {
+export type NotificationRow = {
   id: string;
   type: string;
   title: string;
@@ -51,6 +51,16 @@ type ModuleCard = {
   href: string;
 };
 
+/**
+ * PlatformStatsContext — when provided, OwnerConsole uses this data instead
+ * of making API calls. Used by visual fixture pages to render the real
+ * super-admin dashboard with static mock data without live auth.
+ */
+export const PlatformStatsContext = createContext<{
+  stats: PlatformStats;
+  notifications: NotificationRow[];
+} | null>(null);
+
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -62,14 +72,22 @@ export default function SuperAdminDashboardPage() {
   );
 }
 
-function OwnerConsole() {
+export function OwnerConsole() {
   const router = useRouter();
-  const [stats, setStats] = useState<PlatformStats | null>(null);
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const fixtureData = useContext(PlatformStatsContext);
+  const [stats, setStats] = useState<PlatformStats | null>(fixtureData?.stats ?? null);
+  const [notifications, setNotifications] = useState<NotificationRow[]>(fixtureData?.notifications ?? []);
+  const [loading, setLoading] = useState(!fixtureData);
   const [error, setError] = useState('');
 
   const loadDashboard = useCallback(async () => {
+    // In fixture mode, data is already provided via context — skip API calls.
+    if (fixtureData) {
+      setStats(fixtureData.stats);
+      setNotifications(fixtureData.notifications);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     const { data: { session } } = await supabase.auth.getSession();
@@ -95,7 +113,7 @@ function OwnerConsole() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fixtureData]);
 
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
