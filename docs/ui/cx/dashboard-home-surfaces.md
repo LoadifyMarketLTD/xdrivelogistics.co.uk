@@ -143,4 +143,4 @@
 |---|---|---|
 | `/broker` | right-rail summary blocks still use route-specific content ordering | continue route-by-route tightening |
 | `/customer` | invoice / quote summary cards still retain mixed inline row styles | migrate remaining rows to shared compact primitives |
-| `/driver` | owner-driver variant carries one extra conditional KPI path | collapse remaining finance count into right rail if needed |
+| `/driver` | home surface compacted to shared metric, summary and alert primitives; owner-driver branch still retains one extra conditional KPI path | keep follow-up work focused on role-parity refinement, not a separate visual system |
