@@ -12,7 +12,11 @@ import {
   OperationalFilterSelect,
   OperationalFilters,
   OperationalPageLayout,
+  ActionButton,
+  AlertBanner,
+  StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
+import cssStyles from '../../components/workspace/WorkspaceUI.module.css';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -123,13 +127,6 @@ function normalizeBidJob(job: BidJobJoinInput): BidRow['jobs'] {
 }
 
 // ── Style constants ────────────────────────────────────────────────────────────
-
-const BID_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  submitted: { bg: '#e0f2fe', color: '#075985' },
-  accepted:  { bg: '#d1fae5', color: '#065f46' },
-  rejected:  { bg: '#fee2e2', color: '#991b1b' },
-  withdrawn: { bg: '#f3f4f6', color: '#6b7280' },
-};
 
 const VEHICLE_LABEL: Record<string, string> = {
   van_small: 'Small Van', van_large: 'Large Van', swb_van: 'SWB Van', mwb_van: 'MWB Van', lwb_van: 'LWB Van', xlwb_van: 'XLWB Van',
@@ -447,9 +444,7 @@ export default function MarketplacePage() {
       onClear={clearFilters}
     >
       {!isSupabaseConfigured && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '6px 8px', marginBottom: '6px', color: '#92400e', fontSize: '12px' }}>
-          Supabase not configured
-        </div>
+        <AlertBanner tone="warning">Supabase not configured</AlertBanner>
       )}
       <OperationalFilterField label="FROM">
         <OperationalFilterInput
@@ -469,16 +464,16 @@ export default function MarketplacePage() {
         />
       </OperationalFilterField>
       <OperationalFilterField label="DATE FROM">
-        <input type="date" value={dateFromFilter} onChange={(e) => setDateFromFilter(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
+        <input type="date" value={dateFromFilter} onChange={(e) => setDateFromFilter(e.target.value)} className={cssStyles.settingsInput} style={{ height: '32px' }} />
       </OperationalFilterField>
       <OperationalFilterField label="DATE TO">
-        <input type="date" value={dateToFilter} onChange={(e) => setDateToFilter(e.target.value)} style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
+        <input type="date" value={dateToFilter} onChange={(e) => setDateToFilter(e.target.value)} className={cssStyles.settingsInput} style={{ height: '32px' }} />
       </OperationalFilterField>
       <OperationalFilterField label="FREIGHT TYPE">
         <OperationalFilterInput value={cargoTypeFilter} onChange={(v) => setCargoTypeFilter(v)} placeholder="e.g. pallets" />
       </OperationalFilterField>
       <OperationalFilterField label="MIN WEIGHT (KG)">
-        <input type="number" min="0" value={weightMinFilter} onChange={(e) => setWeightMinFilter(e.target.value)} placeholder="0" style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
+        <input type="number" min="0" value={weightMinFilter} onChange={(e) => setWeightMinFilter(e.target.value)} placeholder="0" className={cssStyles.settingsInput} style={{ height: '32px' }} />
       </OperationalFilterField>
       <OperationalFilterField label="SORT">
         <OperationalFilterSelect
@@ -504,23 +499,13 @@ export default function MarketplacePage() {
 
           {/* Top bar: tabs + refresh */}
           <div style={{ background: '#fff', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '40px', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', gap: 0 }}>
+            <div className={cssStyles.jobsStatusTabs} style={{ borderBottom: 'none', height: '40px' }}>
               {tabs.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  style={{
-                    height: '40px',
-                    padding: '0 12px',
-                    border: 'none',
-                    borderBottom: tab === t.id ? '2px solid #1d57d8' : '2px solid transparent',
-                    background: 'none',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: tab === t.id ? '#1d57d8' : '#5f6368',
-                    marginBottom: '-1px',
-                  }}
+                  className={`${cssStyles.jobsStatusTab}${tab === t.id ? ` ${cssStyles.jobsStatusTabActive}` : ''}`}
+                  style={{ height: '40px' }}
                 >
                   {t.label}
                   {t.count !== undefined && t.count > 0 && (
@@ -531,12 +516,7 @@ export default function MarketplacePage() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => void loadExchangeLoads()}
-              style={{ height: '28px', padding: '0 10px', border: '1px solid #d9e2ec', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px', color: '#5f6368' }}
-            >
-              ↻ Refresh
-            </button>
+            <ActionButton tone="secondary" onClick={() => void loadExchangeLoads()}>↻ Refresh</ActionButton>
           </div>
 
           {/* Content area */}
@@ -545,7 +525,7 @@ export default function MarketplacePage() {
             {/* ── All Live Loads ──────────────────────────────────────────── */}
             {tab === 'loads' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {loadsError && <ErrorBanner msg={loadsError} />}
+                {loadsError && <AlertBanner tone="danger">{loadsError}</AlertBanner>}
                 {loadsLoading ? (
                   <LoadingCard text="Loading exchange loads…" />
                 ) : filteredLoads.length === 0 ? (
@@ -561,56 +541,49 @@ export default function MarketplacePage() {
             {/* ── My Bids ─────────────────────────────────────────────────── */}
             {tab === 'bids' && (
               <div>
-                {bidsError && <ErrorBanner msg={bidsError} />}
+                {bidsError && <AlertBanner tone="danger">{bidsError}</AlertBanner>}
                 {bidsLoading ? (
                   <LoadingCard text="Loading your bids…" />
                 ) : bids.length === 0 ? (
                   <EmptyCard icon="💼" text="No bids submitted yet. Browse All Live loads to get started." />
                 ) : (
-                  <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse' }}>
+                  <div className={cssStyles.operationalTableContainer}>
+                    <div className={cssStyles.operationalTableScroll}>
+                      <table className={cssStyles.operationalTable} style={{ minWidth: '820px' }}>
+                        <caption className={cssStyles.operationalTableCaption}>My Bids</caption>
                         <thead>
-                          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                          <tr className={cssStyles.operationalTableHeaderRow}>
                             {['Load', 'Posted By', 'Your Bid', 'Status', 'Submitted', 'Actions'].map((h) => (
-                              <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                              <th key={h} scope="col" className={cssStyles.operationalTableHeadCell}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {paginatedBids.map((bid, i) => {
+                          {paginatedBids.map((bid) => {
                             const job = bid.jobs;
-                            const bStyle = BID_STATUS_STYLE[bid.status] ?? BID_STATUS_STYLE.submitted;
                             const bAmount = resolveBidAmountGbp(bid);
                             return (
-                              <tr key={bid.id} style={{ borderBottom: i < paginatedBids.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                <td style={{ padding: '0.7rem 0.85rem' }}>
-                                  <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>
+                              <tr key={bid.id} className={cssStyles.operationalTableRow}>
+                                <td className={cssStyles.operationalTableCell}>
+                                  <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>
                                     {job?.pickup_location || '—'} → {job?.delivery_location || '—'}
                                   </div>
-                                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+                                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>
                                     {job?.vehicle_type ? VEHICLE_LABEL[job.vehicle_type] ?? job.vehicle_type : '—'}
                                     {job?.pickup_datetime ? ` · ${fmtDate(job.pickup_datetime)}` : ''}
                                   </div>
                                 </td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#374151', fontSize: '0.85rem' }}>{job?.companies?.name || '—'}</td>
-                                <td style={{ padding: '0.7rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
+                                <td className={cssStyles.operationalTableCell}>{job?.companies?.name || '—'}</td>
+                                <td className={cssStyles.operationalTableCell} style={{ fontWeight: 700 }}>
                                   {bAmount == null ? '—' : `£${bAmount.toFixed(2)}`}
                                 </td>
-                                <td style={{ padding: '0.7rem 0.85rem' }}>
-                                  <span style={{ background: bStyle.bg, color: bStyle.color, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600 }}>
-                                    {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
-                                  </span>
+                                <td className={cssStyles.operationalTableCell}>
+                                  <StatusBadge value={bid.status} />
                                 </td>
-                                <td style={{ padding: '0.7rem 0.85rem', color: '#64748b', fontSize: '0.82rem' }}>{fmtDate(bid.created_at)}</td>
-                                <td style={{ padding: '0.7rem 0.85rem' }}>
+                                <td className={cssStyles.operationalTableCell}>{fmtDate(bid.created_at)}</td>
+                                <td className={`${cssStyles.operationalTableCell} ${cssStyles.operationalTableActionCell}`}>
                                   {bid.status === 'submitted' && (
-                                    <button
-                                      onClick={() => void withdrawBid(bid.id)}
-                                      style={{ padding: '0.25rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', cursor: 'pointer', fontSize: '0.73rem', background: '#fff', color: '#374151' }}
-                                    >
-                                      Withdraw
-                                    </button>
+                                    <ActionButton tone="secondary" onClick={() => void withdrawBid(bid.id)}>Withdraw</ActionButton>
                                   )}
                                 </td>
                               </tr>
@@ -620,25 +593,13 @@ export default function MarketplacePage() {
                       </table>
                     </div>
                     {bids.length > BIDS_PER_PAGE && (
-                      <div style={{ borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#64748b' }}>
+                      <div className={cssStyles.operationalTableMeta}>
                         <span>
                           Showing {safeBidsPage * BIDS_PER_PAGE + 1}–{Math.min((safeBidsPage + 1) * BIDS_PER_PAGE, bids.length)} of {bids.length}
                         </span>
-                        <div style={{ display: 'flex', gap: '0.4rem' }}>
-                          <button
-                            onClick={() => setBidsPage((prev) => Math.max(prev - 1, 0))}
-                            disabled={safeBidsPage === 0}
-                            style={{ padding: '0.28rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeBidsPage === 0 ? '#f8fafc' : '#fff', cursor: safeBidsPage === 0 ? 'not-allowed' : 'pointer' }}
-                          >
-                            Previous
-                          </button>
-                          <button
-                            onClick={() => setBidsPage((prev) => Math.min(prev + 1, totalBidsPages - 1))}
-                            disabled={safeBidsPage >= totalBidsPages - 1}
-                            style={{ padding: '0.28rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeBidsPage >= totalBidsPages - 1 ? '#f8fafc' : '#fff', cursor: safeBidsPage >= totalBidsPages - 1 ? 'not-allowed' : 'pointer' }}
-                          >
-                            Next
-                          </button>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <ActionButton tone="secondary" disabled={safeBidsPage === 0} onClick={() => setBidsPage((prev) => Math.max(prev - 1, 0))}>Previous</ActionButton>
+                          <ActionButton tone="secondary" disabled={safeBidsPage >= totalBidsPages - 1} onClick={() => setBidsPage((prev) => Math.min(prev + 1, totalBidsPages - 1))}>Next</ActionButton>
                         </div>
                       </div>
                     )}
@@ -650,7 +611,7 @@ export default function MarketplacePage() {
             {/* ── Won Work ─────────────────────────────────────────────────── */}
             {tab === 'won' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {wonError && <ErrorBanner msg={wonError} />}
+                {wonError && <AlertBanner tone="danger">{wonError}</AlertBanner>}
                 {wonLoading ? (
                   <LoadingCard text="Loading won jobs…" />
                 ) : wonJobs.length === 0 ? (
@@ -688,11 +649,11 @@ export default function MarketplacePage() {
 
         {/* ── Bid Modal ──────────────────────────────────────────────────────── */}
         {bidTarget && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ background: '#fff', borderRadius: '4px', padding: '1.5rem', width: '100%', maxWidth: '480px', boxShadow: '0 1px 2px rgba(15,35,79,.08)', border: '1px solid #d9e2ec' }}>
-              <h2 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: '#202124' }}>Quote Now</h2>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+            <div style={{ background: '#fff', borderRadius: '4px', padding: '16px', width: '100%', maxWidth: '480px', border: '1px solid #d9e2ec' }}>
+              <h2 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 700, color: '#202124' }}>Quote Now</h2>
 
-              <div style={{ background: '#f8fafc', borderRadius: '4px', padding: '8px 12px', marginBottom: '12px', fontSize: '13px', color: '#374151', borderLeft: '3px solid #1d57d8' }}>
+              <div style={{ background: '#f5f7fa', borderRadius: '4px', padding: '8px 12px', marginBottom: '12px', fontSize: '13px', color: '#374151', borderLeft: '3px solid #1d57d8' }}>
                 <div style={{ fontWeight: 600 }}>{bidTarget.pickup_location || '—'} → {bidTarget.delivery_location || '—'}</div>
                 <div style={{ marginTop: '2px', color: '#5f6368', fontSize: '12px' }}>
                   {bidTarget.vehicle_type ? VEHICLE_LABEL[bidTarget.vehicle_type] ?? bidTarget.vehicle_type : 'Vehicle TBC'}
@@ -701,19 +662,19 @@ export default function MarketplacePage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>Your Quote Amount (£) *</label>
+              <div style={{ marginBottom: '8px' }}>
+                <label className={cssStyles.settingsLabel}>Your Quote Amount (£) *</label>
                 <input
                   type="number" min="0" step="0.01"
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
                   placeholder="e.g. 250.00"
-                  style={{ width: '100%', height: '32px', padding: '0 8px', border: '1px solid #d9e2ec', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }}
+                  className={cssStyles.settingsInput}
                 />
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '4px' }}>Notes (optional)</label>
+                <label className={cssStyles.settingsLabel}>Notes (optional)</label>
                 <textarea
                   rows={3} value={bidMessage}
                   onChange={(e) => setBidMessage(e.target.value)}
@@ -722,19 +683,13 @@ export default function MarketplacePage() {
                 />
               </div>
 
-              {bidError && <ErrorBanner msg={bidError} />}
+              {bidError && <AlertBanner tone="danger">{bidError}</AlertBanner>}
 
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button onClick={closeBidModal} style={{ height: '32px', padding: '0 14px', border: '1px solid #c7d2df', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151', fontSize: '13px' }}>
-                  Cancel
-                </button>
-                <button
-                  onClick={() => void submitBid()}
-                  disabled={bidSubmitting}
-                  style={{ height: '32px', padding: '0 14px', border: 'none', borderRadius: '4px', background: bidSubmitting ? '#9ca3af' : '#35a853', color: '#fff', cursor: bidSubmitting ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px' }}
-                >
+                <ActionButton tone="secondary" onClick={closeBidModal}>Cancel</ActionButton>
+                <ActionButton tone="primary" disabled={bidSubmitting} onClick={() => void submitBid()}>
                   {bidSubmitting ? 'Submitting…' : 'Submit Quote'}
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>
@@ -749,7 +704,6 @@ export default function MarketplacePage() {
 function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
   const hasBid = !!load.myBid;
   const bidAccepted = load.myBid?.status === 'accepted';
-  const bidStyle = load.myBid ? (BID_STATUS_STYLE[load.myBid.status] ?? BID_STATUS_STYLE.submitted) : null;
   const myBidAmount = load.myBid ? resolveBidAmountGbp(load.myBid) : null;
 
   return (
@@ -824,30 +778,13 @@ function LoadCard({ load, onBid }: { load: ExchangeLoad; onBid: () => void }) {
 
       {/* Card footer — action row */}
       <div style={{ borderTop: '1px solid #f5f7fa', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
-        {hasBid && load.myBid && bidStyle ? (
-          <span style={{ background: bidStyle.bg, color: bidStyle.color, padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
-            {bidAccepted
-              ? `✓ Bid Accepted`
-              : `Bid: ${myBidAmount == null ? 'N/A' : `£${myBidAmount.toFixed(2)}`} · ${load.myBid.status.charAt(0).toUpperCase() + load.myBid.status.slice(1)}`}
-          </span>
+        {hasBid && load.myBid ? (
+          <StatusBadge value={bidAccepted ? 'Bid Accepted' : `Bid: ${myBidAmount == null ? 'N/A' : `£${myBidAmount.toFixed(2)}`} · ${load.myBid.status}`} tone={bidAccepted ? 'green' : 'blue'} />
         ) : (
-          <button
-            onClick={onBid}
-            style={{ height: '28px', padding: '0 12px', border: 'none', borderRadius: '4px', background: '#35a853', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}
-          >
-            Quote Now
-          </button>
+          <ActionButton tone="primary" onClick={onBid}>Quote Now</ActionButton>
         )}
         <span style={{ fontSize: '11px', color: '#5f6368' }}>Load ID: {load.id.slice(0, 8).toUpperCase()}</span>
       </div>
-    </div>
-  );
-}
-
-function ErrorBanner({ msg }: { msg: string }) {
-  return (
-    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', padding: '8px 12px', marginBottom: '8px', color: '#d93025', fontSize: '13px' }}>
-      {msg}
     </div>
   );
 }

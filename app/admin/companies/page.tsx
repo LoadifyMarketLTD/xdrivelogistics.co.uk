@@ -7,6 +7,8 @@ import type { Company } from '../../../lib/types/database';
 import { useAuth } from '../../components/AuthContext';
 import { selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
+import { PageHeader, ActionButton, AlertBanner } from '../../components/workspace/WorkspaceUI';
+import cssStyles from '../../components/workspace/WorkspaceUI.module.css';
 
 export default function CompaniesPage() {
   const { user, hasSupabaseSession } = useAuth();
@@ -188,11 +190,6 @@ export default function CompaniesPage() {
     loadCompanies();
   };
 
-  const inputStyle = {
-    width: '100%', padding: '0.75rem', border: '1px solid #d1d5db',
-    borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const,
-  };
-  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
   const totalCompanyPages = Math.max(1, Math.ceil(companies.length / COMPANIES_PER_PAGE));
   const safeCompanyPage = Math.min(companyPage, totalCompanyPages - 1);
   const paginatedCompanies = companies.slice(
@@ -202,171 +199,197 @@ export default function CompaniesPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Companies</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage companies and memberships</p>
-              {companies.length > 1 && (
-                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label htmlFor="active-company" style={{ fontSize: '0.85rem', color: '#374151', fontWeight: '600' }}>Active company</label>
-                  <select
-                    id="active-company"
-                    value={companyId ?? ''}
-                    onChange={(e) => handleSwitchCompany(e.target.value)}
-                    style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
-                  >
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {switchError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>{switchError}</p>}
-            </div>
-            <button onClick={() => setShowModal(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
-              + Create Company
-            </button>
+      <PageHeader
+        title="Companies"
+        description="Manage companies and memberships"
+        actions={
+          <ActionButton tone="primary" onClick={() => setShowModal(true)}>+ Create Company</ActionButton>
+        }
+      />
+
+      {companies.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+          <label htmlFor="active-company" className={cssStyles.settingsLabel} style={{ marginBottom: 0 }}>Active company</label>
+          <select
+            id="active-company"
+            value={companyId ?? ''}
+            onChange={(e) => handleSwitchCompany(e.target.value)}
+            className={cssStyles.settingsInput}
+            style={{ width: 'auto' }}
+          >
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {switchError && <AlertBanner tone="danger">{switchError}</AlertBanner>}
+      {!isSupabaseConfigured && <AlertBanner tone="warning">⚠️ Supabase is not configured. Database features are disabled.</AlertBanner>}
+
+      <div className={cssStyles.operationalTableContainer}>
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: '#5f6368', fontSize: '12px' }}>Loading…</div>
+        ) : companies.length === 0 ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: '#5f6368', fontSize: '12px' }}>
+            <p style={{ margin: 0 }}>No companies yet. Create your first company.</p>
           </div>
-
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : companies.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏢</div>
-                <p>No companies yet. Create your first company.</p>
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        ) : (
+          <>
+            <div className={cssStyles.operationalTableScroll}>
+              <table className={cssStyles.operationalTable}>
+                <caption className={cssStyles.operationalTableCaption}>Companies</caption>
                 <thead>
-                  <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                  <tr className={cssStyles.operationalTableHeaderRow}>
                     {['Name', 'Company No.', 'Email', 'Phone', 'City', 'Created', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      <th key={h} scope="col" className={cssStyles.operationalTableHeadCell}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedCompanies.map((c, i) => (
-                    <tr key={c.id} style={{ borderBottom: i < paginatedCompanies.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                      <td style={{ padding: '0.8rem', fontWeight: '600', color: '#1f2937' }}>{c.name}</td>
-                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.company_number || '—'}</td>
-                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.email || '—'}</td>
-                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.phone || '—'}</td>
-                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{c.city || '—'}</td>
-                      <td style={{ padding: '0.8rem', color: '#6b7280' }}>{new Date(c.created_at).toLocaleDateString()}</td>
-                      <td style={{ padding: '0.8rem' }}>
-                        <button
-                          onClick={() => openEditModal(c)}
-                          style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                        >
-                          Edit
-                        </button>
+                  {paginatedCompanies.map((c) => (
+                    <tr key={c.id} className={cssStyles.operationalTableRow}>
+                      <td className={cssStyles.operationalTableCell} style={{ fontWeight: 600 }}>{c.name}</td>
+                      <td className={cssStyles.operationalTableCell}>{c.company_number || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>{c.email || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>{c.phone || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>{c.city || '—'}</td>
+                      <td className={cssStyles.operationalTableCell}>{new Date(c.created_at).toLocaleDateString()}</td>
+                      <td className={`${cssStyles.operationalTableCell} ${cssStyles.operationalTableActionCell}`}>
+                        <ActionButton tone="secondary" onClick={() => openEditModal(c)}>Edit</ActionButton>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
+            </div>
             {companies.length > COMPANIES_PER_PAGE && (
-              <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
+              <div className={cssStyles.operationalTableMeta}>
                 <span>
                   Showing {safeCompanyPage * COMPANIES_PER_PAGE + 1}–{Math.min((safeCompanyPage + 1) * COMPANIES_PER_PAGE, companies.length)} of {companies.length}
                 </span>
-                <div style={{ display: 'flex', gap: '0.45rem' }}>
-                  <button
-                    onClick={() => setCompanyPage((prev) => Math.max(prev - 1, 0))}
-                    disabled={safeCompanyPage === 0}
-                    style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeCompanyPage === 0 ? '#f9fafb' : '#fff', cursor: safeCompanyPage === 0 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setCompanyPage((prev) => Math.min(prev + 1, totalCompanyPages - 1))}
-                    disabled={safeCompanyPage >= totalCompanyPages - 1}
-                    style={{ padding: '0.3rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: safeCompanyPage >= totalCompanyPages - 1 ? '#f9fafb' : '#fff', cursor: safeCompanyPage >= totalCompanyPages - 1 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Next
-                  </button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <ActionButton tone="secondary" disabled={safeCompanyPage === 0} onClick={() => setCompanyPage((prev) => Math.max(prev - 1, 0))}>Previous</ActionButton>
+                  <ActionButton tone="secondary" disabled={safeCompanyPage >= totalCompanyPages - 1} onClick={() => setCompanyPage((prev) => Math.min(prev + 1, totalCompanyPages - 1))}>Next</ActionButton>
                 </div>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Create Modal */}
-        {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Create Company</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
-              </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
-                <div><label style={labelStyle}>Company Name *</label><input style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Acme Ltd" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                  <div><label style={labelStyle}>Company Number</label><input style={inputStyle} value={formData.company_number} onChange={e => setFormData({...formData, company_number: e.target.value})} placeholder="12345678" /></div>
-                  <div><label style={labelStyle}>VAT Number</label><input style={inputStyle} value={formData.vat_number} onChange={e => setFormData({...formData, vat_number: e.target.value})} placeholder="GB123456789" /></div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                  <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="info@company.com" /></div>
-                  <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
-                </div>
-                <div><label style={labelStyle}>Address</label><input style={inputStyle} value={formData.address_line1} onChange={e => setFormData({...formData, address_line1: e.target.value})} placeholder="123 High Street" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                  <div><label style={labelStyle}>City</label><input style={inputStyle} value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="London" /></div>
-                  <div><label style={labelStyle}>Postcode</label><input style={inputStyle} value={formData.postcode} onChange={e => setFormData({...formData, postcode: e.target.value})} placeholder="SW1A 1AA" /></div>
-                </div>
-              </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.95rem', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>Create Company</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Modal */}
-        {editingCompany && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Company</h2>
-                <button onClick={() => setEditingCompany(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
-              </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
-                <div><label style={labelStyle}>Company Name *</label><input style={inputStyle} value={editData.name} onChange={e => setEditData({...editData, name: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                  <div><label style={labelStyle}>Company Number</label><input style={inputStyle} value={editData.company_number} onChange={e => setEditData({...editData, company_number: e.target.value})} /></div>
-                  <div><label style={labelStyle}>VAT Number</label><input style={inputStyle} value={editData.vat_number} onChange={e => setEditData({...editData, vat_number: e.target.value})} /></div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={editData.email} onChange={e => setEditData({...editData, email: e.target.value})} /></div>
-                  <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={editData.phone} onChange={e => setEditData({...editData, phone: e.target.value})} /></div>
-                </div>
-                <div><label style={labelStyle}>Address</label><input style={inputStyle} value={editData.address_line1} onChange={e => setEditData({...editData, address_line1: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div><label style={labelStyle}>City</label><input style={inputStyle} value={editData.city} onChange={e => setEditData({...editData, city: e.target.value})} /></div>
-                  <div><label style={labelStyle}>Postcode</label><input style={inputStyle} value={editData.postcode} onChange={e => setEditData({...editData, postcode: e.target.value})} /></div>
-                </div>
-              </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <button onClick={() => setEditingCompany(null)} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '0.95rem', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
-                <button onClick={handleUpdate} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
-              </div>
-            </div>
-          </div>
+          </>
         )}
       </div>
+
+      {/* Create Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '90%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '40px' }}>
+              <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#202124' }}>Create Company</h2>
+              <button type="button" onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#5f6368', lineHeight: 1, padding: '0 4px' }} aria-label="Close">×</button>
+            </div>
+            <div style={{ padding: '12px 16px', display: 'grid', gap: '8px' }}>
+              {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>Company Name *</label>
+                <input className={cssStyles.settingsInput} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Acme Ltd" />
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Company Number</label>
+                  <input className={cssStyles.settingsInput} value={formData.company_number} onChange={e => setFormData({...formData, company_number: e.target.value})} placeholder="12345678" />
+                </div>
+                <div>
+                  <label className={cssStyles.settingsLabel}>VAT Number</label>
+                  <input className={cssStyles.settingsInput} value={formData.vat_number} onChange={e => setFormData({...formData, vat_number: e.target.value})} placeholder="GB123456789" />
+                </div>
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Email</label>
+                  <input type="email" className={cssStyles.settingsInput} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="info@company.com" />
+                </div>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Phone</label>
+                  <input className={cssStyles.settingsInput} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" />
+                </div>
+              </div>
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>Address</label>
+                <input className={cssStyles.settingsInput} value={formData.address_line1} onChange={e => setFormData({...formData, address_line1: e.target.value})} placeholder="123 High Street" />
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>City</label>
+                  <input className={cssStyles.settingsInput} value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="London" />
+                </div>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Postcode</label>
+                  <input className={cssStyles.settingsInput} value={formData.postcode} onChange={e => setFormData({...formData, postcode: e.target.value})} placeholder="SW1A 1AA" />
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '8px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Cancel</ActionButton>
+              <ActionButton tone="primary" onClick={handleCreate}>Create Company</ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingCompany && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '4px', border: '1px solid #d9e2ec', width: '90%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid #d9e2ec', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '40px' }}>
+              <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#202124' }}>Edit Company</h2>
+              <button type="button" onClick={() => setEditingCompany(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#5f6368', lineHeight: 1, padding: '0 4px' }} aria-label="Close">×</button>
+            </div>
+            <div style={{ padding: '12px 16px', display: 'grid', gap: '8px' }}>
+              {editError && <AlertBanner tone="danger">{editError}</AlertBanner>}
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>Company Name *</label>
+                <input className={cssStyles.settingsInput} value={editData.name} onChange={e => setEditData({...editData, name: e.target.value})} />
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Company Number</label>
+                  <input className={cssStyles.settingsInput} value={editData.company_number} onChange={e => setEditData({...editData, company_number: e.target.value})} />
+                </div>
+                <div>
+                  <label className={cssStyles.settingsLabel}>VAT Number</label>
+                  <input className={cssStyles.settingsInput} value={editData.vat_number} onChange={e => setEditData({...editData, vat_number: e.target.value})} />
+                </div>
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Email</label>
+                  <input type="email" className={cssStyles.settingsInput} value={editData.email} onChange={e => setEditData({...editData, email: e.target.value})} />
+                </div>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Phone</label>
+                  <input className={cssStyles.settingsInput} value={editData.phone} onChange={e => setEditData({...editData, phone: e.target.value})} />
+                </div>
+              </div>
+              <div className={cssStyles.settingsFieldRow}>
+                <label className={cssStyles.settingsLabel}>Address</label>
+                <input className={cssStyles.settingsInput} value={editData.address_line1} onChange={e => setEditData({...editData, address_line1: e.target.value})} />
+              </div>
+              <div className={cssStyles.settingsFieldGrid}>
+                <div>
+                  <label className={cssStyles.settingsLabel}>City</label>
+                  <input className={cssStyles.settingsInput} value={editData.city} onChange={e => setEditData({...editData, city: e.target.value})} />
+                </div>
+                <div>
+                  <label className={cssStyles.settingsLabel}>Postcode</label>
+                  <input className={cssStyles.settingsInput} value={editData.postcode} onChange={e => setEditData({...editData, postcode: e.target.value})} />
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '8px 16px', borderTop: '1px solid #d9e2ec', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <ActionButton tone="secondary" disabled={saving} onClick={() => setEditingCompany(null)}>Cancel</ActionButton>
+              <ActionButton tone="primary" disabled={saving} onClick={handleUpdate}>{saving ? 'Saving…' : 'Save Changes'}</ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }
