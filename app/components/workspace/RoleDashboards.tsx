@@ -106,7 +106,7 @@ export function CarrierDashboard() {
         <KpiCard label="Quotes submitted" value={metrics.submittedQuotes} detail="Awaiting a commercial decision" onClick={() => router.push('/admin/quotes')} />
         <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" onClick={() => router.push('/admin/bids')} />
         <KpiCard label="Awaiting allocation" value={metrics.unallocated} detail="Jobs requiring driver and vehicle" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
-        <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="blue" onClick={() => router.push('/admin/fleet/active-jobs')} />
         <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" onClick={() => router.push('/admin/documents?view=pod')} />
         <KpiCard label="Overdue invoices" value={metrics.overdueInvoices} detail="Past due date" tone={metrics.overdueInvoices ? 'red' : 'navy'} onClick={() => router.push('/admin/invoices')} />
       </KpiGrid>
@@ -266,7 +266,7 @@ export function FleetDashboard() {
       {/* Section 8: maximum 6 KPI tiles. Offline drivers and exceptions surfaced in right rail. */}
       <KpiGrid>
         <KpiCard label="Available drivers" value={data.drivers.filter((d) => d.availability_status === 'available').length} tone="green" detail="Ready for allocation" onClick={() => router.push('/admin/drivers')} />
-        <KpiCard label="Busy drivers" value={data.drivers.filter((d) => d.availability_status === 'busy').length} tone="purple" detail="Assigned or on a job" onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Busy drivers" value={data.drivers.filter((d) => d.availability_status === 'busy').length} tone="orange" detail="Assigned or on a job" onClick={() => router.push('/admin/drivers')} />
         <KpiCard label="Available vehicles" value={data.vehicles.filter((v) => !v.assigned_driver_id).length} tone="blue" detail={`${data.vehicles.length} total vehicles`} onClick={() => router.push('/admin/vehicles')} />
         <KpiCard label="Unassigned jobs" value={unassignedJobs.length} tone="orange" detail="Driver and vehicle required" onClick={() => router.push('/admin/fleet/assignments')} />
         <KpiCard label="Active jobs" value={activeJobs.length} tone="green" detail="Collections and deliveries" onClick={() => router.push('/admin/fleet/active-jobs')} />
@@ -410,7 +410,7 @@ export function ComplianceDashboard() {
         <KpiCard label="Expired" value={expired.length} tone="red" />
         <KpiCard label="Expires in 7 days" value={due7.length} tone="orange" />
         <KpiCard label="Expires in 30 days" value={due30.length} tone="blue" />
-        <KpiCard label="Pending verification" value={documents.filter((document) => ['pending', 'under_review'].includes(document.status ?? '')).length} tone="purple" />
+        <KpiCard label="Pending verification" value={documents.filter((document) => ['pending', 'under_review'].includes(document.status ?? '')).length} tone="orange" />
         <KpiCard label="Drivers not ready" value={data.drivers.filter((driver) => driver.status !== 'active').length} tone="red" />
       </KpiGrid>
       <Panel title="Priority expiry queue" description="Expired documents first, followed by the nearest expiry date.">

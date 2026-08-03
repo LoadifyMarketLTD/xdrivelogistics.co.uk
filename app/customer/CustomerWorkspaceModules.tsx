@@ -95,7 +95,7 @@ export function CustomerDashboard() {
       <KpiGrid>
         {/* Section 8: maximum 6 KPI tiles. Draft loads and unpaid invoices surfaced in Commercial summary. */}
         <KpiCard label="Open loads" value={metrics.open} detail="Awaiting carrier quotes" tone="blue" onClick={() => router.push('/customer/loads')} />
-        <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="purple" onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="blue" onClick={() => router.push('/customer/quotes')} />
         <KpiCard label="Awaiting award" value={metrics.awaitingAward.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/customer/quotes')} />
         <KpiCard label="Active deliveries" value={metrics.activeDeliveries.length} detail="In transit now" tone="green" onClick={() => router.push('/customer/deliveries')} />
         <KpiCard label="Delayed" value={metrics.delayed.length} detail="Past delivery window" tone="red" onClick={() => router.push('/customer/deliveries')} />
@@ -339,7 +339,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
       <KpiCard label="Pickup" value={<span style={{fontSize:'0.9rem'}}>{when(job.pickup_datetime)}</span>}/>
       <KpiCard label="Delivery" value={<span style={{fontSize:'0.9rem'}}>{when(job.delivery_datetime)}</span>}/>
       <KpiCard label="POD files" value={podPaths.length} tone="green"/>
-      <KpiCard label="Quotes" value={jobQuotes.length} tone="purple"/>
+      <KpiCard label="Quotes" value={jobQuotes.length} tone="blue"/>
     </KpiGrid>
     <TwoColumn>
       <div style={{display:'grid',gap:'0.9rem'}}>

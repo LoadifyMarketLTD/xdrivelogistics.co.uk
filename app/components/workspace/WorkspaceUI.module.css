@@ -327,6 +327,229 @@
   border-color: #1d57d8;
 }
 
+/* ─── Broker commercial summary button list ─────────────────────────────────
+ * Stack of summary-row buttons inside the commercial summary OperationalCard.
+ * Section 5 rhythm: marginTop 8px, column gap 4px.
+ */
+.brokerSummaryButtonStack {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Full-width summary row button: justify label/value across available width */
+.brokerSummaryButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #1A1F2B;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.brokerSummaryButton:hover {
+  border-color: #1D57D8;
+  background: #F1F6FF;
+}
+
+/* Grid variant: label + status badge/value, used in recent-loads button */
+.brokerSummaryButtonGrid {
+  grid-template-columns: 1fr auto;
+  text-align: left;
+}
+
+/* Overdue count: default colour inherits; when the load is overdue, show red */
+.brokerSummaryOverdueValue {
+  font-weight: 700;
+}
+
+.brokerSummaryOverdueValue[data-overdue="true"] {
+  color: #C62828;
+}
+
+/* Monthly chart — dense operational mini bar-chart inside OperationalCard */
+.brokerMonthlyChartContainer {
+  display: grid;
+  gap: 4px;
+}
+
+.brokerMonthlyChartRow {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.brokerMonthlyChartMonth {
+  color: #64748B;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.brokerMonthlyChartBars {
+  display: grid;
+  gap: 2px;
+}
+
+.brokerMonthlyChartBar {
+  border-radius: 3px;
+  height: 7px;
+}
+
+.brokerMonthlyChartBarRevenue {
+  background: #dcfce7;
+}
+
+.brokerMonthlyChartBarCost {
+  background: #fed7aa;
+}
+
+.brokerMonthlyChartMargin {
+  font-weight: 800;
+  min-width: 70px;
+  text-align: right;
+  font-size: 12px;
+}
+
+.brokerMonthlyChartLegend {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748B;
+}
+
+.brokerMonthlyChartLegendSwatch {
+  display: inline-block;
+  width: 10px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+
+.brokerMonthlyChartEmpty {
+  color: #64748B;
+  font-size: 12px;
+  padding: 8px 0;
+}
+
+/* Sub-contract spend section */
+.brokerSpendAmount {
+  font-size: 22px;
+  font-weight: 900;
+  color: #C2410C;
+}
+
+.brokerSpendMeta {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.brokerSpendLinks {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.brokerSpendLinkBtn {
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #F8FAFC;
+  color: #1A1F2B;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Recent loads button body */
+.brokerRecentLoadCopy {
+  min-width: 0;
+}
+
+.brokerRecentLoadName {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brokerRecentLoadMeta {
+  display: block;
+  font-size: 11px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Actions column stack */
+.brokerActionsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+}
+
+/* Broker sub-page status tabs — dense operational tab strip (contract Section 9) */
+.brokerTabStrip {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #D8DEE8;
+}
+
+.brokerTabButton {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748B;
+  padding: 4px 10px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.brokerTabButton[data-active="true"] {
+  border-bottom-color: #1D57D8;
+  color: #1D57D8;
+  font-weight: 800;
+}
+
+/* Broker dispute / action note textarea — 32px-rhythm control */
+.brokerNoteInput {
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  width: 100%;
+  min-width: 180px;
+  resize: vertical;
+}
+
+.brokerActionsRow {
+  display: flex;
+  gap: 4px;
+}
+
+/* Panel spacing override — 8px bottom-margin (Section 5 rhythm) */
+.brokerPanelGap {
+  margin-bottom: 8px;
+}
+
 .selectorControl {
   border: 1px solid #D8DEE8;
   border-radius: 4px;
@@ -1735,4 +1958,253 @@
     border-top: 1px solid #E5E7EB;
     flex-wrap: wrap;
   }
+}
+
+/* ── Settings page — contract-compliant patterns ─────────────────────── */
+
+/* Settings outer layout: sidebar rail + main content */
+.settingsLayout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* Left section nav rail — mirrors sidebar nav item dimensions */
+.settingsSideNav {
+  width: 220px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.settingsSideNavBtn {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settingsSideNavBtn:hover {
+  background: #f4f6f8;
+}
+
+.settingsSideNavBtnActive {
+  background: #f0f4ff;
+  border-left-color: #1D57D8;
+  color: #1D57D8;
+  font-weight: 600;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Settings main content panel */
+.settingsPanel {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+/* Section title inside settings panel */
+.settingsSectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1f2b;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+/* Section title with top spacing (following sections) */
+.settingsSectionTitleSpaced {
+  margin-top: 16px;
+}
+
+/* 2-column field grid */
+.settingsFieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Single field row */
+.settingsFieldRow {
+  margin-bottom: 8px;
+}
+
+/* Form label */
+.settingsLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Form input / select */
+.settingsInput {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1a1f2b;
+  background: #fff;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.settingsInput:focus {
+  border-color: #1D57D8;
+  box-shadow: 0 0 0 2px rgba(29, 87, 216, 0.12);
+}
+
+.settingsInputReadonly {
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: default;
+}
+
+/* Info display card (contact / help articles) */
+.settingsInfoCard {
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: #f9fafb;
+  margin-bottom: 8px;
+}
+
+.settingsInfoCardLabel {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.settingsInfoCardValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1f2b;
+}
+
+/* Notification toggle row */
+.settingsNotifRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.settingsNotifLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1f2b;
+  margin-bottom: 2px;
+}
+
+.settingsNotifDescription {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* Account user info box */
+.settingsAccountInfo {
+  background: #f9fafb;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+/* Helper / hint text below inputs */
+.settingsHint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 3px;
+}
+
+/* Save / action row */
+.settingsActionRow {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Bids page — job-group panels ───────────────────────────────────── */
+
+.bidsJobGroup {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.bidsJobGroupAwarded {
+  border-color: #86efac;
+}
+
+.bidsJobGroupHeader {
+  padding: 8px 10px;
+  border-bottom: 1px solid #F3F4F6;
+  background: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 36px;
+}
+
+.bidsJobGroupHeaderAwarded {
+  background: #f0fdf4;
+}
+
+.bidsJobGroupTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.bidsJobGroupMeta {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.bidsJobGroupBadge {
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.bidsJobGroupBadgeAwarded {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.bidsJobGroupBadgePending {
+  background: #fef3c7;
+  color: #92400e;
 }

@@ -233,7 +233,7 @@ export function OwnerConsole() {
               items={[
                 { label: 'Companies suspended', value: loading ? '…' : stats?.companiesSuspended ?? 0, tone: (stats?.companiesSuspended ?? 0) > 0 ? 'red' : 'green' },
                 { label: 'Invoices total', value: loading ? '…' : stats?.invoicesTotal ?? 0, tone: 'blue' },
-                { label: 'Drivers total', value: loading ? '…' : stats?.driversTotal ?? 0, tone: 'purple' },
+                { label: 'Drivers total', value: loading ? '…' : stats?.driversTotal ?? 0, tone: 'navy' },
                 { label: 'Jobs total', value: loading ? '…' : stats?.jobsTotal ?? 0, tone: 'green' },
               ]}
             />
