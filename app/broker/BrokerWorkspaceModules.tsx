@@ -155,17 +155,15 @@ export function BrokerDashboard() {
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
+      {/* Section 8: maximum 6 KPI tiles. Financial tiles (awaiting payment, overdue, draft)
+          are surfaced in the Commercial summary panel below. */}
       <ExchangeKpiStrip>
-        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/broker/loads')} />
         <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" onClick={() => router.push('/broker/loads')} />
         <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" onClick={() => router.push('/broker/bids')} />
         <KpiCard label="Awaiting award" value={metrics.awaitingAwardJobs.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
         <KpiCard label="Active jobs" value={metrics.activeJobs.length} detail="Collections and deliveries" tone="green" onClick={() => router.push('/broker/jobs')} />
         <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
         <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% margin`} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
-        <KpiCard label="Awaiting customer payment" value={metrics.awaitingRevenueInvoices.length} detail={money(metrics.awaitingRevenueValue)} tone={metrics.awaitingRevenueInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Due for payment" value={metrics.dueForPayment.length} detail="Due within 7 days" tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Overdue customer invoices" value={metrics.overdueRevenueInvoices.length} detail={money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0))} tone={metrics.overdueRevenueInvoices.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
       </ExchangeKpiStrip>
 
       {metrics.awaitingAwardJobs.length > 0 && (
@@ -223,7 +221,7 @@ export function BrokerDashboard() {
         <div style={{ display: 'grid', gap: '12px' }}>
           <OperationalCard
             title="Commercial summary"
-            subtitle="Invoiced net amounts are shown separately from operational estimates."
+            subtitle="Invoiced net amounts, draft loads and payment status in one place."
           >
             <FinancialSummaryPanel
               items={[
@@ -234,6 +232,12 @@ export function BrokerDashboard() {
                 { label: 'Estimated carrier quote cost', value: money(metrics.estimatedCarrierCost), background: metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', color: metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b' },
               ]}
             />
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button type="button" onClick={() => router.push('/broker/loads')} style={summaryButton}><span>Draft loads</span><strong>{metrics.draft}</strong></button>
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')} style={summaryButton}><span>Awaiting customer payment</span><strong>{metrics.awaitingRevenueInvoices.length} — {money(metrics.awaitingRevenueValue)}</strong></button>
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')} style={summaryButton}><span>Due within 7 days</span><strong>{metrics.dueForPayment.length}</strong></button>
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')} style={summaryButton}><span>Overdue invoices</span><strong style={{ color: metrics.overdueRevenueInvoices.length ? '#C62828' : 'inherit' }}>{metrics.overdueRevenueInvoices.length}</strong></button>
+            </div>
           </OperationalCard>
 
           <OperationalCard title="Recent customer loads" subtitle="Latest activity in the broker book." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/loads')}>All loads</ActionButton>}>
