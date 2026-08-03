@@ -21,6 +21,11 @@ const driverDashboardVisualGate = readFileSync(
   'utf-8',
 );
 
+const workspaceVisualGate = readFileSync(
+  new URL('../e2e/workspace-visual-auth-gate.spec.ts', import.meta.url),
+  'utf-8',
+);
+
 describe('Dashboard conformance docs and shared CSS contract', () => {
   it('removes arbitrary rem and proportional line-height values from shared dashboard CSS', () => {
     expect(workspaceUiCss).not.toMatch(/[0-9.]+rem/);
@@ -43,6 +48,9 @@ describe('Dashboard conformance docs and shared CSS contract', () => {
     for (const viewport of ['1440×900', '768×1024', '390×844']) {
       expect(dashboardHomeSurfacesDoc).toContain(viewport);
     }
+    expect(dashboardHomeSurfacesDoc).toContain('must be captured from the authenticated real routes');
+    expect(dashboardHomeSurfacesDoc).toContain('/visual-fixture/workspace/[role]');
+    expect(dashboardHomeSurfacesDoc).toContain('not accepted as route-proof evidence');
   });
 
   it('keeps the driver route document and visual gate aligned to the exact numeric assertions', () => {
@@ -56,5 +64,11 @@ describe('Dashboard conformance docs and shared CSS contract', () => {
     expect(driverDashboardVisualGate).toContain('toBeLessThanOrEqual(33);');
     expect(driverDashboardVisualGate).toContain('panel header height`).toBeGreaterThanOrEqual(36);');
     expect(driverDashboardVisualGate).toContain('first standard row height`).toBeLessThanOrEqual(48);');
+  });
+
+  it('keeps workspace visual proof bound to real routes instead of shared role fixtures', () => {
+    expect(workspaceVisualGate).toContain("page.goto(role.route)");
+    expect(workspaceVisualGate).toContain("test.skip(!role.email || !role.password");
+    expect(workspaceVisualGate).not.toContain('/visual-fixture/workspace/');
   });
 });
