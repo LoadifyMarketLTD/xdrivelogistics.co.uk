@@ -1,7 +1,7 @@
 # Dashboard Home Surfaces — CX Reference Measurement Document
 
 **Status:** implementation in progress — PR #338  
-**XDrive targets covered:** `/admin`, `/broker`, `/customer`, `/driver`, carrier / fleet dashboards in `app/components/workspace/RoleDashboards.tsx`, `/super-admin`
+**XDrive targets covered:** `/admin`, `/broker`, `/customer`, `/driver`, `/carrier`, `/super-admin`
 
 ## Reference mapping
 
@@ -91,7 +91,7 @@
 
 ## Rendered evidence set
 
-All dashboard evidence in this section must be captured from the authenticated real routes (`/admin`, `/broker`, `/customer`, `/driver`, `/super-admin`, and carrier via `/admin` with a carrier account) using `e2e/workspace-visual-auth-gate.spec.ts`.
+All dashboard evidence in this section must be captured from the authenticated real routes (`/admin`, `/broker`, `/customer`, `/driver`, `/carrier`, `/super-admin`) using `e2e/workspace-visual-auth-gate.spec.ts`.
 `/visual-fixture/workspace/[role]` is restricted to fixture-harness checks and is not accepted as route-proof evidence for this table.
 
 | Surface | Viewport | Before | After |
@@ -108,9 +108,9 @@ All dashboard evidence in this section must be captured from the authenticated r
 | `/driver` | `1440×900` | `docs/ui/cx/evidence/before/driver-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/driver-dashboard-1440x900-after.jpeg` |
 | `/driver` | `768×1024` | `docs/ui/cx/evidence/before/driver-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/driver-dashboard-768x1024-after.jpeg` |
 | `/driver` | `390×844` | `docs/ui/cx/evidence/before/driver-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/driver-dashboard-390x844-after.jpeg` |
-| `carrier / fleet` | `1440×900` | `docs/ui/cx/evidence/before/carrier-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-1440x900-after.jpeg` |
-| `carrier / fleet` | `768×1024` | `docs/ui/cx/evidence/before/carrier-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-768x1024-after.jpeg` |
-| `carrier / fleet` | `390×844` | `docs/ui/cx/evidence/before/carrier-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-390x844-after.jpeg` |
+| `/carrier` | `1440×900` | `docs/ui/cx/evidence/before/carrier-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-1440x900-after.jpeg` |
+| `/carrier` | `768×1024` | `docs/ui/cx/evidence/before/carrier-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-768x1024-after.jpeg` |
+| `/carrier` | `390×844` | `docs/ui/cx/evidence/before/carrier-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/carrier-dashboard-390x844-after.jpeg` |
 | `/super-admin` | `1440×900` | `docs/ui/cx/evidence/before/super-admin-dashboard-1440x900-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-1440x900-after.jpeg` |
 | `/super-admin` | `768×1024` | `docs/ui/cx/evidence/before/super-admin-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-768x1024-after.jpeg` |
 | `/super-admin` | `390×844` | `docs/ui/cx/evidence/before/super-admin-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-390x844-after.jpeg` |
@@ -174,9 +174,9 @@ All dashboard evidence in this section must be captured from the authenticated r
 | `/driver` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
 | `/driver` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
 | `/driver` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
-| `carrier / fleet` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
-| `carrier / fleet` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
-| `carrier / fleet` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/carrier` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/carrier` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
+| `/carrier` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
 | `/super-admin` | `1440×900` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `230 / 50 / 220 / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
 | `/super-admin` | `768×1024` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `56 / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |
 | `/super-admin` | `390×844` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `280 drawer / 50 / stacked / 32 / 36+ / 42 / 0` | `0px` | `0%` | PASS |

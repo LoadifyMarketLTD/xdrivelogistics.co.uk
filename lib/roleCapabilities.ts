@@ -181,6 +181,7 @@ export const cleanPathname = (pathname: string): string =>
 /** Route prefixes that require authentication. */
 export const PROTECTED_ROUTE_PREFIXES = [
   '/admin',
+  '/carrier',
   '/broker',
   '/customer',
   '/driver',
@@ -235,6 +236,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/notifications', workspace: 'carrier_fleet' },
   { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
   { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
+  { prefix: '/carrier', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
   // broker (/broker)
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
@@ -345,7 +347,7 @@ export const isCapabilityAllowedForPath = (
       const isQuoteRoute = path === '/driver/quotes' || path.startsWith('/driver/quotes/');
       if (isQuoteRoute && context.canCommercialBid !== true) return false;
     }
-  } else if (pathMatches(path, '/admin')) {
+  } else if (pathMatches(path, '/admin') || pathMatches(path, '/carrier')) {
     if (
       ![
         'platform_owner',

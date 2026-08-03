@@ -11,6 +11,7 @@
  *   /customer  → shipper
  *   /broker    → broker
  *   /admin     → carrier_fleet  (legacy company / carrier-fleet control surface)
+ *   /carrier   → carrier_fleet  (carrier dashboard route alias)
  *
  * Important: /driver is a shared route surface for both employed/company
  * drivers and owner-drivers with equivalent in-workspace permissions.
@@ -139,5 +140,6 @@ export function workspaceForRoute(pathname: string): BusinessWorkspace | null {
   if (clean === '/customer' || clean.startsWith('/customer/')) return 'shipper';
   if (clean === '/broker'   || clean.startsWith('/broker/'))   return 'broker';
   if (clean === '/admin'    || clean.startsWith('/admin/'))    return 'carrier_fleet';
+  if (clean === '/carrier'  || clean.startsWith('/carrier/'))  return 'carrier_fleet';
   return null;
 }

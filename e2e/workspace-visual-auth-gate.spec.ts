@@ -39,7 +39,7 @@ const roles: Array<{
   },
   {
     id: 'carrier',
-    route: '/admin',
+    route: '/carrier',
     email: process.env.E2E_CARRIER_EMAIL ?? '',
     password: process.env.E2E_CARRIER_PASSWORD ?? '',
     headingPatterns: [/Carrier Dashboard/i, /Fleet Dashboard/i],

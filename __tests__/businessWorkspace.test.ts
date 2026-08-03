@@ -114,6 +114,11 @@ describe('workspaceForRoute — legacy route compatibility', () => {
     expect(workspaceForRoute('/admin/marketplace')).toBe('carrier_fleet');
   });
 
+  it('resolves /carrier to carrier_fleet', () => {
+    expect(workspaceForRoute('/carrier')).toBe('carrier_fleet');
+    expect(workspaceForRoute('/carrier/overview')).toBe('carrier_fleet');
+  });
+
   it('returns null for public / super-admin routes', () => {
     expect(workspaceForRoute('/')).toBeNull();
     expect(workspaceForRoute('/super-admin')).toBeNull();
