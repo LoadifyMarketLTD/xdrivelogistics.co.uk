@@ -1,22 +1,46 @@
+/* ─── OperationalToolbar ────────────────────────────────────────────────────
+ * Section 5: height 40px single-row; h-padding 8px; v-padding 4px;
+ * border 1px; radius 4px; control-gap 8px; bottom-margin 8px.
+ * Desktop (≥1025px): single-row enforced — no wrapping, fixed 40px height.
+ * Tablet/mobile (<1025px): wrapping allowed; min-height 40px.
+ */
 .operationalToolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 0.72rem;
+  /* Min height covers one row at 40px = 4px top + 32px control + 4px bottom */
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  margin-bottom: 8px;
 }
 
+@media (min-width: 1025px) {
+  .operationalToolbar {
+    flex-wrap: nowrap;
+    height: 40px;
+  }
+}
+
+/* ─── ExchangeKpiStrip ──────────────────────────────────────────────────────
+ * Section 8: gap 8px; max 6 tiles; equal-width columns.
+ * Uses auto-fit so dashboards with <6 tiles still fill the row evenly.
+ * The 6-tile maximum is enforced by each dashboard component (not the grid).
+ */
 .exchangeKpiStrip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-  gap: 0.65rem;
-  margin-bottom: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .financialSummaryPanel {
   display: grid;
-  gap: 0.55rem;
+  gap: 8px;
 }
 
 .financialSummaryRow {
@@ -24,10 +48,10 @@
   justify-content: space-between;
   background: var(--xdrive-finance-row-bg, #f4f6f8);
   border: 1px solid color-mix(in srgb, var(--xdrive-finance-row-color, #1d57d8) 20%, #ffffff);
-  border-radius: 8px;
-  padding: 0.62rem 0.75rem;
-  font-size: 0.76rem;
-  gap: 0.6rem;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+  gap: 8px;
 }
 
 .financialSummaryLabel {
@@ -40,19 +64,19 @@
 
 .complianceSummaryEmpty {
   color: #1a1f2b;
-  font-size: 0.76rem;
-  padding: 0.4rem 0;
+  font-size: 13px;
+  padding: 8px 0;
 }
 
 .complianceSummaryRows {
   display: grid;
-  gap: 0.42rem;
+  gap: 8px;
 }
 
 .complianceSummaryRow {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 8px;
 }
 
 .complianceSummaryDot {
@@ -66,23 +90,23 @@
 
 .complianceSummaryLabel {
   flex: 1;
-  font-size: 0.73rem;
+  font-size: 12px;
   color: #1a1f2b;
 }
 
 .complianceSummaryCount {
-  font-size: 0.73rem;
+  font-size: 12px;
 }
 
 .complianceSummaryPct {
-  font-size: 0.68rem;
+  font-size: 11px;
   color: #1a1f2b;
   min-width: 32px;
   text-align: right;
 }
 
 .complianceSummaryMeter {
-  margin-top: 0.6rem;
+  margin-top: 8px;
   height: 8px;
   border-radius: 999px;
   overflow: hidden;
@@ -92,7 +116,7 @@
 
 .quickActionGrid {
   display: grid;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .quickActionButton {
@@ -100,36 +124,449 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
-  border: 1px solid #f4f6f8;
-  border-radius: 8px;
-  padding: 0.62rem 0.68rem;
+  gap: 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 6px 8px;
   background: #ffffff;
   color: #1a1f2b;
-  font-size: 0.76rem;
+  font-size: 12px;
   cursor: pointer;
+  min-height: 32px;
+}
+
+.operationalMetricList {
+  display: grid;
+  gap: 4px;
+}
+
+.operationalMetricRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.operationalMetricRow:last-child {
+  border-bottom: none;
+}
+
+.operationalMetricLabel {
+  font-size: 12px;
+  color: #1A1F2B;
+}
+
+.operationalLinkList {
+  display: grid;
+  gap: 8px;
+}
+
+.operationalLinkRow,
+.operationalLinkButton {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1A1F2B;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.operationalLinkButton {
+  cursor: pointer;
+}
+
+.operationalLinkCopy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.operationalLinkLabel {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.operationalLinkMeta {
+  min-width: 0;
+  color: #64748B;
+  font-size: 11px;
+}
+
+.operationalLinkValue {
+  font-weight: 700;
+}
+
+.roleDashboardColumn {
+  display: grid;
+  gap: 12px;
+}
+
+.roleDashboardSummaryList {
+  display: grid;
+  gap: 8px;
+}
+
+.roleDashboardSummaryButton {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1A1F2B;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.roleDashboardListRow,
+.roleDashboardDriverButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #E5E7EB;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.roleDashboardListRow:last-child,
+.roleDashboardDriverButton:last-child {
+  border-bottom: none;
+}
+
+.roleDashboardDriverButton {
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  background: none;
+  color: #1A1F2B;
+  cursor: pointer;
+  text-align: left;
+}
+
+.roleDashboardSummaryButton:hover,
+.roleDashboardDriverButton:hover {
+  border-color: #1D57D8;
+  background: #F1F6FF;
+}
+
+.roleDashboardSummaryButton:focus-visible,
+.roleDashboardDriverButton:focus-visible {
+  outline: 2px solid #1D57D8;
+  outline-offset: -2px;
+  border-color: #1D57D8;
+  background: #F1F6FF;
+}
+
+.roleDashboardDriverCopy {
+  min-width: 0;
+}
+
+.roleDashboardDriverName {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.roleDashboardDriverMeta {
+  display: block;
+  color: #64748B;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.driverDashboardCurrentJob {
+  display: grid;
+  gap: 8px;
+}
+
+.driverDashboardRoute {
+  display: block;
+  color: #1A1F2B;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.driverDashboardMeta {
+  display: block;
+  margin-top: 4px;
+  color: #64748B;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.driverDashboardAlertList {
+  display: grid;
+}
+
+.driverDashboardAlertAction {
+  margin-top: 8px;
 }
 
 .quickActionButton:hover {
   border-color: #1d57d8;
 }
 
+/* ─── Broker commercial summary button list ─────────────────────────────────
+ * Stack of summary-row buttons inside the commercial summary OperationalCard.
+ * Section 5 rhythm: marginTop 8px, column gap 4px.
+ */
+.brokerSummaryButtonStack {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Full-width summary row button: justify label/value across available width */
+.brokerSummaryButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #1A1F2B;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.brokerSummaryButton:hover {
+  border-color: #1D57D8;
+  background: #F1F6FF;
+}
+
+/* Grid variant: label + status badge/value, used in recent-loads button */
+.brokerSummaryButtonGrid {
+  grid-template-columns: 1fr auto;
+  text-align: left;
+}
+
+/* Overdue count: default colour inherits; when the load is overdue, show red */
+.brokerSummaryOverdueValue {
+  font-weight: 700;
+}
+
+.brokerSummaryOverdueValue[data-overdue="true"] {
+  color: #C62828;
+}
+
+/* Monthly chart — dense operational mini bar-chart inside OperationalCard */
+.brokerMonthlyChartContainer {
+  display: grid;
+  gap: 4px;
+}
+
+.brokerMonthlyChartRow {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.brokerMonthlyChartMonth {
+  color: #64748B;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.brokerMonthlyChartBars {
+  display: grid;
+  gap: 2px;
+}
+
+.brokerMonthlyChartBar {
+  border-radius: 3px;
+  height: 7px;
+}
+
+.brokerMonthlyChartBarRevenue {
+  background: #dcfce7;
+}
+
+.brokerMonthlyChartBarCost {
+  background: #fed7aa;
+}
+
+.brokerMonthlyChartMargin {
+  font-weight: 800;
+  min-width: 70px;
+  text-align: right;
+  font-size: 12px;
+}
+
+.brokerMonthlyChartLegend {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748B;
+}
+
+.brokerMonthlyChartLegendSwatch {
+  display: inline-block;
+  width: 10px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+
+.brokerMonthlyChartEmpty {
+  color: #64748B;
+  font-size: 12px;
+  padding: 8px 0;
+}
+
+/* Sub-contract spend section */
+.brokerSpendAmount {
+  font-size: 22px;
+  font-weight: 900;
+  color: #C2410C;
+}
+
+.brokerSpendMeta {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.brokerSpendLinks {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.brokerSpendLinkBtn {
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #F8FAFC;
+  color: #1A1F2B;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Recent loads button body */
+.brokerRecentLoadCopy {
+  min-width: 0;
+}
+
+.brokerRecentLoadName {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brokerRecentLoadMeta {
+  display: block;
+  font-size: 11px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Actions column stack */
+.brokerActionsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+}
+
+/* Broker sub-page status tabs — dense operational tab strip (contract Section 9) */
+.brokerTabStrip {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #D8DEE8;
+}
+
+.brokerTabButton {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748B;
+  padding: 4px 10px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.brokerTabButton[data-active="true"] {
+  border-bottom-color: #1D57D8;
+  color: #1D57D8;
+  font-weight: 800;
+}
+
+/* Broker dispute / action note textarea — 32px-rhythm control */
+.brokerNoteInput {
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  width: 100%;
+  min-width: 180px;
+  resize: vertical;
+}
+
+.brokerActionsRow {
+  display: flex;
+  gap: 4px;
+}
+
+/* Panel spacing override — 8px bottom-margin (Section 5 rhythm) */
+.brokerPanelGap {
+  margin-bottom: 8px;
+}
+
 .selectorControl {
-  border: 1px solid #f4f6f8;
-  border-radius: 6px;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.72rem;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 13px;
   background: #ffffff;
   color: #1a1f2b;
+  min-height: 32px;
 }
 
 .savedViewSelector {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
   color: #1a1f2b;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .workspaceActivityFeed {
@@ -148,7 +585,7 @@
 .workspaceActivityFeedItem {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
 }
 
 .workspaceActivityFeedItemButton {
@@ -158,7 +595,7 @@
   font: inherit;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 8px;
   cursor: pointer;
   padding: 0;
 }
@@ -173,32 +610,44 @@
   color: #f5a300;
 }
 
+/* ─── OperationalTable ──────────────────────────────────────────────────────
+ * Section 9: header 36px, padding 0 8px, font 11px/700;
+ * rows 42px standard, 6px v-pad, 8px h-pad, 12.5px/17px primary text.
+ */
 .operationalTableContainer {
   width: 100%;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .operationalTableToolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 0.5rem;
+  padding: 4px 8px;
+  min-height: 40px;
+  border-bottom: 1px solid #D8DEE8;
+  background: #ffffff;
 }
 
 .operationalTableFilters {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .operationalTableMeta {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.72rem;
-  color: #1a1f2b;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748B;
+  min-width: 90px;
+  justify-content: flex-end;
 }
 
 .operationalTableScroll {
@@ -214,9 +663,9 @@
 .operationalTableCaption {
   caption-side: top;
   text-align: left;
-  padding: 0 0 0.45rem;
-  color: #1a1f2b;
-  font-size: 0.7rem;
+  padding: 0 0 4px;
+  color: #64748B;
+  font-size: 11px;
 }
 
 .operationalTableMinWidth {
@@ -224,22 +673,27 @@
 }
 
 .operationalTableHeaderRow {
-  background: #f4f6f8;
+  background: #F4F6F8;
 }
 
+/* Section 9: header 36px height; padding 0 8px; font 11px/700 */
 .operationalTableHeadCell {
   text-align: left;
-  padding: 0.58rem 0.65rem;
-  color: #1a1f2b;
-  font-size: 0.62rem;
-  font-weight: 850;
-  letter-spacing: 0.045em;
+  /* height 36px = 0 vertical pad + line-height controlled by height */
+  height: 36px;
+  padding: 0 8px;
+  color: #1A1F2B;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-bottom: 1px solid #f4f6f8;
-  background: #f4f6f8;
+  border-bottom: 1px solid #D8DEE8;
+  background: #F4F6F8;
   position: sticky;
   top: 0;
   z-index: 1;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .operationalTableSortButton {
@@ -249,33 +703,37 @@
   padding: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 4px;
   text-transform: inherit;
   letter-spacing: inherit;
   font: inherit;
   cursor: pointer;
 }
 
+/* Section 9: sort icon 12px */
 .operationalTableSortGlyph {
-  font-size: 0.7rem;
+  font-size: 12px;
 }
 
+/* Section 15: hover row #F1F6FF */
 .operationalTableRow:hover {
-  background: #f4f6f8;
+  background: #F1F6FF;
 }
 
 .operationalTableRow:focus-within {
-  outline: 2px solid #1d57d8;
+  outline: 2px solid #1D57D8;
   outline-offset: -2px;
 }
 
+/* Section 9: rows 42px; v-pad 6px; h-pad 8px; 12.5px/17px */
 .operationalTableCell {
-  padding: 0.65rem;
-  color: #1a1f2b;
-  font-size: 0.74rem;
-  border-bottom: 1px solid #f4f6f8;
+  padding: 6px 8px;
+  color: #1A1F2B;
+  font-size: 12.5px;
+  line-height: 17px;
+  border-bottom: 1px solid #E5E7EB;
   vertical-align: middle;
-  min-height: 40px;
+  height: 42px;
 }
 
 .operationalTableActionHeadCell,
@@ -286,15 +744,15 @@
 
 .actionCentreList {
   display: grid;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .actionCentreItem {
   background: #ffffff;
-  border: 1px solid #f4f6f8;
-  border-radius: 9px;
-  padding: 0.78rem 0.85rem;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 10px;
+  box-shadow: none;
   position: relative;
   overflow: hidden;
 }
@@ -310,7 +768,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -321,21 +779,21 @@
 
 .actionCentreItemTitle {
   color: #1a1f2b;
-  font-size: 0.8rem;
-  font-weight: 750;
-  line-height: 1.35;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
 }
 
 .actionCentreItemDescription {
   color: #1a1f2b;
-  font-size: 0.7rem;
-  margin-top: 0.22rem;
-  line-height: 1.4;
+  font-size: 11px;
+  margin-top: 4px;
+  line-height: 14px;
 }
 
 .actionCentreItemBadges {
   display: flex;
-  gap: 0.3rem;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -343,8 +801,9 @@
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.16rem 0.42rem;
-  font-size: 0.62rem;
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 14px;
   font-weight: 800;
   white-space: nowrap;
   border: 1px solid var(--xdrive-action-badge-border, #f4f6f8);
@@ -354,34 +813,1398 @@
 
 .actionCentreMeta {
   display: flex;
-  gap: 0.55rem;
-  margin-top: 0.45rem;
+  gap: 8px;
+  margin-top: 8px;
   flex-wrap: wrap;
 }
 
 .actionCentreMetaValue {
   color: #1a1f2b;
-  font-size: 0.65rem;
+  font-size: 11px;
+  line-height: 14px;
 }
 
 .actionCentreDue {
   color: #f5a300;
-  font-size: 0.65rem;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 700;
 }
 
 .actionCentreCta {
-  margin-top: 0.55rem;
+  margin-top: 8px;
 }
 
 .actionCentreLinkButton,
 .actionCentreLinkAnchor {
   color: #1d57d8;
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
   text-decoration: none;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
+}
+
+/* ─── OperationalPageLayout ─────────────────────────────────────────────── */
+
+.operationalPageLayout {
+  width: 100%;
+  max-width: var(--xdrive-page-max-width, none);
+  padding: 12px 12px 16px;
+}
+
+.operationalPageLayoutTwoPanel {
+  display: grid;
+  /* 220px filter rail (spec) + flexible main content */
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.operationalPageLayoutSearchAside {
+  width: 220px;
+  /* Sticky so the search panel tracks scroll on tall result lists */
+  position: sticky;
+  top: 12px;
+}
+
+.operationalPageLayoutMain {
+  min-width: 0;
+}
+
+/* ─── OperationalCard ───────────────────────────────────────────────────── */
+
+.operationalCard {
+  /* Border-first: border always visible, shadow suppressed (reference pattern) */
+  background: #ffffff;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.operationalCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* Reference: compact CX-style control cards with 10px horizontal padding */
+  padding: 8px 10px;
+  border-bottom: 1px solid #D8DEE8;
+  flex-wrap: wrap;
+}
+
+.operationalCardHeaderText {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.operationalCardTitle {
+  margin: 0;
+  /* Mandatory panel-title token: 13px / 18px / 600 */
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  color: #1A1F2B;
+}
+
+.operationalCardSubtitle {
+  margin: 2px 0 0;
+  /* Mandatory metadata token: 11px / 14px / 400 */
+  font-size: 11px;
+  font-weight: 400;
+  color: #64748B;
+  line-height: 14px;
+}
+
+.operationalCardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.operationalCardBody {
+  /* Operational dashboard body target */
+  padding: 10px;
+}
+
+.operationalCardBodyFlush {
+  padding: 0;
+}
+
+.operationalCardFooter {
+  padding: 8px 12px;
+  border-top: 1px solid #D8DEE8;
+  /* Soft background for footer — matches reference panel footer tones */
+  background: #F4F6F8;
+  font-size: 12px;
+  color: #64748B;
+}
+
+/* ─── OperationalFilters ────────────────────────────────────────────────── */
+
+.operationalFilters {
+  /* Fixed 220px — spec: "left filter rail: 220px" */
+  width: 220px;
+  background: #ffffff;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.operationalFiltersHeader {
+  /* Reference: "Search Panel" / "Search Loads" header row */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #D8DEE8;
+  background: #F4F6F8;
+}
+
+.operationalFiltersTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1A1F2B;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.operationalFiltersBody {
+  /* Reference: ~8px inner padding, ~6px gap between fields */
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.operationalFiltersFooter {
+  padding: 8px 10px;
+  border-top: 1px solid #D8DEE8;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.operationalFiltersSaveRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #64748B;
+  cursor: pointer;
+}
+
+.operationalFiltersSaveCheckbox {
+  accent-color: #1d57d8;
+  cursor: pointer;
+}
+
+/* Search button: XDrive success green per palette contract */
+.operationalFiltersSearchBtn {
+  width: 100%;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  background: #198754;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.operationalFiltersSearchBtn:hover:not(:disabled) {
+  background: #157347;
+}
+
+.operationalFiltersSearchBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Clear button: secondary — matches CX "Clear" button style */
+.operationalFiltersClearBtn {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1A1F2B;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.operationalFiltersClearBtn:hover:not(:disabled) {
+  background: #F4F6F8;
+  border-color: #D8DEE8;
+}
+
+/* ─── OperationalFilterField ──────────────────────────────────────────────── */
+/* Individual field wrapper used inside OperationalFilters */
+
+.operationalFilterField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.operationalFilterLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1A1F2B;
+  line-height: 14px;
+}
+
+.operationalFilterInput,
+.operationalFilterSelect {
+  height: 32px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: #1A1F2B;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.operationalFilterInput:focus,
+.operationalFilterSelect:focus {
+  outline: 2px solid #1d57d8;
+  outline-offset: -1px;
+}
+
+.operationalFilterInputRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.operationalFilterClearBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 50%;
+  padding: 0;
+}
+
+.operationalFilterClearBtn:hover {
+  background: #F4F6F8;
+  color: #1A1F2B;
+}
+
+/* ─── Status Tabs ────────────────────────────────────────────────────────────
+ * Section 12: tab bar 36px; h-padding 12px; font 12px/600; active underline 2px.
+ */
+.statusTabs {
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  border-bottom: 1px solid #D8DEE8;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none;
+}
+.statusTabs::-webkit-scrollbar { display: none; }
+
+.statusTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748B;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.statusTab:hover {
+  color: #1D57D8;
+}
+
+.statusTabActive {
+  color: #1D57D8;
+  border-bottom-color: #1D57D8;
+}
+
+/* Section 12: badge within tab 18px height */
+.statusTabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #E5E7EB;
+  color: #1A1F2B;
+}
+.statusTabActive .statusTabBadge {
+  background: #1D57D8;
+  color: #ffffff;
+}
+
+/* ─── OperationalPagination ─────────────────────────────────────────────────
+ * Section 9: bar 36px; button 28×28px; gap 4px.
+ */
+.operationalPagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 8px;
+  border-top: 1px solid #D8DEE8;
+  background: #F4F6F8;
+  font-size: 12px;
+  color: #64748B;
+}
+
+.operationalPaginationInfo {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.operationalPaginationButtons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Section 9: page button 28×28px */
+.operationalPaginationBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1A1F2B;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.operationalPaginationBtn:hover:not(:disabled) {
+  background: #F1F6FF;
+  border-color: #1D57D8;
+  color: #1D57D8;
+}
+.operationalPaginationBtn:disabled {
+  color: #D8DEE8;
+  cursor: not-allowed;
+  background: #F4F6F8;
+}
+
+/* ─── Jobs Route Cell ────────────────────────────────────────────────────────
+ * Section 10: route cell — origin + dest each one line; 2px gap; 16px arrow.
+ */
+.jobsRouteCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.jobsRouteOrigin,
+.jobsRouteDest {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Section 10: location line height 16px */
+  line-height: 16px;
+  font-size: 12.5px;
+}
+
+.jobsRouteDest {
+  color: #64748B;
+}
+
+.jobsRouteArrow {
+  /* Section 10: arrow/icon width 16px */
+  flex-shrink: 0;
+  width: 16px;
+  font-size: 10px;
+  color: #64748B;
+}
+
+/* Section 10: secondary postcode/time line 13px */
+.jobsRoutePostcode {
+  font-size: 11px;
+  line-height: 14px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Jobs Status Badge ──────────────────────────────────────────────────────
+ * Section 9: status badge height 22px.
+ */
+.jobsStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* ─── Jobs Table Action Buttons ──────────────────────────────────────────────
+ * Section 9: action button height 28px; gap 4px.
+ * Section 13: compact table action h=28px; padding 0 8px; font 11–12px.
+ */
+.jobsActionCell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.jobsActionBtn {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1A1F2B;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+.jobsActionBtn:hover {
+  background: #F1F6FF;
+  border-color: #1D57D8;
+  color: #1D57D8;
+}
+
+.jobsExpandBtn {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+  border: 1px solid #D8DEE8;
+  border-radius: 3px;
+  background: #F4F6F8;
+  color: #64748B;
+  font-size: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.jobsExpandBtn:hover {
+  background: #EFF6FF;
+  border-color: #1D57D8;
+  color: #1D57D8;
+}
+
+/* ─── Jobs Expandable Detail Row ─────────────────────────────────────────────
+ * Inline operational detail shown when a row's expand toggle is activated.
+ */
+.operationalTableDetailRow {
+  background: #F8FAFC;
+}
+
+.operationalTableDetailCell {
+  padding: 8px 12px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.operationalJobDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 16px;
+}
+
+.operationalJobDetailItem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #1A1F2B;
+}
+
+.operationalJobDetailLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── KPI Tile ───────────────────────────────────────────────────────────────
+ * Section 8: height 72px target (max 80px); padding 8px 10px;
+ * label 11px/14px/600; value 22px/26px/700; accent bar 3px.
+ */
+.kpiTile {
+  /* Height 72px target; allow shrink to fit content up to 80px max */
+  min-height: 72px;
+  max-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  border-left: 3px solid var(--xdrive-kpi-accent, #1D57D8);
+  overflow: hidden;
+}
+
+.kpiTileLabel {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Section 8: value 22px/26px/700 */
+.kpiTileValue {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 26px;
+  color: #1A1F2B;
+  white-space: nowrap;
+}
+
+.kpiTileMeta {
+  font-size: 11px;
+  line-height: 14px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Jobs Page Shell ────────────────────────────────────────────────────────
+ * Section 1/4: no max-width centering; page background #F4F6F8; padding 12px.
+ */
+.jobsPageShell {
+  background: #F4F6F8;
+  padding: 12px;
+  min-height: 100%;
+}
+
+/* Section 4: page header 44–56px; title 20px/26px/600; subtitle 12px/16px */
+.jobsPageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-height: 44px;
+  max-height: 56px;
+}
+
+.jobsPageHeaderText {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.jobsPageTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 26px;
+  color: #1A1F2B;
+}
+
+.jobsPageSubtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: #64748B;
+}
+
+.jobsPageHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Section 13: primary CTA height 32px; h-padding 12px; font 12px/600; radius 4px */
+.jobsNewBtn {
+  height: 32px;
+  padding: 0 12px;
+  background: #F5A300;
+  color: #1A1F2B;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.jobsNewBtn:hover:not(:disabled) {
+  background: #e69400;
+}
+.jobsNewBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ─── Alert Banner (Jobs page) ───────────────────────────────────────────────
+ * Compact operational alert — not a marketing box.
+ */
+.jobsAlertBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-size: 12px;
+  line-height: 16px;
+  margin-bottom: 8px;
+}
+.jobsAlertBannerWarning {
+  background: #FFFBEB;
+  border-color: #FCD34D;
+  color: #B76E00;
+}
+.jobsAlertBannerDanger {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  color: #C62828;
+}
+.jobsAlertBannerInfo {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D57D8;
+}
+.jobsAlertBannerBtn {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ─── Jobs Table Toolbar ─────────────────────────────────────────────────────
+ * Section 5: height 40px; h-padding 8px; v-padding 4px; border 1px; r 4px;
+ * search input 220px; status select 140px; date 132px.
+ * Desktop (≥769px): single-row enforced — no wrapping, fixed 40px height.
+ * Tablet/mobile (<769px): wrapping allowed; min-height 40px.
+ */
+.jobsToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
+  margin-bottom: 8px;
+}
+
+@media (min-width: 769px) {
+  .jobsToolbar {
+    flex-wrap: nowrap;
+    height: 40px;
+  }
+}
+
+.jobsStatusTabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #D8DEE8;
+  padding-bottom: 1px;
+}
+
+.jobsStatusTab {
+  min-height: 26px;
+  padding: 0 0 6px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.jobsStatusTabActive {
+  border-bottom-color: #1D57D8;
+  color: #1D57D8;
+}
+
+/* Section 5: inputs/selects within toolbar 32px height */
+.jobsToolbarInput {
+  height: 32px;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: #1A1F2B;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+.jobsToolbarInput:focus {
+  outline: 2px solid #1D57D8;
+  outline-offset: -1px;
+}
+.jobsToolbarSearch { width: 220px; }
+.jobsToolbarStatus { width: 140px; }
+.jobsToolbarDate { width: 132px; }
+.jobsToolbarPickup { width: 132px; }
+.jobsToolbarDelivery { width: 132px; }
+.jobsToolbarCustomer { width: 120px; }
+
+.jobsToolbarSpacer { flex: 1 1 0; }
+
+.jobsToolbarCount {
+  font-size: 12px;
+  color: #64748B;
+  white-space: nowrap;
+  min-width: 90px;
+  text-align: right;
+}
+
+/* ─── Jobs Responsive Layout ─────────────────────────────────────────────────
+ * Desktop ≥769px : full dense table (default).
+ * Tablet 481–768px : compact table; hide Customer/Distance columns; allow
+ *   horizontal scroll only inside the table container.
+ * Mobile ≤480px  : table hidden; stacked mobile cards shown.
+ */
+
+/* Column-level tablet-hide helpers — applied to both th and td */
+.jobsColCustomer {}
+.jobsColDistance {}
+
+/* Table section wrapper — shown on desktop and tablet, hidden on mobile */
+.jobsTableSection {
+  display: block;
+}
+
+.jobsOperationalTable {
+  min-width: 1060px;
+}
+
+.jobsColStatusWidth { width: 92px; }
+.jobsColRefWidth { width: 110px; }
+.jobsColPickupWidth { width: 150px; }
+.jobsColDeliveryWidth { width: 150px; }
+.jobsColVehicleWidth { width: 110px; }
+.jobsColCustomerWidth { width: 150px; }
+.jobsColDistanceWidth { width: 96px; }
+.jobsColActionsWidth { width: 92px; }
+
+.jobsEmptyTableCell {
+  text-align: center;
+  height: 64px;
+  color: #64748B;
+  font-size: 12px;
+}
+
+.jobsOperationalRow {
+  cursor: pointer;
+}
+
+.jobsStatusMeta {
+  font-size: 10px;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.jobsRefValue {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1D57D8;
+}
+
+.jobsSubMeta {
+  font-size: 11px;
+  line-height: 14px;
+  color: #64748B;
+}
+
+.jobsPrimaryDate {
+  font-size: 12.5px;
+  line-height: 17px;
+}
+
+.jobsAsapMeta {
+  font-size: 11px;
+  line-height: 14px;
+  color: #B76E00;
+  font-weight: 600;
+}
+
+.jobsRouteOriginPrimary {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+  display: inline-block;
+}
+
+.jobsRouteDestPrimary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 75%;
+  display: inline-block;
+}
+
+.jobsVehicleCell {
+  font-size: 12px;
+  color: #64748B;
+  text-transform: capitalize;
+}
+
+.jobsVehicleMeta {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+.jobsCustomerCell {
+  font-size: 12.5px;
+  overflow: hidden;
+  max-width: 150px;
+}
+
+.jobsDistanceCell {
+  font-size: 12px;
+  color: #64748B;
+}
+
+.jobsCellEllipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jobsActionBtnPrimary {
+  background: #0B2F6B;
+  color: #ffffff;
+  border-color: #0B2F6B;
+}
+
+.jobsActionSelect {
+  padding-right: 4px;
+}
+
+.jobsMonospaceMeta {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.jobsCapitalizeText {
+  text-transform: capitalize;
+}
+
+.operationalJobDetailWideItem {
+  grid-column: span 2;
+}
+
+.operationalPaginationCurrent {
+  font-size: 12px;
+  color: #1A1F2B;
+  padding: 0 4px;
+}
+
+.jobsEmptyMobileState {
+  padding: 24px 12px;
+  text-align: center;
+  color: #64748B;
+  font-size: 12px;
+}
+
+.jobsMobileRoutePostcode {
+  color: #64748B;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.jobsMobileRouteArrow {
+  color: #64748B;
+  font-size: 10px;
+}
+
+.jobsMobileRouteMetaPostcode {
+  color: #94A3B8;
+  margin-left: 4px;
+}
+
+/* Mobile card list — hidden on desktop and tablet */
+.jobsMobileCardList {
+  display: none;
+}
+
+/* ── Tablet ──────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .operationalPageLayoutTwoPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .operationalPageLayoutSearchAside,
+  .operationalFilters {
+    width: 100%;
+  }
+
+  .operationalPageLayoutSearchAside {
+    position: static;
+    top: auto;
+  }
+
+  /* Toolbar: allow wrapping; auto height */
+  .jobsToolbar {
+    height: auto;
+    min-height: 40px;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .jobsStatusTabs { gap: 4px; }
+  .jobsToolbarSearch { width: 160px; }
+  .jobsToolbarStatus { width: 120px; }
+  .jobsToolbarDate { width: 120px; }
+  .jobsToolbarPickup { width: 120px; }
+  .jobsToolbarDelivery { width: 120px; }
+  .jobsToolbarCustomer { width: 120px; }
+
+  /* KPI strip: allow horizontal scroll on narrow viewports */
+  .exchangeKpiStrip {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    overflow-x: auto;
+  }
+
+  /* Hide Customer and Distance columns on tablet */
+  .jobsColCustomer,
+  .jobsColDistance {
+    display: none;
+  }
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Hide dense table; show card list */
+  .jobsTableSection  { display: none; }
+  .jobsMobileCardList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Card container */
+  .jobsMobileCard {
+    background: #ffffff;
+    border: 1px solid #D8DEE8;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  /* Card header: ref + status badge + expand control */
+  .jobsMobileCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #E5E7EB;
+    min-height: 40px;
+  }
+
+  .jobsMobileCardRef {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1D57D8;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Body of the card */
+  .jobsMobileCardBody {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  /* Route block: pickup → delivery stacked */
+  .jobsMobileCardRoute {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .jobsMobileCardRouteOrigin {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1A1F2B;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .jobsMobileCardRouteDest {
+    font-size: 12px;
+    color: #64748B;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Generic field row: label + value */
+  .jobsMobileCardRow {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 18px;
+    color: #1A1F2B;
+    min-height: 18px;
+  }
+
+  .jobsMobileCardLabel {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 80px;
+  }
+
+  /* Expandable detail inside card */
+  .jobsMobileCardDetail {
+    padding: 8px 10px;
+    background: #F8FAFC;
+    border-top: 1px solid #E5E7EB;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Primary action row at card bottom */
+  .jobsMobileCardActions {
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid #E5E7EB;
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Settings page — contract-compliant patterns ─────────────────────── */
+
+/* Settings outer layout: sidebar rail + main content */
+.settingsLayout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* Left section nav rail — mirrors sidebar nav item dimensions */
+.settingsSideNav {
+  width: 220px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.settingsSideNavBtn {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settingsSideNavBtn:hover {
+  background: #f4f6f8;
+}
+
+.settingsSideNavBtnActive {
+  background: #f0f4ff;
+  border-left-color: #1D57D8;
+  color: #1D57D8;
+  font-weight: 600;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Settings main content panel */
+.settingsPanel {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+/* Section title inside settings panel */
+.settingsSectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1f2b;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+/* Section title with top spacing (following sections) */
+.settingsSectionTitleSpaced {
+  margin-top: 16px;
+}
+
+/* 2-column field grid */
+.settingsFieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Single field row */
+.settingsFieldRow {
+  margin-bottom: 8px;
+}
+
+/* Form label */
+.settingsLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Form input / select */
+.settingsInput {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1a1f2b;
+  background: #fff;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.settingsInput:focus {
+  border-color: #1D57D8;
+  box-shadow: 0 0 0 2px rgba(29, 87, 216, 0.12);
+}
+
+.settingsInputReadonly {
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: default;
+}
+
+/* Info display card (contact / help articles) */
+.settingsInfoCard {
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: #f9fafb;
+  margin-bottom: 8px;
+}
+
+.settingsInfoCardLabel {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.settingsInfoCardValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1f2b;
+}
+
+/* Notification toggle row */
+.settingsNotifRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.settingsNotifLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1f2b;
+  margin-bottom: 2px;
+}
+
+.settingsNotifDescription {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* Account user info box */
+.settingsAccountInfo {
+  background: #f9fafb;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+/* Helper / hint text below inputs */
+.settingsHint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 3px;
+}
+
+/* Save / action row */
+.settingsActionRow {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Bids page — job-group panels ───────────────────────────────────── */
+
+.bidsJobGroup {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.bidsJobGroupAwarded {
+  border-color: #86efac;
+}
+
+.bidsJobGroupHeader {
+  padding: 8px 10px;
+  border-bottom: 1px solid #F3F4F6;
+  background: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 36px;
+}
+
+.bidsJobGroupHeaderAwarded {
+  background: #f0fdf4;
+}
+
+.bidsJobGroupTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.bidsJobGroupMeta {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.bidsJobGroupBadge {
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.bidsJobGroupBadgeAwarded {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.bidsJobGroupBadgePending {
+  background: #fef3c7;
+  color: #92400e;
 }

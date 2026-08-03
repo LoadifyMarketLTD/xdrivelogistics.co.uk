@@ -65,6 +65,12 @@ N/A
 - [ ] `npm run test:unit` passes
 - [ ] `npm run build` passes
 - [ ] CI is green
+- [ ] Screenshot comparison included (before/after for affected screens)
+- [ ] Component comparison included (states/variants affected)
+- [ ] Spacing validation included (4px rhythm + target paddings/gaps)
+- [ ] Typography validation included (sizes/weights hierarchy)
+- [ ] Accessibility validation included (focus, keyboard, labels, contrast)
+- [ ] Responsive validation included (desktop/laptop/tablet/mobile)
 
 ---
 

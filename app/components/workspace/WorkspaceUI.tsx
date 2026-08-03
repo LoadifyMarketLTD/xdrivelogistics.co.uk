@@ -1,42 +1,54 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode, FormEvent } from 'react';
 import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
-  page: '#f4f6f8',
+  page: '#F4F6F8',
   surface: '#ffffff',
-  surfaceSoft: '#f8fafc',
-  surfaceMuted: '#eef2f6',
-  border: '#d7e0ea',
-  borderStrong: '#c7d2df',
-  text: '#0f172a',
-  muted: '#64748b',
+  surfaceSoft: '#F4F6F8',
+  surfaceMuted: '#F4F6F8',
+  border: '#D8DEE8',
+  borderStrong: '#D8DEE8',
+  divider: '#E5E7EB',
+  text: '#1A1F2B',
+  muted: '#64748B',
   blue: '#1d57d8',
   navy: '#0b2f6b',
   orange: '#f5a300',
-  green: '#15803d',
-  red: '#dc2626',
+  green: '#35a853',
+  red: '#d93025',
   amber: '#d97706',
   purple: '#7c3aed',
 };
 
-const compactShadow = '0 2px 8px rgba(15,23,42,0.05)';
+const compactShadow = 'none';
 
-export function PageFrame({ children, maxWidth = 1480 }: { children: ReactNode; maxWidth?: number }) {
-  return <div className="xdrive-page-frame" style={{ width: '100%', maxWidth, margin: '0 auto', padding: '1.15rem clamp(0.85rem, 2vw, 1.5rem) 2.5rem' }}>{children}</div>;
+export function PageFrame({ children, maxWidth }: { children: ReactNode; maxWidth?: number }) {
+  return (
+    <div
+      className="xdrive-page-frame"
+      style={{
+        width: '100%',
+        ...(typeof maxWidth === 'number' ? { maxWidth } : {}),
+        padding: '12px 12px 16px',
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function PageHeader({ eyebrow, title, description, actions, meta }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
   return (
-    <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+    <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
       <div style={{ minWidth: 0, flex: '1 1 520px' }}>
-        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '0.67rem', fontWeight: 850, letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: '0.24rem' }}>{eyebrow}</div>}
-        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: 'clamp(1.35rem, 2vw, 1.85rem)', lineHeight: 1.15, letterSpacing: '-0.025em' }}>{title}</h1>
-        {description && <p style={{ margin: '0.35rem 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '0.88rem', lineHeight: 1.5 }}>{description}</p>}
-        {meta && <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.55rem' }}>{meta}</div>}
+        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px', lineHeight: '16px' }}>{eyebrow}</div>}
+        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>{title}</h1>
+        {description && <p style={{ margin: '4px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '12px', lineHeight: '16px' }}>{description}</p>}
+        {meta && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
       </div>
-      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>{actions}</div>}
+      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
     </header>
   );
 }
@@ -53,7 +65,7 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
     danger: { bg: '#fff', color: workspaceTheme.red, border: '#fecaca' },
     secondary: { bg: '#fff', color: workspaceTheme.text, border: workspaceTheme.borderStrong },
   }[tone];
-  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '8px', padding: '0.54rem 0.82rem', minHeight: '36px', fontSize: '0.75rem', fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>{children}</button>;
+  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
@@ -120,22 +132,49 @@ export function KpiCard({
   ariaLabel?: string;
 }) {
   const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
-  const cardStyle = { textAlign: 'left' as const, background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', padding: '0.72rem 0.78rem', minHeight: '92px', boxShadow: compactShadow, cursor: onClick ? 'pointer' : 'default', position: 'relative' as const, overflow: 'hidden' };
+  /*
+   * Section 8 numeric contract:
+   * tile height: 72px target, max 80px
+   * padding: 8px 10px
+   * label: 11px / 14px / 600
+   * value: 22px / 26px / 700
+   * accent bar: 3px left border
+   * No min-height 100px+.
+   */
+  const cardStyle: CSSProperties = {
+    textAlign: 'left',
+    background: workspaceTheme.surface,
+    border: `1px solid ${workspaceTheme.border}`,
+    borderLeft: `3px solid ${color}`,
+    borderRadius: '4px',
+    padding: '8px 10px',
+    minHeight: '72px',
+    maxHeight: '80px',
+    boxShadow: compactShadow,
+    cursor: onClick ? 'pointer' : 'default',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  };
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
-      <span aria-hidden="true" style={{ position: 'absolute', inset: '0 auto 0 0', width: '3px', background: color }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
-        <div style={{ color: workspaceTheme.muted, fontSize: '0.72rem', fontWeight: 850, letterSpacing: '0.055em', textTransform: 'uppercase' }}>{label}</div>
-        {icon && <div aria-hidden="true" style={{ color, fontSize: '0.9rem' }}>{icon}</div>}
+      <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+        <span>{label}</span>
+        {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
       </div>
-      <div style={{ marginTop: '0.26rem', color: workspaceTheme.text, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.05 }}>{value}</div>
-      {detail && <div style={{ color: workspaceTheme.muted, fontSize: '0.76rem', marginTop: '0.35rem', lineHeight: 1.35 }}>{detail}</div>}
-      {trend && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', marginTop: '0.38rem' }}>
-          <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.7rem', fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
-          <span style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontSize: '0.68rem', fontWeight: 800 }}>{trend.delta}</span>
-          {trend.label && <span style={{ color: workspaceTheme.muted, fontSize: '0.64rem' }}>{trend.label}</span>}
+      <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', whiteSpace: 'nowrap' }}>{value}</div>
+      {(detail || trend) && (
+        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {trend && (
+            <>
+              <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
+              <span style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontWeight: 700 }}>{trend.delta}</span>
+              {trend.label && <span>{trend.label}</span>}
+            </>
+          )}
+          {!trend && detail}
         </div>
       )}
     </>
@@ -146,10 +185,305 @@ export function KpiCard({
 
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
-    <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '9px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', padding: '0.78rem 0.9rem', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap' }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '1rem' }}>{title}</h2>}{description && <p style={{ margin: '0.2rem 0 0', color: workspaceTheme.muted, fontSize: '0.78rem', lineHeight: 1.4 }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
-      <div style={{ padding: flush ? 0 : '0.9rem' }}>{children}</div>
+    <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
+      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '13px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      <div style={{ padding: flush ? 0 : '10px' }}>{children}</div>
     </section>
+  );
+}
+
+/**
+ * OperationalPageLayout
+ *
+ * Top-level page frame derived from CX reference measurements:
+ * - Viewport: 1920×1080
+ * - App frame padding: 12px
+ * - Max content width: 1480px
+ * - Two-panel variant: 230px search aside + 1fr main content, 12px gap
+ *
+ * Use `searchPanel` to render the left OperationalFilters sidebar.
+ * Omit `searchPanel` for full-width single-panel pages (e.g. Dashboard).
+ */
+export function OperationalPageLayout({
+  children,
+  searchPanel,
+  maxWidth,
+  style,
+}: {
+  children: ReactNode;
+  /** Optional left search/filter panel. When provided, the layout switches to
+   *  a 230px aside + flexible main two-column grid. */
+  searchPanel?: ReactNode;
+  maxWidth?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      className={styles.operationalPageLayout}
+      style={{ ...(typeof maxWidth === 'number' ? { ['--xdrive-page-max-width' as string]: `${maxWidth}px` } : {}), ...style } as CSSProperties}
+    >
+      {searchPanel ? (
+        <div className={styles.operationalPageLayoutTwoPanel}>
+          <aside
+            className={styles.operationalPageLayoutSearchAside}
+            aria-label="Search and filters"
+          >
+            {searchPanel}
+          </aside>
+          <main className={styles.operationalPageLayoutMain}>{children}</main>
+        </div>
+      ) : (
+        <main className={styles.operationalPageLayoutMain}>{children}</main>
+      )}
+    </div>
+  );
+}
+
+/**
+ * OperationalCard
+ *
+ * Card primitive derived from CX reference card anatomy:
+ * - Border: 1px solid #D8DEE8 (border-first, no shadow)
+ * - Border-radius: 4px
+ * - Header padding: 8px 12px — measured from CX diary and activity cards
+ * - Body padding: 12px
+ * - Footer padding: 8px 12px, background #F4F6F8
+ * - Title: 14px / 600   Subtitle: 11px / 400
+ *
+ * Replaces ad-hoc `Panel` usage when strict CX density is required.
+ */
+export function OperationalCard({
+  title,
+  subtitle,
+  actions,
+  children,
+  footer,
+  flush = false,
+  style,
+  as: Tag = 'section',
+}: {
+  title?: string;
+  subtitle?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  flush?: boolean;
+  style?: CSSProperties;
+  as?: 'section' | 'article' | 'div';
+}) {
+  return (
+    <Tag className={styles.operationalCard} style={style}>
+      {(title || subtitle || actions) && (
+        <div className={styles.operationalCardHeader}>
+          <div className={styles.operationalCardHeaderText}>
+            {title && <h3 className={styles.operationalCardTitle}>{title}</h3>}
+            {subtitle && <p className={styles.operationalCardSubtitle}>{subtitle}</p>}
+          </div>
+          {actions && (
+            <div className={styles.operationalCardHeaderActions}>{actions}</div>
+          )}
+        </div>
+      )}
+      <div className={flush ? styles.operationalCardBodyFlush : styles.operationalCardBody}>
+        {children}
+      </div>
+      {footer && <div className={styles.operationalCardFooter}>{footer}</div>}
+    </Tag>
+  );
+}
+
+/**
+ * OperationalFilterField
+ *
+ * Single labelled field row within an OperationalFilters panel.
+ * Provides consistent label + control layout with optional clear button.
+ *
+ * Measurements from CX search panel:
+ * - Label: 11px / 600 uppercase
+ * - Input/select height: 32px (XDrive spec, CX ≈ 28–30px)
+ * - Gap label→control: 2px
+ * - Clearable inputs show an × button inline
+ */
+export function OperationalFilterField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label?: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={styles.operationalFilterField}>
+      {label && (
+        <label htmlFor={htmlFor} className={styles.operationalFilterLabel}>
+          {label}
+        </label>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/**
+ * OperationalFilterInput
+ *
+ * Controlled text input for use inside OperationalFilterField.
+ * Optionally renders an inline × clear button (matches CX panel pattern).
+ */
+export function OperationalFilterInput({
+  id,
+  value,
+  onChange,
+  onClear,
+  placeholder,
+  type = 'text',
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onClear?: () => void;
+  placeholder?: string;
+  type?: 'text' | 'date' | 'number';
+}) {
+  return (
+    <div className={styles.operationalFilterInputRow}>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={styles.operationalFilterInput}
+      />
+      {onClear && value && (
+        <button
+          type="button"
+          onClick={onClear}
+          className={styles.operationalFilterClearBtn}
+          aria-label="Clear field"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * OperationalFilterSelect
+ *
+ * Controlled select for use inside OperationalFilterField.
+ */
+export function OperationalFilterSelect({
+  id,
+  value,
+  onChange,
+  options,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={styles.operationalFilterSelect}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/**
+ * OperationalFilters
+ *
+ * Full search/filter panel derived from CX reference measurements:
+ *
+ * CX Search Panel anatomy (screenshots: Diary, Loads pages):
+ * - Panel width:  220px (spec: "left filter rail: 220px")
+ * - Background:   #ffffff, border: 1px solid #D8DEE8
+ * - Header:       8px 10px padding, uppercase 12px/600 title, #F4F6F8 background
+ * - Body:         8px 10px padding, 6px gap between fields
+ * - Footer:       8px 10px padding, 4px gap between buttons
+ * - Search btn:   32px height, full-width, #35a853 green
+ * - Clear btn:    32px height, full-width, secondary (white + border)
+ *
+ * Compose fields using OperationalFilterField, OperationalFilterInput,
+ * OperationalFilterSelect as children.
+ */
+export function OperationalFilters({
+  title = 'Search Panel',
+  children,
+  onSearch,
+  onClear,
+  saveAsDefault,
+  onSaveAsDefaultChange,
+  footer,
+}: {
+  /** Panel heading. Defaults to "Search Panel". */
+  title?: string;
+  /** Filter fields — compose with OperationalFilterField. */
+  children?: ReactNode;
+  /** Called when the Search button is pressed. */
+  onSearch?: (e: FormEvent<HTMLFormElement>) => void;
+  /** Called when the Clear button is pressed. */
+  onClear?: () => void;
+  /** "Save as Default" checkbox state. */
+  saveAsDefault?: boolean;
+  onSaveAsDefaultChange?: (checked: boolean) => void;
+  /** Optional custom footer content rendered below the buttons. */
+  footer?: ReactNode;
+}) {
+  return (
+    <aside className={styles.operationalFilters} aria-label={title}>
+      <div className={styles.operationalFiltersHeader}>
+        <h2 className={styles.operationalFiltersTitle}>{title}</h2>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSearch?.(e);
+        }}
+      >
+        <div className={styles.operationalFiltersBody}>{children}</div>
+        <div className={styles.operationalFiltersFooter}>
+          {onSaveAsDefaultChange !== undefined && (
+            <label className={styles.operationalFiltersSaveRow}>
+              <input
+                type="checkbox"
+                checked={!!saveAsDefault}
+                onChange={(e) => onSaveAsDefaultChange(e.target.checked)}
+                className={styles.operationalFiltersSaveCheckbox}
+              />
+              Save as Default
+            </label>
+          )}
+          {onSearch && (
+            <button type="submit" className={styles.operationalFiltersSearchBtn}>
+              Search
+            </button>
+          )}
+          {onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              className={styles.operationalFiltersClearBtn}
+            >
+              Clear
+            </button>
+          )}
+          {footer}
+        </div>
+      </form>
+    </aside>
   );
 }
 
@@ -166,6 +500,61 @@ export function FinancialSummaryPanel({
           <strong className={styles.financialSummaryValue}>{item.value}</strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+export function OperationalMetricList({
+  items,
+}: {
+  items: Array<{ label: string; value: ReactNode; tone?: StatusBadgeTone }>;
+}) {
+  return (
+    <div className={styles.operationalMetricList}>
+      {items.map((item) => (
+        <div key={item.label} className={styles.operationalMetricRow}>
+          <span className={styles.operationalMetricLabel}>{item.label}</span>
+          {typeof item.value === 'string' || typeof item.value === 'number'
+            ? <StatusBadge value={String(item.value)} tone={item.tone} />
+            : item.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function OperationalLinkList({
+  items,
+}: {
+  items: Array<{ key: string; label: ReactNode; meta?: ReactNode; value?: ReactNode; onClick?: () => void }>;
+}) {
+  return (
+    <div className={styles.operationalLinkList}>
+      {items.map((item) => {
+        const content = (
+          <>
+            <span className={styles.operationalLinkCopy}>
+              <span className={styles.operationalLinkLabel}>{item.label}</span>
+              {item.meta ? <span className={styles.operationalLinkMeta}>{item.meta}</span> : null}
+            </span>
+            {item.value ? <span className={styles.operationalLinkValue}>{item.value}</span> : <span aria-hidden="true">→</span>}
+          </>
+        );
+
+        if (!item.onClick) {
+          return (
+            <div key={item.key} className={styles.operationalLinkRow}>
+              {content}
+            </div>
+          );
+        }
+
+        return (
+          <button key={item.key} type="button" onClick={item.onClick} className={styles.operationalLinkButton}>
+            {content}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -204,8 +593,8 @@ export function ComplianceSummaryPanel({
   );
 }
 
-export function TwoColumn({ children, rightWidth = 'minmax(290px, 0.78fr)' }: { children: ReactNode; rightWidth?: string }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1.45fr) ${rightWidth}`, gap: '0.8rem', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
+export function TwoColumn({ children, rightWidth = 'minmax(290px, 1fr)' }: { children: ReactNode; rightWidth?: string }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 0.79fr) ${rightWidth}`, gap: '12px', alignItems: 'start' }} className="xdrive-two-column">{children}</div>;
 }
 
 export function QuickActionGrid({

@@ -440,13 +440,17 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...buf));
 }
 
-function buildCspHeader(nonce: string): string {
+function shouldUpgradeInsecureRequests(hostname: string): boolean {
+  return hostname !== '127.0.0.1' && hostname !== 'localhost';
+}
+
+function buildCspHeader(nonce: string, hostname: string): string {
   const isDev = process.env.NODE_ENV === 'development';
   const scriptSrc = isDev
     ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
     : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
   const styleSrc = isDev ? `'self' 'unsafe-inline'` : `'self'`;
-  return [
+  const directives = [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
     `style-src ${styleSrc}`,
@@ -457,12 +461,15 @@ function buildCspHeader(nonce: string): string {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
-  ].join('; ');
+  ];
+  if (shouldUpgradeInsecureRequests(hostname)) {
+    directives.push('upgrade-insecure-requests');
+  }
+  return directives.join('; ');
 }
 
 function buildNonceResponse(request: NextRequest, nonce: string) {
-  const csp = buildCspHeader(nonce);
+  const csp = buildCspHeader(nonce, request.nextUrl.hostname);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
