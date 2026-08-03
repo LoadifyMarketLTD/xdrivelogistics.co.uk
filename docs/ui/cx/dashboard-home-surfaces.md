@@ -112,6 +112,29 @@
 | `/super-admin` | `768×1024` | `docs/ui/cx/evidence/before/super-admin-dashboard-768x1024-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-768x1024-after.jpeg` |
 | `/super-admin` | `390×844` | `docs/ui/cx/evidence/before/super-admin-dashboard-390x844-before.jpeg` | `docs/ui/cx/evidence/after/super-admin-dashboard-390x844-after.jpeg` |
 
+## Side-by-side evidence (left: CX reference, right: XDrive)
+
+| Surface | Viewport | Comparison |
+|---|---|---|
+| `/admin` | `1440×900` | `docs/ui/cx/evidence/comparison/admin-dashboard-1440x900-comparison.jpeg` |
+| `/admin` | `768×1024` | `docs/ui/cx/evidence/comparison/admin-dashboard-768x1024-comparison.jpeg` |
+| `/admin` | `390×844` | `docs/ui/cx/evidence/comparison/admin-dashboard-390x844-comparison.jpeg` |
+| `/broker` | `1440×900` | `docs/ui/cx/evidence/comparison/broker-dashboard-1440x900-comparison.jpeg` |
+| `/broker` | `768×1024` | `docs/ui/cx/evidence/comparison/broker-dashboard-768x1024-comparison.jpeg` |
+| `/broker` | `390×844` | `docs/ui/cx/evidence/comparison/broker-dashboard-390x844-comparison.jpeg` |
+| `/customer` | `1440×900` | `docs/ui/cx/evidence/comparison/customer-dashboard-1440x900-comparison.jpeg` |
+| `/customer` | `768×1024` | `docs/ui/cx/evidence/comparison/customer-dashboard-768x1024-comparison.jpeg` |
+| `/customer` | `390×844` | `docs/ui/cx/evidence/comparison/customer-dashboard-390x844-comparison.jpeg` |
+| `/driver` | `1440×900` | `docs/ui/cx/evidence/comparison/driver-dashboard-1440x900-comparison.jpeg` |
+| `/driver` | `768×1024` | `docs/ui/cx/evidence/comparison/driver-dashboard-768x1024-comparison.jpeg` |
+| `/driver` | `390×844` | `docs/ui/cx/evidence/comparison/driver-dashboard-390x844-comparison.jpeg` |
+| `/carrier` | `1440×900` | `docs/ui/cx/evidence/comparison/carrier-dashboard-1440x900-comparison.jpeg` |
+| `/carrier` | `768×1024` | `docs/ui/cx/evidence/comparison/carrier-dashboard-768x1024-comparison.jpeg` |
+| `/carrier` | `390×844` | `docs/ui/cx/evidence/comparison/carrier-dashboard-390x844-comparison.jpeg` |
+| `/super-admin` | `1440×900` | `docs/ui/cx/evidence/comparison/super-admin-dashboard-1440x900-comparison.jpeg` |
+| `/super-admin` | `768×1024` | `docs/ui/cx/evidence/comparison/super-admin-dashboard-768x1024-comparison.jpeg` |
+| `/super-admin` | `390×844` | `docs/ui/cx/evidence/comparison/super-admin-dashboard-390x844-comparison.jpeg` |
+
 ## Shared primitive correction record
 
 | Primitive | Contract | Before | After | Absolute deviation | Percentage deviation | Result |
