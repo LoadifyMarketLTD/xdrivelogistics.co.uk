@@ -94,7 +94,7 @@ export function DriverAvailabilityPage() {
         <KpiCard
           label="Busy"
           value={data.drivers.filter((driver) => driver.availability_status === 'busy').length}
-          tone="purple"
+          tone="orange"
         />
         <KpiCard
           label="Offline"
@@ -120,7 +120,7 @@ export function DriverAvailabilityPage() {
                 driver.availability_status === 'available'
                   ? 'green'
                   : driver.availability_status === 'busy'
-                    ? 'purple'
+                      ? 'orange'
                     : 'grey'
               }
             />,

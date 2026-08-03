@@ -11,6 +11,12 @@ import {
   loadCompanySettings,
 } from '../../../lib/companySettings';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
+import {
+  ActionButton,
+  AlertBanner,
+  PageHeader,
+} from '../../components/workspace/WorkspaceUI';
+import styles from '../../components/workspace/WorkspaceUI.module.css';
 
 const TABS = [
   { id: 'memberCompany', label: 'Member / Company Info', icon: '🏢' },
@@ -266,266 +272,106 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.95rem',
-    boxSizing: 'border-box' as const,
-    backgroundColor: 'white',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.9rem',
-    fontWeight: '500' as const,
-    color: '#374151',
-    marginBottom: '0.5rem',
-  };
-
-  const fieldGroupStyle = {
-    display: 'grid' as const,
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1.25rem',
-    marginBottom: '1.25rem',
-  };
-
-  const sectionTitleStyle = {
-    fontSize: '1rem',
-    fontWeight: '600' as const,
-    color: '#1f2937',
-    marginBottom: '1.25rem',
-    paddingBottom: '0.5rem',
-    borderBottom: '1px solid #e5e7eb',
-  };
-
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
-              Settings
-            </h1>
-            <p style={{ color: '#6b7280', margin: 0 }}>
-              Configure system and company settings
-            </p>
-          </div>
-          <button
-            onClick={() => router.push('/admin')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'white',
-              color: '#0A2239',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f9fafb';
-              e.currentTarget.style.borderColor = '#0A2239';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'white';
-              e.currentTarget.style.borderColor = '#d1d5db';
-            }}
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
+      {/* Page background — contract Section 1: #f4f6f8, 12px padding */}
+      <div style={{ background: '#f4f6f8', padding: '12px' }}>
+        <PageHeader
+          eyebrow="Administration"
+          title="Settings"
+          description="Configure system and company settings."
+          actions={
+            <ActionButton tone="secondary" onClick={() => router.push('/admin')}>
+              ← Dashboard
+            </ActionButton>
+          }
+        />
 
-        {saved && (
-          <div style={{
-            backgroundColor: '#dcfce7',
-            border: '1px solid #1F7A3D',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#14532d',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}>
-            ✅ Settings saved successfully!
-          </div>
-        )}
-
-        {saveError && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#991b1b',
-            fontWeight: '600',
-          }}>
-            {saveError}
-          </div>
-        )}
-
+        {saved && <AlertBanner tone="success">Settings saved successfully.</AlertBanner>}
+        {saveError && <AlertBanner tone="danger">{saveError}</AlertBanner>}
         {!isSupabaseConfigured && (
-          <div style={{
-            backgroundColor: '#fef3c7',
-            border: '1px solid #f59e0b',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#92400e',
-            fontWeight: '600',
-          }}>
+          <AlertBanner tone="warning">
             Supabase is not configured. Settings are read-only until NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are available.
-          </div>
+          </AlertBanner>
         )}
 
         {loading ? (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem', color: '#6b7280' }}>
+          <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '16px', color: '#6b7280', fontSize: '12px' }}>
             Loading settings…
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-            <div style={{
-              width: '220px',
-              flexShrink: 0,
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              overflow: 'hidden',
-            }}>
+          <div className={styles.settingsLayout}>
+            {/* Left nav rail */}
+            <nav className={styles.settingsSideNav} aria-label="Settings sections">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
+                  type="button"
+                  className={`${styles.settingsSideNavBtn} ${activeTab === tab.id ? styles.settingsSideNavBtnActive : ''}`}
                   onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    width: '100%',
-                    padding: '1rem 1.25rem',
-                    backgroundColor: activeTab === tab.id ? '#f0fdf4' : 'transparent',
-                    color: activeTab === tab.id ? '#1F7A3D' : '#374151',
-                    border: 'none',
-                    borderLeft: activeTab === tab.id ? '4px solid #1F7A3D' : '4px solid transparent',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    fontSize: '0.95rem',
-                    fontWeight: activeTab === tab.id ? '600' : '400',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = '#f9fafb';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
                 >
-                  <span>{tab.icon}</span>
+                  <span aria-hidden="true">{tab.icon}</span>
                   {tab.label}
                 </button>
               ))}
-            </div>
+            </nav>
 
-            <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem' }}>
+            {/* Main content panel */}
+            <div className={styles.settingsPanel}>
               {activeTab === 'memberCompany' && (
                 <div>
-                  <h2 style={sectionTitleStyle}>Company Information</h2>
-                  <div style={fieldGroupStyle}>
+                  <h2 className={styles.settingsSectionTitle}>Company Information</h2>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>Trading Name</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.name}
-                        onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Trading Name</label>
+                      <input className={styles.settingsInput} value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} />
                     </div>
                     <div>
-                      <label style={labelStyle}>Legal Name</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.legalName}
-                        onChange={(e) => setCompanyForm({ ...companyForm, legalName: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Legal Name</label>
+                      <input className={styles.settingsInput} value={companyForm.legalName} onChange={(e) => setCompanyForm({ ...companyForm, legalName: e.target.value })} />
                     </div>
                   </div>
-                  <div style={fieldGroupStyle}>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>Company Number</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.companyNumber}
-                        onChange={(e) => setCompanyForm({ ...companyForm, companyNumber: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Company Number</label>
+                      <input className={styles.settingsInput} value={companyForm.companyNumber} onChange={(e) => setCompanyForm({ ...companyForm, companyNumber: e.target.value })} />
                     </div>
                     <div>
-                      <label style={labelStyle}>Email Address</label>
-                      <input
-                        type="email"
-                        style={inputStyle}
-                        value={companyForm.email}
-                        onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Email Address</label>
+                      <input type="email" className={styles.settingsInput} value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} />
                     </div>
                   </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Phone Number</label>
-                    <input
-                      type="tel"
-                      style={inputStyle}
-                      value={companyForm.phone}
-                      onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                    />
+                  <div className={styles.settingsFieldRow}>
+                    <label className={styles.settingsLabel}>Phone Number</label>
+                    <input type="tel" className={styles.settingsInput} value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} />
                   </div>
 
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Address</h2>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Street Address</label>
-                    <input
-                      style={inputStyle}
-                      value={companyForm.street}
-                      onChange={(e) => setCompanyForm({ ...companyForm, street: e.target.value })}
-                    />
+                  <h2 className={`${styles.settingsSectionTitle} ${styles.settingsSectionTitleSpaced}`}>Address</h2>
+                  <div className={styles.settingsFieldRow}>
+                    <label className={styles.settingsLabel}>Street Address</label>
+                    <input className={styles.settingsInput} value={companyForm.street} onChange={(e) => setCompanyForm({ ...companyForm, street: e.target.value })} />
                   </div>
-                  <div style={fieldGroupStyle}>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>City</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.city}
-                        onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>City</label>
+                      <input className={styles.settingsInput} value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} />
                     </div>
                     <div>
-                      <label style={labelStyle}>Postcode</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.postcode}
-                        onChange={(e) => setCompanyForm({ ...companyForm, postcode: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Postcode</label>
+                      <input className={styles.settingsInput} value={companyForm.postcode} onChange={(e) => setCompanyForm({ ...companyForm, postcode: e.target.value })} />
                     </div>
                   </div>
 
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Reference Prefixes</h2>
-                  <div style={fieldGroupStyle}>
+                  <h2 className={`${styles.settingsSectionTitle} ${styles.settingsSectionTitleSpaced}`}>Reference Prefixes</h2>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>Job Reference Prefix</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.jobRefPrefix}
-                        onChange={(e) => setCompanyForm({ ...companyForm, jobRefPrefix: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Job Reference Prefix</label>
+                      <input className={styles.settingsInput} value={companyForm.jobRefPrefix} onChange={(e) => setCompanyForm({ ...companyForm, jobRefPrefix: e.target.value })} />
                     </div>
                     <div>
-                      <label style={labelStyle}>Invoice Prefix</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.invoicePrefix}
-                        onChange={(e) => setCompanyForm({ ...companyForm, invoicePrefix: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Invoice Prefix</label>
+                      <input className={styles.settingsInput} value={companyForm.invoicePrefix} onChange={(e) => setCompanyForm({ ...companyForm, invoicePrefix: e.target.value })} />
                     </div>
                   </div>
                 </div>
@@ -533,103 +379,55 @@ export default function SettingsPage() {
 
               {activeTab === 'userProfile' && (
                 <div>
-                  <h2 style={sectionTitleStyle}>Account Details</h2>
-                  <div style={{
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '1.25rem',
-                    marginBottom: '1.5rem',
-                  }}>
-                    <div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.25rem' }}>Logged in as</div>
-                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>{user?.email}</div>
+                  <h2 className={styles.settingsSectionTitle}>Account Details</h2>
+                  <div className={styles.settingsAccountInfo}>
+                    <div className={styles.settingsInfoCardLabel}>Logged in as</div>
+                    <div className={styles.settingsInfoCardValue}>{user?.email}</div>
                   </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Email Address</label>
-                    <input
-                      type="email"
-                      style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
-                      value={user?.email || ''}
-                      readOnly
-                    />
-                    <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.25rem' }}>
-                      Contact your administrator to change your email address.
-                    </p>
+                  <div className={styles.settingsFieldRow}>
+                    <label className={styles.settingsLabel}>Email Address</label>
+                    <input type="email" className={`${styles.settingsInput} ${styles.settingsInputReadonly}`} value={user?.email ?? ''} readOnly />
+                    <p className={styles.settingsHint}>Contact your administrator to change your email address.</p>
                   </div>
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Change Password</h2>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>New Password</label>
-                    <input
-                      type="password"
-                      style={inputStyle}
-                      placeholder="Enter new password"
-                      value={accountForm.newPassword}
-                      onChange={(e) => setAccountForm({ ...accountForm, newPassword: e.target.value })}
-                    />
+
+                  <h2 className={`${styles.settingsSectionTitle} ${styles.settingsSectionTitleSpaced}`}>Change Password</h2>
+                  <div className={styles.settingsFieldRow}>
+                    <label className={styles.settingsLabel}>New Password</label>
+                    <input type="password" className={styles.settingsInput} placeholder="Enter new password" value={accountForm.newPassword} onChange={(e) => setAccountForm({ ...accountForm, newPassword: e.target.value })} />
                   </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Confirm New Password</label>
-                    <input
-                      type="password"
-                      style={inputStyle}
-                      placeholder="Confirm new password"
-                      value={accountForm.confirmPassword}
-                      onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })}
-                    />
+                  <div className={styles.settingsFieldRow}>
+                    <label className={styles.settingsLabel}>Confirm New Password</label>
+                    <input type="password" className={styles.settingsInput} placeholder="Confirm new password" value={accountForm.confirmPassword} onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })} />
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={handleChangePassword}
-                      disabled={changingPassword || !isSupabaseConfigured}
-                      style={{
-                        padding: '0.75rem 1.5rem',
-                        backgroundColor: changingPassword || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '0.95rem',
-                        fontWeight: '600',
-                        cursor: changingPassword || !isSupabaseConfigured ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {changingPassword ? 'Updating password…' : 'Update Password'}
-                    </button>
+                  <div className={styles.settingsActionRow}>
+                    <ActionButton tone="success" disabled={changingPassword || !isSupabaseConfigured} onClick={handleChangePassword}>
+                      {changingPassword ? 'Updating…' : 'Update Password'}
+                    </ActionButton>
                   </div>
                 </div>
               )}
 
               {activeTab === 'other' && (
                 <div>
-                  <h2 style={sectionTitleStyle}>Email Notifications</h2>
-                  <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                    Choose which events trigger an email notification.
-                  </p>
+                  <h2 className={styles.settingsSectionTitle}>Email Notifications</h2>
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 8px' }}>Choose which events trigger an email notification.</p>
                   {[
                     { key: 'emailNewJob', label: 'New job created', description: 'Receive an email when a new job is added' },
                     { key: 'emailStatusChange', label: 'Job status changed', description: 'Receive an email when a job status is updated' },
                     { key: 'emailInvoicePaid', label: 'Invoice paid', description: 'Receive an email when an invoice is marked as paid' },
                     { key: 'emailBidReceived', label: 'Bid received', description: 'Receive an email when a driver places a bid on a job' },
                   ].map((item) => (
-                    <div
-                      key={item.key}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '1rem',
-                        borderBottom: '1px solid #f3f4f6',
-                      }}
-                    >
+                    <div key={item.key} className={styles.settingsNotifRow}>
                       <div>
-                        <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '0.95rem' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.2rem' }}>{item.description}</div>
+                        <div className={styles.settingsNotifLabel}>{item.label}</div>
+                        <div className={styles.settingsNotifDescription}>{item.description}</div>
                       </div>
                       <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
                           checked={notifForm[item.key as keyof typeof notifForm]}
                           onChange={(e) => setNotifForm({ ...notifForm, [item.key]: e.target.checked })}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1F7A3D' }}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#1D57D8' }}
                         />
                       </label>
                     </div>
@@ -639,53 +437,37 @@ export default function SettingsPage() {
 
               {activeTab === 'companyProfile' && (
                 <div>
-                  <h2 style={sectionTitleStyle}>System Settings</h2>
-                  <div style={fieldGroupStyle}>
+                  <h2 className={styles.settingsSectionTitle}>System Settings</h2>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>Default VAT Rate (%)</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.defaultVatRate}
-                        onChange={(e) => setSystemForm({ ...systemForm, defaultVatRate: e.target.value })}
-                      >
+                      <label className={styles.settingsLabel}>Default VAT Rate (%)</label>
+                      <select className={styles.settingsInput} value={systemForm.defaultVatRate} onChange={(e) => setSystemForm({ ...systemForm, defaultVatRate: e.target.value })}>
                         {COMPANY_CONFIG.vat.rates.map((r) => (
                           <option key={r} value={String(r)}>{r}%</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label style={labelStyle}>Default Payment Terms</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.paymentTerms}
-                        onChange={(e) => setSystemForm({ ...systemForm, paymentTerms: e.target.value })}
-                      >
+                      <label className={styles.settingsLabel}>Default Payment Terms</label>
+                      <select className={styles.settingsInput} value={systemForm.paymentTerms} onChange={(e) => setSystemForm({ ...systemForm, paymentTerms: e.target.value })}>
                         {COMPANY_CONFIG.payment.terms.map((t) => (
                           <option key={t} value={t}>{t}</option>
                         ))}
                       </select>
                     </div>
                   </div>
-                  <div style={fieldGroupStyle}>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>Currency</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.currency}
-                        onChange={(e) => setSystemForm({ ...systemForm, currency: e.target.value })}
-                      >
+                      <label className={styles.settingsLabel}>Currency</label>
+                      <select className={styles.settingsInput} value={systemForm.currency} onChange={(e) => setSystemForm({ ...systemForm, currency: e.target.value })}>
                         <option value="GBP">GBP – British Pound</option>
                         <option value="EUR">EUR – Euro</option>
                         <option value="USD">USD – US Dollar</option>
                       </select>
                     </div>
                     <div>
-                      <label style={labelStyle}>Date Format</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.dateFormat}
-                        onChange={(e) => setSystemForm({ ...systemForm, dateFormat: e.target.value })}
-                      >
+                      <label className={styles.settingsLabel}>Date Format</label>
+                      <select className={styles.settingsInput} value={systemForm.dateFormat} onChange={(e) => setSystemForm({ ...systemForm, dateFormat: e.target.value })}>
                         <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                         <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                         <option value="YYYY-MM-DD">YYYY-MM-DD</option>
@@ -693,99 +475,65 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Bank Transfer Details</h2>
-                  <div style={fieldGroupStyle}>
+                  <h2 className={`${styles.settingsSectionTitle} ${styles.settingsSectionTitleSpaced}`}>Bank Transfer Details</h2>
+                  <div className={styles.settingsFieldGrid}>
                     <div>
-                      <label style={labelStyle}>Account Name</label>
-                      <input
-                        style={inputStyle}
-                        value={systemForm.bankAccountName}
-                        onChange={(e) => setSystemForm({ ...systemForm, bankAccountName: e.target.value })}
-                      />
+                      <label className={styles.settingsLabel}>Account Name</label>
+                      <input className={styles.settingsInput} value={systemForm.bankAccountName} onChange={(e) => setSystemForm({ ...systemForm, bankAccountName: e.target.value })} />
                     </div>
                     <div>
-                      <label style={labelStyle}>Sort Code</label>
-                      <input
-                        style={inputStyle}
-                        value={systemForm.bankSortCode}
-                        onChange={(e) => setSystemForm({ ...systemForm, bankSortCode: e.target.value })}
-                        placeholder="XX-XX-XX"
-                      />
+                      <label className={styles.settingsLabel}>Sort Code</label>
+                      <input className={styles.settingsInput} value={systemForm.bankSortCode} onChange={(e) => setSystemForm({ ...systemForm, bankSortCode: e.target.value })} placeholder="XX-XX-XX" />
                     </div>
                   </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Account Number</label>
-                    <input
-                      style={inputStyle}
-                      value={systemForm.bankAccountNumber}
-                      onChange={(e) => setSystemForm({ ...systemForm, bankAccountNumber: e.target.value })}
-                      placeholder="8-digit account number"
-                    />
+                  <div className={styles.settingsFieldRow}>
+                    <label className={styles.settingsLabel}>Account Number</label>
+                    <input className={styles.settingsInput} value={systemForm.bankAccountNumber} onChange={(e) => setSystemForm({ ...systemForm, bankAccountNumber: e.target.value })} placeholder="8-digit account number" />
                   </div>
                 </div>
               )}
 
               {activeTab === 'help' && (
                 <div>
-                  <h2 style={sectionTitleStyle}>Help</h2>
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Need operational help?</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Use Diary for live jobs, Fleet for locations, and Drivers & Vehicles for admin management.</div>
-                    </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Support flow</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Collect screen details and route, then contact your internal support owner.</div>
-                    </div>
+                  <h2 className={styles.settingsSectionTitle}>Help</h2>
+                  <div className={styles.settingsInfoCard}>
+                    <div className={styles.settingsInfoCardValue}>Need operational help?</div>
+                    <div className={styles.settingsInfoCardLabel} style={{ marginTop: '4px' }}>Use Diary for live jobs, Fleet for locations, and Drivers &amp; Vehicles for admin management.</div>
+                  </div>
+                  <div className={styles.settingsInfoCard}>
+                    <div className={styles.settingsInfoCardValue}>Support flow</div>
+                    <div className={styles.settingsInfoCardLabel} style={{ marginTop: '4px' }}>Collect screen details and route, then contact your internal support owner.</div>
                   </div>
                 </div>
               )}
 
               {activeTab === 'contact' && (
                 <div>
-                  <h2 style={sectionTitleStyle}>Contact</h2>
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Email</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.email || 'Not set'}</div>
-                    </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Phone</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.phone || 'Not set'}</div>
-                    </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Address</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
-                    </div>
+                  <h2 className={styles.settingsSectionTitle}>Contact</h2>
+                  <div className={styles.settingsInfoCard}>
+                    <div className={styles.settingsInfoCardLabel}>Company Email</div>
+                    <div className={styles.settingsInfoCardValue}>{companyForm.email || 'Not set'}</div>
+                  </div>
+                  <div className={styles.settingsInfoCard}>
+                    <div className={styles.settingsInfoCardLabel}>Company Phone</div>
+                    <div className={styles.settingsInfoCardValue}>{companyForm.phone || 'Not set'}</div>
+                  </div>
+                  <div className={styles.settingsInfoCard}>
+                    <div className={styles.settingsInfoCardLabel}>Address</div>
+                    <div className={styles.settingsInfoCardValue}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
                   </div>
                 </div>
               )}
 
               {['memberCompany', 'companyProfile', 'other'].includes(activeTab) && (
-                <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !isSupabaseConfigured}
-                  style={{
-                    padding: '0.75rem 2rem',
-                    backgroundColor: saving || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    cursor: saving || !isSupabaseConfigured ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#166534';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#1F7A3D';
-                  }}
-                >
-                  {saving ? 'Saving…' : 'Save Settings'}
-                </button>
+                <div className={styles.settingsActionRow}>
+                  <ActionButton
+                    tone="success"
+                    disabled={saving || !isSupabaseConfigured}
+                    onClick={handleSave}
+                  >
+                    {saving ? 'Saving…' : 'Save Settings'}
+                  </ActionButton>
                 </div>
               )}
             </div>

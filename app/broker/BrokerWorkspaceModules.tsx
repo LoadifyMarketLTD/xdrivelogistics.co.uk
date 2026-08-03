@@ -7,6 +7,7 @@ import { invoiceNetAmount, invoiceSignedNetAmount, isAwaitingPayment, isCarrierP
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, OperationalCard, OperationalFilterField, OperationalFilters, OperationalPageLayout, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import styles from '../components/workspace/WorkspaceUI.module.css';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -159,7 +160,7 @@ export function BrokerDashboard() {
           are surfaced in the Commercial summary panel below. */}
       <ExchangeKpiStrip>
         <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" onClick={() => router.push('/broker/bids')} />
+        <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="blue" onClick={() => router.push('/broker/bids')} />
         <KpiCard label="Awaiting award" value={metrics.awaitingAwardJobs.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
         <KpiCard label="Active jobs" value={metrics.activeJobs.length} detail="Collections and deliveries" tone="green" onClick={() => router.push('/broker/jobs')} />
         <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
@@ -232,11 +233,11 @@ export function BrokerDashboard() {
                 { label: 'Estimated carrier quote cost', value: money(metrics.estimatedCarrierCost), background: metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', color: metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b' },
               ]}
             />
-            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <button type="button" onClick={() => router.push('/broker/loads')} style={summaryButton}><span>Draft loads</span><strong>{metrics.draft}</strong></button>
-              <button type="button" onClick={() => router.push('/broker/customer-invoices')} style={summaryButton}><span>Awaiting customer payment</span><strong>{metrics.awaitingRevenueInvoices.length} — {money(metrics.awaitingRevenueValue)}</strong></button>
-              <button type="button" onClick={() => router.push('/broker/customer-invoices')} style={summaryButton}><span>Due within 7 days</span><strong>{metrics.dueForPayment.length}</strong></button>
-              <button type="button" onClick={() => router.push('/broker/customer-invoices')} style={summaryButton}><span>Overdue invoices</span><strong style={{ color: metrics.overdueRevenueInvoices.length ? '#C62828' : 'inherit' }}>{metrics.overdueRevenueInvoices.length}</strong></button>
+            <div className={styles.brokerSummaryButtonStack}>
+              <button type="button" onClick={() => router.push('/broker/loads')} className={styles.brokerSummaryButton}><span>Draft loads</span><strong>{metrics.draft}</strong></button>
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')} className={styles.brokerSummaryButton}><span>Awaiting customer payment</span><strong>{metrics.awaitingRevenueInvoices.length} — {money(metrics.awaitingRevenueValue)}</strong></button>
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')} className={styles.brokerSummaryButton}><span>Due within 7 days</span><strong>{metrics.dueForPayment.length}</strong></button>
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')} className={styles.brokerSummaryButton}><span>Overdue invoices</span><strong className={styles.brokerSummaryOverdueValue} data-overdue={metrics.overdueRevenueInvoices.length > 0 ? 'true' : 'false'}>{metrics.overdueRevenueInvoices.length}</strong></button>
             </div>
           </OperationalCard>
 
@@ -245,11 +246,11 @@ export function BrokerDashboard() {
               <button
                 key={job.id}
                 onClick={() => router.push(`/broker/loads?job=${job.id}`)}
-                style={{ ...summaryButton, display: 'grid', gridTemplateColumns: '1fr auto', textAlign: 'left' }}
+                className={`${styles.brokerSummaryButton} ${styles.brokerSummaryButtonGrid}`}
               >
-                <span>
-                  <strong style={{ display: 'block' }}>{job.client_name ?? 'Customer load'}</strong>
-                  <small style={{ color: '#64748b' }}>{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</small>
+                <span className={styles.brokerRecentLoadCopy}>
+                  <strong className={styles.brokerRecentLoadName}>{job.client_name ?? 'Customer load'}</strong>
+                  <small className={styles.brokerRecentLoadMeta}>{job.pickup_postcode ?? job.pickup_location} → {job.delivery_postcode ?? job.delivery_location}</small>
                 </span>
                 <StatusBadge value={job.status} />
               </button>
@@ -279,34 +280,34 @@ export function BrokerDashboard() {
           actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/margins')}>Full report</ActionButton>}
         >
           {metrics.monthlyRows.length > 0 ? (
-            <div style={{ display: 'grid', gap: '0.45rem' }}>
+            <div className={styles.brokerMonthlyChartContainer}>
               {metrics.monthlyRows.map(([month, row]) => {
                 const rev = row.revenue;
                 const cost = row.cost;
                 const margin = rev - cost;
                 const maxVal = Math.max(rev, 1);
                 return (
-                  <div key={month} style={{ display: 'grid', gridTemplateColumns: '60px 1fr auto', gap: '0.6rem', alignItems: 'center', fontSize: '0.73rem' }}>
-                    <span style={{ color: '#64748b', fontWeight: 700 }}>{month}</span>
-                    <div style={{ display: 'grid', gap: '2px' }}>
-                      <div style={{ background: '#dcfce7', borderRadius: '3px', height: '7px', width: `${Math.max(2, (rev / maxVal) * 100)}%` }} title={`Invoiced net: ${money(rev)}`} />
-                      <div style={{ background: '#fed7aa', borderRadius: '3px', height: '7px', width: `${Math.max(2, (cost / maxVal) * 100)}%` }} title={`Cost: ${money(cost)}`} />
+                  <div key={month} className={styles.brokerMonthlyChartRow}>
+                    <span className={styles.brokerMonthlyChartMonth}>{month}</span>
+                    <div className={styles.brokerMonthlyChartBars}>
+                      <div className={`${styles.brokerMonthlyChartBar} ${styles.brokerMonthlyChartBarRevenue}`} style={{ width: `${Math.max(2, (rev / maxVal) * 100)}%` }} title={`Invoiced net: ${money(rev)}`} />
+                      <div className={`${styles.brokerMonthlyChartBar} ${styles.brokerMonthlyChartBarCost}`} style={{ width: `${Math.max(2, (cost / maxVal) * 100)}%` }} title={`Cost: ${money(cost)}`} />
                     </div>
-                    <span style={{ color: margin >= 0 ? '#15803d' : '#dc2626', fontWeight: 800, minWidth: '70px', textAlign: 'right' }}>{money(margin)}</span>
+                    <span className={styles.brokerMonthlyChartMargin} style={{ color: margin >= 0 ? '#15803d' : '#dc2626' }}>{money(margin)}</span>
                   </div>
                 );
               })}
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.3rem', fontSize: '0.64rem', color: '#64748b' }}>
-                <span><span style={{ background: '#dcfce7', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Invoiced net</span>
-                <span><span style={{ background: '#fed7aa', borderRadius: '2px', display: 'inline-block', width: '10px', height: '8px', marginRight: '4px' }} />Carrier cost</span>
+              <div className={styles.brokerMonthlyChartLegend}>
+                <span><span className={`${styles.brokerMonthlyChartLegendSwatch} ${styles.brokerMonthlyChartBarRevenue}`} />Invoiced net</span>
+                <span><span className={`${styles.brokerMonthlyChartLegendSwatch} ${styles.brokerMonthlyChartBarCost}`} />Carrier cost</span>
               </div>
             </div>
           ) : (
-            <div style={{ color: '#64748b', fontSize: '0.76rem', padding: '0.8rem 0' }}>No load history to display.</div>
+            <div className={styles.brokerMonthlyChartEmpty}>No load history to display.</div>
           )}
         </OperationalCard>
 
-        <div style={{ display: 'grid', gap: '12px' }}>
+        <div className={styles.roleDashboardColumn}>
           <OperationalCard
             title="Sub-contract spend"
             subtitle="Total carrier costs excluding own-driver jobs."
@@ -322,17 +323,17 @@ export function BrokerDashboard() {
               />
             }
           >
-            <div style={{ display: 'grid', gap: '0.45rem' }}>
-              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#c2410c' }}>{money(metrics.subcontractSpend)}</div>
-              <div style={{ fontSize: '0.73rem', color: '#64748b' }}>Total agreed with sub-contractors ({spendPeriod === 'month' ? '30' : spendPeriod === 'quarter' ? '90' : '365'} days)</div>
-              <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+            <div className={styles.brokerMonthlyChartContainer}>
+              <div className={styles.brokerSpendAmount}>{money(metrics.subcontractSpend)}</div>
+              <div className={styles.brokerSpendMeta}>Total agreed with sub-contractors ({spendPeriod === 'month' ? '30' : spendPeriod === 'quarter' ? '90' : '365'} days)</div>
+              <div className={styles.brokerSpendLinks}>
                 {[
                   ['Latest invoices received', '/broker/carrier-costs'],
                   ['Invoices due for payment', '/broker/customer-invoices'],
                   ['Invoices awaiting payment', '/broker/customer-invoices'],
                   ['Monthly totals', '/broker/margins'],
                 ].map(([label, href]) => (
-                  <button key={label} onClick={() => router.push(href)} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#0f172a', padding: '0.32rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+                  <button key={label} onClick={() => router.push(href)} className={styles.brokerSpendLinkBtn}>{label}</button>
                 ))}
               </div>
             </div>
@@ -376,8 +377,6 @@ export function BrokerDashboard() {
     </OperationalPageLayout>
   );
 }
-
-const summaryButton = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', border: '1px solid #d9e2ec', borderRadius: '4px', padding: '8px 10px', background: '#ffffff', color: '#202124', fontSize: '12px', cursor: 'pointer' } as const;
 
 export function BrokerCustomersPage() {
   const router = useRouter(); const data = useCompanyWorkspaceData();
@@ -473,22 +472,13 @@ export function BrokerQuotesPage({ compare = false }: { compare?: boolean }) {
       />
       {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
 
-      <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.9rem', borderBottom: '1px solid #e2e8f0' }}>
+      <div className={styles.brokerTabStrip}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            style={{
-              border: 0,
-              borderBottom: activeTab === tab.id ? '2px solid #1d57d8' : '2px solid transparent',
-              background: 'transparent',
-              color: activeTab === tab.id ? '#1d57d8' : '#64748b',
-              padding: '0.52rem 0.85rem',
-              fontSize: '0.78rem',
-              fontWeight: activeTab === tab.id ? 800 : 600,
-              cursor: 'pointer',
-              marginBottom: '-1px',
-            }}
+            className={styles.brokerTabButton}
+            data-active={activeTab === tab.id ? 'true' : 'false'}
           >
             {tab.label}
           </button>
@@ -500,7 +490,7 @@ export function BrokerQuotesPage({ compare = false }: { compare?: boolean }) {
           key={job.id}
           title={`${job.pickup_postcode ?? job.pickup_location} → ${job.delivery_postcode ?? job.delivery_location}`}
           description={`${job.client_name ?? 'Customer'} · customer budget estimate ${money(Number(job.budget_amount ?? 0))}`}
-          style={{ marginBottom: '0.85rem' }}
+          style={{ marginBottom: '8px' }}
         >
           <DataTable
             columns={compare ? ['Carrier', 'Quote', 'Customer budget (est.)', 'Estimated gross profit', 'Estimated margin', 'Status', 'Decision'] : ['Carrier', 'Quote', 'Message', 'Submitted', 'Status', 'Decision']}
@@ -562,7 +552,7 @@ type BrokerDispute = {
   created_at: string;
 };
 
-const noteInputStyle = { border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.45rem 0.6rem', fontSize: '0.76rem', width: '100%', minWidth: '180px', resize: 'vertical' } as const;
+const noteInputStyle = { border: '1px solid #D8DEE8', borderRadius: '4px', padding: '6px 8px', fontSize: '12px', width: '100%', minWidth: '180px', resize: 'vertical' } as const;
 
 export function BrokerDisputesPage() {
   const data = useCompanyWorkspaceData();
@@ -646,7 +636,7 @@ export function BrokerDisputesPage() {
             <StatusBadge key="status" value={row.status} />,
             row.resolution_note ?? 'Pending',
             isActive ? (
-              <div key="actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '200px' }}>
+              <div key="actions" className={styles.brokerActionsColumn}>
                 <textarea
                   placeholder="Resolution note (optional)…"
                   value={notes[row.id] ?? ''}
@@ -654,7 +644,7 @@ export function BrokerDisputesPage() {
                   rows={2}
                   style={noteInputStyle}
                 />
-                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <div className={styles.brokerActionsRow}>
                   <ActionButton key="resolve" tone="success" disabled={working === row.id} onClick={() => void runAction(row.id, 'resolve')}>
                     {working === row.id ? 'Saving…' : 'Resolve'}
                   </ActionButton>
@@ -665,7 +655,7 @@ export function BrokerDisputesPage() {
                   )}
                 </div>
               </div>
-            ) : <span key="done" style={{ color: '#64748b', fontSize: '0.72rem' }}>Closed</span>,
+            ) : <span key="done" style={{ color: '#64748b', fontSize: '12px' }}>Closed</span>,
           ];
         })}
         empty={<EmptyState title={loading ? 'Loading disputes…' : 'No disputes found'} description="Disputes raised against broker-managed loads will appear here." />}

@@ -2,12 +2,17 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(resolve(process.cwd(), 'app/super-admin/page.tsx'), 'utf8');
+/** Dashboard implementation lives in OwnerConsole; protection gate is in page.tsx */
+const source = readFileSync(resolve(process.cwd(), 'app/super-admin/OwnerConsole.tsx'), 'utf8');
+const pageSource = readFileSync(resolve(process.cwd(), 'app/super-admin/page.tsx'), 'utf8');
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 describe('super admin dashboard navigation contract', () => {
   it('keeps owner-only protection on the live dashboard surface', () => {
-    expect(source).toContain("<ProtectedRoute allowedRoles={['owner']}>");
+    // ProtectedRoute is applied in page.tsx which wraps OwnerConsole
+    expect(pageSource).toContain("<ProtectedRoute allowedRoles={['owner']}>");
+    // OwnerConsole must be rendered inside the protected page
+    expect(pageSource).toContain('OwnerConsole');
   });
 
   it('preserves the real priority-action routes behind OperationalLinkList rows', () => {

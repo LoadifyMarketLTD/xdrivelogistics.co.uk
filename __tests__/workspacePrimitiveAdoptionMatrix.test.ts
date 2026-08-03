@@ -65,10 +65,10 @@ describe('workspace primitive adoption matrix', () => {
     expect(hasOperationalTablePrimitive('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
     expect(hasCompactKpiStrip('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
 
-    expect(hasPageHeader('app/super-admin/page.tsx')).toBe(true);
-    expect(hasOperationalTablePrimitive('app/super-admin/page.tsx')).toBe(true);
-    expect(hasCompactKpiStrip('app/super-admin/page.tsx')).toBe(true);
-    expect(hasOperationalPageLayout('app/super-admin/page.tsx')).toBe(true);
+    expect(hasPageHeader('app/super-admin/OwnerConsole.tsx')).toBe(true);
+    expect(hasOperationalTablePrimitive('app/super-admin/OwnerConsole.tsx')).toBe(true);
+    expect(hasCompactKpiStrip('app/super-admin/OwnerConsole.tsx')).toBe(true);
+    expect(hasOperationalPageLayout('app/super-admin/OwnerConsole.tsx')).toBe(true);
   });
 
   it('ensures action-centre routes for all operational roles use the shared primitive page', () => {

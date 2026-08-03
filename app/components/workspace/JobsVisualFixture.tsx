@@ -452,7 +452,7 @@ export default function JobsVisualFixture() {
         <ExchangeKpiStrip>
           <KpiCard label="All jobs" value={FIXTURE_JOBS.length} tone="blue" onClick={() => undefined} />
           <KpiCard label="Draft jobs" value={FIXTURE_JOBS.filter((job) => job.status === 'draft').length} tone="orange" onClick={() => undefined} />
-          <KpiCard label="Allocated jobs" value={FIXTURE_JOBS.filter((job) => job.status === 'allocated').length} tone="purple" onClick={() => undefined} />
+          <KpiCard label="Allocated jobs" value={FIXTURE_JOBS.filter((job) => job.status === 'allocated').length} tone="blue" onClick={() => undefined} />
           <KpiCard label="Assigned drivers" value={new Set(FIXTURE_JOBS.map((job) => job.assignedDriverId).filter(Boolean)).size} tone="green" onClick={() => undefined} />
         </ExchangeKpiStrip>
         <JobsOperationalTable
