@@ -192,40 +192,6 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
 
 export const hasWorkspaceCapability = (role: WorkspaceRole, capability: WorkspaceCapability) => CAPABILITIES[role].has(capability);
 
-const platformOwnerNav: WorkspaceNavGroup[] = [
-  { id: 'home', label: 'Workspace', items: [{ id: 'dashboard', label: 'Admin Dashboard', href: '/admin', icon: '⌂' }] },
-  { id: 'operations', label: 'Operations', items: [
-    { id: 'operations', label: 'Operations Centre', href: '/admin/operations-centre', icon: 'OC' },
-    { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '⚡' },
-    { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
-    { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣' },
-    { id: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: '!' },
-  ] },
-  { id: 'fleet', label: 'Fleet', items: [
-    { id: 'fleet-dashboard', label: 'Fleet Dashboard', href: '/admin/fleet', icon: '◎' },
-    { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉' },
-    { id: 'availability', label: 'Driver Availability', href: '/admin/driver-availability', icon: '◷' },
-    { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰' },
-    { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖' },
-  ] },
-  { id: 'commercial', label: 'Commercial', items: [
-    { id: 'marketplace', label: 'Marketplace', href: '/admin/marketplace', icon: '▦' },
-    { id: 'quotes', label: 'Quotes', href: '/admin/quotes', icon: '◫' },
-    { id: 'invoices', label: 'Invoices', href: '/admin/invoices', icon: '£' },
-    { id: 'finance', label: 'Finance Reports', href: '/admin/finance/reports', icon: '₤' },
-  ] },
-  { id: 'compliance', label: 'Compliance', items: [
-    { id: 'documents', label: 'Documents', href: '/admin/documents', icon: '▤' },
-    { id: 'expiry', label: 'Document Expiry', href: '/admin/documents/expiry', icon: '◷' },
-    { id: 'incidents', label: 'Incidents', href: '/admin/incidents', icon: '△' },
-  ] },
-  { id: 'platform', label: 'Platform', items: [
-    { id: 'super-admin', label: 'Super Admin', href: '/super-admin', icon: '★' },
-    { id: 'companies', label: 'Companies', href: '/admin/companies', icon: '◌' },
-    { id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙' },
-  ] },
-];
-
 const carrierNav: WorkspaceNavGroup[] = [
   { id: 'home', label: 'Workspace', items: [{ id: 'dashboard', label: 'Carrier Dashboard', href: '/admin', icon: '⌂' }] },
   { id: 'commercial', label: 'Commercial', items: [
@@ -261,7 +227,7 @@ const carrierNav: WorkspaceNavGroup[] = [
 ];
 
 export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> = {
-  platform_owner: { role: 'platform_owner', label: 'Platform Owner', subtitle: 'Global platform administration', homeHref: '/admin', nav: platformOwnerNav },
+  platform_owner: { role: 'platform_owner', label: 'Platform Owner', subtitle: 'Global platform administration', homeHref: '/super-admin', nav: [] },
   company_owner: { role: 'company_owner', label: 'Company Owner', subtitle: 'Company commercial and operational control', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: carrierNav },
   company_admin: { role: 'company_admin', label: 'Company Admin', subtitle: 'Company operations and administration', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: carrierNav },
   carrier_admin: { role: 'carrier_admin', label: 'Carrier Workspace', subtitle: 'Commercial, operations and fleet', homeHref: '/admin', primaryAction: { label: 'Find Loads', href: '/admin/marketplace', capability: 'loads.view.marketplace' }, nav: carrierNav },
