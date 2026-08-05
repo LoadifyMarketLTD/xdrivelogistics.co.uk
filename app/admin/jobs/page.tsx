@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { JOB_STATUS } from '../../config/company';
 import { generateTimeOptions } from '../../utils/timeUtils';
@@ -103,8 +103,9 @@ const cleanFileName = (value: string) =>
 const buildDateTime = (date: string, time: string) =>
  date && time && time !== 'ASAP' ? `${date}T${time}:00` : null;
 
-export default function JobsPage() {
+function JobsPageInner() {
  const router = useRouter();
+ const searchParams = useSearchParams();
  const { user, hasSupabaseSession } = useAuth();
  const [companyId, setCompanyId] = useState<string | null>(null);
  const [companyLoading, setCompanyLoading] = useState(false);
@@ -117,7 +118,7 @@ export default function JobsPage() {
  const [jobsPage, setJobsPage] = useState(0);
  const JOBS_PER_PAGE = 20;
  const [searchTerm, setSearchTerm] = useState('');
- const [statusFilter, setStatusFilter] = useState('All');
+ const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? 'All');
  const [pickupFilter, setPickupFilter] = useState('');
  const [deliveryFilter, setDeliveryFilter] = useState('');
  const [dateFilter, setDateFilter] = useState('');
@@ -1278,4 +1279,12 @@ export default function JobsPage() {
  )}
  </ProtectedRoute>
  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense>
+      <JobsPageInner />
+    </Suspense>
+  );
 }
