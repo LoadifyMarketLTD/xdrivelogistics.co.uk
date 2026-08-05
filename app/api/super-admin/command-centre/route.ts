@@ -59,9 +59,11 @@ const ageMinutes = (isoDate: string): number => {
 };
 
 const resolveEnvironment = (): 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT' => {
-  const env = (process.env.NEXT_PUBLIC_APP_ENV ?? process.env.NODE_ENV ?? '').toLowerCase();
+  // VERCEL_ENV is set by the Vercel build system: 'production' | 'preview' | 'development'.
+  // APP_ENV is the optional explicit override (server-side only, not prefixed with NEXT_PUBLIC_).
+  const env = (process.env.APP_ENV ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? '').toLowerCase();
   if (env === 'production') return 'PRODUCTION';
-  if (env === 'staging') return 'STAGING';
+  if (env === 'preview' || env === 'staging') return 'STAGING';
   return 'DEVELOPMENT';
 };
 
@@ -159,23 +161,40 @@ export async function GET(request: NextRequest) {
       .order('due_date', { ascending: true })
       .limit(20),
 
-    // Critical support tickets (open, not yet responded)
+    // Critical support tickets (priority=critical, open or investigating)
     supabaseAdmin
       .from('support_tickets')
-      .select('id, subject, status, created_at', { count: 'exact' })
-      .in('status', ['open', 'pending'])
+      .select('id, subject, status, priority, created_at', { count: 'exact' })
+      .in('status', ['open', 'investigating'])
+      .eq('priority', 'critical')
       .order('created_at', { ascending: true })
       .limit(10),
 
-    // GDPR requests approaching deadline (SAR: 30 days from receipt)
+    // GDPR/compliance requests approaching deadline (SAR: 30 days from receipt)
+    // Alert when >20 days old (10 or fewer days remaining)
     supabaseAdmin
       .from('support_tickets')
       .select('id, subject, created_at')
-      .eq('category', 'gdpr')
-      .in('status', ['open', 'pending'])
+      .eq('category', 'compliance')
+      .in('status', ['open', 'investigating'])
+      .lt('created_at', new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: true })
       .limit(10),
   ]);
+
+  // Propagate errors — any failed query produces an explicit partial_data warning.
+  // We do not silently present missing data as zero/healthy.
+  const queryErrors: string[] = [];
+  if (companiesPendingResult.error) queryErrors.push(`companies_pending: ${companiesPendingResult.error.message}`);
+  if (companiesSuspendedResult.error) queryErrors.push(`companies_suspended: ${companiesSuspendedResult.error.message}`);
+  if (jobsAtRiskResult.error) queryErrors.push(`jobs_at_risk: ${jobsAtRiskResult.error.message}`);
+  if (jobsWithoutDriverResult.error) queryErrors.push(`jobs_without_driver: ${jobsWithoutDriverResult.error.message}`);
+  if (docsExpiringSoonResult.error) queryErrors.push(`docs_expiring: ${docsExpiringSoonResult.error.message}`);
+  if (docsExpiredActiveResult.error) queryErrors.push(`docs_expired: ${docsExpiredActiveResult.error.message}`);
+  if (fraudCasesResult.error) queryErrors.push(`fraud_cases: ${fraudCasesResult.error.message}`);
+  if (invoicesOverdueResult.error) queryErrors.push(`invoices_overdue: ${invoicesOverdueResult.error.message}`);
+  if (supportTicketsCriticalResult.error) queryErrors.push(`support_tickets_critical: ${supportTicketsCriticalResult.error.message}`);
+  if (gdprRequestsResult.error) queryErrors.push(`gdpr_requests: ${gdprRequestsResult.error.message}`);
 
   // Build Critical Action Queue
   const queue: ActionQueueItem[] = [];
@@ -305,14 +324,14 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Critical support tickets
-  for (const ticket of (supportTicketsCriticalResult.data ?? []) as Array<{ id: string; subject: string; status: string; created_at: string }>) {
+  // Critical support tickets (priority=critical; P0 if investigating, P1 if open)
+  for (const ticket of (supportTicketsCriticalResult.data ?? []) as Array<{ id: string; subject: string; status: string; priority: string; created_at: string }>) {
     const age = ageMinutes(ticket.created_at);
     queue.push({
       id: `ticket-${ticket.id}`,
-      type: 'support_ticket_open',
-      severity: age > 4 * 60 ? 'P1' : 'P2',
-      title: 'Support ticket open',
+      type: 'support_ticket_critical',
+      severity: ticket.status === 'investigating' ? 'P0' : 'P1',
+      title: 'Critical support ticket',
       description: `${ticket.subject ?? 'No subject'} · ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`} old`,
       entityType: 'ticket',
       entityId: ticket.id,
@@ -323,10 +342,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // GDPR requests
+  // Compliance/GDPR requests approaching 30-day SAR deadline (only those >20 days old)
   for (const req of (gdprRequestsResult.data ?? []) as Array<{ id: string; subject: string; created_at: string }>) {
     const age = ageMinutes(req.created_at);
-    // SAR deadline: 30 days = 43200 minutes. Alert when >20 days old.
     const daysOld = Math.floor(age / (24 * 60));
     const daysLeft = 30 - daysOld;
     queue.push({
@@ -334,10 +352,10 @@ export async function GET(request: NextRequest) {
       type: 'gdpr_request',
       severity: daysLeft <= 5 ? 'P0' : 'P1',
       title: 'GDPR request approaching deadline',
-      description: `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining · ${req.subject ?? 'Subject Access Request'}`,
+      description: `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining · ${req.subject ?? 'Compliance Request'}`,
       entityType: 'ticket',
       entityId: req.id,
-      entityName: req.subject ?? `GDPR Request #${req.id.slice(0, 8)}`,
+      entityName: req.subject ?? `Request #${req.id.slice(0, 8)}`,
       detectedAt: req.created_at,
       ageMinutes: age,
       href: `/super-admin/support/tickets`,
@@ -355,19 +373,36 @@ export async function GET(request: NextRequest) {
   const p0p1Count = queue.filter((item) => item.severity === 'P0' || item.severity === 'P1').length;
   const jobsAtRiskCount = (jobsAtRiskResult.data ?? []).length + (jobsWithoutDriverResult.data ?? []).length;
   const blockedAccountsCount = companiesSuspendedResult.count ?? 0;
+  // Financial exposure: use the count-accurate total from the DB query, not a sum of a .limit()-truncated page.
+  // The overdue amount is computed only from the fetched rows (up to limit); count gives the accurate total invoice count.
   const overdueAmount = ((invoicesOverdueResult.data ?? []) as Array<{ amount: number }>)
     .reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
-  const degradedServicesCount = 0; // Will be populated from health checks in PR-4.1
+  const overdueInvoiceCount = invoicesOverdueResult.count ?? (invoicesOverdueResult.data ?? []).length;
+  // degradedServices: health-check integration is planned for PR-4.1 and is not yet implemented.
+  // Report as null/unknown rather than falsely reporting zero degraded services.
+  const degradedServicesCount: number | null = null;
 
   return respond(200, {
     environment: resolveEnvironment(),
     refreshedAt: now.toISOString(),
+    ...(queryErrors.length > 0 ? { partialData: true, queryErrors } : {}),
     attentionIndicators: {
       p0p1Incidents: { count: p0p1Count, label: 'Incidents P0/P1', severity: p0p1Count > 0 ? 'critical' : 'ok' },
       jobsAtRisk: { count: jobsAtRiskCount, label: 'Jobs at risk', severity: jobsAtRiskCount > 5 ? 'warning' : jobsAtRiskCount > 0 ? 'caution' : 'ok' },
       blockedAccounts: { count: blockedAccountsCount, label: 'Blocked accounts', severity: blockedAccountsCount > 10 ? 'warning' : 'ok' },
-      financialExposure: { amountGbp: overdueAmount, label: 'Overdue invoices', severity: overdueAmount > 10000 ? 'critical' : overdueAmount > 1000 ? 'warning' : 'ok' },
-      degradedServices: { count: degradedServicesCount, label: 'Degraded services', severity: degradedServicesCount > 0 ? 'critical' : 'ok' },
+      financialExposure: {
+        amountGbp: overdueAmount,
+        invoiceCount: overdueInvoiceCount,
+        amountPartial: (invoicesOverdueResult.data ?? []).length < overdueInvoiceCount,
+        label: 'Overdue invoices',
+        severity: overdueAmount > 10000 ? 'critical' : overdueAmount > 1000 ? 'warning' : 'ok',
+      },
+      degradedServices: {
+        count: degradedServicesCount,
+        label: 'Degraded services',
+        severity: 'unknown',
+        note: 'Health-check integration pending (PR-4.1)',
+      },
     },
     actionQueue: {
       total: queue.length,
