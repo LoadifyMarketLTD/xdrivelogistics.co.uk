@@ -9,11 +9,11 @@ import { supabase } from '../../lib/supabaseClient';
 // Types — mirrors /api/super-admin/command-centre response shape
 // ---------------------------------------------------------------------------
 
-type Severity = 'critical' | 'warning' | 'caution' | 'ok';
+type Severity = 'critical' | 'warning' | 'caution' | 'ok' | 'unknown';
 
 type AttentionIndicator =
-  | { count: number; label: string; severity: Severity }
-  | { amountGbp: number; label: string; severity: Severity };
+  | { count: number | null; label: string; severity: Severity; note?: string }
+  | { amountGbp: number; label: string; severity: Severity; invoiceCount?: number; amountPartial?: boolean };
 
 type AttentionIndicators = {
   p0p1Incidents: AttentionIndicator;
@@ -48,6 +48,8 @@ type ActionQueue = {
 type CommandCentrePayload = {
   environment: 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT';
   refreshedAt: string;
+  partialData?: boolean;
+  queryErrors?: string[];
   attentionIndicators: AttentionIndicators;
   actionQueue: ActionQueue;
 };
@@ -87,6 +89,7 @@ const indicatorSeverityColor = (sev: Severity): string => {
   if (sev === 'critical') return T.red;
   if (sev === 'warning')  return T.orange;
   if (sev === 'caution')  return T.yellow;
+  if (sev === 'unknown')  return T.muted;
   return T.green;
 };
 
@@ -118,9 +121,15 @@ function EnvBanner({ env }: { env: CommandCentrePayload['environment'] }) {
 
 function IndicatorCard({ indicator, label }: { indicator: AttentionIndicator; label: string }) {
   const color = indicatorSeverityColor(indicator.severity);
-  const value = 'count' in indicator
-    ? indicator.count.toLocaleString()
-    : `£${indicator.amountGbp.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  let value: string;
+  let subNote: string | undefined;
+  if ('count' in indicator) {
+    value = indicator.count === null ? '—' : indicator.count.toLocaleString();
+    subNote = 'note' in indicator ? indicator.note : undefined;
+  } else {
+    value = `£${indicator.amountGbp.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (indicator.amountPartial) subNote = 'Partial total';
+  }
   return (
     <div style={{
       backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`,
@@ -135,6 +144,9 @@ function IndicatorCard({ indicator, label }: { indicator: AttentionIndicator; la
       }}>
         {indicator.severity}
       </div>
+      {subNote && (
+        <div style={{ color: T.muted, fontSize: '0.62rem', marginTop: '0.3rem' }}>{subNote}</div>
+      )}
     </div>
   );
 }
@@ -261,6 +273,17 @@ function CommandCentre() {
       {error && (
         <div style={{ marginBottom: '1rem', border: `1px solid ${T.red}`, borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', padding: '0.65rem 0.9rem', color: T.red, fontSize: '0.82rem' }}>
           ⚠️ {error}
+        </div>
+      )}
+
+      {data?.partialData && (
+        <div style={{ marginBottom: '1rem', border: `1px solid ${T.orange}`, borderRadius: '8px', backgroundColor: 'rgba(249,115,22,0.08)', padding: '0.65rem 0.9rem', color: T.orange, fontSize: '0.82rem' }}>
+          ⚠️ Partial data — one or more data sources returned an error. Some indicators may be incomplete.
+          {data.queryErrors && data.queryErrors.length > 0 && (
+            <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', fontSize: '0.75rem', color: T.muted }}>
+              {data.queryErrors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
         </div>
       )}
 
