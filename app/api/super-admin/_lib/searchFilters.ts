@@ -16,7 +16,9 @@ export const applyCompanyStatusFilter = <T extends {
   in: (column: string, values: string[]) => T;
 }>(query: T, status: CompanyStatusFilter) => {
   if (status === 'all') return query;
-  if (isPendingStatus(status)) return query.in('status', ['pending', 'pending_approval']);
+  // UI exposes 'pending' as an alias; canonically, the DB enum uses 'pending_approval'.
+  // We also accept 'pending_approval' directly. Both map to the canonical DB value only.
+  if (isPendingStatus(status)) return query.eq('status', 'pending_approval');
   return query.eq('status', status);
 };
 

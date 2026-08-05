@@ -35,8 +35,29 @@ describe('super-admin route search safety', () => {
 
     applyCompanyStatusFilter(query, 'pending');
 
+    // UI alias 'pending' must resolve to the canonical DB enum value 'pending_approval' only.
     expect(calls).toEqual([
-      { method: 'in', args: ['status', ['pending', 'pending_approval']] },
+      { method: 'eq', args: ['status', 'pending_approval'] },
+    ]);
+  });
+
+  it('applies canonical pending-company filtering for pending_approval alias', () => {
+    const calls: Array<{ method: string; args: unknown[] }> = [];
+    const query = {
+      eq: (column: string, value: string) => {
+        calls.push({ method: 'eq', args: [column, value] });
+        return query;
+      },
+      in: (column: string, values: string[]) => {
+        calls.push({ method: 'in', args: [column, values] });
+        return query;
+      },
+    };
+
+    applyCompanyStatusFilter(query, 'pending_approval');
+
+    expect(calls).toEqual([
+      { method: 'eq', args: ['status', 'pending_approval'] },
     ]);
   });
 });

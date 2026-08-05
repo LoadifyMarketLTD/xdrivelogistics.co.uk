@@ -83,19 +83,19 @@ export async function GET(request: NextRequest) {
     supportTicketsCriticalResult,
     gdprRequestsResult,
   ] = await Promise.all([
-    // Companies awaiting approval
+    // Companies awaiting approval (canonical enum value: pending_approval)
     supabaseAdmin
       .from('companies')
       .select('id, name, created_at', { count: 'exact' })
-      .in('status', ['pending', 'pending_approval'])
+      .eq('status', 'pending_approval')
       .order('created_at', { ascending: true })
       .limit(20),
 
-    // Companies suspended/restricted
+    // Companies suspended (canonical enum value: suspended)
     supabaseAdmin
       .from('companies')
       .select('id, name', { count: 'exact' })
-      .in('status', ['suspended', 'compliance_restricted', 'financial_restricted'])
+      .eq('status', 'suspended')
       .limit(5),
 
     // Active jobs with status not changed in >2h (at risk)
@@ -120,20 +120,20 @@ export async function GET(request: NextRequest) {
     // Documents expiring in ≤7 days (active companies/drivers)
     supabaseAdmin
       .from('driver_documents')
-      .select('id, driver_id, document_type, expires_at')
+      .select('id, driver_id, doc_type, expiry_date')
       .eq('status', 'approved')
-      .gte('expires_at', now.toISOString())
-      .lte('expires_at', new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString())
-      .order('expires_at', { ascending: true })
+      .gte('expiry_date', now.toISOString())
+      .lte('expiry_date', new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order('expiry_date', { ascending: true })
       .limit(20),
 
     // Documents that have passed their expiry date (all driver documents, not scoped to jobs)
     supabaseAdmin
       .from('driver_documents')
-      .select('id, driver_id, document_type, expires_at')
+      .select('id, driver_id, doc_type, expiry_date')
       .eq('status', 'approved')
-      .lt('expires_at', now.toISOString())
-      .order('expires_at', { ascending: true })
+      .lt('expiry_date', now.toISOString())
+      .order('expiry_date', { ascending: true })
       .limit(20),
 
     // Open fraud cases
@@ -177,17 +177,41 @@ export async function GET(request: NextRequest) {
 
   // Propagate errors — any failed query produces an explicit partial_data warning.
   // We do not silently present missing data as zero/healthy.
+  // Sources backed by tables that may not yet exist in the live schema are tracked
+  // separately so the UI can distinguish "unavailable" from "zero".
   const queryErrors: string[] = [];
+
+  // Helper: returns true when the Supabase error indicates the table does not exist
+  // in the connected schema (PostgREST PGRST200 / Postgres 42P01).
+  const isTableMissing = (err: { code?: string; message?: string } | null | undefined): boolean => {
+    if (!err) return false;
+    return (
+      err.code === 'PGRST200' ||
+      err.code === '42P01' ||
+      (typeof err.message === 'string' && err.message.includes('does not exist'))
+    );
+  };
+
   if (companiesPendingResult.error) queryErrors.push(`companies_pending: ${companiesPendingResult.error.message}`);
   if (companiesSuspendedResult.error) queryErrors.push(`companies_suspended: ${companiesSuspendedResult.error.message}`);
   if (jobsAtRiskResult.error) queryErrors.push(`jobs_at_risk: ${jobsAtRiskResult.error.message}`);
   if (jobsWithoutDriverResult.error) queryErrors.push(`jobs_without_driver: ${jobsWithoutDriverResult.error.message}`);
   if (docsExpiringSoonResult.error) queryErrors.push(`docs_expiring: ${docsExpiringSoonResult.error.message}`);
   if (docsExpiredActiveResult.error) queryErrors.push(`docs_expired: ${docsExpiredActiveResult.error.message}`);
-  if (fraudCasesResult.error) queryErrors.push(`fraud_cases: ${fraudCasesResult.error.message}`);
-  if (invoicesOverdueResult.error) queryErrors.push(`invoices_overdue: ${invoicesOverdueResult.error.message}`);
-  if (supportTicketsCriticalResult.error) queryErrors.push(`support_tickets_critical: ${supportTicketsCriticalResult.error.message}`);
-  if (gdprRequestsResult.error) queryErrors.push(`gdpr_requests: ${gdprRequestsResult.error.message}`);
+
+  // For optional/future-schema tables, distinguish "table missing" (unavailable)
+  // from other errors (partial data warning).
+  const fraudUnavailable = isTableMissing(fraudCasesResult.error);
+  if (fraudCasesResult.error && !fraudUnavailable) queryErrors.push(`fraud_cases: ${fraudCasesResult.error.message}`);
+
+  const invoicesUnavailable = isTableMissing(invoicesOverdueResult.error);
+  if (invoicesOverdueResult.error && !invoicesUnavailable) queryErrors.push(`invoices_overdue: ${invoicesOverdueResult.error.message}`);
+
+  const supportCriticalUnavailable = isTableMissing(supportTicketsCriticalResult.error);
+  if (supportTicketsCriticalResult.error && !supportCriticalUnavailable) queryErrors.push(`support_tickets_critical: ${supportTicketsCriticalResult.error.message}`);
+
+  const gdprUnavailable = isTableMissing(gdprRequestsResult.error);
+  if (gdprRequestsResult.error && !gdprUnavailable) queryErrors.push(`gdpr_requests: ${gdprRequestsResult.error.message}`);
 
   // Build Critical Action Queue
   const queue: ActionQueueItem[] = [];
@@ -247,112 +271,120 @@ export async function GET(request: NextRequest) {
   }
 
   // Documents expiring soon
-  for (const doc of (docsExpiringSoonResult.data ?? []) as Array<{ id: string; driver_id: string; document_type: string; expires_at: string }>) {
-    const daysLeft = Math.ceil((new Date(doc.expires_at).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+  for (const doc of (docsExpiringSoonResult.data ?? []) as Array<{ id: string; driver_id: string; doc_type: string; expiry_date: string }>) {
+    const daysLeft = Math.ceil((new Date(doc.expiry_date).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
     queue.push({
       id: `doc-expiring-${doc.id}`,
       type: 'document_expiring',
       severity: daysLeft <= 2 ? 'P1' : 'P2',
       title: 'Document expiring soon',
-      description: `${doc.document_type.replace(/_/g, ' ')} expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
+      description: `${doc.doc_type.replace(/_/g, ' ')} expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
       entityType: 'driver',
       entityId: doc.driver_id,
-      entityName: `Document: ${doc.document_type}`,
-      detectedAt: doc.expires_at,
+      entityName: `Document: ${doc.doc_type}`,
+      detectedAt: doc.expiry_date,
       ageMinutes: 0,
       href: `/super-admin/compliance/expiries`,
     });
   }
 
   // Expired documents
-  for (const doc of (docsExpiredActiveResult.data ?? []) as Array<{ id: string; driver_id: string; document_type: string; expires_at: string }>) {
+  for (const doc of (docsExpiredActiveResult.data ?? []) as Array<{ id: string; driver_id: string; doc_type: string; expiry_date: string }>) {
     queue.push({
       id: `doc-expired-${doc.id}`,
       type: 'document_expired',
       severity: 'P1',
       title: 'Document expired',
-      description: `${doc.document_type.replace(/_/g, ' ')} expired on ${doc.expires_at.slice(0, 10)}`,
+      description: `${doc.doc_type.replace(/_/g, ' ')} expired on ${doc.expiry_date.slice(0, 10)}`,
       entityType: 'driver',
       entityId: doc.driver_id,
-      entityName: `Document: ${doc.document_type}`,
-      detectedAt: doc.expires_at,
-      ageMinutes: ageMinutes(doc.expires_at),
+      entityName: `Document: ${doc.doc_type}`,
+      detectedAt: doc.expiry_date,
+      ageMinutes: ageMinutes(doc.expiry_date),
       href: `/super-admin/compliance/expiries`,
     });
   }
 
-  // Fraud cases
-  for (const fraudCase of (fraudCasesResult.data ?? []) as Array<{ id: string; subject_company_id: string | null; status: string; created_at: string }>) {
-    const age = ageMinutes(fraudCase.created_at);
-    queue.push({
-      id: `fraud-${fraudCase.id}`,
-      type: 'fraud_case',
-      severity: fraudCase.status === 'investigating' ? 'P0' : 'P1',
-      title: 'Fraud case open',
-      description: `Status: ${fraudCase.status} · Age: ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`}`,
-      entityType: 'company',
-      entityId: fraudCase.subject_company_id ?? fraudCase.id,
-      entityName: `Fraud Case #${fraudCase.id.slice(0, 8)}`,
-      detectedAt: fraudCase.created_at,
-      ageMinutes: age,
-      href: `/super-admin/compliance/fraud-cases`,
-    });
+  // Fraud cases (only when the table exists in the live schema)
+  if (!fraudUnavailable) {
+    for (const fraudCase of (fraudCasesResult.data ?? []) as Array<{ id: string; subject_company_id: string | null; status: string; created_at: string }>) {
+      const age = ageMinutes(fraudCase.created_at);
+      queue.push({
+        id: `fraud-${fraudCase.id}`,
+        type: 'fraud_case',
+        severity: fraudCase.status === 'investigating' ? 'P0' : 'P1',
+        title: 'Fraud case open',
+        description: `Status: ${fraudCase.status} · Age: ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`}`,
+        entityType: 'company',
+        entityId: fraudCase.subject_company_id ?? fraudCase.id,
+        entityName: `Fraud Case #${fraudCase.id.slice(0, 8)}`,
+        detectedAt: fraudCase.created_at,
+        ageMinutes: age,
+        href: `/super-admin/compliance/fraud-cases`,
+      });
+    }
   }
 
-  // Overdue invoices
-  for (const invoice of (invoicesOverdueResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; due_date: string; created_at: string }>) {
-    const age = ageMinutes(invoice.due_date);
-    queue.push({
-      id: `invoice-overdue-${invoice.id}`,
-      type: 'invoice_overdue',
-      severity: age > 30 * 24 * 60 ? 'P1' : 'P2',
-      title: 'Invoice overdue',
-      description: `${invoice.invoice_number} · £${(invoice.amount ?? 0).toFixed(2)} · overdue ${Math.floor(age / (24 * 60))} days`,
-      entityType: 'invoice',
-      entityId: invoice.id,
-      entityName: invoice.invoice_number,
-      detectedAt: invoice.due_date,
-      ageMinutes: age,
-      href: `/super-admin/finance/invoices`,
-    });
+  // Overdue invoices (only when the table exists in the live schema)
+  if (!invoicesUnavailable) {
+    for (const invoice of (invoicesOverdueResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; due_date: string; created_at: string }>) {
+      const age = ageMinutes(invoice.due_date);
+      queue.push({
+        id: `invoice-overdue-${invoice.id}`,
+        type: 'invoice_overdue',
+        severity: age > 30 * 24 * 60 ? 'P1' : 'P2',
+        title: 'Invoice overdue',
+        description: `${invoice.invoice_number} · £${(invoice.amount ?? 0).toFixed(2)} · overdue ${Math.floor(age / (24 * 60))} days`,
+        entityType: 'invoice',
+        entityId: invoice.id,
+        entityName: invoice.invoice_number,
+        detectedAt: invoice.due_date,
+        ageMinutes: age,
+        href: `/super-admin/finance/invoices`,
+      });
+    }
   }
 
-  // Critical support tickets (priority=critical; P0 if investigating, P1 if open)
-  for (const ticket of (supportTicketsCriticalResult.data ?? []) as Array<{ id: string; subject: string; status: string; priority: string; created_at: string }>) {
-    const age = ageMinutes(ticket.created_at);
-    queue.push({
-      id: `ticket-${ticket.id}`,
-      type: 'support_ticket_critical',
-      severity: ticket.status === 'investigating' ? 'P0' : 'P1',
-      title: 'Critical support ticket',
-      description: `${ticket.subject ?? 'No subject'} · ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`} old`,
-      entityType: 'ticket',
-      entityId: ticket.id,
-      entityName: ticket.subject ?? `Ticket #${ticket.id.slice(0, 8)}`,
-      detectedAt: ticket.created_at,
-      ageMinutes: age,
-      href: `/super-admin/support/tickets`,
-    });
+  // Critical support tickets (only when the table exists in the live schema)
+  if (!supportCriticalUnavailable) {
+    for (const ticket of (supportTicketsCriticalResult.data ?? []) as Array<{ id: string; subject: string; status: string; priority: string; created_at: string }>) {
+      const age = ageMinutes(ticket.created_at);
+      queue.push({
+        id: `ticket-${ticket.id}`,
+        type: 'support_ticket_critical',
+        severity: ticket.status === 'investigating' ? 'P0' : 'P1',
+        title: 'Critical support ticket',
+        description: `${ticket.subject ?? 'No subject'} · ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`} old`,
+        entityType: 'ticket',
+        entityId: ticket.id,
+        entityName: ticket.subject ?? `Ticket #${ticket.id.slice(0, 8)}`,
+        detectedAt: ticket.created_at,
+        ageMinutes: age,
+        href: `/super-admin/support/tickets`,
+      });
+    }
   }
 
-  // Compliance/GDPR requests approaching 30-day SAR deadline (only those >20 days old)
-  for (const req of (gdprRequestsResult.data ?? []) as Array<{ id: string; subject: string; created_at: string }>) {
-    const age = ageMinutes(req.created_at);
-    const daysOld = Math.floor(age / (24 * 60));
-    const daysLeft = 30 - daysOld;
-    queue.push({
-      id: `gdpr-${req.id}`,
-      type: 'gdpr_request',
-      severity: daysLeft <= 5 ? 'P0' : 'P1',
-      title: 'GDPR request approaching deadline',
-      description: `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining · ${req.subject ?? 'Compliance Request'}`,
-      entityType: 'ticket',
-      entityId: req.id,
-      entityName: req.subject ?? `Request #${req.id.slice(0, 8)}`,
-      detectedAt: req.created_at,
-      ageMinutes: age,
-      href: `/super-admin/support/tickets`,
-    });
+  // Compliance/GDPR requests approaching 30-day SAR deadline (only when the table exists)
+  if (!gdprUnavailable) {
+    for (const req of (gdprRequestsResult.data ?? []) as Array<{ id: string; subject: string; created_at: string }>) {
+      const age = ageMinutes(req.created_at);
+      const daysOld = Math.floor(age / (24 * 60));
+      const daysLeft = 30 - daysOld;
+      queue.push({
+        id: `gdpr-${req.id}`,
+        type: 'gdpr_request',
+        severity: daysLeft <= 5 ? 'P0' : 'P1',
+        title: 'GDPR request approaching deadline',
+        description: `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining · ${req.subject ?? 'Compliance Request'}`,
+        entityType: 'ticket',
+        entityId: req.id,
+        entityName: req.subject ?? `Request #${req.id.slice(0, 8)}`,
+        detectedAt: req.created_at,
+        ageMinutes: age,
+        href: `/super-admin/support/tickets`,
+      });
+    }
   }
 
   // Sort queue: P0 first, then P1, then P2, within same severity by age desc
@@ -366,34 +398,45 @@ export async function GET(request: NextRequest) {
   const p0p1Count = queue.filter((item) => item.severity === 'P0' || item.severity === 'P1').length;
   const jobsAtRiskCount = (jobsAtRiskResult.data ?? []).length + (jobsWithoutDriverResult.data ?? []).length;
   const blockedAccountsCount = companiesSuspendedResult.count ?? 0;
-  // Financial exposure: use the count-accurate total from the DB query, not a sum of a .limit()-truncated page.
-  // The overdue amount is computed only from the fetched rows (up to limit); count gives the accurate total invoice count.
-  const overdueAmount = ((invoicesOverdueResult.data ?? []) as Array<{ amount: number }>)
-    .reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
-  const overdueInvoiceCount = invoicesOverdueResult.count ?? (invoicesOverdueResult.data ?? []).length;
+
+  // Financial exposure: unavailable when the invoices table doesn't exist yet.
+  const overdueAmount = invoicesUnavailable
+    ? null
+    : ((invoicesOverdueResult.data ?? []) as Array<{ amount: number }>).reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
+  const overdueInvoiceCount = invoicesUnavailable ? null : (invoicesOverdueResult.count ?? (invoicesOverdueResult.data ?? []).length);
   // degradedServices: health-check integration is planned for PR-4.1 and is not yet implemented.
   // Report as null/unknown rather than falsely reporting zero degraded services.
   const degradedServicesCount: number | null = null;
+
+  // Collect which optional sources are unavailable so the UI can show an honest state.
+  const unavailableSources: string[] = [];
+  if (fraudUnavailable) unavailableSources.push('fraud_review_cases');
+  if (invoicesUnavailable) unavailableSources.push('invoices');
+  if (supportCriticalUnavailable) unavailableSources.push('support_tickets');
+  if (gdprUnavailable) unavailableSources.push('support_tickets_gdpr');
 
   return respond(200, {
     environment: resolveEnvironment(),
     refreshedAt: now.toISOString(),
     ...(queryErrors.length > 0 ? { partialData: true, queryErrors } : {}),
+    ...(unavailableSources.length > 0 ? { unavailableSources } : {}),
     attentionIndicators: {
       p0p1Incidents: { count: p0p1Count, label: 'Incidents P0/P1', severity: p0p1Count > 0 ? 'critical' : 'ok' },
       jobsAtRisk: { count: jobsAtRiskCount, label: 'Jobs at risk', severity: jobsAtRiskCount > 5 ? 'warning' : jobsAtRiskCount > 0 ? 'caution' : 'ok' },
       blockedAccounts: { count: blockedAccountsCount, label: 'Blocked accounts', severity: blockedAccountsCount > 10 ? 'warning' : 'ok' },
-      financialExposure: {
-        amountGbp: overdueAmount,
-        invoiceCount: overdueInvoiceCount,
-        amountPartial: (invoicesOverdueResult.data ?? []).length < overdueInvoiceCount,
-        label: 'Overdue invoices',
-        severity: overdueAmount > 10000 ? 'critical' : overdueAmount > 1000 ? 'warning' : 'ok',
-      },
+      financialExposure: invoicesUnavailable
+        ? { count: null, label: 'Overdue invoices', severity: 'unknown' as const, note: 'Invoices table not yet available' }
+        : {
+            amountGbp: overdueAmount as number,
+            invoiceCount: overdueInvoiceCount as number,
+            amountPartial: (invoicesOverdueResult.data ?? []).length < (overdueInvoiceCount as number),
+            label: 'Overdue invoices',
+            severity: (overdueAmount as number) > 10000 ? 'critical' as const : (overdueAmount as number) > 1000 ? 'warning' as const : 'ok' as const,
+          },
       degradedServices: {
         count: degradedServicesCount,
         label: 'Degraded services',
-        severity: 'unknown',
+        severity: 'unknown' as const,
         note: 'Health-check integration pending (PR-4.1)',
       },
     },
