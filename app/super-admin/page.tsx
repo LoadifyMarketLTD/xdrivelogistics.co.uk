@@ -50,6 +50,7 @@ type CommandCentrePayload = {
   refreshedAt: string;
   partialData?: boolean;
   queryErrors?: string[];
+  unavailableSources?: string[];
   attentionIndicators: AttentionIndicators;
   actionQueue: ActionQueue;
 };
@@ -276,7 +277,11 @@ function CommandCentre() {
         </div>
       )}
 
-      {data?.partialData && (
+      {data?.unavailableSources && data.unavailableSources.length > 0 && (
+        <div style={{ marginBottom: '1rem', border: `1px solid ${T.muted}`, borderRadius: '8px', backgroundColor: 'rgba(148,163,184,0.08)', padding: '0.65rem 0.9rem', color: T.muted, fontSize: '0.82rem' }}>
+          ℹ️ Some data sources are not yet available in the live schema and are excluded from this view: {data.unavailableSources.join(', ')}.
+        </div>
+      )}
         <div style={{ marginBottom: '1rem', border: `1px solid ${T.orange}`, borderRadius: '8px', backgroundColor: 'rgba(249,115,22,0.08)', padding: '0.65rem 0.9rem', color: T.orange, fontSize: '0.82rem' }}>
           ⚠️ Partial data — one or more data sources returned an error. Some indicators may be incomplete.
           {data.queryErrors && data.queryErrors.length > 0 && (
@@ -344,7 +349,9 @@ function CommandCentre() {
           <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>Loading…</div>
         ) : !queue || queue.items.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>
-            ✅ No critical actions required. Platform is operating normally.
+            {data?.unavailableSources && data.unavailableSources.length > 0
+              ? '⚠️ No critical actions in available sources. Some sources are not yet active — see notice above.'
+              : '✅ No critical actions required. Platform is operating normally.'}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
