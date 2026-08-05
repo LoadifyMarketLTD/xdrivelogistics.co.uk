@@ -20,7 +20,6 @@ import {
   Panel,
   StatusBadge,
   TwoColumn,
-  WorkspaceState,
 } from '../components/workspace/WorkspaceUI';
 
 type OwnerBid = {
@@ -129,8 +128,6 @@ export default function DriverDashboard() {
     .filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid')
     .reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
 
-  if (data.loading && !ownerDriver) return <PageFrame><WorkspaceState variant="loading" label="Loading driver dashboard…" rows={4} /></PageFrame>;
-
   return (
     <PageFrame>
       <PageHeader
@@ -155,7 +152,7 @@ export default function DriverDashboard() {
       <KpiGrid>
         <KpiCard label="Jobs today" value={todaysJobs.length} detail="Scheduled collections" onClick={() => router.push('/driver/jobs')} />
         <KpiCard label="Active job" value={currentJob ? 1 : 0} detail="Current execution" tone="green" onClick={currentJob ? () => router.push(`/driver/jobs/${currentJob.id}`) : undefined} />
-        <KpiCard label="Awaiting start" value={myJobs.filter((job) => upcomingStatuses.has(job.current_status ?? job.status)).length} detail="Allocated, not yet active" tone="orange" onClick={() => router.push('/driver/jobs')} />
+        <KpiCard label="Awaiting start" value={myJobs.filter((job) => upcomingStatuses.has(job.current_status ?? job.status)).length} detail="Allocated, not yet active" tone="orange" />
         <KpiCard label="Completed" value={completedJobs} detail="Delivered or invoiced" tone="navy" onClick={() => router.push('/driver/history')} />
         <KpiCard label="Documents expiring" value={expiringDocuments.length} detail="Within 30 days" tone={expiringDocuments.length ? 'red' : 'green'} onClick={() => router.push('/driver/documents')} />
         {ownerDriver && <KpiCard label="Quotes submitted" value={submittedQuotes} detail="Awaiting customer decision" tone="purple" onClick={() => router.push('/driver/quotes')} />}
