@@ -6,7 +6,7 @@ import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number, currency = 'GBP') => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -184,20 +184,14 @@ export function CustomerDashboard() {
           </Panel>
 
           <Panel title="Quick actions">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {([
-                ['Post a new load', '/customer/post-load'],
-                ['Review carrier quotes', '/customer/quotes'],
-                ['Track active deliveries', '/customer/deliveries'],
-                ['Download POD', '/customer/documents'],
-                ['View all invoices', '/customer/invoices'],
-                ['Team & settings', '/customer/settings'],
-              ] as const).map(([label, href]) => (
-                <button key={href} onClick={() => router.push(href)} style={quickButton}>
-                  <span>{label}</span><span>→</span>
-                </button>
-              ))}
-            </div>
+            <OperationalLinkList items={[
+              { key: 'post-load', label: 'Post a new load', onClick: () => router.push('/customer/post-load') },
+              { key: 'quotes', label: 'Review carrier quotes', onClick: () => router.push('/customer/quotes') },
+              { key: 'deliveries', label: 'Track active deliveries', onClick: () => router.push('/customer/deliveries') },
+              { key: 'documents', label: 'Download POD', onClick: () => router.push('/customer/documents') },
+              { key: 'invoices', label: 'View all invoices', onClick: () => router.push('/customer/invoices') },
+              { key: 'settings', label: 'Team & settings', onClick: () => router.push('/customer/settings') },
+            ]} />
           </Panel>
         </div>
       </TwoColumn>
