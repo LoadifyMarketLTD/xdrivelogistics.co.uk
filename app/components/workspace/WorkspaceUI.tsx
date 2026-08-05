@@ -525,8 +525,10 @@ export function OperationalMetricList({
 
 export function OperationalLinkList({
   items,
+  showTrailingArrow = true,
 }: {
   items: Array<{ key: string; label: ReactNode; meta?: ReactNode; value?: ReactNode; onClick?: () => void }>;
+  showTrailingArrow?: boolean;
 }) {
   return (
     <div className={styles.operationalLinkList}>
@@ -537,7 +539,9 @@ export function OperationalLinkList({
               <span className={styles.operationalLinkLabel}>{item.label}</span>
               {item.meta ? <span className={styles.operationalLinkMeta}>{item.meta}</span> : null}
             </span>
-            {item.value ? <span className={styles.operationalLinkValue}>{item.value}</span> : <span aria-hidden="true">→</span>}
+            {item.value != null
+              ? <span className={styles.operationalLinkValue}>{item.value}</span>
+              : showTrailingArrow ? <span aria-hidden="true">→</span> : null}
           </>
         );
 
