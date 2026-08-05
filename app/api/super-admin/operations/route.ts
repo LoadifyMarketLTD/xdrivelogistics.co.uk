@@ -110,14 +110,21 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
-  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+  // Pagination for sections that support it
+  const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
+  const offset = (pageParam - 1) * limitParam;
+  // Search filter (for jobs sections)
+  const search = searchParams.get('search')?.trim() ?? '';
+  // Keep backward-compat legacy limit param (used by non-paginated sections)
+  const legacyLimit = Math.min(Number(searchParams.get('limit') ?? limitParam) || limitParam, 500);
 
   if (section === 'quotes') {
     const { data: quotes, error } = await supabaseAdmin
       .from('quotes')
       .select('id, company_id, status, amount, currency, customer_name, pickup_location, delivery_location, created_at')
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(legacyLimit);
 
     if (error) {
       return respond(500, { error: error.message });
@@ -152,7 +159,7 @@ export async function GET(request: NextRequest) {
       .from('drivers')
       .select('id, display_name, company_id, availability_status')
       .order('display_name', { ascending: true })
-      .limit(limit);
+      .limit(legacyLimit);
 
     if (driversError) return respond(500, { error: driversError.message });
 
@@ -208,7 +215,7 @@ export async function GET(request: NextRequest) {
       .from('job_disputes')
       .select('id, job_id, raised_by_company_id, status, description, created_at')
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(legacyLimit);
 
     if (disputesError) return respond(500, { error: disputesError.message });
 
@@ -257,7 +264,7 @@ export async function GET(request: NextRequest) {
       .from('driver_locations')
       .select('id, driver_id, location, recorded_at')
       .order('recorded_at', { ascending: false })
-      .limit(limit);
+      .limit(legacyLimit);
 
     if (locsError) return respond(500, { error: locsError.message });
 
@@ -322,9 +329,9 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('jobs')
-    .select('id, status, company_id, assigned_driver_id, created_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, awarded_carrier_company_id, delivery_photos, delivery_signature_data')
+    .select('id, status, company_id, assigned_driver_id, created_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, awarded_carrier_company_id, delivery_photos, delivery_signature_data', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limitParam - 1);
 
   if (section === 'allocations') {
     query = query.not('assigned_driver_id', 'is', null);
@@ -350,7 +357,12 @@ export async function GET(request: NextRequest) {
     query = query.or('delivery_signature_data.not.is.null,delivery_photos.not.is.null');
   }
 
-  const { data: jobs, error: jobsError } = await query;
+  // Search: filter by pickup or delivery location text
+  if (search) {
+    query = query.or(`pickup_location.ilike.%${search}%,delivery_location.ilike.%${search}%,pickup_postcode.ilike.%${search}%,delivery_postcode.ilike.%${search}%`);
+  }
+
+  const { data: jobs, error: jobsError, count: jobsCount } = await query;
 
   if (jobsError) {
     return respond(500, { error: jobsError.message });
@@ -363,8 +375,19 @@ export async function GET(request: NextRequest) {
 
   const { companyNameById, driverById, bidCountByJobId } = mappedResources;
 
+  const totalCount = jobsCount ?? (jobs ?? []).length;
+  const totalPages = Math.ceil(totalCount / limitParam);
+
   return respond(200, {
     section,
+    pagination: {
+      page: pageParam,
+      limit: limitParam,
+      total: totalCount,
+      totalPages,
+      hasNextPage: pageParam < totalPages,
+      hasPrevPage: pageParam > 1,
+    },
     rows: ((jobs ?? []) as JobRow[]).map((job) => {
       const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) ?? null : null;
       const podPhotosCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;

@@ -28,13 +28,25 @@ export async function GET(request: NextRequest) {
   if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
 
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+  // Pagination: page (1-based), limit (max 500)
+  const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limitParam = Math.min(500, Math.max(1, Number(searchParams.get('limit') ?? '100') || 100));
+  const offset = (pageParam - 1) * limitParam;
 
-  const { data, error } = await supabaseAdmin
+  // Filter by action_type
+  const actionTypeFilter = searchParams.get('action_type')?.trim() ?? '';
+
+  let query = supabaseAdmin
     .from('owner_audit_log')
-    .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at')
+    .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limitParam - 1);
+
+  if (actionTypeFilter) {
+    query = query.eq('action_type', actionTypeFilter);
+  }
+
+  const { data, error, count } = await query;
 
   if (error) return respond(500, { error: error.message });
 
@@ -49,13 +61,24 @@ export async function GET(request: NextRequest) {
     ((companies ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]),
   );
 
+  const totalCount = count ?? rows.length;
+  const totalPages = Math.ceil(totalCount / limitParam);
+
   return respond(200, {
     rows: rows.map((r) => ({
       ...r,
       company_name: nameById.get(r.target_company_id as string) ?? 'Unknown',
     })),
+    pagination: {
+      page: pageParam,
+      limit: limitParam,
+      total: totalCount,
+      totalPages,
+      hasNextPage: pageParam < totalPages,
+      hasPrevPage: pageParam > 1,
+    },
     summary: {
-      total: rows.length,
+      total: totalCount,
       approvals: rows.filter((r) => r.action_type === 'company_approved').length,
       suspensions: rows.filter((r) => r.action_type === 'company_suspended').length,
       reinstatements: rows.filter((r) => r.action_type === 'company_reinstated').length,
