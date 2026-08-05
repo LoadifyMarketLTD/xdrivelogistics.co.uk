@@ -144,8 +144,8 @@ export async function GET(request: NextRequest) {
     // Open fraud cases
     supabaseAdmin
       .from('fraud_review_cases')
-      .select('id, company_id, status, created_at')
-      .in('status', ['open', 'pending_review', 'escalated'])
+      .select('id, subject_company_id, status, created_at')
+      .in('status', ['open', 'investigating'])
       .order('created_at', { ascending: true })
       .limit(10),
 
@@ -270,16 +270,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Fraud cases
-  for (const fraudCase of (fraudCasesResult.data ?? []) as Array<{ id: string; company_id: string; status: string; created_at: string }>) {
+  for (const fraudCase of (fraudCasesResult.data ?? []) as Array<{ id: string; subject_company_id: string | null; status: string; created_at: string }>) {
     const age = ageMinutes(fraudCase.created_at);
     queue.push({
       id: `fraud-${fraudCase.id}`,
       type: 'fraud_case',
-      severity: fraudCase.status === 'escalated' ? 'P0' : 'P1',
+      severity: fraudCase.status === 'investigating' ? 'P0' : 'P1',
       title: 'Fraud case open',
       description: `Status: ${fraudCase.status} · Age: ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`}`,
       entityType: 'company',
-      entityId: fraudCase.company_id,
+      entityId: fraudCase.subject_company_id ?? fraudCase.id,
       entityName: `Fraud Case #${fraudCase.id.slice(0, 8)}`,
       detectedAt: fraudCase.created_at,
       ageMinutes: age,

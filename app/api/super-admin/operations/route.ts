@@ -4,11 +4,32 @@ import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-/**
- * Strip PostgREST-reserved characters from a search term to prevent filter
- * injection via the `.or()` string.
- */
-const sanitizeSearch = (raw: string) => raw.replace(/[(),%]/g, '').trim();
+const normalizeSearch = (raw: string) => raw.trim();
+
+export const buildJobSearchPattern = (search: string) => `%${search}%`;
+
+const findMatchingJobIds = async (search: string) => {
+  if (!supabaseAdmin || !search) return null;
+  const pattern = buildJobSearchPattern(search);
+  const [pickupLocationResult, deliveryLocationResult, pickupPostcodeResult, deliveryPostcodeResult] = await Promise.all([
+    supabaseAdmin.from('jobs').select('id').ilike('pickup_location', pattern).limit(500),
+    supabaseAdmin.from('jobs').select('id').ilike('delivery_location', pattern).limit(500),
+    supabaseAdmin.from('jobs').select('id').ilike('pickup_postcode', pattern).limit(500),
+    supabaseAdmin.from('jobs').select('id').ilike('delivery_postcode', pattern).limit(500),
+  ]);
+  const firstError = [pickupLocationResult.error, deliveryLocationResult.error, pickupPostcodeResult.error, deliveryPostcodeResult.error].find(Boolean);
+  if (firstError) return { error: firstError.message };
+  return {
+    ids: Array.from(
+      new Set(
+        [pickupLocationResult.data, deliveryLocationResult.data, pickupPostcodeResult.data, deliveryPostcodeResult.data]
+          .flatMap((rows) => rows ?? [])
+          .map((row) => String(row.id ?? ''))
+          .filter(Boolean),
+      ),
+    ),
+  };
+};
 
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
@@ -121,7 +142,11 @@ export async function GET(request: NextRequest) {
   const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
   const offset = (pageParam - 1) * limitParam;
   // Search filter (for jobs sections)
-  const search = sanitizeSearch(searchParams.get('search')?.trim() ?? '');
+  const search = normalizeSearch(searchParams.get('search') ?? '');
+  const searchMatches = search ? await findMatchingJobIds(search) : null;
+  if (searchMatches && 'error' in searchMatches) {
+    return respond(500, { error: searchMatches.error });
+  }
   // Keep backward-compat legacy limit param (used by non-paginated sections)
   const legacyLimit = Math.min(Number(searchParams.get('limit') ?? limitParam) || limitParam, 500);
 
@@ -336,8 +361,7 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin
     .from('jobs')
     .select('id, status, company_id, assigned_driver_id, created_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, awarded_carrier_company_id, delivery_photos, delivery_signature_data', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limitParam - 1);
+    .order('created_at', { ascending: false });
 
   if (section === 'allocations') {
     query = query.not('assigned_driver_id', 'is', null);
@@ -363,10 +387,25 @@ export async function GET(request: NextRequest) {
     query = query.or('delivery_signature_data.not.is.null,delivery_photos.not.is.null');
   }
 
-  // Search: filter by pickup or delivery location text
-  if (search) {
-    query = query.or(`pickup_location.ilike.%${search}%,delivery_location.ilike.%${search}%,pickup_postcode.ilike.%${search}%,delivery_postcode.ilike.%${search}%`);
+  if (searchMatches && searchMatches.ids.length === 0) {
+    return respond(200, {
+      section,
+      pagination: {
+        page: pageParam,
+        limit: limitParam,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: pageParam > 1,
+      },
+      rows: [],
+    });
   }
+
+  if (searchMatches && 'ids' in searchMatches) {
+    query = query.in('id', searchMatches.ids);
+  }
+  query = query.range(offset, offset + limitParam - 1);
 
   const { data: jobs, error: jobsError, count: jobsCount } = await query;
 
