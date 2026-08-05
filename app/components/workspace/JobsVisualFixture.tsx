@@ -13,7 +13,7 @@
  * Reference: docs/ui/cx/jobs.md
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   filterJobsByDriver,
   type JobRow,
@@ -419,9 +419,9 @@ export default function JobsVisualFixture() {
   };
 
   const handleFilterChange =
-    <T extends string>(setter: (v: T) => void) =>
-    (v: T) => {
-      setter(v);
+    <T extends string>(setter: Dispatch<SetStateAction<T>>) =>
+    (value: T) => {
+      setter(value);
       setPage(0);
     };
 
