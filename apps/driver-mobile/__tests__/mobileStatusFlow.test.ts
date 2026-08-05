@@ -22,8 +22,8 @@ import {
   isStatusAtLeast,
   statusFlow,
   statusIndex,
-} from '../apps/driver-mobile/src/jobs/statusFlow';
-import type { CanonicalJobStatus } from '../apps/driver-mobile/src/jobs/types';
+} from '../src/jobs/statusFlow';
+import type { CanonicalJobStatus } from '../src/jobs/types';
 
 // ─── 1. statusFlow array ────────────────────────────────────────────────────
 

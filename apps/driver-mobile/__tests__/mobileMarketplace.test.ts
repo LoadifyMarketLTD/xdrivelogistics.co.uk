@@ -24,8 +24,8 @@ import type {
   JobAttachment,
   JobStop,
   PodRecord,
-} from '../apps/driver-mobile/src/jobs/types';
-import type { LiveLoad } from '../apps/driver-mobile/src/api/liveLoads';
+} from '../src/jobs/types';
+import type { LiveLoad } from '../src/api/liveLoads';
 import {
   buildQuoteMessage,
   computeSubtotal,
@@ -36,7 +36,7 @@ import {
   SUPPORTED_CURRENCY,
   validateQuote,
   type QuoteLineItems,
-} from '../apps/driver-mobile/src/jobs/quoteHelpers';
+} from '../src/jobs/quoteHelpers';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 

@@ -38,8 +38,6 @@
   "exclude": [
     "node_modules",
     "apps/driver-mobile/**",
-    "supabase/functions",
-    "__tests__/mobileMarketplace.test.ts",
-    "__tests__/mobileStatusFlow.test.ts"
+    "supabase/functions"
   ]
 }
