@@ -119,7 +119,8 @@ function JobsPageInner() {
  const [jobsPage, setJobsPage] = useState(0);
  const JOBS_PER_PAGE = 20;
  const [searchTerm, setSearchTerm] = useState('');
- const [statusFilter, setStatusFilter] = useState(() => resolveJobStatusFilter(searchParams.get('status')));
+ const statusParam = searchParams.get('status');
+ const [statusFilter, setStatusFilter] = useState(() => resolveJobStatusFilter(statusParam));
  const [pickupFilter, setPickupFilter] = useState('');
  const [deliveryFilter, setDeliveryFilter] = useState('');
  const [dateFilter, setDateFilter] = useState('');
@@ -207,9 +208,8 @@ function JobsPageInner() {
  // Synchronize statusFilter when ?status= query parameter changes client-side
  // (e.g. navigating from /admin/jobs?status=delivered to ?status=posted without unmounting).
  useEffect(() => {
- setStatusFilter(resolveJobStatusFilter(searchParams.get('status')));
- // searchParams identity changes on every navigation, so this fires correctly.
- }, [searchParams]);
+   setStatusFilter(resolveJobStatusFilter(statusParam));
+ }, [statusParam]);
 
  useEffect(() => {
  loadJobs();

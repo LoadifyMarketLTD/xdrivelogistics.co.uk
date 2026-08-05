@@ -38,8 +38,8 @@ describe('Admin Jobs page source wiring', () => {
     expect(adminJobsPage).toMatch(/useState\(\s*\(\)\s*=>\s*resolveJobStatusFilter\(/);
   });
 
-  it('synchronises statusFilter in a useEffect that depends on searchParams', () => {
-    expect(adminJobsPage).toMatch(/useEffect\([\s\S]*?resolveJobStatusFilter[\s\S]*?\[searchParams\]/);
+  it('synchronises statusFilter in a useEffect that depends on statusParam', () => {
+    expect(adminJobsPage).toMatch(/useEffect\([\s\S]*?resolveJobStatusFilter[\s\S]*?\[statusParam\]/);
   });
 
   it('retains the Suspense boundary wrapping JobsPageInner', () => {
