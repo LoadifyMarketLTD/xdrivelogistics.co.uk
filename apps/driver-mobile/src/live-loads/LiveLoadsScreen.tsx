@@ -4,11 +4,19 @@ import { Alert, Animated, PanResponder, RefreshControl, ScrollView, StyleSheet, 
 import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
 import { supabase } from '../auth/supabase';
 import { loadMarketplacePreferences, saveMarketplacePreferences, type MarketplacePreferences } from '../jobs/marketplacePreferences';
+import {
+  buildQuoteMessage,
+  computeSubtotal,
+  computeTotal,
+  DEFAULT_LINE_ITEMS,
+  parseNum,
+  SUPPORTED_CURRENCY,
+  validateQuote,
+  type QuoteLineItems,
+} from '../jobs/quoteHelpers';
 import { LiveLoadCard } from './LiveLoadCard';
 
 type Feed = 'live' | 'pinned' | 'hidden';
-
-const CURRENCIES = ['GBP', 'EUR', 'USD'];
 
 const defaultPreferences: MarketplacePreferences = {
   savedJobIds: [],
@@ -16,50 +24,6 @@ const defaultPreferences: MarketplacePreferences = {
   destinationPriorityEnabled: true,
   destinationRadiusMiles: 10,
 };
-
-type QuoteLineItems = {
-  currency: string;
-  amount: string;
-  extras: string;
-  waitingTime: string;
-  tolls: string;
-  ferry: string;
-  overnight: string;
-  parking: string;
-  congestion: string;
-  driverNotes: string;
-  estimatedCollectionTime: string;
-  vatEnabled: boolean;
-};
-
-const DEFAULT_LINE_ITEMS: QuoteLineItems = {
-  currency: 'GBP',
-  amount: '',
-  extras: '',
-  waitingTime: '',
-  tolls: '',
-  ferry: '',
-  overnight: '',
-  parking: '',
-  congestion: '',
-  driverNotes: '',
-  estimatedCollectionTime: '',
-  vatEnabled: false,
-};
-
-const VAT_RATE = 0.2;
-
-function parseNum(value: string) {
-  const n = Number(value.replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-function computeTotal(items: QuoteLineItems) {
-  const subtotal = parseNum(items.amount) + parseNum(items.extras) + parseNum(items.waitingTime)
-    + parseNum(items.tolls) + parseNum(items.ferry) + parseNum(items.overnight)
-    + parseNum(items.parking) + parseNum(items.congestion);
-  return items.vatEnabled ? subtotal * (1 + VAT_RATE) : subtotal;
-}
 
 function numericInput(label: string, value: string, onChange: (v: string) => void, disabled: boolean) {
   return (
@@ -107,16 +71,10 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         </>
       )}
 
-      {/* Currency */}
+      {/* Currency — GBP only as required by backend contract */}
       <View style={styles.lineRow}>
         <Text style={styles.lineLabel}>Currency</Text>
-        <View style={styles.currencyRow}>
-          {CURRENCIES.map((c) => (
-            <TouchableOpacity key={c} style={[styles.currencyChip, items.currency === c && styles.currencyChipActive]} onPress={() => set('currency', c)} disabled={submitting}>
-              <Text style={[styles.currencyChipText, items.currency === c && styles.currencyChipTextActive]}>{c}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Text style={styles.currencyFixed}>{SUPPORTED_CURRENCY}</Text>
       </View>
 
       {numericInput('Quote Amount *', items.amount, (v) => set('amount', v), submitting)}
@@ -158,10 +116,22 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         <Text style={styles.vatLabel}>Apply VAT (20%)</Text>
       </TouchableOpacity>
 
-      {/* Total */}
+      {/* Subtotal / VAT / Total breakdown */}
+      {items.vatEnabled && (
+        <>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>SUBTOTAL</Text>
+            <Text style={styles.totalValue}>{SUPPORTED_CURRENCY} {computeSubtotal(items).toFixed(2)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>VAT (20%)</Text>
+            <Text style={styles.totalValue}>{SUPPORTED_CURRENCY} {(total - computeSubtotal(items)).toFixed(2)}</Text>
+          </View>
+        </>
+      )}
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>TOTAL</Text>
-        <Text style={styles.totalValue}>{items.currency} {total.toFixed(2)}</Text>
+        <Text style={styles.totalValue}>{SUPPORTED_CURRENCY} {total.toFixed(2)}</Text>
       </View>
 
       <View style={styles.quoteActions}>
@@ -193,6 +163,18 @@ function SwipeCard({ job, pinned, onOpen, onQuote, onTogglePin, onHide }: { job:
       <LiveLoadCard job={job} onOpen={onOpen} onQuote={onQuote} />
     </Animated.View>
   </View>;
+}
+
+function RestoreCard({ job, onRestore }: { job: LiveLoad; onRestore: () => void }) {
+  return (
+    <View style={styles.restoreCard}>
+      <Text style={styles.restoreRef} numberOfLines={1}>{job.reference}</Text>
+      <Text style={styles.restoreRoute} numberOfLines={1}>{job.pickupLocation} → {job.deliveryLocation}</Text>
+      <TouchableOpacity style={styles.restoreButton} onPress={onRestore} accessibilityRole="button" accessibilityLabel="Restore hidden job">
+        <Text style={styles.restoreButtonText}>RESTORE</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boolean | null }) {
@@ -284,15 +266,17 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
 
   const handleSubmitQuote = useCallback(async (items: QuoteLineItems) => {
     if (!quoteJob) return;
-    const amount = parseNum(items.amount);
-    if (amount <= 0) {
-      setError('Enter a valid quote amount.');
+    const validationError = validateQuote(items);
+    if (validationError) {
+      setError(validationError);
       return;
     }
+    const total = computeTotal(items);
+    const message = buildQuoteMessage(items);
     setSubmitting(true);
     setError('');
     try {
-      await submitLiveLoadQuote(quoteJob.id, amount, items.driverNotes || undefined);
+      await submitLiveLoadQuote(quoteJob.id, total, message || undefined);
       setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
       setQuoteJob(null);
       Alert.alert('Quote sent', 'Your quote was submitted successfully.');
@@ -323,7 +307,7 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     ) : null}
     <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadJobs(preferences)} tintColor="#ffc107" colors={['#ffc107']} />}>
       {displayed.length === 0 ? <Text style={styles.empty}>No loads in this section.</Text> : displayed.map((job) => feed === 'hidden'
-        ? <LiveLoadCard key={job.id} job={job} onOpen={() => restore(job.id)} onQuote={() => restore(job.id)} />
+        ? <RestoreCard key={job.id} job={job} onRestore={() => restore(job.id)} />
         : <SwipeCard key={job.id} job={job} pinned={preferences.savedJobIds.includes(job.id)} onOpen={() => openQuote(job)} onQuote={() => openQuote(job)} onTogglePin={() => togglePin(job.id)} onHide={() => hide(job.id)} />)}
     </ScrollView>
   </View>;
@@ -352,6 +336,7 @@ const styles = StyleSheet.create({
   currencyChipActive: { backgroundColor: '#ffc107', borderColor: '#ffc107' },
   currencyChipText: { color: '#9ca3af', fontWeight: '800', fontSize: 13 },
   currencyChipTextActive: { color: '#111827' },
+  currencyFixed: { color: '#ffc107', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
   vatRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   vatCheck: { width: 22, height: 22, borderRadius: 6, borderColor: '#374151', borderWidth: 2, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
   vatCheckActive: { backgroundColor: '#ffc107', borderColor: '#ffc107' },
@@ -376,4 +361,9 @@ const styles = StyleSheet.create({
   pinAction: { left: 0, backgroundColor: '#3b82f6' },
   hideAction: { right: 0, backgroundColor: '#ef4444' },
   swipeText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 0.8 },
+  restoreCard: { backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 14, padding: 14, gap: 8 },
+  restoreRef: { color: '#9ca3af', fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
+  restoreRoute: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
+  restoreButton: { minHeight: 44, backgroundColor: '#1f2937', borderColor: '#374151', borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  restoreButtonText: { color: '#f8fafc', fontWeight: '900', fontSize: 13, letterSpacing: 0.6 },
 });

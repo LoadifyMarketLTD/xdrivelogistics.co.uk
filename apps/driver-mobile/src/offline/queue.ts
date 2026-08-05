@@ -51,6 +51,15 @@ export async function saveQueue(queue: QueuedAction[]) {
 
 export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
   const queue = await getQueue();
+  // Prevent duplicate: if a pending/syncing/failed item for the same job and
+  // endpoint already exists, return the existing item rather than adding another.
+  const existing = queue.find(
+    (item) =>
+      item.jobId === action.jobId &&
+      item.endpoint === action.endpoint &&
+      item.status !== 'synced',
+  );
+  if (existing) return existing;
   const queued: QueuedAction = {
     ...action,
     id: `${action.jobId}-${action.endpoint}-${Date.now()}`,
@@ -119,4 +128,9 @@ export async function retryQueueItem(id: string) {
 export async function isOnline() {
   const state = await Network.getNetworkStateAsync();
   return Boolean(state.isConnected && state.isInternetReachable !== false);
+}
+
+/** Clear all queued actions. Call on sign-out to prevent cross-account data leakage. */
+export async function clearQueue() {
+  await AsyncStorage.removeItem(queueKey);
 }

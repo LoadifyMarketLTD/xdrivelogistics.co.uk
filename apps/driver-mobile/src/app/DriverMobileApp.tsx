@@ -15,12 +15,12 @@ import {
   enqueueAction,
   getQueue,
   isOnline,
+  clearQueue,
   isQueueItemReady,
   markQueueItemFailed,
   markQueueItemSynced,
   markQueueItemSyncing,
   retryQueueItem,
-  saveQueue,
   type QueuedAction,
 } from '../offline/queue';
 import { colors, spacing } from '../ui/theme';
@@ -430,7 +430,7 @@ export default function DriverMobileApp() {
   async function signOut() {
     await supabase.auth.signOut();
     await clearSessionToken();
-    await saveQueue([]);
+    await clearQueue();
     setToken(null);
     setAuthUserId(null);
     setJob(null);
@@ -458,17 +458,23 @@ export default function DriverMobileApp() {
       setMessage('Job status is already up to date.');
       return;
     }
-    // Always gate on POD before delivering — never transition directly to delivered
+    // Gate on POD before delivering — but only when POD has not yet been captured.
+    // If POD is already confirmed by the server (podCompleted/podGenerated/pod), proceed
+    // directly to the delivered endpoint instead of re-opening the POD screen.
     if (nextStep.status === 'delivered') {
-      setScreen('pod');
-      return;
+      const podAlreadyCaptured = job.podCompleted === true || job.podGenerated === true || job.pod != null;
+      if (!podAlreadyCaptured) {
+        setScreen('pod');
+        return;
+      }
     }
 
     const apply = async () => {
       if (!token || !(await isOnline())) {
         const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
         setQueue((items) => [queued, ...items]);
-        setJob((current) => (current ? { ...current, status: nextStep.status } : current));
+        // Do NOT update the local job status — the server has not confirmed the transition.
+        // The pending badge in the queue UI communicates the pending state to the driver.
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
         return;
       }
@@ -477,16 +483,17 @@ export default function DriverMobileApp() {
         if ('job' in response) setJob(response.job as DriverJob);
         await loadJobs(token, scope, { navigate: false });
       } catch (error) {
-        const text = error instanceof Error ? error.message : 'Queued for retry.';
+        const text = error instanceof Error ? error.message : 'Unable to update job status. Please retry.';
         if (/pod is required/i.test(text)) {
           setMessage(text);
           setScreen('pod');
           return;
         }
+        // Online failure — keep the server-confirmed status; do NOT advance it locally.
+        // Queue the action for automatic retry.
         const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
         setQueue((items) => [queued, ...items]);
         setMessage(text);
-        setJob((current) => (current ? { ...current, status: nextStep.status } : current));
       }
     };
 
@@ -952,23 +959,38 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
       return;
     }
+    if (photoUris.length > 10) {
+      Alert.alert('Too many photos', 'A maximum of 10 delivery photos are allowed.');
+      return;
+    }
+    if (documentUris.length > 10) {
+      Alert.alert('Too many documents', 'A maximum of 10 documents are allowed.');
+      return;
+    }
 
     setSubmitting(true);
+
+    // Encode extra UI fields into the supported `notes` field so the backend
+    // persists them without requiring a schema change.
+    const noteParts: string[] = [];
+    if (quantityDelivered.trim()) noteParts.push(`Qty: ${quantityDelivered.trim()}`);
+    if (itemsMissing.trim()) noteParts.push(`Missing: ${itemsMissing.trim()}`);
+    if (itemsDamaged.trim()) noteParts.push(`Damaged: ${itemsDamaged.trim()}`);
+    if (damagePhotoUris.length > 0) noteParts.push(`Damage photos: ${damagePhotoUris.length}`);
+    if (receiverNotes.trim()) noteParts.push(`Receiver: ${receiverNotes.trim()}`);
+    if (driverNotes.trim()) noteParts.push(`Driver: ${driverNotes.trim()}`);
+    if (comments.trim()) noteParts.push(`Comments: ${comments.trim()}`);
+    const notes = noteParts.join(' | ').slice(0, 2000) || undefined;
+
+    // Combine delivery and damage photos into photoUris for the backend.
+    const allPhotoUris = [...photoUris, ...damagePhotoUris].slice(0, 10);
+
     const payload = {
-      photoUris,
-      damagePhotoUris,
+      photoUris: allPhotoUris,
       documentUris,
-      recipientName,
-      recipientCompany,
-      signatureData,
-      quantityDelivered,
-      itemsMissing,
-      itemsDamaged,
-      comments,
-      receiverNotes,
-      driverNotes: driverNotes || undefined,
-      podDate,
-      podTime,
+      recipientName: recipientName.trim(),
+      signatureData: signatureData.trim() || undefined,
+      notes,
     };
     if (!token || !(await isOnline())) {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
