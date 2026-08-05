@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../app/api/_lib/supabaseAdmin', () => ({
+  getBearerToken: vi.fn(),
+  isSupabaseAdminConfigured: false,
+  supabaseAdmin: null,
+  supabaseValidator: null,
+}));
 
 import { applyCompanyStatusFilter, buildCompanySearchPattern } from '../app/api/super-admin/companies/route';
 import { buildJobSearchPattern } from '../app/api/super-admin/operations/route';
