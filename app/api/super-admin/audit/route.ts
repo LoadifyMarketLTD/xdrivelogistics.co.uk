@@ -64,23 +64,27 @@ export async function GET(request: NextRequest) {
   const totalCount = count ?? rows.length;
   const totalPages = Math.ceil(totalCount / limitParam);
 
-  // Compute per-action counts across ALL rows (not just the current page) using
-  // separate count queries so the summary is not skewed by pagination.
+  // Compute per-action counts across the SAME scope as the page query (i.e. apply
+  // actionTypeFilter when set so that summary and pagination are coherent).
   const ACTION_TYPES = ['company_approved', 'company_suspended', 'company_reinstated', 'company_rejected'] as const;
-  const summaryBase = actionTypeFilter
-    ? supabaseAdmin.from('owner_audit_log').select('action_type', { count: 'exact', head: true }).eq('action_type', actionTypeFilter)
-    : supabaseAdmin.from('owner_audit_log').select('action_type', { count: 'exact', head: true });
 
   const summaryCounts = await Promise.all(
-    ACTION_TYPES.map((at) =>
-      supabaseAdmin!
+    ACTION_TYPES.map((at) => {
+      let q = supabaseAdmin!
         .from('owner_audit_log')
         .select('*', { count: 'exact', head: true })
-        .eq('action_type', at)
-        .then(({ count: c }) => ({ action: at, count: c ?? 0 })),
-    ),
+        .eq('action_type', at);
+      // When a filter is active, the per-action total is either the filtered count
+      // (if it matches) or 0, keeping summary scope consistent with pagination.
+      if (actionTypeFilter && actionTypeFilter !== at) {
+        return Promise.resolve({ action: at, count: 0 });
+      }
+      if (actionTypeFilter) {
+        q = q.eq('action_type', actionTypeFilter);
+      }
+      return q.then(({ count: c }) => ({ action: at, count: c ?? 0 }));
+    }),
   );
-  void summaryBase; // retained to avoid unused-variable lint warning
 
   const summaryByAction = Object.fromEntries(summaryCounts.map(({ action, count: c }) => [action, c]));
 

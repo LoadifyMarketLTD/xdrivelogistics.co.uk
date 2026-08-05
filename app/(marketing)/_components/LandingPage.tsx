@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { WhatsNextSection } from './sections/WhatsNextSection';
 import {
   ArrowRight,
   CheckCircle2,
@@ -367,8 +366,6 @@ export function LandingPage() {
             ))}
           </div>
         </section>
-
-        <WhatsNextSection />
 
         <section id="access" className="bg-[#001B45] px-5 py-16 text-white sm:px-8 lg:py-20">
           <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1fr_0.78fr] lg:items-center">
