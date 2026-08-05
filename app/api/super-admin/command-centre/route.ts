@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
     queue.push({
       id: `company-approval-${company.id}`,
       type: 'company_pending_approval',
-      severity: age > 24 * 60 ? 'P0' : 'P1',
+      severity: 'P1' as const,
       title: 'Company awaiting approval',
       description: `${company.name} has been waiting ${age >= 60 ? `${Math.floor(age / 60)}h` : `${age}m`}`,
       entityType: 'company',
@@ -421,7 +421,7 @@ export async function GET(request: NextRequest) {
     ...(queryErrors.length > 0 ? { partialData: true, queryErrors } : {}),
     ...(unavailableSources.length > 0 ? { unavailableSources } : {}),
     attentionIndicators: {
-      p0p1Incidents: { count: p0p1Count, label: 'Incidents P0/P1', severity: p0p1Count > 0 ? 'critical' : 'ok' },
+      p0p1Incidents: { count: p0p1Count, label: 'Critical actions (P0/P1)', severity: p0p1Count > 0 ? 'critical' : 'ok' },
       jobsAtRisk: { count: jobsAtRiskCount, label: 'Jobs at risk', severity: jobsAtRiskCount > 5 ? 'warning' : jobsAtRiskCount > 0 ? 'caution' : 'ok' },
       blockedAccounts: { count: blockedAccountsCount, label: 'Blocked accounts', severity: blockedAccountsCount > 10 ? 'warning' : 'ok' },
       financialExposure: invoicesUnavailable
