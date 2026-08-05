@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
+import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 
 type FraudAction = 'investigate' | 'clear' | 'confirm' | 'dismiss';
 
@@ -48,28 +49,11 @@ const summarizeEvidence = (evidence: Record<string, unknown>) => {
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyCaseId, setBusyCaseId] = useState<string | null>(null);
+  // PR-0.5: modal replacing window.confirm + window.prompt + window.alert
+  const [pendingModal, setPendingModal] = useState<{ row: Row; action: FraudAction } | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
-  const reviewCase = async (row: Row, action: FraudAction) => {
-    if (action === 'confirm') {
-      const confirmed = window.confirm(
-        'Confirming fraud will reject the onboarding application and block the user profile. Continue?',
-      );
-      if (!confirmed) return;
-    }
-
-    const reason = window.prompt(
-      action === 'confirm'
-        ? 'Record the evidence and reason for confirming fraud:'
-        : action === 'clear'
-          ? 'Record why this identity conflict is cleared:'
-          : action === 'dismiss'
-            ? 'Record why this alert is dismissed:'
-            : 'Record the investigation note:',
-      row.decision_reason ?? '',
-    );
-
-    if (!reason?.trim()) return;
-
+  const reviewCase = async (row: Row, action: FraudAction, reason: string) => {
     setBusyCaseId(row.id);
     try {
       const auth = await getAuthHeader();
@@ -90,7 +74,7 @@ export default function Page() {
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
-        window.alert(payload.error ?? `Review failed (${response.status}).`);
+        setInlineError(payload.error ?? `Review failed (${response.status}).`);
         return;
       }
 
@@ -98,6 +82,10 @@ export default function Page() {
     } finally {
       setBusyCaseId(null);
     }
+  };
+
+  const initiateAction = (row: Row, action: FraudAction) => {
+    setPendingModal({ row, action });
   };
 
   const columns = useMemo(
@@ -195,19 +183,19 @@ export default function Page() {
           const busy = busyCaseId === row.id;
           return (
             <div style={{ display: 'grid', gap: '0.28rem', minWidth: '118px' }}>
-              <button type="button" disabled={busy} onClick={() => void reviewCase(row, 'investigate')} style={{ fontSize: '0.66rem' }}>
+              <button type="button" disabled={busy} onClick={() => initiateAction(row, 'investigate')} style={{ fontSize: '0.66rem' }}>
                 Investigate
               </button>
-              <button type="button" disabled={busy} onClick={() => void reviewCase(row, 'clear')} style={{ fontSize: '0.66rem' }}>
+              <button type="button" disabled={busy} onClick={() => initiateAction(row, 'clear')} style={{ fontSize: '0.66rem' }}>
                 Clear conflict
               </button>
-              <button type="button" disabled={busy} onClick={() => void reviewCase(row, 'dismiss')} style={{ fontSize: '0.66rem' }}>
+              <button type="button" disabled={busy} onClick={() => initiateAction(row, 'dismiss')} style={{ fontSize: '0.66rem' }}>
                 Dismiss alert
               </button>
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void reviewCase(row, 'confirm')}
+                onClick={() => initiateAction(row, 'confirm')}
                 style={{ fontSize: '0.66rem', color: '#ef4444', fontWeight: 800 }}
               >
                 Confirm fraud & block
@@ -221,15 +209,85 @@ export default function Page() {
   );
 
   return (
-    <SuperAdminLiveTablePage<Row>
-      icon="🛡️"
-      title="Identity & Fraud Review"
-      sectionLabel="Compliance"
-      description="Duplicate documents and identity conflicts are held automatically. A permanent block requires a recorded Platform Owner decision."
-      endpoint={`/api/super-admin/compliance/fraud-cases?status=all&limit=250&reload=${reloadToken}`}
-      summaryField="summary"
-      emptyMessage="No identity conflicts or fraud-review cases found."
-      columns={columns}
-    />
+    <>
+      {/* PR-0.5: confirmation modal replacing window.confirm + window.prompt */}
+      {pendingModal && (
+        <ActionConfirmModal
+          open
+          title={
+            pendingModal.action === 'confirm'
+              ? '🚨 Confirm fraud & block'
+              : pendingModal.action === 'clear'
+                ? '✅ Clear identity conflict'
+                : pendingModal.action === 'dismiss'
+                  ? '🔕 Dismiss fraud alert'
+                  : '🔍 Investigate case'
+          }
+          description={
+            pendingModal.action === 'confirm'
+              ? <>This will <strong style={{ color: '#ef4444' }}>confirm fraud</strong> for applicant <strong style={{ color: '#f1f5f9' }}>{pendingModal.row.applicant_email}</strong>. The onboarding application will be rejected and the user profile permanently blocked.</>
+              : pendingModal.action === 'clear'
+                ? <>Clearing the identity conflict for <strong style={{ color: '#f1f5f9' }}>{pendingModal.row.applicant_email}</strong>. The case will be resolved without penalty.</>
+                : pendingModal.action === 'dismiss'
+                  ? <>Dismissing this alert for <strong style={{ color: '#f1f5f9' }}>{pendingModal.row.applicant_email}</strong>. No action will be taken against the applicant.</>
+                  : <>Recording an investigation note for <strong style={{ color: '#f1f5f9' }}>{pendingModal.row.applicant_email}</strong>.</>
+          }
+          confirmLabel={
+            pendingModal.action === 'confirm'
+              ? 'Confirm fraud & block'
+              : pendingModal.action === 'clear'
+                ? 'Clear conflict'
+                : pendingModal.action === 'dismiss'
+                  ? 'Dismiss alert'
+                  : 'Record investigation'
+          }
+          danger={pendingModal.action === 'confirm'}
+          reasonRequired
+          reasonLabel={
+            pendingModal.action === 'confirm'
+              ? 'Evidence & reason for confirming fraud (required)'
+              : pendingModal.action === 'clear'
+                ? 'Reason for clearing the conflict (required)'
+                : pendingModal.action === 'dismiss'
+                  ? 'Reason for dismissal (required)'
+                  : 'Investigation note (required)'
+          }
+          reasonPlaceholder="Provide detailed reasoning for this decision…"
+          submitting={busyCaseId !== null}
+          onCancel={() => setPendingModal(null)}
+          onConfirm={(reason) => {
+            const { row, action } = pendingModal;
+            setPendingModal(null);
+            void reviewCase(row, action, reason);
+          }}
+        />
+      )}
+      {/* PR-0.5: inline error banner replacing window.alert */}
+      {inlineError && (
+        <div
+          style={{
+            position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
+            backgroundColor: '#7f1d1d', border: '1px solid #ef4444',
+            borderRadius: '8px', padding: '0.75rem 1rem',
+            color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
+            cursor: 'pointer',
+          }}
+          onClick={() => setInlineError(null)}
+          role="alert"
+        >
+          ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
+        </div>
+      )}
+      <SuperAdminLiveTablePage<Row>
+        icon="🛡️"
+        title="Identity & Fraud Review"
+        sectionLabel="Compliance"
+        description="Duplicate documents and identity conflicts are held automatically. A permanent block requires a recorded Platform Owner decision."
+        endpoint={`/api/super-admin/compliance/fraud-cases?status=all&limit=250&reload=${reloadToken}`}
+        summaryField="summary"
+        emptyMessage="No identity conflicts or fraud-review cases found."
+        columns={columns}
+      />
+    </>
   );
 }

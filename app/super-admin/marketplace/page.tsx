@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { StatusChip, formatDateTime, routeSummary } from '@/app/super-admin/_components/superAdminFormatters';
+import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 
 type MarketplaceJobRow = {
   id: string;
@@ -95,6 +96,8 @@ export default function Page() {
   const [message, setMessage] = useState<string | null>(null);
   const [acting, setActing] = useState<{ jobId: string; action: MarketplaceAction } | null>(null);
   const [pollingMs, setPollingMs] = useState(15000);
+  // PR-0.5: modal state for dangerous marketplace actions
+  const [pendingModal, setPendingModal] = useState<{ job: MarketplaceJobRow; action: MarketplaceAction } | null>(null);
 
   const fetchMarketplace = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -154,8 +157,7 @@ export default function Page() {
     { label: 'Delivered', value: summary?.delivered ?? 0 },
   ], [jobs, summary]);
 
-  const handleAction = async (job: MarketplaceJobRow, action: MarketplaceAction) => {
-    const reason = window.prompt(`Optional reason for '${action}' on job ${job.id}:`, '');
+  const handleAction = async (job: MarketplaceJobRow, action: MarketplaceAction, reason = '') => {
     setActing({ jobId: job.id, action });
     setMessage(null);
     try {
@@ -173,7 +175,7 @@ export default function Page() {
         },
         body: JSON.stringify({
           action,
-          reason: reason?.trim() || undefined,
+          reason: reason || undefined,
         }),
       });
 
@@ -192,8 +194,39 @@ export default function Page() {
     }
   };
 
+  /** Open modal for dangerous actions; fire immediately for safe ones. */
+  const initiateAction = (job: MarketplaceJobRow, action: MarketplaceAction) => {
+    if (action === 'force_dispute' || action === 'force_cancel') {
+      setPendingModal({ job, action });
+    } else {
+      void handleAction(job, action);
+    }
+  };
+
   return (
     <ProtectedRoute allowedRoles={['owner']}>
+      {/* PR-0.5: confirmation modal for dangerous marketplace actions */}
+      <ActionConfirmModal
+        open={pendingModal !== null}
+        title={pendingModal?.action === 'force_dispute' ? '⚠️ Force dispute' : '🚫 Force cancel'}
+        description={
+          pendingModal?.action === 'force_dispute'
+            ? <>This will <strong style={{ color: '#f97316' }}>force a dispute</strong> on job <strong style={{ color: '#f1f5f9' }}>{pendingModal.job.id.slice(0, 8)}…</strong>. Both parties will be notified and platform escalation will begin.</>
+            : <>This will <strong style={{ color: '#ef4444' }}>force cancel</strong> job <strong style={{ color: '#f1f5f9' }}>{pendingModal?.job.id.slice(0, 8)}…</strong>. This is irreversible and will refund any held funds.</>
+        }
+        confirmLabel={pendingModal?.action === 'force_dispute' ? 'Confirm force dispute' : 'Confirm force cancel'}
+        danger
+        reasonRequired
+        reasonPlaceholder="Describe the reason for this platform intervention…"
+        submitting={acting !== null}
+        onCancel={() => setPendingModal(null)}
+        onConfirm={(reason) => {
+          if (!pendingModal) return;
+          const { job, action } = pendingModal;
+          setPendingModal(null);
+          void handleAction(job, action, reason);
+        }}
+      />
       <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.5rem' }}>🌍</span>
@@ -317,7 +350,7 @@ export default function Page() {
                               return (
                                 <button
                                   key={action}
-                                  onClick={() => void handleAction(row, action)}
+                                  onClick={() => initiateAction(row, action)}
                                   disabled={Boolean(acting)}
                                   style={{
                                     padding: '0.28rem 0.6rem',

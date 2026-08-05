@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
+import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 
 type Company = {
   id: string;
@@ -65,6 +66,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [acting, setActing] = useState<{ companyId: string; action: ActionType } | null>(null);
+  // PR-0.4: modal for dangerous actions (suspend / reject) that require a reason.
+  const [pendingModal, setPendingModal] = useState<{ company: Company; action: ActionType } | null>(null);
   const [governanceHistoryAvailable, setGovernanceHistoryAvailable] = useState(false);
   const [governanceHistoryError, setGovernanceHistoryError] = useState<string | null>(null);
   const [governanceHistoryByCompany, setGovernanceHistoryByCompany] = useState<Record<string, AuditRow[]>>({});
@@ -121,7 +124,7 @@ export default function Page() {
     void fetchCompanies();
   }, [fetchCompanies]);
 
-  const handleAction = async (companyId: string, action: ActionType) => {
+  const handleAction = async (companyId: string, action: ActionType, reason = '') => {
     setActing({ companyId, action });
     setMessage(null);
     try {
@@ -135,7 +138,7 @@ export default function Page() {
       const res = await fetch(`/api/super-admin/companies/${companyId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: auth },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(reason ? { reason } : {}) }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -151,8 +154,42 @@ export default function Page() {
     }
   };
 
+  /** Open modal for dangerous actions; fire immediately for safe ones. */
+  const initiateAction = (company: Company, action: ActionType) => {
+    if (action === 'suspend' || action === 'reject') {
+      setPendingModal({ company, action });
+    } else {
+      void handleAction(company.id, action);
+    }
+  };
+
   return (
     <ProtectedRoute allowedRoles={['owner']}>
+      {/* PR-0.4: Confirmation modal for dangerous company actions */}
+      <ActionConfirmModal
+        open={pendingModal !== null}
+        title={pendingModal?.action === 'suspend' ? '⛔ Suspend company' : '❌ Reject company'}
+        description={
+          pendingModal?.action === 'suspend'
+            ? <><strong style={{ color: THEME.text }}>{pendingModal.company.name}</strong> will be <strong style={{ color: THEME.red }}>suspended</strong> immediately. Drivers and brokers in this company will lose platform access.</>
+            : <><strong style={{ color: THEME.text }}>{pendingModal?.company.name}</strong> application will be <strong style={{ color: THEME.red }}>rejected</strong>. The applicant will be notified.</>
+        }
+        confirmLabel={pendingModal?.action === 'suspend' ? 'Confirm suspension' : 'Confirm rejection'}
+        danger
+        reasonRequired
+        reasonPlaceholder={
+          pendingModal?.action === 'suspend'
+            ? 'Explain why this company is being suspended…'
+            : 'Explain why this application is being rejected…'
+        }
+        submitting={acting !== null}
+        onCancel={() => setPendingModal(null)}
+        onConfirm={(reason) => {
+          if (!pendingModal) return;
+          setPendingModal(null);
+          void handleAction(pendingModal.company.id, pendingModal.action, reason);
+        }}
+      />
       <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '1.5rem' }}>🏢</span>
@@ -253,7 +290,7 @@ export default function Page() {
                               return (
                                 <button
                                   key={action}
-                                  onClick={() => void handleAction(company.id, action)}
+                                  onClick={() => initiateAction(company, action)}
                                   disabled={Boolean(acting)}
                                   style={{
                                     padding: '0.28rem 0.6rem',
