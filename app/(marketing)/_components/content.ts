@@ -3,8 +3,11 @@ import {
   ClipboardCheck,
   FileCheck2,
   Layers,
+  Network,
   Route,
   ShieldCheck,
+  Smartphone,
+  Store,
   Truck,
   UserRound,
   Users,
@@ -362,5 +365,56 @@ export const faqs = [
   {
     q: 'How can I request access or a demo?',
     a: 'Visitors can use "Join Early Access" to register interest or "Request Demo" to ask for a walkthrough. The XDrive team may follow up depending on the type of user, the workflows currently being tested and the stage of product readiness.',
+  },
+] as const;
+
+export type RoadmapStatus = 'In Progress' | 'Coming Soon' | 'Planned';
+
+export const roadmapItems: ReadonlyArray<{
+  icon: LucideIcon;
+  phase: string;
+  title: string;
+  description: string;
+  status: RoadmapStatus;
+}> = [
+  {
+    icon: Store,
+    phase: 'Phase 1',
+    title: 'Marketplace Public Access',
+    description:
+      'Open the marketplace to verified UK transport teams, moving from invite-only onboarding to structured public access with role-based workspace setup.',
+    status: 'In Progress',
+  },
+  {
+    icon: Truck,
+    phase: 'Phase 2',
+    title: 'Fleet Management Beta',
+    description:
+      'Vehicle and driver availability, assignment records and compliance documents live for early-access courier companies managing active transport operations.',
+    status: 'Coming Soon',
+  },
+  {
+    icon: CircleDollarSign,
+    phase: 'Phase 2',
+    title: 'Finance Module',
+    description:
+      'Full invoice lifecycle, POD-gated payment readiness and dispute tracking so financial records stay connected to completed job evidence.',
+    status: 'Coming Soon',
+  },
+  {
+    icon: Smartphone,
+    phase: 'Phase 3',
+    title: 'Mobile Driver App (GA)',
+    description:
+      'Android native app general availability with a full job lifecycle, real-time status updates and POD upload built around practical driver workflows.',
+    status: 'Planned',
+  },
+  {
+    icon: Network,
+    phase: 'Phase 3',
+    title: 'API & Partner Integrations',
+    description:
+      'Structured API access for TMS and ERP integrations and freight partner networks, allowing operational data to flow between XDrive and existing systems.',
+    status: 'Planned',
   },
 ] as const;
