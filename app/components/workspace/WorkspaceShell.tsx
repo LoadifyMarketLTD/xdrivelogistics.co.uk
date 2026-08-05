@@ -410,57 +410,15 @@ export default function WorkspaceShell({
                   </div>
                   <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.28rem',
-                      marginTop: '0.1rem',
-                      flexWrap: 'nowrap',
-                      minWidth: 0,
+                      color: workspaceTheme.muted,
+                      fontSize: '11px',
+                      marginTop: '0.08rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: '0.59rem',
-                        fontWeight: 600,
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        color: '#92400e',
-                        background: '#fffbeb',
-                        border: '1px solid #fde68a',
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        flexShrink: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '100%',
-                      }}
-                    >
-                      {definition.label}
-                    </span>
-                    {role !== 'platform_owner' &&
-                      role !== 'driver' &&
-                      role !== 'customer' &&
-                      role !== 'broker' &&
-                      role !== 'owner_driver' && (
-                        <span
-                          style={{
-                            fontSize: '0.59rem',
-                            fontWeight: 600,
-                            color: '#1e40af',
-                            background: '#eff6ff',
-                            border: '1px solid #bfdbfe',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            flexShrink: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          Company View
-                        </span>
-                      )}
+                    {definition.subtitle}
                   </div>
                 </div>
               )}
