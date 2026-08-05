@@ -4,6 +4,12 @@ import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
+/**
+ * Strip PostgREST-reserved characters from a search term to prevent filter
+ * injection via the `.or()` string.
+ */
+const sanitizeSearch = (raw: string) => raw.replace(/[(),%]/g, '').trim();
+
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
@@ -115,7 +121,7 @@ export async function GET(request: NextRequest) {
   const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
   const offset = (pageParam - 1) * limitParam;
   // Search filter (for jobs sections)
-  const search = searchParams.get('search')?.trim() ?? '';
+  const search = sanitizeSearch(searchParams.get('search')?.trim() ?? '');
   // Keep backward-compat legacy limit param (used by non-paginated sections)
   const legacyLimit = Math.min(Number(searchParams.get('limit') ?? limitParam) || limitParam, 500);
 

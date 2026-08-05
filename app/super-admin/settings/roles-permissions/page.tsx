@@ -4,9 +4,9 @@
  * Roles & Permissions — Canonical read-only matrix.
  *
  * This page displays the REAL permission matrix that the platform enforces.
- * It is generated from the same `workspaceRole.ts` source that the middleware,
- * API routes, and UI gates use — so what you see here is what the system
- * actually applies.
+ * The capability keys are taken directly from lib/workspaceRole.ts (WorkspaceCapability
+ * type and CAPABILITIES constant).  The matrix here must be kept manually in sync
+ * with that file — it is NOT auto-generated at build time.
  *
  * ⚠️  This is intentionally READ-ONLY.
  *      The permission matrix is defined in code (lib/workspaceRole.ts) and
@@ -63,7 +63,7 @@ const CANONICAL_ROLES: CanonicalRole[] = [
     accessLevel: 'platform',
     capabilityGroups: [
       { label: 'Platform', capabilities: ['platform.manage'] },
-      { label: 'Company management', capabilities: ['company.manage', 'users.manage', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage', 'settings.manage'] },
+      { label: 'Company management', capabilities: ['company.manage', 'company.members.manage', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage', 'settings.manage'] },
       { label: 'Marketplace', capabilities: ['loads.create', 'loads.publish', 'loads.view.marketplace', 'loads.view.own', 'quotes.submit', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.execute', 'jobs.track', 'jobs.review_pod'] },
       { label: 'Finance', capabilities: ['invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view'] },
       { label: 'Fleet', capabilities: ['fleet.positions.view', 'fleet.maintenance.manage'] },
@@ -80,7 +80,7 @@ const CANONICAL_ROLES: CanonicalRole[] = [
     description: 'Full company-level control. Can manage drivers, vehicles, jobs, invoices, and dispatchers within their company.',
     accessLevel: 'company',
     capabilityGroups: [
-      { label: 'Company management', capabilities: ['company.manage', 'users.manage', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'settings.manage'] },
+      { label: 'Company management', capabilities: ['company.manage', 'company.members.manage', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'settings.manage'] },
       { label: 'Marketplace', capabilities: ['loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod'] },
       { label: 'Finance', capabilities: ['invoices.customer.manage', 'payments.manage', 'margins.view'] },
     ],
@@ -95,7 +95,7 @@ const CANONICAL_ROLES: CanonicalRole[] = [
     description: 'Company administrative access. Same as Company Owner — manages drivers, vehicles, jobs and invoices.',
     accessLevel: 'company',
     capabilityGroups: [
-      { label: 'Company management', capabilities: ['company.manage', 'users.manage', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'settings.manage'] },
+      { label: 'Company management', capabilities: ['company.manage', 'company.members.manage', 'drivers.manage', 'vehicles.manage', 'documents.company.manage', 'settings.manage'] },
       { label: 'Marketplace', capabilities: ['loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod'] },
       { label: 'Finance', capabilities: ['invoices.customer.manage', 'payments.manage', 'margins.view'] },
     ],
@@ -188,7 +188,7 @@ const CANONICAL_ROLES: CanonicalRole[] = [
     label: 'Owner Driver',
     emoji: '🚚👑',
     color: '#a78bfa',
-    description: 'Owner-operator in driver execution mode. Has full company owner capabilities, but switches to driver mode for job execution.',
+    description: 'Owner-operator in driver execution mode. Shares the same capability set as the driver role (DRIVER_WORKSPACE_CAPABILITIES) and switches to driver mode for job execution.',
     accessLevel: 'limited',
     capabilityGroups: [
       { label: 'Driver (execution mode)', capabilities: ['jobs.view', 'jobs.execute', 'jobs.track', 'loads.view.marketplace', 'quotes.submit', 'invoices.carrier.manage', 'documents.own.manage', 'vehicles.manage'] },
@@ -207,6 +207,19 @@ const CANONICAL_ROLES: CanonicalRole[] = [
       { label: 'Finance', capabilities: ['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view'] },
     ],
     routeAccess: ['/admin/finance/*'],
+  },
+  {
+    workspaceRole: 'compliance',
+    appRole: 'company_staff',
+    label: 'Compliance',
+    emoji: '✅',
+    color: '#10b981',
+    description: 'Compliance and document verification workspace. Can manage driver and vehicle documents, verify submissions, and manage incidents.',
+    accessLevel: 'operations',
+    capabilityGroups: [
+      { label: 'Compliance', capabilities: ['drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage'] },
+    ],
+    routeAccess: ['/admin/documents/*'],
   },
   {
     workspaceRole: 'viewer',
