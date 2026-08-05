@@ -33,8 +33,10 @@ import {
   enqueueAction,
   getQueue,
   queueStorageKey,
+  reconcileQueueState,
   retryQueueItem,
   markQueueItemFailed,
+  type QueuedAction,
 } from '../src/offline/queue';
 import { handleSessionLoss } from '../src/auth/sessionLoss';
 
@@ -259,5 +261,70 @@ describe('handleSessionLoss — production path regression', () => {
 
     expect(storage['xdrive.driver.offlineQueue']).toBeUndefined();
     expect(storage[queueStorageKey(USER_A)]).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reconcileQueueState — React state immutable upsert
+// ---------------------------------------------------------------------------
+
+function makeItem(id: string, endpoint: string, jobId = 'job-1'): QueuedAction {
+  return {
+    id,
+    jobId,
+    endpoint,
+    status: 'pending',
+    createdAt: '2025-01-01T00:00:00.000Z',
+    retryCount: 0,
+  };
+}
+
+describe('reconcileQueueState — React queue deduplication', () => {
+  it('1. inserting a new item adds exactly one row', () => {
+    const state: QueuedAction[] = [];
+    const item = makeItem('id-1', 'loaded');
+    const next = reconcileQueueState(state, item);
+    expect(next).toHaveLength(1);
+    expect(next[0]).toBe(item);
+  });
+
+  it('2. inserting the same item twice keeps one row', () => {
+    const item = makeItem('id-1', 'loaded');
+    const after1 = reconcileQueueState([], item);
+    const after2 = reconcileQueueState(after1, item);
+    expect(after2).toHaveLength(1);
+  });
+
+  it('3. an existing item with the same id is updated rather than duplicated', () => {
+    const original = makeItem('id-1', 'loaded');
+    const updated = { ...original, status: 'failed' as const, lastError: 'network error' };
+    const after1 = reconcileQueueState([], original);
+    const after2 = reconcileQueueState(after1, updated);
+    expect(after2).toHaveLength(1);
+    expect(after2[0].status).toBe('failed');
+    expect(after2[0].lastError).toBe('network error');
+  });
+
+  it('4. two different actions remain present and ordered correctly', () => {
+    const a = makeItem('id-1', 'loaded', 'job-1');
+    const b = makeItem('id-2', 'on-my-way-delivery', 'job-1');
+    const state = reconcileQueueState(reconcileQueueState([], a), b);
+    expect(state).toHaveLength(2);
+    expect(state[0].id).toBe('id-1');
+    expect(state[1].id).toBe('id-2');
+  });
+
+  it('5. POD and delivered queue items do not duplicate after repeated enqueue responses', () => {
+    const pod = makeItem('job-1-pod-1000', 'pod', 'job-1');
+    const delivered = makeItem('job-1-delivered-2000', 'delivered', 'job-1');
+    // Simulate: first enqueue
+    let state = reconcileQueueState([], pod);
+    state = reconcileQueueState(state, delivered);
+    // Double tap — same items returned again
+    state = reconcileQueueState(state, pod);
+    state = reconcileQueueState(state, delivered);
+    expect(state).toHaveLength(2);
+    expect(state.filter((i) => i.endpoint === 'pod')).toHaveLength(1);
+    expect(state.filter((i) => i.endpoint === 'delivered')).toHaveLength(1);
   });
 });

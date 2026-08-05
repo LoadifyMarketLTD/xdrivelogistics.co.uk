@@ -21,6 +21,7 @@ import {
   markQueueItemFailed,
   markQueueItemSynced,
   markQueueItemSyncing,
+  reconcileQueueState,
   retryQueueItem,
   type QueuedAction,
 } from '../offline/queue';
@@ -502,7 +503,7 @@ export default function DriverMobileApp() {
       if (!token || !authUserId || !(await isOnline())) {
         if (!authUserId) return;
         const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [...items, queued]);
+        setQueue((items) => reconcileQueueState(items, queued));
         // Do NOT update the local job status — the server has not confirmed the transition.
         // The pending badge in the queue UI communicates the pending state to the driver.
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
@@ -522,7 +523,7 @@ export default function DriverMobileApp() {
         // Online failure — keep the server-confirmed status; do NOT advance it locally.
         // Queue the action for automatic retry.
         const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [...items, queued]);
+        setQueue((items) => reconcileQueueState(items, queued));
         setMessage(text);
       }
     };
@@ -599,7 +600,7 @@ export default function DriverMobileApp() {
                   else setJob((current) => (current ? { ...current, podGenerated: true, podCompleted: true } : current));
                   setScreen('active');
                 }}
-                onQueued={(queued) => setQueue((items) => [...items, queued])}
+                onQueued={(queued) => setQueue((items) => reconcileQueueState(items, queued))}
               />
             )}
             {screen === 'viewPod' && job && (

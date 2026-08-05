@@ -161,3 +161,24 @@ export async function removeLegacyQueue() {
   await AsyncStorage.removeItem(legacyQueueKey);
 }
 
+/**
+ * Immutable upsert of a single queue item into an existing React state array.
+ *
+ * Rules:
+ * - If an item with the same `id` already exists, it is replaced in-place.
+ * - If no matching item exists, the new item is appended.
+ * - The authoritative ordering returned by `enqueueAction` (newest-last, with
+ *   lifecycle dependencies preserved) is maintained.
+ *
+ * Use this wherever React state must be updated after an `enqueueAction` call
+ * to guarantee that double-taps or repeated failure/offline paths never produce
+ * duplicate rows in the UI.
+ */
+export function reconcileQueueState(current: QueuedAction[], incoming: QueuedAction): QueuedAction[] {
+  const idx = current.findIndex((item) => item.id === incoming.id);
+  if (idx === -1) return [...current, incoming];
+  const next = [...current];
+  next[idx] = incoming;
+  return next;
+}
+
