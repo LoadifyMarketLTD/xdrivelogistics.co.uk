@@ -10,6 +10,7 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalLinkList,
   PageFrame,
   PageHeader,
   Panel,
@@ -174,35 +175,24 @@ function OwnerConsole() {
 
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Platform health" description="Fast access to queues, webhooks, audit and feature controls.">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {[
-                ['Email and notification queue', '/super-admin/notifications'],
-                ['Webhook and runtime health', '/super-admin/health'],
-                ['Audit events', '/super-admin/settings/audit-logs'],
-                ['Feature flags', '/super-admin/settings/feature-flags'],
-              ].map(([label, href]) => <button key={href} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
-            </div>
+            <OperationalLinkList items={[
+              { key: 'notifications', label: 'Email and notification queue', onClick: () => router.push('/super-admin/notifications') },
+              { key: 'health', label: 'Webhook and runtime health', onClick: () => router.push('/super-admin/health') },
+              { key: 'audit-logs', label: 'Audit events', onClick: () => router.push('/super-admin/settings/audit-logs') },
+              { key: 'feature-flags', label: 'Feature flags', onClick: () => router.push('/super-admin/settings/feature-flags') },
+            ]} />
           </Panel>
 
           <Panel title="Governance actions" description="High-risk controls remain explicit and separated from daily operations.">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {[
-                ['Approve companies', '/super-admin/companies/approvals'],
-                ['Review onboarding', '/super-admin/companies/verification'],
-                ['Review compliance', '/super-admin/companies/compliance'],
-                ['Review disputes', '/super-admin/operations/disputes'],
-              ].map(([label, href]) => <button key={label} type="button" onClick={() => router.push(href)} style={rowButton}><span>{label}</span><span>→</span></button>)}
-            </div>
+            <OperationalLinkList items={[
+              { key: 'approvals', label: 'Approve companies', onClick: () => router.push('/super-admin/companies/approvals') },
+              { key: 'verification', label: 'Review onboarding', onClick: () => router.push('/super-admin/companies/verification') },
+              { key: 'compliance', label: 'Review compliance', onClick: () => router.push('/super-admin/companies/compliance') },
+              { key: 'disputes', label: 'Review disputes', onClick: () => router.push('/super-admin/operations/disputes') },
+            ]} />
           </Panel>
         </div>
       </TwoColumn>
     </PageFrame>
   );
 }
-
-const rowButton = {
-  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
-  border: `1px solid ${workspaceTheme.border}`, borderRadius: 8, background: workspaceTheme.surfaceSoft,
-  color: workspaceTheme.text, padding: '0.65rem 0.7rem', fontSize: '0.76rem', fontWeight: 750,
-  textAlign: 'left' as const, cursor: 'pointer',
-};

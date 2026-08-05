@@ -14,6 +14,7 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalLinkList,
   PageFrame,
   PageHeader,
   Panel,
@@ -203,23 +204,15 @@ export default function DriverDashboard() {
 
       <TwoColumn>
         <Panel title="Readiness summary" description="Operational shortcuts and account readiness for the next shift.">
-          <div style={{ display: 'grid', gap: '0.55rem' }}>
-            {[
-              ['Upcoming allocated work', upcomingJobs.length, '/driver/jobs'],
-              ['Jobs completed', completedJobs, '/driver/history'],
-              ['Documents expiring', expiringDocuments.length, '/driver/documents'],
-              [ownerDriver ? 'Quote pipeline' : 'Vehicle & profile', ownerDriver ? submittedQuotes + wonWork : null, ownerDriver ? '/driver/quotes' : '/driver/vehicles'],
-            ].map(([label, value, href]) => (
-              <button
-                key={String(label)}
-                onClick={() => router.push(String(href))}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
-              >
-                <span>{label}</span>
-                {value !== null && <strong>{value}</strong>}
-              </button>
-            ))}
-          </div>
+          <OperationalLinkList
+            showTrailingArrow={false}
+            items={[
+              { key: 'upcoming', label: 'Upcoming allocated work', value: upcomingJobs.length, onClick: () => router.push('/driver/jobs') },
+              { key: 'completed', label: 'Jobs completed', value: completedJobs, onClick: () => router.push('/driver/history') },
+              { key: 'documents', label: 'Documents expiring', value: expiringDocuments.length, onClick: () => router.push('/driver/documents') },
+              { key: 'pipeline', label: ownerDriver ? 'Quote pipeline' : 'Vehicle & profile', value: ownerDriver ? submittedQuotes + wonWork : null, onClick: () => router.push(ownerDriver ? '/driver/quotes' : '/driver/vehicles') },
+            ]}
+          />
         </Panel>
 
         <Panel title="Recent completed work" description="Delivered jobs and POD-ready history.">
@@ -277,24 +270,16 @@ export default function DriverDashboard() {
 
           <div style={{ display: 'grid', gap: '0.9rem' }}>
             <Panel title="Business summary" description="Financial and operational position for your owner-driver account.">
-              <div style={{ display: 'grid', gap: '0.55rem' }}>
-                {[
-                  ['Quotes submitted', submittedQuotes, '/driver/quotes'],
-                  ['Won work (accepted)', wonWork, '/driver/won-work'],
-                  ['Pending invoices', pendingInvoices, '/driver/finance'],
-                  ['Return journeys', null, '/driver/returns'],
-                  ['Documents & compliance', null, '/driver/documents'],
-                ].map(([label, value, href]) => (
-                  <button
-                    key={String(href)}
-                    onClick={() => router.push(String(href))}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
-                  >
-                    <span>{label}</span>
-                    {value !== null && <strong>{value}</strong>}
-                  </button>
-                ))}
-              </div>
+              <OperationalLinkList
+                showTrailingArrow={false}
+                items={[
+                  { key: 'quotes', label: 'Quotes submitted', value: submittedQuotes, onClick: () => router.push('/driver/quotes') },
+                  { key: 'won', label: 'Won work (accepted)', value: wonWork, onClick: () => router.push('/driver/won-work') },
+                  { key: 'invoices', label: 'Pending invoices', value: pendingInvoices, onClick: () => router.push('/driver/finance') },
+                  { key: 'returns', label: 'Return journeys', value: null, onClick: () => router.push('/driver/returns') },
+                  { key: 'docs', label: 'Documents & compliance', value: null, onClick: () => router.push('/driver/documents') },
+                ]}
+              />
             </Panel>
 
             {expiringDocuments.length > 0 && (
