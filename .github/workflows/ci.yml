@@ -132,6 +132,10 @@ jobs:
         working-directory: apps/driver-mobile
         run: npm run typecheck
 
+      - name: Test Expo driver
+        working-directory: apps/driver-mobile
+        run: npm run test
+
   codeql:
     name: CodeQL Security Scan (${{ matrix.language }})
     runs-on: ubuntu-latest
