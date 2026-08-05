@@ -56,7 +56,7 @@ describe('JOBS_STATUS_FILTER_VALUES', () => {
   });
 
   it('includes canonical DB values used by the visible tabs', () => {
-    const expected = ['draft', 'posted', 'allocated', 'in_transit', 'delivered', 'cancelled'];
+    const expected = ['draft', 'posted', 'allocated', 'in_transit', 'delivered', 'completed', 'cancelled'];
     for (const v of expected) {
       expect(JOBS_STATUS_FILTER_VALUES).toContain(v);
     }
@@ -94,11 +94,15 @@ describe('resolveJobStatusFilter — ?status= deep-link resolution', () => {
     expect(resolveJobStatusFilter('bogus')).toBe('All');
   });
 
+  it('/admin/jobs?status=completed → "completed" (post-delivery operational state)', () => {
+    expect(resolveJobStatusFilter('completed')).toBe('completed');
+  });
+
   it('every value returned by the resolver is a member of JOBS_STATUS_FILTER_VALUES', () => {
     const probes = [
       null, '', 'all', 'All', 'ALL',
       'received', 'RECEIVED',
-      'draft', 'posted', 'allocated', 'in_transit', 'delivered', 'cancelled',
+      'draft', 'posted', 'allocated', 'in_transit', 'delivered', 'completed', 'cancelled',
       'DELIVERED', ' Posted ',
       'unknown', 'invoiced',
     ];

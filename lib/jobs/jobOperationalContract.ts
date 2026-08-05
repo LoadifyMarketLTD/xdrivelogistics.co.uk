@@ -273,7 +273,23 @@ export const JOBS_STATUS_FILTER_VALUES = [
   JOB_STATUS.ALLOCATED,  // 'allocated'
   JOB_STATUS.IN_TRANSIT, // 'in_transit'
   JOB_STATUS.DELIVERED,  // 'delivered'
+  'completed',           // post-delivery operational state (migration 20260720234500_canonical_driver_job_lifecycle.sql)
   JOB_STATUS.CANCELLED,  // 'cancelled'
+] as const;
+
+/**
+ * Shared label+value option definitions for status filter tabs and selects.
+ * Consumed by JobsOperationalTable to keep visible tabs and URL resolver in sync.
+ */
+export const JOBS_STATUS_FILTER_OPTIONS: ReadonlyArray<{ label: string; value: JobStatusFilterValue }> = [
+  { label: 'All',        value: 'All'        },
+  { label: 'Received',   value: JOB_STATUS.RECEIVED   },
+  { label: 'Posted',     value: JOB_STATUS.POSTED     },
+  { label: 'Allocated',  value: JOB_STATUS.ALLOCATED  },
+  { label: 'In Transit', value: JOB_STATUS.IN_TRANSIT },
+  { label: 'Delivered',  value: JOB_STATUS.DELIVERED  },
+  { label: 'Completed',  value: 'completed'           },
+  { label: 'Cancelled',  value: JOB_STATUS.CANCELLED  },
 ] as const;
 
 export type JobStatusFilterValue = (typeof JOBS_STATUS_FILTER_VALUES)[number];
