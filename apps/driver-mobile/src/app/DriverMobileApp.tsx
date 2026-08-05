@@ -1,31 +1,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
 import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
+import { handleSessionLoss } from '../auth/sessionLoss';
 import { supabase } from '../auth/supabase';
-import { getNextStep } from '../jobs/statusFlow';
-import type { DriverJob, JobScope, QueuedActionStatus } from '../jobs/types';
+import { FULL_TIMELINE, getNextStep, statusIndex } from '../jobs/statusFlow';
+import type { AuditEntry, DriverJob, JobScope, JobStop, PodRecord, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
 import {
   enqueueAction,
   getQueue,
   isOnline,
+  clearQueue,
   isQueueItemReady,
   markQueueItemFailed,
   markQueueItemSynced,
   markQueueItemSyncing,
+  reconcileQueueState,
   retryQueueItem,
-  saveQueue,
   type QueuedAction,
 } from '../offline/queue';
+import { getReadyActionsInOrder } from '../offline/queueOrderingHelpers';
 import { colors, spacing } from '../ui/theme';
 
-type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
+type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'viewPod' | 'notifications' | 'profile';
+
+type DetailTab = 'summary' | 'stops' | 'status';
 
 type QueueCounts = Record<QueuedActionStatus, number>;
 
@@ -64,27 +69,20 @@ async function waitForReadySession(maxAttempts = 8, waitMs = 300): Promise<Ready
   return null;
 }
 
-async function validateDriverRole(userId: string): Promise<string | null> {
+/**
+ * Validates that the signed-in user is authorized as a driver by calling the
+ * backend driver resources endpoint. This uses the backend as the authority
+ * rather than reading from `profiles.role` directly, which avoids a direct
+ * Supabase table dependency and honours any server-side role logic.
+ *
+ * Returns the userId on success, or null if authorization fails.
+ */
+async function validateDriverAuthorization(userId: string, accessToken: string): Promise<string | null> {
   try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !profile) {
-      console.warn('[auth] Profile fetch failed or not found:', error?.message);
-      return null;
-    }
-
-    if ((profile as { role?: string }).role !== 'driver') {
-      console.warn('[auth] User role is not driver:', (profile as { role?: string }).role);
-      return null;
-    }
-
+    await fetchDriverResources(accessToken);
     return userId;
   } catch (error) {
-    console.error('[auth] Driver role validation error:', error);
+    console.warn('[auth] Driver authorization check failed:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }
@@ -187,6 +185,13 @@ export default function DriverMobileApp() {
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [message, setMessage] = useState('');
   const queueSyncInFlightRef = useRef(false);
+  /**
+   * Tracks the last successfully authenticated user ID so that when
+   * `onAuthStateChange` fires with a null session (token expiry, remote logout,
+   * etc.) we can clear that user's account-scoped queue even though
+   * `session?.user?.id` is null at that point.
+   */
+  const authenticatedUserIdRef = useRef<string | null>(null);
   const nextStep = useMemo(() => (job ? getNextStep(job.status) : undefined), [job]);
   const queueCounts = useMemo(() => getQueueCounts(queue), [queue]);
   const notificationsSeenKey = authUserId ? `xdrive.driver.notificationsSeen:${authUserId}` : null;
@@ -239,28 +244,35 @@ export default function DriverMobileApp() {
     }
   }, []);
 
-  const flushQueue = useCallback(async (sessionToken: string, options: { force?: boolean } = {}) => {
+  const flushQueue = useCallback(async (userId: string, sessionToken: string, options: { force?: boolean } = {}) => {
     if (queueSyncInFlightRef.current) return;
     if (!(await isOnline())) return;
 
     queueSyncInFlightRef.current = true;
     try {
-      let nextQueue = await getQueue();
-      const readyItems = nextQueue.filter((item) => (options.force ? item.status !== 'synced' : isQueueItemReady(item)));
+      let nextQueue = await getQueue(userId);
+      const readyItems = getReadyActionsInOrder(
+        nextQueue,
+        options.force ? (item) => item.status !== 'synced' : isQueueItemReady,
+      );
       if (readyItems.length === 0) {
         setQueue(nextQueue);
         return;
       }
 
+      // Track which jobs had a failure this pass so later actions are blocked.
+      const failedJobIds = new Set<string>();
       for (const item of readyItems) {
-        nextQueue = await markQueueItemSyncing(item.id);
+        if (failedJobIds.has(item.jobId)) continue;
+        nextQueue = await markQueueItemSyncing(userId, item.id);
         setQueue(nextQueue);
         try {
           if (item.endpoint === 'pod') await uploadPod(item.jobId, sessionToken, item.payload ?? {});
           else await postJobStatus(item.jobId, item.endpoint, sessionToken);
-          nextQueue = await markQueueItemSynced(item.id);
+          nextQueue = await markQueueItemSynced(userId, item.id);
         } catch (error) {
-          nextQueue = await markQueueItemFailed(item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          nextQueue = await markQueueItemFailed(userId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          failedJobIds.add(item.jobId);
         }
         setQueue(nextQueue);
       }
@@ -269,7 +281,7 @@ export default function DriverMobileApp() {
       await loadResources(sessionToken, { silent: true });
     } finally {
       queueSyncInFlightRef.current = false;
-      const latestQueue = await getQueue().catch(() => []);
+      const latestQueue = await getQueue(userId).catch(() => []);
       setQueue(latestQueue);
     }
   }, [loadJobs, loadResources, scope]);
@@ -300,28 +312,30 @@ export default function DriverMobileApp() {
           return;
         }
 
-        const isDriver = await validateDriverRole(userId);
+        const isDriver = await validateDriverAuthorization(userId, sessionToken);
         if (!isDriver) {
           setMessage('Access denied: only drivers can use this app.');
+          await clearQueue(userId).catch(() => undefined);
           await supabase.auth.signOut().catch(() => undefined);
           await clearSessionToken();
           setScreen('login');
           return;
         }
 
+        // Load the account-scoped queue now that the userId is confirmed.
+        authenticatedUserIdRef.current = userId;
+        void getQueue(userId).then(setQueue).catch(() => setQueue([]));
         setToken(sessionToken);
         void saveSessionToken(sessionToken);
         await loadJobs(sessionToken);
         void loadResources(sessionToken);
         void safeRegisterPushToken(sessionToken);
-        void flushQueue(sessionToken);
+        void flushQueue(userId, sessionToken);
       })
       .catch(() => {
         void clearSessionToken();
         setScreen('login');
       });
-
-    void getQueue().then(setQueue).catch(() => setQueue([]));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: unknown, session: { access_token?: string | null; user?: { id?: string | null } | null } | null) => {
       const nextToken = getAccessToken(session);
@@ -330,7 +344,19 @@ export default function DriverMobileApp() {
       setAuthUserId(nextUserId);
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
+      if (nextUserId) {
+        // Update the ref whenever a valid authenticated session is established so
+        // that session-loss events (where session/userId are null) can still
+        // identify whose queue must be cleared.
+        authenticatedUserIdRef.current = nextUserId;
+      }
       if (!session) {
+        // Session lost (sign-out, token expiry, remote logout). Clear persistent
+        // user data before resetting React state to prevent cross-account leakage.
+        // Read the previous user ID from the ref — nextUserId is always null here.
+        const previousUserId = authenticatedUserIdRef.current;
+        authenticatedUserIdRef.current = null;
+        void handleSessionLoss(previousUserId);
         setJob(null);
         setJobs([]);
         setResources(null);
@@ -365,20 +391,20 @@ export default function DriverMobileApp() {
   }, [notificationsSeenKey, resources?.alerts, screen]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !authUserId) return;
     const subscription = Network.addNetworkStateListener((state) => {
       if (state.isConnected && state.isInternetReachable !== false) {
-        void flushQueue(token);
+        void flushQueue(authUserId, token);
       }
     });
     const intervalId = setInterval(() => {
-      void flushQueue(token);
+      void flushQueue(authUserId, token);
     }, 15_000);
     return () => {
       subscription.remove();
       clearInterval(intervalId);
     };
-  }, [flushQueue, token]);
+  }, [flushQueue, token, authUserId]);
 
   async function signIn(email: string, password: string) {
     const normalizedEmail = email.trim();
@@ -405,7 +431,7 @@ export default function DriverMobileApp() {
       return;
     }
 
-    const isDriver = await validateDriverRole(userId);
+    const isDriver = await validateDriverAuthorization(userId, accessToken);
     if (!isDriver) {
       setMessage('Access denied: only drivers can use this app.');
       await supabase.auth.signOut().catch(() => undefined);
@@ -414,21 +440,26 @@ export default function DriverMobileApp() {
 
     setToken(accessToken);
     setAuthUserId(userId);
+    authenticatedUserIdRef.current = userId;
     try {
       await saveSessionToken(accessToken);
     } catch {
       // SecureStore failure should not block sign-in.
     }
+    void getQueue(userId).then(setQueue).catch(() => setQueue([]));
     void safeRegisterPushToken(accessToken);
     await loadJobs(accessToken);
     void loadResources(accessToken);
-    void flushQueue(accessToken);
+    void flushQueue(userId, accessToken);
   }
 
   async function signOut() {
+    // Capture userId before clearing state so the correct account-scoped queue is removed.
+    const userId = authUserId;
+    authenticatedUserIdRef.current = null;
     await supabase.auth.signOut();
     await clearSessionToken();
-    await saveQueue([]);
+    if (userId) await clearQueue(userId).catch(() => undefined);
     setToken(null);
     setAuthUserId(null);
     setJob(null);
@@ -441,13 +472,14 @@ export default function DriverMobileApp() {
   }
 
   async function retryFailedQueueItems() {
+    if (!authUserId || !token) return;
     const failedItems = queue.filter((item) => item.status === 'failed');
     for (const item of failedItems) {
-      await retryQueueItem(item.id);
+      await retryQueueItem(authUserId, item.id);
     }
-    const latestQueue = await getQueue();
+    const latestQueue = await getQueue(authUserId);
     setQueue(latestQueue);
-    if (token) await flushQueue(token, { force: true });
+    await flushQueue(authUserId, token, { force: true });
   }
 
   async function submitStatus() {
@@ -456,17 +488,24 @@ export default function DriverMobileApp() {
       setMessage('Job status is already up to date.');
       return;
     }
-    if (nextStep.status === 'delivered' && job.podRequired && job.podGenerated !== true) {
-      setMessage('Proof of Delivery is required before marking this job as delivered.');
-      setScreen('pod');
-      return;
+    // Gate on POD before delivering — but only when POD has not yet been captured.
+    // If POD is already confirmed by the server (podCompleted/podGenerated/pod), proceed
+    // directly to the delivered endpoint instead of re-opening the POD screen.
+    if (nextStep.status === 'delivered') {
+      const podAlreadyCaptured = job.podCompleted === true || job.podGenerated === true || job.pod != null;
+      if (!podAlreadyCaptured) {
+        setScreen('pod');
+        return;
+      }
     }
 
     const apply = async () => {
-      if (!token || !(await isOnline())) {
-        const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [queued, ...items]);
-        setJob((current) => (current ? { ...current, status: nextStep.status } : current));
+      if (!token || !authUserId || !(await isOnline())) {
+        if (!authUserId) return;
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
+        setQueue((items) => reconcileQueueState(items, queued));
+        // Do NOT update the local job status — the server has not confirmed the transition.
+        // The pending badge in the queue UI communicates the pending state to the driver.
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
         return;
       }
@@ -475,16 +514,17 @@ export default function DriverMobileApp() {
         if ('job' in response) setJob(response.job as DriverJob);
         await loadJobs(token, scope, { navigate: false });
       } catch (error) {
-        const text = error instanceof Error ? error.message : 'Queued for retry.';
+        const text = error instanceof Error ? error.message : 'Unable to update job status. Please retry.';
         if (/pod is required/i.test(text)) {
           setMessage(text);
           setScreen('pod');
           return;
         }
-        const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [queued, ...items]);
+        // Online failure — keep the server-confirmed status; do NOT advance it locally.
+        // Queue the action for automatic retry.
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
+        setQueue((items) => reconcileQueueState(items, queued));
         setMessage(text);
-        setJob((current) => (current ? { ...current, status: nextStep.status } : current));
       }
     };
 
@@ -499,7 +539,7 @@ export default function DriverMobileApp() {
   }
 
   function handleBottomNavChange(nextScreen: Screen) {
-    if ((nextScreen === 'pod' || nextScreen === 'active' || nextScreen === 'detail') && !job) {
+    if ((nextScreen === 'pod' || nextScreen === 'viewPod' || nextScreen === 'active' || nextScreen === 'detail') && !job) {
       setScreen('jobs');
       return;
     }
@@ -531,7 +571,7 @@ export default function DriverMobileApp() {
                 onDetail={() => setScreen('detail')}
                 onPod={() => setScreen('pod')}
                 onRetryFailed={() => void retryFailedQueueItems()}
-                onSyncNow={() => token && void flushQueue(token, { force: true })}
+                onSyncNow={() => authUserId && token && void flushQueue(authUserId, token, { force: true })}
               />
             )}
             {screen === 'active' && !job && !loading && <EmptyJobsScreen onRefresh={() => token && void loadJobs(token, scope, { navigate: false })} />}
@@ -549,18 +589,22 @@ export default function DriverMobileApp() {
                 }}
               />
             )}
-            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} />}
-            {screen === 'pod' && job && (
+            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => setScreen('viewPod')} />}
+            {screen === 'pod' && job && authUserId && (
               <PodScreen
                 job={job}
                 token={token}
+                userId={authUserId}
                 onSaved={(updatedJob) => {
                   if (updatedJob) setJob(updatedJob);
-                  else setJob((current) => (current ? { ...current, podGenerated: true } : current));
+                  else setJob((current) => (current ? { ...current, podGenerated: true, podCompleted: true } : current));
                   setScreen('active');
                 }}
-                onQueued={(queued) => setQueue((items) => [queued, ...items])}
+                onQueued={(queued) => setQueue((items) => reconcileQueueState(items, queued))}
               />
+            )}
+            {screen === 'viewPod' && job && (
+              <ViewPodScreen pod={job.pod ?? null} onBack={() => setScreen('detail')} />
             )}
             {screen === 'notifications' && (
               <NotificationsScreen
@@ -640,6 +684,14 @@ function ActiveJobScreen({
   onSyncNow: () => void;
 }) {
   const recentQueue = queue.slice(0, 5);
+  const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
+  const isPodQueued = queue.some((item) => item.jobId === job.id && item.endpoint === 'pod' && item.status !== 'synced');
+  // Show "Capture POD" only at arrived_delivery (or delivered, for retry) and
+  // only when POD has not already been captured or queued offline.
+  const showCapturePod =
+    (job.status === 'arrived_delivery' || job.status === 'delivered') &&
+    !isPodDone &&
+    !isPodQueued;
   return (
     <View style={styles.stack}>
       <StatusPill label={job.status.replace(/_/g, ' ')} tone={job.status === 'delivered' ? 'success' : 'primary'} />
@@ -662,7 +714,7 @@ function ActiveJobScreen({
       </Panel>
       <PrimaryButton label={nextLabel} onPress={onPrimary} />
       <SecondaryButton label="Job detail" onPress={onDetail} />
-      <SecondaryButton label="Capture POD" onPress={onPod} />
+      {showCapturePod && <SecondaryButton label="Capture POD" onPress={onPod} />}
       <QueuePanel queue={recentQueue} counts={counts} onRetryFailed={onRetryFailed} onSyncNow={onSyncNow} />
     </View>
   );
@@ -686,45 +738,250 @@ function JobsScreen({ scope, onScope, jobs, onOpen }: { scope: JobScope; onScope
   );
 }
 
-function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => void }) {
+function JobDetailScreen({ job, onPrimary, onViewPod }: { job: DriverJob; onPrimary: () => void; onViewPod: () => void }) {
+  const [tab, setTab] = useState<DetailTab>('summary');
+  const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
+  const tabs: Array<[DetailTab, string]> = [['summary', 'Summary'], ['stops', 'Stops'], ['status', 'Status']];
+
   return (
     <View style={styles.stack}>
-      <Panel>
-        <Text style={styles.title}>{job.reference}</Text>
-        <Info label="Lifecycle" value={stringField(job.lifecycleStatus, 'In progress')} />
-        <Info label="Pickup" value={job.pickupLocation} />
-        <Info label="Delivery" value={job.deliveryLocation} />
-        <Info label="Pickup time" value={job.pickupTime} />
-        <Info label="Delivery time" value={job.deliveryTime} />
-        <Info label="Cargo" value={job.cargoType} />
-        <Info label="Vehicle" value={job.vehicleRequirement} />
-        <Info label="POD" value={job.podGenerated ? 'Captured' : job.podRequired ? 'Required before delivery' : 'Not required'} />
-        {job.price ? <Info label="Price" value={job.price} /> : null}
-        {job.requirements ? <Info label="Requirements" value={job.requirements} /> : null}
-        {job.contactAllowed && job.contactName ? <Info label="Contact" value={job.contactName} /> : null}
-        {job.contactAllowed && job.contactPhone ? <Info label="Phone" value={job.contactPhone} /> : null}
-        {job.updatedAt ? <Info label="Last updated" value={formatDateTime(job.updatedAt)} /> : null}
-      </Panel>
+      {/* Tab bar */}
+      <View style={styles.detailTabs}>
+        {tabs.map(([key, label]) => (
+          <TouchableOpacity key={key} style={[styles.detailTab, tab === key && styles.detailTabActive]} onPress={() => setTab(key)}>
+            <Text style={[styles.detailTabText, tab === key && styles.detailTabTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {tab === 'summary' && <SummaryTab job={job} />}
+      {tab === 'stops' && <StopsTab job={job} onViewPod={onViewPod} isPodDone={isPodDone} />}
+      {tab === 'status' && <StatusTab job={job} />}
+
       <PrimaryButton label="Back to active" onPress={onPrimary} />
+      {isPodDone && (
+        <TouchableOpacity style={styles.viewPodButton} onPress={onViewPod} accessibilityRole="button">
+          <Text style={styles.viewPodButtonText}>VIEW POD</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
-function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
+function SummaryTab({ job }: { job: DriverJob }) {
+  const mapUrl = `https://www.google.com/maps/dir/${encodeURIComponent(job.pickupLocation)}/${encodeURIComponent(job.deliveryLocation)}`;
+
+  return (
+    <View style={styles.stack}>
+      {/* Client & Contact */}
+      <Panel>
+        <Text style={styles.title}>{job.reference}</Text>
+        {job.client ? <Info label="Customer" value={job.client} /> : null}
+        {job.contactAllowed && job.contactPhone ? (
+          <View style={styles.contactRow}>
+            <TouchableOpacity style={styles.contactButton} onPress={() => void Linking.openURL(`tel:${job.contactPhone}`)}>
+              <Text style={styles.contactButtonText}>📞 CALL</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.contactButton} onPress={() => void Linking.openURL(`sms:${job.contactPhone}`)}>
+              <Text style={styles.contactButtonText}>💬 MESSAGE</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {job.contactAllowed && job.contactName ? <Info label="Contact" value={job.contactName} /> : null}
+      </Panel>
+
+      {/* Route */}
+      <Panel>
+        <Info label="Pickup Address" value={job.pickupLocation} />
+        <Info label="Delivery Address" value={job.deliveryLocation} />
+        <TouchableOpacity style={styles.mapButton} onPress={() => void Linking.openURL(mapUrl)} accessibilityRole="button">
+          <Text style={styles.mapButtonText}>🗺  VIEW ROUTE MAP</Text>
+        </TouchableOpacity>
+        {job.distance ? <Info label="Distance" value={job.distance} /> : null}
+        {job.eta ? <Info label="Driving Time (ETA)" value={job.eta} /> : null}
+        <Info label="Vehicle" value={job.vehicleRequirement} />
+      </Panel>
+
+      {/* Load Details */}
+      <Panel>
+        <Text style={styles.infoLabel}>Load Details</Text>
+        <Info label="Freight Type" value={job.cargoType} />
+        {job.weight ? <Info label="Weight" value={job.weight} /> : null}
+        {job.dimensions ? <Info label="Dimensions" value={job.dimensions} /> : null}
+        {job.palletCount != null ? <Info label="Pallet Count" value={String(job.palletCount)} /> : null}
+        {job.adr ? <Info label="ADR" value="Yes — Hazardous goods" /> : null}
+        {job.tailLift ? <Info label="Tail Lift" value="Required" /> : null}
+        {job.temperatureControlled ? <Info label="Temperature Controlled" value="Required" /> : null}
+      </Panel>
+
+      {/* Notes & Instructions */}
+      {(job.customerNotes || job.dispatcherNotes || job.specialInstructions || job.requirements) ? (
+        <Panel>
+          {job.customerNotes ? <Info label="Customer Notes" value={job.customerNotes} /> : null}
+          {job.dispatcherNotes ? <Info label="Dispatcher Notes" value={job.dispatcherNotes} /> : null}
+          {job.specialInstructions ? <Info label="Special Instructions" value={job.specialInstructions} /> : null}
+          {job.requirements ? <Info label="Requirements" value={job.requirements} /> : null}
+        </Panel>
+      ) : null}
+
+      {/* References & Terms */}
+      <Panel>
+        {job.customerReference ? <Info label="Customer Reference" value={job.customerReference} /> : null}
+        {job.internalReference ? <Info label="Internal Reference" value={job.internalReference} /> : null}
+        {job.paymentTerms ? <Info label="Payment Terms" value={job.paymentTerms} /> : null}
+        {job.price ? <Info label="Price" value={job.price} /> : null}
+        {job.customerDetails ? <Info label="Customer Information" value={job.customerDetails} /> : null}
+        {job.updatedAt ? <Info label="Last Updated" value={formatDateTime(job.updatedAt)} /> : null}
+      </Panel>
+
+      {/* Attachments */}
+      {job.attachments && job.attachments.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Attachments</Text>
+          {job.attachments.map((att) => (
+            <TouchableOpacity key={att.id} style={styles.attachmentRow} onPress={() => void Linking.openURL(att.url)}>
+              <View style={styles.attachmentLeft}>
+                <Text style={styles.attachmentName} numberOfLines={1}>{att.name}</Text>
+                <Text style={styles.attachmentMeta}>{att.category.replace(/_/g, ' ').toUpperCase()} · {att.fileType.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.attachmentAction}>↓</Text>
+            </TouchableOpacity>
+          ))}
+        </Panel>
+      ) : null}
+    </View>
+  );
+}
+
+function StopsTab({ job, onViewPod, isPodDone }: { job: DriverJob; onViewPod: () => void; isPodDone: boolean }) {
+  const stops: JobStop[] = job.stops && job.stops.length > 0
+    ? [...job.stops].sort((a, b) => a.sequence - b.sequence)
+    : [
+        { id: 'pickup', type: 'collection', sequence: 0, address: job.pickupLocation, timeWindowFrom: job.pickupTime },
+        { id: 'delivery', type: 'delivery', sequence: 1, address: job.deliveryLocation, timeWindowFrom: job.deliveryTime },
+      ];
+
+  return (
+    <View style={styles.stack}>
+      {stops.map((stop) => (
+        <Panel key={stop.id}>
+          <View style={styles.stopTypeRow}>
+            <Text style={[styles.stopTypeLabel, stop.type === 'collection' ? styles.stopCollection : styles.stopDelivery]}>
+              {stop.type === 'collection' ? 'COLLECTION' : 'DELIVERY'}
+            </Text>
+            {stop.status ? <StatusPill label={stop.status} tone="primary" /> : null}
+          </View>
+          <Info label="Address" value={stop.address} />
+          {stop.company ? <Info label="Company" value={stop.company} /> : null}
+          {stop.contactPerson ? <Info label="Contact" value={stop.contactPerson} /> : null}
+          {stop.telephone ? (
+            <TouchableOpacity onPress={() => void Linking.openURL(`tel:${stop.telephone}`)}>
+              <Info label="Telephone" value={stop.telephone ?? ''} />
+            </TouchableOpacity>
+          ) : null}
+          {stop.timeWindowFrom ? (
+            <Info label="Time Window" value={stop.timeWindowTo ? `${formatDateTime(stop.timeWindowFrom)} – ${formatDateTime(stop.timeWindowTo)}` : formatDateTime(stop.timeWindowFrom)} />
+          ) : null}
+          {stop.collectionDetails ? <Info label="Collection Details" value={stop.collectionDetails} /> : null}
+          {stop.deliveryDetails ? <Info label="Delivery Details" value={stop.deliveryDetails} /> : null}
+          {stop.notes ? <Info label="Notes" value={stop.notes} /> : null}
+          {stop.gpsCoordinates ? <Info label="GPS" value={stop.gpsCoordinates} /> : null}
+        </Panel>
+      ))}
+      {isPodDone && (
+        <TouchableOpacity style={styles.viewPodButton} onPress={onViewPod} accessibilityRole="button">
+          <Text style={styles.viewPodButtonText}>VIEW POD</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+function StatusTab({ job }: { job: DriverJob }) {
+  const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
+  const currentIdx = statusIndex(job.status);
+
+  return (
+    <View style={styles.stack}>
+      {FULL_TIMELINE.map((step, i) => {
+        const isDone = i <= currentIdx;
+        const isCurrent = i === currentIdx;
+        const audit: AuditEntry | undefined = job.auditTrail?.find((e) => e.status === step.status);
+        const isExpanded = expandedStatus === step.status;
+
+        return (
+          <TouchableOpacity
+            key={step.status}
+            onPress={() => setExpandedStatus(isExpanded ? null : step.status)}
+            disabled={!isDone}
+            accessibilityRole="button"
+          >
+            <View style={styles.timelineRow}>
+              {/* connector line */}
+              <View style={styles.timelineConnectorCol}>
+                {i > 0 && <View style={[styles.timelineLine, isDone ? styles.timelineLineDone : styles.timelineLinePending]} />}
+                <View style={[styles.timelineDot, isDone ? styles.timelineDotDone : styles.timelineDotPending, isCurrent && styles.timelineDotCurrent]}>
+                  {isDone ? <Text style={styles.timelineDotCheck}>✓</Text> : null}
+                </View>
+                {i < FULL_TIMELINE.length - 1 && <View style={[styles.timelineLineBottom, isDone ? styles.timelineLineDone : styles.timelineLinePending]} />}
+              </View>
+              {/* content */}
+              <View style={styles.timelineContent}>
+                <Text style={[styles.timelineLabel, isDone ? styles.timelineLabelDone : styles.timelineLabelPending]}>{step.label}</Text>
+                {audit ? (
+                  <Text style={styles.timelineMeta}>{formatDateTime(audit.timestamp)} · {audit.user} · {audit.role}</Text>
+                ) : null}
+                {isExpanded && audit ? (
+                  <View style={styles.timelineExpanded}>
+                    {audit.gps ? <Info label="GPS" value={audit.gps} /> : null}
+                    {audit.device ? <Info label="Device" value={audit.device} /> : null}
+                    {audit.osVersion ? <Info label="OS Version" value={audit.osVersion} /> : null}
+                    {audit.notes ? <Info label="Notes" value={audit.notes} /> : null}
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; token: string | null; userId: string; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [damagePhotoUris, setDamagePhotoUris] = useState<string[]>([]);
   const [documentUris, setDocumentUris] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
+  const [recipientCompany, setRecipientCompany] = useState('');
   const [signatureData, setSignatureData] = useState('');
-  const [notes, setNotes] = useState('');
+  const [quantityDelivered, setQuantityDelivered] = useState('');
+  const [itemsMissing, setItemsMissing] = useState('');
+  const [itemsDamaged, setItemsDamaged] = useState('');
+  const [comments, setComments] = useState('');
+  const [receiverNotes, setReceiverNotes] = useState('');
+  const [driverNotes, setDriverNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  async function addPhoto() {
+  const now = new Date();
+  const podDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const podTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  async function addDeliveryPhoto() {
     const ImagePicker = await import('expo-image-picker');
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return Alert.alert('Camera required', 'Camera permission is required for POD photos.');
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
     if (!result.canceled) setPhotoUris((items) => [...items, ...result.assets.map((asset) => asset.uri)]);
+  }
+
+  async function addDamagePhoto() {
+    const ImagePicker = await import('expo-image-picker');
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return Alert.alert('Camera required', 'Camera permission is required for damage photos.');
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (!result.canceled) setDamagePhotoUris((items) => [...items, ...result.assets.map((asset) => asset.uri)]);
   }
 
   async function addDocument() {
@@ -742,11 +999,41 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
       return;
     }
+    if (photoUris.length > 10) {
+      Alert.alert('Too many photos', 'A maximum of 10 delivery photos are allowed.');
+      return;
+    }
+    if (documentUris.length > 10) {
+      Alert.alert('Too many documents', 'A maximum of 10 documents are allowed.');
+      return;
+    }
 
     setSubmitting(true);
-    const payload = { photoUris, documentUris, recipientName, signatureData, notes };
+
+    // Encode extra UI fields into the supported `notes` field so the backend
+    // persists them without requiring a schema change.
+    const noteParts: string[] = [];
+    if (quantityDelivered.trim()) noteParts.push(`Qty: ${quantityDelivered.trim()}`);
+    if (itemsMissing.trim()) noteParts.push(`Missing: ${itemsMissing.trim()}`);
+    if (itemsDamaged.trim()) noteParts.push(`Damaged: ${itemsDamaged.trim()}`);
+    if (damagePhotoUris.length > 0) noteParts.push(`Damage photos: ${damagePhotoUris.length}`);
+    if (receiverNotes.trim()) noteParts.push(`Receiver: ${receiverNotes.trim()}`);
+    if (driverNotes.trim()) noteParts.push(`Driver: ${driverNotes.trim()}`);
+    if (comments.trim()) noteParts.push(`Comments: ${comments.trim()}`);
+    const notes = noteParts.join(' | ').slice(0, 2000) || undefined;
+
+    // Combine delivery and damage photos into photoUris for the backend.
+    const allPhotoUris = [...photoUris, ...damagePhotoUris].slice(0, 10);
+
+    const payload = {
+      photoUris: allPhotoUris,
+      documentUris,
+      recipientName: recipientName.trim(),
+      signatureData: signatureData.trim() || undefined,
+      notes,
+    };
     if (!token || !(await isOnline())) {
-      const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
+      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       setSubmitting(false);
       Alert.alert('POD saved offline', 'Your POD evidence has been saved and will be uploaded automatically when connectivity returns.', [
@@ -759,7 +1046,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       setSubmitting(false);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
-      const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
+      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       setSubmitting(false);
       Alert.alert('POD queued for retry', 'The upload failed. Your POD evidence has been saved and will retry automatically.', [
@@ -773,27 +1060,85 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       <Panel>
         <Text style={styles.title}>Proof of Delivery</Text>
         <Text style={styles.subtle}>{job.reference}</Text>
-        <Text style={styles.copy}>Add required POD evidence before marking the job as delivered.</Text>
+        <Text style={styles.copy}>Complete all required fields before marking the job as delivered.</Text>
+        <Info label="Date" value={podDate} />
+        <Info label="Time" value={podTime} />
       </Panel>
-      <SecondaryButton label={photoUris.length > 0 ? `Photos (${photoUris.length}) – add more` : 'Add photo'} onPress={() => void addPhoto()} />
-      <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add document'} onPress={() => void addDocument()} />
+
+      {/* Recipient */}
       <TextInput
-        placeholder="Recipient name"
+        placeholder="Receiver Name *"
         placeholderTextColor={colors.muted}
         style={styles.input}
         value={recipientName}
         onChangeText={setRecipientName}
       />
       <TextInput
-        placeholder="Notes (optional)"
+        placeholder="Receiver Company"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={recipientCompany}
+        onChangeText={setRecipientCompany}
+      />
+
+      {/* Quantity & Exceptions */}
+      <TextInput
+        placeholder="Quantity Delivered"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={quantityDelivered}
+        onChangeText={setQuantityDelivered}
+        keyboardType="numeric"
+      />
+      <TextInput
+        placeholder="Items Missing"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={itemsMissing}
+        onChangeText={setItemsMissing}
+      />
+      <TextInput
+        placeholder="Items Damaged"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={itemsDamaged}
+        onChangeText={setItemsDamaged}
+      />
+
+      {/* Photos */}
+      <SecondaryButton label={photoUris.length > 0 ? `Delivery Photos (${photoUris.length}) – add more` : 'Add Delivery Photo'} onPress={() => void addDeliveryPhoto()} />
+      <SecondaryButton label={damagePhotoUris.length > 0 ? `Damage Photos (${damagePhotoUris.length}) – add more` : 'Add Damage Photo'} onPress={() => void addDamagePhoto()} />
+      <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add Document'} onPress={() => void addDocument()} />
+
+      {/* Notes */}
+      <TextInput
+        placeholder="Receiver Notes"
         placeholderTextColor={colors.muted}
         style={[styles.input, styles.notesInput]}
-        value={notes}
-        onChangeText={setNotes}
+        value={receiverNotes}
+        onChangeText={setReceiverNotes}
         multiline
       />
+      <TextInput
+        placeholder="Driver Notes (optional)"
+        placeholderTextColor={colors.muted}
+        style={[styles.input, styles.notesInput]}
+        value={driverNotes}
+        onChangeText={setDriverNotes}
+        multiline
+      />
+      <TextInput
+        placeholder="Comments (optional)"
+        placeholderTextColor={colors.muted}
+        style={[styles.input, styles.notesInput]}
+        value={comments}
+        onChangeText={setComments}
+        multiline
+      />
+
+      {/* Signature */}
       <Panel>
-        <Text style={styles.infoLabel}>Recipient signature</Text>
+        <Text style={styles.infoLabel}>Recipient Signature *</Text>
         <View style={styles.signatureWrap}>
           <SignatureCanvas
             ref={signatureRef}
@@ -826,6 +1171,90 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
         )}
       </Panel>
       <PrimaryButton label={submitting ? 'Saving...' : 'Save POD'} onPress={() => void savePod()} disabled={submitting} />
+    </View>
+  );
+}
+
+function ViewPodScreen({ pod, onBack }: { pod: PodRecord | null; onBack: () => void }) {
+  if (!pod) {
+    return (
+      <View style={styles.stack}>
+        <Panel>
+          <Text style={styles.title}>POD Not Available</Text>
+          <Text style={styles.copy}>No Proof of Delivery has been recorded for this job yet.</Text>
+        </Panel>
+        <SecondaryButton label="Back" onPress={onBack} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.stack}>
+      <Panel>
+        <Text style={styles.title}>Proof of Delivery</Text>
+        <Info label="Completed By" value={`${pod.completedBy} (${pod.completedByRole})`} />
+        <Info label="Date" value={pod.date} />
+        <Info label="Time" value={pod.time} />
+        {pod.gps ? <Info label="GPS Coordinates" value={pod.gps} /> : null}
+      </Panel>
+      <Panel>
+        <Info label="Receiver" value={pod.receiverName} />
+        {pod.receiverCompany ? <Info label="Company" value={pod.receiverCompany} /> : null}
+        {pod.quantityDelivered ? <Info label="Quantity Delivered" value={pod.quantityDelivered} /> : null}
+        {pod.itemsMissing ? <Info label="Items Missing" value={pod.itemsMissing} /> : null}
+        {pod.itemsDamaged ? <Info label="Items Damaged" value={pod.itemsDamaged} /> : null}
+      </Panel>
+      {pod.signatureData ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Signature</Text>
+          <Image source={{ uri: pod.signatureData }} style={styles.signaturePreview} resizeMode="contain" />
+        </Panel>
+      ) : null}
+      {pod.deliveryPhotoUris && pod.deliveryPhotoUris.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Delivery Photos ({pod.deliveryPhotoUris.length})</Text>
+          <View style={styles.podPhotoGrid}>
+            {pod.deliveryPhotoUris.map((uri, idx) => (
+              <Image key={idx} source={{ uri }} style={styles.podPhotoThumb} resizeMode="cover" />
+            ))}
+          </View>
+        </Panel>
+      ) : null}
+      {pod.damagePhotoUris && pod.damagePhotoUris.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Damage Photos ({pod.damagePhotoUris.length})</Text>
+          <View style={styles.podPhotoGrid}>
+            {pod.damagePhotoUris.map((uri, idx) => (
+              <Image key={idx} source={{ uri }} style={styles.podPhotoThumb} resizeMode="cover" />
+            ))}
+          </View>
+        </Panel>
+      ) : null}
+      {pod.documentUris && pod.documentUris.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Documents ({pod.documentUris.length})</Text>
+          {pod.documentUris.map((uri, idx) => (
+            <TouchableOpacity key={idx} onPress={() => void Linking.openURL(uri)}>
+              <Text style={styles.linkText}>Document {idx + 1}</Text>
+            </TouchableOpacity>
+          ))}
+        </Panel>
+      ) : null}
+      {pod.comments ? <Panel><Info label="Comments" value={pod.comments} /></Panel> : null}
+      {pod.receiverNotes ? <Panel><Info label="Receiver Notes" value={pod.receiverNotes} /></Panel> : null}
+      {pod.driverNotes ? <Panel><Info label="Driver Notes" value={pod.driverNotes} /></Panel> : null}
+      {pod.auditHistory && pod.auditHistory.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Audit History</Text>
+          {pod.auditHistory.map((entry) => (
+            <View key={entry.id} style={styles.auditRow}>
+              <Text style={styles.auditStatus}>{entry.status.replace(/_/g, ' ').toUpperCase()}</Text>
+              <Text style={styles.auditMeta}>{formatDateTime(entry.timestamp)} · {entry.user} · {entry.role}</Text>
+            </View>
+          ))}
+        </Panel>
+      ) : null}
+      <SecondaryButton label="Back" onPress={onBack} />
     </View>
   );
 }
@@ -1055,4 +1484,53 @@ const styles = StyleSheet.create({
   queueRowTitle: { color: colors.text, fontWeight: '700', textTransform: 'capitalize', flex: 1 },
   queueActions: { gap: spacing.sm },
   queueError: { color: colors.danger, fontWeight: '600' },
+  // Job Detail tabs
+  detailTabs: { flexDirection: 'row', backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 4 },
+  detailTab: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  detailTabActive: { backgroundColor: colors.primary },
+  detailTabText: { color: colors.muted, fontWeight: '800', fontSize: 13 },
+  detailTabTextActive: { color: '#fff' },
+  // Summary tab
+  contactRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  contactButton: { flex: 1, minHeight: 44, backgroundColor: colors.panelSoft, borderColor: colors.border, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  contactButtonText: { color: colors.text, fontWeight: '800', fontSize: 13 },
+  mapButton: { minHeight: 44, backgroundColor: colors.panelSoft, borderColor: colors.border, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs },
+  mapButtonText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
+  attachmentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  attachmentLeft: { flex: 1, gap: 2 },
+  attachmentName: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  attachmentMeta: { color: colors.muted, fontSize: 11 },
+  attachmentAction: { color: colors.primary, fontWeight: '900', fontSize: 20, paddingLeft: spacing.sm },
+  // Stops tab
+  stopTypeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
+  stopTypeLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  stopCollection: { color: '#22c55e' },
+  stopDelivery: { color: '#ef4444' },
+  viewPodButton: { minHeight: 52, backgroundColor: '#16a34a', borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  viewPodButtonText: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 0.6 },
+  // Status tab timeline
+  timelineRow: { flexDirection: 'row', gap: spacing.sm },
+  timelineConnectorCol: { alignItems: 'center', width: 28 },
+  timelineLine: { width: 2, flex: 1, minHeight: 14 },
+  timelineLineBottom: { width: 2, flex: 1, minHeight: 14 },
+  timelineLineDone: { backgroundColor: '#22c55e' },
+  timelineLinePending: { backgroundColor: colors.border },
+  timelineDot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+  timelineDotDone: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  timelineDotPending: { backgroundColor: colors.panelSoft, borderColor: colors.border },
+  timelineDotCurrent: { borderColor: colors.primary },
+  timelineDotCheck: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  timelineContent: { flex: 1, paddingBottom: spacing.md },
+  timelineLabel: { fontWeight: '800', fontSize: 15 },
+  timelineLabelDone: { color: colors.text },
+  timelineLabelPending: { color: colors.muted },
+  timelineMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  timelineExpanded: { marginTop: spacing.sm, gap: spacing.xs },
+  // POD photo grid
+  podPhotoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  podPhotoThumb: { width: 80, height: 80, borderRadius: 8, backgroundColor: colors.panelSoft },
+  // Audit
+  auditRow: { paddingVertical: spacing.xs, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  auditStatus: { color: colors.text, fontWeight: '700', fontSize: 13 },
+  auditMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });

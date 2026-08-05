@@ -37,7 +37,7 @@
   ],
   "exclude": [
     "node_modules",
-    "apps/driver-mobile",
+    "apps/driver-mobile/**",
     "supabase/functions"
   ]
 }

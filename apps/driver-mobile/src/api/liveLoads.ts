@@ -5,8 +5,8 @@ type ApiLoad = {
   id: string;
   publicReference: string | null;
   poster?: { name: string | null; memberCode: string | null };
-  pickup: { addressSummary: string; collectionFrom: string | null };
-  delivery: { addressSummary: string; deliveryFrom: string | null };
+  pickup: { addressSummary: string; collectionFrom: string | null; collectionTo?: string | null };
+  delivery: { addressSummary: string; deliveryFrom: string | null; deliveryTo?: string | null };
   vehicleType: string | null;
   freightType: string | null;
   publicPrice: { visible: boolean; amount: number | null; currency: string | null };
@@ -20,6 +20,16 @@ type ApiLoad = {
   quoteWarning?: string | null;
   hasProposedPrice?: boolean;
   proposedPriceGbp?: number | null;
+  // Extended fields
+  distanceMiles?: number | null;
+  estimatedDrivingMinutes?: number | null;
+  weightKg?: number | null;
+  dimensions?: string | null;
+  palletCount?: number | null;
+  adr?: boolean;
+  tailLift?: boolean;
+  temperatureControlled?: boolean;
+  badges?: string[];
 };
 
 export type LiveLoadsResponse = {
@@ -40,7 +50,9 @@ export type LiveLoad = {
   pickupLocation: string;
   deliveryLocation: string;
   pickupTime: string;
+  pickupTimeTo?: string;
   deliveryTime: string;
+  deliveryTimeTo?: string;
   cargoType: string;
   vehicleRequirement: string;
   price: string;
@@ -58,6 +70,16 @@ export type LiveLoad = {
   distanceFromCurrentDeliveryMiles?: number;
   hasProposedPrice: boolean;
   proposedPriceGbp?: number;
+  // Extended display fields
+  distanceMiles?: number;
+  estimatedDrivingMinutes?: number;
+  weightKg?: number;
+  dimensions?: string;
+  palletCount?: number;
+  adr?: boolean;
+  tailLift?: boolean;
+  temperatureControlled?: boolean;
+  badges?: string[];
 };
 
 function money(amount: number | null, currency = 'GBP') {
@@ -91,6 +113,17 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     distanceFromCurrentDeliveryMiles: load.distanceFromCurrentDeliveryMiles ?? undefined,
     hasProposedPrice: load.hasProposedPrice === true,
     proposedPriceGbp: typeof load.proposedPriceGbp === 'number' ? load.proposedPriceGbp : undefined,
+    pickupTimeTo: load.pickup.collectionTo || undefined,
+    deliveryTimeTo: load.delivery.deliveryTo || undefined,
+    distanceMiles: typeof load.distanceMiles === 'number' ? load.distanceMiles : undefined,
+    estimatedDrivingMinutes: typeof load.estimatedDrivingMinutes === 'number' ? load.estimatedDrivingMinutes : undefined,
+    weightKg: typeof load.weightKg === 'number' ? load.weightKg : undefined,
+    dimensions: load.dimensions || undefined,
+    palletCount: typeof load.palletCount === 'number' ? load.palletCount : undefined,
+    adr: load.adr === true,
+    tailLift: load.tailLift === true,
+    temperatureControlled: load.temperatureControlled === true,
+    badges: Array.isArray(load.badges) ? load.badges : [],
   };
 }
 
