@@ -3,13 +3,7 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-/**
- * Strip PostgREST-reserved characters from a search term to prevent filter
- * injection via the `.or()` string.  Commas, parentheses, dots, and percent
- * signs are removed; the remaining value is safe to embed inside an ilike
- * pattern string.
- */
-const sanitizeSearch = (raw: string) => raw.replace(/[(),%]/g, '').trim();
+const normalizeSearch = (raw: string) => raw.trim();
 const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending', 'pending_approval', 'rejected', 'suspended', 'all'] as const;
 type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
 
@@ -38,6 +32,39 @@ type RawGovernanceAuditRow = {
 const isPendingStatus = (value: string) => value === 'pending' || value === 'pending_approval';
 const normalizeCompanyStatusFilter = (status: CompanyStatusFilter): CompanyStatusFilter =>
   isPendingStatus(status) ? 'pending' : status;
+
+export const buildCompanySearchPattern = (search: string) => `%${search}%`;
+
+export const applyCompanyStatusFilter = <T extends {
+  eq: (column: string, value: string) => T;
+  in: (column: string, values: string[]) => T;
+}>(query: T, status: CompanyStatusFilter) => {
+  if (status === 'all') return query;
+  if (isPendingStatus(status)) return query.in('status', ['pending', 'pending_approval']);
+  return query.eq('status', status);
+};
+
+const findMatchingCompanyIds = async (search: string) => {
+  if (!supabaseAdmin || !search) return null;
+  const pattern = buildCompanySearchPattern(search);
+  const [nameResult, companyNumberResult, emailResult] = await Promise.all([
+    supabaseAdmin.from('companies').select('id').ilike('name', pattern).limit(200),
+    supabaseAdmin.from('companies').select('id').ilike('company_number', pattern).limit(200),
+    supabaseAdmin.from('companies').select('id').ilike('email', pattern).limit(200),
+  ]);
+  const firstError = [nameResult.error, companyNumberResult.error, emailResult.error].find(Boolean);
+  if (firstError) return { error: firstError.message };
+  return {
+    ids: Array.from(
+      new Set(
+        [nameResult.data, companyNumberResult.data, emailResult.data]
+          .flatMap((rows) => rows ?? [])
+          .map((row) => String(row.id ?? ''))
+          .filter(Boolean),
+      ),
+    ),
+  };
+};
 
 const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | null => {
   const id = typeof row.id === 'string' ? row.id : null;
@@ -127,58 +154,46 @@ export async function GET(request: NextRequest) {
   const offset = (pageParam - 1) * limitParam;
 
   // Search
-  const search = sanitizeSearch(searchParams.get('search')?.trim() ?? '');
+  const search = normalizeSearch(searchParams.get('search') ?? '');
+  const searchMatches = search ? await findMatchingCompanyIds(search) : null;
+  if (searchMatches && 'error' in searchMatches) {
+    return respond(500, { error: searchMatches.error });
+  }
+  if (searchMatches && searchMatches.ids.length === 0) {
+    return respond(200, {
+      companies: [],
+      pagination: {
+        page: pageParam,
+        limit: limitParam,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: pageParam > 1,
+      },
+      governanceHistoryAvailable: true,
+      governanceHistoryError: null,
+      governanceHistoryRecent: [],
+      governanceHistoryByCompany: {},
+    });
+  }
 
   let companyQuery = supabaseAdmin
     .from('companies')
     .select('id, name, company_number, email, status, company_type, created_at', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limitParam - 1);
+    .order('created_at', { ascending: false });
 
-  if (status !== 'all' && !isPendingStatus(status)) {
-    companyQuery = companyQuery.eq('status', status);
+  companyQuery = applyCompanyStatusFilter(companyQuery, status);
+  if (searchMatches && 'ids' in searchMatches) {
+    companyQuery = companyQuery.in('id', searchMatches.ids);
   }
-
-  // Apply search filter using ilike on name; also search company_number and email
-  if (search) {
-    companyQuery = companyQuery.or(
-      `name.ilike.%${search}%,company_number.ilike.%${search}%,email.ilike.%${search}%`,
-    );
-  }
+  companyQuery = companyQuery.range(offset, offset + limitParam - 1);
 
   let { data, error, count } = await companyQuery;
-
-  // If the query fails with an enum mismatch for 'pending_approval', retry
-  // with the legacy 'pending' value that may be stored in older databases.
-  if (error && status === 'pending_approval' && error.message?.includes('enum')) {
-    let legacyQuery = supabaseAdmin
-      .from('companies')
-      .select('id, name, company_number, email, status, company_type, created_at', { count: 'exact' })
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limitParam - 1);
-    if (search) {
-      legacyQuery = legacyQuery.or(
-        `name.ilike.%${search}%,company_number.ilike.%${search}%,email.ilike.%${search}%`,
-      );
-    }
-    const legacyResult = await legacyQuery;
-    if (!legacyResult.error) {
-      data = legacyResult.data;
-      count = legacyResult.count;
-      error = null;
-    }
-  }
 
   if (error) {
     return respond(500, { error: error.message });
   }
-
-  const companies = (data ?? []).filter((company) => {
-    if (!isPendingStatus(status)) return true;
-    const normalized = String(company.status ?? '').trim().toLowerCase();
-    return isPendingStatus(normalized);
-  });
+  const companies = data ?? [];
 
   // Query governance history defensively: try full column set first, then fall
   // back to a minimal set if optional columns (old_status / new_status) do not
