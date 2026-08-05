@@ -13,6 +13,7 @@ import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPost
 import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
 import {
   validateJobTransition,
+  resolveJobStatusFilter,
 } from '../../../lib/jobs/jobOperationalContract';
 import type { JobTransitionRecord } from '../../../lib/jobs/jobOperationalContract';
 
@@ -118,7 +119,7 @@ function JobsPageInner() {
  const [jobsPage, setJobsPage] = useState(0);
  const JOBS_PER_PAGE = 20;
  const [searchTerm, setSearchTerm] = useState('');
- const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? 'All');
+ const [statusFilter, setStatusFilter] = useState(() => resolveJobStatusFilter(searchParams.get('status')));
  const [pickupFilter, setPickupFilter] = useState('');
  const [deliveryFilter, setDeliveryFilter] = useState('');
  const [dateFilter, setDateFilter] = useState('');
@@ -202,6 +203,13 @@ function JobsPageInner() {
  loadCompanyId(user.id);
  }
  }, [user?.id, user?.companyId, hasSupabaseSession, companyId]);
+
+ // Synchronize statusFilter when ?status= query parameter changes client-side
+ // (e.g. navigating from /admin/jobs?status=delivered to ?status=posted without unmounting).
+ useEffect(() => {
+ setStatusFilter(resolveJobStatusFilter(searchParams.get('status')));
+ // searchParams identity changes on every navigation, so this fires correctly.
+ }, [searchParams]);
 
  useEffect(() => {
  loadJobs();

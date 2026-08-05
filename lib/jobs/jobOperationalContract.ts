@@ -8,6 +8,7 @@
  *   - Status transition guard (ALLOWED_STATUS_TRANSITIONS, allowedStatusTransitions)
  *   - Direct Invite eligibility rule (isDirectInviteEligible)
  *   - Driver filter helper (filterJobsByDriver)
+ *   - Status deep-link resolver (JOBS_STATUS_FILTER_VALUES, resolveJobStatusFilter)
  *
  * All status values are sourced from the canonical JOB_STATUS constants in
  * app/config/company.ts — no string literals are duplicated here.
@@ -255,4 +256,52 @@ export function isDirectInviteEligible(
 export function filterJobsByDriver(jobs: JobRow[], driverFilter: string): JobRow[] {
   if (!driverFilter) return jobs;
   return jobs.filter((j) => j.assignedDriverId === driverFilter);
+}
+
+/* ─── Status deep-link resolver ─────────────────────────────────────────── */
+
+/**
+ * Canonical set of status filter values accepted by the Admin Jobs page/table.
+ * Includes the special 'All' sentinel plus every DB status value exposed as a
+ * filter tab.  Shared between the URL resolver and the visible tabs so the two
+ * surfaces cannot drift apart.
+ */
+export const JOBS_STATUS_FILTER_VALUES = [
+  'All',
+  JOB_STATUS.RECEIVED,   // 'draft'
+  JOB_STATUS.POSTED,     // 'posted'
+  JOB_STATUS.ALLOCATED,  // 'allocated'
+  JOB_STATUS.IN_TRANSIT, // 'in_transit'
+  JOB_STATUS.DELIVERED,  // 'delivered'
+  JOB_STATUS.CANCELLED,  // 'cancelled'
+] as const;
+
+export type JobStatusFilterValue = (typeof JOBS_STATUS_FILTER_VALUES)[number];
+
+/**
+ * Pure status-filter resolver for URL `?status=` query parameters.
+ *
+ * Resolution rules (in priority order):
+ *  1. null, empty string, 'All', or 'all' (case-insensitive) → 'All'
+ *  2. 'received' alias (human-readable label) → canonical DB value 'draft'
+ *  3. Trim whitespace and normalise to lower-case before matching
+ *  4. Any value present in JOBS_STATUS_FILTER_VALUES → returned as-is
+ *  5. Unknown values → 'All' (fail-safe)
+ */
+export function resolveJobStatusFilter(raw: string | null | undefined): JobStatusFilterValue {
+  if (!raw) return 'All';
+
+  const normalised = raw.trim().toLowerCase();
+
+  if (!normalised || normalised === 'all') return 'All';
+
+  // Human-readable alias used in URLs (label → DB value)
+  if (normalised === 'received') return JOB_STATUS.RECEIVED;
+
+  // Find the matching canonical filter value (case-insensitive compare)
+  const match = JOBS_STATUS_FILTER_VALUES.find(
+    (v) => v.toLowerCase() === normalised,
+  );
+
+  return match ?? 'All';
 }
