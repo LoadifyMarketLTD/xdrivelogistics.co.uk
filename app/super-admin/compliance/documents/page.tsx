@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
+import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 
 type DocumentFamily = 'driver' | 'vehicle' | 'company' | 'identity';
 
@@ -35,10 +36,14 @@ const openSecureDocument = (url: string) => {
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
+  // PR-0.5: modal for rejection (requires reason)
+  const [pendingReject, setPendingReject] = useState<Row | null>(null);
+  // PR-0.5: inline error replacing window.alert
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   const viewDocument = async (row: Row) => {
     if (!row.file_available) {
-      window.alert('This record has no stored file.');
+      setInlineError('This record has no stored file.');
       return;
     }
 
@@ -65,7 +70,7 @@ export default function Page() {
       };
 
       if (!response.ok || !payload.url) {
-        window.alert(payload.error ?? `Unable to open document (${response.status}).`);
+        setInlineError(payload.error ?? `Unable to open document (${response.status}).`);
         return;
       }
 
@@ -75,16 +80,15 @@ export default function Page() {
     }
   };
 
-  const updateDocument = async (row: Row, action: 'approve' | 'reject') => {
+  const updateDocument = async (row: Row, action: 'approve' | 'reject', reason = '') => {
+    if (action === 'reject' && !reason) {
+      setPendingReject(row);
+      return;
+    }
     setBusyDocumentId(row.id);
     try {
       const auth = await getAuthHeader();
       if (!auth) return;
-
-      const reason =
-        action === 'reject'
-          ? window.prompt('Reason for rejection:', '') ?? ''
-          : '';
 
       const response = await fetch('/api/super-admin/compliance/documents', {
         method: 'PATCH',
@@ -96,13 +100,13 @@ export default function Page() {
           documentFamily: row.document_family,
           id: row.id,
           action,
-          reason: reason.trim() || undefined,
+          reason: reason || undefined,
         }),
       });
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
-        window.alert(payload.error ?? `Update failed (${response.status})`);
+        setInlineError(payload.error ?? `Update failed (${response.status})`);
       } else {
         setReloadToken(Date.now());
       }
@@ -209,15 +213,53 @@ export default function Page() {
   );
 
   return (
-    <SuperAdminLiveTablePage<Row>
-      icon="📁"
-      title="Document Review"
-      sectionLabel="Compliance"
-      description="All company, identity, driver and vehicle documents across the platform. Secure previews are issued only to the Platform Owner and every view or review action is audit logged."
-      endpoint={`/api/super-admin/compliance/documents?limit=250&reload=${reloadToken}`}
-      summaryField="summary"
-      emptyMessage="No compliance documents found."
-      columns={columns}
-    />
+    <>
+      {/* PR-0.5: rejection confirmation modal */}
+      <ActionConfirmModal
+        open={pendingReject !== null}
+        title="❌ Reject document"
+        description={
+          <>Reject <strong style={{ color: '#f1f5f9' }}>{pendingReject?.doc_type.replace(/_/g, ' ')}</strong> for <strong style={{ color: '#f1f5f9' }}>{pendingReject?.entity_name}</strong>. The document will be marked as rejected.</>
+        }
+        confirmLabel="Confirm rejection"
+        danger
+        reasonRequired
+        reasonPlaceholder="Explain why this document is being rejected…"
+        submitting={busyDocumentId !== null}
+        onCancel={() => setPendingReject(null)}
+        onConfirm={(reason) => {
+          if (!pendingReject) return;
+          const row = pendingReject;
+          setPendingReject(null);
+          void updateDocument(row, 'reject', reason);
+        }}
+      />
+      {/* PR-0.5: inline error banner replacing window.alert */}
+      {inlineError && (
+        <div
+          style={{
+            position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
+            backgroundColor: '#7f1d1d', border: '1px solid #ef4444',
+            borderRadius: '8px', padding: '0.75rem 1rem',
+            color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
+            cursor: 'pointer',
+          }}
+          onClick={() => setInlineError(null)}
+          role="alert"
+        >
+          ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
+        </div>
+      )}
+      <SuperAdminLiveTablePage<Row>
+        icon="📁"
+        title="Document Review"
+        sectionLabel="Compliance"
+        description="All company, identity, driver and vehicle documents across the platform. Secure previews are issued only to the Platform Owner and every view or review action is audit logged."
+        endpoint={`/api/super-admin/compliance/documents?limit=250&reload=${reloadToken}`}
+        summaryField="summary"
+        emptyMessage="No compliance documents found."
+        columns={columns}
+      />
+    </>
   );
 }

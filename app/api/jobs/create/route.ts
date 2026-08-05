@@ -7,7 +7,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import { getFeatureFlags } from '../../_lib/platformFlags';
+import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -111,6 +111,20 @@ export async function POST(request: NextRequest) {
     // Read the configurable expiry window from global settings
     const { getGlobalSettingNumber } = await import('../../_lib/platformFlags');
     exchangeAutoExpireHours = await getGlobalSettingNumber(supabaseAdmin, 'exchange_auto_expire_hours');
+  }
+
+  // PR-0.3: compliance_block_posting — if enabled, verify the company is in good standing before allowing job creation.
+  const complianceBlockPosting = await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting');
+  if (complianceBlockPosting) {
+    const { data: company } = await supabaseAdmin
+      .from('companies')
+      .select('status')
+      .eq('id', input.companyId)
+      .maybeSingle();
+    const companyStatus = String(company?.status ?? '').toLowerCase();
+    if (companyStatus && !['active', 'fully_active', 'active_with_warnings'].includes(companyStatus)) {
+      return respond(403, { error: 'Your company account is not in good standing. Job posting is blocked until compliance issues are resolved.' });
+    }
   }
 
   let idempotencyAvailable = true;

@@ -8,6 +8,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../_lib/platformFlags';
 import { normalizeOnboardingStatus, type OnboardingAccountType } from '../../_lib/onboarding';
 import {
   registerCompaniesHouseCompany,
@@ -356,21 +357,24 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
 
     if (updateError) return json(500, { error: updateError.message });
 
-    const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
-      event_type: 'onboarding_submitted',
-      entity_type: 'onboarding_application',
-      entity_id: application.id,
-      recipient_user_id: authUser.id,
-      payload: {
-        onboarding_application_id: application.id,
-        account_type: expectedAccountType,
-        status: updated.status,
-        company_id: companyId,
-      },
-    });
+    const notificationsEnabled = await getFeatureFlag(supabaseAdmin, 'notifications');
+    if (notificationsEnabled) {
+      const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
+        event_type: 'onboarding_submitted',
+        entity_type: 'onboarding_application',
+        entity_id: application.id,
+        recipient_user_id: authUser.id,
+        payload: {
+          onboarding_application_id: application.id,
+          account_type: expectedAccountType,
+          status: updated.status,
+          company_id: companyId,
+        },
+      });
 
-    if (notificationError) {
-      console.error('[onboarding] onboarding_submitted notification failed', notificationError.message);
+      if (notificationError) {
+        console.error('[onboarding] onboarding_submitted notification failed', notificationError.message);
+      }
     }
 
     return json(200, {

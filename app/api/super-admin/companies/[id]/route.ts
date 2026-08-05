@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const GOVERNANCE_STATUSES = ['active', 'inactive', 'pending_approval', 'pending', 'rejected', 'suspended'] as const;
@@ -109,6 +110,15 @@ export async function PATCH(
 
   const { action, reason } = parsed.data;
   const { id: companyId } = await params;
+
+  // PR-0.2: Gate company suspension actions behind the company_suspension feature flag.
+  // Fail-open per platformFlags policy (suspension stays on if DB unreachable).
+  if (action === 'suspend' || action === 'reinstate') {
+    const suspensionEnabled = await getFeatureFlag(supabaseAdmin, 'company_suspension');
+    if (!suspensionEnabled) {
+      return respond(503, { error: 'Company suspension controls are currently disabled by a platform feature flag.' });
+    }
+  }
 
   const { data: currentCompany, error: currentCompanyError } = await supabaseAdmin
     .from('companies')
