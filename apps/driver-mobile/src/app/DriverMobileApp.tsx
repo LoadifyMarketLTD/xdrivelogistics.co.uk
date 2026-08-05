@@ -67,27 +67,20 @@ async function waitForReadySession(maxAttempts = 8, waitMs = 300): Promise<Ready
   return null;
 }
 
-async function validateDriverRole(userId: string): Promise<string | null> {
+/**
+ * Validates that the signed-in user is authorized as a driver by calling the
+ * backend driver resources endpoint. This uses the backend as the authority
+ * rather than reading from `profiles.role` directly, which avoids a direct
+ * Supabase table dependency and honours any server-side role logic.
+ *
+ * Returns the userId on success, or null if authorization fails.
+ */
+async function validateDriverAuthorization(userId: string, accessToken: string): Promise<string | null> {
   try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !profile) {
-      console.warn('[auth] Profile fetch failed or not found:', error?.message);
-      return null;
-    }
-
-    if ((profile as { role?: string }).role !== 'driver') {
-      console.warn('[auth] User role is not driver:', (profile as { role?: string }).role);
-      return null;
-    }
-
+    await fetchDriverResources(accessToken);
     return userId;
   } catch (error) {
-    console.error('[auth] Driver role validation error:', error);
+    console.warn('[auth] Driver authorization check failed:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }
@@ -242,13 +235,13 @@ export default function DriverMobileApp() {
     }
   }, []);
 
-  const flushQueue = useCallback(async (sessionToken: string, options: { force?: boolean } = {}) => {
+  const flushQueue = useCallback(async (userId: string, sessionToken: string, options: { force?: boolean } = {}) => {
     if (queueSyncInFlightRef.current) return;
     if (!(await isOnline())) return;
 
     queueSyncInFlightRef.current = true;
     try {
-      let nextQueue = await getQueue();
+      let nextQueue = await getQueue(userId);
       const readyItems = getReadyActionsInOrder(
         nextQueue,
         options.force ? (item) => item.status !== 'synced' : isQueueItemReady,
@@ -262,14 +255,14 @@ export default function DriverMobileApp() {
       const failedJobIds = new Set<string>();
       for (const item of readyItems) {
         if (failedJobIds.has(item.jobId)) continue;
-        nextQueue = await markQueueItemSyncing(item.id);
+        nextQueue = await markQueueItemSyncing(userId, item.id);
         setQueue(nextQueue);
         try {
           if (item.endpoint === 'pod') await uploadPod(item.jobId, sessionToken, item.payload ?? {});
           else await postJobStatus(item.jobId, item.endpoint, sessionToken);
-          nextQueue = await markQueueItemSynced(item.id);
+          nextQueue = await markQueueItemSynced(userId, item.id);
         } catch (error) {
-          nextQueue = await markQueueItemFailed(item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          nextQueue = await markQueueItemFailed(userId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
           failedJobIds.add(item.jobId);
         }
         setQueue(nextQueue);
@@ -279,7 +272,7 @@ export default function DriverMobileApp() {
       await loadResources(sessionToken, { silent: true });
     } finally {
       queueSyncInFlightRef.current = false;
-      const latestQueue = await getQueue().catch(() => []);
+      const latestQueue = await getQueue(userId).catch(() => []);
       setQueue(latestQueue);
     }
   }, [loadJobs, loadResources, scope]);
@@ -310,28 +303,29 @@ export default function DriverMobileApp() {
           return;
         }
 
-        const isDriver = await validateDriverRole(userId);
+        const isDriver = await validateDriverAuthorization(userId, sessionToken);
         if (!isDriver) {
           setMessage('Access denied: only drivers can use this app.');
+          await clearQueue(userId).catch(() => undefined);
           await supabase.auth.signOut().catch(() => undefined);
           await clearSessionToken();
           setScreen('login');
           return;
         }
 
+        // Load the account-scoped queue now that the userId is confirmed.
+        void getQueue(userId).then(setQueue).catch(() => setQueue([]));
         setToken(sessionToken);
         void saveSessionToken(sessionToken);
         await loadJobs(sessionToken);
         void loadResources(sessionToken);
         void safeRegisterPushToken(sessionToken);
-        void flushQueue(sessionToken);
+        void flushQueue(userId, sessionToken);
       })
       .catch(() => {
         void clearSessionToken();
         setScreen('login');
       });
-
-    void getQueue().then(setQueue).catch(() => setQueue([]));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: unknown, session: { access_token?: string | null; user?: { id?: string | null } | null } | null) => {
       const nextToken = getAccessToken(session);
@@ -341,6 +335,11 @@ export default function DriverMobileApp() {
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
       if (!session) {
+        // Session lost (sign-out, token expiry, remote logout). Clear persistent
+        // user data before resetting React state to prevent cross-account leakage.
+        // We capture nextUserId before it is nulled so the correct key is removed.
+        const previousUserId = nextUserId;
+        if (previousUserId) void clearQueue(previousUserId).catch(() => undefined);
         setJob(null);
         setJobs([]);
         setResources(null);
@@ -375,20 +374,20 @@ export default function DriverMobileApp() {
   }, [notificationsSeenKey, resources?.alerts, screen]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !authUserId) return;
     const subscription = Network.addNetworkStateListener((state) => {
       if (state.isConnected && state.isInternetReachable !== false) {
-        void flushQueue(token);
+        void flushQueue(authUserId, token);
       }
     });
     const intervalId = setInterval(() => {
-      void flushQueue(token);
+      void flushQueue(authUserId, token);
     }, 15_000);
     return () => {
       subscription.remove();
       clearInterval(intervalId);
     };
-  }, [flushQueue, token]);
+  }, [flushQueue, token, authUserId]);
 
   async function signIn(email: string, password: string) {
     const normalizedEmail = email.trim();
@@ -415,7 +414,7 @@ export default function DriverMobileApp() {
       return;
     }
 
-    const isDriver = await validateDriverRole(userId);
+    const isDriver = await validateDriverAuthorization(userId, accessToken);
     if (!isDriver) {
       setMessage('Access denied: only drivers can use this app.');
       await supabase.auth.signOut().catch(() => undefined);
@@ -429,16 +428,19 @@ export default function DriverMobileApp() {
     } catch {
       // SecureStore failure should not block sign-in.
     }
+    void getQueue(userId).then(setQueue).catch(() => setQueue([]));
     void safeRegisterPushToken(accessToken);
     await loadJobs(accessToken);
     void loadResources(accessToken);
-    void flushQueue(accessToken);
+    void flushQueue(userId, accessToken);
   }
 
   async function signOut() {
+    // Capture userId before clearing state so the correct account-scoped queue is removed.
+    const userId = authUserId;
     await supabase.auth.signOut();
     await clearSessionToken();
-    await clearQueue();
+    if (userId) await clearQueue(userId).catch(() => undefined);
     setToken(null);
     setAuthUserId(null);
     setJob(null);
@@ -451,13 +453,14 @@ export default function DriverMobileApp() {
   }
 
   async function retryFailedQueueItems() {
+    if (!authUserId || !token) return;
     const failedItems = queue.filter((item) => item.status === 'failed');
     for (const item of failedItems) {
-      await retryQueueItem(item.id);
+      await retryQueueItem(authUserId, item.id);
     }
-    const latestQueue = await getQueue();
+    const latestQueue = await getQueue(authUserId);
     setQueue(latestQueue);
-    if (token) await flushQueue(token, { force: true });
+    await flushQueue(authUserId, token, { force: true });
   }
 
   async function submitStatus() {
@@ -478,9 +481,10 @@ export default function DriverMobileApp() {
     }
 
     const apply = async () => {
-      if (!token || !(await isOnline())) {
-        const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [queued, ...items]);
+      if (!token || !authUserId || !(await isOnline())) {
+        if (!authUserId) return;
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
+        setQueue((items) => [...items, queued]);
         // Do NOT update the local job status — the server has not confirmed the transition.
         // The pending badge in the queue UI communicates the pending state to the driver.
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
@@ -499,8 +503,8 @@ export default function DriverMobileApp() {
         }
         // Online failure — keep the server-confirmed status; do NOT advance it locally.
         // Queue the action for automatic retry.
-        const queued = await enqueueAction({ jobId: job.id, endpoint: nextStep.endpoint });
-        setQueue((items) => [queued, ...items]);
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
+        setQueue((items) => [...items, queued]);
         setMessage(text);
       }
     };
@@ -548,7 +552,7 @@ export default function DriverMobileApp() {
                 onDetail={() => setScreen('detail')}
                 onPod={() => setScreen('pod')}
                 onRetryFailed={() => void retryFailedQueueItems()}
-                onSyncNow={() => token && void flushQueue(token, { force: true })}
+                onSyncNow={() => authUserId && token && void flushQueue(authUserId, token, { force: true })}
               />
             )}
             {screen === 'active' && !job && !loading && <EmptyJobsScreen onRefresh={() => token && void loadJobs(token, scope, { navigate: false })} />}
@@ -567,16 +571,17 @@ export default function DriverMobileApp() {
               />
             )}
             {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => setScreen('viewPod')} />}
-            {screen === 'pod' && job && (
+            {screen === 'pod' && job && authUserId && (
               <PodScreen
                 job={job}
                 token={token}
+                userId={authUserId}
                 onSaved={(updatedJob) => {
                   if (updatedJob) setJob(updatedJob);
                   else setJob((current) => (current ? { ...current, podGenerated: true, podCompleted: true } : current));
                   setScreen('active');
                 }}
-                onQueued={(queued) => setQueue((items) => [queued, ...items])}
+                onQueued={(queued) => setQueue((items) => [...items, queued])}
               />
             )}
             {screen === 'viewPod' && job && (
@@ -916,7 +921,7 @@ function StatusTab({ job }: { job: DriverJob }) {
   );
 }
 
-function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
+function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; token: string | null; userId: string; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [damagePhotoUris, setDamagePhotoUris] = useState<string[]>([]);
@@ -1001,7 +1006,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       notes,
     };
     if (!token || !(await isOnline())) {
-      const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
+      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       setSubmitting(false);
       Alert.alert('POD saved offline', 'Your POD evidence has been saved and will be uploaded automatically when connectivity returns.', [
@@ -1014,7 +1019,7 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       setSubmitting(false);
       onSaved('job' in response ? response.job as DriverJob : undefined);
     } catch {
-      const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
+      const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
       setSubmitting(false);
       Alert.alert('POD queued for retry', 'The upload failed. Your POD evidence has been saved and will retry automatically.', [

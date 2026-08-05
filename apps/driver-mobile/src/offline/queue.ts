@@ -16,7 +16,21 @@ export type QueuedAction = {
   nextRetryAt?: string;
 };
 
-const queueKey = 'xdrive.driver.offlineQueue';
+/**
+ * Returns the AsyncStorage key scoped to the authenticated user.
+ * Using a per-user key prevents one driver's queued actions from being
+ * read, retried or flushed by another driver who signs in on the same device.
+ */
+export function queueStorageKey(userId: string): string {
+  return `xdrive.driver.offlineQueue:${userId}`;
+}
+
+/**
+ * The legacy (unscoped) key used before account isolation was introduced.
+ * Only used during cleanup — never read into a new user's queue.
+ */
+const legacyQueueKey = 'xdrive.driver.offlineQueue';
+
 const maxRetryDelayMs = 15 * 60 * 1000;
 const initialRetryDelayMs = 15 * 1000;
 
@@ -35,8 +49,8 @@ function normalizeQueueItem(item: Partial<QueuedAction>) {
   } satisfies QueuedAction;
 }
 
-export async function getQueue(): Promise<QueuedAction[]> {
-  const raw = await AsyncStorage.getItem(queueKey);
+export async function getQueue(userId: string): Promise<QueuedAction[]> {
+  const raw = await AsyncStorage.getItem(queueStorageKey(userId));
   if (!raw) return [];
   try {
     return (JSON.parse(raw) as Partial<QueuedAction>[]).map(normalizeQueueItem).filter((item) => item.id && item.jobId && item.endpoint);
@@ -45,12 +59,12 @@ export async function getQueue(): Promise<QueuedAction[]> {
   }
 }
 
-export async function saveQueue(queue: QueuedAction[]) {
-  await AsyncStorage.setItem(queueKey, JSON.stringify(queue));
+export async function saveQueue(userId: string, queue: QueuedAction[]) {
+  await AsyncStorage.setItem(queueStorageKey(userId), JSON.stringify(queue));
 }
 
-export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
-  const queue = await getQueue();
+export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
+  const queue = await getQueue(userId);
   // Prevent duplicate: if a pending/syncing/failed item for the same job and
   // endpoint already exists, return the existing item rather than adding another.
   const existing = queue.find(
@@ -67,14 +81,14 @@ export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' |
     createdAt: new Date().toISOString(),
     retryCount: 0,
   };
-  await saveQueue([...queue, queued]);
+  await saveQueue(userId, [...queue, queued]);
   return queued;
 }
 
-export async function updateQueueItem(id: string, patch: Partial<QueuedAction>) {
-  const queue = await getQueue();
+export async function updateQueueItem(userId: string, id: string, patch: Partial<QueuedAction>) {
+  const queue = await getQueue(userId);
   const next = queue.map((item) => (item.id === id ? { ...item, ...patch } : item));
-  await saveQueue(next);
+  await saveQueue(userId, next);
   return next;
 }
 
@@ -89,15 +103,15 @@ export function isQueueItemReady(item: QueuedAction, now = Date.now()) {
   return Number.isNaN(retryAt) || retryAt <= now;
 }
 
-export async function markQueueItemSyncing(id: string) {
-  return updateQueueItem(id, {
+export async function markQueueItemSyncing(userId: string, id: string) {
+  return updateQueueItem(userId, id, {
     status: 'syncing',
     lastAttemptAt: new Date().toISOString(),
   });
 }
 
-export async function markQueueItemSynced(id: string) {
-  return updateQueueItem(id, {
+export async function markQueueItemSynced(userId: string, id: string) {
+  return updateQueueItem(userId, id, {
     status: 'synced',
     lastError: undefined,
     lastAttemptAt: new Date().toISOString(),
@@ -105,10 +119,10 @@ export async function markQueueItemSynced(id: string) {
   });
 }
 
-export async function markQueueItemFailed(id: string, lastError: string, previousRetryCount: number) {
+export async function markQueueItemFailed(userId: string, id: string, lastError: string, previousRetryCount: number) {
   const now = new Date();
   const retryCount = previousRetryCount + 1;
-  return updateQueueItem(id, {
+  return updateQueueItem(userId, id, {
     status: 'failed',
     retryCount,
     lastError,
@@ -117,8 +131,8 @@ export async function markQueueItemFailed(id: string, lastError: string, previou
   });
 }
 
-export async function retryQueueItem(id: string) {
-  return updateQueueItem(id, {
+export async function retryQueueItem(userId: string, id: string) {
+  return updateQueueItem(userId, id, {
     status: 'pending',
     nextRetryAt: undefined,
     lastError: undefined,
@@ -130,7 +144,20 @@ export async function isOnline() {
   return Boolean(state.isConnected && state.isInternetReachable !== false);
 }
 
-/** Clear all queued actions. Call on sign-out to prevent cross-account data leakage. */
-export async function clearQueue() {
-  await AsyncStorage.removeItem(queueKey);
+/**
+ * Clear the account-scoped queue for the given user.
+ * Also removes the legacy unscoped key to prevent data leakage across app upgrades.
+ * Call on sign-out, token expiry, failed auth and any session-loss path.
+ */
+export async function clearQueue(userId: string) {
+  await AsyncStorage.multiRemove([queueStorageKey(userId), legacyQueueKey]);
 }
+
+/**
+ * Remove the legacy unscoped queue key without knowing the user.
+ * Safe to call at app startup to clean up old data from pre-isolation versions.
+ */
+export async function removeLegacyQueue() {
+  await AsyncStorage.removeItem(legacyQueueKey);
+}
+
