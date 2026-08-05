@@ -7,8 +7,7 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   supabaseValidator: null,
 }));
 
-import { applyCompanyStatusFilter, buildCompanySearchPattern } from '../app/api/super-admin/companies/route';
-import { buildJobSearchPattern } from '../app/api/super-admin/operations/route';
+import { applyCompanyStatusFilter, buildCompanySearchPattern, buildJobSearchPattern } from '../app/api/super-admin/_lib/searchFilters';
 
 describe('super-admin route search safety', () => {
   it('preserves reserved characters in company search patterns', () => {

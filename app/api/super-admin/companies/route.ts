@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { applyCompanyStatusFilter, buildCompanySearchPattern, type CompanyStatusFilter } from '../_lib/searchFilters';
+
+export { applyCompanyStatusFilter, buildCompanySearchPattern };
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
 const normalizeSearch = (raw: string) => raw.trim();
 const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending', 'pending_approval', 'rejected', 'suspended', 'all'] as const;
-type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
+const normalizeCompanyStatusFilter = (status: CompanyStatusFilter): CompanyStatusFilter =>
+  (status === 'pending' || status === 'pending_approval') ? 'pending' : status;
 
 type GovernanceAuditRow = {
   id: string;
@@ -27,21 +31,6 @@ type RawGovernanceAuditRow = {
   new_value?: unknown;
   reason?: unknown;
   created_at?: unknown;
-};
-
-const isPendingStatus = (value: string) => value === 'pending' || value === 'pending_approval';
-const normalizeCompanyStatusFilter = (status: CompanyStatusFilter): CompanyStatusFilter =>
-  isPendingStatus(status) ? 'pending' : status;
-
-export const buildCompanySearchPattern = (search: string) => `%${search}%`;
-
-export const applyCompanyStatusFilter = <T extends {
-  eq: (column: string, value: string) => T;
-  in: (column: string, values: string[]) => T;
-}>(query: T, status: CompanyStatusFilter) => {
-  if (status === 'all') return query;
-  if (isPendingStatus(status)) return query.in('status', ['pending', 'pending_approval']);
-  return query.eq('status', status);
 };
 
 const findMatchingCompanyIds = async (search: string) => {
