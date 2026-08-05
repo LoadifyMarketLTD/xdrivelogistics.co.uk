@@ -1,198 +1,386 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
-import {
-  ActionButton,
-  AlertBanner,
-  DataTable,
-  EmptyState,
-  KpiCard,
-  KpiGrid,
-  OperationalLinkList,
-  PageFrame,
-  PageHeader,
-  Panel,
-  StatusBadge,
-  TwoColumn,
-  workspaceTheme,
-} from '../components/workspace/WorkspaceUI';
 import { supabase } from '../../lib/supabaseClient';
 
-type PlatformStats = {
-  companiesTotal: number;
-  companiesActive: number;
-  companiesSuspended: number;
-  companiesPending: number;
-  driversTotal: number;
-  jobsTotal: number;
-  jobsOpen: number;
-  jobsDelivered: number;
-  invoicesTotal: number;
-  invoicesUnpaid: number;
+// ---------------------------------------------------------------------------
+// Types — mirrors /api/super-admin/command-centre response shape
+// ---------------------------------------------------------------------------
+
+type Severity = 'critical' | 'warning' | 'caution' | 'ok';
+
+type AttentionIndicator =
+  | { count: number; label: string; severity: Severity }
+  | { amountGbp: number; label: string; severity: Severity };
+
+type AttentionIndicators = {
+  p0p1Incidents: AttentionIndicator;
+  jobsAtRisk: AttentionIndicator;
+  blockedAccounts: AttentionIndicator;
+  financialExposure: AttentionIndicator;
+  degradedServices: AttentionIndicator;
 };
 
-type NotificationRow = {
+type ActionQueueItem = {
   id: string;
   type: string;
+  severity: 'P0' | 'P1' | 'P2';
   title: string;
-  message: string;
-  status: string;
-  created_at: string;
-};
-
-type ModuleTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
-
-type ModuleCard = {
-  title: string;
-  detail: string;
-  metric: number;
-  label: string;
+  description: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  detectedAt: string;
+  ageMinutes: number;
   href: string;
-  tone: ModuleTone;
 };
 
-const toneColor: Record<ModuleTone, string> = {
-  blue: workspaceTheme.blue,
-  green: workspaceTheme.green,
-  orange: workspaceTheme.orange,
-  red: workspaceTheme.red,
-  purple: workspaceTheme.purple,
-  navy: workspaceTheme.navy,
+type ActionQueue = {
+  total: number;
+  p0: number;
+  p1: number;
+  p2: number;
+  items: ActionQueueItem[];
 };
 
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+type CommandCentrePayload = {
+  environment: 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT';
+  refreshedAt: string;
+  attentionIndicators: AttentionIndicators;
+  actionQueue: ActionQueue;
+};
 
-export default function SuperAdminDashboardPage() {
+// ---------------------------------------------------------------------------
+// Styling constants
+// ---------------------------------------------------------------------------
+
+const T = {
+  pageBg:      '#0f172a',
+  cardBg:      '#1e293b',
+  cardBorder:  '#334155',
+  surface:     '#0b1220',
+  text:        '#f1f5f9',
+  muted:       '#94a3b8',
+  accent:      '#f59e0b',
+  green:       '#22c55e',
+  red:         '#ef4444',
+  orange:      '#f97316',
+  blue:        '#3b82f6',
+  yellow:      '#fbbf24',
+} as const;
+
+const ENV_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  PRODUCTION:  { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444', border: 'rgba(239,68,68,0.35)' },
+  STAGING:     { bg: 'rgba(251,191,36,0.12)',  text: '#fbbf24', border: 'rgba(251,191,36,0.35)' },
+  DEVELOPMENT: { bg: 'rgba(59,130,246,0.12)',  text: '#3b82f6', border: 'rgba(59,130,246,0.35)' },
+};
+
+const SEVERITY_COLORS: Record<'P0' | 'P1' | 'P2', string> = {
+  P0: T.red,
+  P1: T.orange,
+  P2: T.yellow,
+};
+
+const indicatorSeverityColor = (sev: Severity): string => {
+  if (sev === 'critical') return T.red;
+  if (sev === 'warning')  return T.orange;
+  if (sev === 'caution')  return T.yellow;
+  return T.green;
+};
+
+const fmtAge = (minutes: number): string => {
+  if (minutes < 60) return `${minutes}m ago`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
+};
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function EnvBanner({ env }: { env: CommandCentrePayload['environment'] }) {
+  const colors = ENV_COLORS[env] ?? ENV_COLORS.DEVELOPMENT;
   return (
-    <ProtectedRoute allowedRoles={['owner']}>
-      <OwnerConsole />
-    </ProtectedRoute>
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+      border: `1px solid ${colors.border}`, borderRadius: '6px',
+      backgroundColor: colors.bg, padding: '0.2rem 0.65rem',
+      fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em',
+      color: colors.text, textTransform: 'uppercase',
+    }}>
+      {env === 'PRODUCTION' ? '⚠' : env === 'STAGING' ? '⬡' : '⬡'} {env}
+    </div>
   );
 }
 
-function OwnerConsole() {
-  const router = useRouter();
-  const [stats, setStats] = useState<PlatformStats | null>(null);
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+function IndicatorCard({ indicator, label }: { indicator: AttentionIndicator; label: string }) {
+  const color = indicatorSeverityColor(indicator.severity);
+  const value = 'count' in indicator
+    ? indicator.count.toLocaleString()
+    : `£${indicator.amountGbp.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return (
+    <div style={{
+      backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`,
+      borderTop: `3px solid ${color}`, borderRadius: '10px', padding: '1rem',
+    }}>
+      <div style={{ color: T.muted, fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>{label}</div>
+      <div style={{ color, fontSize: '1.7rem', fontWeight: 900, lineHeight: 1.1 }}>{value}</div>
+      <div style={{
+        marginTop: '0.45rem', display: 'inline-block', fontSize: '0.65rem',
+        fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+        color, backgroundColor: `${color}18`, padding: '0.1rem 0.4rem', borderRadius: '3px',
+      }}>
+        {indicator.severity}
+      </div>
+    </div>
+  );
+}
 
-  const loadDashboard = useCallback(async () => {
+function SeverityBadge({ sev }: { sev: 'P0' | 'P1' | 'P2' }) {
+  const c = SEVERITY_COLORS[sev];
+  return (
+    <span style={{
+      display: 'inline-block', minWidth: '2.1rem', textAlign: 'center',
+      padding: '0.15rem 0.45rem', borderRadius: '4px',
+      backgroundColor: `${c}20`, border: `1px solid ${c}50`,
+      color: c, fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.06em',
+    }}>
+      {sev}
+    </span>
+  );
+}
+
+function ActionQueueRow({ item }: { item: ActionQueueItem }) {
+  return (
+    <tr style={{ borderBottom: `1px solid ${T.cardBorder}` }}>
+      <td style={{ padding: '0.6rem 0.9rem', whiteSpace: 'nowrap' }}>
+        <SeverityBadge sev={item.severity} />
+      </td>
+      <td style={{ padding: '0.6rem 0.9rem' }}>
+        <div style={{ color: T.text, fontSize: '0.82rem', fontWeight: 600 }}>{item.title}</div>
+        <div style={{ color: T.muted, fontSize: '0.72rem', marginTop: '0.1rem' }}>{item.description}</div>
+      </td>
+      <td style={{ padding: '0.6rem 0.9rem', color: T.muted, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+        {fmtAge(item.ageMinutes)}
+      </td>
+      <td style={{ padding: '0.6rem 0.9rem', whiteSpace: 'nowrap' }}>
+        <Link
+          href={item.href}
+          style={{
+            display: 'inline-block', padding: '0.25rem 0.6rem', borderRadius: '5px',
+            border: `1px solid ${T.accent}50`, backgroundColor: `${T.accent}12`,
+            color: T.accent, fontSize: '0.72rem', fontWeight: 700, textDecoration: 'none',
+          }}
+        >
+          Review →
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+function CommandCentre() {
+  const [data, setData]       = useState<CommandCentrePayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+
+  const load = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      setError('Your owner session has expired. Please sign in again.');
+      setError('Session expired. Please sign in again.');
       setLoading(false);
       return;
     }
-
     try {
-      const headers = { Authorization: `Bearer ${session.access_token}` };
-      const [statsResponse, notificationResponse] = await Promise.all([
-        fetch('/api/super-admin/stats', { headers }),
-        fetch('/api/super-admin/platform?section=notifications', { headers }),
-      ]);
-      const statsPayload = (await statsResponse.json().catch(() => null)) as (PlatformStats & { error?: string }) | null;
-      const notificationPayload = (await notificationResponse.json().catch(() => null)) as { rows?: NotificationRow[] } | null;
-      if (!statsResponse.ok) throw new Error(statsPayload?.error ?? 'Platform statistics could not be loaded.');
-      setStats(statsPayload);
-      setNotifications(notificationResponse.ok ? notificationPayload?.rows?.slice(0, 12) ?? [] : []);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Owner dashboard could not be loaded.');
+      const res = await fetch('/api/super-admin/command-centre', {
+        headers: { Authorization: `****** },
+      });
+      const payload = (await res.json().catch(() => null)) as (CommandCentrePayload & { error?: string }) | null;
+      if (!res.ok) {
+        setError(payload?.error ?? `HTTP ${res.status}`);
+      } else {
+        setData(payload);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Command Centre could not be loaded.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => { void load(); }, [load]);
 
-  const modules = useMemo<ModuleCard[]>(() => [
-    { title: 'Marketplace', detail: 'Global jobs, carrier quotes and exchange exceptions.', metric: stats?.jobsOpen ?? 0, label: 'Open jobs', href: '/super-admin/marketplace', tone: 'blue' },
-    { title: 'Operations', detail: 'Execution, allocation, POD and delivery visibility.', metric: stats?.jobsTotal ?? 0, label: 'All jobs', href: '/super-admin/operations/jobs', tone: 'green' },
-    { title: 'Companies', detail: 'Approval, suspension and company workspace governance.', metric: stats?.companiesTotal ?? 0, label: 'Companies', href: '/super-admin/companies', tone: 'navy' },
-    { title: 'Drivers', detail: 'Driver access, readiness and operating capacity.', metric: stats?.driversTotal ?? 0, label: 'Drivers', href: '/super-admin/users/drivers', tone: 'purple' },
-    { title: 'Finance', detail: 'Invoices, payment state and commercial exceptions.', metric: stats?.invoicesUnpaid ?? 0, label: 'Unpaid invoices', href: '/super-admin/finance/invoices', tone: 'orange' },
-    { title: 'Compliance', detail: 'Documents, approvals, expiry and risk controls.', metric: stats?.companiesSuspended ?? 0, label: 'Suspended', href: '/super-admin/compliance/documents', tone: 'red' },
-  ], [stats]);
+  const indicators = data?.attentionIndicators;
+  const queue      = data?.actionQueue;
 
   return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Global platform view"
-        title="XDrive Owner Console"
-        description="One consistent operating view across marketplace, companies, jobs, drivers, finance, compliance and platform health."
-        actions={<>
-          <ActionButton tone="warning" onClick={() => router.push('/super-admin/companies/approvals')}>Review approvals</ActionButton>
-          <ActionButton tone="secondary" onClick={() => router.push('/super-admin/health')}>Platform health</ActionButton>
-          <ActionButton tone="secondary" onClick={() => void loadDashboard()}>Refresh</ActionButton>
-        </>}
-      />
-
-      {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-
-      <KpiGrid>
-        <KpiCard label="Total companies" value={loading ? '…' : stats?.companiesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/companies')} />
-        <KpiCard label="Active companies" value={loading ? '…' : stats?.companiesActive ?? 0} tone="green" onClick={() => router.push('/super-admin/companies/active')} />
-        <KpiCard label="Pending approval" value={loading ? '…' : stats?.companiesPending ?? 0} tone="orange" onClick={() => router.push('/super-admin/companies/approvals')} />
-        <KpiCard label="Open jobs" value={loading ? '…' : stats?.jobsOpen ?? 0} tone="blue" onClick={() => router.push('/super-admin/marketplace')} />
-        <KpiCard label="Delivered jobs" value={loading ? '…' : stats?.jobsDelivered ?? 0} tone="green" onClick={() => router.push('/super-admin/operations/completed-jobs')} />
-        <KpiCard label="Drivers" value={loading ? '…' : stats?.driversTotal ?? 0} tone="purple" onClick={() => router.push('/super-admin/users/drivers')} />
-        <KpiCard label="Invoices" value={loading ? '…' : stats?.invoicesTotal ?? 0} tone="navy" onClick={() => router.push('/super-admin/finance/invoices')} />
-        <KpiCard label="Unpaid invoices" value={loading ? '…' : stats?.invoicesUnpaid ?? 0} tone="red" onClick={() => router.push('/super-admin/finance/invoices')} />
-      </KpiGrid>
-
-      <Panel title="Platform workspaces" description="Every workspace follows the same navigation, status language and page hierarchy." style={{ marginBottom: '0.9rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.75rem' }}>
-          {modules.map((module) => (
-            <section key={module.title} style={{ border: `1px solid ${workspaceTheme.border}`, borderTop: `3px solid ${toneColor[module.tone]}`, borderRadius: 10, background: workspaceTheme.surfaceSoft, padding: '0.9rem', minHeight: 165 }}>
-              <div style={{ color: workspaceTheme.muted, fontSize: '0.66rem', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{module.label}</div>
-              <div style={{ marginTop: '0.3rem', color: toneColor[module.tone], fontSize: '1.7rem', fontWeight: 900 }}>{loading ? '…' : module.metric}</div>
-              <h3 style={{ margin: '0.75rem 0 0.25rem', color: workspaceTheme.text, fontSize: '0.95rem' }}>{module.title}</h3>
-              <p style={{ margin: '0 0 0.75rem', color: workspaceTheme.muted, fontSize: '0.76rem', lineHeight: 1.45 }}>{module.detail}</p>
-              <ActionButton tone="secondary" onClick={() => router.push(module.href)}>Open {module.title}</ActionButton>
-            </section>
-          ))}
+    <div style={{ minHeight: '100vh', backgroundColor: T.pageBg, padding: '1.5rem' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+            <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700, color: T.text }}>
+              Command Centre
+            </h1>
+            {data && <EnvBanner env={data.environment} />}
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+              Super Admin
+            </span>
+          </div>
+          <p style={{ margin: 0, color: T.muted, fontSize: '0.85rem' }}>
+            Real-time platform overview — incidents, jobs at risk, blocked accounts, financial exposure and degraded services.
+          </p>
+          {data?.refreshedAt && (
+            <p style={{ margin: '0.25rem 0 0', color: '#475569', fontSize: '0.72rem' }}>
+              Refreshed: {new Date(data.refreshedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+            </p>
+          )}
         </div>
-      </Panel>
+        <button
+          onClick={() => void load()}
+          disabled={loading}
+          style={{
+            padding: '0.45rem 1rem', backgroundColor: T.accent, color: '#0f172a',
+            border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem',
+            cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
-      <TwoColumn rightWidth="minmax(320px, 0.8fr)">
-        <Panel title="Live platform activity" description="Recent queued and delivered operational notifications." actions={<ActionButton tone="secondary" onClick={() => router.push('/super-admin/notifications')}>All notifications</ActionButton>}>
-          <DataTable
-            columns={['Event', 'Detail', 'Time', 'Status']}
-            rows={notifications.map((row) => [
-              row.title || row.type.replace(/_/g, ' '),
-              row.message || 'No event detail',
-              formatDateTime(row.created_at),
-              <StatusBadge key="status" value={row.status} />,
-            ])}
-            empty={<EmptyState title={loading ? 'Loading activity…' : 'No platform activity found'} />}
-          />
-        </Panel>
-
-        <div style={{ display: 'grid', gap: '0.9rem' }}>
-          <Panel title="Platform health" description="Fast access to queues, webhooks, audit and feature controls.">
-            <OperationalLinkList items={[
-              { key: 'notifications', label: 'Email and notification queue', onClick: () => router.push('/super-admin/notifications') },
-              { key: 'health', label: 'Webhook and runtime health', onClick: () => router.push('/super-admin/health') },
-              { key: 'audit-logs', label: 'Audit events', onClick: () => router.push('/super-admin/settings/audit-logs') },
-              { key: 'feature-flags', label: 'Feature flags', onClick: () => router.push('/super-admin/settings/feature-flags') },
-            ]} />
-          </Panel>
-
-          <Panel title="Governance actions" description="High-risk controls remain explicit and separated from daily operations.">
-            <OperationalLinkList items={[
-              { key: 'approvals', label: 'Approve companies', onClick: () => router.push('/super-admin/companies/approvals') },
-              { key: 'verification', label: 'Review onboarding', onClick: () => router.push('/super-admin/companies/verification') },
-              { key: 'compliance', label: 'Review compliance', onClick: () => router.push('/super-admin/companies/compliance') },
-              { key: 'disputes', label: 'Review disputes', onClick: () => router.push('/super-admin/operations/disputes') },
-            ]} />
-          </Panel>
+      {error && (
+        <div style={{ marginBottom: '1rem', border: `1px solid ${T.red}`, borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', padding: '0.65rem 0.9rem', color: T.red, fontSize: '0.82rem' }}>
+          ⚠️ {error}
         </div>
-      </TwoColumn>
-    </PageFrame>
+      )}
+
+      {/* Attention indicators */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        {loading || !indicators ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '10px', padding: '1rem', minHeight: '90px' }}>
+              <div style={{ color: T.muted, fontSize: '0.8rem' }}>Loading…</div>
+            </div>
+          ))
+        ) : (
+          <>
+            <IndicatorCard indicator={indicators.p0p1Incidents}   label="P0/P1 Incidents" />
+            <IndicatorCard indicator={indicators.jobsAtRisk}      label="Jobs at Risk" />
+            <IndicatorCard indicator={indicators.blockedAccounts} label="Blocked Accounts" />
+            <IndicatorCard indicator={indicators.financialExposure} label="Overdue Invoices" />
+            <IndicatorCard indicator={indicators.degradedServices} label="Degraded Services" />
+          </>
+        )}
+      </div>
+
+      {/* Queue summary */}
+      {!loading && queue && (
+        <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ backgroundColor: T.surface, border: `1px solid ${T.cardBorder}`, borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.text, fontSize: '0.82rem', fontWeight: 600 }}>
+            {queue.total} items in queue
+          </div>
+          {queue.p0 > 0 && (
+            <div style={{ backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.red, fontSize: '0.82rem', fontWeight: 700 }}>
+              P0: {queue.p0}
+            </div>
+          )}
+          {queue.p1 > 0 && (
+            <div style={{ backgroundColor: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.orange, fontSize: '0.82rem', fontWeight: 700 }}>
+              P1: {queue.p1}
+            </div>
+          )}
+          {queue.p2 > 0 && (
+            <div style={{ backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.yellow, fontSize: '0.82rem', fontWeight: 700 }}>
+              P2: {queue.p2}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Critical Action Queue table */}
+      <div style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+        <div style={{ padding: '0.75rem 0.9rem', borderBottom: `1px solid ${T.cardBorder}`, backgroundColor: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: T.text }}>
+            Critical Action Queue
+          </h2>
+          <span style={{ color: T.muted, fontSize: '0.72rem' }}>
+            {loading ? '…' : `${queue?.items.length ?? 0} of ${queue?.total ?? 0} shown`}
+          </span>
+        </div>
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>Loading…</div>
+        ) : !queue || queue.items.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>
+            ✅ No critical actions required. Platform is operating normally.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${T.cardBorder}` }}>
+                  {['Severity', 'Action', 'Age', ''].map((h) => (
+                    <th key={h} style={{ padding: '0.65rem 0.9rem', textAlign: 'left', color: T.muted, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {queue.items.map((item) => (
+                  <ActionQueueRow key={item.id} item={item} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Quick navigation */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+        {[
+          { label: 'Companies Approval Queue', href: '/super-admin/companies/approvals', icon: '✅' },
+          { label: 'Active Operations',        href: '/super-admin/operations/active-jobs', icon: '→' },
+          { label: 'Compliance Documents',     href: '/super-admin/compliance/documents', icon: '📄' },
+          { label: 'Finance — Invoices',        href: '/super-admin/finance/invoices', icon: '£' },
+          { label: 'Support Tickets',          href: '/super-admin/support/tickets', icon: '?' },
+          { label: 'Platform Health',          href: '/super-admin/health', icon: '🩺' },
+          { label: 'Audit Logs',               href: '/super-admin/settings/audit-logs', icon: '📚' },
+          { label: 'Feature Flags',            href: '/super-admin/settings/feature-flags', icon: '🚩' },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.6rem',
+              backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`,
+              borderRadius: '10px', padding: '0.75rem 1rem',
+              color: T.text, fontSize: '0.82rem', fontWeight: 600,
+              textDecoration: 'none', transition: 'border-color 0.15s',
+            }}
+          >
+            <span style={{ fontSize: '1rem' }}>{item.icon}</span>
+            {item.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function SuperAdminDashboardPage() {
+  return (
+    <ProtectedRoute allowedRoles={['owner']}>
+      <CommandCentre />
+    </ProtectedRoute>
   );
 }

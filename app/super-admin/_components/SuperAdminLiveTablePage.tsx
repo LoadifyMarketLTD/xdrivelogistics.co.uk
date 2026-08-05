@@ -21,6 +21,8 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   noteField?: string;
   columns: TableColumn<T>[];
   emptyMessage: string;
+  /** Page size for server-side pagination. Default: 50. */
+  pageSize?: number;
 };
 
 const THEME = {
@@ -44,12 +46,16 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   noteField,
   columns,
   emptyMessage,
+  pageSize = 50,
 }: SuperAdminLiveTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
 
   const stableColumns = useMemo(() => columns, [columns]);
 
@@ -65,7 +71,10 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
           return;
         }
 
-        const res = await fetch(endpoint, { headers: { Authorization: auth } });
+        // Append page/limit params — APIs that do not support them will ignore them gracefully.
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const url = `${endpoint}${separator}page=${page}&limit=${pageSize}`;
+        const res = await fetch(url, { headers: { Authorization: auth } });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError((body as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -75,6 +84,11 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
 
         const fieldValue = (body as Record<string, unknown>)[rowsField];
         setRows(Array.isArray(fieldValue) ? (fieldValue as T[]) : []);
+
+        // Pagination metadata from API (present when server-side pagination is supported)
+        const paginationMeta = (body as Record<string, unknown>).pagination as Record<string, unknown> | undefined;
+        setHasNextPage(Boolean(paginationMeta?.hasNextPage ?? false));
+        setTotalCount(typeof paginationMeta?.total === 'number' ? paginationMeta.total : null);
 
         if (summaryField) {
           const summaryValue = (body as Record<string, unknown>)[summaryField];
@@ -92,7 +106,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
     };
 
     void run();
-  }, [endpoint, rowsField, summaryField, noteField]);
+  }, [endpoint, rowsField, summaryField, noteField, page, pageSize]);
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
@@ -183,6 +197,47 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* Pagination footer */}
+          {!loading && (page > 1 || hasNextPage) && (
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: '0.5rem', padding: '0.65rem 0.9rem',
+                borderTop: `1px solid ${THEME.cardBorder}`,
+                backgroundColor: '#0b1220',
+              }}
+            >
+              <span style={{ color: THEME.muted, fontSize: '0.72rem' }}>
+                Page {page}{totalCount !== null ? ` · ${totalCount.toLocaleString()} total` : ''}
+              </span>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  style={{
+                    padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.76rem',
+                    border: `1px solid ${THEME.cardBorder}`, backgroundColor: '#1e293b',
+                    color: page <= 1 ? THEME.muted : THEME.text,
+                    cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!hasNextPage}
+                  style={{
+                    padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.76rem',
+                    border: `1px solid ${THEME.cardBorder}`, backgroundColor: '#1e293b',
+                    color: !hasNextPage ? THEME.muted : THEME.text,
+                    cursor: !hasNextPage ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { autoGenerateMarketplaceInvoice } from '../../../../../_lib/autoGenerateMarketplaceInvoice';
+import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import {
   appendStatusHistory,
   hasPod,
@@ -80,7 +81,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!isDriverContext(driver)) return driver;
 
   const { id, action } = await params;
-  if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId);
+  if (action === 'pod') {
+    const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
+    if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
+    return savePod(request, id, driver.userId, driver.driverId);
+  }
 
   const config = actions[action];
   if (!config) return respond(404, { error: 'Unsupported driver action.' });
