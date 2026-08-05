@@ -185,13 +185,14 @@ export function CustomerDashboard() {
 
           <Panel title="Quick actions">
             <OperationalLinkList items={[
-              { label: 'Post a new load', href: '/customer/post-load' },
-              { label: 'Review carrier quotes', href: '/customer/quotes' },
-              { label: 'Track active deliveries', href: '/customer/deliveries' },
-              { label: 'Download POD', href: '/customer/documents' },
-              { label: 'View all invoices', href: '/customer/invoices' },
-              { label: 'Team & settings', href: '/customer/settings' },
+              { key: 'post-load', label: 'Post a new load', onClick: () => router.push('/customer/post-load') },
+              { key: 'quotes', label: 'Review carrier quotes', onClick: () => router.push('/customer/quotes') },
+              { key: 'deliveries', label: 'Track active deliveries', onClick: () => router.push('/customer/deliveries') },
+              { key: 'documents', label: 'Download POD', onClick: () => router.push('/customer/documents') },
+              { key: 'invoices', label: 'View all invoices', onClick: () => router.push('/customer/invoices') },
+              { key: 'settings', label: 'Team & settings', onClick: () => router.push('/customer/settings') },
             ]} />
+          </Panel>
         </div>
       </TwoColumn>
 
