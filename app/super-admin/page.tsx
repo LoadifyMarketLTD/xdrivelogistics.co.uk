@@ -202,7 +202,7 @@ function CommandCentre() {
     }
     try {
       const res = await fetch('/api/super-admin/command-centre', {
-        headers: { Authorization: `****** },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const payload = (await res.json().catch(() => null)) as (CommandCentrePayload & { error?: string }) | null;
       if (!res.ok) {

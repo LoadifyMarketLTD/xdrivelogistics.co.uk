@@ -34,7 +34,10 @@ import styles from './WorkspaceUI.module.css';
 import {
   allowedStatusTransitions,
   isDirectInviteEligible,
+  JOBS_STATUS_FILTER_OPTIONS,
+  resolveJobStatusFilter,
   type JobRow,
+  type JobStatusFilterValue,
 } from '../../../lib/jobs/jobOperationalContract';
 
 export {
@@ -56,7 +59,7 @@ export interface JobsOperationalTableProps {
   onPageChange: (page: number) => void;
   /** Filter state */
   searchTerm: string;
-  statusFilter: string;
+  statusFilter: JobStatusFilterValue;
   pickupFilter: string;
   deliveryFilter: string;
   dateFilter: string;
@@ -69,7 +72,7 @@ export interface JobsOperationalTableProps {
   drivers: Array<{ id: string; displayName: string }>;
   /** Filter setters */
   onSearchTermChange: (v: string) => void;
-  onStatusFilterChange: (v: string) => void;
+  onStatusFilterChange: (v: JobStatusFilterValue) => void;
   onPickupFilterChange: (v: string) => void;
   onDeliveryFilterChange: (v: string) => void;
   onDateFilterChange: (v: string) => void;
@@ -132,19 +135,6 @@ function fmtDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
-
-/* ─── Status tabs definition ─────────────────────────────────────────────── */
-
-const STATUS_TABS = [
-  { label: 'All',        value: 'All' },
-  { label: 'Received',   value: 'draft' },
-  { label: 'Posted',     value: 'posted' },
-  { label: 'Allocated',  value: 'allocated' },
-  { label: 'In Transit', value: 'in_transit' },
-  { label: 'Delivered',  value: 'delivered' },
-  { label: 'Completed',  value: 'completed' },
-  { label: 'Cancelled',  value: 'cancelled' },
-];
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
@@ -263,7 +253,7 @@ export function JobsOperationalTable({
       )}
 
       <div className={styles.jobsStatusTabs} role="tablist" aria-label="Filter jobs by status">
-        {STATUS_TABS.map((tab) => {
+        {JOBS_STATUS_FILTER_OPTIONS.map((tab) => {
           const selected = statusFilter === tab.value;
           return (
             <button
@@ -294,12 +284,12 @@ export function JobsOperationalTable({
         />
         <select
           value={statusFilter}
-          onChange={(e) => { onStatusFilterChange(e.target.value); onPageChange(0); }}
+          onChange={(e) => { onStatusFilterChange(resolveJobStatusFilter(e.target.value)); onPageChange(0); }}
           className={`${styles.jobsToolbarInput} ${styles.jobsToolbarStatus}`}
           aria-label="Filter by status"
         >
           <option value="All">All statuses</option>
-          {STATUS_TABS.filter((t) => t.value !== 'All').map((t) => (
+          {JOBS_STATUS_FILTER_OPTIONS.filter((t) => t.value !== 'All').map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>

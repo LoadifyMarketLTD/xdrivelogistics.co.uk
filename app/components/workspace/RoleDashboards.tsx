@@ -12,6 +12,7 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalLinkList,
   PageFrame,
   PageHeader,
   Panel,
@@ -90,33 +91,25 @@ export function CarrierDashboard() {
         </Panel>
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Resource readiness" description="Live capacity from your company roster.">
-            <div style={{ display: 'grid', gap: '0.58rem' }}>
-              {[
-                ['Available drivers', data.drivers.filter((d) => d.availability_status === 'available').length, '/admin/drivers'],
-                ['Busy drivers', data.drivers.filter((d) => d.availability_status === 'busy').length, '/admin/drivers'],
-                ['Total vehicles', data.vehicles.length, '/admin/vehicles'],
-                ['Unassigned vehicles', data.vehicles.filter((v) => !v.assigned_driver_id).length, '/admin/vehicles'],
-              ].map(([label, value, href]) => (
-                <button key={String(label)} onClick={() => router.push(String(href))} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontWeight: 750 }}>
-                  <span>{label}</span><strong>{value}</strong>
-                </button>
-              ))}
-            </div>
+            <OperationalLinkList
+              items={[
+                { key: 'available-drivers', label: 'Available drivers', value: data.drivers.filter((d) => d.availability_status === 'available').length, onClick: () => router.push('/admin/drivers') },
+                { key: 'busy-drivers', label: 'Busy drivers', value: data.drivers.filter((d) => d.availability_status === 'busy').length, onClick: () => router.push('/admin/drivers') },
+                { key: 'total-vehicles', label: 'Total vehicles', value: data.vehicles.length, onClick: () => router.push('/admin/vehicles') },
+                { key: 'unassigned-vehicles', label: 'Unassigned vehicles', value: data.vehicles.filter((v) => !v.assigned_driver_id).length, onClick: () => router.push('/admin/vehicles') },
+              ]}
+            />
           </Panel>
           <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {[
-                ['Find marketplace loads', '/admin/marketplace'],
-                ['Review submitted quotes', '/admin/quotes'],
-                ['Allocate awarded work', '/admin/fleet/assignments'],
-                ['Track active jobs', '/admin/fleet/active-jobs'],
-                ['Open invoices', '/admin/invoices'],
-              ].map(([label, href]) => (
-                <button key={href} onClick={() => router.push(href)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}>
-                  <span>{label}</span><span>→</span>
-                </button>
-              ))}
-            </div>
+            <OperationalLinkList
+              items={[
+                { key: 'find-loads', label: 'Find marketplace loads', onClick: () => router.push('/admin/marketplace') },
+                { key: 'review-quotes', label: 'Review submitted quotes', onClick: () => router.push('/admin/quotes') },
+                { key: 'allocate-work', label: 'Allocate awarded work', onClick: () => router.push('/admin/fleet/assignments') },
+                { key: 'track-jobs', label: 'Track active jobs', onClick: () => router.push('/admin/fleet/active-jobs') },
+                { key: 'open-invoices', label: 'Open invoices', onClick: () => router.push('/admin/invoices') },
+              ]}
+            />
           </Panel>
           <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
             {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
