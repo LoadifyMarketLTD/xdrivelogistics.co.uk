@@ -17,6 +17,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { resolveEnvironment } from './_lib/envDetection';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -58,14 +59,6 @@ const ageMinutes = (isoDate: string): number => {
   return Math.max(0, Math.floor(ms / 60000));
 };
 
-const resolveEnvironment = (): 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT' => {
-  // VERCEL_ENV is set by the Vercel build system: 'production' | 'preview' | 'development'.
-  // APP_ENV is the optional explicit override (server-side only, not prefixed with NEXT_PUBLIC_).
-  const env = (process.env.APP_ENV ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? '').toLowerCase();
-  if (env === 'production') return 'PRODUCTION';
-  if (env === 'preview' || env === 'staging') return 'STAGING';
-  return 'DEVELOPMENT';
-};
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
