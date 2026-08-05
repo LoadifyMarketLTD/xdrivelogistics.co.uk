@@ -153,24 +153,27 @@ export async function GET(request: NextRequest) {
     const WITH_DURABILITY = 'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at';
     const WITHOUT_DURABILITY = 'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at';
 
-    let result = await supabaseAdmin
+    const firstResult = await supabaseAdmin
       .from('notification_events')
       .select(WITH_DURABILITY)
       .order('created_at', { ascending: false })
       .limit(200);
 
     let durabilityUnavailable = false;
-    if (result.error && (result.error.message.includes('last_error') || result.error.message.includes('attempt_count') || result.error.message.includes('does not exist') || (result.error as { code?: string }).code === 'PGRST204')) {
+    let data: Record<string, unknown>[] | null = firstResult.data as Record<string, unknown>[] | null;
+    let error: { message: string } | null = firstResult.error;
+
+    if (error && (error.message.includes('last_error') || error.message.includes('attempt_count') || error.message.includes('does not exist') || (error as { code?: string }).code === 'PGRST204')) {
       // Retry without the optional durability columns
-      result = await supabaseAdmin
+      const fallback = await supabaseAdmin
         .from('notification_events')
         .select(WITHOUT_DURABILITY)
         .order('created_at', { ascending: false })
         .limit(200);
+      data = fallback.data as Record<string, unknown>[] | null;
+      error = fallback.error;
       durabilityUnavailable = true;
     }
-
-    const { data, error } = result;
 
     if (error) {
       return respond(200, {
