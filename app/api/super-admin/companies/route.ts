@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
   }
   companyQuery = companyQuery.range(offset, offset + limitParam - 1);
 
-  let { data, error, count } = await companyQuery;
+  const { data, error, count } = await companyQuery;
 
   if (error) {
     return respond(500, { error: error.message });
