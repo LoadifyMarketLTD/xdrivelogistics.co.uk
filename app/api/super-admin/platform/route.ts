@@ -144,11 +144,33 @@ export async function GET(request: NextRequest) {
 
   // ── Notifications ─────────────────────────────────────────────────────────────
   if (section === 'notifications') {
-    const { data, error } = await supabaseAdmin
+    // Attempt to select optional durability columns (last_error, attempt_count,
+    // next_attempt_at) added by migration 20260720121500. If the deployed
+    // schema predates that migration these columns will not exist; the query
+    // will fail with PGRST204 / "column does not exist". In that case we
+    // fall back to the baseline column set and expose the diagnostic state
+    // honestly rather than returning an error page.
+    const WITH_DURABILITY = 'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at';
+    const WITHOUT_DURABILITY = 'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at';
+
+    let result = await supabaseAdmin
       .from('notification_events')
-      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
+      .select(WITH_DURABILITY)
       .order('created_at', { ascending: false })
       .limit(200);
+
+    let durabilityUnavailable = false;
+    if (result.error && (result.error.message.includes('last_error') || result.error.message.includes('attempt_count') || result.error.message.includes('does not exist') || (result.error as { code?: string }).code === 'PGRST204')) {
+      // Retry without the optional durability columns
+      result = await supabaseAdmin
+        .from('notification_events')
+        .select(WITHOUT_DURABILITY)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      durabilityUnavailable = true;
+    }
+
+    const { data, error } = result;
 
     if (error) {
       return respond(200, {
@@ -168,9 +190,9 @@ export async function GET(request: NextRequest) {
       status: r.status,
       processed: r.processed_at !== null,
       created_at: r.created_at,
-      last_error: r.last_error,
+      last_error: r.last_error ?? null,
       attempt_count: r.attempt_count ?? 0,
-      next_attempt_at: r.next_attempt_at,
+      next_attempt_at: r.next_attempt_at ?? null,
     }));
 
     return respond(200, {
@@ -183,6 +205,9 @@ export async function GET(request: NextRequest) {
         failed: rows.filter((r) => r.status === 'failed').length,
         skipped: rows.filter((r) => r.status === 'skipped').length,
       },
+      ...(durabilityUnavailable
+        ? { diagnosticNote: 'error detail unavailable — notification_events durability columns (last_error, attempt_count) have not been applied in the connected schema' }
+        : {}),
     });
   }
 
@@ -229,6 +254,17 @@ export async function PATCH(request: NextRequest) {
       next_attempt_at: new Date().toISOString(),
     })
     .eq('id', notificationId);
+
+  // If the update fails because last_error/next_attempt_at don't exist yet
+  // (pre-migration schema), retry with the minimal column set.
+  if (updateError && (updateError.message.includes('last_error') || updateError.message.includes('next_attempt_at') || updateError.message.includes('does not exist'))) {
+    const { error: fallbackError } = await supabaseAdmin
+      .from('notification_events')
+      .update({ status: 'pending', processed_at: null })
+      .eq('id', notificationId);
+    if (fallbackError) return respond(500, { error: fallbackError.message });
+    return respond(200, { success: true, notificationId, status: 'pending' });
+  }
 
   if (updateError) return respond(500, { error: updateError.message });
 

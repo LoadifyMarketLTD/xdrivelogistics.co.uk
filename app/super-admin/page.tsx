@@ -302,7 +302,7 @@ function CommandCentre() {
           ))
         ) : (
           <>
-            <IndicatorCard indicator={indicators.p0p1Incidents}   label="P0/P1 Incidents" />
+            <IndicatorCard indicator={indicators.p0p1Incidents}   label="P0/P1 Actions" />
             <IndicatorCard indicator={indicators.jobsAtRisk}      label="Jobs at Risk" />
             <IndicatorCard indicator={indicators.blockedAccounts} label="Blocked Accounts" />
             <IndicatorCard indicator={indicators.financialExposure} label="Overdue Invoices" />
