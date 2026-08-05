@@ -7,6 +7,7 @@ import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-c
 import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
+import { handleSessionLoss } from '../auth/sessionLoss';
 import { supabase } from '../auth/supabase';
 import { FULL_TIMELINE, getNextStep, statusIndex } from '../jobs/statusFlow';
 import type { AuditEntry, DriverJob, JobScope, JobStop, PodRecord, QueuedActionStatus } from '../jobs/types';
@@ -183,6 +184,13 @@ export default function DriverMobileApp() {
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [message, setMessage] = useState('');
   const queueSyncInFlightRef = useRef(false);
+  /**
+   * Tracks the last successfully authenticated user ID so that when
+   * `onAuthStateChange` fires with a null session (token expiry, remote logout,
+   * etc.) we can clear that user's account-scoped queue even though
+   * `session?.user?.id` is null at that point.
+   */
+  const authenticatedUserIdRef = useRef<string | null>(null);
   const nextStep = useMemo(() => (job ? getNextStep(job.status) : undefined), [job]);
   const queueCounts = useMemo(() => getQueueCounts(queue), [queue]);
   const notificationsSeenKey = authUserId ? `xdrive.driver.notificationsSeen:${authUserId}` : null;
@@ -314,6 +322,7 @@ export default function DriverMobileApp() {
         }
 
         // Load the account-scoped queue now that the userId is confirmed.
+        authenticatedUserIdRef.current = userId;
         void getQueue(userId).then(setQueue).catch(() => setQueue([]));
         setToken(sessionToken);
         void saveSessionToken(sessionToken);
@@ -334,12 +343,19 @@ export default function DriverMobileApp() {
       setAuthUserId(nextUserId);
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
+      if (nextUserId) {
+        // Update the ref whenever a valid authenticated session is established so
+        // that session-loss events (where session/userId are null) can still
+        // identify whose queue must be cleared.
+        authenticatedUserIdRef.current = nextUserId;
+      }
       if (!session) {
         // Session lost (sign-out, token expiry, remote logout). Clear persistent
         // user data before resetting React state to prevent cross-account leakage.
-        // We capture nextUserId before it is nulled so the correct key is removed.
-        const previousUserId = nextUserId;
-        if (previousUserId) void clearQueue(previousUserId).catch(() => undefined);
+        // Read the previous user ID from the ref — nextUserId is always null here.
+        const previousUserId = authenticatedUserIdRef.current;
+        authenticatedUserIdRef.current = null;
+        void handleSessionLoss(previousUserId);
         setJob(null);
         setJobs([]);
         setResources(null);
@@ -423,6 +439,7 @@ export default function DriverMobileApp() {
 
     setToken(accessToken);
     setAuthUserId(userId);
+    authenticatedUserIdRef.current = userId;
     try {
       await saveSessionToken(accessToken);
     } catch {
@@ -438,6 +455,7 @@ export default function DriverMobileApp() {
   async function signOut() {
     // Capture userId before clearing state so the correct account-scoped queue is removed.
     const userId = authUserId;
+    authenticatedUserIdRef.current = null;
     await supabase.auth.signOut();
     await clearSessionToken();
     if (userId) await clearQueue(userId).catch(() => undefined);
@@ -665,6 +683,14 @@ function ActiveJobScreen({
   onSyncNow: () => void;
 }) {
   const recentQueue = queue.slice(0, 5);
+  const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
+  const isPodQueued = queue.some((item) => item.jobId === job.id && item.endpoint === 'pod' && item.status !== 'synced');
+  // Show "Capture POD" only at arrived_delivery (or delivered, for retry) and
+  // only when POD has not already been captured or queued offline.
+  const showCapturePod =
+    (job.status === 'arrived_delivery' || job.status === 'delivered') &&
+    !isPodDone &&
+    !isPodQueued;
   return (
     <View style={styles.stack}>
       <StatusPill label={job.status.replace(/_/g, ' ')} tone={job.status === 'delivered' ? 'success' : 'primary'} />
@@ -687,7 +713,7 @@ function ActiveJobScreen({
       </Panel>
       <PrimaryButton label={nextLabel} onPress={onPrimary} />
       <SecondaryButton label="Job detail" onPress={onDetail} />
-      <SecondaryButton label="Capture POD" onPress={onPod} />
+      {showCapturePod && <SecondaryButton label="Capture POD" onPress={onPod} />}
       <QueuePanel queue={recentQueue} counts={counts} onRetryFailed={onRetryFailed} onSyncNow={onSyncNow} />
     </View>
   );

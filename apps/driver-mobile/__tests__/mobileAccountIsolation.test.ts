@@ -36,6 +36,7 @@ import {
   retryQueueItem,
   markQueueItemFailed,
 } from '../src/offline/queue';
+import { handleSessionLoss } from '../src/auth/sessionLoss';
 
 const USER_A = 'user-aaa-111';
 const USER_B = 'user-bbb-222';
@@ -213,5 +214,50 @@ describe('session loss — cross-account safety', () => {
     // User B's queue for the same job is empty
     const queueB = await getQueue(USER_B);
     expect(queueB.filter((item) => item.jobId === 'shared-job')).toHaveLength(0);
+  });
+});
+
+// ─── 8. handleSessionLoss — production session-loss decision helper ───────────
+
+describe('handleSessionLoss — production path regression', () => {
+  it('clears the previously authenticated user queue when session becomes null', async () => {
+    // User A had an active session and queued an action.
+    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+    expect(await getQueue(USER_A)).toHaveLength(1);
+
+    // Session loss fires with null session. The app reads authenticatedUserIdRef,
+    // which holds USER_A, and calls handleSessionLoss(USER_A).
+    await handleSessionLoss(USER_A);
+
+    // USER_A's queue must now be empty.
+    expect(await getQueue(USER_A)).toHaveLength(0);
+  });
+
+  it('is a no-op when previousUserId is null (no prior session)', async () => {
+    // No prior user — should not throw or write anything.
+    await expect(handleSessionLoss(null)).resolves.toBeUndefined();
+  });
+
+  it('does not clear a different user\'s queue', async () => {
+    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+    await enqueueAction(USER_B, { jobId: 'job-b', endpoint: 'loaded' });
+
+    // Session loss for USER_A only
+    await handleSessionLoss(USER_A);
+
+    expect(await getQueue(USER_A)).toHaveLength(0);
+    expect(await getQueue(USER_B)).toHaveLength(1);
+  });
+
+  it('also removes the legacy unscoped queue key on session loss', async () => {
+    storage['xdrive.driver.offlineQueue'] = JSON.stringify([
+      { id: 'legacy', jobId: 'job-old', endpoint: 'loaded', status: 'pending', createdAt: '2025-01-01T00:00:00Z', retryCount: 0 },
+    ]);
+    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+
+    await handleSessionLoss(USER_A);
+
+    expect(storage['xdrive.driver.offlineQueue']).toBeUndefined();
+    expect(storage[queueStorageKey(USER_A)]).toBeUndefined();
   });
 });
