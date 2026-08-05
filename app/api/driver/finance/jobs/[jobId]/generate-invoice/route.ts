@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
+import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -95,6 +96,12 @@ export async function POST(
   if (!actor) return respond(401, { error: 'Unauthorized.' });
   if (!actor.canManageFinance) {
     return respond(403, { error: 'Company owner or admin access is required to create invoices.' });
+  }
+
+  // Feature flag gate: invoice generation must be enabled.
+  const invoiceGenerationEnabled = await getFeatureFlag(supabaseAdmin, 'invoice_generation');
+  if (!invoiceGenerationEnabled) {
+    return respond(503, { error: 'Invoice generation is currently disabled.' });
   }
 
   const { jobId } = await params;

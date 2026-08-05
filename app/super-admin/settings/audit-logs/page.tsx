@@ -16,16 +16,29 @@ type Row = {
 
 const actionLabel = (action: string): string => {
   const labels: Record<string, string> = {
-    approve_company: '✅ Approved',
-    reject_company: '❌ Rejected',
-    suspend_company: '🔒 Suspended',
-    reinstate_company: '🔓 Reinstated',
+    // Canonical company governance types (set by companies/[id]/route.ts)
+    company_approved: '✅ Approved',
+    company_rejected: '❌ Rejected',
+    company_suspended: '🔒 Suspended',
+    company_reinstated: '🔓 Reinstated',
+    // Marketplace governance types (set by marketplace/[id]/route.ts via RPC)
+    marketplace_published: '📤 Published',
+    marketplace_hidden: '📥 Hidden',
+    marketplace_job_disputed: '⚖️ Dispute',
+    marketplace_job_cancelled: '🚫 Cancelled',
+    // Legacy aliases (kept for backward compat with older audit rows)
     publish_to_exchange: '📤 Published',
     hide_from_exchange: '📥 Hidden',
     force_dispute: '⚖️ Dispute',
     force_cancel: '🚫 Cancelled',
+    // Document compliance types (set by compliance/route.ts)
+    document_approved: '📄 Doc Approved',
+    document_rejected: '📄 Doc Rejected',
+    document_viewed: '👁️ Doc Viewed',
+    // Support types (set by support/route.ts)
+    support_ticket_updated: '🎫 Ticket Updated',
   };
-  return labels[action] ?? action;
+  return labels[action] ?? action.replace(/_/g, ' ');
 };
 
 export default function Page() {

@@ -11,9 +11,23 @@ type MarketplaceGovernanceMutationRow = {
   exchange_visibility: string;
 };
 
+/**
+ * Actions that require an explicit reason.
+ * Force-cancel and force-dispute have immediate operational/financial impact.
+ */
+const MARKETPLACE_REASON_REQUIRED = new Set(['force_dispute', 'force_cancel']);
+
 const patchSchema = z.object({
   action: z.enum(['publish_to_exchange', 'hide_from_exchange', 'force_dispute', 'force_cancel']),
   reason: z.string().trim().max(1000).optional(),
+}).superRefine((data, ctx) => {
+  if (MARKETPLACE_REASON_REQUIRED.has(data.action) && !data.reason?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: `A reason is required for the '${data.action}' action.`,
+    });
+  }
 });
 
 const resolveOwnerProfile = async (authUserId: string) => {
@@ -61,7 +75,9 @@ export async function PATCH(
 
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
-    return respond(400, { error: 'Invalid action payload.' });
+    const flatErrors = parsed.error.flatten();
+    const firstIssue = parsed.error.issues[0];
+    return respond(400, { error: firstIssue?.message ?? 'Invalid action payload.', fields: flatErrors.fieldErrors });
   }
 
   const { id: jobId } = await params;
