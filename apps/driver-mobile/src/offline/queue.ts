@@ -67,7 +67,7 @@ export async function enqueueAction(action: Omit<QueuedAction, 'id' | 'status' |
     createdAt: new Date().toISOString(),
     retryCount: 0,
   };
-  await saveQueue([queued, ...queue]);
+  await saveQueue([...queue, queued]);
   return queued;
 }
 

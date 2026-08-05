@@ -23,6 +23,7 @@ import {
   retryQueueItem,
   type QueuedAction,
 } from '../offline/queue';
+import { getReadyActionsInOrder } from '../offline/queueOrderingHelpers';
 import { colors, spacing } from '../ui/theme';
 
 type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'viewPod' | 'notifications' | 'profile';
@@ -248,13 +249,19 @@ export default function DriverMobileApp() {
     queueSyncInFlightRef.current = true;
     try {
       let nextQueue = await getQueue();
-      const readyItems = nextQueue.filter((item) => (options.force ? item.status !== 'synced' : isQueueItemReady(item)));
+      const readyItems = getReadyActionsInOrder(
+        nextQueue,
+        options.force ? (item) => item.status !== 'synced' : isQueueItemReady,
+      );
       if (readyItems.length === 0) {
         setQueue(nextQueue);
         return;
       }
 
+      // Track which jobs had a failure this pass so later actions are blocked.
+      const failedJobIds = new Set<string>();
       for (const item of readyItems) {
+        if (failedJobIds.has(item.jobId)) continue;
         nextQueue = await markQueueItemSyncing(item.id);
         setQueue(nextQueue);
         try {
@@ -263,6 +270,7 @@ export default function DriverMobileApp() {
           nextQueue = await markQueueItemSynced(item.id);
         } catch (error) {
           nextQueue = await markQueueItemFailed(item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          failedJobIds.add(item.jobId);
         }
         setQueue(nextQueue);
       }
