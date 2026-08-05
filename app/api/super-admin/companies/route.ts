@@ -82,8 +82,14 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 /**
- * GET /api/super-admin/companies?status=active|inactive|pending|pending_approval|rejected|suspended|all
- * Returns companies filtered by status (owner only).
+ * GET /api/super-admin/companies
+ * Query params:
+ *   status  — active|inactive|pending|pending_approval|rejected|suspended|all (default: pending)
+ *   search  — case-insensitive search on name, company_number, email (optional)
+ *   page    — 1-based page number (default: 1)
+ *   limit   — results per page, 1–100 (default: 50)
+ *
+ * Returns companies filtered by status with server-side pagination (owner only).
  */
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -108,29 +114,51 @@ export async function GET(request: NextRequest) {
   }
   const status = normalizeCompanyStatusFilter(rawStatus);
 
+  // Pagination
+  const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
+  const offset = (pageParam - 1) * limitParam;
+
+  // Search
+  const search = searchParams.get('search')?.trim() ?? '';
+
   let companyQuery = supabaseAdmin
     .from('companies')
-    .select('id, name, company_number, email, status, company_type, created_at')
+    .select('id, name, company_number, email, status, company_type, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(300);
+    .range(offset, offset + limitParam - 1);
 
   if (status !== 'all' && !isPendingStatus(status)) {
     companyQuery = companyQuery.eq('status', status);
   }
 
-  let { data, error } = await companyQuery;
+  // Apply search filter using ilike on name; also search company_number and email
+  if (search) {
+    companyQuery = companyQuery.or(
+      `name.ilike.%${search}%,company_number.ilike.%${search}%,email.ilike.%${search}%`,
+    );
+  }
+
+  let { data, error, count } = await companyQuery;
 
   // If the query fails with an enum mismatch for 'pending_approval', retry
   // with the legacy 'pending' value that may be stored in older databases.
   if (error && status === 'pending_approval' && error.message?.includes('enum')) {
-    const legacyResult = await supabaseAdmin
+    let legacyQuery = supabaseAdmin
       .from('companies')
-      .select('id, name, company_number, email, status, company_type, created_at')
+      .select('id, name, company_number, email, status, company_type, created_at', { count: 'exact' })
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
-      .limit(300);
+      .range(offset, offset + limitParam - 1);
+    if (search) {
+      legacyQuery = legacyQuery.or(
+        `name.ilike.%${search}%,company_number.ilike.%${search}%,email.ilike.%${search}%`,
+      );
+    }
+    const legacyResult = await legacyQuery;
     if (!legacyResult.error) {
       data = legacyResult.data;
+      count = legacyResult.count;
       error = null;
     }
   }
@@ -194,8 +222,19 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const totalCount = count ?? companies.length;
+  const totalPages = Math.ceil(totalCount / limitParam);
+
   return respond(200, {
     companies,
+    pagination: {
+      page: pageParam,
+      limit: limitParam,
+      total: totalCount,
+      totalPages,
+      hasNextPage: pageParam < totalPages,
+      hasPrevPage: pageParam > 1,
+    },
     governanceHistoryAvailable,
     governanceHistoryError,
     governanceHistoryRecent: governanceHistoryAvailable ? normalizedAuditRows : [],
