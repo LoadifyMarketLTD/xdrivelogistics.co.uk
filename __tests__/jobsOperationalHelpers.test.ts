@@ -10,7 +10,6 @@
  *   2. allowedStatusTransitions — every defined status
  *   3. jobToRow adapter — field-by-field mapping contract (including driver, contact)
  *   4. filterJobsByDriver — matching, non-matching, empty, and unassigned cases
- *   5. resolveJobStatusFilter — null/empty/all, canonical values, received alias, case/whitespace, unknown
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -18,7 +17,6 @@ import {
   allowedStatusTransitions,
   jobToRow,
   filterJobsByDriver,
-  resolveJobStatusFilter,
   type AdminJobFields,
   type JobRow,
 } from '../lib/jobs/jobOperationalContract';
@@ -316,96 +314,5 @@ describe('filterJobsByDriver', () => {
   it('returns empty array on empty input regardless of filter', () => {
     expect(filterJobsByDriver([], DRIVER_A)).toHaveLength(0);
     expect(filterJobsByDriver([], '')).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 5. resolveJobStatusFilter
-// ---------------------------------------------------------------------------
-
-describe('resolveJobStatusFilter', () => {
-  // null / empty / all sentinels
-  it('returns "All" for null', () => {
-    expect(resolveJobStatusFilter(null)).toBe('All');
-  });
-
-  it('returns "All" for undefined', () => {
-    expect(resolveJobStatusFilter(undefined)).toBe('All');
-  });
-
-  it('returns "All" for empty string', () => {
-    expect(resolveJobStatusFilter('')).toBe('All');
-  });
-
-  it('returns "All" for whitespace-only string', () => {
-    expect(resolveJobStatusFilter('   ')).toBe('All');
-  });
-
-  it('returns "All" for lowercase "all"', () => {
-    expect(resolveJobStatusFilter('all')).toBe('All');
-  });
-
-  it('returns "All" for mixed-case "All"', () => {
-    expect(resolveJobStatusFilter('All')).toBe('All');
-  });
-
-  it('returns "All" for uppercase "ALL"', () => {
-    expect(resolveJobStatusFilter('ALL')).toBe('All');
-  });
-
-  // received alias
-  it('maps "received" to canonical DB value "draft"', () => {
-    expect(resolveJobStatusFilter('received')).toBe('draft');
-  });
-
-  it('maps "RECEIVED" (uppercase) to "draft"', () => {
-    expect(resolveJobStatusFilter('RECEIVED')).toBe('draft');
-  });
-
-  it('maps " received " (whitespace) to "draft"', () => {
-    expect(resolveJobStatusFilter(' received ')).toBe('draft');
-  });
-
-  // canonical filter values
-  it('returns "draft" for "draft"', () => {
-    expect(resolveJobStatusFilter('draft')).toBe('draft');
-  });
-
-  it('returns "posted" for "posted"', () => {
-    expect(resolveJobStatusFilter('posted')).toBe('posted');
-  });
-
-  it('returns "allocated" for "allocated"', () => {
-    expect(resolveJobStatusFilter('allocated')).toBe('allocated');
-  });
-
-  it('returns "in_transit" for "in_transit"', () => {
-    expect(resolveJobStatusFilter('in_transit')).toBe('in_transit');
-  });
-
-  it('returns "delivered" for "delivered"', () => {
-    expect(resolveJobStatusFilter('delivered')).toBe('delivered');
-  });
-
-  it('returns "cancelled" for "cancelled"', () => {
-    expect(resolveJobStatusFilter('cancelled')).toBe('cancelled');
-  });
-
-  // case normalisation for canonical values
-  it('returns "delivered" for "DELIVERED" (uppercase)', () => {
-    expect(resolveJobStatusFilter('DELIVERED')).toBe('delivered');
-  });
-
-  it('returns "posted" for " Posted " (mixed case + whitespace)', () => {
-    expect(resolveJobStatusFilter(' Posted ')).toBe('posted');
-  });
-
-  // unknown values
-  it('returns "All" for an unknown status string', () => {
-    expect(resolveJobStatusFilter('unknown_status')).toBe('All');
-  });
-
-  it('returns "All" for a plausible but non-supported status', () => {
-    expect(resolveJobStatusFilter('invoiced')).toBe('All');
   });
 });

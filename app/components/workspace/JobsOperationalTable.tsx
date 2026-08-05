@@ -35,6 +35,7 @@ import {
   allowedStatusTransitions,
   isDirectInviteEligible,
   JOBS_STATUS_FILTER_OPTIONS,
+  resolveJobStatusFilter,
   type JobRow,
   type JobStatusFilterValue,
 } from '../../../lib/jobs/jobOperationalContract';
@@ -283,7 +284,7 @@ export function JobsOperationalTable({
         />
         <select
           value={statusFilter}
-          onChange={(e) => { onStatusFilterChange(e.target.value as JobStatusFilterValue); onPageChange(0); }}
+          onChange={(e) => { onStatusFilterChange(resolveJobStatusFilter(e.target.value)); onPageChange(0); }}
           className={`${styles.jobsToolbarInput} ${styles.jobsToolbarStatus}`}
           aria-label="Filter by status"
         >

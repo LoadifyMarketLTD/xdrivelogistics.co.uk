@@ -17,6 +17,7 @@ import { useMemo, useState } from 'react';
 import {
   filterJobsByDriver,
   type JobRow,
+  type JobStatusFilterValue,
 } from '../../../lib/jobs/jobOperationalContract';
 import { JobsOperationalTable } from './JobsOperationalTable';
 import { ExchangeKpiStrip, KpiCard, PageFrame } from './WorkspaceUI';
@@ -354,7 +355,7 @@ export const FIXTURE_PER_PAGE = 10;
 export default function JobsVisualFixture() {
   /* Filter state */
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState<JobStatusFilterValue>('All');
   const [pickupFilter, setPickupFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
