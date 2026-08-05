@@ -14,13 +14,11 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
-  OperationalLinkList,
   PageFrame,
   PageHeader,
   Panel,
   StatusBadge,
   TwoColumn,
-  WorkspaceState,
 } from '../components/workspace/WorkspaceUI';
 
 type OwnerBid = {
@@ -129,8 +127,6 @@ export default function DriverDashboard() {
     .filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid')
     .reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
 
-  if (data.loading && !ownerDriver) return <PageFrame><WorkspaceState variant="loading" label="Loading driver dashboard…" rows={4} /></PageFrame>;
-
   return (
     <PageFrame>
       <PageHeader
@@ -155,7 +151,7 @@ export default function DriverDashboard() {
       <KpiGrid>
         <KpiCard label="Jobs today" value={todaysJobs.length} detail="Scheduled collections" onClick={() => router.push('/driver/jobs')} />
         <KpiCard label="Active job" value={currentJob ? 1 : 0} detail="Current execution" tone="green" onClick={currentJob ? () => router.push(`/driver/jobs/${currentJob.id}`) : undefined} />
-        <KpiCard label="Awaiting start" value={myJobs.filter((job) => upcomingStatuses.has(job.current_status ?? job.status)).length} detail="Allocated, not yet active" tone="orange" onClick={() => router.push('/driver/jobs')} />
+        <KpiCard label="Awaiting start" value={myJobs.filter((job) => upcomingStatuses.has(job.current_status ?? job.status)).length} detail="Allocated, not yet active" tone="orange" />
         <KpiCard label="Completed" value={completedJobs} detail="Delivered or invoiced" tone="navy" onClick={() => router.push('/driver/history')} />
         <KpiCard label="Documents expiring" value={expiringDocuments.length} detail="Within 30 days" tone={expiringDocuments.length ? 'red' : 'green'} onClick={() => router.push('/driver/documents')} />
         {ownerDriver && <KpiCard label="Quotes submitted" value={submittedQuotes} detail="Awaiting customer decision" tone="purple" onClick={() => router.push('/driver/quotes')} />}
@@ -207,15 +203,23 @@ export default function DriverDashboard() {
 
       <TwoColumn>
         <Panel title="Readiness summary" description="Operational shortcuts and account readiness for the next shift.">
-          <OperationalLinkList
-            showTrailingArrow={false}
-            items={[
-              { key: 'upcoming', label: 'Upcoming allocated work', value: upcomingJobs.length, onClick: () => router.push('/driver/jobs') },
-              { key: 'completed', label: 'Jobs completed', value: completedJobs, onClick: () => router.push('/driver/history') },
-              { key: 'documents', label: 'Documents expiring', value: expiringDocuments.length, onClick: () => router.push('/driver/documents') },
-              { key: 'pipeline', label: ownerDriver ? 'Quote pipeline' : 'Vehicle & profile', value: ownerDriver ? submittedQuotes + wonWork : null, onClick: () => router.push(ownerDriver ? '/driver/quotes' : '/driver/vehicles') },
-            ]}
-          />
+          <div style={{ display: 'grid', gap: '0.55rem' }}>
+            {[
+              ['Upcoming allocated work', upcomingJobs.length, '/driver/jobs'],
+              ['Jobs completed', completedJobs, '/driver/history'],
+              ['Documents expiring', expiringDocuments.length, '/driver/documents'],
+              [ownerDriver ? 'Quote pipeline' : 'Vehicle & profile', ownerDriver ? submittedQuotes + wonWork : null, ownerDriver ? '/driver/quotes' : '/driver/vehicles'],
+            ].map(([label, value, href]) => (
+              <button
+                key={String(label)}
+                onClick={() => router.push(String(href))}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
+              >
+                <span>{label}</span>
+                {value !== null && <strong>{value}</strong>}
+              </button>
+            ))}
+          </div>
         </Panel>
 
         <Panel title="Recent completed work" description="Delivered jobs and POD-ready history.">
@@ -273,16 +277,24 @@ export default function DriverDashboard() {
 
           <div style={{ display: 'grid', gap: '0.9rem' }}>
             <Panel title="Business summary" description="Financial and operational position for your owner-driver account.">
-              <OperationalLinkList
-                showTrailingArrow={false}
-                items={[
-                  { key: 'quotes', label: 'Quotes submitted', value: submittedQuotes, onClick: () => router.push('/driver/quotes') },
-                  { key: 'won', label: 'Won work (accepted)', value: wonWork, onClick: () => router.push('/driver/won-work') },
-                  { key: 'invoices', label: 'Pending invoices', value: pendingInvoices, onClick: () => router.push('/driver/finance') },
-                  { key: 'returns', label: 'Return journeys', value: null, onClick: () => router.push('/driver/returns') },
-                  { key: 'docs', label: 'Documents & compliance', value: null, onClick: () => router.push('/driver/documents') },
-                ]}
-              />
+              <div style={{ display: 'grid', gap: '0.55rem' }}>
+                {[
+                  ['Quotes submitted', submittedQuotes, '/driver/quotes'],
+                  ['Won work (accepted)', wonWork, '/driver/won-work'],
+                  ['Pending invoices', pendingInvoices, '/driver/finance'],
+                  ['Return journeys', null, '/driver/returns'],
+                  ['Documents & compliance', null, '/driver/documents'],
+                ].map(([label, value, href]) => (
+                  <button
+                    key={String(href)}
+                    onClick={() => router.push(String(href))}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}
+                  >
+                    <span>{label}</span>
+                    {value !== null && <strong>{value}</strong>}
+                  </button>
+                ))}
+              </div>
             </Panel>
 
             {expiringDocuments.length > 0 && (

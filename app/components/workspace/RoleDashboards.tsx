@@ -12,13 +12,11 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
-  OperationalLinkList,
   PageFrame,
   PageHeader,
   Panel,
   StatusBadge,
   TwoColumn,
-  WorkspaceState,
 } from './WorkspaceUI';
 
 const activeStatuses = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
@@ -52,8 +50,6 @@ export function CarrierDashboard() {
     return { submittedQuotes, won, unallocated, active, podPending, overdueInvoices, acceptedRevenue, invoicedValue, paidValue, exceptionJobs, recentQuoteActivity };
   }, [data]);
 
-  if (data.loading) return <PageFrame><WorkspaceState variant="loading" label="Loading carrier dashboard…" rows={4} /></PageFrame>;
-
   return (
     <PageFrame>
       <PageHeader
@@ -68,10 +64,10 @@ export function CarrierDashboard() {
         <KpiCard label="Won work" value={metrics.won} detail="Accepted carrier quotes" tone="green" onClick={() => router.push('/admin/bids')} />
         <KpiCard label="Awaiting allocation" value={metrics.unallocated} detail="Jobs requiring driver and vehicle" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
         <KpiCard label="Active jobs" value={metrics.active} detail="Collections and deliveries in progress" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
-        <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" onClick={() => router.push('/admin/jobs?status=delivered')} />
+        <KpiCard label="POD outstanding" value={metrics.podPending} detail="Delivered jobs missing proof" tone="red" onClick={() => router.push('/admin/documents?view=pod')} />
         <KpiCard label="Overdue invoices" value={metrics.overdueInvoices} detail="Past due date" tone={metrics.overdueInvoices ? 'red' : 'navy'} onClick={() => router.push('/admin/invoices')} />
         <KpiCard label="Exceptions" value={metrics.exceptionJobs.length} detail="Failed or disputed jobs" tone={metrics.exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/incidents')} />
-        <KpiCard label="Won work value" value={money(metrics.acceptedRevenue)} detail="Accepted bid total" tone="navy" onClick={() => router.push('/admin/finance')} />
+        <KpiCard label="Won work value" value={money(metrics.acceptedRevenue)} detail="Accepted bid total" tone="navy" />
       </KpiGrid>
 
       <TwoColumn>
@@ -94,25 +90,33 @@ export function CarrierDashboard() {
         </Panel>
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Resource readiness" description="Live capacity from your company roster.">
-            <OperationalLinkList
-              items={[
-                { key: 'available-drivers', label: 'Available drivers', value: data.drivers.filter((d) => d.availability_status === 'available').length, onClick: () => router.push('/admin/drivers') },
-                { key: 'busy-drivers', label: 'Busy drivers', value: data.drivers.filter((d) => d.availability_status === 'busy').length, onClick: () => router.push('/admin/drivers') },
-                { key: 'total-vehicles', label: 'Total vehicles', value: data.vehicles.length, onClick: () => router.push('/admin/vehicles') },
-                { key: 'unassigned-vehicles', label: 'Unassigned vehicles', value: data.vehicles.filter((v) => !v.assigned_driver_id).length, onClick: () => router.push('/admin/vehicles') },
-              ]}
-            />
+            <div style={{ display: 'grid', gap: '0.58rem' }}>
+              {[
+                ['Available drivers', data.drivers.filter((d) => d.availability_status === 'available').length, '/admin/drivers'],
+                ['Busy drivers', data.drivers.filter((d) => d.availability_status === 'busy').length, '/admin/drivers'],
+                ['Total vehicles', data.vehicles.length, '/admin/vehicles'],
+                ['Unassigned vehicles', data.vehicles.filter((v) => !v.assigned_driver_id).length, '/admin/vehicles'],
+              ].map(([label, value, href]) => (
+                <button key={String(label)} onClick={() => router.push(String(href))} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontWeight: 750 }}>
+                  <span>{label}</span><strong>{value}</strong>
+                </button>
+              ))}
+            </div>
           </Panel>
           <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
-            <OperationalLinkList
-              items={[
-                { key: 'find-loads', label: 'Find marketplace loads', onClick: () => router.push('/admin/marketplace') },
-                { key: 'review-quotes', label: 'Review submitted quotes', onClick: () => router.push('/admin/quotes') },
-                { key: 'allocate-work', label: 'Allocate awarded work', onClick: () => router.push('/admin/fleet/assignments') },
-                { key: 'track-jobs', label: 'Track active jobs', onClick: () => router.push('/admin/fleet/active-jobs') },
-                { key: 'open-invoices', label: 'Open invoices', onClick: () => router.push('/admin/invoices') },
-              ]}
-            />
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {[
+                ['Find marketplace loads', '/admin/marketplace'],
+                ['Review submitted quotes', '/admin/quotes'],
+                ['Allocate awarded work', '/admin/fleet/assignments'],
+                ['Track active jobs', '/admin/fleet/active-jobs'],
+                ['Open invoices', '/admin/invoices'],
+              ].map(([label, href]) => (
+                <button key={href} onClick={() => router.push(href)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem 0.7rem', cursor: 'pointer', color: '#0f172a', fontSize: '0.76rem' }}>
+                  <span>{label}</span><span>→</span>
+                </button>
+              ))}
+            </div>
           </Panel>
           <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
             {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
@@ -132,17 +136,17 @@ export function CarrierDashboard() {
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Finance</ActionButton>}
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.7rem' }}>
-          {([
-            ['Won work value', money(metrics.acceptedRevenue), 'Accepted bids total', '#f0fdf4', '#166534', '/admin/finance'] as const,
-            ['Invoiced', money(metrics.invoicedValue), 'Raised to customers', '#eff6ff', '#1e40af', '/admin/invoices'] as const,
-            ['Paid', money(metrics.paidValue), 'Received payments', '#faf5ff', '#6b21a8', '/admin/finance/payments'] as const,
-            ['Outstanding', money(Math.max(0, metrics.invoicedValue - metrics.paidValue)), 'Awaiting payment', metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4', metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534', '/admin/invoices'] as const,
-          ] as const).map(([label, value, detail, bg, color, route]) => (
-            <button key={label} onClick={() => router.push(route)} style={{ background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '10px', padding: '0.9rem 1rem', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+          {[
+            ['Won work value', money(metrics.acceptedRevenue), 'Accepted bids total', '#f0fdf4', '#166534'],
+            ['Invoiced', money(metrics.invoicedValue), 'Raised to customers', '#eff6ff', '#1e40af'],
+            ['Paid', money(metrics.paidValue), 'Received payments', '#faf5ff', '#6b21a8'],
+            ['Outstanding', money(Math.max(0, metrics.invoicedValue - metrics.paidValue)), 'Awaiting payment', metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4', metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534'],
+          ].map(([label, value, detail, bg, color]) => (
+            <div key={String(label)} style={{ background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '10px', padding: '0.9rem 1rem' }}>
               <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
               <div style={{ fontSize: '1.35rem', fontWeight: 800, color: String(color), marginTop: '0.2rem' }}>{value}</div>
               <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>{detail}</div>
-            </button>
+            </div>
           ))}
         </div>
       </Panel>
