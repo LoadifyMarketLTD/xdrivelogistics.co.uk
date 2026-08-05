@@ -56,10 +56,10 @@ export async function GET(request: NextRequest) {
     })),
     summary: {
       total: rows.length,
-      approvals: rows.filter((r) => r.action_type === 'approve_company').length,
-      suspensions: rows.filter((r) => r.action_type === 'suspend_company').length,
-      reinstatements: rows.filter((r) => r.action_type === 'reinstate_company').length,
-      rejections: rows.filter((r) => r.action_type === 'reject_company').length,
+      approvals: rows.filter((r) => r.action_type === 'company_approved').length,
+      suspensions: rows.filter((r) => r.action_type === 'company_suspended').length,
+      reinstatements: rows.filter((r) => r.action_type === 'company_reinstated').length,
+      rejections: rows.filter((r) => r.action_type === 'company_rejected').length,
     },
   });
 }

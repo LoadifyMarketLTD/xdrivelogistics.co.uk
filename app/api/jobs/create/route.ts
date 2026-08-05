@@ -7,6 +7,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { getFeatureFlags } from '../../_lib/platformFlags';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -98,6 +99,14 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (membershipError) return respond(500, { error: membershipError.message });
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
+
+  // Feature flag gates: exchange_marketplace gates publish=true jobs.
+  if (input.publish) {
+    const flags = await getFeatureFlags(supabaseAdmin, ['exchange_marketplace']);
+    if (!flags.get('exchange_marketplace')) {
+      return respond(503, { error: 'The exchange marketplace is currently disabled. You can save this job as a draft.' });
+    }
+  }
 
   let idempotencyAvailable = true;
   const existingResult = await supabaseAdmin
