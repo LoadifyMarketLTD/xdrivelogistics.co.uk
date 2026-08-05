@@ -221,3 +221,99 @@ describe('FULL_TIMELINE', () => {
     });
   });
 });
+
+// ─── 7. Endpoint mapping ────────────────────────────────────────────────────
+
+describe('endpoint mapping', () => {
+  const EXPECTED_ENDPOINTS: Partial<Record<CanonicalJobStatus, string>> = {
+    on_my_way_pickup: 'on-my-way-pickup',
+    arrived_pickup: 'arrived-pickup',
+    loaded: 'loaded',
+    on_my_way_delivery: 'on-my-way-delivery',
+    arrived_delivery: 'arrived-delivery',
+    delivered: 'delivered',
+  };
+
+  it('each driver-visible step has the correct backend endpoint', () => {
+    Object.entries(EXPECTED_ENDPOINTS).forEach(([status, endpoint]) => {
+      const step = statusFlow.find((s) => s.status === status);
+      expect(step?.endpoint).toBe(endpoint);
+    });
+  });
+
+  it('POD endpoint is pod', () => {
+    const podStep = statusFlow.find((s) => s.endpoint === 'pod');
+    // pod is submitted as a separate action; it is backendOnly in the flow
+    expect(podStep).toBeDefined();
+    expect(podStep?.backendOnly).toBe(true);
+  });
+});
+
+// ─── 8. No skipped / reversed / backend-only transitions ────────────────────
+
+describe('no skipped, reversed or backend-only transitions', () => {
+  const backendOnlyStatuses: CanonicalJobStatus[] = ['pod_completed', 'invoice_generated', 'completed'];
+
+  it('all backend-only statuses are blocked by canTransitionTo', () => {
+    const driverVisible: CanonicalJobStatus[] = [
+      'awarded', 'on_my_way_pickup', 'arrived_pickup', 'loaded',
+      'on_my_way_delivery', 'arrived_delivery', 'delivered',
+    ];
+    driverVisible.forEach((current) => {
+      backendOnlyStatuses.forEach((target) => {
+        expect(canTransitionTo(current, target)).toBe(false);
+      });
+    });
+  });
+
+  it('the full driver sequence is strictly sequential', () => {
+    const sequence: CanonicalJobStatus[] = [
+      'awarded', 'on_my_way_pickup', 'arrived_pickup', 'loaded',
+      'on_my_way_delivery', 'arrived_delivery', 'delivered',
+    ];
+    for (let i = 0; i < sequence.length - 1; i++) {
+      expect(canTransitionTo(sequence[i], sequence[i + 1])).toBe(true);
+      // Skipping two steps is blocked
+      if (i + 2 < sequence.length) {
+        expect(canTransitionTo(sequence[i], sequence[i + 2])).toBe(false);
+      }
+    }
+  });
+});
+
+// ─── 9. POD gate logic ──────────────────────────────────────────────────────
+
+describe('POD gate before Delivered', () => {
+  it('delivered step has requiresPod=true', () => {
+    const delivered = statusFlow.find((s) => s.status === 'delivered');
+    expect(delivered?.requiresPod).toBe(true);
+  });
+
+  it('getNextStep returns delivered with requiresPod when coming from arrived_delivery', () => {
+    const step = getNextStep('arrived_delivery');
+    expect(step?.status).toBe('delivered');
+    expect(step?.requiresPod).toBe(true);
+  });
+
+  it('no other driver-visible step has requiresPod set', () => {
+    const withPod = statusFlow.filter((s) => s.requiresPod && !s.backendOnly);
+    expect(withPod).toHaveLength(1);
+    expect(withPod[0].status).toBe('delivered');
+  });
+});
+
+// ─── 10. canTransitionTo awaits exactly one step ────────────────────────────
+
+describe('canTransitionTo — exactly one step', () => {
+  it('awarded → on_my_way_pickup is one step and allowed', () => {
+    expect(canTransitionTo('awarded', 'on_my_way_pickup')).toBe(true);
+  });
+
+  it('awarded → arrived_pickup is two steps and blocked', () => {
+    expect(canTransitionTo('awarded', 'arrived_pickup')).toBe(false);
+  });
+
+  it('on_my_way_delivery → delivered is two steps and blocked', () => {
+    expect(canTransitionTo('on_my_way_delivery', 'delivered')).toBe(false);
+  });
+});

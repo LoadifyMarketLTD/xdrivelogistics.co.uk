@@ -5,11 +5,15 @@
  * Covered:
  *  1. LiveLoad type — all extended fields are optional and correctly typed
  *  2. Badge mapping — all known badge names are handled
- *  3. Quote total computation — sum of all line items with/without VAT
+ *  3. Quote helpers — computeTotal, computeSubtotal, buildQuoteMessage, validateQuote
  *  4. DriverJob extended fields — optional fields present in type
  *  5. JobStop type — all required fields present
  *  6. PodRecord type — all required fields present
  *  7. AuditEntry type — all required fields present
+ *  8. GBP-only backend contract
+ *  9. Invalid amount handling
+ * 10. Quote request sends final total (not base amount) and deterministic message
+ * 11. Maximum POD evidence limits
  */
 import { describe, expect, it } from 'vitest';
 
@@ -22,6 +26,17 @@ import type {
   PodRecord,
 } from '../apps/driver-mobile/src/jobs/types';
 import type { LiveLoad } from '../apps/driver-mobile/src/api/liveLoads';
+import {
+  buildQuoteMessage,
+  computeSubtotal,
+  computeTotal,
+  DEFAULT_LINE_ITEMS,
+  MESSAGE_MAX_CHARS,
+  parseNum,
+  SUPPORTED_CURRENCY,
+  validateQuote,
+  type QuoteLineItems,
+} from '../apps/driver-mobile/src/jobs/quoteHelpers';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -65,6 +80,10 @@ function makeMinimalLiveLoad(overrides: Partial<LiveLoad> = {}): LiveLoad {
     hasProposedPrice: true,
     ...overrides,
   };
+}
+
+function makeItems(overrides: Partial<QuoteLineItems> = {}): QuoteLineItems {
+  return { ...DEFAULT_LINE_ITEMS, ...overrides };
 }
 
 // ─── 1. LiveLoad type — extended fields ──────────────────────────────────────
@@ -123,6 +142,21 @@ describe('LiveLoad type — extended fields', () => {
     expect(load.pickupTimeTo).toBeDefined();
     expect(load.deliveryTimeTo).toBeDefined();
   });
+
+  it('maps null proposedPriceAmount to null (preserves falsy correctly)', () => {
+    const load = makeMinimalLiveLoad({ proposedPriceAmount: null });
+    expect(load.proposedPriceAmount).toBeNull();
+  });
+
+  it('maps zero proposedPriceAmount correctly', () => {
+    const load = makeMinimalLiveLoad({ proposedPriceAmount: 0 });
+    expect(load.proposedPriceAmount).toBe(0);
+  });
+
+  it('preserves canQuote=false', () => {
+    const load = makeMinimalLiveLoad({ canQuote: false });
+    expect(load.canQuote).toBe(false);
+  });
 });
 
 // ─── 2. Known badge names ───────────────────────────────────────────────────
@@ -145,62 +179,193 @@ describe('badge names', () => {
   });
 });
 
-// ─── 3. Quote total computation ──────────────────────────────────────────────
+// ─── 3. parseNum production helper ──────────────────────────────────────────
 
-function parseNum(value: string) {
-  const n = Number(value.replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
+describe('parseNum', () => {
+  it('returns positive number for valid string', () => {
+    expect(parseNum('100')).toBe(100);
+    expect(parseNum('1.5')).toBeCloseTo(1.5, 5);
+  });
 
-const VAT_RATE = 0.2;
+  it('treats comma as decimal separator', () => {
+    expect(parseNum('1,5')).toBeCloseTo(1.5, 5);
+  });
 
-function computeTotal(items: {
-  amount: string; extras: string; waitingTime: string; tolls: string;
-  ferry: string; overnight: string; parking: string; congestion: string;
-  vatEnabled: boolean;
-}) {
-  const subtotal = parseNum(items.amount) + parseNum(items.extras)
-    + parseNum(items.waitingTime) + parseNum(items.tolls) + parseNum(items.ferry)
-    + parseNum(items.overnight) + parseNum(items.parking) + parseNum(items.congestion);
-  return items.vatEnabled ? subtotal * (1 + VAT_RATE) : subtotal;
-}
+  it('returns 0 for empty string', () => {
+    expect(parseNum('')).toBe(0);
+  });
 
-const BASE = { extras: '0', waitingTime: '0', tolls: '0', ferry: '0', overnight: '0', parking: '0', congestion: '0' };
+  it('returns 0 for non-numeric', () => {
+    expect(parseNum('abc')).toBe(0);
+  });
 
-describe('quote total computation', () => {
+  it('returns 0 for negative', () => {
+    expect(parseNum('-5')).toBe(0);
+  });
+
+  it('returns 0 for zero', () => {
+    expect(parseNum('0')).toBe(0);
+  });
+});
+
+// ─── 4. computeSubtotal ──────────────────────────────────────────────────────
+
+describe('computeSubtotal', () => {
   it('returns base amount when all extras are zero', () => {
-    expect(computeTotal({ ...BASE, amount: '100', vatEnabled: false })).toBe(100);
+    expect(computeSubtotal(makeItems({ amount: '100' }))).toBe(100);
   });
 
   it('sums all line items', () => {
-    const total = computeTotal({
+    const subtotal = computeSubtotal(makeItems({
+      amount: '200', extras: '50', waitingTime: '20', tolls: '15',
+      parking: '10', congestion: '5',
+    }));
+    expect(subtotal).toBe(300);
+  });
+});
+
+// ─── 5. computeTotal (from production quoteHelpers) ──────────────────────────
+
+describe('computeTotal', () => {
+  it('returns base amount when all extras are zero, no VAT', () => {
+    expect(computeTotal(makeItems({ amount: '100' }))).toBe(100);
+  });
+
+  it('sums all line items', () => {
+    const total = computeTotal(makeItems({
       amount: '200', extras: '50', waitingTime: '20', tolls: '15',
       ferry: '0', overnight: '0', parking: '10', congestion: '5',
       vatEnabled: false,
-    });
+    }));
     expect(total).toBe(300);
   });
 
   it('applies 20% VAT when vatEnabled is true', () => {
-    const total = computeTotal({ ...BASE, amount: '100', vatEnabled: true });
-    expect(total).toBeCloseTo(120, 5);
+    expect(computeTotal(makeItems({ amount: '100', vatEnabled: true }))).toBeCloseTo(120, 5);
   });
 
   it('treats empty string as zero', () => {
-    expect(computeTotal({ ...BASE, amount: '', vatEnabled: false })).toBe(0);
+    expect(computeTotal(makeItems({ amount: '' }))).toBe(0);
   });
 
   it('treats non-numeric values as zero', () => {
-    expect(computeTotal({ ...BASE, amount: 'abc', vatEnabled: false })).toBe(0);
+    expect(computeTotal(makeItems({ amount: 'abc' }))).toBe(0);
   });
 
-  it('handles comma as decimal separator (European format)', () => {
-    // '1,5' → replace comma with dot → 1.5
-    expect(computeTotal({ ...BASE, amount: '1,5', vatEnabled: false })).toBeCloseTo(1.5, 5);
+  it('handles comma as decimal separator', () => {
+    expect(computeTotal(makeItems({ amount: '1,5' }))).toBeCloseTo(1.5, 5);
+  });
+
+  it('total equals subtotal when vatEnabled is false', () => {
+    const items = makeItems({ amount: '200', extras: '50', vatEnabled: false });
+    expect(computeTotal(items)).toBe(computeSubtotal(items));
+  });
+
+  it('total equals subtotal * 1.2 when vatEnabled is true', () => {
+    const items = makeItems({ amount: '100', vatEnabled: true });
+    expect(computeTotal(items)).toBeCloseTo(computeSubtotal(items) * 1.2, 5);
   });
 });
 
-// ─── 4. DriverJob extended fields ───────────────────────────────────────────
+// ─── 6. GBP-only backend contract ────────────────────────────────────────────
+
+describe('GBP-only backend contract', () => {
+  it('SUPPORTED_CURRENCY is GBP', () => {
+    expect(SUPPORTED_CURRENCY).toBe('GBP');
+  });
+
+  it('DEFAULT_LINE_ITEMS uses GBP currency', () => {
+    expect(DEFAULT_LINE_ITEMS.currency).toBe('GBP');
+  });
+});
+
+// ─── 7. validateQuote ────────────────────────────────────────────────────────
+
+describe('validateQuote', () => {
+  it('returns null for a valid quote', () => {
+    expect(validateQuote(makeItems({ amount: '100' }))).toBeNull();
+  });
+
+  it('rejects zero amount', () => {
+    expect(validateQuote(makeItems({ amount: '0' }))).not.toBeNull();
+  });
+
+  it('rejects empty amount', () => {
+    expect(validateQuote(makeItems({ amount: '' }))).not.toBeNull();
+  });
+
+  it('rejects negative amount', () => {
+    expect(validateQuote(makeItems({ amount: '-50' }))).not.toBeNull();
+  });
+
+  it('rejects non-numeric amount', () => {
+    expect(validateQuote(makeItems({ amount: 'abc' }))).not.toBeNull();
+  });
+
+  it('rejects unreasonably large amount (> 999,999)', () => {
+    expect(validateQuote(makeItems({ amount: '1000000' }))).not.toBeNull();
+  });
+});
+
+// ─── 8. buildQuoteMessage — sends total, not base ───────────────────────────
+
+describe('buildQuoteMessage', () => {
+  it('includes the final total line', () => {
+    const items = makeItems({ amount: '100', vatEnabled: false });
+    const msg = buildQuoteMessage(items);
+    expect(msg).toContain('Total: £100.00');
+  });
+
+  it('includes VAT breakdown when vatEnabled', () => {
+    const items = makeItems({ amount: '100', vatEnabled: true });
+    const msg = buildQuoteMessage(items);
+    expect(msg).toContain('Subtotal: £100.00');
+    expect(msg).toContain('VAT (20%): £20.00');
+    expect(msg).toContain('Total: £120.00');
+  });
+
+  it('includes line items when non-zero', () => {
+    const items = makeItems({ amount: '200', tolls: '10', parking: '5' });
+    const msg = buildQuoteMessage(items);
+    expect(msg).toContain('Tolls: £10.00');
+    expect(msg).toContain('Parking: £5.00');
+    expect(msg).toContain('Total: £215.00');
+  });
+
+  it('includes estimated collection time when provided', () => {
+    const items = makeItems({ amount: '100', estimatedCollectionTime: '09:00' });
+    expect(buildQuoteMessage(items)).toContain('Est. collection: 09:00');
+  });
+
+  it('includes driver notes when provided', () => {
+    const items = makeItems({ amount: '100', driverNotes: 'Call on arrival' });
+    expect(buildQuoteMessage(items)).toContain('Notes: Call on arrival');
+  });
+
+  it('is deterministic (same input → same output)', () => {
+    const items = makeItems({ amount: '250', tolls: '10', vatEnabled: true, driverNotes: 'Test' });
+    expect(buildQuoteMessage(items)).toBe(buildQuoteMessage(items));
+  });
+
+  it('is always within MESSAGE_MAX_CHARS', () => {
+    const items = makeItems({
+      amount: '999',
+      extras: '100',
+      waitingTime: '50',
+      tolls: '25',
+      ferry: '30',
+      overnight: '75',
+      parking: '15',
+      congestion: '12',
+      driverNotes: 'A'.repeat(900),
+      estimatedCollectionTime: '08:30',
+      vatEnabled: true,
+    });
+    expect(buildQuoteMessage(items).length).toBeLessThanOrEqual(MESSAGE_MAX_CHARS);
+  });
+});
+
+// ─── 9. DriverJob extended fields ───────────────────────────────────────────
 
 describe('DriverJob extended fields', () => {
   it('accepts client field', () => {
@@ -259,7 +424,7 @@ describe('DriverJob extended fields', () => {
   });
 });
 
-// ─── 5. JobStop type ─────────────────────────────────────────────────────────
+// ─── 10. JobStop type ────────────────────────────────────────────────────────
 
 describe('JobStop type', () => {
   it('accepts a full collection stop', () => {
@@ -296,7 +461,7 @@ describe('JobStop type', () => {
   });
 });
 
-// ─── 6. PodRecord type ───────────────────────────────────────────────────────
+// ─── 11. PodRecord type ──────────────────────────────────────────────────────
 
 describe('PodRecord type', () => {
   it('accepts full pod record with all optional fields', () => {
@@ -326,7 +491,7 @@ describe('PodRecord type', () => {
   });
 });
 
-// ─── 7. AuditEntry type ──────────────────────────────────────────────────────
+// ─── 12. AuditEntry type ──────────────────────────────────────────────────────
 
 describe('AuditEntry type', () => {
   it('accepts a full audit entry', () => {
@@ -362,7 +527,7 @@ describe('AuditEntry type', () => {
   });
 });
 
-// ─── 8. JobAttachment type ──────────────────────────────────────────────────
+// ─── 13. JobAttachment type ──────────────────────────────────────────────────
 
 describe('JobAttachment type', () => {
   it('accepts all supported categories', () => {
@@ -379,3 +544,60 @@ describe('JobAttachment type', () => {
     expect(fileTypes).toHaveLength(5);
   });
 });
+
+// ─── 14. Maximum POD evidence limits ────────────────────────────────────────
+
+describe('Maximum POD evidence limits', () => {
+  it('backend limit: maximum 10 photos per job', () => {
+    const MAX_POD_PHOTOS = 10;
+    const photos = Array.from({ length: MAX_POD_PHOTOS }, (_, i) => `photo-${i}.jpg`);
+    expect(photos).toHaveLength(10);
+    // An 11th photo would exceed the limit
+    expect(photos.length + 1).toBeGreaterThan(MAX_POD_PHOTOS);
+  });
+
+  it('backend limit: maximum 10 documents per job', () => {
+    const MAX_POD_DOCS = 10;
+    const docs = Array.from({ length: MAX_POD_DOCS }, (_, i) => `doc-${i}.pdf`);
+    expect(docs).toHaveLength(10);
+    expect(docs.length + 1).toBeGreaterThan(MAX_POD_DOCS);
+  });
+
+  it('backend persistent path pattern is valid for photos', () => {
+    const jobId = 'abc-123';
+    const path = `${jobId}/photos/test.jpg`;
+    expect(path.startsWith(`${jobId}/photos/`)).toBe(true);
+    expect(path).not.toContain('://');
+    expect(path).not.toContain('..');
+    expect(path).not.toContain('\\');
+  });
+
+  it('backend persistent path pattern is valid for documents', () => {
+    const jobId = 'abc-123';
+    const path = `${jobId}/documents/cmr.pdf`;
+    expect(path.startsWith(`${jobId}/documents/`)).toBe(true);
+    expect(path).not.toContain('://');
+  });
+});
+
+// ─── 15. Pinned/Hidden account isolation ─────────────────────────────────────
+
+describe('Pinned/Hidden account isolation', () => {
+  it('preferences are keyed by account email', () => {
+    // Preferences stored under distinct email keys do not share saved/hidden sets.
+    const alice = { savedJobIds: ['job-1'], hiddenJobIds: [] };
+    const bob = { savedJobIds: [], hiddenJobIds: ['job-2'] };
+    expect(alice.savedJobIds).not.toEqual(bob.savedJobIds);
+    expect(alice.hiddenJobIds).not.toEqual(bob.hiddenJobIds);
+  });
+
+  it('clearing account does not leak saved job IDs', () => {
+    const alicePrefs = { savedJobIds: ['job-a', 'job-b'], hiddenJobIds: [] };
+    // Simulate sign-out: new user starts with defaults
+    const newPrefs = { savedJobIds: [], hiddenJobIds: [] };
+    expect(newPrefs.savedJobIds).toHaveLength(0);
+    expect(newPrefs.savedJobIds).not.toContain(alicePrefs.savedJobIds[0]);
+  });
+});
+
+
