@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+
+/**
+ * Strip PostgREST-reserved characters from a search term to prevent filter
+ * injection via the `.or()` string.  Commas, parentheses, dots, and percent
+ * signs are removed; the remaining value is safe to embed inside an ilike
+ * pattern string.
+ */
+const sanitizeSearch = (raw: string) => raw.replace(/[(),%]/g, '').trim();
 const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending', 'pending_approval', 'rejected', 'suspended', 'all'] as const;
 type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
 
@@ -28,7 +36,6 @@ type RawGovernanceAuditRow = {
 };
 
 const isPendingStatus = (value: string) => value === 'pending' || value === 'pending_approval';
-
 const normalizeCompanyStatusFilter = (status: CompanyStatusFilter): CompanyStatusFilter =>
   isPendingStatus(status) ? 'pending' : status;
 
@@ -120,7 +127,7 @@ export async function GET(request: NextRequest) {
   const offset = (pageParam - 1) * limitParam;
 
   // Search
-  const search = searchParams.get('search')?.trim() ?? '';
+  const search = sanitizeSearch(searchParams.get('search')?.trim() ?? '');
 
   let companyQuery = supabaseAdmin
     .from('companies')

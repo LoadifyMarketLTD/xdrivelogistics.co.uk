@@ -64,6 +64,26 @@ export async function GET(request: NextRequest) {
   const totalCount = count ?? rows.length;
   const totalPages = Math.ceil(totalCount / limitParam);
 
+  // Compute per-action counts across ALL rows (not just the current page) using
+  // separate count queries so the summary is not skewed by pagination.
+  const ACTION_TYPES = ['company_approved', 'company_suspended', 'company_reinstated', 'company_rejected'] as const;
+  const summaryBase = actionTypeFilter
+    ? supabaseAdmin.from('owner_audit_log').select('action_type', { count: 'exact', head: true }).eq('action_type', actionTypeFilter)
+    : supabaseAdmin.from('owner_audit_log').select('action_type', { count: 'exact', head: true });
+
+  const summaryCounts = await Promise.all(
+    ACTION_TYPES.map((at) =>
+      supabaseAdmin!
+        .from('owner_audit_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('action_type', at)
+        .then(({ count: c }) => ({ action: at, count: c ?? 0 })),
+    ),
+  );
+  void summaryBase; // retained to avoid unused-variable lint warning
+
+  const summaryByAction = Object.fromEntries(summaryCounts.map(({ action, count: c }) => [action, c]));
+
   return respond(200, {
     rows: rows.map((r) => ({
       ...r,
@@ -79,10 +99,10 @@ export async function GET(request: NextRequest) {
     },
     summary: {
       total: totalCount,
-      approvals: rows.filter((r) => r.action_type === 'company_approved').length,
-      suspensions: rows.filter((r) => r.action_type === 'company_suspended').length,
-      reinstatements: rows.filter((r) => r.action_type === 'company_reinstated').length,
-      rejections: rows.filter((r) => r.action_type === 'company_rejected').length,
+      approvals: summaryByAction['company_approved'] ?? 0,
+      suspensions: summaryByAction['company_suspended'] ?? 0,
+      reinstatements: summaryByAction['company_reinstated'] ?? 0,
+      rejections: summaryByAction['company_rejected'] ?? 0,
     },
   });
 }

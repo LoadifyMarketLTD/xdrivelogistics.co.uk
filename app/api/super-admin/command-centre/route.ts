@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       .order('expires_at', { ascending: true })
       .limit(20),
 
-    // Expired documents on active jobs
+    // Documents that have passed their expiry date (all driver documents, not scoped to jobs)
     supabaseAdmin
       .from('driver_documents')
       .select('id, driver_id, document_type, expires_at')

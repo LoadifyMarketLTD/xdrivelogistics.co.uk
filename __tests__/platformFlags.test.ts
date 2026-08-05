@@ -114,7 +114,7 @@ describe('getFeatureFlag', () => {
   it('fail-CLOSED for exchange_marketplace when DB errors', async () => {
     mocks.flagError = { message: 'connection timeout' };
     const result = await getFeatureFlag(makeMockClient() as unknown as SupabaseClient, 'exchange_marketplace');
-    expect(result).toBe(true); // default is true, DB error = use default (true)
+    expect(result).toBe(false); // DB error = fail-closed (disabled), regardless of FLAG_DEFAULTS
   });
 
   it('fail-CLOSED for stripe_billing_future_phase when DB errors', async () => {

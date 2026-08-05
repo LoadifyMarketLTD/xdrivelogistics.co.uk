@@ -88,9 +88,15 @@ export async function getFeatureFlag(
     .eq('key', key)
     .maybeSingle();
 
-  if (error || !data) {
-    // DB miss — use fail-open/closed policy
-    return FAIL_OPEN_FLAGS.has(key) ? true : (FLAG_DEFAULTS[key] ?? false);
+  if (error) {
+    // DB error — strict fail-open/closed policy:
+    // FAIL_OPEN_FLAGS stay enabled; everything else is disabled regardless of FLAG_DEFAULTS.
+    return FAIL_OPEN_FLAGS.has(key) ? true : false;
+  }
+
+  if (!data) {
+    // Row absent (fresh deployment or flag never written) — use in-code defaults.
+    return FLAG_DEFAULTS[key] ?? false;
   }
 
   return Boolean(data.is_enabled);
@@ -128,8 +134,12 @@ export async function getFeatureFlags(
   );
 
   for (const key of keys) {
-    if (error || !dbValues.has(key)) {
-      result.set(key, FAIL_OPEN_FLAGS.has(key) ? true : (FLAG_DEFAULTS[key] ?? false));
+    if (error) {
+      // DB error — strict fail-open/closed policy.
+      result.set(key, FAIL_OPEN_FLAGS.has(key) ? true : false);
+    } else if (!dbValues.has(key)) {
+      // Row absent — use in-code defaults.
+      result.set(key, FLAG_DEFAULTS[key] ?? false);
     } else {
       result.set(key, dbValues.get(key)!);
     }
