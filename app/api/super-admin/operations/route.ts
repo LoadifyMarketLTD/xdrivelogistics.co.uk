@@ -3,7 +3,6 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 import { buildJobSearchPattern } from '../_lib/searchFilters';
 
-export { buildJobSearchPattern };
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 

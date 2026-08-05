@@ -1,5 +1,11 @@
-const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending', 'pending_approval', 'rejected', 'suspended', 'all'] as const;
-export type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
+export type CompanyStatusFilter =
+  | 'active'
+  | 'inactive'
+  | 'pending'
+  | 'pending_approval'
+  | 'rejected'
+  | 'suspended'
+  | 'all';
 
 const isPendingStatus = (value: string) => value === 'pending' || value === 'pending_approval';
 
