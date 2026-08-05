@@ -6,7 +6,7 @@ import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn, WorkspaceState } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number, currency = 'GBP') => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -51,8 +51,6 @@ export function CustomerDashboard() {
       recentQuoteActivity,
     };
   }, [data]);
-
-  if (data.loading) return <PageFrame><WorkspaceState variant="loading" label="Loading customer dashboard…" rows={4} /></PageFrame>;
 
   return (
     <PageFrame>
