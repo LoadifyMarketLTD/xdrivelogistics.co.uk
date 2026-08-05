@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const roleParam = (searchParams.get('role') ?? '').toLowerCase() as RoleFilter;
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '250', 10), 500);
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 500);
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+  const offset = (page - 1) * limit;
 
   if (roleParam && !ALLOWED_ROLES.includes(roleParam)) {
     return respond(400, { error: `Invalid role filter. Allowed: ${ALLOWED_ROLES.join(', ')}` });
@@ -42,15 +44,18 @@ export async function GET(request: NextRequest) {
   try {
     // ── Driver users ─────────────────────────────────────────────────────────
     if (roleParam === 'driver') {
-      const { data: drivers, error: driversErr } = await supabaseAdmin
+      const { data: drivers, error: driversErr, count } = await supabaseAdmin
         .from('drivers')
         .select(
-          'id, user_id, first_name, last_name, email, phone, status, availability_status, app_access, created_at, company_id, companies:company_id(name)'
+          'id, user_id, first_name, last_name, email, phone, status, availability_status, app_access, created_at, company_id, companies:company_id(name)',
+          { count: 'exact' }
         )
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (driversErr) return respond(500, { error: driversErr.message });
+
+      const total = count ?? 0;
 
       const rows = (drivers ?? []).map((d: Record<string, unknown>) => ({
         id: d.id,
@@ -67,20 +72,26 @@ export async function GET(request: NextRequest) {
         role: 'driver',
       }));
 
-      return respond(200, { rows, total: rows.length, role: 'driver' });
+      return respond(200, {
+        rows,
+        total,
+        role: 'driver',
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      });
     }
 
     // ── Platform admins (owner role in profiles) ──────────────────────────────
     if (roleParam === 'platform_admin') {
-      const { data: profiles, error: profilesErr } = await supabaseAdmin
+      const { data: profiles, error: profilesErr, count } = await supabaseAdmin
         .from('profiles')
-        .select('user_id, display_name, email, role, created_at')
+        .select('user_id, display_name, email, role, created_at', { count: 'exact' })
         .eq('role', 'owner')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (profilesErr) return respond(500, { error: profilesErr.message });
 
+      const total = count ?? 0;
       const rows = (profiles ?? []).map((p: Record<string, unknown>) => ({
         id: p.user_id,
         user_id: p.user_id,
@@ -91,19 +102,24 @@ export async function GET(request: NextRequest) {
         created_at: p.created_at,
       }));
 
-      return respond(200, { rows, total: rows.length, role: 'platform_admin' });
+      return respond(200, {
+        rows, total, role: 'platform_admin',
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      });
     }
 
     // ── Company owners (owner role in company_memberships) ────────────────────────
     if (roleParam === 'owner') {
-      const { data: members, error: membersErr } = await supabaseAdmin
+      const { data: members, error: membersErr, count } = await supabaseAdmin
         .from('company_memberships')
-        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)')
+        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
         .eq('role_in_company', 'owner')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (membersErr) return respond(500, { error: membersErr.message });
+
+      const total = count ?? 0;
 
       // Fetch profile emails
       const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
@@ -136,19 +152,24 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      return respond(200, { rows, total: rows.length, role: 'owner' });
+      return respond(200, {
+        rows, total, role: 'owner',
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      });
     }
 
     // ── Customers ─────────────────────────────────────────────────────────────
     if (roleParam === 'customer') {
-      const { data: members, error: membersErr } = await supabaseAdmin
+      const { data: members, error: membersErr, count } = await supabaseAdmin
         .from('company_memberships')
-        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)')
+        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
         .eq('role_in_company', 'customer')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (membersErr) return respond(500, { error: membersErr.message });
+
+      const total = count ?? 0;
 
       const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
       let profileMap: Map<string, { name: string; email: string }> = new Map();
@@ -180,19 +201,24 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      return respond(200, { rows, total: rows.length, role: 'customer' });
+      return respond(200, {
+        rows, total, role: 'customer',
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      });
     }
 
     // ── Dispatchers ───────────────────────────────────────────────────────────
     if (roleParam === 'dispatcher') {
-      const { data: members, error: membersErr } = await supabaseAdmin
+      const { data: members, error: membersErr, count } = await supabaseAdmin
         .from('company_memberships')
-        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)')
+        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
         .eq('role_in_company', 'dispatcher')
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (membersErr) return respond(500, { error: membersErr.message });
+
+      const total = count ?? 0;
 
       const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
       let profileMap: Map<string, { name: string; email: string }> = new Map();
@@ -224,7 +250,10 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      return respond(200, { rows, total: rows.length, role: 'dispatcher' });
+      return respond(200, {
+        rows, total, role: 'dispatcher',
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      });
     }
 
     // ── All users (summary) ───────────────────────────────────────────────────

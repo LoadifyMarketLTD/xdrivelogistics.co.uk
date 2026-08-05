@@ -37,8 +37,29 @@ const actionLabel = (action: string): string => {
     document_viewed: '👁️ Doc Viewed',
     // Support types (set by support/route.ts)
     support_ticket_updated: '🎫 Ticket Updated',
+    // Onboarding types (set by onboarding/[id]/route.ts)
+    onboarding_submitted: '📋 Onboarding Submitted',
+    onboarding_invite: '✉️ Onboarding Invite Sent',
+    onboarding_invite_resent: '✉️ Invite Resent',
+    invite_sent: '✉️ Invite Sent',
+    // Driver / user management types
+    driver_created: '🚗 Driver Created',
+    existing_driver_updated: '🚗 Driver Updated',
+    temporary_password_created: '🔑 Temp Password Created',
+    // POD / job types
+    pod_generated: '📦 POD Generated',
+    // Fraud / identity review types
+    fraud_case: '🚨 Fraud Case',
+    identity: '🪪 Identity Review',
   };
-  return labels[action] ?? action.replace(/_/g, ' ');
+
+  if (labels[action]) return labels[action];
+
+  // Catch-all: convert snake_case to Title Case for any unknown action types
+  return action
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 export default function Page() {
