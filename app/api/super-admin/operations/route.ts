@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { coordinatesFromLocation } from '../../../../lib/geoLocation';
+import { buildJobSearchPattern } from '../_lib/searchFilters';
+
+export { buildJobSearchPattern };
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
 const normalizeSearch = (raw: string) => raw.trim();
 
-export const buildJobSearchPattern = (search: string) => `%${search}%`;
 
 const findMatchingJobIds = async (search: string) => {
   if (!supabaseAdmin || !search) return null;
