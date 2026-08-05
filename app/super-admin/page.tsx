@@ -282,13 +282,13 @@ function CommandCentre() {
           ℹ️ Some data sources are not yet available in the live schema and are excluded from this view: {data.unavailableSources.join(', ')}.
         </div>
       )}
+
+      {data?.queryErrors && data.queryErrors.length > 0 && (
         <div style={{ marginBottom: '1rem', border: `1px solid ${T.orange}`, borderRadius: '8px', backgroundColor: 'rgba(249,115,22,0.08)', padding: '0.65rem 0.9rem', color: T.orange, fontSize: '0.82rem' }}>
           ⚠️ Partial data — one or more data sources returned an error. Some indicators may be incomplete.
-          {data.queryErrors && data.queryErrors.length > 0 && (
-            <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', fontSize: '0.75rem', color: T.muted }}>
-              {data.queryErrors.map((e, i) => <li key={i}>{e}</li>)}
-            </ul>
-          )}
+          <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', fontSize: '0.75rem', color: T.muted }}>
+            {data.queryErrors.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
         </div>
       )}
 
