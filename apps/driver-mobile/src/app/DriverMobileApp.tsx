@@ -1,15 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, Image, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
 import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { supabase } from '../auth/supabase';
-import { getNextStep } from '../jobs/statusFlow';
-import type { DriverJob, JobScope, QueuedActionStatus } from '../jobs/types';
+import { FULL_TIMELINE, getNextStep, statusIndex } from '../jobs/statusFlow';
+import type { AuditEntry, DriverJob, JobScope, JobStop, PodRecord, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
 import {
   enqueueAction,
@@ -25,7 +25,9 @@ import {
 } from '../offline/queue';
 import { colors, spacing } from '../ui/theme';
 
-type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'notifications' | 'profile';
+type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'viewPod' | 'notifications' | 'profile';
+
+type DetailTab = 'summary' | 'stops' | 'status';
 
 type QueueCounts = Record<QueuedActionStatus, number>;
 
@@ -456,8 +458,8 @@ export default function DriverMobileApp() {
       setMessage('Job status is already up to date.');
       return;
     }
-    if (nextStep.status === 'delivered' && job.podRequired && job.podGenerated !== true) {
-      setMessage('Proof of Delivery is required before marking this job as delivered.');
+    // Always gate on POD before delivering — never transition directly to delivered
+    if (nextStep.status === 'delivered') {
       setScreen('pod');
       return;
     }
@@ -499,7 +501,7 @@ export default function DriverMobileApp() {
   }
 
   function handleBottomNavChange(nextScreen: Screen) {
-    if ((nextScreen === 'pod' || nextScreen === 'active' || nextScreen === 'detail') && !job) {
+    if ((nextScreen === 'pod' || nextScreen === 'viewPod' || nextScreen === 'active' || nextScreen === 'detail') && !job) {
       setScreen('jobs');
       return;
     }
@@ -549,18 +551,21 @@ export default function DriverMobileApp() {
                 }}
               />
             )}
-            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} />}
+            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => setScreen('viewPod')} />}
             {screen === 'pod' && job && (
               <PodScreen
                 job={job}
                 token={token}
                 onSaved={(updatedJob) => {
                   if (updatedJob) setJob(updatedJob);
-                  else setJob((current) => (current ? { ...current, podGenerated: true } : current));
+                  else setJob((current) => (current ? { ...current, podGenerated: true, podCompleted: true } : current));
                   setScreen('active');
                 }}
                 onQueued={(queued) => setQueue((items) => [queued, ...items])}
               />
+            )}
+            {screen === 'viewPod' && job && (
+              <ViewPodScreen pod={job.pod ?? null} onBack={() => setScreen('detail')} />
             )}
             {screen === 'notifications' && (
               <NotificationsScreen
@@ -686,26 +691,212 @@ function JobsScreen({ scope, onScope, jobs, onOpen }: { scope: JobScope; onScope
   );
 }
 
-function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => void }) {
+function JobDetailScreen({ job, onPrimary, onViewPod }: { job: DriverJob; onPrimary: () => void; onViewPod: () => void }) {
+  const [tab, setTab] = useState<DetailTab>('summary');
+  const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
+  const tabs: Array<[DetailTab, string]> = [['summary', 'Summary'], ['stops', 'Stops'], ['status', 'Status']];
+
   return (
     <View style={styles.stack}>
+      {/* Tab bar */}
+      <View style={styles.detailTabs}>
+        {tabs.map(([key, label]) => (
+          <TouchableOpacity key={key} style={[styles.detailTab, tab === key && styles.detailTabActive]} onPress={() => setTab(key)}>
+            <Text style={[styles.detailTabText, tab === key && styles.detailTabTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {tab === 'summary' && <SummaryTab job={job} />}
+      {tab === 'stops' && <StopsTab job={job} onViewPod={onViewPod} isPodDone={isPodDone} />}
+      {tab === 'status' && <StatusTab job={job} />}
+
+      <PrimaryButton label="Back to active" onPress={onPrimary} />
+      {isPodDone && (
+        <TouchableOpacity style={styles.viewPodButton} onPress={onViewPod} accessibilityRole="button">
+          <Text style={styles.viewPodButtonText}>VIEW POD</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+function SummaryTab({ job }: { job: DriverJob }) {
+  const mapUrl = `https://www.google.com/maps/dir/${encodeURIComponent(job.pickupLocation)}/${encodeURIComponent(job.deliveryLocation)}`;
+
+  return (
+    <View style={styles.stack}>
+      {/* Client & Contact */}
       <Panel>
         <Text style={styles.title}>{job.reference}</Text>
-        <Info label="Lifecycle" value={stringField(job.lifecycleStatus, 'In progress')} />
-        <Info label="Pickup" value={job.pickupLocation} />
-        <Info label="Delivery" value={job.deliveryLocation} />
-        <Info label="Pickup time" value={job.pickupTime} />
-        <Info label="Delivery time" value={job.deliveryTime} />
-        <Info label="Cargo" value={job.cargoType} />
-        <Info label="Vehicle" value={job.vehicleRequirement} />
-        <Info label="POD" value={job.podGenerated ? 'Captured' : job.podRequired ? 'Required before delivery' : 'Not required'} />
-        {job.price ? <Info label="Price" value={job.price} /> : null}
-        {job.requirements ? <Info label="Requirements" value={job.requirements} /> : null}
+        {job.client ? <Info label="Customer" value={job.client} /> : null}
+        {job.contactAllowed && job.contactPhone ? (
+          <View style={styles.contactRow}>
+            <TouchableOpacity style={styles.contactButton} onPress={() => void Linking.openURL(`tel:${job.contactPhone}`)}>
+              <Text style={styles.contactButtonText}>📞 CALL</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.contactButton} onPress={() => void Linking.openURL(`sms:${job.contactPhone}`)}>
+              <Text style={styles.contactButtonText}>💬 MESSAGE</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {job.contactAllowed && job.contactName ? <Info label="Contact" value={job.contactName} /> : null}
-        {job.contactAllowed && job.contactPhone ? <Info label="Phone" value={job.contactPhone} /> : null}
-        {job.updatedAt ? <Info label="Last updated" value={formatDateTime(job.updatedAt)} /> : null}
       </Panel>
-      <PrimaryButton label="Back to active" onPress={onPrimary} />
+
+      {/* Route */}
+      <Panel>
+        <Info label="Pickup Address" value={job.pickupLocation} />
+        <Info label="Delivery Address" value={job.deliveryLocation} />
+        <TouchableOpacity style={styles.mapButton} onPress={() => void Linking.openURL(mapUrl)} accessibilityRole="button">
+          <Text style={styles.mapButtonText}>🗺  VIEW ROUTE MAP</Text>
+        </TouchableOpacity>
+        {job.distance ? <Info label="Distance" value={job.distance} /> : null}
+        {job.eta ? <Info label="Driving Time (ETA)" value={job.eta} /> : null}
+        <Info label="Vehicle" value={job.vehicleRequirement} />
+      </Panel>
+
+      {/* Load Details */}
+      <Panel>
+        <Text style={styles.infoLabel}>Load Details</Text>
+        <Info label="Freight Type" value={job.cargoType} />
+        {job.weight ? <Info label="Weight" value={job.weight} /> : null}
+        {job.dimensions ? <Info label="Dimensions" value={job.dimensions} /> : null}
+        {job.palletCount != null ? <Info label="Pallet Count" value={String(job.palletCount)} /> : null}
+        {job.adr ? <Info label="ADR" value="Yes — Hazardous goods" /> : null}
+        {job.tailLift ? <Info label="Tail Lift" value="Required" /> : null}
+        {job.temperatureControlled ? <Info label="Temperature Controlled" value="Required" /> : null}
+      </Panel>
+
+      {/* Notes & Instructions */}
+      {(job.customerNotes || job.dispatcherNotes || job.specialInstructions || job.requirements) ? (
+        <Panel>
+          {job.customerNotes ? <Info label="Customer Notes" value={job.customerNotes} /> : null}
+          {job.dispatcherNotes ? <Info label="Dispatcher Notes" value={job.dispatcherNotes} /> : null}
+          {job.specialInstructions ? <Info label="Special Instructions" value={job.specialInstructions} /> : null}
+          {job.requirements ? <Info label="Requirements" value={job.requirements} /> : null}
+        </Panel>
+      ) : null}
+
+      {/* References & Terms */}
+      <Panel>
+        {job.customerReference ? <Info label="Customer Reference" value={job.customerReference} /> : null}
+        {job.internalReference ? <Info label="Internal Reference" value={job.internalReference} /> : null}
+        {job.paymentTerms ? <Info label="Payment Terms" value={job.paymentTerms} /> : null}
+        {job.price ? <Info label="Price" value={job.price} /> : null}
+        {job.customerDetails ? <Info label="Customer Information" value={job.customerDetails} /> : null}
+        {job.updatedAt ? <Info label="Last Updated" value={formatDateTime(job.updatedAt)} /> : null}
+      </Panel>
+
+      {/* Attachments */}
+      {job.attachments && job.attachments.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Attachments</Text>
+          {job.attachments.map((att) => (
+            <TouchableOpacity key={att.id} style={styles.attachmentRow} onPress={() => void Linking.openURL(att.url)}>
+              <View style={styles.attachmentLeft}>
+                <Text style={styles.attachmentName} numberOfLines={1}>{att.name}</Text>
+                <Text style={styles.attachmentMeta}>{att.category.replace(/_/g, ' ').toUpperCase()} · {att.fileType.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.attachmentAction}>↓</Text>
+            </TouchableOpacity>
+          ))}
+        </Panel>
+      ) : null}
+    </View>
+  );
+}
+
+function StopsTab({ job, onViewPod, isPodDone }: { job: DriverJob; onViewPod: () => void; isPodDone: boolean }) {
+  const stops: JobStop[] = job.stops && job.stops.length > 0
+    ? [...job.stops].sort((a, b) => a.sequence - b.sequence)
+    : [
+        { id: 'pickup', type: 'collection', sequence: 0, address: job.pickupLocation, timeWindowFrom: job.pickupTime },
+        { id: 'delivery', type: 'delivery', sequence: 1, address: job.deliveryLocation, timeWindowFrom: job.deliveryTime },
+      ];
+
+  return (
+    <View style={styles.stack}>
+      {stops.map((stop) => (
+        <Panel key={stop.id}>
+          <View style={styles.stopTypeRow}>
+            <Text style={[styles.stopTypeLabel, stop.type === 'collection' ? styles.stopCollection : styles.stopDelivery]}>
+              {stop.type === 'collection' ? 'COLLECTION' : 'DELIVERY'}
+            </Text>
+            {stop.status ? <StatusPill label={stop.status} tone="primary" /> : null}
+          </View>
+          <Info label="Address" value={stop.address} />
+          {stop.company ? <Info label="Company" value={stop.company} /> : null}
+          {stop.contactPerson ? <Info label="Contact" value={stop.contactPerson} /> : null}
+          {stop.telephone ? (
+            <TouchableOpacity onPress={() => void Linking.openURL(`tel:${stop.telephone}`)}>
+              <Info label="Telephone" value={stop.telephone ?? ''} />
+            </TouchableOpacity>
+          ) : null}
+          {stop.timeWindowFrom ? (
+            <Info label="Time Window" value={stop.timeWindowTo ? `${formatDateTime(stop.timeWindowFrom)} – ${formatDateTime(stop.timeWindowTo)}` : formatDateTime(stop.timeWindowFrom)} />
+          ) : null}
+          {stop.collectionDetails ? <Info label="Collection Details" value={stop.collectionDetails} /> : null}
+          {stop.deliveryDetails ? <Info label="Delivery Details" value={stop.deliveryDetails} /> : null}
+          {stop.notes ? <Info label="Notes" value={stop.notes} /> : null}
+          {stop.gpsCoordinates ? <Info label="GPS" value={stop.gpsCoordinates} /> : null}
+        </Panel>
+      ))}
+      {isPodDone && (
+        <TouchableOpacity style={styles.viewPodButton} onPress={onViewPod} accessibilityRole="button">
+          <Text style={styles.viewPodButtonText}>VIEW POD</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+function StatusTab({ job }: { job: DriverJob }) {
+  const [expandedStatus, setExpandedStatus] = useState<string | null>(null);
+  const currentIdx = statusIndex(job.status);
+
+  return (
+    <View style={styles.stack}>
+      {FULL_TIMELINE.map((step, i) => {
+        const isDone = i <= currentIdx;
+        const isCurrent = i === currentIdx;
+        const audit: AuditEntry | undefined = job.auditTrail?.find((e) => e.status === step.status);
+        const isExpanded = expandedStatus === step.status;
+
+        return (
+          <TouchableOpacity
+            key={step.status}
+            onPress={() => setExpandedStatus(isExpanded ? null : step.status)}
+            disabled={!isDone}
+            accessibilityRole="button"
+          >
+            <View style={styles.timelineRow}>
+              {/* connector line */}
+              <View style={styles.timelineConnectorCol}>
+                {i > 0 && <View style={[styles.timelineLine, isDone ? styles.timelineLineDone : styles.timelineLinePending]} />}
+                <View style={[styles.timelineDot, isDone ? styles.timelineDotDone : styles.timelineDotPending, isCurrent && styles.timelineDotCurrent]}>
+                  {isDone ? <Text style={styles.timelineDotCheck}>✓</Text> : null}
+                </View>
+                {i < FULL_TIMELINE.length - 1 && <View style={[styles.timelineLineBottom, isDone ? styles.timelineLineDone : styles.timelineLinePending]} />}
+              </View>
+              {/* content */}
+              <View style={styles.timelineContent}>
+                <Text style={[styles.timelineLabel, isDone ? styles.timelineLabelDone : styles.timelineLabelPending]}>{step.label}</Text>
+                {audit ? (
+                  <Text style={styles.timelineMeta}>{formatDateTime(audit.timestamp)} · {audit.user} · {audit.role}</Text>
+                ) : null}
+                {isExpanded && audit ? (
+                  <View style={styles.timelineExpanded}>
+                    {audit.gps ? <Info label="GPS" value={audit.gps} /> : null}
+                    {audit.device ? <Info label="Device" value={audit.device} /> : null}
+                    {audit.osVersion ? <Info label="OS Version" value={audit.osVersion} /> : null}
+                    {audit.notes ? <Info label="Notes" value={audit.notes} /> : null}
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -713,18 +904,37 @@ function JobDetailScreen({ job, onPrimary }: { job: DriverJob; onPrimary: () => 
 function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: string | null; onSaved: (job?: DriverJob) => void; onQueued: (queued: QueuedAction) => void }) {
   const signatureRef = useRef<SignatureViewRef | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [damagePhotoUris, setDamagePhotoUris] = useState<string[]>([]);
   const [documentUris, setDocumentUris] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
+  const [recipientCompany, setRecipientCompany] = useState('');
   const [signatureData, setSignatureData] = useState('');
-  const [notes, setNotes] = useState('');
+  const [quantityDelivered, setQuantityDelivered] = useState('');
+  const [itemsMissing, setItemsMissing] = useState('');
+  const [itemsDamaged, setItemsDamaged] = useState('');
+  const [comments, setComments] = useState('');
+  const [receiverNotes, setReceiverNotes] = useState('');
+  const [driverNotes, setDriverNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  async function addPhoto() {
+  const now = new Date();
+  const podDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const podTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  async function addDeliveryPhoto() {
     const ImagePicker = await import('expo-image-picker');
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return Alert.alert('Camera required', 'Camera permission is required for POD photos.');
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
     if (!result.canceled) setPhotoUris((items) => [...items, ...result.assets.map((asset) => asset.uri)]);
+  }
+
+  async function addDamagePhoto() {
+    const ImagePicker = await import('expo-image-picker');
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return Alert.alert('Camera required', 'Camera permission is required for damage photos.');
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    if (!result.canceled) setDamagePhotoUris((items) => [...items, ...result.assets.map((asset) => asset.uri)]);
   }
 
   async function addDocument() {
@@ -744,7 +954,22 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
     }
 
     setSubmitting(true);
-    const payload = { photoUris, documentUris, recipientName, signatureData, notes };
+    const payload = {
+      photoUris,
+      damagePhotoUris,
+      documentUris,
+      recipientName,
+      recipientCompany,
+      signatureData,
+      quantityDelivered,
+      itemsMissing,
+      itemsDamaged,
+      comments,
+      receiverNotes,
+      driverNotes: driverNotes || undefined,
+      podDate,
+      podTime,
+    };
     if (!token || !(await isOnline())) {
       const queued = await enqueueAction({ jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
@@ -773,27 +998,85 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
       <Panel>
         <Text style={styles.title}>Proof of Delivery</Text>
         <Text style={styles.subtle}>{job.reference}</Text>
-        <Text style={styles.copy}>Add required POD evidence before marking the job as delivered.</Text>
+        <Text style={styles.copy}>Complete all required fields before marking the job as delivered.</Text>
+        <Info label="Date" value={podDate} />
+        <Info label="Time" value={podTime} />
       </Panel>
-      <SecondaryButton label={photoUris.length > 0 ? `Photos (${photoUris.length}) – add more` : 'Add photo'} onPress={() => void addPhoto()} />
-      <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add document'} onPress={() => void addDocument()} />
+
+      {/* Recipient */}
       <TextInput
-        placeholder="Recipient name"
+        placeholder="Receiver Name *"
         placeholderTextColor={colors.muted}
         style={styles.input}
         value={recipientName}
         onChangeText={setRecipientName}
       />
       <TextInput
-        placeholder="Notes (optional)"
+        placeholder="Receiver Company"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={recipientCompany}
+        onChangeText={setRecipientCompany}
+      />
+
+      {/* Quantity & Exceptions */}
+      <TextInput
+        placeholder="Quantity Delivered"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={quantityDelivered}
+        onChangeText={setQuantityDelivered}
+        keyboardType="numeric"
+      />
+      <TextInput
+        placeholder="Items Missing"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={itemsMissing}
+        onChangeText={setItemsMissing}
+      />
+      <TextInput
+        placeholder="Items Damaged"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        value={itemsDamaged}
+        onChangeText={setItemsDamaged}
+      />
+
+      {/* Photos */}
+      <SecondaryButton label={photoUris.length > 0 ? `Delivery Photos (${photoUris.length}) – add more` : 'Add Delivery Photo'} onPress={() => void addDeliveryPhoto()} />
+      <SecondaryButton label={damagePhotoUris.length > 0 ? `Damage Photos (${damagePhotoUris.length}) – add more` : 'Add Damage Photo'} onPress={() => void addDamagePhoto()} />
+      <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add Document'} onPress={() => void addDocument()} />
+
+      {/* Notes */}
+      <TextInput
+        placeholder="Receiver Notes"
         placeholderTextColor={colors.muted}
         style={[styles.input, styles.notesInput]}
-        value={notes}
-        onChangeText={setNotes}
+        value={receiverNotes}
+        onChangeText={setReceiverNotes}
         multiline
       />
+      <TextInput
+        placeholder="Driver Notes (optional)"
+        placeholderTextColor={colors.muted}
+        style={[styles.input, styles.notesInput]}
+        value={driverNotes}
+        onChangeText={setDriverNotes}
+        multiline
+      />
+      <TextInput
+        placeholder="Comments (optional)"
+        placeholderTextColor={colors.muted}
+        style={[styles.input, styles.notesInput]}
+        value={comments}
+        onChangeText={setComments}
+        multiline
+      />
+
+      {/* Signature */}
       <Panel>
-        <Text style={styles.infoLabel}>Recipient signature</Text>
+        <Text style={styles.infoLabel}>Recipient Signature *</Text>
         <View style={styles.signatureWrap}>
           <SignatureCanvas
             ref={signatureRef}
@@ -826,6 +1109,90 @@ function PodScreen({ job, token, onSaved, onQueued }: { job: DriverJob; token: s
         )}
       </Panel>
       <PrimaryButton label={submitting ? 'Saving...' : 'Save POD'} onPress={() => void savePod()} disabled={submitting} />
+    </View>
+  );
+}
+
+function ViewPodScreen({ pod, onBack }: { pod: PodRecord | null; onBack: () => void }) {
+  if (!pod) {
+    return (
+      <View style={styles.stack}>
+        <Panel>
+          <Text style={styles.title}>POD Not Available</Text>
+          <Text style={styles.copy}>No Proof of Delivery has been recorded for this job yet.</Text>
+        </Panel>
+        <SecondaryButton label="Back" onPress={onBack} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.stack}>
+      <Panel>
+        <Text style={styles.title}>Proof of Delivery</Text>
+        <Info label="Completed By" value={`${pod.completedBy} (${pod.completedByRole})`} />
+        <Info label="Date" value={pod.date} />
+        <Info label="Time" value={pod.time} />
+        {pod.gps ? <Info label="GPS Coordinates" value={pod.gps} /> : null}
+      </Panel>
+      <Panel>
+        <Info label="Receiver" value={pod.receiverName} />
+        {pod.receiverCompany ? <Info label="Company" value={pod.receiverCompany} /> : null}
+        {pod.quantityDelivered ? <Info label="Quantity Delivered" value={pod.quantityDelivered} /> : null}
+        {pod.itemsMissing ? <Info label="Items Missing" value={pod.itemsMissing} /> : null}
+        {pod.itemsDamaged ? <Info label="Items Damaged" value={pod.itemsDamaged} /> : null}
+      </Panel>
+      {pod.signatureData ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Signature</Text>
+          <Image source={{ uri: pod.signatureData }} style={styles.signaturePreview} resizeMode="contain" />
+        </Panel>
+      ) : null}
+      {pod.deliveryPhotoUris && pod.deliveryPhotoUris.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Delivery Photos ({pod.deliveryPhotoUris.length})</Text>
+          <View style={styles.podPhotoGrid}>
+            {pod.deliveryPhotoUris.map((uri, idx) => (
+              <Image key={idx} source={{ uri }} style={styles.podPhotoThumb} resizeMode="cover" />
+            ))}
+          </View>
+        </Panel>
+      ) : null}
+      {pod.damagePhotoUris && pod.damagePhotoUris.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Damage Photos ({pod.damagePhotoUris.length})</Text>
+          <View style={styles.podPhotoGrid}>
+            {pod.damagePhotoUris.map((uri, idx) => (
+              <Image key={idx} source={{ uri }} style={styles.podPhotoThumb} resizeMode="cover" />
+            ))}
+          </View>
+        </Panel>
+      ) : null}
+      {pod.documentUris && pod.documentUris.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Documents ({pod.documentUris.length})</Text>
+          {pod.documentUris.map((uri, idx) => (
+            <TouchableOpacity key={idx} onPress={() => void Linking.openURL(uri)}>
+              <Text style={styles.linkText}>Document {idx + 1}</Text>
+            </TouchableOpacity>
+          ))}
+        </Panel>
+      ) : null}
+      {pod.comments ? <Panel><Info label="Comments" value={pod.comments} /></Panel> : null}
+      {pod.receiverNotes ? <Panel><Info label="Receiver Notes" value={pod.receiverNotes} /></Panel> : null}
+      {pod.driverNotes ? <Panel><Info label="Driver Notes" value={pod.driverNotes} /></Panel> : null}
+      {pod.auditHistory && pod.auditHistory.length > 0 ? (
+        <Panel>
+          <Text style={styles.infoLabel}>Audit History</Text>
+          {pod.auditHistory.map((entry) => (
+            <View key={entry.id} style={styles.auditRow}>
+              <Text style={styles.auditStatus}>{entry.status.replace(/_/g, ' ').toUpperCase()}</Text>
+              <Text style={styles.auditMeta}>{formatDateTime(entry.timestamp)} · {entry.user} · {entry.role}</Text>
+            </View>
+          ))}
+        </Panel>
+      ) : null}
+      <SecondaryButton label="Back" onPress={onBack} />
     </View>
   );
 }
@@ -1055,4 +1422,53 @@ const styles = StyleSheet.create({
   queueRowTitle: { color: colors.text, fontWeight: '700', textTransform: 'capitalize', flex: 1 },
   queueActions: { gap: spacing.sm },
   queueError: { color: colors.danger, fontWeight: '600' },
+  // Job Detail tabs
+  detailTabs: { flexDirection: 'row', backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 4 },
+  detailTab: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  detailTabActive: { backgroundColor: colors.primary },
+  detailTabText: { color: colors.muted, fontWeight: '800', fontSize: 13 },
+  detailTabTextActive: { color: '#fff' },
+  // Summary tab
+  contactRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  contactButton: { flex: 1, minHeight: 44, backgroundColor: colors.panelSoft, borderColor: colors.border, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  contactButtonText: { color: colors.text, fontWeight: '800', fontSize: 13 },
+  mapButton: { minHeight: 44, backgroundColor: colors.panelSoft, borderColor: colors.border, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs },
+  mapButtonText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
+  attachmentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  attachmentLeft: { flex: 1, gap: 2 },
+  attachmentName: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  attachmentMeta: { color: colors.muted, fontSize: 11 },
+  attachmentAction: { color: colors.primary, fontWeight: '900', fontSize: 20, paddingLeft: spacing.sm },
+  // Stops tab
+  stopTypeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
+  stopTypeLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  stopCollection: { color: '#22c55e' },
+  stopDelivery: { color: '#ef4444' },
+  viewPodButton: { minHeight: 52, backgroundColor: '#16a34a', borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  viewPodButtonText: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 0.6 },
+  // Status tab timeline
+  timelineRow: { flexDirection: 'row', gap: spacing.sm },
+  timelineConnectorCol: { alignItems: 'center', width: 28 },
+  timelineLine: { width: 2, flex: 1, minHeight: 14 },
+  timelineLineBottom: { width: 2, flex: 1, minHeight: 14 },
+  timelineLineDone: { backgroundColor: '#22c55e' },
+  timelineLinePending: { backgroundColor: colors.border },
+  timelineDot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+  timelineDotDone: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  timelineDotPending: { backgroundColor: colors.panelSoft, borderColor: colors.border },
+  timelineDotCurrent: { borderColor: colors.primary },
+  timelineDotCheck: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  timelineContent: { flex: 1, paddingBottom: spacing.md },
+  timelineLabel: { fontWeight: '800', fontSize: 15 },
+  timelineLabelDone: { color: colors.text },
+  timelineLabelPending: { color: colors.muted },
+  timelineMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  timelineExpanded: { marginTop: spacing.sm, gap: spacing.xs },
+  // POD photo grid
+  podPhotoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  podPhotoThumb: { width: 80, height: 80, borderRadius: 8, backgroundColor: colors.panelSoft },
+  // Audit
+  auditRow: { paddingVertical: spacing.xs, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  auditStatus: { color: colors.text, fontWeight: '700', fontSize: 13 },
+  auditMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });
