@@ -95,12 +95,18 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
       );
       expect(bodyOverflow, `${vp.label}: no body horizontal overflow`).toBe(false);
 
-      // KPI strip — at least 4 KPI tiles rendered
-      const kpiTiles = page.locator(
-        '[aria-label="Operational key performance indicators"] button',
-      );
-      const kpiCount = await kpiTiles.count();
-      expect(kpiCount, `${vp.label}: KPI tile count`).toBeGreaterThanOrEqual(4);
+      // KPI strip — verify semantic job metrics, not a fixed card quota
+      const kpiLabels = await page
+        .locator('[aria-label="Operational key performance indicators"] > *')
+        .evaluateAll((nodes) =>
+          nodes.map((node) => node.textContent?.trim().split(/\s*\n+\s*/)[0] ?? '').filter(Boolean),
+        );
+      expect(kpiLabels, `${vp.label}: KPI labels`).toEqual([
+        'All jobs',
+        'Draft jobs',
+        'Allocated jobs',
+        'Assigned drivers',
+      ]);
 
       // Status tab bar
       await expect(
