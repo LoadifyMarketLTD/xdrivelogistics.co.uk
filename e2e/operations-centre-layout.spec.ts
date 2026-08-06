@@ -42,9 +42,14 @@ const collectUnexpectedFailures = (page: Page, allowOsmFailures = false) => {
   const failures: string[] = [];
   page.on('requestfailed', (request) => {
     const url = request.url();
+    const errorText = request.failure()?.errorText ?? 'unknown';
     if (allowOsmFailures && isOsmTileRequest(url)) return;
+    // Leaflet cancels obsolete tile requests when fitBounds/setView changes the
+    // viewport. These OSM-only ERR_ABORTED events are expected and do not mean
+    // the active tile layer failed; real OSM/network failures remain visible.
+    if (isOsmTileRequest(url) && /ERR_ABORTED/i.test(errorText)) return;
     if (EXPECTED_FAILED_REQUEST_PATTERNS.some((pattern) => pattern.test(url))) return;
-    failures.push(`${request.method()} ${url} :: ${request.failure()?.errorText ?? 'unknown'}`);
+    failures.push(`${request.method()} ${url} :: ${errorText}`);
   });
   return failures;
 };
