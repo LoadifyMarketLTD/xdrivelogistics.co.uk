@@ -232,10 +232,10 @@ export function ActionCard({
   const content = (
     <>
       <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
-        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{actionLabel}</span>
+        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
       </div>
-      <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{label}</div>
+      <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{actionLabel}</div>
       {description ? (
         <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
           <span style={{ minWidth: 0 }}>{description}</span>

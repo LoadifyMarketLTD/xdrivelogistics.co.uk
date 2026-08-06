@@ -92,5 +92,10 @@ describe('workspace primitive adoption matrix', () => {
     expect(source).toContain('ActionCard');
     expect(source).toContain('<KpiGrid>');
     expect(source).not.toContain('OperationalLinkList');
+    expect(source).toContain('description="Available transport work"');
+    expect(source).toContain('description="Carrier pricing workflow"');
+    expect(source).toContain('description="Assign driver and vehicle"');
+    expect(source).toContain('description="Live collections and deliveries"');
+    expect(source).toContain('description="Billing and payment status"');
   });
 });
