@@ -6,6 +6,131 @@
 
 BEGIN;
 
+-- owner_audit_log started as a company-only table in migration 075, while the
+-- canonical Production schema now supports generic targets. Support tickets may
+-- legitimately have no company_id, so normalise only the two schema properties
+-- required by this RPC before creating it.
+DO $preflight$
+BEGIN
+  IF to_regclass('public.owner_audit_log') IS NULL THEN
+    RAISE EXCEPTION 'public.owner_audit_log must exist before applying the atomic support-ticket audit migration.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_type'
+      AND data_type = 'text'
+      AND is_nullable = 'NO'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.target_type text NOT NULL is required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_id'
+      AND udt_name = 'uuid'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.target_id uuid is required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_name'
+      AND data_type = 'text'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.target_name text is required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'target_company_id'
+      AND udt_name = 'uuid'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.target_company_id uuid is required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'actor_user_id'
+      AND udt_name = 'uuid'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.actor_user_id uuid is required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name IN ('action_type', 'old_status', 'new_status', 'reason')
+      AND data_type = 'text'
+    GROUP BY table_schema, table_name
+    HAVING count(*) = 4
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log action_type, old_status, new_status and reason text columns are required.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'created_at'
+      AND udt_name = 'timestamptz'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.created_at timestamptz is required.'
+      USING ERRCODE = '23514';
+  END IF;
+END;
+$preflight$;
+
+ALTER TABLE public.owner_audit_log
+  ADD COLUMN IF NOT EXISTS metadata jsonb;
+
+DO $metadata_check$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'owner_audit_log'
+      AND column_name = 'metadata'
+      AND udt_name = 'jsonb'
+  ) THEN
+    RAISE EXCEPTION 'owner_audit_log.metadata must be jsonb.'
+      USING ERRCODE = '23514';
+  END IF;
+END;
+$metadata_check$;
+
+-- A support ticket may be platform-level and therefore have no company. This
+-- matches the documented canonical Production schema and preserves the FK for
+-- non-null company targets.
+ALTER TABLE public.owner_audit_log
+  ALTER COLUMN target_company_id DROP NOT NULL;
+
 CREATE OR REPLACE FUNCTION public.owner_update_support_ticket_with_audit(
   p_actor_user_id uuid,
   p_ticket_id uuid,
