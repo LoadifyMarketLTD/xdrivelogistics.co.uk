@@ -60,6 +60,9 @@ describe('workspace operational primitives', () => {
     expect(html).toContain('min-height:72px');
     expect(html).toContain('max-height:80px');
     expect(html).toContain('font-size:22px');
+    expect(html.indexOf('Review submitted quotes')).toBeLessThan(html.indexOf('Open workflow'));
+    expect(html.indexOf('Open workflow')).toBeLessThan(html.indexOf('Carrier pricing workflow'));
+    expect(html).toContain('white-space:nowrap');
   });
 
   it('renders ComplianceSummaryPanel values and percentages', () => {

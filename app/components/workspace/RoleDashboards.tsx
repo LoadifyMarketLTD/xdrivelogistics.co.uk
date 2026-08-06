@@ -111,11 +111,11 @@ export function CarrierDashboard() {
           </Panel>
           <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
             <KpiGrid>
-              <ActionCard label="Find marketplace loads" tone="blue" onClick={() => router.push('/admin/marketplace')} />
-              <ActionCard label="Review submitted quotes" tone="navy" onClick={() => router.push('/admin/quotes')} />
-              <ActionCard label="Allocate awarded work" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
-              <ActionCard label="Track active jobs" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
-              <ActionCard label="Open invoices" tone="green" onClick={() => router.push('/admin/invoices')} />
+              <ActionCard label="Find marketplace loads" description="Available transport work" tone="blue" onClick={() => router.push('/admin/marketplace')} />
+              <ActionCard label="Review submitted quotes" description="Carrier pricing workflow" tone="navy" onClick={() => router.push('/admin/quotes')} />
+              <ActionCard label="Allocate awarded work" description="Assign driver and vehicle" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
+              <ActionCard label="Track active jobs" description="Live collections and deliveries" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
+              <ActionCard label="Open invoices" description="Billing and payment status" tone="green" onClick={() => router.push('/admin/invoices')} />
             </KpiGrid>
           </Panel>
           <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
