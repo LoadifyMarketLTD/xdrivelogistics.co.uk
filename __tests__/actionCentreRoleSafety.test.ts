@@ -64,6 +64,31 @@ describe('Action Centre role safety policy', () => {
     expect(isActionCentreRoleAllowed('admin', 'dispatcher')).toBe(true);
     expect(isActionCentreRoleAllowed('admin', 'broker')).toBe(false);
   });
+
+  it('platform_owner is allowed only for platform_owner resolved role', () => {
+    expect(isActionCentreRoleAllowed('platform_owner', 'platform_owner')).toBe(true);
+    expect(isActionCentreRoleAllowed('platform_owner', 'company_admin')).toBe(false);
+    expect(isActionCentreRoleAllowed('platform_owner', 'broker')).toBe(false);
+    expect(isActionCentreRoleAllowed('platform_owner', 'customer')).toBe(false);
+    expect(isActionCentreRoleAllowed('platform_owner', 'driver')).toBe(false);
+    expect(isActionCentreRoleAllowed('platform_owner', 'owner_driver')).toBe(false);
+    expect(isActionCentreRoleAllowed('platform_owner', 'dispatcher')).toBe(false);
+  });
+
+  it('platform_owner CTA routes resolve exclusively to /super-admin surfaces', () => {
+    const entities = ['job', 'quote', 'invoice', 'dispute', 'driver', 'document', 'company', 'fraud_case', 'support_ticket'];
+    for (const entity of entities) {
+      const href = resolveRoleScopedHref('platform_owner', entity, 'evt-po');
+      expect(href.startsWith('/super-admin'), `${entity} → ${href}`).toBe(true);
+      expect(href.startsWith('/admin/'), `${entity} must not use /admin/`).toBe(false);
+    }
+    const fallback = resolveRoleScopedHref('platform_owner', 'unknown_entity', 'evt-po');
+    expect(fallback.startsWith('/super-admin')).toBe(true);
+  });
+
+  it('platform_owner action centre prefix is /super-admin/', () => {
+    expect(ACTION_CENTRE_ROLE_PREFIX.platform_owner).toBe('/super-admin/');
+  });
 });
 
 describe('Action Centre CTA route verification matrix', () => {
