@@ -264,11 +264,45 @@ describe('platform notifications route flow', () => {
     const response = await GET(getRequest('http://localhost/api/super-admin/platform?section=notifications'));
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
     expect(mocks.notificationSelectColumns).toHaveLength(1);
-    expect(body.rows).toEqual([]);
-    expect(body.note).toBe('permission denied for column last_error of relation notification_events');
-    expect(body.errorCode).toBe('42501');
+    expect(body).toEqual({
+      section: 'notifications',
+      error: 'Failed to load notification events.',
+      diagnosticCode: 'NOTIFICATION_EVENTS_QUERY_FAILED',
+      detail: 'permission denied for column last_error of relation notification_events',
+      sourceCode: '42501',
+    });
+  });
+
+  it('returns a non-2xx error when the fallback query also fails', async () => {
+    mocks.notificationListResponses = [
+      {
+        data: null,
+        error: { message: 'column notification_events.last_error does not exist', code: '42703' },
+      },
+      {
+        data: null,
+        error: { message: 'database unavailable', code: '08006' },
+      },
+    ];
+    const { GET } = await import('../app/api/super-admin/platform/route');
+
+    const response = await GET(getRequest('http://localhost/api/super-admin/platform?section=notifications'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(mocks.notificationSelectColumns).toEqual([
+      'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at',
+      'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at',
+    ]);
+    expect(body).toEqual({
+      section: 'notifications',
+      error: 'Failed to load notification events.',
+      diagnosticCode: 'NOTIFICATION_EVENTS_FALLBACK_QUERY_FAILED',
+      detail: 'database unavailable',
+      sourceCode: '08006',
+    });
   });
 
   it('retries PATCH with the baseline update when durability columns are unavailable', async () => {
