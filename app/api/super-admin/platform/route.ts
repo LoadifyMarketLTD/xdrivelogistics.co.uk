@@ -165,24 +165,24 @@ export async function GET(request: NextRequest) {
           .limit(200);
 
         if (fallbackResult.error) {
-          return respond(200, {
+          return respond(500, {
             section,
-            rows: [],
-            summary: { total: 0, unread: 0, read: 0 },
-            note: fallbackResult.error.message,
-            ...(fallbackResult.error.code ? { errorCode: fallbackResult.error.code } : {}),
+            error: 'Failed to load notification events.',
+            diagnosticCode: 'NOTIFICATION_EVENTS_FALLBACK_QUERY_FAILED',
+            detail: fallbackResult.error.message,
+            sourceCode: fallbackResult.error.code ?? null,
           });
         }
         normalizedRows = (fallbackResult.data ?? []).map(normalizeBaseRow);
         durabilityUnavailable = true;
       } else {
         // Unrelated error — surface it, do not convert to healthy empty state.
-        return respond(200, {
+        return respond(500, {
           section,
-          rows: [],
-          summary: { total: 0, unread: 0, read: 0 },
-          note: primaryResult.error.message,
-          ...(primaryResult.error.code ? { errorCode: primaryResult.error.code } : {}),
+          error: 'Failed to load notification events.',
+          diagnosticCode: 'NOTIFICATION_EVENTS_QUERY_FAILED',
+          detail: primaryResult.error.message,
+          sourceCode: primaryResult.error.code ?? null,
         });
       }
     } else {
