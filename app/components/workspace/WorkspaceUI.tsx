@@ -786,8 +786,11 @@ export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { la
   return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
-export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
+export function EmptyState({ title, description, action, icon, compact = false }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode; compact?: boolean }) {
   const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
+  if (compact) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 10px', color: workspaceTheme.muted, fontSize: '12px' }}><span aria-hidden="true">—</span><span>{title}</span>{action && <span style={{ marginLeft: '4px' }}>{action}</span>}</div>;
+  }
   return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.95rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.78rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
 
