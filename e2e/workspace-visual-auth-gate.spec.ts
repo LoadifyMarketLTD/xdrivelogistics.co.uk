@@ -204,9 +204,9 @@ test.describe('workspace visual fixture gate (deterministic fixture harness — 
         }
 
         if (role !== 'super-admin') {
-          await expect(page.getByText('Admin-only escalation queue')).toHaveCount(0);
+          await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
         } else {
-          await expect(page.getByText('Admin-only escalation queue')).toBeVisible();
+          await expect(page.getByText('Platform owner workspace')).toBeVisible();
         }
 
         const paletteSample = await page.evaluate(() => {
