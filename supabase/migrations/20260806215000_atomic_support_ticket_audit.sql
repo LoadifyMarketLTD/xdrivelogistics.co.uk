@@ -177,7 +177,7 @@ BEGIN
       'ticket_id', p_ticket_id,
       'action', v_action
     ),
-    now()
+    clock_timestamp()
   );
 
   RETURN QUERY
