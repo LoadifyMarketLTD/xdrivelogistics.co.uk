@@ -65,6 +65,34 @@ export type WorkspaceInvoice = {
   client_name?: string | null;
 };
 
+export const WORKSPACE_INVOICE_SELECT_POLICY_CONTRACT = [
+  {
+    name: 'invoices_select_non_driver',
+    operation: 'SELECT',
+    roles: ['public'],
+    using: 'public.is_company_non_driver(company_id)',
+    helpers: ['public.is_company_non_driver(company_id)', 'public.company_memberships', 'public.companies', 'public.profiles'],
+    sourceMigrations: [
+      'supabase/migrations/038_runtime_operational_rls_backstop.sql',
+      'supabase/migrations/20260724152500_canonical_company_membership_authorization.sql',
+    ],
+  },
+  {
+    name: 'invoices_job_owner_read',
+    operation: 'SELECT',
+    roles: ['authenticated'],
+    using: "job_id IS NOT NULL AND lower(status::text) NOT IN ('pending', 'draft', 'cancelled') AND COALESCE(amount, 0) > 0 AND COALESCE(net_amount, 0) > 0 AND NULLIF(btrim(COALESCE(client_name, '')), '') IS NOT NULL AND (lower(status::text) = 'paid' OR lower(payment_status::text) = 'paid' OR (delivery_state = 'sent' AND NULLIF(btrim(COALESCE(delivery_provider, '')), '') IS NOT NULL AND NULLIF(btrim(COALESCE(delivery_message_id, '')), '') IS NOT NULL AND NULLIF(btrim(COALESCE(delivery_recipient_email, '')), '') IS NOT NULL)) AND EXISTS (SELECT 1 FROM public.jobs job WHERE job.id = invoices.job_id AND public.is_company_member(job.company_id))",
+    helpers: ['public.jobs', 'public.is_company_member(job.company_id)'],
+    sourceMigrations: [
+      'supabase/migrations/20260723111500_invoice_snapshot_integrity.sql',
+      'supabase/migrations/20260724152500_canonical_company_membership_authorization.sql',
+    ],
+  },
+] as const;
+
+export const DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER =
+  'Invoice data unavailable: the verified invoices SELECT policies only cover non-driver invoice-company members and authenticated job-owner companies on customer-ready invoices. There is no driver or owner-driver invoice SELECT policy, and job assignment alone is not an invoice visibility grant.';
+
 export type WorkspaceDriver = {
   id: string;
   display_name: string | null;
@@ -724,27 +752,13 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
             break;
           }
-          if (requested.has('jobs') && jobDataset.availability === 'unavailable') {
-            dependencyUnavailable<WorkspaceInvoice>('invoices', 'jobs dataset unavailable; driver invoice query was not run.');
-            break;
-          }
-          if (!jobIds.length) {
-            setDataset<WorkspaceInvoice>('invoices', []);
-            break;
-          }
-          const invoicesRes = await supabase
-            .from('invoices')
-            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name')
-            .in('job_id', jobIds)
-            .order('created_at', { ascending: false })
-            .limit(500);
-          const invoiceError = getFirstError(invoicesRes as QueryResult<WorkspaceInvoice>);
-          setDataset<WorkspaceInvoice>(
-            'invoices',
-            (invoicesRes.data ?? []) as WorkspaceInvoice[],
-            invoiceError ? [invoiceError] : [],
-            queryReachedLimit(invoicesRes.data, 500, invoiceError),
-          );
+          // Verified invoices SELECT contract:
+          // - invoices_select_non_driver => public.is_company_non_driver(company_id)
+          // - invoices_job_owner_read   => authenticated job-owner company members
+          //   on sent/paid customer-ready invoices via jobs.company_id membership
+          // There is no driver/owner-driver invoice SELECT policy, and no policy
+          // authorises invoice visibility from assigned_driver_id alone.
+          dependencyUnavailable<WorkspaceInvoice>('invoices', DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER);
           break;
         }
         default: {

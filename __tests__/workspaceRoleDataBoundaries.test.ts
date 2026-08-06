@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER,
+  WORKSPACE_INVOICE_SELECT_POLICY_CONTRACT,
   createWorkspaceDatasetState,
   getWorkspaceDatasetMetricValue,
   getWorkspaceMetricPresentation,
@@ -249,5 +251,34 @@ describe('workspace dataset availability contracts', () => {
       created_at: '2026-08-01T00:00:00Z',
       client_name: 'Customer Co',
     }, 'customer-1')).toBe(false);
+  });
+
+  it('documents the verified invoice select-policy contract and driver fail-closed boundary', () => {
+    expect(WORKSPACE_INVOICE_SELECT_POLICY_CONTRACT).toEqual([
+      {
+        name: 'invoices_select_non_driver',
+        operation: 'SELECT',
+        roles: ['public'],
+        using: 'public.is_company_non_driver(company_id)',
+        helpers: ['public.is_company_non_driver(company_id)', 'public.company_memberships', 'public.companies', 'public.profiles'],
+        sourceMigrations: [
+          'supabase/migrations/038_runtime_operational_rls_backstop.sql',
+          'supabase/migrations/20260724152500_canonical_company_membership_authorization.sql',
+        ],
+      },
+      {
+        name: 'invoices_job_owner_read',
+        operation: 'SELECT',
+        roles: ['authenticated'],
+        using: "job_id IS NOT NULL AND lower(status::text) NOT IN ('pending', 'draft', 'cancelled') AND COALESCE(amount, 0) > 0 AND COALESCE(net_amount, 0) > 0 AND NULLIF(btrim(COALESCE(client_name, '')), '') IS NOT NULL AND (lower(status::text) = 'paid' OR lower(payment_status::text) = 'paid' OR (delivery_state = 'sent' AND NULLIF(btrim(COALESCE(delivery_provider, '')), '') IS NOT NULL AND NULLIF(btrim(COALESCE(delivery_message_id, '')), '') IS NOT NULL AND NULLIF(btrim(COALESCE(delivery_recipient_email, '')), '') IS NOT NULL)) AND EXISTS (SELECT 1 FROM public.jobs job WHERE job.id = invoices.job_id AND public.is_company_member(job.company_id))",
+        helpers: ['public.jobs', 'public.is_company_member(job.company_id)'],
+        sourceMigrations: [
+          'supabase/migrations/20260723111500_invoice_snapshot_integrity.sql',
+          'supabase/migrations/20260724152500_canonical_company_membership_authorization.sql',
+        ],
+      },
+    ]);
+    expect(DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER).toContain('job assignment alone is not an invoice visibility grant');
+    expect(DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER).toContain('There is no driver or owner-driver invoice SELECT policy');
   });
 });

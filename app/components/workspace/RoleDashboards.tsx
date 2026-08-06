@@ -30,6 +30,7 @@ import {
   PermissionDeniedState,
   StatusBadge,
   TwoColumn,
+  workspaceTheme,
 } from './WorkspaceUI';
 
 const activeStatuses = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
@@ -210,7 +211,7 @@ export function CarrierDashboard() {
               <StatusBadge key="status" value={job.current_status ?? job.status} />,
               <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
             ])}
-            empty={<EmptyState title="No jobs need attention" description="Won work and active jobs will appear here." />}
+            empty={<EmptyState title={datasetUnavailable(data, ['jobs']) ? 'Job data unavailable' : 'No jobs need attention'} description={datasetUnavailable(data, ['jobs']) ? 'The carrier jobs dataset is unavailable for this workspace.' : 'Won work and active jobs will appear here.'} />}
           />
         </Panel>
         <div style={{ display: 'grid', gap: '0.9rem' }}>
@@ -246,7 +247,7 @@ export function CarrierDashboard() {
                 ))}
               </KpiGrid>
             )}
-            {complianceAlerts.length === 0 && <EmptyState compact title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
+            {complianceAlerts.length === 0 && <EmptyState compact title={datasetUnavailable(data, ['driverDocuments', 'vehicleDocuments']) ? 'Compliance data unavailable' : 'No expiry alerts'} description={datasetUnavailable(data, ['driverDocuments', 'vehicleDocuments']) ? 'Driver and vehicle expiry datasets are unavailable for this workspace.' : 'No driver or vehicle document expires within 30 days.'} />}
           </Panel>
         </div>
       </TwoColumn>
@@ -258,15 +259,33 @@ export function CarrierDashboard() {
       >
         <FinancialSummaryPanel
           items={[
-            { label: 'Won work value', detail: 'Accepted bids total', value: money(metrics.acceptedRevenue), color: '#166534', background: '#f0fdf4' },
-            { label: 'Invoiced', detail: 'Raised to customers', value: money(metrics.invoicedValue), color: '#1e40af', background: '#eff6ff' },
-            { label: 'Paid', detail: 'Received payments', value: money(metrics.paidValue), color: '#6b21a8', background: '#faf5ff' },
+            {
+              label: 'Won work value',
+              detail: metricDetail(data, ['jobs', 'bids'], 'Accepted bids total'),
+              value: metricValue(data, ['jobs', 'bids'], () => money(metrics.acceptedRevenue)),
+              color: datasetUnavailable(data, ['jobs', 'bids']) ? workspaceTheme.navy : '#166534',
+              background: datasetUnavailable(data, ['jobs', 'bids']) ? workspaceTheme.surfaceMuted : '#f0fdf4',
+            },
+            {
+              label: 'Invoiced',
+              detail: metricDetail(data, ['invoices'], 'Raised to customers'),
+              value: metricValue(data, ['invoices'], () => money(metrics.invoicedValue)),
+              color: datasetUnavailable(data, ['invoices']) ? workspaceTheme.navy : '#1e40af',
+              background: datasetUnavailable(data, ['invoices']) ? workspaceTheme.surfaceMuted : '#eff6ff',
+            },
+            {
+              label: 'Paid',
+              detail: metricDetail(data, ['invoices'], 'Received payments'),
+              value: metricValue(data, ['invoices'], () => money(metrics.paidValue)),
+              color: datasetUnavailable(data, ['invoices']) ? workspaceTheme.navy : '#6b21a8',
+              background: datasetUnavailable(data, ['invoices']) ? workspaceTheme.surfaceMuted : '#faf5ff',
+            },
             {
               label: 'Outstanding',
-              detail: 'Awaiting payment',
-              value: money(Math.max(0, metrics.invoicedValue - metrics.paidValue)),
-              color: metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534',
-              background: metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4',
+              detail: metricDetail(data, ['invoices'], 'Awaiting payment'),
+              value: metricValue(data, ['invoices'], () => money(Math.max(0, metrics.invoicedValue - metrics.paidValue))),
+              color: datasetUnavailable(data, ['invoices']) ? workspaceTheme.navy : metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534',
+              background: datasetUnavailable(data, ['invoices']) ? workspaceTheme.surfaceMuted : metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4',
             },
           ]}
         />
@@ -350,24 +369,28 @@ export function FleetDashboard() {
               <StatusBadge key="status" value={job.status} tone="orange" />,
               <ActionButton key="action" tone="success" onClick={() => router.push(`/admin/diary?job=${job.id}`)}>Allocate</ActionButton>,
             ])}
-            empty={<EmptyState title="No unassigned jobs" description="All current jobs have a resource allocation or are not ready for allocation." />}
+            empty={<EmptyState title={datasetUnavailable(data, ['jobs']) ? 'Job data unavailable' : 'No unassigned jobs'} description={datasetUnavailable(data, ['jobs']) ? 'The fleet jobs dataset is unavailable for this workspace.' : 'All current jobs have a resource allocation or are not ready for allocation.'} />}
           />
         </Panel>
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Drivers available now" description="Availability and current assignment status." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>All drivers</ActionButton>}>
-            {data.drivers.filter((d) => d.availability_status === 'available').slice(0, 6).map((driver) => (
+            {!datasetUnavailable(data, ['drivers']) && data.drivers.filter((d) => d.availability_status === 'available').slice(0, 6).map((driver) => (
               <button key={driver.id} onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: '0.5rem', border: 0, borderBottom: '1px solid #eef2f6', background: 'transparent', padding: '0.58rem 0', cursor: 'pointer', textAlign: 'left' }}>
                 <span><strong style={{ display: 'block', fontSize: '0.78rem' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b', fontSize: '0.68rem' }}>{driver.phone ?? 'No phone recorded'}</span></span>
                 <StatusBadge value="available" tone="green" />
               </button>
             ))}
-            {data.drivers.filter((d) => d.availability_status === 'available').length === 0 && <EmptyState title="No drivers marked available" />}
+            {datasetUnavailable(data, ['drivers'])
+              ? <EmptyState title={datasetStatus(data, ['drivers']) === 'partial' ? 'Partial driver data' : 'Driver data unavailable'} description={datasetStatus(data, ['drivers']) === 'partial' ? 'Some driver availability records are unavailable for this workspace.' : 'The driver availability dataset is unavailable for this workspace.'} />
+              : data.drivers.filter((d) => d.availability_status === 'available').length === 0
+                ? <EmptyState title="No drivers marked available" />
+                : null}
           </Panel>
           <Panel title="Readiness alerts" description="Expiry and location issues that can stop operations.">
             <div style={{ display: 'grid', gap: '0.5rem' }}>
-              <button onClick={() => router.push('/admin/documents/expiry')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: expiring ? '#fff7ed' : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Documents expiring</span><strong>{expiring}</strong></button>
-              <button onClick={() => router.push('/admin/fleet/positions')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: staleDrivers ? '#fef2f2' : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Stale GPS positions</span><strong>{staleDrivers}</strong></button>
-              <button onClick={() => router.push('/admin/fleet/maintenance')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Unassigned vehicles</span><strong>{data.vehicles.filter((v) => !v.assigned_driver_id).length}</strong></button>
+              <button onClick={() => router.push('/admin/documents/expiry')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: datasetUnavailable(data, ['driverDocuments', 'vehicleDocuments']) ? workspaceTheme.surfaceMuted : expiring ? '#fff7ed' : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Documents expiring</span><strong>{metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expiring)}</strong></button>
+              <button onClick={() => router.push('/admin/fleet/positions')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: datasetUnavailable(data, ['drivers', 'locations']) ? workspaceTheme.surfaceMuted : staleDrivers ? '#fef2f2' : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Stale GPS positions</span><strong>{metricValue(data, ['drivers', 'locations'], () => staleDrivers)}</strong></button>
+              <button onClick={() => router.push('/admin/fleet/maintenance')} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #e2e8f0', background: datasetUnavailable(data, ['vehicles']) ? workspaceTheme.surfaceMuted : '#f8fafc', borderRadius: '8px', padding: '0.62rem', cursor: 'pointer' }}><span>Unassigned vehicles</span><strong>{getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)}</strong></button>
             </div>
           </Panel>
         </div>

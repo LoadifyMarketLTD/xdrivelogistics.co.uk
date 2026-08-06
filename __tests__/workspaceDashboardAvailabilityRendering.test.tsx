@@ -26,7 +26,7 @@ vi.mock('../app/components/workspace/useCompanyWorkspaceData', async () => {
 
 import { BrokerDashboard } from '../app/broker/BrokerWorkspaceModules';
 import { CustomerDashboard } from '../app/customer/CustomerWorkspaceModules';
-import { FinanceDashboard } from '../app/components/workspace/RoleDashboards';
+import { CarrierDashboard, FinanceDashboard, FleetDashboard } from '../app/components/workspace/RoleDashboards';
 
 const dataset = <T,>(overrides: Partial<{
   data: T[];
@@ -138,5 +138,66 @@ describe('workspace dashboard degraded-state rendering', () => {
     const html = render(<FinanceDashboard />);
     expect(html).toContain('Partial');
     expect(html).not.toContain('£0.00');
+  });
+
+  it('renders carrier degraded lower panels honestly when jobs, invoices, or compliance data are unavailable', () => {
+    mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
+      surface: 'carrier_operations',
+      datasets: {
+        ...workspaceState().datasets,
+        jobs: dataset({ availability: 'unavailable', successfulEmpty: false, queryErrors: ['jobs query failed'] }),
+        invoices: dataset({ availability: 'unavailable', successfulEmpty: false, queryErrors: ['invoice query failed'] }),
+        driverDocuments: dataset({ availability: 'omitted', requested: false, successfulEmpty: false }),
+        vehicleDocuments: dataset({ availability: 'omitted', requested: false, successfulEmpty: false }),
+      },
+    }));
+
+    const html = render(<CarrierDashboard />);
+    expect(html).toContain('Job data unavailable');
+    expect(html).not.toContain('No jobs need attention');
+    expect(html).toContain('Compliance data unavailable');
+    expect(html).not.toContain('No expiry alerts');
+    expect(html).toContain('Unavailable');
+    expect(html).not.toContain('£0.00');
+  });
+
+  it('renders carrier invoice partial states as explicit partial values instead of exact finance totals', () => {
+    mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
+      surface: 'carrier_operations',
+      datasets: {
+        ...workspaceState().datasets,
+        invoices: dataset({ partialData: true, successfulEmpty: false }),
+      },
+    }));
+
+    const html = render(<CarrierDashboard />);
+    expect(html).toContain('Partial');
+    expect(html).not.toContain('Raised to customers</span></span><strong class="undefined">£0.00</strong>');
+    expect(html).not.toContain('Received payments</span></span><strong class="undefined">£0.00</strong>');
+    expect(html).not.toContain('Awaiting payment</span></span><strong class="undefined">£0.00</strong>');
+  });
+
+  it('renders fleet degraded lower panels honestly for unavailable and partial datasets', () => {
+    mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
+      surface: 'fleet',
+      datasets: {
+        ...workspaceState().datasets,
+        jobs: dataset({ availability: 'unavailable', successfulEmpty: false, queryErrors: ['jobs query failed'] }),
+        drivers: dataset({ availability: 'unavailable', successfulEmpty: false, queryErrors: ['driver query failed'] }),
+        vehicles: dataset({ availability: 'unavailable', successfulEmpty: false, queryErrors: ['vehicle query failed'] }),
+        driverDocuments: dataset({ partialData: true, successfulEmpty: false }),
+        vehicleDocuments: dataset({ partialData: true, successfulEmpty: false }),
+        locations: dataset({ availability: 'unavailable', successfulEmpty: false, queryErrors: ['location query failed'] }),
+      },
+    }));
+
+    const html = render(<FleetDashboard />);
+    expect(html).toContain('Job data unavailable');
+    expect(html).not.toContain('No unassigned jobs');
+    expect(html).toContain('Driver data unavailable');
+    expect(html).not.toContain('No drivers marked available');
+    expect(html).toContain('Partial');
+    expect(html).not.toContain('Stale GPS positions</span><strong>0</strong>');
+    expect(html).not.toContain('Documents expiring</span><strong>0</strong>');
   });
 });
