@@ -29,7 +29,7 @@ import {
 } from './workspaceShellContract';
 import styles from './WorkspaceShell.module.css';
 
-type WorkspaceShellFixtureOverrides = {
+export type WorkspaceShellFixtureOverrides = {
   companyName?: string;
   unreadCount?: number;
   tickerItems?: Array<{ id: string; label: string; reference: string | null; created_at: string; href?: string | null }>;
