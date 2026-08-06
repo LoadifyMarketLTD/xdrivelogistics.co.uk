@@ -1,10 +1,4 @@
-.workspaceRoot {
-  user-select: none;
-}
-
-.workspaceRoot :global(main) {
-  user-select: text;
-}
+.workspaceRoot {}
 
 .tickerRoot {
   margin: 0 0;

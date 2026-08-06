@@ -10,6 +10,7 @@ import {
   AlertBanner,
   DataTable,
   EmptyState,
+  FinancialSummaryPanel,
   KpiCard,
   KpiGrid,
   OperationalLinkList,
@@ -18,6 +19,7 @@ import {
   Panel,
   StatusBadge,
   TwoColumn,
+  workspaceTheme,
 } from './WorkspaceUI';
 
 const activeStatuses = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
@@ -113,12 +115,12 @@ export function CarrierDashboard() {
           </Panel>
           <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
             {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
-              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '0.55rem 0', borderBottom: '1px solid #eef2f6', fontSize: '0.76rem' }}>
+              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '9px 0', borderBottom: `1px solid ${workspaceTheme.border}`, fontSize: '12px' }}>
                 <span>{doc.doc_type?.replace(/_/g, ' ') ?? 'Document'}</span>
                 <StatusBadge value={doc.expiry_date ? `${daysUntil(doc.expiry_date)} days` : 'missing'} tone="orange" />
               </div>
             ))}
-            {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).length === 0 && <EmptyState title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
+            {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).length === 0 && <EmptyState compact title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
           </Panel>
         </div>
       </TwoColumn>
@@ -128,20 +130,19 @@ export function CarrierDashboard() {
         description="Financial position based on accepted bids, raised invoices and payment receipts."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Finance</ActionButton>}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.7rem' }}>
-          {[
-            ['Won work value', money(metrics.acceptedRevenue), 'Accepted bids total', '#f0fdf4', '#166534'],
-            ['Invoiced', money(metrics.invoicedValue), 'Raised to customers', '#eff6ff', '#1e40af'],
-            ['Paid', money(metrics.paidValue), 'Received payments', '#faf5ff', '#6b21a8'],
-            ['Outstanding', money(Math.max(0, metrics.invoicedValue - metrics.paidValue)), 'Awaiting payment', metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4', metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534'],
-          ].map(([label, value, detail, bg, color]) => (
-            <div key={String(label)} style={{ background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '10px', padding: '0.9rem 1rem' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: String(color), marginTop: '0.2rem' }}>{value}</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>{detail}</div>
-            </div>
-          ))}
-        </div>
+        <FinancialSummaryPanel
+          items={[
+            { label: 'Won work value', value: money(metrics.acceptedRevenue), color: '#166534', background: '#f0fdf4' },
+            { label: 'Invoiced', value: money(metrics.invoicedValue), color: '#1e40af', background: '#eff6ff' },
+            { label: 'Paid', value: money(metrics.paidValue), color: '#6b21a8', background: '#faf5ff' },
+            {
+              label: 'Outstanding',
+              value: money(Math.max(0, metrics.invoicedValue - metrics.paidValue)),
+              color: metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534',
+              background: metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4',
+            },
+          ]}
+        />
       </Panel>
 
       <Panel
