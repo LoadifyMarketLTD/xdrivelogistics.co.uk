@@ -117,7 +117,7 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         expect(headerHeight).toBe(50);
 
         const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
-        const notificationsButton = page.getByRole('button', { name: /Notifications/i });
+        const notificationsButton = page.locator('header').getByRole('button', { name: /Notifications/i });
         await expect(actionCentreButton).toBeVisible();
         await expect(notificationsButton).toBeVisible();
         const actionRoute = await actionCentreButton.getAttribute('data-route');
@@ -159,7 +159,7 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         const kpiLabels = await page
           .locator('[aria-label="Operational key performance indicators"] > *')
           .evaluateAll((nodes) =>
-            nodes.map((node) => node.textContent?.trim().split(/\s*\n+\s*/)[0] ?? '').filter(Boolean),
+            nodes.map((node) => (node as HTMLElement).getAttribute('aria-label') ?? '').filter(Boolean),
           );
         expect(kpiLabels).toEqual(expectedKpis[role]);
         expect(new Set(kpiLabels).size).toBe(kpiLabels.length);
