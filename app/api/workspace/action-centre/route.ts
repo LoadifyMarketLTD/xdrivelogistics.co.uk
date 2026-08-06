@@ -55,7 +55,13 @@ const extractAuthRole = (user: Record<string, unknown> | null | undefined): Work
 };
 
 const parseRole = (value: string | null): ActionCentreRole | null => {
-  if (value === 'admin' || value === 'broker' || value === 'customer' || value === 'driver') {
+  if (
+    value === 'admin' ||
+    value === 'broker' ||
+    value === 'customer' ||
+    value === 'driver' ||
+    value === 'platform_owner'
+  ) {
     return value;
   }
   return null;
