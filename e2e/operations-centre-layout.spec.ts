@@ -1,19 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 /**
- * Operations Centre + Fleet Map layout bounds gate
- * (deterministic fixture harness — not authenticated runtime proof)
- *
- * Visits the deterministic fixture routes and proves at three viewports that:
- *   - the Operations Centre page renders as a bounded, styled operational workspace;
- *   - the live operations map (SVG-based) stays within its panel;
- *   - the fleet position map (Leaflet-based) container is bounded and does not
- *     become a full-screen or black surface;
- *   - no page-level horizontal overflow occurs;
- *   - empty/no-data states render honest, accurate copy rather than a healthy claim.
- *
- * This test does not claim to be an authenticated runtime proof.  It uses
- * hard-coded fixture data and a placeholder Supabase configuration.
+ * Operations Centre + Fleet Map layout and degraded-state gate.
+ * Deterministic fixture harness only — not authenticated runtime proof.
  */
 
 const viewports = [
@@ -22,7 +11,6 @@ const viewports = [
   { label: 'mobile', width: 390, height: 844 },
 ] as const;
 
-/** Exact set of known OpenStreetMap tile hostnames. */
 const OSM_TILE_HOSTS = new Set([
   'tile.openstreetmap.org',
   'a.tile.openstreetmap.org',
@@ -30,11 +18,6 @@ const OSM_TILE_HOSTS = new Set([
   'c.tile.openstreetmap.org',
 ]);
 
-/**
- * Returns true when `url` is a request to an official OpenStreetMap tile host
- * over HTTPS.  Uses URL parsing so that attacker-controlled suffixes such as
- * `tile.openstreetmap.org.evil.example` are correctly rejected.
- */
 const isOsmTileRequest = (url: string): boolean => {
   try {
     const parsed = new URL(url);
@@ -50,210 +33,221 @@ const EXPECTED_FAILED_REQUEST_PATTERNS = [
   /\/__nextjs_source-map\b/i,
 ];
 
-const isAllowlisted = (url: string): boolean => {
-  if (isOsmTileRequest(url)) return true;
-  return EXPECTED_FAILED_REQUEST_PATTERNS.some((pattern) => pattern.test(url));
+const TRANSPARENT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
+
+const collectUnexpectedFailures = (page: Page, allowOsmFailures = false) => {
+  const failures: string[] = [];
+  page.on('requestfailed', (request) => {
+    const url = request.url();
+    if (allowOsmFailures && isOsmTileRequest(url)) return;
+    if (EXPECTED_FAILED_REQUEST_PATTERNS.some((pattern) => pattern.test(url))) return;
+    failures.push(`${request.method()} ${url} :: ${request.failure()?.errorText ?? 'unknown'}`);
+  });
+  return failures;
 };
 
-test.describe('operations centre + fleet map layout bounds (deterministic fixture harness)', () => {
+const stubOsmTiles = async (page: Page) => {
+  await page.route('**/*', async (route) => {
+    if (!isOsmTileRequest(route.request().url())) {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: TRANSPARENT_PNG,
+    });
+  });
+};
+
+const blockOsmTiles = async (page: Page) => {
+  await page.route('**/*', async (route) => {
+    if (!isOsmTileRequest(route.request().url())) {
+      await route.continue();
+      return;
+    }
+
+    await route.abort('failed');
+  });
+};
+
+const assertNoHorizontalOverflow = async (page: Page, label: string) => {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+  );
+  expect(overflow, `horizontal overflow at ${label}`).toBe(false);
+};
+
+const assertFleetContainerBounds = async (
+  page: Page,
+  viewport: { label: string; width: number; height: number },
+) => {
+  const container = page.getByTestId('fleet-map-container');
+  await expect(container, `fleet-map-container at ${viewport.label}`).toBeVisible();
+
+  const rect = await container.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      width: bounds.width,
+      right: bounds.right,
+      height: bounds.height,
+    };
+  });
+
+  expect(rect.width, `container width at ${viewport.label}`).toBeLessThanOrEqual(viewport.width + 2);
+  expect(rect.right, `container right edge at ${viewport.label}`).toBeLessThanOrEqual(viewport.width + 2);
+  expect(rect.height, `container height at ${viewport.label}`).toBeGreaterThanOrEqual(350);
+  expect(rect.height, `container height below viewport at ${viewport.label}`).toBeLessThan(viewport.height);
+};
+
+const attachScreenshot = async (page: Page, testInfo: TestInfo, name: string) => {
+  await testInfo.attach(name, {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
+};
+
+test.describe('operations centre + fleet map deterministic runtime proof', () => {
+  test.describe.configure({ retries: 0 });
+
   test.skip(
     process.env.E2E_VISUAL_FIXTURE !== 'true',
     'Set E2E_VISUAL_FIXTURE=true to enable deterministic visual fixture routes.',
   );
 
-  // ─── Operations Centre — with-data ───────────────────────────────────────
-  test('operations centre (with-data) is bounded and renders semantic content at desktop/tablet/mobile', async ({ page }) => {
-    const failedRequests: string[] = [];
-    page.on('requestfailed', (req) => {
-      if (!isAllowlisted(req.url())) {
-        failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
-      }
-    });
+  for (const viewport of viewports) {
+    test(`operations centre with-data is bounded at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/operations-centre/with-data', { waitUntil: 'domcontentloaded' });
 
-    for (const vp of viewports) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto('/visual-fixture/operations-centre/with-data');
-      await page.waitForLoadState('networkidle');
+      await expect(page.locator('main.ops-page')).toBeVisible();
+      await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.locator('.metric').first()).toBeVisible();
+      expect(await page.locator('.metric').count()).toBeGreaterThan(0);
+      await expect(page.locator('.workspace')).toBeVisible();
 
-      // No horizontal overflow at any viewport.
-      const overflow = await page.evaluate(() =>
-        document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
-      );
-      expect(overflow, `horizontal overflow at ${vp.label}`).toBe(false);
-
-      // Page shell is visible.
-      await expect(page.locator('main.ops-page'), `ops-page at ${vp.label}`).toBeVisible();
-
-      // Metric grid renders at least one metric card.
-      const metricCards = page.locator('.metric');
-      await expect(metricCards.first(), `first metric at ${vp.label}`).toBeVisible();
-      const cardCount = await metricCards.count();
-      expect(cardCount, `metric card count at ${vp.label}`).toBeGreaterThan(0);
-
-      // Workspace grid renders.
-      await expect(page.locator('.workspace'), `workspace at ${vp.label}`).toBeVisible();
-
-      // Map panel: bounded height — must be present and not full-screen.
       const mapPanel = page.locator('.map').first();
-      await expect(mapPanel, `map panel at ${vp.label}`).toBeVisible();
-      const mapHeight = await mapPanel.evaluate((el) => el.getBoundingClientRect().height);
-      expect(mapHeight, `map height >= 200px at ${vp.label}`).toBeGreaterThanOrEqual(200);
-      expect(mapHeight, `map height < viewport height at ${vp.label}`).toBeLessThan(vp.height);
+      await expect(mapPanel).toBeVisible();
+      const mapHeight = await mapPanel.evaluate((element) => element.getBoundingClientRect().height);
+      expect(mapHeight).toBeGreaterThanOrEqual(200);
+      expect(mapHeight).toBeLessThan(viewport.height);
+      await expect(page.locator('.pin').first()).toBeVisible();
 
-      // With-data scenario: at least one map pin renders.
-      await expect(page.locator('.pin').first(), `map pin at ${vp.label}`).toBeVisible();
-
-      // Jobs panel lists fixture jobs.
-      // Scope to the jobs panel to uniquely identify the job card, not the
-      // timeline entry which also contains 'FX001'.
       const jobsPanel = page.locator('.jobs-panel');
-      await expect(
-        jobsPanel.getByRole('button', { name: /JOB #FX001\b/i }),
-        `job FX001 card at ${vp.label}`,
-      ).toBeVisible();
-    }
-
-    expect(failedRequests, 'unexpected request failures').toEqual([]);
-  });
-
-  // ─── Operations Centre — no-data ─────────────────────────────────────────
-  test('operations centre (no-data) renders honest empty states at desktop/tablet/mobile', async ({ page }) => {
-    const failedRequests: string[] = [];
-    page.on('requestfailed', (req) => {
-      if (!isAllowlisted(req.url())) {
-        failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
-      }
+      await expect(jobsPanel.getByRole('button', { name: /JOB #FX001\b/i })).toBeVisible();
+      await attachScreenshot(page, testInfo, `operations-with-data-${viewport.label}`);
+      expect(failures, 'unexpected request failures').toEqual([]);
     });
 
-    for (const vp of viewports) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto('/visual-fixture/operations-centre/no-data');
-      await page.waitForLoadState('networkidle');
+    test(`operations centre partial-error keeps useful data visible at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/operations-centre/partial-error', { waitUntil: 'domcontentloaded' });
 
-      // No horizontal overflow.
-      const overflow = await page.evaluate(() =>
-        document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+      await expect(page.locator('main.ops-page')).toBeVisible();
+      await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.locator('.error-strip')).toContainText(
+        'Driver location feed is temporarily unavailable for part of the fleet.',
       );
-      expect(overflow, `horizontal overflow at ${vp.label}`).toBe(false);
+      await expect(page.getByText('Degraded', { exact: true })).toBeVisible();
+      await expect(page.locator('.metric').first()).toBeVisible();
+      await expect(page.locator('.pin').first()).toBeVisible();
+      await expect(
+        page.locator('.jobs-panel').getByRole('button', { name: /JOB #FX001\b/i }),
+      ).toBeVisible();
 
-      // Page shell and map panel are visible and bounded.
-      await expect(page.locator('main.ops-page'), `ops-page at ${vp.label}`).toBeVisible();
+      await attachScreenshot(page, testInfo, `operations-partial-error-${viewport.label}`);
+      expect(failures, 'unexpected request failures').toEqual([]);
+    });
+
+    test(`operations centre no-data renders honest empty states at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/operations-centre/no-data', { waitUntil: 'domcontentloaded' });
+
+      await expect(page.locator('main.ops-page')).toBeVisible();
+      await assertNoHorizontalOverflow(page, viewport.label);
       const mapPanel = page.locator('.map').first();
-      await expect(mapPanel, `map panel at ${vp.label}`).toBeVisible();
-      const mapHeight = await mapPanel.evaluate((el) => el.getBoundingClientRect().height);
-      expect(mapHeight, `map height < viewport height at ${vp.label}`).toBeLessThan(vp.height);
+      await expect(mapPanel).toBeVisible();
+      const mapHeight = await mapPanel.evaluate((element) => element.getBoundingClientRect().height);
+      expect(mapHeight).toBeLessThan(viewport.height);
+      await expect(page.getByText('No live coordinates available.')).toBeVisible();
+      await expect(page.getByText('No jobs match the selected filters.')).toBeVisible();
 
-      // No-data map empty state: honest copy.
-      await expect(
-        page.getByText('No live coordinates available.'),
-        `map empty state at ${vp.label}`,
-      ).toBeVisible();
-
-      // No-data jobs empty state.
-      await expect(
-        page.getByText('No jobs match the selected filters.'),
-        `jobs empty state at ${vp.label}`,
-      ).toBeVisible();
-    }
-
-    expect(failedRequests, 'unexpected request failures').toEqual([]);
-  });
-
-  // ─── Fleet Position Map — with-coords ────────────────────────────────────
-  test('fleet map (with-coords) container is bounded and does not escape its panel at desktop/tablet/mobile', async ({ page }) => {
-    const failedRequests: string[] = [];
-    page.on('requestfailed', (req) => {
-      // Tile failures are expected in CI; all other failures are reported.
-      if (!isAllowlisted(req.url())) {
-        failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
-      }
+      await attachScreenshot(page, testInfo, `operations-no-data-${viewport.label}`);
+      expect(failures, 'unexpected request failures').toEqual([]);
     });
 
-    for (const vp of viewports) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto('/visual-fixture/fleet-map/with-coords');
-      // Wait for client-side Leaflet to mount (ssr: false dynamic import).
-      await page.waitForLoadState('domcontentloaded');
+    test(`fleet map with-coords reaches a stable ready state at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page);
+      await stubOsmTiles(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/fleet-map/with-coords', { waitUntil: 'domcontentloaded' });
 
-      // No horizontal overflow.
-      const overflow = await page.evaluate(() =>
-        document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
-      );
-      expect(overflow, `horizontal overflow at ${vp.label}`).toBe(false);
+      await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.getByTestId('fleet-map-ready')).toBeVisible();
+      await expect(page.locator('.leaflet-container')).toBeVisible();
+      await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible();
+      await expect(page.getByTestId('fleet-map-provider-error')).toHaveCount(0);
+      await assertFleetContainerBounds(page, viewport);
 
-      // Map container wrapper is present.
-      const container = page.getByTestId('fleet-map-container');
-      await expect(container, `fleet-map-container at ${vp.label}`).toBeVisible();
-
-      // Container width is bounded within the viewport — not a full-bleed overflow.
-      const containerRect = await container.evaluate((el) => {
-        const r = el.getBoundingClientRect();
-        return { width: r.width, left: r.left, right: r.right };
-      });
-      expect(containerRect.width, `container width <= viewport width at ${vp.label}`).toBeLessThanOrEqual(vp.width + 2);
-      expect(containerRect.right, `container right edge at ${vp.label}`).toBeLessThanOrEqual(vp.width + 2);
-
-      // Loading state or Leaflet container present — either is valid while tiles load.
-      const hasLeafletContainer = await page.locator('.leaflet-container').count() > 0;
-      const hasLoadingState = (await page.getByText('Loading live map…').count()) > 0;
-      expect(
-        hasLeafletContainer || hasLoadingState,
-        `Leaflet container or loading fallback visible at ${vp.label}`,
-      ).toBe(true);
-
-      // When the Leaflet container is present, its height must be ~440px and not full-screen.
-      if (hasLeafletContainer) {
-        const leafletHeight = await page.locator('.leaflet-container').first().evaluate(
-          (el) => el.getBoundingClientRect().height,
-        );
-        expect(leafletHeight, `leaflet height >= 350px at ${vp.label}`).toBeGreaterThanOrEqual(350);
-        expect(leafletHeight, `leaflet height < viewport height at ${vp.label}`).toBeLessThan(vp.height);
-      }
-    }
-
-    expect(failedRequests, 'unexpected non-tile request failures').toEqual([]);
-  });
-
-  // ─── Fleet Position Map — no-coords ──────────────────────────────────────
-  test('fleet map (no-coords) renders at UK default centre and stays bounded at desktop/tablet/mobile', async ({ page }) => {
-    const failedRequests: string[] = [];
-    page.on('requestfailed', (req) => {
-      if (!isAllowlisted(req.url())) {
-        failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
-      }
+      await attachScreenshot(page, testInfo, `fleet-with-coords-${viewport.label}`);
+      expect(failures, 'unexpected request failures').toEqual([]);
     });
 
-    for (const vp of viewports) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto('/visual-fixture/fleet-map/no-coords');
-      await page.waitForLoadState('domcontentloaded');
+    test(`fleet map provider-error is explicit and bounded at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page, true);
+      await blockOsmTiles(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/fleet-map/provider-error', { waitUntil: 'domcontentloaded' });
 
-      // No horizontal overflow.
-      const overflow = await page.evaluate(() =>
-        document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+      await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.getByTestId('fleet-map-ready')).toBeVisible();
+      await expect(page.locator('.leaflet-container')).toBeVisible();
+      await expect(page.getByTestId('fleet-map-provider-error')).toContainText(
+        'Map tiles are temporarily unavailable.',
       );
-      expect(overflow, `horizontal overflow at ${vp.label}`).toBe(false);
+      await assertFleetContainerBounds(page, viewport);
 
-      // Container wrapper is present.
-      const container = page.getByTestId('fleet-map-container');
-      await expect(container, `fleet-map-container at ${vp.label}`).toBeVisible();
+      await attachScreenshot(page, testInfo, `fleet-provider-error-${viewport.label}`);
+      expect(failures, 'unexpected non-tile request failures').toEqual([]);
+    });
 
-      // Width bounded.
-      const containerWidth = await container.evaluate((el) => el.getBoundingClientRect().width);
-      expect(containerWidth, `container width at ${vp.label}`).toBeLessThanOrEqual(vp.width + 2);
+    test(`fleet map no-coords renders an explicit empty state at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/fleet-map/no-coords', { waitUntil: 'domcontentloaded' });
 
-      // No-coords state: explicit honest empty-state text must be visible instead
-      // of a Leaflet map defaulting silently to UK centre.
-      await expect(
-        page.getByText('No live fleet positions available.'),
-        `no-coords empty state at ${vp.label}`,
-      ).toBeVisible();
+      await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.getByTestId('fleet-map-no-coords')).toContainText(
+        'No live fleet positions available.',
+      );
+      await expect(page.locator('.leaflet-container')).toHaveCount(0);
+      await assertFleetContainerBounds(page, viewport);
 
-      // The Leaflet map must not render when there are no valid coordinates.
-      const leafletCount = await page.locator('.leaflet-container').count();
-      expect(leafletCount, `no Leaflet map when no coords at ${vp.label}`).toBe(0);
-    }
+      await attachScreenshot(page, testInfo, `fleet-no-coords-${viewport.label}`);
+      expect(failures, 'unexpected request failures').toEqual([]);
+    });
 
-    expect(failedRequests, 'unexpected non-tile request failures').toEqual([]);
-  });
+    test(`fleet map rejects invalid coordinates at ${viewport.label}`, async ({ page }, testInfo) => {
+      const failures = collectUnexpectedFailures(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto('/visual-fixture/fleet-map/invalid-coords', { waitUntil: 'domcontentloaded' });
+
+      await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.getByTestId('fleet-map-no-coords')).toContainText(
+        'No live fleet positions available.',
+      );
+      await expect(page.locator('.leaflet-container')).toHaveCount(0);
+      await assertFleetContainerBounds(page, viewport);
+
+      await attachScreenshot(page, testInfo, `fleet-invalid-coords-${viewport.label}`);
+      expect(failures, 'unexpected request failures').toEqual([]);
+    });
+  }
 });
