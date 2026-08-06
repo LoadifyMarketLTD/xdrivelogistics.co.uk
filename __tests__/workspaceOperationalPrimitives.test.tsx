@@ -3,7 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ActionCard,
   ComplianceSummaryPanel,
+  EmptyState,
   ExchangeKpiStrip,
   FinancialSummaryPanel,
   KpiCard,
@@ -41,6 +43,20 @@ describe('workspace operational primitives', () => {
 
     expect(html).toContain('Invoiced revenue (net)');
     expect(html).toContain('Estimated carrier quote cost');
+  });
+
+  it('renders ActionCard using the shared workspace card contract', () => {
+    const html = render(
+      <ActionCard
+        label="Review submitted quotes"
+        description="Carrier pricing workflow"
+        actionLabel="Open workflow"
+      />,
+    );
+
+    expect(html).toContain('Review submitted quotes');
+    expect(html).toContain('Carrier pricing workflow');
+    expect(html).toContain('Open workflow');
   });
 
   it('renders ComplianceSummaryPanel values and percentages', () => {
@@ -140,5 +156,20 @@ describe('workspace operational primitives', () => {
 
     expect(loading).toContain('Loading records');
     expect(error).toContain('Feed unavailable');
+  });
+
+  it('renders compact EmptyState with description and action', () => {
+    const html = render(
+      <EmptyState
+        compact
+        title="No expiry alerts"
+        description="No driver or vehicle document expires within 30 days."
+        action={<button type="button">View all</button>}
+      />,
+    );
+
+    expect(html).toContain('No expiry alerts');
+    expect(html).toContain('No driver or vehicle document expires within 30 days.');
+    expect(html).toContain('View all');
   });
 });

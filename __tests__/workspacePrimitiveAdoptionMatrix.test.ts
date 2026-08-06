@@ -85,4 +85,12 @@ describe('workspace primitive adoption matrix', () => {
     expect(matrix.operations.savedViewSelector).toBe(true);
     expect(matrix.operations.dateRangeSelector).toBe(true);
   });
+
+  it('keeps carrier workspace summary panels on the shared card family', () => {
+    const source = read('app/components/workspace/RoleDashboards.tsx');
+
+    expect(source).toContain('ActionCard');
+    expect(source).toContain('<KpiGrid>');
+    expect(source).not.toContain('OperationalLinkList');
+  });
 });

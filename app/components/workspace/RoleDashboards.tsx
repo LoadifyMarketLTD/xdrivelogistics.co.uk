@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
+  ActionCard,
   ActionButton,
   AlertBanner,
   DataTable,
@@ -13,13 +14,11 @@ import {
   FinancialSummaryPanel,
   KpiCard,
   KpiGrid,
-  OperationalLinkList,
   PageFrame,
   PageHeader,
   Panel,
   StatusBadge,
   TwoColumn,
-  workspaceTheme,
 } from './WorkspaceUI';
 
 const activeStatuses = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
@@ -52,6 +51,16 @@ export function CarrierDashboard() {
       .slice(0, 5);
     return { submittedQuotes, won, unallocated, active, podPending, overdueInvoices, acceptedRevenue, invoicedValue, paidValue, exceptionJobs, recentQuoteActivity };
   }, [data]);
+  const complianceAlerts = useMemo(() => (
+    data.driverDocuments
+      .concat(data.vehicleDocuments)
+      .map((doc) => ({
+        ...doc,
+        daysToExpiry: daysUntil(doc.expiry_date),
+      }))
+      .filter((doc) => doc.daysToExpiry !== null && doc.daysToExpiry <= 30)
+      .sort((a, b) => (a.daysToExpiry ?? 9999) - (b.daysToExpiry ?? 9999))
+  ), [data.driverDocuments, data.vehicleDocuments]);
 
   return (
     <PageFrame>
@@ -93,36 +102,38 @@ export function CarrierDashboard() {
         </Panel>
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Resource readiness" description="Live capacity from your company roster.">
-            <OperationalLinkList
-              compact
-              items={[
-                { key: 'available-drivers', label: 'Available drivers', value: data.drivers.filter((d) => d.availability_status === 'available').length, onClick: () => router.push('/admin/drivers') },
-                { key: 'busy-drivers', label: 'Busy drivers', value: data.drivers.filter((d) => d.availability_status === 'busy').length, onClick: () => router.push('/admin/drivers') },
-                { key: 'total-vehicles', label: 'Total vehicles', value: data.vehicles.length, onClick: () => router.push('/admin/vehicles') },
-                { key: 'unassigned-vehicles', label: 'Unassigned vehicles', value: data.vehicles.filter((v) => !v.assigned_driver_id).length, onClick: () => router.push('/admin/vehicles') },
-              ]}
-            />
+            <KpiGrid>
+              <KpiCard label="Available drivers" value={data.drivers.filter((d) => d.availability_status === 'available').length} tone="green" onClick={() => router.push('/admin/drivers')} />
+              <KpiCard label="Busy drivers" value={data.drivers.filter((d) => d.availability_status === 'busy').length} tone="orange" onClick={() => router.push('/admin/drivers')} />
+              <KpiCard label="Total vehicles" value={data.vehicles.length} tone="navy" onClick={() => router.push('/admin/vehicles')} />
+              <KpiCard label="Unassigned vehicles" value={data.vehicles.filter((v) => !v.assigned_driver_id).length} tone="blue" onClick={() => router.push('/admin/vehicles')} />
+            </KpiGrid>
           </Panel>
           <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
-            <OperationalLinkList
-              compact
-              items={[
-                { key: 'find-loads', label: 'Find marketplace loads', onClick: () => router.push('/admin/marketplace') },
-                { key: 'review-quotes', label: 'Review submitted quotes', onClick: () => router.push('/admin/quotes') },
-                { key: 'allocate-work', label: 'Allocate awarded work', onClick: () => router.push('/admin/fleet/assignments') },
-                { key: 'track-jobs', label: 'Track active jobs', onClick: () => router.push('/admin/fleet/active-jobs') },
-                { key: 'open-invoices', label: 'Open invoices', onClick: () => router.push('/admin/invoices') },
-              ]}
-            />
+            <KpiGrid>
+              <ActionCard label="Find marketplace loads" tone="blue" onClick={() => router.push('/admin/marketplace')} />
+              <ActionCard label="Review submitted quotes" tone="navy" onClick={() => router.push('/admin/quotes')} />
+              <ActionCard label="Allocate awarded work" tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
+              <ActionCard label="Track active jobs" tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
+              <ActionCard label="Open invoices" tone="green" onClick={() => router.push('/admin/invoices')} />
+            </KpiGrid>
           </Panel>
           <Panel title="Compliance alerts" description="Documents expiring within 30 days." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}>
-            {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).slice(0, 5).map((doc) => (
-              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem', padding: '9px 0', borderBottom: `1px solid ${workspaceTheme.border}`, fontSize: '12px' }}>
-                <span>{doc.doc_type?.replace(/_/g, ' ') ?? 'Document'}</span>
-                <StatusBadge value={doc.expiry_date ? `${daysUntil(doc.expiry_date)} days` : 'missing'} tone="orange" />
-              </div>
-            ))}
-            {data.driverDocuments.concat(data.vehicleDocuments).filter((doc) => { const d = daysUntil(doc.expiry_date); return d !== null && d <= 30; }).length === 0 && <EmptyState compact title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
+            {complianceAlerts.slice(0, 4).length > 0 && (
+              <KpiGrid>
+                {complianceAlerts.slice(0, 4).map((doc) => (
+                  <KpiCard
+                    key={doc.id}
+                    label={doc.doc_type?.replace(/_/g, ' ') ?? 'Document'}
+                    value={doc.daysToExpiry && doc.daysToExpiry > 0 ? `${doc.daysToExpiry} days` : 'Expired'}
+                    detail={doc.driver_id ? 'Driver document' : 'Vehicle document'}
+                    tone={doc.daysToExpiry !== null && doc.daysToExpiry <= 7 ? 'red' : 'orange'}
+                    onClick={() => router.push('/admin/documents/expiry')}
+                  />
+                ))}
+              </KpiGrid>
+            )}
+            {complianceAlerts.length === 0 && <EmptyState compact title="No expiry alerts" description="No driver or vehicle document expires within 30 days." />}
           </Panel>
         </div>
       </TwoColumn>

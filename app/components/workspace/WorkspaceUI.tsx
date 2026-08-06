@@ -110,6 +110,47 @@ export const TREND_ARROWS: Record<KpiTrend['direction'], string> = {
   neutral: '→',
 };
 
+export type WorkspaceCardTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
+
+const WORKSPACE_CARD_TONES: Record<WorkspaceCardTone, string> = {
+  blue: workspaceTheme.blue,
+  green: workspaceTheme.green,
+  orange: workspaceTheme.orange,
+  red: workspaceTheme.red,
+  purple: workspaceTheme.purple,
+  navy: workspaceTheme.navy,
+};
+
+function getWorkspaceCardStyle({
+  tone,
+  interactive,
+  minHeight = '72px',
+  maxHeight = '80px',
+}: {
+  tone: WorkspaceCardTone;
+  interactive: boolean;
+  minHeight?: string;
+  maxHeight?: string;
+}): CSSProperties {
+  return {
+    textAlign: 'left',
+    background: workspaceTheme.surface,
+    border: `1px solid ${workspaceTheme.border}`,
+    borderLeft: `3px solid ${WORKSPACE_CARD_TONES[tone]}`,
+    borderRadius: '4px',
+    padding: '8px 10px',
+    minHeight,
+    maxHeight,
+    boxShadow: compactShadow,
+    cursor: interactive ? 'pointer' : 'default',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    width: '100%',
+  };
+}
+
 export function KpiCard({
   label,
   value,
@@ -123,7 +164,7 @@ export function KpiCard({
   label: string;
   value: ReactNode;
   detail?: ReactNode;
-  tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
+  tone?: WorkspaceCardTone;
   onClick?: () => void;
   icon?: ReactNode;
   /** Optional trend / delta indicator shown below the value. */
@@ -131,7 +172,7 @@ export function KpiCard({
   /** Accessible label for the card. Defaults to the label text when omitted. */
   ariaLabel?: string;
 }) {
-  const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
+  const color = WORKSPACE_CARD_TONES[tone];
   /*
    * Section 8 numeric contract:
    * tile height: 72px target, max 80px
@@ -141,22 +182,7 @@ export function KpiCard({
    * accent bar: 3px left border
    * No min-height 100px+.
    */
-  const cardStyle: CSSProperties = {
-    textAlign: 'left',
-    background: workspaceTheme.surface,
-    border: `1px solid ${workspaceTheme.border}`,
-    borderLeft: `3px solid ${color}`,
-    borderRadius: '4px',
-    padding: '8px 10px',
-    minHeight: '72px',
-    maxHeight: '80px',
-    boxShadow: compactShadow,
-    cursor: onClick ? 'pointer' : 'default',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-  };
+  const cardStyle = getWorkspaceCardStyle({ tone, interactive: Boolean(onClick) });
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
@@ -177,6 +203,43 @@ export function KpiCard({
           {!trend && detail}
         </div>
       )}
+    </>
+  );
+  if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
+  return <button aria-label={computedAriaLabel} onClick={onClick} type="button" style={cardStyle}>{content}</button>;
+}
+
+export function ActionCard({
+  label,
+  description,
+  actionLabel = 'Open',
+  tone = 'navy',
+  onClick,
+  icon,
+  ariaLabel,
+}: {
+  label: string;
+  description?: ReactNode;
+  actionLabel?: ReactNode;
+  tone?: WorkspaceCardTone;
+  onClick?: () => void;
+  icon?: ReactNode;
+  ariaLabel?: string;
+}) {
+  const color = WORKSPACE_CARD_TONES[tone];
+  const cardStyle = getWorkspaceCardStyle({ tone, interactive: Boolean(onClick), maxHeight: 'none' });
+  const computedAriaLabel = ariaLabel ?? label;
+  const content = (
+    <>
+      <div style={{ color: workspaceTheme.text, fontSize: '12px', fontWeight: 600, lineHeight: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
+        <span style={{ minWidth: 0 }}>{label}</span>
+        {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
+      </div>
+      {description ? <div style={{ marginTop: '4px', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</div> : <div style={{ minHeight: '14px' }} />}
+      <div style={{ marginTop: '8px', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+        {actionLabel ? <span style={{ color: workspaceTheme.text, fontWeight: 600 }}>{actionLabel}</span> : <span />}
+        <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
+      </div>
     </>
   );
   if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
