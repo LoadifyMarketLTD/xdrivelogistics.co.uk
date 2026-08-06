@@ -19,7 +19,8 @@ const verifyOwner = async (request: NextRequest) => {
   return authData.user;
 };
 
-type NotificationEventRow = {
+// Baseline columns present in all deployed notification_events schemas.
+type NotificationEventBaseRow = {
   id: string;
   event_type: string;
   entity_id: string;
@@ -28,10 +29,67 @@ type NotificationEventRow = {
   status: string;
   created_at: string;
   processed_at: string | null;
+};
+
+// Optional durability columns added by migration 20260720121500.
+// May not exist in pre-migration deployed schemas.
+type NotificationEventDurabilityRow = NotificationEventBaseRow & {
   last_error: string | null;
   attempt_count: number | null;
   next_attempt_at: string | null;
 };
+
+// Normalized application row — durability fields are always present but nullable.
+type NotificationEventRow = NotificationEventBaseRow & {
+  last_error: string | null;
+  attempt_count: number | null;
+  next_attempt_at: string | null;
+};
+
+function normalizeDurabilityRow(r: NotificationEventDurabilityRow): NotificationEventRow {
+  return {
+    id: r.id,
+    event_type: r.event_type,
+    entity_id: r.entity_id,
+    recipient_user_id: r.recipient_user_id,
+    payload: r.payload,
+    status: r.status,
+    created_at: r.created_at,
+    processed_at: r.processed_at,
+    last_error: r.last_error,
+    attempt_count: r.attempt_count,
+    next_attempt_at: r.next_attempt_at,
+  };
+}
+
+function normalizeBaseRow(r: NotificationEventBaseRow): NotificationEventRow {
+  return {
+    id: r.id,
+    event_type: r.event_type,
+    entity_id: r.entity_id,
+    recipient_user_id: r.recipient_user_id,
+    payload: r.payload,
+    status: r.status,
+    created_at: r.created_at,
+    processed_at: r.processed_at,
+    last_error: null,
+    attempt_count: null,
+    next_attempt_at: null,
+  };
+}
+
+// Determines whether a Supabase error indicates a missing durability column
+// (last_error, attempt_count, next_attempt_at) rather than an unrelated schema
+// error (e.g. missing table, permission failure, network error).
+function isMissingDurabilityColumnError(err: { message: string; code?: string }): boolean {
+  const DURABILITY_COLUMNS = ['last_error', 'attempt_count', 'next_attempt_at'];
+  const SCHEMA_CACHE_CODES = ['PGRST204', 'PGRST200'];
+  const msg = err.message;
+  const code = err.code ?? '';
+  const mentionsDurabilityColumn = DURABILITY_COLUMNS.some((col) => msg.includes(col));
+  const isSchemaCache = SCHEMA_CACHE_CODES.includes(code);
+  return mentionsDurabilityColumn || (isSchemaCache && DURABILITY_COLUMNS.some((col) => msg.includes(col)));
+}
 
 const getNotificationTitle = (eventType: string) => {
   switch (eventType) {
@@ -146,45 +204,52 @@ export async function GET(request: NextRequest) {
   if (section === 'notifications') {
     // Attempt to select optional durability columns (last_error, attempt_count,
     // next_attempt_at) added by migration 20260720121500. If the deployed
-    // schema predates that migration these columns will not exist; the query
-    // will fail with PGRST204 / "column does not exist". In that case we
-    // fall back to the baseline column set and expose the diagnostic state
-    // honestly rather than returning an error page.
-    const WITH_DURABILITY = 'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at';
-    const WITHOUT_DURABILITY = 'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at';
+    // schema predates that migration these columns will not exist.
+    // In that case fall back to the baseline column set and surface an honest
+    // diagnostic note rather than failing the whole notifications page.
 
-    const firstResult = await supabaseAdmin
+    const primaryResult = await supabaseAdmin
       .from('notification_events')
-      .select(WITH_DURABILITY)
+      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
       .order('created_at', { ascending: false })
       .limit(200);
 
     let durabilityUnavailable = false;
-    let data: Record<string, unknown>[] | null = firstResult.data as Record<string, unknown>[] | null;
-    let error: { message: string } | null = firstResult.error;
+    let normalizedRows: NotificationEventRow[];
 
-    if (error && (error.message.includes('last_error') || error.message.includes('attempt_count') || error.message.includes('does not exist') || (error as { code?: string }).code === 'PGRST204')) {
-      // Retry without the optional durability columns
-      const fallback = await supabaseAdmin
-        .from('notification_events')
-        .select(WITHOUT_DURABILITY)
-        .order('created_at', { ascending: false })
-        .limit(200);
-      data = fallback.data as Record<string, unknown>[] | null;
-      error = fallback.error;
-      durabilityUnavailable = true;
+    if (primaryResult.error) {
+      if (isMissingDurabilityColumnError(primaryResult.error)) {
+        // Retry with baseline columns only.
+        const fallbackResult = await supabaseAdmin
+          .from('notification_events')
+          .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (fallbackResult.error) {
+          return respond(200, {
+            section,
+            rows: [],
+            summary: { total: 0, unread: 0, read: 0 },
+            note: fallbackResult.error.message,
+          });
+        }
+        normalizedRows = (fallbackResult.data as NotificationEventBaseRow[]).map(normalizeBaseRow);
+        durabilityUnavailable = true;
+      } else {
+        // Unrelated error — surface it, do not convert to healthy empty state.
+        return respond(200, {
+          section,
+          rows: [],
+          summary: { total: 0, unread: 0, read: 0 },
+          note: primaryResult.error.message,
+        });
+      }
+    } else {
+      normalizedRows = (primaryResult.data as NotificationEventDurabilityRow[]).map(normalizeDurabilityRow);
     }
 
-    if (error) {
-      return respond(200, {
-        section,
-        rows: [],
-        summary: { total: 0, unread: 0, read: 0 },
-        note: error.message,
-      });
-    }
-
-    const rows = ((data ?? []) as NotificationEventRow[]).map((r) => ({
+    const rows = normalizedRows.map((r) => ({
       id: r.id,
       user_id: r.recipient_user_id,
       type: r.event_type,
@@ -193,9 +258,9 @@ export async function GET(request: NextRequest) {
       status: r.status,
       processed: r.processed_at !== null,
       created_at: r.created_at,
-      last_error: r.last_error ?? null,
-      attempt_count: r.attempt_count ?? 0,
-      next_attempt_at: r.next_attempt_at ?? null,
+      last_error: r.last_error,
+      attempt_count: r.attempt_count,
+      next_attempt_at: r.next_attempt_at,
     }));
 
     return respond(200, {
@@ -258,9 +323,9 @@ export async function PATCH(request: NextRequest) {
     })
     .eq('id', notificationId);
 
-  // If the update fails because last_error/next_attempt_at don't exist yet
+  // If the update fails because durability columns don't exist yet
   // (pre-migration schema), retry with the minimal column set.
-  if (updateError && (updateError.message.includes('last_error') || updateError.message.includes('next_attempt_at') || updateError.message.includes('does not exist'))) {
+  if (updateError && isMissingDurabilityColumnError(updateError)) {
     const { error: fallbackError } = await supabaseAdmin
       .from('notification_events')
       .update({ status: 'pending', processed_at: null })
