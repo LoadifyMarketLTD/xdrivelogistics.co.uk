@@ -490,13 +490,16 @@ export function OperationalFilters({
 export function FinancialSummaryPanel({
   items,
 }: {
-  items: Array<{ label: string; value: ReactNode; color: string; background: string }>;
+  items: Array<{ label: string; detail?: string; value: ReactNode; color: string; background: string }>;
 }) {
   return (
     <div className={styles.financialSummaryPanel}>
       {items.map((item) => (
         <div key={item.label} className={styles.financialSummaryRow} style={{ ['--xdrive-finance-row-bg' as const]: item.background, ['--xdrive-finance-row-color' as const]: item.color } as CSSProperties}>
-          <span className={styles.financialSummaryLabel}>{item.label}</span>
+          <span className={styles.financialSummaryLabel}>
+            {item.label}
+            {item.detail && <span className={styles.financialSummaryDetail}>{item.detail}</span>}
+          </span>
           <strong className={styles.financialSummaryValue}>{item.value}</strong>
         </div>
       ))}
@@ -526,35 +529,37 @@ export function OperationalMetricList({
 export function OperationalLinkList({
   items,
   showTrailingArrow = true,
+  compact = false,
 }: {
   items: Array<{ key: string; label: ReactNode; meta?: ReactNode; value?: ReactNode; onClick?: () => void }>;
   showTrailingArrow?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className={styles.operationalLinkList}>
+    <div className={compact ? styles.operationalLinkListCompact : styles.operationalLinkList}>
       {items.map((item) => {
         const content = (
           <>
             <span className={styles.operationalLinkCopy}>
-              <span className={styles.operationalLinkLabel}>{item.label}</span>
+              <span className={compact ? styles.operationalLinkLabelCompact : styles.operationalLinkLabel}>{item.label}</span>
               {item.meta ? <span className={styles.operationalLinkMeta}>{item.meta}</span> : null}
             </span>
             {item.value != null
               ? <span className={styles.operationalLinkValue}>{item.value}</span>
-              : showTrailingArrow ? <span aria-hidden="true">→</span> : null}
+              : showTrailingArrow ? <span aria-hidden="true" className={styles.operationalLinkArrow}>→</span> : null}
           </>
         );
 
         if (!item.onClick) {
           return (
-            <div key={item.key} className={styles.operationalLinkRow}>
+            <div key={item.key} className={compact ? styles.operationalLinkRowCompact : styles.operationalLinkRow}>
               {content}
             </div>
           );
         }
 
         return (
-          <button key={item.key} type="button" onClick={item.onClick} className={styles.operationalLinkButton}>
+          <button key={item.key} type="button" onClick={item.onClick} className={compact ? styles.operationalLinkButtonCompact : styles.operationalLinkButton}>
             {content}
           </button>
         );
@@ -789,7 +794,16 @@ export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { la
 export function EmptyState({ title, description, action, icon, compact = false }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode; compact?: boolean }) {
   const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
   if (compact) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 10px', color: workspaceTheme.muted, fontSize: '12px' }}><span aria-hidden="true">—</span><span>{title}</span>{action && <span style={{ marginLeft: '4px' }}>{action}</span>}</div>;
+    return (
+      <div style={{ padding: '10px', color: workspaceTheme.muted, fontSize: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span aria-hidden="true">—</span>
+          <span style={{ fontWeight: 600, color: workspaceTheme.text }}>{title}</span>
+          {action && <span style={{ marginLeft: '4px' }}>{action}</span>}
+        </div>
+        {description && <p style={{ margin: '4px 0 0 16px', fontSize: '11px', color: workspaceTheme.muted, lineHeight: 1.4 }}>{description}</p>}
+      </div>
+    );
   }
   return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.95rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.78rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }

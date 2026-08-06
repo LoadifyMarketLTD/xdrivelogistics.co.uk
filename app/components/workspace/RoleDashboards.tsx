@@ -94,6 +94,7 @@ export function CarrierDashboard() {
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Resource readiness" description="Live capacity from your company roster.">
             <OperationalLinkList
+              compact
               items={[
                 { key: 'available-drivers', label: 'Available drivers', value: data.drivers.filter((d) => d.availability_status === 'available').length, onClick: () => router.push('/admin/drivers') },
                 { key: 'busy-drivers', label: 'Busy drivers', value: data.drivers.filter((d) => d.availability_status === 'busy').length, onClick: () => router.push('/admin/drivers') },
@@ -104,6 +105,7 @@ export function CarrierDashboard() {
           </Panel>
           <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
             <OperationalLinkList
+              compact
               items={[
                 { key: 'find-loads', label: 'Find marketplace loads', onClick: () => router.push('/admin/marketplace') },
                 { key: 'review-quotes', label: 'Review submitted quotes', onClick: () => router.push('/admin/quotes') },
@@ -132,11 +134,12 @@ export function CarrierDashboard() {
       >
         <FinancialSummaryPanel
           items={[
-            { label: 'Won work value', value: money(metrics.acceptedRevenue), color: '#166534', background: '#f0fdf4' },
-            { label: 'Invoiced', value: money(metrics.invoicedValue), color: '#1e40af', background: '#eff6ff' },
-            { label: 'Paid', value: money(metrics.paidValue), color: '#6b21a8', background: '#faf5ff' },
+            { label: 'Won work value', detail: 'Accepted bids total', value: money(metrics.acceptedRevenue), color: '#166534', background: '#f0fdf4' },
+            { label: 'Invoiced', detail: 'Raised to customers', value: money(metrics.invoicedValue), color: '#1e40af', background: '#eff6ff' },
+            { label: 'Paid', detail: 'Received payments', value: money(metrics.paidValue), color: '#6b21a8', background: '#faf5ff' },
             {
               label: 'Outstanding',
+              detail: 'Awaiting payment',
               value: money(Math.max(0, metrics.invoicedValue - metrics.paidValue)),
               color: metrics.invoicedValue - metrics.paidValue > 0 ? '#c2410c' : '#166534',
               background: metrics.invoicedValue - metrics.paidValue > 0 ? '#fff7ed' : '#f0fdf4',
