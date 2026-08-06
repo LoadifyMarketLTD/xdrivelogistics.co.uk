@@ -11,6 +11,7 @@ import {
 } from '../../../lib/workspaceRole';
 import {
   getWorkspaceDatasetMetricValue,
+  getWorkspaceMetricPresentationStatus,
   useCompanyWorkspaceData,
   type WorkspaceDataState,
 } from './useCompanyWorkspaceData';
@@ -53,26 +54,47 @@ export type AdminDashboardResolution = {
   homeHref: string | null;
 };
 
+const datasetStatus = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+) => getWorkspaceMetricPresentationStatus(keys.map((key) => data.datasets[key]));
+
 const datasetUnavailable = (
   data: WorkspaceDataState,
   keys: Array<keyof WorkspaceDataState['datasets']>,
-) => keys.some((key) => {
-  const availability = data.datasets[key].availability;
-  return availability === 'unavailable' || availability === 'omitted';
-});
+) => {
+  const status = datasetStatus(data, keys);
+  return status === 'partial' || status === 'unavailable' || status === 'omitted';
+};
 
 const metricValue = (
   data: WorkspaceDataState,
   keys: Array<keyof WorkspaceDataState['datasets']>,
   compute: () => number | string,
-) => (datasetUnavailable(data, keys) ? '—' : compute());
+) => {
+  const status = datasetStatus(data, keys);
+  if (status === 'partial') return 'Partial';
+  if (status === 'unavailable' || status === 'omitted') return '—';
+  return compute();
+};
 
 const metricDetail = (
   data: WorkspaceDataState,
   keys: Array<keyof WorkspaceDataState['datasets']>,
   detail: string,
   unavailable = 'Unavailable',
-) => (datasetUnavailable(data, keys) ? unavailable : detail);
+) => {
+  const status = datasetStatus(data, keys);
+  if (status === 'partial') return 'Partial data unavailable';
+  if (status === 'unavailable' || status === 'omitted') return unavailable;
+  return detail;
+};
+
+const metricTone = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+  tone: 'navy' | 'green' | 'orange' | 'purple' | 'red' | 'blue',
+) => (datasetUnavailable(data, keys) ? 'navy' : tone);
 
 export function resolveAdminDashboard(role: WorkspaceRole | null | undefined): AdminDashboardResolution {
   if (!role) {
@@ -164,12 +186,12 @@ export function CarrierDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
         <KpiCard label="Quotes submitted" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && ['submitted', 'pending'].includes(bid.status)).length)} detail={metricDetail(data, ['bids'], 'Awaiting a commercial decision')} onClick={() => router.push('/admin/quotes')} />
-        <KpiCard label="Won work" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && bid.status === 'accepted').length)} detail={metricDetail(data, ['bids'], 'Accepted carrier quotes')} tone="green" onClick={() => router.push('/admin/bids')} />
-        <KpiCard label="Awaiting allocation" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['awarded', 'posted'].includes(job.status) && !job.assigned_driver_id).length)} detail={metricDetail(data, ['jobs'], 'Jobs requiring driver and vehicle')} tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Collections and deliveries in progress')} tone="purple" onClick={() => router.push('/admin/fleet/active-jobs')} />
-        <KpiCard label="POD outstanding" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0).length)} detail={metricDetail(data, ['jobs'], 'Delivered jobs missing proof')} tone="red" onClick={() => router.push('/admin/documents?view=pod')} />
-        <KpiCard label="Overdue invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => invoice.company_id === data.companyId && invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid').length)} detail={metricDetail(data, ['invoices'], 'Past due date')} tone={metrics.overdueInvoices ? 'red' : 'navy'} onClick={() => router.push('/admin/invoices')} />
-        <KpiCard label="Exceptions" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Failed or disputed jobs')} tone={metrics.exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/incidents')} />
+        <KpiCard label="Won work" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && bid.status === 'accepted').length)} detail={metricDetail(data, ['bids'], 'Accepted carrier quotes')} tone={metricTone(data, ['bids'], 'green')} onClick={() => router.push('/admin/bids')} />
+        <KpiCard label="Awaiting allocation" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['awarded', 'posted'].includes(job.status) && !job.assigned_driver_id).length)} detail={metricDetail(data, ['jobs'], 'Jobs requiring driver and vehicle')} tone={metricTone(data, ['jobs'], 'orange')} onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Collections and deliveries in progress')} tone={metricTone(data, ['jobs'], 'purple')} onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="POD outstanding" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0).length)} detail={metricDetail(data, ['jobs'], 'Delivered jobs missing proof')} tone={metricTone(data, ['jobs'], 'red')} onClick={() => router.push('/admin/documents?view=pod')} />
+        <KpiCard label="Overdue invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => invoice.company_id === data.companyId && invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid').length)} detail={metricDetail(data, ['invoices'], 'Past due date')} tone={metricTone(data, ['invoices'], metrics.overdueInvoices ? 'red' : 'navy')} onClick={() => router.push('/admin/invoices')} />
+        <KpiCard label="Exceptions" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Failed or disputed jobs')} tone={metricTone(data, ['jobs'], metrics.exceptionJobs.length ? 'red' : 'green')} onClick={() => router.push('/admin/incidents')} />
         <KpiCard label="Won work value" value={metricValue(data, ['jobs', 'bids'], () => money(metrics.acceptedRevenue))} detail={metricDetail(data, ['jobs', 'bids'], 'Accepted bid total')} tone="navy" />
       </KpiGrid>
 
@@ -194,10 +216,10 @@ export function CarrierDashboard() {
         <div style={{ display: 'grid', gap: '0.9rem' }}>
           <Panel title="Resource readiness" description="Live capacity from your company roster.">
             <KpiGrid>
-              <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} detail={metricDetail(data, ['drivers'], 'Ready for allocation')} tone="green" onClick={() => router.push('/admin/drivers')} />
-              <KpiCard label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'busy').length)} detail={metricDetail(data, ['drivers'], 'Assigned or on a job')} tone="orange" onClick={() => router.push('/admin/drivers')} />
+              <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} detail={metricDetail(data, ['drivers'], 'Ready for allocation')} tone={metricTone(data, ['drivers'], 'green')} onClick={() => router.push('/admin/drivers')} />
+              <KpiCard label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'busy').length)} detail={metricDetail(data, ['drivers'], 'Assigned or on a job')} tone={metricTone(data, ['drivers'], 'orange')} onClick={() => router.push('/admin/drivers')} />
               <KpiCard label="Total vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.length)} detail={metricDetail(data, ['vehicles'], 'Company vehicles')} tone="navy" onClick={() => router.push('/admin/vehicles')} />
-              <KpiCard label="Unassigned vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} detail={metricDetail(data, ['vehicles'], 'Ready to assign')} tone="blue" onClick={() => router.push('/admin/vehicles')} />
+              <KpiCard label="Unassigned vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} detail={metricDetail(data, ['vehicles'], 'Ready to assign')} tone={metricTone(data, ['vehicles'], 'blue')} onClick={() => router.push('/admin/vehicles')} />
             </KpiGrid>
           </Panel>
           <Panel title="Commercial shortcuts" description="Fast access to the carrier workflow.">
@@ -218,7 +240,7 @@ export function CarrierDashboard() {
                     label={doc.doc_type?.replace(/_/g, ' ') ?? 'Document'}
                     value={doc.daysToExpiry && doc.daysToExpiry > 0 ? `${doc.daysToExpiry} days` : 'Expired'}
                     detail={doc.driver_id ? 'Driver document' : 'Vehicle document'}
-                    tone={doc.daysToExpiry !== null && doc.daysToExpiry <= 7 ? 'red' : 'orange'}
+                    tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], doc.daysToExpiry !== null && doc.daysToExpiry <= 7 ? 'red' : 'orange')}
                     onClick={() => router.push('/admin/documents/expiry')}
                   />
                 ))}
@@ -303,14 +325,14 @@ export function FleetDashboard() {
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
-        <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} tone="green" detail={metricDetail(data, ['drivers'], 'Ready for allocation')} onClick={() => router.push('/admin/drivers')} />
-        <KpiCard label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'busy').length)} tone="purple" detail={metricDetail(data, ['drivers'], 'Assigned or on a job')} onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} tone={metricTone(data, ['drivers'], 'green')} detail={metricDetail(data, ['drivers'], 'Ready for allocation')} onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'busy').length)} tone={metricTone(data, ['drivers'], 'purple')} detail={metricDetail(data, ['drivers'], 'Assigned or on a job')} onClick={() => router.push('/admin/drivers')} />
         <KpiCard label="Offline drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => !driver.availability_status || driver.availability_status === 'offline').length)} tone="navy" detail={metricDetail(data, ['drivers'], 'Not available now')} onClick={() => router.push('/admin/driver-availability')} />
-        <KpiCard label="Available vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} tone="blue" detail={metricValue(data, ['vehicles'], () => `${data.vehicles.length} total vehicles`)} onClick={() => router.push('/admin/vehicles')} />
-        <KpiCard label="Unassigned jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length)} tone="orange" detail={metricDetail(data, ['jobs'], 'Driver and vehicle required')} onClick={() => router.push('/admin/fleet/assignments')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} tone="green" detail={metricDetail(data, ['jobs'], 'Collections and deliveries')} onClick={() => router.push('/admin/fleet/active-jobs')} />
-        <KpiCard label="Expiry alerts" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expiring)} tone={expiring ? 'red' : 'green'} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Due within 30 days')} onClick={() => router.push('/admin/documents/expiry')} />
-        <KpiCard label="Exceptions" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} tone={exceptionJobs.length ? 'red' : 'green'} detail={metricDetail(data, ['jobs'], 'Failed or disputed jobs')} onClick={() => router.push('/admin/incidents')} />
+        <KpiCard label="Available vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} tone={metricTone(data, ['vehicles'], 'blue')} detail={metricValue(data, ['vehicles'], () => `${data.vehicles.length} total vehicles`)} onClick={() => router.push('/admin/vehicles')} />
+        <KpiCard label="Unassigned jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length)} tone={metricTone(data, ['jobs'], 'orange')} detail={metricDetail(data, ['jobs'], 'Driver and vehicle required')} onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} tone={metricTone(data, ['jobs'], 'green')} detail={metricDetail(data, ['jobs'], 'Collections and deliveries')} onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="Expiry alerts" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expiring)} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], expiring ? 'red' : 'green')} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Due within 30 days')} onClick={() => router.push('/admin/documents/expiry')} />
+        <KpiCard label="Exceptions" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} tone={metricTone(data, ['jobs'], exceptionJobs.length ? 'red' : 'green')} detail={metricDetail(data, ['jobs'], 'Failed or disputed jobs')} onClick={() => router.push('/admin/incidents')} />
       </KpiGrid>
 
       <TwoColumn>
@@ -416,10 +438,10 @@ export function FinanceDashboard() {
       <PageHeader eyebrow="Finance" title="Finance Dashboard" description="Invoice issuance, payment status, balances and exceptions without operational edit permissions." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Open Invoices</ActionButton>} />
       <KpiGrid>
         <KpiCard label="Draft invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length)} detail={metricDetail(data, ['invoices'], 'Invoices requiring issue')} />
-        <KpiCard label="Outstanding invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void'].includes(invoice.status)).length)} detail={metricDetail(data, ['invoices'], 'Awaiting payment')} tone="orange" />
-        <KpiCard label="Overdue invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void'].includes(invoice.status) && invoice.due_date && new Date(invoice.due_date).getTime() < Date.now()).length)} detail={metricDetail(data, ['invoices'], 'Past due date')} tone="red" />
-        <KpiCard label="Outstanding value" value={metricValue(data, ['invoices'], () => money(totals.outstanding))} detail={metricDetail(data, ['invoices'], 'Unpaid balance')} tone="navy" />
-        <KpiCard label="Overdue value" value={metricValue(data, ['invoices'], () => money(totals.overdueAmount))} detail={metricDetail(data, ['invoices'], 'Past due balance')} tone="red" />
+        <KpiCard label="Outstanding invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void'].includes(invoice.status)).length)} detail={metricDetail(data, ['invoices'], 'Awaiting payment')} tone={metricTone(data, ['invoices'], 'orange')} />
+        <KpiCard label="Overdue invoices" value={getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void'].includes(invoice.status) && invoice.due_date && new Date(invoice.due_date).getTime() < Date.now()).length)} detail={metricDetail(data, ['invoices'], 'Past due date')} tone={metricTone(data, ['invoices'], 'red')} />
+        <KpiCard label="Outstanding value" value={metricValue(data, ['invoices'], () => money(totals.outstanding))} detail={metricDetail(data, ['invoices'], 'Unpaid balance')} tone={metricTone(data, ['invoices'], 'navy')} />
+        <KpiCard label="Overdue value" value={metricValue(data, ['invoices'], () => money(totals.overdueAmount))} detail={metricDetail(data, ['invoices'], 'Past due balance')} tone={metricTone(data, ['invoices'], 'red')} />
       </KpiGrid>
       <Panel title="Invoice control" description="Most recent invoices and payment state.">
         <DataTable columns={['Invoice', 'Client', 'Amount', 'Due', 'Status']} rows={data.invoices.slice(0, 15).map((invoice) => [invoice.invoice_number ?? 'Invoice', invoice.client_name ?? 'Client', money(Number(invoice.amount ?? 0)), invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB') : 'Not set', <StatusBadge key="status" value={invoice.payment_status ?? invoice.status} />])} />
@@ -439,11 +461,11 @@ export function ComplianceDashboard() {
     <PageFrame>
       <PageHeader eyebrow="Compliance" title="Compliance Dashboard" description="Verification, expiry and operational readiness for drivers, vehicles and company documents." actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Verification Queue</ActionButton>} />
       <KpiGrid>
-        <KpiCard label="Expired" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expired.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Immediate renewal required')} tone="red" />
-        <KpiCard label="Expires in 7 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due7.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Urgent review window')} tone="orange" />
-        <KpiCard label="Expires in 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due30.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Upcoming expiry')} tone="blue" />
-        <KpiCard label="Pending verification" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => documents.filter((document) => ['pending', 'under_review'].includes(document.status ?? '')).length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Requires review')} tone="purple" />
-        <KpiCard label="Drivers not ready" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.status !== 'active').length)} detail={metricDetail(data, ['drivers'], 'Inactive or blocked')} tone="red" />
+        <KpiCard label="Expired" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expired.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Immediate renewal required')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], 'red')} />
+        <KpiCard label="Expires in 7 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due7.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Urgent review window')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], 'orange')} />
+        <KpiCard label="Expires in 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due30.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Upcoming expiry')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], 'blue')} />
+        <KpiCard label="Pending verification" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => documents.filter((document) => ['pending', 'under_review'].includes(document.status ?? '')).length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Requires review')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], 'purple')} />
+        <KpiCard label="Drivers not ready" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.status !== 'active').length)} detail={metricDetail(data, ['drivers'], 'Inactive or blocked')} tone={metricTone(data, ['drivers'], 'red')} />
       </KpiGrid>
       <Panel title="Priority expiry queue" description="Expired documents first, followed by the nearest expiry date.">
         <DataTable columns={['Document', 'Entity', 'Expiry', 'Status', 'Action']} rows={documents.filter((document) => document.expiry_date).sort((a, b) => new Date(a.expiry_date ?? 0).getTime() - new Date(b.expiry_date ?? 0).getTime()).slice(0, 20).map((document) => [document.doc_type?.replace(/_/g, ' ') ?? 'Document', document.driver_id ? 'Driver' : 'Vehicle', document.expiry_date ? new Date(document.expiry_date).toLocaleDateString('en-GB') : 'Not set', <StatusBadge key="status" value={document.status ?? 'pending'} />, <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/documents')}>Review</ActionButton>])} />
@@ -479,11 +501,11 @@ export function DispatcherDashboard() {
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
-        <KpiCard label="Unallocated jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length)} detail={metricDetail(data, ['jobs'], 'Needs dispatch')} tone="orange" onClick={() => router.push('/admin/fleet/assignments')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Live execution')} tone="green" onClick={() => router.push('/admin/fleet/active-jobs')} />
-        <KpiCard label="Exceptions" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Immediate intervention')} tone={exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/incidents')} />
-        <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} detail={metricDetail(data, ['drivers'], 'Ready now')} tone="blue" onClick={() => router.push('/admin/drivers')} />
-        <KpiCard label="Stale positions" value={metricValue(data, ['drivers', 'locations'], () => stalePositions)} detail={metricDetail(data, ['drivers', 'locations'], 'No fresh GPS update')} tone={stalePositions ? 'red' : 'navy'} onClick={() => router.push('/admin/fleet/positions')} />
+        <KpiCard label="Unallocated jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length)} detail={metricDetail(data, ['jobs'], 'Needs dispatch')} tone={metricTone(data, ['jobs'], 'orange')} onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Live execution')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="Exceptions" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Immediate intervention')} tone={metricTone(data, ['jobs'], exceptionJobs.length ? 'red' : 'green')} onClick={() => router.push('/admin/incidents')} />
+        <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} detail={metricDetail(data, ['drivers'], 'Ready now')} tone={metricTone(data, ['drivers'], 'blue')} onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Stale positions" value={metricValue(data, ['drivers', 'locations'], () => stalePositions)} detail={metricDetail(data, ['drivers', 'locations'], 'No fresh GPS update')} tone={metricTone(data, ['drivers', 'locations'], stalePositions ? 'red' : 'navy')} onClick={() => router.push('/admin/fleet/positions')} />
       </KpiGrid>
       <TwoColumn>
         <Panel title="Priority jobs" description="Dispatch priority sorted by current operating risk.">
@@ -500,9 +522,9 @@ export function DispatcherDashboard() {
         </Panel>
         <Panel title="Resource signals" description="Dispatchers can monitor status without carrier commercial actions.">
           <KpiGrid>
-            <KpiCard label="Drivers online" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status !== 'offline').length)} detail={metricDetail(data, ['drivers'], 'Online or busy')} tone="green" onClick={() => router.push('/admin/drivers')} />
+            <KpiCard label="Drivers online" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status !== 'offline').length)} detail={metricDetail(data, ['drivers'], 'Online or busy')} tone={metricTone(data, ['drivers'], 'green')} onClick={() => router.push('/admin/drivers')} />
             <KpiCard label="Vehicles visible" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.length)} detail={metricDetail(data, ['vehicles'], 'Fleet units')} tone="navy" onClick={() => router.push('/admin/vehicles')} />
-            <KpiCard label="Exceptions open" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Operational incidents')} tone="red" onClick={() => router.push('/admin/incidents')} />
+            <KpiCard label="Exceptions open" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => exceptionStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Operational incidents')} tone={metricTone(data, ['jobs'], 'red')} onClick={() => router.push('/admin/incidents')} />
           </KpiGrid>
         </Panel>
       </TwoColumn>
@@ -526,9 +548,9 @@ export function ViewerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       <KpiGrid>
         <KpiCard label="Jobs visible" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.length)} detail={metricDetail(data, ['jobs'], 'Read-only record set')} tone="navy" onClick={() => router.push('/admin/jobs')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'In progress')} tone="green" onClick={() => router.push('/admin/jobs')} />
-        <KpiCard label="Completed" value={metricValue(data, ['jobs'], () => completedJobs.length)} detail={metricDetail(data, ['jobs'], 'Delivered or paid')} tone="blue" onClick={() => router.push('/admin/jobs')} />
-        <KpiCard label="Exceptions" value={metricValue(data, ['jobs'], () => exceptionJobs.length)} detail={metricDetail(data, ['jobs'], 'Requires follow-up')} tone={exceptionJobs.length ? 'red' : 'green'} onClick={() => router.push('/admin/jobs')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'In progress')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/jobs')} />
+        <KpiCard label="Completed" value={metricValue(data, ['jobs'], () => completedJobs.length)} detail={metricDetail(data, ['jobs'], 'Delivered or paid')} tone={metricTone(data, ['jobs'], 'blue')} onClick={() => router.push('/admin/jobs')} />
+        <KpiCard label="Exceptions" value={metricValue(data, ['jobs'], () => exceptionJobs.length)} detail={metricDetail(data, ['jobs'], 'Requires follow-up')} tone={metricTone(data, ['jobs'], exceptionJobs.length ? 'red' : 'green')} onClick={() => router.push('/admin/jobs')} />
       </KpiGrid>
       <Panel title="Recent jobs" description="Latest visible operational work items.">
         <DataTable
