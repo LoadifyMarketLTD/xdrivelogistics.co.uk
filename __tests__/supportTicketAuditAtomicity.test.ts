@@ -204,7 +204,9 @@ describe('PATCH /api/super-admin/support — atomic support-ticket audit', () =>
 
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS metadata jsonb');
     expect(migration).toMatch(/ALTER COLUMN target_company_id DROP NOT NULL/);
-    expect(migration).toContain("'owner_update_support_ticket_with_audit'");
+    expect(migration).toContain(
+      'CREATE OR REPLACE FUNCTION public.owner_update_support_ticket_with_audit(',
+    );
     expect(nullableCompanyRegression).toContain('target_company_id IS NULL');
     expect(nullableCompanyRegression).toContain("metadata->>'ticket_id'");
     expect(nullableCompanyRegression).toContain('ROLLBACK;');
