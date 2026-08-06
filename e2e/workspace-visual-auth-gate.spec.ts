@@ -1,8 +1,25 @@
 import { expect, test } from '@playwright/test';
 
-type Role = 'admin' | 'broker' | 'customer' | 'driver' | 'operations';
+type Role =
+  | 'carrier'
+  | 'broker'
+  | 'customer'
+  | 'driver'
+  | 'fleet'
+  | 'operations'
+  | 'super-admin';
 
-const roles: Role[] = ['admin', 'broker', 'customer', 'driver', 'operations'];
+const roles: Role[] = ['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin'];
+
+const expectedKpis: Record<Role, string[]> = {
+  carrier: ['Quotes submitted', 'Won work', 'Awaiting allocation', 'Active jobs', 'POD outstanding', 'Overdue invoices'],
+  broker: ['Draft loads', 'Carrier quotes', 'Awaiting award', 'Active jobs', 'Gross margin'],
+  customer: ['Open loads', 'Quotes received', 'Awaiting award', 'Active deliveries', 'Unpaid invoices'],
+  driver: ['Jobs today', 'Active job', 'Awaiting start', 'Documents expiring', 'Quotes submitted'],
+  fleet: ['Available drivers', 'Busy drivers', 'Unassigned jobs', 'Stale positions', 'Expiry alerts'],
+  operations: ['Unallocated jobs', 'Active jobs', 'Exceptions', 'Available drivers', 'Stale positions'],
+  'super-admin': ['P0/P1 Actions', 'Jobs at Risk', 'Blocked Accounts', 'Overdue Invoices', 'Degraded Services'],
+};
 
 const viewports = [
   { label: 'desktop', width: 1440, height: 900, compact: false },
@@ -139,10 +156,13 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         expect(layoutRects.header!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
         expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
 
-        const kpiCards = page.locator('[aria-label="Operational key performance indicators"] [role="group"], [aria-label="Operational key performance indicators"] button');
-        const kpiCount = await kpiCards.count();
-        expect(kpiCount).toBeGreaterThanOrEqual(4);
-        expect(kpiCount).toBeLessThanOrEqual(6);
+        const kpiLabels = await page
+          .locator('[aria-label="Operational key performance indicators"] > *')
+          .evaluateAll((nodes) =>
+            nodes.map((node) => node.textContent?.trim().split(/\s*\n+\s*/)[0] ?? '').filter(Boolean),
+          );
+        expect(kpiLabels).toEqual(expectedKpis[role]);
+        expect(new Set(kpiLabels).size).toBe(kpiLabels.length);
 
         const table = page.locator('table').first();
         await expect(table).toBeVisible();
@@ -174,7 +194,7 @@ test.describe('authenticated workspace visual verification gate (fixture harness
           expect(overflowContract.hasHorizontalScroll).toBe(true);
         }
 
-        if (role !== 'admin') {
+        if (role !== 'super-admin') {
           await expect(page.getByText('Admin-only escalation queue')).toHaveCount(0);
         } else {
           await expect(page.getByText('Admin-only escalation queue')).toBeVisible();

@@ -45,8 +45,8 @@
 - Readiness and owner-driver business summaries now use the shared dashboard summary button contract.
 - Current-job card now uses explicit route/meta classes with the approved XDrive text tokens.
 - Owner-driver document-expiry rows now use shared compact list-row styling and keep the real document/action behaviour.
-- The owner-driver KPI strip is now hard-capped at **6 visible tiles**: `Jobs today`, `Active job`, `Awaiting start`, `Completed`, `Documents expiring`, `Quotes submitted`.
-- Lower-priority owner-driver finance metrics (`Won work`, `Pending invoices`) stay navigable in the right-rail `Business summary` instead of the KPI strip.
+- The owner-driver KPI strip is role-driven: it keeps the most urgent execution and commercial indicators visible without introducing filler or duplicating lower-panel summaries.
+- Secondary owner-driver finance detail remains navigable in the right-rail `Business summary` when that keeps the top strip focused on immediate action.
 
 ## Responsive transformation
 
@@ -68,7 +68,7 @@
 
 | Metric | Contract | Previous state | Current state | Status |
 |---|---:|---:|---:|---|
-| Owner-driver KPI tile count | `<= 6` visible | `7–8` depending on pending invoices | `6` fixed | closed |
+| Owner-driver KPI selection | role-driven priority | KPI quantity treated as a quota | role-relevant metrics only | closed |
 | Desktop shell | `230px sidebar / 50px header` | referenced only in docs | rendered validation at `230px / 50px` | closed |
 | Tablet shell | `56px sidebar` | referenced only in docs | rendered validation at `56px` | closed |
 | Mobile shell | `280px drawer` | referenced only in docs | rendered validation confirms off-canvas drawer with no body overflow | closed |
@@ -92,6 +92,6 @@
 - [x] Current-job card uses explicit operational typography tokens
 - [x] Summary buttons and expiry rows use shared compact dashboard styling
 - [x] Before/after evidence referenced for `1440×900`, `768×1024`, `390×844`
-- [x] Owner-driver KPI strip capped at six visible tiles
-- [x] Rendered validation covers sidebar geometry, header height, KPI height/count, stacked layout and overflow at `1440×900`, `768×1024`, `390×844`
+- [x] Owner-driver KPI strip stays role-driven rather than quota-driven
+- [x] Rendered validation covers sidebar geometry, header height, KPI hierarchy, stacked layout and overflow at `1440×900`, `768×1024`, `390×844`
 - [ ] Remaining non-driver dashboards still require their own route-by-route closure

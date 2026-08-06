@@ -201,6 +201,9 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
 
 export const hasWorkspaceCapability = (role: WorkspaceRole, capability: WorkspaceCapability) => CAPABILITIES[role].has(capability);
 
+export const getWorkspaceCapabilities = (role: WorkspaceRole): readonly WorkspaceCapability[] =>
+  [...CAPABILITIES[role]].sort();
+
 const carrierNav: WorkspaceNavGroup[] = [
   { id: 'home', label: 'Workspace', items: [{ id: 'dashboard', label: 'Carrier Dashboard', href: '/admin', icon: '⌂' }] },
   { id: 'commercial', label: 'Commercial', items: [
