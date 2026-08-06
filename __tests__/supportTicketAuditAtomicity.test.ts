@@ -28,6 +28,9 @@ import { PATCH } from '../app/api/super-admin/support/route';
 const TICKET_ID = '11111111-1111-4111-8111-111111111111';
 const ACTOR_ID = '22222222-2222-4222-8222-222222222222';
 
+const readRepoFile = (relativePath: string) =>
+  readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
+
 const patchRequest = (body: unknown) =>
   new NextRequest('http://localhost/api/super-admin/support', {
     method: 'PATCH',
@@ -178,10 +181,7 @@ describe('PATCH /api/super-admin/support — atomic support-ticket audit', () =>
   });
 
   it('contains no direct ticket update or separate audit insert in the PATCH handler', () => {
-    const route = readFileSync(
-      new URL('../app/api/super-admin/support/route.ts', import.meta.url),
-      'utf-8',
-    );
+    const route = readRepoFile('app/api/super-admin/support/route.ts');
     const patchStart = route.indexOf('export async function PATCH');
     const postStart = route.indexOf('export async function POST');
     const patchHandler = route.slice(patchStart, postStart);
@@ -192,5 +192,21 @@ describe('PATCH /api/super-admin/support — atomic support-ticket audit', () =>
     expect(patchHandler.match(/supabaseAdmin\.rpc\(/g)).toHaveLength(1);
     expect(patchHandler).not.toMatch(/\.from\(['\"]support_tickets['\"]\)[\s\S]*?\.update\(/);
     expect(patchHandler).not.toMatch(/\.from\(['\"]owner_audit_log['\"]\)[\s\S]*?\.insert\(/);
+  });
+
+  it('preserves the generic audit schema and nullable-company SQL regression', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260806215000_atomic_support_ticket_audit.sql',
+    );
+    const nullableCompanyRegression = readRepoFile(
+      'supabase/tests/support_ticket_audit_nullable_company.sql',
+    );
+
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS metadata jsonb');
+    expect(migration).toMatch(/ALTER COLUMN target_company_id DROP NOT NULL/);
+    expect(migration).toContain("'owner_update_support_ticket_with_audit'");
+    expect(nullableCompanyRegression).toContain('target_company_id IS NULL');
+    expect(nullableCompanyRegression).toContain("metadata->>'ticket_id'");
+    expect(nullableCompanyRegression).toContain('ROLLBACK;');
   });
 });
