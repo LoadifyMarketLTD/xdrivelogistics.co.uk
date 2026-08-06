@@ -415,7 +415,23 @@ describe('GET /api/super-admin/command-centre metrics', () => {
   });
 
   it('future-expiry document rows have negative ageMinutes, not zero', async () => {
-    // System time is 2026-08-06T12:00:00Z; doc-p1 expires 2026-08-07 (in the future)
+    // Isolated fixture: clear competing datasets so the single future-expiry doc is in the top-50 preview.
+    mocks.datasets.companies = [];
+    mocks.datasets.jobs = [];
+    mocks.datasets.fraud_review_cases = [];
+    mocks.datasets.invoices = [];
+    mocks.datasets.support_tickets = [];
+    // One approved future-expiry document; system time is 2026-08-06T12:00:00Z.
+    mocks.datasets.driver_documents = [
+      {
+        id: 'future-doc-1',
+        driver_id: 'driver-future-1',
+        doc_type: 'cpc_card',
+        expiry_date: '2026-08-07T00:00:00.000Z',
+        status: 'approved',
+      },
+    ];
+
     const { GET } = await import('../app/api/super-admin/command-centre/route');
     const res = await GET(new NextRequest('http://localhost/api/super-admin/command-centre', {
       headers: { Authorization: '******' },
@@ -425,10 +441,10 @@ describe('GET /api/super-admin/command-centre metrics', () => {
       actionQueue: { items: Array<{ type: string; ageMinutes: number; entityName: string }> };
     };
     const expiringItems = body.actionQueue.items.filter((i) => i.type === 'document_expiring');
-    expect(expiringItems.length).toBeGreaterThan(0);
-    for (const item of expiringItems) {
-      expect(item.ageMinutes).toBeLessThan(0);
-    }
+    expect(expiringItems.length).toBe(1);
+    expect(expiringItems[0].ageMinutes).toBeLessThan(0);
+    expect(typeof expiringItems[0].entityName).toBe('string');
+    expect(expiringItems[0].entityName.length).toBeGreaterThan(0);
   });
 
   it('every queue item exposes entityName', async () => {
