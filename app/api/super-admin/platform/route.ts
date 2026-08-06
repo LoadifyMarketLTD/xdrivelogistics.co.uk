@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import {
+  isMissingDurabilityColumnError,
+  normalizeBaseRow,
+  normalizeDurabilityRow,
+  type NotificationEventBaseRow,
+  type NotificationEventDurabilityRow,
+  type NotificationEventRow,
+} from '../_lib/notificationEvents';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -18,78 +26,6 @@ const verifyOwner = async (request: NextRequest) => {
   if (!profile || profile.role !== 'owner') return null;
   return authData.user;
 };
-
-// Baseline columns present in all deployed notification_events schemas.
-type NotificationEventBaseRow = {
-  id: string;
-  event_type: string;
-  entity_id: string;
-  recipient_user_id: string | null;
-  payload: Record<string, unknown> | null;
-  status: string;
-  created_at: string;
-  processed_at: string | null;
-};
-
-// Optional durability columns added by migration 20260720121500.
-// May not exist in pre-migration deployed schemas.
-type NotificationEventDurabilityRow = NotificationEventBaseRow & {
-  last_error: string | null;
-  attempt_count: number | null;
-  next_attempt_at: string | null;
-};
-
-// Normalized application row — durability fields are always present but nullable.
-type NotificationEventRow = NotificationEventBaseRow & {
-  last_error: string | null;
-  attempt_count: number | null;
-  next_attempt_at: string | null;
-};
-
-function normalizeDurabilityRow(r: NotificationEventDurabilityRow): NotificationEventRow {
-  return {
-    id: r.id,
-    event_type: r.event_type,
-    entity_id: r.entity_id,
-    recipient_user_id: r.recipient_user_id,
-    payload: r.payload,
-    status: r.status,
-    created_at: r.created_at,
-    processed_at: r.processed_at,
-    last_error: r.last_error,
-    attempt_count: r.attempt_count,
-    next_attempt_at: r.next_attempt_at,
-  };
-}
-
-function normalizeBaseRow(r: NotificationEventBaseRow): NotificationEventRow {
-  return {
-    id: r.id,
-    event_type: r.event_type,
-    entity_id: r.entity_id,
-    recipient_user_id: r.recipient_user_id,
-    payload: r.payload,
-    status: r.status,
-    created_at: r.created_at,
-    processed_at: r.processed_at,
-    last_error: null,
-    attempt_count: null,
-    next_attempt_at: null,
-  };
-}
-
-// Determines whether a Supabase error indicates a missing durability column
-// (last_error, attempt_count, next_attempt_at) rather than an unrelated schema
-// error (e.g. missing table, permission failure, network error).
-function isMissingDurabilityColumnError(err: { message: string; code?: string }): boolean {
-  const DURABILITY_COLUMNS = ['last_error', 'attempt_count', 'next_attempt_at'];
-  const SCHEMA_CACHE_CODES = ['PGRST204', 'PGRST200'];
-  const msg = err.message;
-  const code = err.code ?? '';
-  const mentionsDurabilityColumn = DURABILITY_COLUMNS.some((col) => msg.includes(col));
-  const isSchemaCache = SCHEMA_CACHE_CODES.includes(code);
-  return mentionsDurabilityColumn || (isSchemaCache && DURABILITY_COLUMNS.some((col) => msg.includes(col)));
-}
 
 const getNotificationTitle = (eventType: string) => {
   switch (eventType) {
@@ -211,6 +147,7 @@ export async function GET(request: NextRequest) {
     const primaryResult = await supabaseAdmin
       .from('notification_events')
       .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
+      .returns<NotificationEventDurabilityRow[]>()
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -223,6 +160,7 @@ export async function GET(request: NextRequest) {
         const fallbackResult = await supabaseAdmin
           .from('notification_events')
           .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
+          .returns<NotificationEventBaseRow[]>()
           .order('created_at', { ascending: false })
           .limit(200);
 
@@ -232,9 +170,10 @@ export async function GET(request: NextRequest) {
             rows: [],
             summary: { total: 0, unread: 0, read: 0 },
             note: fallbackResult.error.message,
+            ...(fallbackResult.error.code ? { errorCode: fallbackResult.error.code } : {}),
           });
         }
-        normalizedRows = (fallbackResult.data as NotificationEventBaseRow[]).map(normalizeBaseRow);
+        normalizedRows = (fallbackResult.data ?? []).map(normalizeBaseRow);
         durabilityUnavailable = true;
       } else {
         // Unrelated error — surface it, do not convert to healthy empty state.
@@ -243,10 +182,11 @@ export async function GET(request: NextRequest) {
           rows: [],
           summary: { total: 0, unread: 0, read: 0 },
           note: primaryResult.error.message,
+          ...(primaryResult.error.code ? { errorCode: primaryResult.error.code } : {}),
         });
       }
     } else {
-      normalizedRows = (primaryResult.data as NotificationEventDurabilityRow[]).map(normalizeDurabilityRow);
+      normalizedRows = (primaryResult.data ?? []).map(normalizeDurabilityRow);
     }
 
     const rows = normalizedRows.map((r) => ({
