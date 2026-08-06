@@ -49,12 +49,26 @@ describe('driver surface integration', () => {
         }),
       ).toBe(true);
 
-      expect(resolveWorkspaceSurfaceRole('/driver/jobs', workspaceRole)).toBe('driver');
+      expect(resolveWorkspaceSurfaceRole('/driver/jobs', workspaceRole)).toBe(
+        workspaceRole === 'owner_driver' ? 'owner_driver' : 'driver',
+      );
       expect(navHrefs(resolveWorkspaceSurfaceRole('/driver/jobs', workspaceRole))).toEqual(expectedDriverHrefs);
     }
   });
 
-  it('keeps company navigation in /admin for owner/admin identities', () => {
+  it('keeps company navigation in /admin for canonical company owner/admin identities only', () => {
+    const companyOwnerWorkspaceRole = resolveWorkspaceRole({
+      role: 'company_admin',
+      rawRole: 'carrier',
+      membershipRole: 'owner',
+      ownerDriverWorkspace: false,
+    });
+    const companyAdminWorkspaceRole = resolveWorkspaceRole({
+      role: 'company_admin',
+      rawRole: 'carrier',
+      membershipRole: 'admin',
+      ownerDriverWorkspace: false,
+    });
     const ownerWorkspaceRole = resolveWorkspaceRole({
       role: 'driver',
       rawRole: 'driver',
@@ -68,12 +82,16 @@ describe('driver surface integration', () => {
       ownerDriverWorkspace: true,
     });
 
-    expect(ownerWorkspaceRole).toBe('company_owner');
+    expect(companyOwnerWorkspaceRole).toBe('company_owner');
+    expect(companyAdminWorkspaceRole).toBe('carrier_admin');
+    expect(ownerWorkspaceRole).toBe('owner_driver');
     expect(adminWorkspaceRole).toBe('company_admin');
-    expect(resolveWorkspaceSurfaceRole('/admin/jobs', ownerWorkspaceRole)).toBe('company_owner');
+    expect(resolveWorkspaceSurfaceRole('/admin/jobs', companyOwnerWorkspaceRole)).toBe('company_owner');
+    expect(resolveWorkspaceSurfaceRole('/admin/jobs', companyAdminWorkspaceRole)).toBe('carrier_admin');
+    expect(resolveWorkspaceSurfaceRole('/admin/jobs', ownerWorkspaceRole)).toBe('owner_driver');
     expect(resolveWorkspaceSurfaceRole('/admin/jobs', adminWorkspaceRole)).toBe('company_admin');
-    expect(navHrefs(ownerWorkspaceRole)).toContain('/admin/jobs');
-    expect(navHrefs(adminWorkspaceRole)).toContain('/admin/jobs');
+    expect(navHrefs(companyOwnerWorkspaceRole)).toContain('/admin/jobs');
+    expect(navHrefs(companyAdminWorkspaceRole)).toContain('/admin/jobs');
   });
 
   it('does not grant /admin access from driver identity alone', () => {

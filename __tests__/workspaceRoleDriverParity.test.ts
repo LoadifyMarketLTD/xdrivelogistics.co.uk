@@ -4,7 +4,7 @@ import { getCapabilitiesForRole } from '../lib/roleCapabilities';
 import { getVisibleWorkspaceNav, resolveWorkspaceRole } from '../lib/workspaceRole';
 
 describe('driver parity across dual identity contexts', () => {
-  it('keeps /driver authorization parity for owner/admin membership when driver context exists', () => {
+  it('preserves owner-driver identity instead of collapsing it into company owner', () => {
     const ownerWithDriverWorkspaceRole = resolveWorkspaceRole({
       role: 'driver',
       rawRole: 'driver',
@@ -19,7 +19,7 @@ describe('driver parity across dual identity contexts', () => {
       ownerDriverWorkspace: true,
     });
 
-    expect(ownerWithDriverWorkspaceRole).toBe('company_owner');
+    expect(ownerWithDriverWorkspaceRole).toBe('owner_driver');
     expect(adminWithDriverWorkspaceRole).toBe('company_admin');
   });
 
