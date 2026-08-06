@@ -108,10 +108,18 @@ jobs:
   expo-driver-typecheck:
     name: Expo Driver Typecheck
     runs-on: ubuntu-latest
-    # Run on every PR so driver-mobile changes cannot bypass validation when labels are absent.
+    # Mobile validation must not block website-only branches. Run it for
+    # explicitly mobile/cross-scope PRs and on main as the protected baseline.
     if: |
-      github.event_name == 'push' ||
-      github.event_name == 'pull_request'
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (
+        github.event_name == 'pull_request' &&
+        (
+          contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
+          contains(toJson(github.event.pull_request.labels.*.name), 'scope:android') ||
+          contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
+        )
+      )
     permissions:
       contents: read
 
