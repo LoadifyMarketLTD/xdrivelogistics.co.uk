@@ -75,17 +75,53 @@ const WITH_DATA_PAYLOAD: OperationsCentreFixturePayload = {
       assignedDriverId: 'driver-fx-2',
     },
   ],
-  // Valid UK coordinates used to prove map pins render within the SVG panel.
   mapPoints: [
-    { id: 'pin-1', kind: 'driver', label: 'Alice Driver', lat: 52.48, lng: -1.9, status: 'active', updatedAt: '2026-08-06T11:55:00.000Z' },
-    { id: 'pin-2', kind: 'pickup', label: 'FX001 Pickup', lat: 51.5, lng: -0.12, status: 'pending', updatedAt: '2026-08-06T11:50:00.000Z' },
+    {
+      id: 'pin-1',
+      kind: 'driver',
+      label: 'Alice Driver',
+      lat: 52.48,
+      lng: -1.9,
+      status: 'active',
+      updatedAt: '2026-08-06T11:55:00.000Z',
+    },
+    {
+      id: 'pin-2',
+      kind: 'pickup',
+      label: 'FX001 Pickup',
+      lat: 51.5,
+      lng: -0.12,
+      status: 'pending',
+      updatedAt: '2026-08-06T11:50:00.000Z',
+    },
   ],
   timeline: [
-    { id: 'tl-1', time: '11:55', title: 'Job FX001 collected', detail: 'London → Manchester', owner: 'Alice Driver', tone: 'green' },
-    { id: 'tl-2', time: '11:30', title: 'Job FX002 allocated', detail: 'Birmingham → Leeds', owner: 'Bob Driver', tone: 'blue' },
+    {
+      id: 'tl-1',
+      time: '11:55',
+      title: 'Job FX001 collected',
+      detail: 'London → Manchester',
+      owner: 'Alice Driver',
+      tone: 'green',
+    },
+    {
+      id: 'tl-2',
+      time: '11:30',
+      title: 'Job FX002 allocated',
+      detail: 'Birmingham → Leeds',
+      owner: 'Bob Driver',
+      tone: 'blue',
+    },
   ],
   alerts: [
-    { id: 'alt-1', title: 'POD Missing', message: 'Job FX003 delivered without proof of delivery.', time: '10:00', severity: 'warning', type: 'pod' },
+    {
+      id: 'alt-1',
+      title: 'POD Missing',
+      message: 'Job FX003 delivered without proof of delivery.',
+      time: '10:00',
+      severity: 'warning',
+      type: 'pod',
+    },
   ],
   errors: [],
 };
@@ -93,12 +129,27 @@ const WITH_DATA_PAYLOAD: OperationsCentreFixturePayload = {
 const NO_DATA_PAYLOAD: OperationsCentreFixturePayload = {
   generatedAt: '2026-08-06T12:00:00.000Z',
   metrics: {
-    todayJobs: 0, activeJobs: 0, completedToday: 0, delayedJobs: 0,
-    driversOnline: 0, driversTotal: 0, vehiclesAvailable: 0, vehiclesTotal: 0,
-    podMissing: 0, invoicesPending: 0, jobsAwaitingQuote: 0, jobsAwaitingCarrier: 0,
-    companiesOnline: 0, customersOnline: 0, fleetCompaniesOnline: 0, ownerDriversOnline: 0,
-    averageDeliveryTimeMinutes: 0, averageResponseTimeMinutes: 0,
-    revenueToday: 0, revenueThisMonth: 0, platformHealth: 'Unknown',
+    todayJobs: 0,
+    activeJobs: 0,
+    completedToday: 0,
+    delayedJobs: 0,
+    driversOnline: 0,
+    driversTotal: 0,
+    vehiclesAvailable: 0,
+    vehiclesTotal: 0,
+    podMissing: 0,
+    invoicesPending: 0,
+    jobsAwaitingQuote: 0,
+    jobsAwaitingCarrier: 0,
+    companiesOnline: 0,
+    customersOnline: 0,
+    fleetCompaniesOnline: 0,
+    ownerDriversOnline: 0,
+    averageDeliveryTimeMinutes: 0,
+    averageResponseTimeMinutes: 0,
+    revenueToday: 0,
+    revenueThisMonth: 0,
+    platformHealth: 'Unknown',
   },
   jobs: [],
   mapPoints: [],
@@ -107,9 +158,24 @@ const NO_DATA_PAYLOAD: OperationsCentreFixturePayload = {
   errors: [],
 };
 
+const PARTIAL_ERROR_PAYLOAD: OperationsCentreFixturePayload = {
+  ...WITH_DATA_PAYLOAD,
+  generatedAt: '2026-08-06T12:05:00.000Z',
+  metrics: {
+    ...WITH_DATA_PAYLOAD.metrics,
+    driversOnline: 6,
+    platformHealth: 'Degraded',
+  },
+  mapPoints: [WITH_DATA_PAYLOAD.mapPoints[0]],
+  errors: [
+    { message: 'Driver location feed is temporarily unavailable for part of the fleet.' },
+  ],
+};
+
 const SCENARIOS: Record<string, OperationsCentreFixturePayload> = {
   'with-data': WITH_DATA_PAYLOAD,
   'no-data': NO_DATA_PAYLOAD,
+  'partial-error': PARTIAL_ERROR_PAYLOAD,
 };
 
 export default async function OperationsCentreFixturePage({
