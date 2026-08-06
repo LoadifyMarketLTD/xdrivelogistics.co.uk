@@ -56,6 +56,14 @@ type SupportTicketRow = {
   created_at: string;
   updated_at: string;
 };
+type SupportTicketMutationRow = {
+  ticket_id: string;
+  status: string;
+  resolution_note: string;
+  resolved_at: string | null;
+  closed_at: string | null;
+  updated_at: string;
+};
 
 const createTicketSchema = z.object({
   company_id: z.string().uuid().optional(),
@@ -68,8 +76,8 @@ const createTicketSchema = z.object({
 const updateTicketSchema = z.object({
   section: z.literal('tickets'),
   ticketId: z.string().uuid(),
-  action: z.enum(['investigating', 'resolve', 'close', 'reopen', 'add_note']),
-  note: z.string().trim().max(5000).optional(),
+  action: z.enum(['investigating', 'resolve', 'close', 'reopen']),
+  note: z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000),
 });
 
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
@@ -232,81 +240,59 @@ export async function PATCH(request: NextRequest) {
 
   const parsed = updateTicketSchema.safeParse(body);
   if (!parsed.success) {
-    return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+    const firstIssue = parsed.error.issues[0];
+    return respond(400, {
+      error: firstIssue?.message ?? 'Validation failed.',
+      details: parsed.error.flatten(),
+    });
   }
 
   const { ticketId, action, note } = parsed.data;
-  const trimmedNote = note?.trim() ?? null;
+  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc(
+    'owner_update_support_ticket_with_audit',
+    {
+      p_actor_user_id: owner.id,
+      p_ticket_id: ticketId,
+      p_action: action,
+      p_note: note,
+    },
+  );
 
-  const { data: existingTicket, error: existingError } = await supabaseAdmin
-    .from('support_tickets')
-    .select('id, status, resolution_note')
-    .eq('id', ticketId)
-    .maybeSingle();
-
-  if (existingError) return respond(500, { error: existingError.message });
-  if (!existingTicket) return respond(404, { error: 'Support ticket not found.' });
-
-  const currentStatus = existingTicket.status ?? 'open';
-  const nextStatus =
-    action === 'investigating'
-      ? 'investigating'
-      : action === 'resolve'
-        ? 'resolved'
-        : action === 'close'
-          ? 'closed'
-          : action === 'reopen'
-            ? 'open'
-            : currentStatus;
-
-  const payload: Record<string, unknown> = {
-    status: nextStatus,
-  };
-
-  if (action === 'resolve') {
-    payload.resolved_at = new Date().toISOString();
-    payload.closed_at = null;
-  } else if (action === 'close') {
-    payload.closed_at = new Date().toISOString();
-    if (currentStatus !== 'resolved') {
-      payload.resolved_at = new Date().toISOString();
+  if (mutationError) {
+    if (mutationError.code === 'P0002') {
+      return respond(404, { error: mutationError.message });
     }
-  } else if (action === 'reopen' || action === 'investigating') {
-    payload.resolved_at = null;
-    payload.closed_at = null;
+    if (mutationError.code === '42501') {
+      return respond(403, { error: mutationError.message });
+    }
+    if (
+      mutationError.code === '23514'
+      || mutationError.code === '23502'
+      || mutationError.code === '22P02'
+    ) {
+      return respond(400, { error: mutationError.message });
+    }
+    return respond(500, { error: mutationError.message });
   }
 
-  if (trimmedNote) {
-    payload.resolution_note = trimmedNote;
-  } else if (action === 'reopen') {
-    payload.resolution_note = null;
+  const updatedTicket = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as
+    | SupportTicketMutationRow
+    | null;
+
+  if (!updatedTicket) {
+    return respond(500, { error: 'Support ticket update returned no data.' });
   }
 
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from('support_tickets')
-    .update(payload)
-    .eq('id', ticketId)
-    .select('id, status, resolution_note, resolved_at, closed_at, updated_at')
-    .maybeSingle();
-
-  if (updateError) return respond(500, { error: updateError.message });
-
-  await supabaseAdmin
-    .from('owner_audit_log')
-    .insert({
-      actor_user_id: owner.id,
-      target_type: 'support_ticket',
-      target_company_id: null,
-      action_type: 'support_ticket_updated',
-      old_status: currentStatus,
-      new_status: nextStatus,
-      reason: trimmedNote ?? `Support ticket ${ticketId} updated via super-admin action '${action}'.`,
-      metadata: { ticket_id: ticketId, action },
-    })
-    .select('id')
-    .maybeSingle();
-
-  return respond(200, { ticket: updated });
+  return respond(200, {
+    ticket: {
+      id: updatedTicket.ticket_id,
+      status: updatedTicket.status,
+      resolution_note: updatedTicket.resolution_note,
+      resolved_at: updatedTicket.resolved_at,
+      closed_at: updatedTicket.closed_at,
+      updated_at: updatedTicket.updated_at,
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {
