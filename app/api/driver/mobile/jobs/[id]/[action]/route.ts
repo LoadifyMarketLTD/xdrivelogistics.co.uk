@@ -77,6 +77,9 @@ const actions: Record<string, ActionConfig> = {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
+  if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
+
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 

@@ -88,8 +88,7 @@ export async function GET(request: NextRequest) {
       .from('companies')
       .select('id, name, created_at', { count: 'exact' })
       .eq('status', 'pending_approval')
-      .order('created_at', { ascending: true })
-      .limit(20),
+      .order('created_at', { ascending: true }),
 
     // Companies suspended (canonical enum value: suspended)
     supabaseAdmin
@@ -104,8 +103,7 @@ export async function GET(request: NextRequest) {
       .select('id, status, pickup_location, delivery_location, updated_at, created_at')
       .in('status', ['allocated', 'collected', 'in_transit'])
       .lt('updated_at', new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString())
-      .order('updated_at', { ascending: true })
-      .limit(20),
+      .order('updated_at', { ascending: true }),
 
     // Jobs awarded/posted but without driver for >1h
     supabaseAdmin
@@ -114,8 +112,7 @@ export async function GET(request: NextRequest) {
       .in('status', ['awarded', 'allocated'])
       .is('assigned_driver_id', null)
       .lt('updated_at', new Date(now.getTime() - 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: true })
-      .limit(20),
+      .order('created_at', { ascending: true }),
 
     // Documents expiring in ≤7 days (active companies/drivers)
     supabaseAdmin
@@ -124,8 +121,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'approved')
       .gte('expiry_date', now.toISOString())
       .lte('expiry_date', new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString())
-      .order('expiry_date', { ascending: true })
-      .limit(20),
+      .order('expiry_date', { ascending: true }),
 
     // Documents that have passed their expiry date (all driver documents, not scoped to jobs)
     supabaseAdmin
@@ -133,16 +129,14 @@ export async function GET(request: NextRequest) {
       .select('id, driver_id, doc_type, expiry_date')
       .eq('status', 'approved')
       .lt('expiry_date', now.toISOString())
-      .order('expiry_date', { ascending: true })
-      .limit(20),
+      .order('expiry_date', { ascending: true }),
 
     // Open fraud cases
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id, subject_company_id, status, created_at')
       .in('status', ['open', 'investigating'])
-      .order('created_at', { ascending: true })
-      .limit(10),
+      .order('created_at', { ascending: true }),
 
     // Overdue invoices (payment_status = unpaid, due_date < now)
     supabaseAdmin
@@ -151,8 +145,7 @@ export async function GET(request: NextRequest) {
       .eq('payment_status', 'unpaid')
       .not('due_date', 'is', null)
       .lt('due_date', now.toISOString().slice(0, 10))
-      .order('due_date', { ascending: true })
-      .limit(20),
+      .order('due_date', { ascending: true }),
 
     // Critical support tickets (priority=critical, open or investigating)
     supabaseAdmin
@@ -160,8 +153,7 @@ export async function GET(request: NextRequest) {
       .select('id, subject, status, priority, created_at', { count: 'exact' })
       .in('status', ['open', 'investigating'])
       .eq('priority', 'critical')
-      .order('created_at', { ascending: true })
-      .limit(10),
+      .order('created_at', { ascending: true }),
 
     // GDPR/compliance requests approaching deadline (SAR: 30 days from receipt)
     // Alert when >20 days old (10 or fewer days remaining)
@@ -171,8 +163,7 @@ export async function GET(request: NextRequest) {
       .eq('category', 'compliance')
       .in('status', ['open', 'investigating'])
       .lt('created_at', new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: true })
-      .limit(10),
+      .order('created_at', { ascending: true }),
   ]);
 
   // Propagate errors — any failed query produces an explicit partial_data warning.
