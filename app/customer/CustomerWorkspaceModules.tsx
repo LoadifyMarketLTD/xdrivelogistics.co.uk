@@ -6,11 +6,11 @@ import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import {
-  getWorkspaceDatasetMetricValue,
+  getWorkspaceMetricPresentation,
   useCompanyWorkspaceData,
   type WorkspaceDataState,
 } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn, type WorkspaceCardTone } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number, currency = 'GBP') => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
@@ -22,25 +22,24 @@ const isCustomerVisibleInvoice = (invoice: { status: string; amount?: number | n
     && Boolean(invoice.client_name?.trim());
 };
 
-const datasetUnavailable = (
+const metricPresentation = (
   data: WorkspaceDataState,
   keys: Array<keyof WorkspaceDataState['datasets']>,
-) => keys.some((key) => {
-  const availability = data.datasets[key].availability;
-  return availability === 'unavailable' || availability === 'omitted';
+  {
+    value,
+    detail,
+    tone,
+  }: {
+    value: number | string | (() => number | string);
+    detail: string | (() => string);
+    tone: WorkspaceCardTone;
+  },
+) => getWorkspaceMetricPresentation({
+  datasets: keys.map((key) => data.datasets[key]),
+  completeValue: value,
+  completeDetail: detail,
+  completeTone: tone,
 });
-
-const metricValue = (
-  data: WorkspaceDataState,
-  keys: Array<keyof WorkspaceDataState['datasets']>,
-  compute: () => number | string,
-) => (datasetUnavailable(data, keys) ? '—' : compute());
-
-const metricDetail = (
-  data: WorkspaceDataState,
-  keys: Array<keyof WorkspaceDataState['datasets']>,
-  detail: string,
-) => (datasetUnavailable(data, keys) ? 'Unavailable' : detail);
 
 export function CustomerDashboard() {
   const router = useRouter();
@@ -75,6 +74,14 @@ export function CustomerDashboard() {
       recentQuoteActivity,
     };
   }, [data]);
+  const draftLoadsMetric = metricPresentation(data, ['jobs'], { value: metrics.draft, detail: 'Not yet published', tone: 'blue' });
+  const openLoadsMetric = metricPresentation(data, ['jobs'], { value: metrics.open, detail: 'Awaiting carrier quotes', tone: 'blue' });
+  const quotesReceivedMetric = metricPresentation(data, ['bids'], { value: metrics.quotesReceived, detail: 'Ready to compare', tone: 'purple' });
+  const awaitingAwardMetric = metricPresentation(data, ['jobs', 'bids'], { value: metrics.awaitingAward.length, detail: 'Your decision needed', tone: 'orange' });
+  const activeDeliveriesMetric = metricPresentation(data, ['jobs'], { value: metrics.activeDeliveries.length, detail: 'In transit now', tone: 'green' });
+  const delayedMetric = metricPresentation(data, ['jobs'], { value: metrics.delayed.length, detail: 'Past delivery window', tone: 'red' });
+  const podReadyMetric = metricPresentation(data, ['jobs'], { value: metrics.pod, detail: 'Proof of delivery available', tone: 'navy' });
+  const unpaidInvoicesMetric = metricPresentation(data, ['invoices'], { value: metrics.unpaidInvoices.length, detail: metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding', tone: metrics.unpaidInvoices.length ? 'orange' : 'green' });
 
   return (
     <PageFrame>
@@ -87,14 +94,14 @@ export function CustomerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Draft loads" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => job.status === 'draft').length)} detail={metricDetail(data, ['jobs'], 'Not yet published')} onClick={() => router.push('/customer/loads')} />
-        <KpiCard label="Open loads" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'quoted'].includes(job.status)).length)} detail={metricDetail(data, ['jobs'], 'Awaiting carrier quotes')} tone="blue" onClick={() => router.push('/customer/loads')} />
-        <KpiCard label="Quotes received" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.status === 'submitted').length)} detail={metricDetail(data, ['bids'], 'Ready to compare')} tone="purple" onClick={() => router.push('/customer/quotes')} />
-        <KpiCard label="Awaiting award" value={metricValue(data, ['jobs', 'bids'], () => metrics.awaitingAward.length)} detail={metricDetail(data, ['jobs', 'bids'], 'Your decision needed')} tone="orange" onClick={() => router.push('/customer/quotes')} />
-        <KpiCard label="Active deliveries" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => active.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'In transit now')} tone="green" onClick={() => router.push('/customer/deliveries')} />
-        <KpiCard label="Delayed" value={metricValue(data, ['jobs'], () => metrics.delayed.length)} detail={metricDetail(data, ['jobs'], 'Past delivery window')} tone="red" onClick={() => router.push('/customer/deliveries')} />
-        <KpiCard label="POD ready" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => (job.delivery_photos?.length ?? 0) > 0).length)} detail={metricDetail(data, ['jobs'], 'Proof of delivery available')} tone="navy" onClick={() => router.push('/customer/documents')} />
-        <KpiCard label="Unpaid invoices" value={metricValue(data, ['invoices'], () => metrics.unpaidInvoices.length)} detail={metricValue(data, ['invoices'], () => metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding')} tone={metrics.unpaidInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/customer/invoices')} />
+        <KpiCard label="Draft loads" value={draftLoadsMetric.value} detail={draftLoadsMetric.detail} tone={draftLoadsMetric.tone} onClick={() => router.push('/customer/loads')} />
+        <KpiCard label="Open loads" value={openLoadsMetric.value} detail={openLoadsMetric.detail} tone={openLoadsMetric.tone} onClick={() => router.push('/customer/loads')} />
+        <KpiCard label="Quotes received" value={quotesReceivedMetric.value} detail={quotesReceivedMetric.detail} tone={quotesReceivedMetric.tone} onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Awaiting award" value={awaitingAwardMetric.value} detail={awaitingAwardMetric.detail} tone={awaitingAwardMetric.tone} onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Active deliveries" value={activeDeliveriesMetric.value} detail={activeDeliveriesMetric.detail} tone={activeDeliveriesMetric.tone} onClick={() => router.push('/customer/deliveries')} />
+        <KpiCard label="Delayed" value={delayedMetric.value} detail={delayedMetric.detail} tone={delayedMetric.tone} onClick={() => router.push('/customer/deliveries')} />
+        <KpiCard label="POD ready" value={podReadyMetric.value} detail={podReadyMetric.detail} tone={podReadyMetric.tone} onClick={() => router.push('/customer/documents')} />
+        <KpiCard label="Unpaid invoices" value={unpaidInvoicesMetric.value} detail={unpaidInvoicesMetric.detail} tone={unpaidInvoicesMetric.tone} onClick={() => router.push('/customer/invoices')} />
       </KpiGrid>
 
       {metrics.awaitingAward.length > 0 && (
