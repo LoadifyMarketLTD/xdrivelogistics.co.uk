@@ -7,6 +7,8 @@ const readRepoFile = (relativePath: string) =>
 describe('fraud review repeated-action audit guarantee', () => {
   const MIGRATION =
     'supabase/migrations/20260806223000_audit_fraud_noop_actions.sql';
+  const VERSIONED_MIGRATION =
+    'supabase/migrations/20260806224500_version_audited_fraud_rpc.sql';
   const SQL_REGRESSION =
     'supabase/tests/fraud_review_case_noop_audit.sql';
 
@@ -65,6 +67,34 @@ describe('fraud review repeated-action audit guarantee', () => {
     expect(migration).toMatch(/^\s*COMMIT\s*;/m);
   });
 
+  it('publishes a service-role-only versioned wrapper after the canonical repair', () => {
+    const migration = readRepoFile(VERSIONED_MIGRATION);
+
+    expect(migration).toContain(
+      'CREATE OR REPLACE FUNCTION public.owner_decide_fraud_review_case_audited(',
+    );
+    expect(migration).toContain(
+      'FROM public.owner_decide_fraud_review_case($1, $2, $3, $4)',
+    );
+    expect(migration).toContain('SECURITY DEFINER');
+    expect(migration).toContain('SET search_path = public, pg_temp');
+    expect(migration).toContain(
+      'REVOKE ALL ON FUNCTION public.owner_decide_fraud_review_case_audited(uuid, uuid, text, text) FROM PUBLIC',
+    );
+    expect(migration).toContain(
+      'REVOKE ALL ON FUNCTION public.owner_decide_fraud_review_case_audited(uuid, uuid, text, text) FROM authenticated',
+    );
+    expect(migration).toContain(
+      'REVOKE ALL ON FUNCTION public.owner_decide_fraud_review_case_audited(uuid, uuid, text, text) FROM anon',
+    );
+    expect(migration).toContain(
+      'GRANT EXECUTE ON FUNCTION public.owner_decide_fraud_review_case_audited(uuid, uuid, text, text) TO service_role',
+    );
+    expect(migration).toMatch(/^\s*BEGIN\s*;/m);
+    expect(migration).toMatch(/^\s*COMMIT\s*;/m);
+    expect(migration).toContain("NOTIFY pgrst, 'reload schema'");
+  });
+
   it('keeps the existing business mutation and canonical audit path', () => {
     const migration = readRepoFile(MIGRATION);
 
@@ -78,10 +108,10 @@ describe('fraud review repeated-action audit guarantee', () => {
     );
   });
 
-  it('includes an executable rollback regression for the repeated action', () => {
+  it('includes an executable rollback regression for the versioned repeated action', () => {
     const sql = readRepoFile(SQL_REGRESSION);
 
-    expect(sql).toContain('owner_decide_fraud_review_case');
+    expect(sql).toContain('owner_decide_fraud_review_case_audited');
     expect(sql).toContain("'investigate'");
     expect(sql).toContain("target_company_id IS NULL");
     expect(sql).toContain("action_type = 'fraud_case_investigate'");
