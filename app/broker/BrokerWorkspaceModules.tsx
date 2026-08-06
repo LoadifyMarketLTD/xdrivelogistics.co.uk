@@ -5,12 +5,36 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 import { invoiceNetAmount, invoiceSignedNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
-import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
+import {
+  getWorkspaceDatasetMetricValue,
+  useCompanyWorkspaceData,
+  type WorkspaceDataState,
+} from '../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const active = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
+
+const datasetUnavailable = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+) => keys.some((key) => {
+  const availability = data.datasets[key].availability;
+  return availability === 'unavailable' || availability === 'omitted';
+});
+
+const metricValue = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+  compute: () => number | string,
+) => (datasetUnavailable(data, keys) ? '—' : compute());
+
+const metricDetail = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+  detail: string,
+) => (datasetUnavailable(data, keys) ? 'Unavailable' : detail);
 
 export function BrokerDashboard() {
   const router = useRouter();
@@ -116,16 +140,16 @@ export function BrokerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <ExchangeKpiStrip>
-        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" onClick={() => router.push('/broker/bids')} />
-        <KpiCard label="Awaiting award" value={metrics.awaitingAwardJobs.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
-        <KpiCard label="Active jobs" value={metrics.activeJobs.length} detail="Collections and deliveries" tone="green" onClick={() => router.push('/broker/jobs')} />
-        <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
-        <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% margin`} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
-        <KpiCard label="Awaiting customer payment" value={metrics.awaitingRevenueInvoices.length} detail={money(metrics.awaitingRevenueValue)} tone={metrics.awaitingRevenueInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Due for payment" value={metrics.dueForPayment.length} detail="Due within 7 days" tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Overdue customer invoices" value={metrics.overdueRevenueInvoices.length} detail={money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0))} tone={metrics.overdueRevenueInvoices.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Draft loads" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => job.status === 'draft').length)} detail={metricDetail(data, ['jobs'], 'Not yet published')} onClick={() => router.push('/broker/loads')} />
+        <KpiCard label="Open loads" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'quoted'].includes(job.status)).length)} detail={metricDetail(data, ['jobs'], 'Published for carrier pricing')} tone="blue" onClick={() => router.push('/broker/loads')} />
+        <KpiCard label="Carrier quotes" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.status === 'submitted').length)} detail={metricDetail(data, ['bids'], 'Commercial responses received')} tone="purple" onClick={() => router.push('/broker/bids')} />
+        <KpiCard label="Awaiting award" value={metricValue(data, ['jobs', 'bids'], () => metrics.awaitingAwardJobs.length)} detail={metricDetail(data, ['jobs', 'bids'], 'Your decision needed')} tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => active.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Collections and deliveries')} tone="green" onClick={() => router.push('/broker/jobs')} />
+        <KpiCard label="POD missing" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['delivered', 'completed'].includes(job.status) && (job.delivery_photos?.length ?? 0) === 0).length)} detail={metricDetail(data, ['jobs'], 'Delivered without proof')} tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
+        <KpiCard label="Gross margin" value={metricValue(data, ['jobs', 'bids', 'invoices'], () => money(metrics.margin))} detail={metricValue(data, ['jobs', 'bids', 'invoices'], () => `${metrics.marginPct.toFixed(1)}% margin`)} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
+        <KpiCard label="Awaiting customer payment" value={metricValue(data, ['invoices'], () => metrics.awaitingRevenueInvoices.length)} detail={metricValue(data, ['invoices'], () => money(metrics.awaitingRevenueValue))} tone={metrics.awaitingRevenueInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Due for payment" value={metricValue(data, ['invoices'], () => metrics.dueForPayment.length)} detail={metricDetail(data, ['invoices'], 'Due within 7 days')} tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Overdue customer invoices" value={metricValue(data, ['invoices'], () => metrics.overdueRevenueInvoices.length)} detail={metricValue(data, ['invoices'], () => money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0)))} tone={metrics.overdueRevenueInvoices.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
       </ExchangeKpiStrip>
 
       {metrics.awaitingAwardJobs.length > 0 && (
