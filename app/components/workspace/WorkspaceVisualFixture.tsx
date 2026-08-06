@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import type { WorkspaceRole } from '../../../lib/workspaceRole';
-import SuperAdminWorkspaceShell from '../../super-admin/_components/SuperAdminWorkspaceShell';
+import { SUPER_ADMIN_WORKSPACE_DEFINITION } from '../../super-admin/_components/SuperAdminWorkspaceShell';
 import WorkspaceShell from './WorkspaceShell';
 import {
   ActionButton,
@@ -197,7 +197,22 @@ function FixtureShell({
   children: ReactNode;
 }) {
   if (role === 'super-admin') {
-    return <SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell>;
+    return (
+      <WorkspaceShell
+        forcedRole="platform_owner"
+        definitionOverride={SUPER_ADMIN_WORKSPACE_DEFINITION}
+        fixtureOverrides={{
+          companyName,
+          unreadCount: 2,
+          tickerItems: [
+            { id: 'fx-sa-1', label: 'Platform alert posted', reference: 'CMD-001', created_at: '2026-08-02T09:00:00.000Z', href: '/visual-fixture/workspace/super-admin' },
+            { id: 'fx-sa-2', label: 'Escalation triggered', reference: 'CMD-002', created_at: '2026-08-02T09:05:00.000Z', href: '/visual-fixture/workspace/super-admin' },
+          ],
+        }}
+      >
+        {children}
+      </WorkspaceShell>
+    );
   }
 
   return (

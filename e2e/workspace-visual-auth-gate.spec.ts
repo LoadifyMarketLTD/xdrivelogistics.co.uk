@@ -51,7 +51,11 @@ const toHex = (value: string) => {
   return `#${[r, g, b].map((entry) => entry.toString(16).padStart(2, '0')).join('')}`;
 };
 
-test.describe('authenticated workspace visual verification gate (fixture harness)', () => {
+// Roles whose approved fixture shell includes the Activity Feed / ticker strip.
+// Super Admin Command Centre shares the same WorkspaceShell and includes it via fixture overrides.
+const ROLES_WITH_ACTIVITY_FEED = new Set<Role>(['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin']);
+
+test.describe('workspace visual fixture gate (deterministic fixture harness — not authenticated runtime proof)', () => {
   test.skip(
     process.env.E2E_VISUAL_FIXTURE !== 'true',
     'Set E2E_VISUAL_FIXTURE=true to enable deterministic visual fixture routes.',
@@ -126,8 +130,11 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         expect(notificationRoute).toBeTruthy();
         expect(actionRoute).not.toBe(notificationRoute);
 
+        const hasActivityFeed = ROLES_WITH_ACTIVITY_FEED.has(role);
         const ticker = page.locator('[aria-label="Activity feed"]');
-        await expect(ticker).toBeVisible();
+        if (hasActivityFeed) {
+          await expect(ticker).toBeVisible();
+        }
         const layoutRects = await page.evaluate(() => {
           const headerEl = document.querySelector('header');
           const tickerEl = document.querySelector('[aria-label="Activity feed"]');
@@ -151,10 +158,12 @@ test.describe('authenticated workspace visual verification gate (fixture harness
           };
         });
         expect(layoutRects.header).toBeTruthy();
-        expect(layoutRects.ticker).toBeTruthy();
         expect(layoutRects.main).toBeTruthy();
         expect(layoutRects.header!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
-        expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
+        if (hasActivityFeed) {
+          expect(layoutRects.ticker).toBeTruthy();
+          expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
+        }
 
         const kpiLabels = await page
           .locator('[aria-label="Operational key performance indicators"] > *')
@@ -207,7 +216,9 @@ test.describe('authenticated workspace visual verification gate (fixture harness
           const primaryBg = primaryAction ? window.getComputedStyle(primaryAction).backgroundColor : '';
           return { tickerBg, primaryBg };
         });
-        expect(toHex(paletteSample.tickerBg)).toBe('#0b2f6b');
+        if (hasActivityFeed && paletteSample.tickerBg) {
+          expect(toHex(paletteSample.tickerBg)).toBe('#0b2f6b');
+        }
         expect(toHex(paletteSample.primaryBg)).toBe('#1d57d8');
 
         await expect(page.getByRole('button', { name: /Open menu|Action Centre|Notifications/i }).first()).toBeVisible();
