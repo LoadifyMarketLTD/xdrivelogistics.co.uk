@@ -20,8 +20,96 @@ const verifyOwner = async (request: NextRequest) => {
   return authData.user;
 };
 
-const ALLOWED_ROLES = ['driver', 'owner', 'customer', 'dispatcher', 'platform_admin', 'company_admin', 'broker'] as const;
-type RoleFilter = (typeof ALLOWED_ROLES)[number];
+const SUPPORTED_ROLES = ['driver', 'owner', 'customer', 'dispatcher', 'platform_admin', 'company_admin'] as const;
+const UNSUPPORTED_ROLE_FILTERS = ['broker'] as const;
+type SupportedRoleFilter = (typeof SUPPORTED_ROLES)[number];
+type UnsupportedRoleFilter = (typeof UNSUPPORTED_ROLE_FILTERS)[number];
+type RoleFilter = SupportedRoleFilter | UnsupportedRoleFilter;
+
+type MembershipUserRow = {
+  user_id: string | null;
+  role_in_company: string | null;
+  created_at: string;
+  company_id: string | null;
+  companies: { name?: string; status?: string } | null;
+};
+
+type ProfileSummaryRow = {
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+};
+
+const fetchMembershipUsers = async ({
+  membershipRoles,
+  offset,
+  limit,
+  responseRole,
+  rowRole,
+}: {
+  membershipRoles: string[];
+  offset: number;
+  limit: number;
+  responseRole: SupportedRoleFilter;
+  rowRole: string;
+}) => {
+  if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+
+  let membersQuery = supabaseAdmin
+    .from('company_memberships')
+    .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
+    .order('created_at', { ascending: false });
+
+  membersQuery = membershipRoles.length === 1
+    ? membersQuery.eq('role_in_company', membershipRoles[0])
+    : membersQuery.in('role_in_company', membershipRoles);
+
+  const { data: members, error: membersErr, count } = await membersQuery.range(offset, offset + limit - 1);
+  if (membersErr) return respond(500, { error: membersErr.message });
+
+  const typedMembers = (members ?? []) as MembershipUserRow[];
+  const total = count ?? 0;
+  const userIds = typedMembers
+    .map((member) => member.user_id)
+    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+  let profileMap = new Map<string, { name: string; email: string }>();
+  if (userIds.length > 0) {
+    const { data: profiles, error: profilesErr } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, display_name, email')
+      .in('user_id', userIds);
+    if (profilesErr) return respond(500, { error: profilesErr.message });
+
+    profileMap = new Map(
+      ((profiles ?? []) as ProfileSummaryRow[]).map((profile) => [
+        profile.user_id,
+        { name: profile.display_name ?? '—', email: profile.email ?? '—' },
+      ]),
+    );
+  }
+
+  return respond(200, {
+    rows: typedMembers.map((member) => {
+      const userId = member.user_id ?? '';
+      const profile = profileMap.get(userId);
+      return {
+        id: userId || `${member.company_id ?? 'company'}:${member.created_at}`,
+        user_id: member.user_id,
+        name: profile?.name ?? '—',
+        email: profile?.email ?? '—',
+        status: member.companies?.status ?? '—',
+        role: rowRole,
+        company: member.companies?.name ?? '—',
+        company_id: member.company_id,
+        created_at: member.created_at,
+      };
+    }),
+    total,
+    role: responseRole,
+    pagination: { page: Math.floor(offset / limit) + 1, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: (Math.floor(offset / limit) + 1) * limit < total, hasPrevPage: offset > 0 },
+  });
+};
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -37,8 +125,14 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   const offset = (page - 1) * limit;
 
-  if (roleParam && !ALLOWED_ROLES.includes(roleParam)) {
-    return respond(400, { error: `Invalid role filter. Allowed: ${ALLOWED_ROLES.join(', ')}` });
+  if ((UNSUPPORTED_ROLE_FILTERS as readonly string[]).includes(roleParam)) {
+    return respond(400, {
+      error: `Unsupported role filter: ${roleParam}. No canonical company_memberships.role_in_company mapping exists for this filter.`,
+    });
+  }
+
+  if (roleParam && !(SUPPORTED_ROLES as readonly string[]).includes(roleParam)) {
+    return respond(400, { error: `Invalid role filter. Allowed: ${SUPPORTED_ROLES.join(', ')}` });
   }
 
   try {
@@ -110,149 +204,45 @@ export async function GET(request: NextRequest) {
 
     // ── Company owners (owner role in company_memberships) ────────────────────────
     if (roleParam === 'owner') {
-      const { data: members, error: membersErr, count } = await supabaseAdmin
-        .from('company_memberships')
-        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
-        .eq('role_in_company', 'owner')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (membersErr) return respond(500, { error: membersErr.message });
-
-      const total = count ?? 0;
-
-      // Fetch profile emails
-      const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
-      let profileMap: Map<string, { name: string; email: string }> = new Map();
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabaseAdmin
-          .from('profiles')
-          .select('user_id, display_name, email')
-          .in('user_id', userIds);
-        profileMap = new Map(
-          (profiles ?? []).map((p: Record<string, unknown>) => [
-            p.user_id as string,
-            { name: (p.display_name as string | null) ?? '—', email: (p.email as string | null) ?? '—' },
-          ])
-        );
-      }
-
-      const rows = (members ?? []).map((m: Record<string, unknown>) => {
-        const profile = profileMap.get(m.user_id as string);
-        return {
-          id: m.user_id,
-          user_id: m.user_id,
-          name: profile?.name ?? '—',
-          email: profile?.email ?? '—',
-          status: (m.companies as { status?: string } | null)?.status ?? '—',
-          role: 'company_owner',
-          company: (m.companies as { name?: string } | null)?.name ?? '—',
-          company_id: m.company_id,
-          created_at: m.created_at,
-        };
-      });
-
-      return respond(200, {
-        rows, total, role: 'owner',
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      return fetchMembershipUsers({
+        membershipRoles: ['owner'],
+        offset,
+        limit,
+        responseRole: 'owner',
+        rowRole: 'company_owner',
       });
     }
 
     // ── Customers ─────────────────────────────────────────────────────────────
     if (roleParam === 'customer') {
-      const { data: members, error: membersErr, count } = await supabaseAdmin
-        .from('company_memberships')
-        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
-        .eq('role_in_company', 'customer')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (membersErr) return respond(500, { error: membersErr.message });
-
-      const total = count ?? 0;
-
-      const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
-      let profileMap: Map<string, { name: string; email: string }> = new Map();
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabaseAdmin
-          .from('profiles')
-          .select('user_id, display_name, email')
-          .in('user_id', userIds);
-        profileMap = new Map(
-          (profiles ?? []).map((p: Record<string, unknown>) => [
-            p.user_id as string,
-            { name: (p.display_name as string | null) ?? '—', email: (p.email as string | null) ?? '—' },
-          ])
-        );
-      }
-
-      const rows = (members ?? []).map((m: Record<string, unknown>) => {
-        const profile = profileMap.get(m.user_id as string);
-        return {
-          id: m.user_id,
-          user_id: m.user_id,
-          name: profile?.name ?? '—',
-          email: profile?.email ?? '—',
-          status: (m.companies as { status?: string } | null)?.status ?? '—',
-          role: 'customer',
-          company: (m.companies as { name?: string } | null)?.name ?? '—',
-          company_id: m.company_id,
-          created_at: m.created_at,
-        };
-      });
-
-      return respond(200, {
-        rows, total, role: 'customer',
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+      return fetchMembershipUsers({
+        membershipRoles: ['customer'],
+        offset,
+        limit,
+        responseRole: 'customer',
+        rowRole: 'customer',
       });
     }
 
     // ── Dispatchers ───────────────────────────────────────────────────────────
     if (roleParam === 'dispatcher') {
-      const { data: members, error: membersErr, count } = await supabaseAdmin
-        .from('company_memberships')
-        .select('user_id, role_in_company, created_at, company_id, companies:company_id(name, status)', { count: 'exact' })
-        .eq('role_in_company', 'dispatcher')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (membersErr) return respond(500, { error: membersErr.message });
-
-      const total = count ?? 0;
-
-      const userIds = (members ?? []).map((m: Record<string, unknown>) => m.user_id as string).filter(Boolean);
-      let profileMap: Map<string, { name: string; email: string }> = new Map();
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabaseAdmin
-          .from('profiles')
-          .select('user_id, display_name, email')
-          .in('user_id', userIds);
-        profileMap = new Map(
-          (profiles ?? []).map((p: Record<string, unknown>) => [
-            p.user_id as string,
-            { name: (p.display_name as string | null) ?? '—', email: (p.email as string | null) ?? '—' },
-          ])
-        );
-      }
-
-      const rows = (members ?? []).map((m: Record<string, unknown>) => {
-        const profile = profileMap.get(m.user_id as string);
-        return {
-          id: m.user_id,
-          user_id: m.user_id,
-          name: profile?.name ?? '—',
-          email: profile?.email ?? '—',
-          status: (m.companies as { status?: string } | null)?.status ?? '—',
-          role: 'dispatcher',
-          company: (m.companies as { name?: string } | null)?.name ?? '—',
-          company_id: m.company_id,
-          created_at: m.created_at,
-        };
+      return fetchMembershipUsers({
+        membershipRoles: ['dispatcher'],
+        offset,
+        limit,
+        responseRole: 'dispatcher',
+        rowRole: 'dispatcher',
       });
+    }
 
-      return respond(200, {
-        rows, total, role: 'dispatcher',
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1 },
+    // ── Company admins (company_admin app role = owner/admin membership) ─────
+    if (roleParam === 'company_admin') {
+      return fetchMembershipUsers({
+        membershipRoles: ['owner', 'admin'],
+        offset,
+        limit,
+        responseRole: 'company_admin',
+        rowRole: 'company_admin',
       });
     }
 

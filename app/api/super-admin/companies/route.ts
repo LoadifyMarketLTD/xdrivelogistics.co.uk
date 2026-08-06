@@ -32,6 +32,10 @@ type RawGovernanceAuditRow = {
   created_at?: unknown;
 };
 
+const GOVERNANCE_STATUS_COLUMN_CODES = new Set(['42703', 'PGRST204']);
+const GOVERNANCE_PRIMARY_SELECT = 'id, target_company_id, action_type, old_status, new_status, reason, created_at';
+const GOVERNANCE_LEGACY_SELECT = 'id, target_company_id, action_type, old_value, new_value, reason, created_at';
+
 const findMatchingCompanyIds = async (search: string) => {
   if (!supabaseAdmin || !search) return null;
   const pattern = buildCompanySearchPattern(search);
@@ -52,6 +56,12 @@ const findMatchingCompanyIds = async (search: string) => {
       ),
     ),
   };
+};
+
+const isGovernanceStatusColumnError = (error: { code?: string; message?: string } | null | undefined) => {
+  if (!error || !error.code || !GOVERNANCE_STATUS_COLUMN_CODES.has(error.code)) return false;
+  const message = String(error.message ?? '').toLowerCase();
+  return message.includes('old_status') || message.includes('new_status');
 };
 
 const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | null => {
@@ -78,6 +88,22 @@ const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | nul
     reason: typeof row.reason === 'string' ? row.reason : '',
     created_at: createdAt,
   };
+};
+
+const normalizeAuditRows = (rows: RawGovernanceAuditRow[]) => {
+  const normalizedRows: GovernanceAuditRow[] = [];
+  for (const row of rows) {
+    const normalized = normalizeAuditRow(row);
+    if (!normalized) {
+      return {
+        rows: [] as GovernanceAuditRow[],
+        error: 'Governance history rows do not match the expected schema contract.',
+      };
+    }
+    normalizedRows.push(normalized);
+  }
+
+  return { rows: normalizedRows, error: null as string | null };
 };
 
 const resolveOwnerProfile = async (authUserId: string) => {
@@ -183,43 +209,43 @@ export async function GET(request: NextRequest) {
   }
   const companies = data ?? [];
 
-  // Query governance history defensively: try full column set first, then fall
-  // back to a minimal set if optional columns (old_status / new_status) do not
-  // exist in the current schema (they are added by migration 087, but may be
-  // absent in older or partially-migrated databases).
+  // Query governance history defensively: try the canonical column set first,
+  // then fall back only to the verified legacy old_value/new_value shape when
+  // the status columns are genuinely absent in the live schema.
   let auditRows: GovernanceAuditRow[] | null = null;
   let auditError: { message: string } | null = null;
 
   const fullAuditResult = await supabaseAdmin
     .from('owner_audit_log')
-    .select('*')
+    .select(GOVERNANCE_PRIMARY_SELECT)
     .order('created_at', { ascending: false })
     .limit(400);
 
   if (!fullAuditResult.error) {
-    auditRows = (fullAuditResult.data ?? []) as GovernanceAuditRow[];
-  } else {
-    // Full select failed (likely missing column); fall back to safe minimal set
-    const minimalAuditResult = await supabaseAdmin
+    const normalized = normalizeAuditRows((fullAuditResult.data ?? []) as RawGovernanceAuditRow[]);
+    auditRows = normalized.error ? null : normalized.rows;
+    auditError = normalized.error ? { message: normalized.error } : null;
+  } else if (isGovernanceStatusColumnError(fullAuditResult.error)) {
+    const legacyAuditResult = await supabaseAdmin
       .from('owner_audit_log')
-      .select('id, target_company_id, action_type, created_at')
+      .select(GOVERNANCE_LEGACY_SELECT)
       .order('created_at', { ascending: false })
       .limit(400);
 
-    if (!minimalAuditResult.error) {
-      auditRows = (minimalAuditResult.data ?? []) as GovernanceAuditRow[];
+    if (!legacyAuditResult.error) {
+      const normalized = normalizeAuditRows((legacyAuditResult.data ?? []) as RawGovernanceAuditRow[]);
+      auditRows = normalized.error ? null : normalized.rows;
+      auditError = normalized.error ? { message: normalized.error } : null;
     } else {
-      auditError = { message: minimalAuditResult.error.message };
+      auditError = { message: legacyAuditResult.error.message };
     }
+  } else {
+    auditError = { message: fullAuditResult.error.message };
   }
 
   const governanceHistoryAvailable = auditError === null;
   const governanceHistoryError = auditError?.message ?? null;
-  const normalizedAuditRows = governanceHistoryAvailable
-    ? (auditRows ?? [])
-      .map((row) => normalizeAuditRow(row as RawGovernanceAuditRow))
-      .filter((row): row is GovernanceAuditRow => Boolean(row))
-    : [];
+  const normalizedAuditRows = governanceHistoryAvailable ? (auditRows ?? []) : [];
 
   const governanceHistoryByCompany = new Map<string, GovernanceAuditRow[]>();
   if (governanceHistoryAvailable) {
