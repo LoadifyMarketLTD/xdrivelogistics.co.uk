@@ -456,7 +456,7 @@ export function DispatcherDashboard() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
   const latestLocationByDriver = useMemo(() => {
-    const map = new Map<string, (typeof data.locations)[number]>();
+    const map = new Map<string, WorkspaceDataState['locations'][number]>();
     for (const location of data.locations) if (!map.has(location.driver_id)) map.set(location.driver_id, location);
     return map;
   }, [data.locations]);
@@ -513,7 +513,6 @@ export function DispatcherDashboard() {
 export function ViewerDashboard() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
-  const activeJobs = data.jobs.filter((job) => activeStatuses.has(job.current_status ?? job.status));
   const completedJobs = data.jobs.filter((job) => ['delivered', 'completed', 'paid'].includes(job.current_status ?? job.status));
   const exceptionJobs = data.jobs.filter((job) => exceptionStatuses.has(job.current_status ?? job.status));
 
