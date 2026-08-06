@@ -99,7 +99,7 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
       const kpiLabels = await page
         .locator('[aria-label="Operational key performance indicators"] > *')
         .evaluateAll((nodes) =>
-          nodes.map((node) => node.textContent?.trim().split(/\s*\n+\s*/)[0] ?? '').filter(Boolean),
+          nodes.map((node) => (node as HTMLElement).getAttribute('aria-label') ?? '').filter(Boolean),
         );
       expect(kpiLabels, `${vp.label}: KPI labels`).toEqual([
         'All jobs',
