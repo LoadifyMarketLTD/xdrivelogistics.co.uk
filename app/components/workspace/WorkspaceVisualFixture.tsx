@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import type { WorkspaceRole } from '../../../lib/workspaceRole';
-import { SUPER_ADMIN_WORKSPACE_DEFINITION } from '../../super-admin/_components/SuperAdminWorkspaceShell';
+import SuperAdminWorkspaceShell from '../../super-admin/_components/SuperAdminWorkspaceShell';
 import WorkspaceShell from './WorkspaceShell';
 import {
   ActionButton,
@@ -198,9 +198,7 @@ function FixtureShell({
 }) {
   if (role === 'super-admin') {
     return (
-      <WorkspaceShell
-        forcedRole="platform_owner"
-        definitionOverride={SUPER_ADMIN_WORKSPACE_DEFINITION}
+      <SuperAdminWorkspaceShell
         fixtureOverrides={{
           companyName,
           unreadCount: 2,
@@ -211,7 +209,7 @@ function FixtureShell({
         }}
       >
         {children}
-      </WorkspaceShell>
+      </SuperAdminWorkspaceShell>
     );
   }
 
