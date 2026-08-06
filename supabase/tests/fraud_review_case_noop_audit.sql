@@ -1,6 +1,7 @@
 -- Regression for repeated successful fraud actions that make no state change.
 -- Run only on a disposable/local/staging database after applying
--- 20260806223000_audit_fraud_noop_actions.sql. Everything is rolled back.
+-- 20260806223000_audit_fraud_noop_actions.sql and
+-- 20260806224500_version_audited_fraud_rpc.sql. Everything is rolled back.
 
 BEGIN;
 
@@ -36,9 +37,9 @@ DECLARE
   v_exact_audit_count bigint;
 BEGIN
   IF to_regprocedure(
-    'public.owner_decide_fraud_review_case(uuid,uuid,text,text)'
+    'public.owner_decide_fraud_review_case_audited(uuid,uuid,text,text)'
   ) IS NULL THEN
-    RAISE EXCEPTION 'owner_decide_fraud_review_case(uuid, uuid, text, text) is missing.';
+    RAISE EXCEPTION 'owner_decide_fraud_review_case_audited(uuid, uuid, text, text) is missing.';
   END IF;
 
   v_email := format(
@@ -110,7 +111,7 @@ BEGIN
 
   SELECT *
   INTO v_result
-  FROM public.owner_decide_fraud_review_case(
+  FROM public.owner_decide_fraud_review_case_audited(
     v_actor_id,
     v_case_id,
     'investigate',
@@ -168,7 +169,7 @@ BEGIN
     'Repeated fraud action audit row is missing required identity, target, state, reason or no-state-change metadata.'
   );
 
-  RAISE NOTICE 'Fraud no-state-change audit regression passed.';
+  RAISE NOTICE 'Versioned fraud no-state-change audit regression passed.';
 END;
 $test$;
 
