@@ -104,7 +104,13 @@ test.describe('operations centre + fleet map layout bounds (deterministic fixtur
       await expect(page.locator('.pin').first(), `map pin at ${vp.label}`).toBeVisible();
 
       // Jobs panel lists fixture jobs.
-      await expect(page.getByText('FX001'), `job FX001 at ${vp.label}`).toBeVisible();
+      // Scope to the jobs panel to uniquely identify the job card, not the
+      // timeline entry which also contains 'FX001'.
+      const jobsPanel = page.locator('.jobs-panel');
+      await expect(
+        jobsPanel.getByRole('button', { name: /JOB #FX001\b/i }),
+        `job FX001 card at ${vp.label}`,
+      ).toBeVisible();
     }
 
     expect(failedRequests, 'unexpected request failures').toEqual([]);
