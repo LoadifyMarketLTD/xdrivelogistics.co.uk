@@ -26,7 +26,7 @@ export default function Page() {
   const [pendingModal, setPendingModal] = useState<{ ticket: Row; action: 'investigating' | 'resolve' | 'close' | 'reopen' } | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
 
-  const runAction = async (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen', note = '') => {
+  const runAction = async (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen', reason: string) => {
     setBusyTicketId(ticket.id);
     const auth = await getAuthHeader();
     if (!auth) {
@@ -44,7 +44,7 @@ export default function Page() {
         section: 'tickets',
         ticketId: ticket.id,
         action,
-        note: note || undefined,
+        note: reason,
       }),
     });
 
@@ -158,15 +158,15 @@ export default function Page() {
                   : 'Confirm reopen'
           }
           danger={pendingModal.action === 'close'}
-          reasonRequired={false}
-          reasonLabel="Note (optional)"
-          reasonPlaceholder="Add a note for this action (optional)…"
+          reasonRequired
+          reasonLabel="Reason"
+          reasonPlaceholder="Explain why this action is required (minimum 5 characters)…"
           submitting={busyTicketId !== null}
           onCancel={() => setPendingModal(null)}
-          onConfirm={(note) => {
+          onConfirm={(reason) => {
             const { ticket, action } = pendingModal;
             setPendingModal(null);
-            void runAction(ticket, action, note);
+            void runAction(ticket, action, reason);
           }}
         />
       )}
