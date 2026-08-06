@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkspaceDatasetState,
   getWorkspaceDatasetMetricValue,
+  getWorkspaceMetricPresentation,
+  getWorkspaceMetricPresentationStatus,
   resolveWorkspaceDataQueryPlan,
 } from '../app/components/workspace/useCompanyWorkspaceData';
 import { resolveAdminDashboard } from '../app/components/workspace/RoleDashboards';
@@ -113,5 +115,96 @@ describe('workspace dataset availability contracts', () => {
     expect(unavailableInvoices.availability).toBe('unavailable');
     expect(unavailableInvoices.successfulEmpty).toBe(false);
     expect(getWorkspaceDatasetMetricValue(unavailableInvoices, (rows) => rows.length)).toBe('—');
+  });
+
+  it('treats partial datasets as degraded presentation instead of complete numerics', () => {
+    const partialInvoices = createWorkspaceDatasetState({
+      requested: true,
+      data: [{ id: 'inv-1' }],
+      queryErrors: ['carrier payable invoice query failed'],
+    });
+
+    expect(partialInvoices.availability).toBe('available');
+    expect(partialInvoices.partialData).toBe(true);
+    expect(getWorkspaceMetricPresentationStatus([partialInvoices])).toBe('partial');
+    expect(getWorkspaceDatasetMetricValue(partialInvoices, (rows) => rows.length)).toBe('—');
+
+    expect(getWorkspaceMetricPresentation({
+      datasets: [partialInvoices],
+      completeValue: () => partialInvoices.data.length,
+      completeDetail: 'Awaiting payment',
+      completeTone: 'green',
+    })).toEqual({
+      status: 'partial',
+      value: '—',
+      detail: 'Partial data unavailable',
+      tone: 'navy',
+    });
+  });
+
+  it('preserves numeric and semantic presentation for complete datasets, including successful empty results', () => {
+    const emptyJobs = createWorkspaceDatasetState({ requested: true, data: [] as Array<{ id: string }> });
+    const completeJobs = createWorkspaceDatasetState({
+      requested: true,
+      data: [{ id: 'job-1' }, { id: 'job-2' }],
+    });
+
+    expect(getWorkspaceMetricPresentation({
+      datasets: [emptyJobs],
+      completeValue: 0,
+      completeDetail: 'None outstanding',
+      completeTone: 'green',
+    })).toEqual({
+      status: 'empty',
+      value: 0,
+      detail: 'None outstanding',
+      tone: 'green',
+    });
+
+    expect(getWorkspaceMetricPresentation({
+      datasets: [completeJobs],
+      completeValue: () => completeJobs.data.length,
+      completeDetail: 'Collections and deliveries',
+      completeTone: 'red',
+    })).toEqual({
+      status: 'complete',
+      value: 2,
+      detail: 'Collections and deliveries',
+      tone: 'red',
+    });
+  });
+
+  it('uses the same neutral degraded presentation for unavailable and omitted datasets', () => {
+    const unavailableJobs = createWorkspaceDatasetState<{ id: string }>({
+      requested: true,
+      queryErrors: ['jobs query failed'],
+    });
+    const omittedJobs = createWorkspaceDatasetState<{ id: string }>({
+      requested: false,
+    });
+
+    expect(getWorkspaceMetricPresentation({
+      datasets: [unavailableJobs],
+      completeValue: 3,
+      completeDetail: 'In progress',
+      completeTone: 'green',
+    })).toEqual({
+      status: 'unavailable',
+      value: '—',
+      detail: 'Unavailable',
+      tone: 'navy',
+    });
+
+    expect(getWorkspaceMetricPresentation({
+      datasets: [omittedJobs],
+      completeValue: 3,
+      completeDetail: 'In progress',
+      completeTone: 'green',
+    })).toEqual({
+      status: 'omitted',
+      value: '—',
+      detail: 'Unavailable',
+      tone: 'navy',
+    });
   });
 });

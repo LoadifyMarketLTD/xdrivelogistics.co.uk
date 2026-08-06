@@ -98,4 +98,16 @@ describe('workspace primitive adoption matrix', () => {
     expect(source).toContain('description="Live collections and deliveries"');
     expect(source).toContain('description="Billing and payment status"');
   });
+
+  it('keeps customer and broker KPI availability on the shared metric presentation helper', () => {
+    const customerSource = read('app/customer/CustomerWorkspaceModules.tsx');
+    const brokerSource = read('app/broker/BrokerWorkspaceModules.tsx');
+
+    expect(customerSource).toContain('getWorkspaceMetricPresentation');
+    expect(brokerSource).toContain('getWorkspaceMetricPresentation');
+    expect(customerSource).not.toContain('const datasetUnavailable =');
+    expect(customerSource).not.toContain('const metricValue =');
+    expect(brokerSource).not.toContain('const datasetUnavailable =');
+    expect(brokerSource).not.toContain('const metricValue =');
+  });
 });

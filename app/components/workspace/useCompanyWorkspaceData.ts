@@ -245,6 +245,72 @@ export function createWorkspaceDatasetState<T>({
   };
 }
 
+export type WorkspaceMetricPresentationStatus =
+    | 'complete'
+    | 'empty'
+    | 'partial'
+    | 'unavailable'
+    | 'omitted';
+
+type MetricResolver<T> = T | (() => T);
+
+const resolveMetric = <T>(value: MetricResolver<T>): T =>
+    typeof value === 'function' ? (value as () => T)() : value;
+
+export function getWorkspaceMetricPresentationStatus(
+    datasets: readonly WorkspaceDatasetState<unknown>[],
+): WorkspaceMetricPresentationStatus {
+    if (datasets.some((dataset) => dataset.availability === 'omitted')) return 'omitted';
+    if (datasets.some((dataset) => dataset.availability === 'unavailable')) return 'unavailable';
+    if (datasets.some((dataset) => dataset.partialData)) return 'partial';
+    if (datasets.length > 0 && datasets.every((dataset) => dataset.successfulEmpty)) return 'empty';
+    return 'complete';
+}
+
+export type WorkspaceMetricPresentation<TTone extends string> = {
+    status: WorkspaceMetricPresentationStatus;
+    value: number | string;
+    detail: string;
+    tone: TTone | 'navy';
+};
+
+export function getWorkspaceMetricPresentation<TTone extends string>({
+    datasets,
+    completeValue,
+    completeDetail,
+    completeTone,
+    partialDetail = 'Partial data unavailable',
+    unavailableDetail = 'Unavailable',
+    omittedDetail = 'Unavailable',
+    degradedTone = 'navy',
+}: {
+    datasets: readonly WorkspaceDatasetState<unknown>[];
+    completeValue: MetricResolver<number | string>;
+    completeDetail: MetricResolver<string>;
+    completeTone: MetricResolver<TTone>;
+    partialDetail?: string;
+    unavailableDetail?: string;
+    omittedDetail?: string;
+    degradedTone?: TTone | 'navy';
+}): WorkspaceMetricPresentation<TTone> {
+    const status = getWorkspaceMetricPresentationStatus(datasets);
+    if (status === 'partial') {
+      return { status, value: '—', detail: partialDetail, tone: degradedTone };
+    }
+    if (status === 'unavailable') {
+      return { status, value: '—', detail: unavailableDetail, tone: degradedTone };
+    }
+    if (status === 'omitted') {
+      return { status, value: '—', detail: omittedDetail, tone: degradedTone };
+    }
+    return {
+      status,
+      value: resolveMetric(completeValue),
+      detail: resolveMetric(completeDetail),
+      tone: resolveMetric(completeTone),
+    };
+}
+
 const createDatasetMap = (
   requestedDatasets: readonly WorkspaceDatasetKey[],
 ): WorkspaceDataDatasets => {
@@ -384,7 +450,8 @@ export function getWorkspaceDatasetMetricValue<T>(
   dataset: WorkspaceDatasetState<T>,
   compute: (rows: T[]) => number | string,
 ): number | string {
-  if (dataset.availability === 'unavailable' || dataset.availability === 'omitted') return '—';
+  const status = getWorkspaceMetricPresentationStatus([dataset as WorkspaceDatasetState<unknown>]);
+  if (status === 'partial' || status === 'unavailable' || status === 'omitted') return '—';
   return compute(dataset.data);
 }
 
