@@ -4,9 +4,13 @@
  * Returns the Command Centre data payload:
  *  - environment banner (PRODUCTION / STAGING / DEVELOPMENT)
  *  - 5 attention indicators (P0/P1 incidents, jobs at risk, blocked accounts,
- *    financial exposure, degraded services)
- *  - Critical Action Queue (sorted by severity + age)
- *  - Platform status snapshot
+ *    financial exposure, degraded services); each indicator carries its own
+ *    `label` field — consumers must use that label rather than hard-coding copy.
+ *  - Derived Action Queue: computed on-demand from current source tables.
+ *    This is NOT a persistent incident/case registry. Items are re-derived on
+ *    every request from whichever source tables are currently available.
+ *    `actionQueue.derived === true` signals this contract to consumers.
+ *  - `refreshedAt`: timestamp of this snapshot. No push/polling is provided.
  *
  * Owner role required.
  */
@@ -59,6 +63,12 @@ const resolveOwner = async (request: NextRequest) => {
 const ageMinutes = (isoDate: string): number => {
   const ms = Date.now() - new Date(isoDate).getTime();
   return Math.max(0, Math.floor(ms / 60000));
+};
+
+/** Positive = past (age). Negative = future (time remaining). Used for expiry-date events. */
+const ageMinutesUnclamped = (isoDate: string): number => {
+  const ms = Date.now() - new Date(isoDate).getTime();
+  return Math.floor(ms / 60000);
 };
 
 const isTableMissing = (err: { code?: string; message?: string } | null | undefined): boolean =>
@@ -424,7 +434,7 @@ export async function GET(request: NextRequest) {
       entityId: doc.driver_id,
       entityName: `Document: ${doc.doc_type}`,
       detectedAt: doc.expiry_date,
-      ageMinutes: 0,
+      ageMinutes: ageMinutesUnclamped(doc.expiry_date),
       href: `/super-admin/compliance/expiries`,
     });
   }
@@ -645,6 +655,8 @@ export async function GET(request: NextRequest) {
       },
     },
     actionQueue: {
+      derived: true,
+      queueNote: 'Computed on-demand from current source tables. Not a persistent incident/case registry — items are re-derived on every request.',
       total: totalQueueCount,
       p0: p0Count,
       p1: p1Count,

@@ -376,4 +376,74 @@ describe('GET /api/super-admin/command-centre metrics', () => {
       note: 'Overdue invoice totals unavailable.',
     });
   });
+
+  it('marks actionQueue as derived and includes a queueNote', async () => {
+    const { GET } = await import('../app/api/super-admin/command-centre/route');
+    const res = await GET(new NextRequest('http://localhost/api/super-admin/command-centre', {
+      headers: { Authorization: '******' },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json() as {
+      actionQueue: { derived: boolean; queueNote: string };
+    };
+    expect(body.actionQueue.derived).toBe(true);
+    expect(typeof body.actionQueue.queueNote).toBe('string');
+    expect(body.actionQueue.queueNote.length).toBeGreaterThan(0);
+  });
+
+  it('returns indicator labels from the API payload, not hard-coded UI strings', async () => {
+    const { GET } = await import('../app/api/super-admin/command-centre/route');
+    const res = await GET(new NextRequest('http://localhost/api/super-admin/command-centre', {
+      headers: { Authorization: '******' },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json() as {
+      attentionIndicators: {
+        p0p1Incidents: { label: string };
+        jobsAtRisk: { label: string };
+        blockedAccounts: { label: string };
+        financialExposure: { label: string };
+        degradedServices: { label: string };
+      };
+    };
+    expect(typeof body.attentionIndicators.p0p1Incidents.label).toBe('string');
+    expect(body.attentionIndicators.p0p1Incidents.label.length).toBeGreaterThan(0);
+    expect(typeof body.attentionIndicators.jobsAtRisk.label).toBe('string');
+    expect(typeof body.attentionIndicators.blockedAccounts.label).toBe('string');
+    expect(typeof body.attentionIndicators.financialExposure.label).toBe('string');
+    expect(typeof body.attentionIndicators.degradedServices.label).toBe('string');
+  });
+
+  it('future-expiry document rows have negative ageMinutes, not zero', async () => {
+    // System time is 2026-08-06T12:00:00Z; doc-p1 expires 2026-08-07 (in the future)
+    const { GET } = await import('../app/api/super-admin/command-centre/route');
+    const res = await GET(new NextRequest('http://localhost/api/super-admin/command-centre', {
+      headers: { Authorization: '******' },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json() as {
+      actionQueue: { items: Array<{ type: string; ageMinutes: number; entityName: string }> };
+    };
+    const expiringItems = body.actionQueue.items.filter((i) => i.type === 'document_expiring');
+    expect(expiringItems.length).toBeGreaterThan(0);
+    for (const item of expiringItems) {
+      expect(item.ageMinutes).toBeLessThan(0);
+    }
+  });
+
+  it('every queue item exposes entityName', async () => {
+    const { GET } = await import('../app/api/super-admin/command-centre/route');
+    const res = await GET(new NextRequest('http://localhost/api/super-admin/command-centre', {
+      headers: { Authorization: '******' },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json() as {
+      actionQueue: { items: Array<{ entityName: string; entityType: string }> };
+    };
+    for (const item of body.actionQueue.items) {
+      expect(typeof item.entityName).toBe('string');
+      expect(item.entityName.length).toBeGreaterThan(0);
+      expect(typeof item.entityType).toBe('string');
+    }
+  });
 });

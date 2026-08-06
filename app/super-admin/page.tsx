@@ -38,6 +38,8 @@ type ActionQueueItem = {
 };
 
 type ActionQueue = {
+  derived: boolean;
+  queueNote?: string;
   total: number;
   p0: number;
   p1: number;
@@ -95,6 +97,13 @@ const indicatorSeverityColor = (sev: Severity): string => {
 };
 
 const fmtAge = (minutes: number): string => {
+  if (minutes < 0) {
+    const abs = Math.abs(minutes);
+    if (abs < 60) return `in ${abs}m`;
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+  }
   if (minutes < 60) return `${minutes}m ago`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -120,7 +129,7 @@ function EnvBanner({ env }: { env: CommandCentrePayload['environment'] }) {
   );
 }
 
-function IndicatorCard({ indicator, label }: { indicator: AttentionIndicator; label: string }) {
+function IndicatorCard({ indicator }: { indicator: AttentionIndicator }) {
   const color = indicatorSeverityColor(indicator.severity);
   let value: string;
   let subNote: string | undefined;
@@ -136,7 +145,7 @@ function IndicatorCard({ indicator, label }: { indicator: AttentionIndicator; la
       backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`,
       borderTop: `3px solid ${color}`, borderRadius: '10px', padding: '1rem',
     }}>
-      <div style={{ color: T.muted, fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>{label}</div>
+      <div style={{ color: T.muted, fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>{indicator.label}</div>
       <div style={{ color, fontSize: '1.7rem', fontWeight: 900, lineHeight: 1.1 }}>{value}</div>
       <div style={{
         marginTop: '0.45rem', display: 'inline-block', fontSize: '0.65rem',
@@ -175,6 +184,10 @@ function ActionQueueRow({ item }: { item: ActionQueueItem }) {
       <td style={{ padding: '0.6rem 0.9rem' }}>
         <div style={{ color: T.text, fontSize: '0.82rem', fontWeight: 600 }}>{item.title}</div>
         <div style={{ color: T.muted, fontSize: '0.72rem', marginTop: '0.1rem' }}>{item.description}</div>
+      </td>
+      <td style={{ padding: '0.6rem 0.9rem' }}>
+        <div style={{ color: T.text, fontSize: '0.78rem', fontWeight: 500 }}>{item.entityName}</div>
+        <div style={{ color: T.muted, fontSize: '0.68rem', marginTop: '0.1rem', textTransform: 'capitalize' }}>{item.entityType}</div>
       </td>
       <td style={{ padding: '0.6rem 0.9rem', color: T.muted, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
         {fmtAge(item.ageMinutes)}
@@ -250,7 +263,7 @@ function CommandCentre() {
             </span>
           </div>
           <p style={{ margin: 0, color: T.muted, fontSize: '0.85rem' }}>
-            Real-time platform overview — incidents, jobs at risk, blocked accounts, financial exposure and degraded services.
+            On-demand platform snapshot — incidents, jobs at risk, blocked accounts, financial exposure and degraded services. Refreshed on page load or manual refresh.
           </p>
           {data?.refreshedAt && (
             <p style={{ margin: '0.25rem 0 0', color: '#475569', fontSize: '0.72rem' }}>
@@ -302,11 +315,11 @@ function CommandCentre() {
           ))
         ) : (
           <>
-            <IndicatorCard indicator={indicators.p0p1Incidents}   label="P0/P1 Actions" />
-            <IndicatorCard indicator={indicators.jobsAtRisk}      label="Jobs at Risk" />
-            <IndicatorCard indicator={indicators.blockedAccounts} label="Blocked Accounts" />
-            <IndicatorCard indicator={indicators.financialExposure} label="Overdue Invoices" />
-            <IndicatorCard indicator={indicators.degradedServices} label="Degraded Services" />
+            <IndicatorCard indicator={indicators.p0p1Incidents} />
+            <IndicatorCard indicator={indicators.jobsAtRisk} />
+            <IndicatorCard indicator={indicators.blockedAccounts} />
+            <IndicatorCard indicator={indicators.financialExposure} />
+            <IndicatorCard indicator={indicators.degradedServices} />
           </>
         )}
       </div>
@@ -335,12 +348,16 @@ function CommandCentre() {
         </div>
       )}
 
-      {/* Critical Action Queue table */}
       <div style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-        <div style={{ padding: '0.75rem 0.9rem', borderBottom: `1px solid ${T.cardBorder}`, backgroundColor: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: T.text }}>
-            Critical Action Queue
-          </h2>
+        <div style={{ padding: '0.75rem 0.9rem', borderBottom: `1px solid ${T.cardBorder}`, backgroundColor: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: T.text }}>
+              Derived Action Queue
+            </h2>
+            {queue?.queueNote && (
+              <p style={{ margin: '0.2rem 0 0', color: T.muted, fontSize: '0.68rem' }}>{queue.queueNote}</p>
+            )}
+          </div>
           <span style={{ color: T.muted, fontSize: '0.72rem' }}>
             {loading ? '…' : `${queue?.items.length ?? 0} of ${queue?.total ?? 0} shown`}
           </span>
@@ -349,16 +366,18 @@ function CommandCentre() {
           <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>Loading…</div>
         ) : !queue || queue.items.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>
-            {data?.unavailableSources && data.unavailableSources.length > 0
+            {(data?.partialData || (data?.queryErrors && data.queryErrors.length > 0))
+              ? '⚠️ No critical actions in currently available sources. Some sources returned errors — queue may be incomplete.'
+              : data?.unavailableSources && data.unavailableSources.length > 0
               ? '⚠️ No critical actions in available sources. Some sources are not yet active — see notice above.'
-              : '✅ No critical actions required. Platform is operating normally.'}
+              : '✅ No critical actions required. Platform appears to be operating normally.'}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${T.cardBorder}` }}>
-                  {['Severity', 'Action', 'Age', ''].map((h) => (
+                  {['Severity', 'Action', 'Affected Entity', 'Age', ''].map((h) => (
                     <th key={h} style={{ padding: '0.65rem 0.9rem', textAlign: 'left', color: T.muted, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {h}
                     </th>
