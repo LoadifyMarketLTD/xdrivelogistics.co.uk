@@ -69,6 +69,28 @@ export default function FleetPositionMapClient({
       ? [validPoints[0].lat, validPoints[0].lng]
       : [54.5, -3.0];
 
+  if (validPoints.length === 0) {
+    return (
+      <div
+        style={{
+          height: '440px',
+          width: '100%',
+          overflow: 'hidden',
+          borderRadius: '9px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f1f5f9',
+          color: '#64748b',
+          fontSize: '0.9rem',
+        }}
+        data-testid="fleet-map-no-coords"
+      >
+        No live fleet positions available.
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: '440px', width: '100%', overflow: 'hidden', borderRadius: '9px' }}>
       <MapContainer

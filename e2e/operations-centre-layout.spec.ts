@@ -22,16 +22,38 @@ const viewports = [
   { label: 'mobile', width: 390, height: 844 },
 ] as const;
 
-const EXPECTED_FAILED_REQUEST_ALLOWLIST = [
+/** Exact set of known OpenStreetMap tile hostnames. */
+const OSM_TILE_HOSTS = new Set([
+  'tile.openstreetmap.org',
+  'a.tile.openstreetmap.org',
+  'b.tile.openstreetmap.org',
+  'c.tile.openstreetmap.org',
+]);
+
+/**
+ * Returns true when `url` is a request to an official OpenStreetMap tile host
+ * over HTTPS.  Uses URL parsing so that attacker-controlled suffixes such as
+ * `tile.openstreetmap.org.evil.example` are correctly rejected.
+ */
+const isOsmTileRequest = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && OSM_TILE_HOSTS.has(parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+
+const EXPECTED_FAILED_REQUEST_PATTERNS = [
   /\/__next\/webpack-hmr\b/i,
   /\/__nextjs_original-stack-frame\b/i,
   /\/__nextjs_source-map\b/i,
-  // OpenStreetMap tile requests are expected to fail in CI (network blocked).
-  /tile\.openstreetmap\.org/i,
 ];
 
-const isAllowlisted = (url: string, allowlist: RegExp[]) =>
-  allowlist.some((pattern) => pattern.test(url));
+const isAllowlisted = (url: string): boolean => {
+  if (isOsmTileRequest(url)) return true;
+  return EXPECTED_FAILED_REQUEST_PATTERNS.some((pattern) => pattern.test(url));
+};
 
 test.describe('operations centre + fleet map layout bounds (deterministic fixture harness)', () => {
   test.skip(
@@ -43,7 +65,7 @@ test.describe('operations centre + fleet map layout bounds (deterministic fixtur
   test('operations centre (with-data) is bounded and renders semantic content at desktop/tablet/mobile', async ({ page }) => {
     const failedRequests: string[] = [];
     page.on('requestfailed', (req) => {
-      if (!isAllowlisted(req.url(), EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
+      if (!isAllowlisted(req.url())) {
         failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
       }
     });
@@ -92,7 +114,7 @@ test.describe('operations centre + fleet map layout bounds (deterministic fixtur
   test('operations centre (no-data) renders honest empty states at desktop/tablet/mobile', async ({ page }) => {
     const failedRequests: string[] = [];
     page.on('requestfailed', (req) => {
-      if (!isAllowlisted(req.url(), EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
+      if (!isAllowlisted(req.url())) {
         failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
       }
     });
@@ -136,7 +158,7 @@ test.describe('operations centre + fleet map layout bounds (deterministic fixtur
     const failedRequests: string[] = [];
     page.on('requestfailed', (req) => {
       // Tile failures are expected in CI; all other failures are reported.
-      if (!isAllowlisted(req.url(), EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
+      if (!isAllowlisted(req.url())) {
         failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
       }
     });
@@ -190,7 +212,7 @@ test.describe('operations centre + fleet map layout bounds (deterministic fixtur
   test('fleet map (no-coords) renders at UK default centre and stays bounded at desktop/tablet/mobile', async ({ page }) => {
     const failedRequests: string[] = [];
     page.on('requestfailed', (req) => {
-      if (!isAllowlisted(req.url(), EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
+      if (!isAllowlisted(req.url())) {
         failedRequests.push(`${req.method()} ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`);
       }
     });
@@ -214,13 +236,16 @@ test.describe('operations centre + fleet map layout bounds (deterministic fixtur
       const containerWidth = await container.evaluate((el) => el.getBoundingClientRect().width);
       expect(containerWidth, `container width at ${vp.label}`).toBeLessThanOrEqual(vp.width + 2);
 
-      // Loading state or Leaflet container present.
-      const hasLeafletContainer = await page.locator('.leaflet-container').count() > 0;
-      const hasLoadingState = (await page.getByText('Loading live map…').count()) > 0;
-      expect(
-        hasLeafletContainer || hasLoadingState,
-        `Leaflet container or loading fallback at ${vp.label}`,
-      ).toBe(true);
+      // No-coords state: explicit honest empty-state text must be visible instead
+      // of a Leaflet map defaulting silently to UK centre.
+      await expect(
+        page.getByText('No live fleet positions available.'),
+        `no-coords empty state at ${vp.label}`,
+      ).toBeVisible();
+
+      // The Leaflet map must not render when there are no valid coordinates.
+      const leafletCount = await page.locator('.leaflet-container').count();
+      expect(leafletCount, `no Leaflet map when no coords at ${vp.label}`).toBe(0);
     }
 
     expect(failedRequests, 'unexpected non-tile request failures').toEqual([]);
