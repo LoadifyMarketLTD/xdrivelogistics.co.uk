@@ -227,19 +227,25 @@ export function ActionCard({
   ariaLabel?: string;
 }) {
   const color = WORKSPACE_CARD_TONES[tone];
-  const cardStyle = getWorkspaceCardStyle({ tone, interactive: Boolean(onClick), maxHeight: 'none' });
+  const cardStyle = getWorkspaceCardStyle({ tone, interactive: Boolean(onClick) });
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
-      <div style={{ color: workspaceTheme.text, fontSize: '12px', fontWeight: 600, lineHeight: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
-        <span style={{ minWidth: 0 }}>{label}</span>
+      <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{actionLabel}</span>
         {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
       </div>
-      {description ? <div style={{ marginTop: '4px', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</div> : <div style={{ minHeight: '14px' }} />}
-      <div style={{ marginTop: '8px', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
-        {actionLabel ? <span style={{ color: workspaceTheme.text, fontWeight: 600 }}>{actionLabel}</span> : <span />}
-        <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
-      </div>
+      <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{label}</div>
+      {description ? (
+        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+          <span style={{ minWidth: 0 }}>{description}</span>
+          <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
+        </div>
+      ) : (
+        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', justifyContent: 'flex-end' }}>
+          <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
+        </div>
+      )}
     </>
   );
   if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
