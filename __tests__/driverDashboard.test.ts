@@ -13,9 +13,10 @@ describe('driver dashboard helpers', () => {
     expect(canonicalJobStatus(null, 'allocated')).toBe('allocated');
   });
 
-  it('scopes jobs for fleet drivers and keeps owner-driver full visibility', () => {
+  it('fails closed to assigned-driver jobs only, even for owner-driver surfaces', () => {
     expect(filterJobsForDriver(jobs, { driverId: 'driver-1', ownerDriver: false }).map((job) => job.id)).toEqual(['job-a', 'job-c']);
-    expect(filterJobsForDriver(jobs, { driverId: 'driver-1', ownerDriver: true }).map((job) => job.id)).toEqual(['job-a', 'job-b', 'job-c']);
+    expect(filterJobsForDriver(jobs, { driverId: 'driver-1', ownerDriver: true }).map((job) => job.id)).toEqual(['job-a', 'job-c']);
+    expect(filterJobsForDriver(jobs, { driverId: null, ownerDriver: false })).toEqual([]);
   });
 
   it('orders completed work by delivery completion time and handles no-data state', () => {

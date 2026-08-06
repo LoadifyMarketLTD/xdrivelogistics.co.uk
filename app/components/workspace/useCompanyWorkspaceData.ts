@@ -137,6 +137,7 @@ export type WorkspaceDatasetState<T> = {
   availability: WorkspaceDatasetAvailability;
   queryErrors: string[];
   partialData: boolean;
+  limitedData: boolean;
   successfulEmpty: boolean;
   requested: boolean;
 };
@@ -183,6 +184,7 @@ type PartialDatasetInput<T> = {
   requested: boolean;
   data?: readonly T[] | null;
   queryErrors?: readonly string[];
+  limitedData?: boolean;
 };
 
 const ALL_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
@@ -207,7 +209,11 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
   return [...byId.values()];
 };
 
-const customerInvoiceVisible = (invoice: WorkspaceInvoice) => {
+export const isCustomerVisibleWorkspaceInvoice = (
+  invoice: WorkspaceInvoice,
+  customerCompanyId: string | null,
+) => {
+  if (!customerCompanyId || invoice.buyer_company_id !== customerCompanyId) return false;
   const status = String(invoice.status ?? '').toLowerCase();
   const paymentStatus = String(invoice.payment_status ?? '').toLowerCase();
   const deliveryState = String(invoice.delivery_state ?? '').toLowerCase();
@@ -221,6 +227,7 @@ export function createWorkspaceDatasetState<T>({
   requested,
   data = [],
   queryErrors = [],
+  limitedData = false,
 }: PartialDatasetInput<T>): WorkspaceDatasetState<T> {
   const rows = [...(data ?? [])];
   const errors = [...queryErrors].filter((message) => message.trim().length > 0);
@@ -230,6 +237,7 @@ export function createWorkspaceDatasetState<T>({
       availability: 'omitted',
       queryErrors: [],
       partialData: false,
+      limitedData: false,
       successfulEmpty: false,
       requested: false,
     };
@@ -239,7 +247,8 @@ export function createWorkspaceDatasetState<T>({
     data: rows,
     availability: errors.length > 0 && rows.length === 0 ? 'unavailable' : 'available',
     queryErrors: errors,
-    partialData: errors.length > 0,
+    partialData: errors.length > 0 || limitedData,
+    limitedData,
     successfulEmpty: errors.length === 0 && rows.length === 0,
     requested: true,
   };
@@ -256,6 +265,11 @@ type MetricResolver<T> = T | (() => T);
 
 const resolveMetric = <T>(value: MetricResolver<T>): T =>
     typeof value === 'function' ? (value as () => T)() : value;
+
+export const WORKSPACE_PARTIAL_METRIC_VALUE = 'Partial';
+
+const getMetricFallbackValue = (status: WorkspaceMetricPresentationStatus) =>
+  status === 'partial' ? WORKSPACE_PARTIAL_METRIC_VALUE : '—';
 
 export function getWorkspaceMetricPresentationStatus(
     datasets: readonly WorkspaceDatasetState<unknown>[],
@@ -295,13 +309,13 @@ export function getWorkspaceMetricPresentation<TTone extends string>({
 }): WorkspaceMetricPresentation<TTone> {
     const status = getWorkspaceMetricPresentationStatus(datasets);
     if (status === 'partial') {
-      return { status, value: '—', detail: partialDetail, tone: degradedTone };
+     return { status, value: getMetricFallbackValue(status), detail: partialDetail, tone: degradedTone };
     }
     if (status === 'unavailable') {
-      return { status, value: '—', detail: unavailableDetail, tone: degradedTone };
+     return { status, value: getMetricFallbackValue(status), detail: unavailableDetail, tone: degradedTone };
     }
     if (status === 'omitted') {
-      return { status, value: '—', detail: omittedDetail, tone: degradedTone };
+     return { status, value: getMetricFallbackValue(status), detail: omittedDetail, tone: degradedTone };
     }
     return {
       status,
@@ -451,9 +465,12 @@ export function getWorkspaceDatasetMetricValue<T>(
   compute: (rows: T[]) => number | string,
 ): number | string {
   const status = getWorkspaceMetricPresentationStatus([dataset as WorkspaceDatasetState<unknown>]);
-  if (status === 'partial' || status === 'unavailable' || status === 'omitted') return '—';
+  if (status === 'partial' || status === 'unavailable' || status === 'omitted') return getMetricFallbackValue(status);
   return compute(dataset.data);
 }
+
+const queryReachedLimit = (rows: { length: number } | null | undefined, limit: number, error: string | null) =>
+  !error && limit > 0 && (rows?.length ?? 0) >= limit;
 
 const buildWorkspaceError = (
   blocker: string | null,
@@ -497,16 +514,19 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     const nextDatasets = createDatasetMap(plan.datasets);
     const nextQueryErrors: WorkspaceQueryError[] = [];
     const requested = new Set(plan.datasets);
+    const driverSurface = plan.surface === 'driver';
 
     const setDataset = <T,>(
       key: WorkspaceDatasetKey,
       rows: T[],
       errors: string[] = [],
+      limitedData = false,
     ) => {
       const dataset = createWorkspaceDatasetState<T>({
         requested: requested.has(key),
         data: rows,
         queryErrors: errors,
+        limitedData,
       });
       (nextDatasets as Record<WorkspaceDatasetKey, WorkspaceDatasetState<T>>)[key] = dataset;
       errors.forEach((message) => nextQueryErrors.push(toErrorMessage(key, message)));
@@ -525,11 +545,24 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       return;
     }
 
-    if (!isSupabaseConfigured || !companyId) {
+    if (!isSupabaseConfigured) {
+      const message = 'Supabase is not configured for this workspace.';
+      plan.datasets.forEach((key) => setDataset(key, [], [message]));
       setDatasets(nextDatasets);
-      setQueryErrors([]);
+      setQueryErrors(nextQueryErrors);
       setPartialData(false);
-      setError(companyId ? '' : 'This account is not linked to a company workspace.');
+      setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
+      setLoading(false);
+      return;
+    }
+
+    if (!driverSurface && !companyId) {
+      const message = 'This workspace requires an active company context, but no company could be resolved for the current user.';
+      plan.datasets.forEach((key) => setDataset(key, [], [message]));
+      setDatasets(nextDatasets);
+      setQueryErrors(nextQueryErrors);
+      setPartialData(false);
+      setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
       setLoading(false);
       return;
     }
@@ -538,18 +571,43 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setError('');
 
     if (requested.has('jobs')) {
-      const jobsRes = await supabase
-        .from('jobs')
-        .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
-        .or(
-          plan.surface === 'customer' || plan.surface === 'broker'
-            ? `company_id.eq.${companyId}`
-            : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
-        )
-        .order('updated_at', { ascending: false })
-        .limit(500);
-      const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
-      setDataset<WorkspaceJob>('jobs', (jobsRes.data ?? []) as WorkspaceJob[], jobsError ? [jobsError] : []);
+      if (driverSurface) {
+        if (!user?.driverId) {
+          dependencyUnavailable<WorkspaceJob>('jobs', 'driver context unavailable; assigned job query was not run.');
+        } else {
+          const jobsRes = await supabase
+            .from('jobs')
+            .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
+            .eq('assigned_driver_id', user.driverId)
+            .order('updated_at', { ascending: false })
+            .limit(500);
+          const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
+          setDataset<WorkspaceJob>(
+            'jobs',
+            (jobsRes.data ?? []) as WorkspaceJob[],
+            jobsError ? [jobsError] : [],
+            queryReachedLimit(jobsRes.data, 500, jobsError),
+          );
+        }
+      } else {
+        const jobsRes = await supabase
+          .from('jobs')
+          .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
+          .or(
+            plan.surface === 'customer' || plan.surface === 'broker'
+              ? `company_id.eq.${companyId}`
+              : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
+          )
+          .order('updated_at', { ascending: false })
+          .limit(500);
+        const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
+        setDataset<WorkspaceJob>(
+          'jobs',
+          (jobsRes.data ?? []) as WorkspaceJob[],
+          jobsError ? [jobsError] : [],
+          queryReachedLimit(jobsRes.data, 500, jobsError),
+        );
+      }
     }
 
     const jobDataset = nextDatasets.jobs;
@@ -574,18 +632,32 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .order('created_at', { ascending: false })
             .limit(1000);
           const bidsError = getFirstError(bidsRes as QueryResult<WorkspaceBid>);
-          setDataset<WorkspaceBid>('bids', (bidsRes.data ?? []) as WorkspaceBid[], bidsError ? [bidsError] : []);
+          setDataset<WorkspaceBid>(
+            'bids',
+            (bidsRes.data ?? []) as WorkspaceBid[],
+            bidsError ? [bidsError] : [],
+            queryReachedLimit(bidsRes.data, 1000, bidsError),
+          );
           break;
         }
         case 'driver': {
+          if (!user?.id) {
+            dependencyUnavailable<WorkspaceBid>('bids', 'user context unavailable; bid query was not run.');
+            break;
+          }
           const ownBidsRes = await supabase
             .from('job_bids')
             .select('id, job_id, company_id, status, amount, bid_price_gbp, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
-            .eq('company_id', companyId)
+            .eq('bidder_user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(500);
           const ownBidsError = getFirstError(ownBidsRes as QueryResult<WorkspaceBid>);
-          setDataset<WorkspaceBid>('bids', (ownBidsRes.data ?? []) as WorkspaceBid[], ownBidsError ? [ownBidsError] : []);
+          setDataset<WorkspaceBid>(
+            'bids',
+            (ownBidsRes.data ?? []) as WorkspaceBid[],
+            ownBidsError ? [ownBidsError] : [],
+            queryReachedLimit(ownBidsRes.data, 500, ownBidsError),
+          );
           break;
         }
         default: {
@@ -619,7 +691,9 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             ...(((receivedBidsRes?.data ?? []) as WorkspaceBid[])),
           ]).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-          setDataset<WorkspaceBid>('bids', combined, bidErrors);
+          const ownBidLimitReached = queryReachedLimit(ownBidsRes.data, 500, getFirstError(ownBidsRes as QueryResult<WorkspaceBid>));
+          const receivedBidLimitReached = queryReachedLimit(receivedBidsRes?.data ?? [], 1000, getFirstError((receivedBidsRes ?? { data: [], error: null }) as QueryResult<WorkspaceBid>));
+          setDataset<WorkspaceBid>('bids', combined, bidErrors, ownBidLimitReached || receivedBidLimitReached);
           break;
         }
       }
@@ -634,42 +708,43 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .eq('buyer_company_id', companyId)
             .order('created_at', { ascending: false })
             .limit(500);
-
-          const jobLinkedInvoicesRes = requested.has('jobs') && jobDataset.availability === 'unavailable'
-            ? null
-            : jobIds.length > 0
-              ? await supabase
-                .from('invoices')
-                .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name')
-                .in('job_id', jobIds)
-                .order('created_at', { ascending: false })
-                .limit(500)
-              : ({ data: [] as WorkspaceInvoice[], error: null } as QueryResult<WorkspaceInvoice>);
-
-          const invoiceErrors = [
-            getFirstError(buyerInvoicesRes as QueryResult<WorkspaceInvoice>),
-            requested.has('jobs') && jobDataset.availability === 'unavailable'
-              ? 'jobs dataset unavailable; job-linked invoice query was not run.'
-              : getFirstError((jobLinkedInvoicesRes ?? { data: [], error: null }) as QueryResult<WorkspaceInvoice>),
-          ].filter((message): message is string => Boolean(message));
-
-          const invoiceRows = uniqueById([
-            ...((buyerInvoicesRes.data ?? []) as WorkspaceInvoice[]),
-            ...(((jobLinkedInvoicesRes?.data ?? []) as WorkspaceInvoice[])),
-          ]).filter((invoice) => invoice.buyer_company_id === companyId || customerInvoiceVisible(invoice));
-
-          setDataset<WorkspaceInvoice>('invoices', invoiceRows, invoiceErrors);
+          const invoiceError = getFirstError(buyerInvoicesRes as QueryResult<WorkspaceInvoice>);
+          const invoiceRows = ((buyerInvoicesRes.data ?? []) as WorkspaceInvoice[])
+            .filter((invoice) => isCustomerVisibleWorkspaceInvoice(invoice, companyId));
+          setDataset<WorkspaceInvoice>(
+            'invoices',
+            invoiceRows,
+            invoiceError ? [invoiceError] : [],
+            queryReachedLimit(buyerInvoicesRes.data, 500, invoiceError),
+          );
           break;
         }
         case 'driver': {
+          if (!user?.driverId) {
+            dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
+            break;
+          }
+          if (requested.has('jobs') && jobDataset.availability === 'unavailable') {
+            dependencyUnavailable<WorkspaceInvoice>('invoices', 'jobs dataset unavailable; driver invoice query was not run.');
+            break;
+          }
+          if (!jobIds.length) {
+            setDataset<WorkspaceInvoice>('invoices', []);
+            break;
+          }
           const invoicesRes = await supabase
             .from('invoices')
             .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name')
-            .eq('company_id', companyId)
+            .in('job_id', jobIds)
             .order('created_at', { ascending: false })
             .limit(500);
           const invoiceError = getFirstError(invoicesRes as QueryResult<WorkspaceInvoice>);
-          setDataset<WorkspaceInvoice>('invoices', (invoicesRes.data ?? []) as WorkspaceInvoice[], invoiceError ? [invoiceError] : []);
+          setDataset<WorkspaceInvoice>(
+            'invoices',
+            (invoicesRes.data ?? []) as WorkspaceInvoice[],
+            invoiceError ? [invoiceError] : [],
+            queryReachedLimit(invoicesRes.data, 500, invoiceError),
+          );
           break;
         }
         default: {
@@ -680,7 +755,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .order('created_at', { ascending: false })
             .limit(500);
           const invoiceError = getFirstError(invoicesRes as QueryResult<WorkspaceInvoice>);
-          setDataset<WorkspaceInvoice>('invoices', (invoicesRes.data ?? []) as WorkspaceInvoice[], invoiceError ? [invoiceError] : []);
+          setDataset<WorkspaceInvoice>(
+            'invoices',
+            (invoicesRes.data ?? []) as WorkspaceInvoice[],
+            invoiceError ? [invoiceError] : [],
+            queryReachedLimit(invoicesRes.data, 500, invoiceError),
+          );
           break;
         }
       }
@@ -694,7 +774,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         .order('display_name', { ascending: true })
         .limit(500);
       const driversError = getFirstError(driversRes as QueryResult<WorkspaceDriver>);
-      setDataset<WorkspaceDriver>('drivers', (driversRes.data ?? []) as WorkspaceDriver[], driversError ? [driversError] : []);
+      setDataset<WorkspaceDriver>(
+        'drivers',
+        (driversRes.data ?? []) as WorkspaceDriver[],
+        driversError ? [driversError] : [],
+        queryReachedLimit(driversRes.data, 500, driversError),
+      );
     }
 
     if (requested.has('vehicles')) {
@@ -705,7 +790,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         .order('created_at', { ascending: false })
         .limit(500);
       const vehiclesError = getFirstError(vehiclesRes as QueryResult<WorkspaceVehicle>);
-      setDataset<WorkspaceVehicle>('vehicles', (vehiclesRes.data ?? []) as WorkspaceVehicle[], vehiclesError ? [vehiclesError] : []);
+      setDataset<WorkspaceVehicle>(
+        'vehicles',
+        (vehiclesRes.data ?? []) as WorkspaceVehicle[],
+        vehiclesError ? [vehiclesError] : [],
+        queryReachedLimit(vehiclesRes.data, 500, vehiclesError),
+      );
     }
 
     if (requested.has('locations')) {
@@ -716,7 +806,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         .order('recorded_at', { ascending: false })
         .limit(500);
       const locationsError = getFirstError(locationsRes as QueryResult<WorkspaceLocation>);
-      setDataset<WorkspaceLocation>('locations', (locationsRes.data ?? []) as WorkspaceLocation[], locationsError ? [locationsError] : []);
+      setDataset<WorkspaceLocation>(
+        'locations',
+        (locationsRes.data ?? []) as WorkspaceLocation[],
+        locationsError ? [locationsError] : [],
+        queryReachedLimit(locationsRes.data, 500, locationsError),
+      );
     }
 
     if (requested.has('driverDocuments')) {
@@ -731,7 +826,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .order('expiry_date', { ascending: true })
             .limit(1000);
           const driverDocsError = getFirstError(driverDocsRes as QueryResult<WorkspaceDocument>);
-          setDataset<WorkspaceDocument>('driverDocuments', (driverDocsRes.data ?? []) as WorkspaceDocument[], driverDocsError ? [driverDocsError] : []);
+          setDataset<WorkspaceDocument>(
+            'driverDocuments',
+            (driverDocsRes.data ?? []) as WorkspaceDocument[],
+            driverDocsError ? [driverDocsError] : [],
+            queryReachedLimit(driverDocsRes.data, 1000, driverDocsError),
+          );
         }
       } else {
         const driversDataset = nextDatasets.drivers;
@@ -749,7 +849,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
               .order('expiry_date', { ascending: true })
               .limit(1000);
             const driverDocsError = getFirstError(driverDocsRes as QueryResult<WorkspaceDocument>);
-            setDataset<WorkspaceDocument>('driverDocuments', (driverDocsRes.data ?? []) as WorkspaceDocument[], driverDocsError ? [driverDocsError] : []);
+            setDataset<WorkspaceDocument>(
+              'driverDocuments',
+              (driverDocsRes.data ?? []) as WorkspaceDocument[],
+              driverDocsError ? [driverDocsError] : [],
+              queryReachedLimit(driverDocsRes.data, 1000, driverDocsError),
+            );
           }
         }
       }
@@ -771,7 +876,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .order('expiry_date', { ascending: true })
             .limit(1000);
           const vehicleDocsError = getFirstError(vehicleDocsRes as QueryResult<WorkspaceDocument>);
-          setDataset<WorkspaceDocument>('vehicleDocuments', (vehicleDocsRes.data ?? []) as WorkspaceDocument[], vehicleDocsError ? [vehicleDocsError] : []);
+          setDataset<WorkspaceDocument>(
+            'vehicleDocuments',
+            (vehicleDocsRes.data ?? []) as WorkspaceDocument[],
+            vehicleDocsError ? [vehicleDocsError] : [],
+            queryReachedLimit(vehicleDocsRes.data, 1000, vehicleDocsError),
+          );
         }
       }
     }
@@ -781,7 +891,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
     setLoading(false);
-  }, [companyId, plan, user?.driverId]);
+  }, [companyId, plan, user?.driverId, user?.id]);
 
   useEffect(() => {
     setDatasets(createDatasetMap(plan.datasets));

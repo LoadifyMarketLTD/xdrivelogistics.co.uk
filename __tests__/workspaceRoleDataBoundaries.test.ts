@@ -5,6 +5,7 @@ import {
   getWorkspaceDatasetMetricValue,
   getWorkspaceMetricPresentation,
   getWorkspaceMetricPresentationStatus,
+  isCustomerVisibleWorkspaceInvoice,
   resolveWorkspaceDataQueryPlan,
 } from '../app/components/workspace/useCompanyWorkspaceData';
 import { resolveAdminDashboard } from '../app/components/workspace/RoleDashboards';
@@ -100,6 +101,7 @@ describe('workspace dataset availability contracts', () => {
     });
 
     expect(unavailableJobs.availability).toBe('unavailable');
+    expect(unavailableJobs.limitedData).toBe(false);
     expect(unavailableJobs.successfulEmpty).toBe(false);
     expect(getWorkspaceDatasetMetricValue(unavailableJobs, (rows) => rows.length)).toBe('—');
   });
@@ -109,6 +111,7 @@ describe('workspace dataset availability contracts', () => {
     const unavailableInvoices = createWorkspaceDatasetState<{ id: string }>({ requested: true, queryErrors: ['invoice query failed'] });
 
     expect(emptyInvoices.availability).toBe('available');
+    expect(emptyInvoices.limitedData).toBe(false);
     expect(emptyInvoices.successfulEmpty).toBe(true);
     expect(getWorkspaceDatasetMetricValue(emptyInvoices, (rows) => rows.length)).toBe(0);
 
@@ -126,8 +129,9 @@ describe('workspace dataset availability contracts', () => {
 
     expect(partialInvoices.availability).toBe('available');
     expect(partialInvoices.partialData).toBe(true);
+    expect(partialInvoices.limitedData).toBe(false);
     expect(getWorkspaceMetricPresentationStatus([partialInvoices])).toBe('partial');
-    expect(getWorkspaceDatasetMetricValue(partialInvoices, (rows) => rows.length)).toBe('—');
+    expect(getWorkspaceDatasetMetricValue(partialInvoices, (rows) => rows.length)).toBe('Partial');
 
     expect(getWorkspaceMetricPresentation({
       datasets: [partialInvoices],
@@ -136,10 +140,23 @@ describe('workspace dataset availability contracts', () => {
       completeTone: 'green',
     })).toEqual({
       status: 'partial',
-      value: '—',
+      value: 'Partial',
       detail: 'Partial data unavailable',
       tone: 'navy',
     });
+  });
+
+  it('marks limit-capped datasets as partial instead of exact totals', () => {
+    const limitedJobs = createWorkspaceDatasetState({
+      requested: true,
+      data: [{ id: 'job-1' }, { id: 'job-2' }],
+      limitedData: true,
+    });
+
+    expect(limitedJobs.availability).toBe('available');
+    expect(limitedJobs.partialData).toBe(true);
+    expect(limitedJobs.limitedData).toBe(true);
+    expect(getWorkspaceDatasetMetricValue(limitedJobs, (rows) => rows.length)).toBe('Partial');
   });
 
   it('preserves numeric and semantic presentation for complete datasets, including successful empty results', () => {
@@ -206,5 +223,31 @@ describe('workspace dataset availability contracts', () => {
       detail: 'Unavailable',
       tone: 'navy',
     });
+  });
+
+  it('keeps customer invoices on the canonical buyer-company boundary', () => {
+    expect(isCustomerVisibleWorkspaceInvoice({
+      id: 'inv-a',
+      buyer_company_id: 'customer-1',
+      supplier_company_id: 'carrier-1',
+      status: 'Sent',
+      payment_status: 'unpaid',
+      delivery_state: 'sent',
+      amount: 120,
+      created_at: '2026-08-01T00:00:00Z',
+      client_name: 'Customer Co',
+    }, 'customer-1')).toBe(true);
+
+    expect(isCustomerVisibleWorkspaceInvoice({
+      id: 'inv-b',
+      buyer_company_id: 'other-customer',
+      supplier_company_id: 'carrier-1',
+      status: 'Sent',
+      payment_status: 'unpaid',
+      delivery_state: 'sent',
+      amount: 120,
+      created_at: '2026-08-01T00:00:00Z',
+      client_name: 'Customer Co',
+    }, 'customer-1')).toBe(false);
   });
 });
