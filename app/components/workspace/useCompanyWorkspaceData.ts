@@ -413,7 +413,7 @@ export function resolveWorkspaceDataQueryPlan(input: {
   }
 
   if (pathname === '/driver' || pathname.startsWith('/driver/')) {
-    return { surface: 'driver', datasets: ['jobs', 'bids', 'invoices', 'driverDocuments'], blocker: null };
+    return { surface: 'driver', datasets: ['jobs', 'bids', 'driverDocuments'], blocker: null };
   }
 
   if (matchesPrefixes(pathname, ['/admin/invoices', '/admin/finance'])) {
