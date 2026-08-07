@@ -19,7 +19,7 @@ test.describe('Company Driver onboarding contract', () => {
     expect(normalizeOnboardingAccountType('owner_operator')).toBe('owner_driver');
   });
 
-  test('metadata resolves only canonical product identities while accepting legacy aliases at the read boundary', () => {
+  test('metadata resolves canonical product identities while accepting legacy aliases only at the read boundary', () => {
     expect(resolveOnboardingAccountTypeFromMetadata({
       requested_role: 'company_driver',
     }, null)).toBe('company_driver');
@@ -34,9 +34,9 @@ test.describe('Company Driver onboarding contract', () => {
     }, null)).toBe('owner_driver');
   });
 
-  test('builds the canonical Company Driver onboarding URL', () => {
+  test('keeps the historical invitation URL segment as an isolated compatibility boundary', () => {
     expect(buildOnboardingUrl('safe-token', 'company_driver')).toContain(
-      '/onboarding/company-driver/safe-token',
+      '/onboarding/individual-driver/safe-token',
     );
   });
 
