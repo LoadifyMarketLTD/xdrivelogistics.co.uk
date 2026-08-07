@@ -75,13 +75,7 @@ const deriveLegacyWorkspace = (
   companyType: string | null | undefined,
 ): BusinessWorkspace | null => {
   const normalized = (companyType ?? '').trim().toLowerCase();
-  if (
-    normalized === 'owner_driver' ||
-    normalized === 'owner_operator' ||
-    normalized === 'sole_trader'
-  ) {
-    return 'owner_operator';
-  }
+  if (normalized === 'owner_driver' || normalized === 'owner_operator') return 'owner_operator';
   if (normalized === 'customer' || normalized === 'shipper') return 'shipper';
   if (normalized === 'broker') return 'broker';
   if (LEGACY_CARRIER_FLEET_COMPANY_TYPES.has(normalized)) return 'carrier_fleet';
