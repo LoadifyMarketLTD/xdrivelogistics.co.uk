@@ -317,7 +317,7 @@ Above the fold:
 
 - page header and New Job/Post Load;
 - exception strip;
-- 4–6 KPIs maximum;
+- only role-relevant, decision-driving KPIs above the fold;
 - operations table or latest jobs immediately visible.
 
 Below the fold:
@@ -540,7 +540,7 @@ For every affected role and page:
 - no overlapping shell elements;
 - no raw errors;
 - no role leakage;
-- 4–6 KPIs maximum above the fold;
+- KPI quantity must stay role-driven and non-duplicative above the fold;
 - empty states compact;
 - table row density compliant;
 - canonical XDrive colours and type scale used;

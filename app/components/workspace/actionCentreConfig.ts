@@ -1,12 +1,13 @@
 import type { WorkspaceRole } from '../../../lib/workspaceRole';
 
-export type ActionCentreRole = 'admin' | 'broker' | 'customer' | 'driver';
+export type ActionCentreRole = 'admin' | 'broker' | 'customer' | 'driver' | 'platform_owner';
 
 const ACTION_CENTRE_ROOT: Record<ActionCentreRole, string> = {
   admin: '/admin/action-centre',
   broker: '/broker/action-centre',
   customer: '/customer/action-centre',
   driver: '/driver/action-centre',
+  platform_owner: '/super-admin',
 };
 
 const NOTIFICATIONS_ROOT: Record<ActionCentreRole, string> = {
@@ -14,6 +15,7 @@ const NOTIFICATIONS_ROOT: Record<ActionCentreRole, string> = {
   broker: '/broker/notifications',
   customer: '/customer/notifications',
   driver: '/driver/notifications',
+  platform_owner: '/super-admin/notifications',
 };
 
 const ENTITY_ROUTE_MAP: Record<ActionCentreRole, Partial<Record<string, string>>> = {
@@ -48,6 +50,17 @@ const ENTITY_ROUTE_MAP: Record<ActionCentreRole, Partial<Record<string, string>>
     vehicle: '/driver/vehicles',
     document: '/driver/documents',
   },
+  platform_owner: {
+    job: '/super-admin/operations/jobs',
+    quote: '/super-admin/operations/quotes',
+    invoice: '/super-admin/finance/invoices',
+    dispute: '/super-admin/operations/disputes',
+    driver: '/super-admin/users/drivers',
+    document: '/super-admin/compliance/documents',
+    company: '/super-admin/companies',
+    fraud_case: '/super-admin/compliance/fraud-cases',
+    support_ticket: '/super-admin/support/tickets',
+  },
 };
 
 const ADMIN_ONLY_ENTITY_TYPES = new Set([
@@ -66,6 +79,7 @@ const CUSTOMER_ALLOWED_ENTITY_TYPES = new Set(['job', 'quote', 'invoice', 'load'
 const BROKER_ALLOWED_ENTITY_TYPES = new Set(['job', 'quote', 'invoice', 'dispute', 'customer', 'load']);
 
 export function resolveActionCentreRole(role: WorkspaceRole): ActionCentreRole {
+  if (role === 'platform_owner') return 'platform_owner';
   if (role === 'broker') return 'broker';
   if (role === 'customer') return 'customer';
   if (role === 'driver' || role === 'owner_driver') return 'driver';
@@ -88,7 +102,7 @@ export function isActionCentreEventVisibleToRole(
   eventType: string | null | undefined,
   entityType: string | null | undefined,
 ): boolean {
-  if (role === 'admin') return true;
+  if (role === 'admin' || role === 'platform_owner') return true;
 
   const normalisedEventType = normalize(eventType);
   const normalisedEntityType = normalize(entityType);
@@ -123,4 +137,5 @@ export const ACTION_CENTRE_ROLE_PREFIX: Record<ActionCentreRole, string> = {
   broker: '/broker/',
   customer: '/customer/',
   driver: '/driver/',
+  platform_owner: '/super-admin/',
 };

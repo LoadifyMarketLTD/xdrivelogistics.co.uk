@@ -7,6 +7,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
+import { getFeatureFlag, getGlobalSettingNumber } from '../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -280,6 +281,12 @@ export async function GET(request: NextRequest) {
   const companyNameById = new Map(
     rows(companyResultRows.data).map((row) => [text(row.id), text(row.name, 'Unknown Company')]),
   );
+  // PR-0.3: Read configurable expiry warning window from global settings.
+  const expiryWarningDays = await getGlobalSettingNumber(supabaseAdmin, 'doc_expiry_warning_days');
+  const warningThresholdDate = new Date();
+  warningThresholdDate.setDate(warningThresholdDate.getDate() + expiryWarningDays);
+  const warningThreshold = warningThresholdDate.toISOString().slice(0, 10);
+
   const today = new Date().toISOString().slice(0, 10);
   const output: DocumentRow[] = [];
 
@@ -383,6 +390,13 @@ export async function GET(request: NextRequest) {
       pending: limitedRows.filter((row) => ['pending', 'under_review', 'unverified'].includes(row.status)).length,
       rejected: limitedRows.filter((row) => row.status === 'rejected').length,
       expired: limitedRows.filter((row) => row.is_expired).length,
+      expiring_soon: limitedRows.filter((row) =>
+        !row.is_expired &&
+        row.expiry_date !== null &&
+        row.expiry_date > today &&
+        row.expiry_date <= warningThreshold
+      ).length,
+      expiry_warning_days: expiryWarningDays,
     },
   });
 }
@@ -455,6 +469,11 @@ export async function PATCH(request: NextRequest) {
 
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: platform owner role required.' });
+
+  const documentReviewEnabled = await getFeatureFlag(supabaseAdmin, 'document_review');
+  if (!documentReviewEnabled) {
+    return respond(503, { error: 'Document review is currently disabled via feature flags.' });
+  }
 
   const parsed = reviewSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Invalid document review request.' });

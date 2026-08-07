@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -61,6 +62,11 @@ export async function POST(
   }
   const driver = await resolveDriver(request);
   if (!driver) return respond(401, { error: 'Unauthorized' });
+
+  const disputeFilingEnabled = await getFeatureFlag(supabaseAdmin, 'dispute_filing');
+  if (!disputeFilingEnabled) {
+    return respond(503, { error: 'Dispute filing is currently disabled.' });
+  }
 
   const { id } = await params;
 

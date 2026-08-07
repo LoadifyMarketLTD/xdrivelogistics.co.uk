@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
+import { getFeatureFlag, getGlobalSettingNumber } from '../../../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -95,6 +96,12 @@ export async function POST(
   if (!actor) return respond(401, { error: 'Unauthorized.' });
   if (!actor.canManageFinance) {
     return respond(403, { error: 'Company owner or admin access is required to create invoices.' });
+  }
+
+  // Feature flag gate: invoice generation must be enabled.
+  const invoiceGenerationEnabled = await getFeatureFlag(supabaseAdmin, 'invoice_generation');
+  if (!invoiceGenerationEnabled) {
+    return respond(503, { error: 'Invoice generation is currently disabled.' });
   }
 
   const { jobId } = await params;
@@ -223,11 +230,15 @@ export async function POST(
     : positiveNumber(body.amount) || positiveNumber(job.budget_amount);
   if (!netAmount) return respond(422, { error: 'No positive invoice amount is available for this job.' });
 
+  // PR-0.3: Read default VAT rate from global settings instead of hardcoding 20%.
+  const configuredVatRate = await getGlobalSettingNumber(supabaseAdmin, 'vat_rate_default_pct');
+  const platformDefaultVatRate: 0 | 5 | 20 = configuredVatRate === 5 ? 5 : configuredVatRate === 0 ? 0 : 20;
+
   const vatRate: 0 | 5 | 20 = marketplace
     ? agreedVatRate
     : body.vat_rate === 5 || body.vat_rate === 20
       ? body.vat_rate
-      : 20;
+      : platformDefaultVatRate;
   const unresolvedVatAmount = marketplace
     ? agreedVatAmount
     : Math.round(netAmount * (vatRate / 100) * 100) / 100;

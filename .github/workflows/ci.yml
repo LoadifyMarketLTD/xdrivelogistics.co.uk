@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
     branches: ["**"]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -105,13 +109,46 @@ jobs:
       - name: Run stable public smoke tests (mobile-safari)
         run: npx playwright test e2e/ci-public-smoke.spec.ts --project=mobile-safari
 
+  detect-expo-driver-changes:
+    name: Detect Expo Driver Changes
+    runs-on: ubuntu-latest
+    outputs:
+      driver_changed: ${{ steps.scope.outputs.driver_changed }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect driver-mobile path changes
+        id: scope
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "driver_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" | grep -Eq '^apps/driver-mobile/'; then
+            echo "driver_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "driver_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   expo-driver-typecheck:
     name: Expo Driver Typecheck
     runs-on: ubuntu-latest
-    # Run on every PR so driver-mobile changes cannot bypass validation when labels are absent.
+    needs: detect-expo-driver-changes
+    # Mobile validation must not block website-only branches, but it must run
+    # whenever driver-mobile files actually change even if scope labels are absent.
     if: |
-      github.event_name == 'push' ||
-      github.event_name == 'pull_request'
+      needs.detect-expo-driver-changes.outputs.driver_changed == 'true' ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:android') ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
     permissions:
       contents: read
 
@@ -136,28 +173,62 @@ jobs:
         working-directory: apps/driver-mobile
         run: npm run test
 
-  codeql:
-    name: CodeQL Security Scan (${{ matrix.language }})
+  codeql-web:
+    name: CodeQL Security Scan (javascript-typescript,actions)
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       actions: read
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: "javascript-typescript,actions"
-            build-mode: none
-          - language: "java-kotlin"
-            build-mode: autobuild
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript,actions
+          queries: security-extended
+          build-mode: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  codeql-mobile:
+    name: CodeQL Security Scan (java-kotlin)
+    runs-on: ubuntu-latest
+    # Android/Kotlin scanning belongs to mobile or cross-scope PRs, while main
+    # keeps the complete protected baseline.
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (
+        github.event_name == 'pull_request' &&
+        (
+          contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
+          contains(toJson(github.event.pull_request.labels.*.name), 'scope:android') ||
+          contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
+        )
+      )
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Set up Java
-        if: matrix.language == 'java-kotlin'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -165,30 +236,17 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        if: matrix.language == 'java-kotlin'
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
 
       - name: Install Android SDK 35
-        if: matrix.language == 'java-kotlin'
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: ${{ matrix.language }}
+          languages: java-kotlin
           queries: security-extended
-          build-mode: ${{ matrix.build-mode }}
-
-      - name: Set up Node.js
-        if: matrix.language != 'java-kotlin'
-        uses: actions/setup-node@v5
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        if: matrix.language != 'java-kotlin'
-        run: npm ci
+          build-mode: autobuild
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

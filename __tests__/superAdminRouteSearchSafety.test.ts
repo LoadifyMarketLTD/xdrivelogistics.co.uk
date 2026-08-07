@@ -1,0 +1,63 @@
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../app/api/_lib/supabaseAdmin', () => ({
+  getBearerToken: vi.fn(),
+  isSupabaseAdminConfigured: false,
+  supabaseAdmin: null,
+  supabaseValidator: null,
+}));
+
+import { applyCompanyStatusFilter, buildCompanySearchPattern, buildJobSearchPattern } from '../app/api/super-admin/_lib/searchFilters';
+
+describe('super-admin route search safety', () => {
+  it('preserves reserved characters in company search patterns', () => {
+    expect(buildCompanySearchPattern('ACME, Ltd')).toBe('%ACME, Ltd%');
+    expect(buildCompanySearchPattern('Quote "A" (North) 12.5%')).toBe('%Quote "A" (North) 12.5%%');
+  });
+
+  it('preserves reserved characters in operations search patterns', () => {
+    expect(buildJobSearchPattern('London, UK')).toBe('%London, UK%');
+    expect(buildJobSearchPattern('SW1A 1AA')).toBe('%SW1A 1AA%');
+  });
+
+  it('applies canonical pending-company filtering at database level', () => {
+    const calls: Array<{ method: string; args: unknown[] }> = [];
+    const query = {
+      eq: (column: string, value: string) => {
+        calls.push({ method: 'eq', args: [column, value] });
+        return query;
+      },
+      in: (column: string, values: string[]) => {
+        calls.push({ method: 'in', args: [column, values] });
+        return query;
+      },
+    };
+
+    applyCompanyStatusFilter(query, 'pending');
+
+    // UI alias 'pending' must resolve to the canonical DB enum value 'pending_approval' only.
+    expect(calls).toEqual([
+      { method: 'eq', args: ['status', 'pending_approval'] },
+    ]);
+  });
+
+  it('applies canonical pending-company filtering for pending_approval alias', () => {
+    const calls: Array<{ method: string; args: unknown[] }> = [];
+    const query = {
+      eq: (column: string, value: string) => {
+        calls.push({ method: 'eq', args: [column, value] });
+        return query;
+      },
+      in: (column: string, values: string[]) => {
+        calls.push({ method: 'in', args: [column, values] });
+        return query;
+      },
+    };
+
+    applyCompanyStatusFilter(query, 'pending_approval');
+
+    expect(calls).toEqual([
+      { method: 'eq', args: ['status', 'pending_approval'] },
+    ]);
+  });
+});

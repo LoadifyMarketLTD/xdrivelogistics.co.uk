@@ -16,16 +16,50 @@ type Row = {
 
 const actionLabel = (action: string): string => {
   const labels: Record<string, string> = {
-    approve_company: '✅ Approved',
-    reject_company: '❌ Rejected',
-    suspend_company: '🔒 Suspended',
-    reinstate_company: '🔓 Reinstated',
+    // Canonical company governance types (set by companies/[id]/route.ts)
+    company_approved: '✅ Approved',
+    company_rejected: '❌ Rejected',
+    company_suspended: '🔒 Suspended',
+    company_reinstated: '🔓 Reinstated',
+    // Marketplace governance types (set by marketplace/[id]/route.ts via RPC)
+    marketplace_published: '📤 Published',
+    marketplace_hidden: '📥 Hidden',
+    marketplace_job_disputed: '⚖️ Dispute',
+    marketplace_job_cancelled: '🚫 Cancelled',
+    // Legacy aliases (kept for backward compat with older audit rows)
     publish_to_exchange: '📤 Published',
     hide_from_exchange: '📥 Hidden',
     force_dispute: '⚖️ Dispute',
     force_cancel: '🚫 Cancelled',
+    // Document compliance types (set by compliance/route.ts)
+    document_approved: '📄 Doc Approved',
+    document_rejected: '📄 Doc Rejected',
+    document_viewed: '👁️ Doc Viewed',
+    // Support types (set by support/route.ts)
+    support_ticket_updated: '🎫 Ticket Updated',
+    // Onboarding types (set by onboarding/[id]/route.ts)
+    onboarding_submitted: '📋 Onboarding Submitted',
+    onboarding_invite: '✉️ Onboarding Invite Sent',
+    onboarding_invite_resent: '✉️ Invite Resent',
+    invite_sent: '✉️ Invite Sent',
+    // Driver / user management types
+    driver_created: '🚗 Driver Created',
+    existing_driver_updated: '🚗 Driver Updated',
+    temporary_password_created: '🔑 Temp Password Created',
+    // POD / job types
+    pod_generated: '📦 POD Generated',
+    // Fraud / identity review types
+    fraud_case: '🚨 Fraud Case',
+    identity: '🪪 Identity Review',
   };
-  return labels[action] ?? action;
+
+  if (labels[action]) return labels[action];
+
+  // Catch-all: convert snake_case to Title Case for any unknown action types
+  return action
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 export default function Page() {

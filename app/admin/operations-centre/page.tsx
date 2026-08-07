@@ -95,6 +95,9 @@ type Payload = {
   errors: Array<{ message: string }>;
 };
 
+/** Exported for use by the deterministic E2E fixture route only. */
+export type OperationsCentreFixturePayload = Payload;
+
 const emptyMetrics: MetricPayload = {
   todayJobs: 0,
   activeJobs: 0,
@@ -168,10 +171,11 @@ function projectPoint(lat: number | null, lng: number | null) {
   return { left: Math.min(94, Math.max(6, left)), top: Math.min(92, Math.max(8, top)) };
 }
 
-export default function OperationsCentrePage() {
+export default function OperationsCentrePage({ fixturePayload }: { fixturePayload?: Payload } = {}) {
+  const isFixture = fixturePayload !== undefined;
   const router = useRouter();
-  const [payload, setPayload] = useState<Payload>(emptyPayload);
-  const [loading, setLoading] = useState(true);
+  const [payload, setPayload] = useState<Payload>(isFixture ? fixturePayload : emptyPayload);
+  const [loading, setLoading] = useState(!isFixture);
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
@@ -208,7 +212,7 @@ export default function OperationsCentrePage() {
     setLoading(false);
   }, [date, query, sort, status]);
 
-  useEffect(() => { void loadOperations(); }, [loadOperations]);
+  useEffect(() => { if (isFixture) return; void loadOperations(); }, [loadOperations, isFixture]);
 
   const advanceJobStatus = useCallback(async (job: Job) => {
     if (!job.nextStatus || !job.assignedDriverId || transitioningJobId) return;
@@ -247,7 +251,7 @@ export default function OperationsCentrePage() {
   }, [loadOperations, transitioningJobId]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (isFixture || !isSupabaseConfigured) return;
     const channel = supabase
       .channel('operations-centre-live-refresh')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => { void loadOperations(); })
@@ -256,7 +260,7 @@ export default function OperationsCentrePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_events' }, () => { void loadOperations(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [loadOperations]);
+  }, [loadOperations, isFixture]);
 
   const metrics = useMemo(() => {
     const m = payload.metrics;
@@ -283,8 +287,8 @@ export default function OperationsCentrePage() {
     ] as Array<[string, string, string, Tone, typeof ClipboardList]>;
   }, [payload.errors.length, payload.metrics]);
 
-  return (
-    <ProtectedRoute>
+  const pageContent = (
+    <>
       <main className="ops-page">
         <header className="ops-header">
           <div>
@@ -467,6 +471,8 @@ export default function OperationsCentrePage() {
         @media (max-width: 1050px) { .ops-header, .header-actions { align-items: stretch; } .ops-header { flex-direction: column; } .search-box { width: 100%; } .metric-grid, .workspace, .right-stack { grid-template-columns: 1fr; } }
         @media (max-width: 620px) { .ops-page { padding: 10px; } .metric-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .workspace { gap: 8px; } .timeline-row { grid-template-columns: 44px 18px minmax(0,1fr); } .timeline-row em { display: none; } .actions { grid-template-columns: 1fr; } }
       `}</style>
-    </ProtectedRoute>
+    </>
   );
+  if (isFixture) return pageContent;
+  return <ProtectedRoute>{pageContent}</ProtectedRoute>;
 }

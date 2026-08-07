@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../../_lib/platformFlags';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,6 +26,12 @@ export async function POST(request: NextRequest, { params }: Params) {
   } = await validatorClient.auth.getUser(token);
 
   if (authError || !user) return json(401, { error: 'Unauthorized - invalid token.' });
+
+  // Feature flag gate: bid acceptance workflow must be enabled.
+  const bidAcceptanceEnabled = await getFeatureFlag(supabaseAdmin, 'bid_acceptance_workflow');
+  if (!bidAcceptanceEnabled) {
+    return json(503, { error: 'Bid acceptance workflow is currently disabled.' });
+  }
 
   const { id: bidId } = await params;
   if (!bidId) return json(400, { error: 'Bad request - missing bid id.' });

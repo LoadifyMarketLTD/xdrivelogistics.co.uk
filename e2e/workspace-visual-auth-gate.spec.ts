@@ -1,8 +1,25 @@
 import { expect, test } from '@playwright/test';
 
-type Role = 'admin' | 'broker' | 'customer' | 'driver' | 'operations';
+type Role =
+  | 'carrier'
+  | 'broker'
+  | 'customer'
+  | 'driver'
+  | 'fleet'
+  | 'operations'
+  | 'super-admin';
 
-const roles: Role[] = ['admin', 'broker', 'customer', 'driver', 'operations'];
+const roles: Role[] = ['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin'];
+
+const expectedKpis: Record<Role, string[]> = {
+  carrier: ['Quotes submitted', 'Won work', 'Awaiting allocation', 'Active jobs', 'POD outstanding', 'Overdue invoices'],
+  broker: ['Draft loads', 'Carrier quotes', 'Awaiting award', 'Active jobs', 'Gross margin'],
+  customer: ['Open loads', 'Quotes received', 'Awaiting award', 'Active deliveries', 'Unpaid invoices'],
+  driver: ['Jobs today', 'Active job', 'Awaiting start', 'Documents expiring', 'Quotes submitted'],
+  fleet: ['Available drivers', 'Busy drivers', 'Unassigned jobs', 'Stale positions', 'Expiry alerts'],
+  operations: ['Unallocated jobs', 'Active jobs', 'Exceptions', 'Available drivers', 'Stale positions'],
+  'super-admin': ['P0/P1 Actions', 'Jobs at Risk', 'Blocked Accounts', 'Overdue Invoices', 'Degraded Services'],
+};
 
 const viewports = [
   { label: 'desktop', width: 1440, height: 900, compact: false },
@@ -34,7 +51,11 @@ const toHex = (value: string) => {
   return `#${[r, g, b].map((entry) => entry.toString(16).padStart(2, '0')).join('')}`;
 };
 
-test.describe('authenticated workspace visual verification gate (fixture harness)', () => {
+// Roles whose approved fixture shell includes the Activity Feed / ticker strip.
+// Super Admin Command Centre shares the same WorkspaceShell and includes it via fixture overrides.
+const ROLES_WITH_ACTIVITY_FEED = new Set<Role>(['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin']);
+
+test.describe('workspace visual fixture gate (deterministic fixture harness — not authenticated runtime proof)', () => {
   test.skip(
     process.env.E2E_VISUAL_FIXTURE !== 'true',
     'Set E2E_VISUAL_FIXTURE=true to enable deterministic visual fixture routes.',
@@ -100,7 +121,7 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         expect(headerHeight).toBe(50);
 
         const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
-        const notificationsButton = page.getByRole('button', { name: /Notifications/i });
+        const notificationsButton = page.locator('header').getByRole('button', { name: /Notifications/i });
         await expect(actionCentreButton).toBeVisible();
         await expect(notificationsButton).toBeVisible();
         const actionRoute = await actionCentreButton.getAttribute('data-route');
@@ -109,8 +130,11 @@ test.describe('authenticated workspace visual verification gate (fixture harness
         expect(notificationRoute).toBeTruthy();
         expect(actionRoute).not.toBe(notificationRoute);
 
+        const hasActivityFeed = ROLES_WITH_ACTIVITY_FEED.has(role);
         const ticker = page.locator('[aria-label="Activity feed"]');
-        await expect(ticker).toBeVisible();
+        if (hasActivityFeed) {
+          await expect(ticker).toBeVisible();
+        }
         const layoutRects = await page.evaluate(() => {
           const headerEl = document.querySelector('header');
           const tickerEl = document.querySelector('[aria-label="Activity feed"]');
@@ -134,15 +158,20 @@ test.describe('authenticated workspace visual verification gate (fixture harness
           };
         });
         expect(layoutRects.header).toBeTruthy();
-        expect(layoutRects.ticker).toBeTruthy();
         expect(layoutRects.main).toBeTruthy();
         expect(layoutRects.header!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
-        expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
+        if (hasActivityFeed) {
+          expect(layoutRects.ticker).toBeTruthy();
+          expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
+        }
 
-        const kpiCards = page.locator('[aria-label="Operational key performance indicators"] [role="group"], [aria-label="Operational key performance indicators"] button');
-        const kpiCount = await kpiCards.count();
-        expect(kpiCount).toBeGreaterThanOrEqual(4);
-        expect(kpiCount).toBeLessThanOrEqual(6);
+        const kpiLabels = await page
+          .locator('[aria-label="Operational key performance indicators"] > *')
+          .evaluateAll((nodes) =>
+            nodes.map((node) => (node as HTMLElement).getAttribute('aria-label') ?? '').filter(Boolean),
+          );
+        expect(kpiLabels).toEqual(expectedKpis[role]);
+        expect(new Set(kpiLabels).size).toBe(kpiLabels.length);
 
         const table = page.locator('table').first();
         await expect(table).toBeVisible();
@@ -174,10 +203,10 @@ test.describe('authenticated workspace visual verification gate (fixture harness
           expect(overflowContract.hasHorizontalScroll).toBe(true);
         }
 
-        if (role !== 'admin') {
-          await expect(page.getByText('Admin-only escalation queue')).toHaveCount(0);
+        if (role !== 'super-admin') {
+          await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
         } else {
-          await expect(page.getByText('Admin-only escalation queue')).toBeVisible();
+          await expect(page.getByText('Platform owner workspace')).toBeVisible();
         }
 
         const paletteSample = await page.evaluate(() => {
@@ -187,7 +216,9 @@ test.describe('authenticated workspace visual verification gate (fixture harness
           const primaryBg = primaryAction ? window.getComputedStyle(primaryAction).backgroundColor : '';
           return { tickerBg, primaryBg };
         });
-        expect(toHex(paletteSample.tickerBg)).toBe('#0b2f6b');
+        if (hasActivityFeed && paletteSample.tickerBg) {
+          expect(toHex(paletteSample.tickerBg)).toBe('#0b2f6b');
+        }
         expect(toHex(paletteSample.primaryBg)).toBe('#1d57d8');
 
         await expect(page.getByRole('button', { name: /Open menu|Action Centre|Notifications/i }).first()).toBeVisible();

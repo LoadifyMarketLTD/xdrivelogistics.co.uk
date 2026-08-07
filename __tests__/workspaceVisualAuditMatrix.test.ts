@@ -18,7 +18,7 @@ const roleRoutes = [
   { role: 'broker', route: '/broker', actionCentre: '/broker/action-centre', notifications: '/broker/notifications' },
   { role: 'customer', route: '/customer', actionCentre: '/customer/action-centre', notifications: '/customer/notifications' },
   { role: 'driver', route: '/driver', actionCentre: '/driver/action-centre', notifications: '/driver/notifications' },
-  { role: 'super-admin', route: '/super-admin', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
+  { role: 'super-admin', route: '/super-admin', actionCentre: '/super-admin', notifications: '/super-admin/notifications' },
   { role: 'operations', route: '/admin/operations-centre', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
 ] as const;
 
@@ -49,6 +49,8 @@ describe('workspace visual verification matrix evidence', () => {
     expect(superAdminShell).toContain('<WorkspaceShell');
     expect(superAdminShell).toContain('forcedRole="platform_owner"');
     expect(superAdminShell).toContain('definitionOverride={SUPER_ADMIN_WORKSPACE_DEFINITION}');
+    expect(superAdminShell).toContain("label: 'Command Centre'");
+    expect(superAdminShell).not.toContain('Owner Console');
     expect(superAdminShell).not.toContain('254px');
     expect(superAdminShell).not.toContain('292px');
     expect(superAdminShell).toContain('/super-admin/compliance/documents');

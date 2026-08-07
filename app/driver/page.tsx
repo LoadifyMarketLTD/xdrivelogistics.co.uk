@@ -106,10 +106,7 @@ export default function DriverDashboard() {
   ).sort((a, b) => String(a.pickup_datetime).localeCompare(String(b.pickup_datetime)));
   const recentCompleted = recentCompletedJobs(myJobs);
 
-  // Use direct owner bids for owner drivers; fall back to company bids for fleet drivers
-  const myQuotes = ownerDriver
-    ? ownerBids
-    : data.bids.filter((bid) => bid.company_id === data.companyId);
+  const myQuotes = data.bids;
 
   const myDocuments = data.driverDocuments.filter(
     (document) => !user?.driverId || document.driver_id === user.driverId
@@ -122,10 +119,10 @@ export default function DriverDashboard() {
   const submittedQuotes = myQuotes.filter((q) => q.status === 'submitted').length;
   const wonWork = myQuotes.filter((q) => q.status === 'accepted').length;
   const pendingInvoices = data.invoices.filter(
-    (inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid'
+    (inv) => !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid'
   ).length;
   const pendingInvoiceValue = data.invoices
-    .filter((inv) => inv.company_id === data.companyId && !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid')
+    .filter((inv) => !['paid', 'Paid'].includes(inv.status) && inv.payment_status !== 'paid')
     .reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
 
   return (
@@ -147,7 +144,7 @@ export default function DriverDashboard() {
         }
       />
 
-      {data.error && !ownerDriver && <AlertBanner tone="danger">{data.error}</AlertBanner>}
+      {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
       <KpiGrid>
         <KpiCard label="Jobs today" value={todaysJobs.length} detail="Scheduled collections" onClick={() => router.push('/driver/jobs')} />
@@ -254,7 +251,7 @@ export default function DriverDashboard() {
           >
             <DataTable
               columns={['Route', 'Your quote', 'Submitted', 'Result']}
-              rows={myQuotes.slice(0, 6).map((bid) => {
+              rows={ownerBids.slice(0, 6).map((bid) => {
                 const ownerBid = bid as OwnerBid;
                 const job = Array.isArray(ownerBid.jobs) ? ownerBid.jobs[0] : ownerBid.jobs;
                 return [

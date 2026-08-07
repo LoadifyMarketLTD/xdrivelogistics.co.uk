@@ -56,6 +56,15 @@
 
 .financialSummaryLabel {
   color: #1a1f2b;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.financialSummaryDetail {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 400;
 }
 
 .financialSummaryValue {
@@ -163,6 +172,11 @@
   gap: 8px;
 }
 
+.operationalLinkListCompact {
+  display: grid;
+  gap: 0;
+}
+
 .operationalLinkRow,
 .operationalLinkButton {
   width: 100%;
@@ -179,7 +193,32 @@
   font-size: 12px;
 }
 
+.operationalLinkRowCompact,
+.operationalLinkButtonCompact {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-bottom: 1px solid #e8ecf2;
+  background: transparent;
+  color: #1A1F2B;
+  padding: 7px 0;
+  text-align: left;
+  font-size: 12px;
+}
+
+.operationalLinkRowCompact:last-child,
+.operationalLinkButtonCompact:last-child {
+  border-bottom: none;
+}
+
 .operationalLinkButton {
+  cursor: pointer;
+}
+
+.operationalLinkButtonCompact {
   cursor: pointer;
 }
 
@@ -194,6 +233,12 @@
   font-weight: 600;
 }
 
+.operationalLinkLabelCompact {
+  min-width: 0;
+  font-weight: 500;
+  color: #1A1F2B;
+}
+
 .operationalLinkMeta {
   min-width: 0;
   color: #64748B;
@@ -202,6 +247,11 @@
 
 .operationalLinkValue {
   font-weight: 700;
+}
+
+.operationalLinkArrow {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
 .roleDashboardColumn {

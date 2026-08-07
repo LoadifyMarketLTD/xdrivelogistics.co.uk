@@ -79,7 +79,7 @@ describe('canonical onboarding contract', () => {
     expect(migration).toContain('trg_drivers_identity_gate');
     expect(migration).toContain('trg_company_memberships_driver_identity_gate');
     expect(migration).toContain('trg_activate_approved_onboarding_identity');
-    expect(migration).toContain("SET status = 'active',\n        app_access = true");
+    expect(migration).toMatch(/SET status = 'active',\s+app_access = true/);
   });
 
   it('requires a company-linked invitation in init, session and submit APIs', () => {

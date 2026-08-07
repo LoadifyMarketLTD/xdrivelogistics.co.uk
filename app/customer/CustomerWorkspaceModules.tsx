@@ -5,18 +5,46 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
-import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import {
+  getWorkspaceMetricPresentation,
+  getWorkspaceMetricPresentationStatus,
+  isCustomerVisibleWorkspaceInvoice,
+  useCompanyWorkspaceData,
+  type WorkspaceDataState,
+} from '../components/workspace/useCompanyWorkspaceData';
+import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, OperationalLinkList, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn, type WorkspaceCardTone } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number, currency = 'GBP') => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const active = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
-const isCustomerVisibleInvoice = (invoice: { status: string; amount?: number | null; client_name?: string | null }) => {
-  const status = String(invoice.status ?? '').toLowerCase();
-  return !['pending', 'draft', 'cancelled'].includes(status)
-    && Number(invoice.amount ?? 0) > 0
-    && Boolean(invoice.client_name?.trim());
-};
+const metricPresentation = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+  {
+    value,
+    detail,
+    tone,
+  }: {
+    value: number | string | (() => number | string);
+    detail: string | (() => string);
+    tone: WorkspaceCardTone;
+  },
+) => getWorkspaceMetricPresentation({
+  datasets: keys.map((key) => data.datasets[key]),
+  completeValue: value,
+  completeDetail: detail,
+  completeTone: tone,
+});
+
+const metricStatus = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+) => getWorkspaceMetricPresentationStatus(keys.map((key) => data.datasets[key]));
+
+const degradedMetricValue = (
+  status: ReturnType<typeof getWorkspaceMetricPresentationStatus>,
+  value: number | string,
+) => (status === 'partial' ? 'Partial' : status === 'unavailable' || status === 'omitted' ? '—' : value);
 
 export function CustomerDashboard() {
   const router = useRouter();
@@ -28,7 +56,7 @@ export function CustomerDashboard() {
     );
     const activeDeliveries = data.jobs.filter((job) => active.has(job.current_status ?? job.status));
     const delayed = activeDeliveries.filter((job) => job.delivery_datetime && new Date(job.delivery_datetime).getTime() < Date.now());
-    const customerInvoices = data.invoices.filter((inv) => inv.buyer_company_id === data.companyId && isCustomerVisibleInvoice(inv));
+    const customerInvoices = data.invoices.filter((inv) => isCustomerVisibleWorkspaceInvoice(inv, data.companyId));
     const unpaidInvoices = customerInvoices.filter((inv) => inv.payment_status !== 'paid' && !['paid', 'Paid'].includes(inv.status));
     const unpaidValue = unpaidInvoices.reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
     const dueSoonInvoices = unpaidInvoices.filter((inv) => inv.due_date && new Date(inv.due_date).getTime() <= Date.now() + 7 * 86_400_000);
@@ -51,6 +79,17 @@ export function CustomerDashboard() {
       recentQuoteActivity,
     };
   }, [data]);
+  const draftLoadsMetric = metricPresentation(data, ['jobs'], { value: metrics.draft, detail: 'Not yet published', tone: 'blue' });
+  const openLoadsMetric = metricPresentation(data, ['jobs'], { value: metrics.open, detail: 'Awaiting carrier quotes', tone: 'blue' });
+  const quotesReceivedMetric = metricPresentation(data, ['bids'], { value: metrics.quotesReceived, detail: 'Ready to compare', tone: 'purple' });
+  const awaitingAwardMetric = metricPresentation(data, ['jobs', 'bids'], { value: metrics.awaitingAward.length, detail: 'Your decision needed', tone: 'orange' });
+  const activeDeliveriesMetric = metricPresentation(data, ['jobs'], { value: metrics.activeDeliveries.length, detail: 'In transit now', tone: 'green' });
+  const delayedMetric = metricPresentation(data, ['jobs'], { value: metrics.delayed.length, detail: 'Past delivery window', tone: 'red' });
+  const podReadyMetric = metricPresentation(data, ['jobs'], { value: metrics.pod, detail: 'Proof of delivery available', tone: 'navy' });
+  const unpaidInvoicesMetric = metricPresentation(data, ['invoices'], { value: metrics.unpaidInvoices.length, detail: metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding', tone: metrics.unpaidInvoices.length ? 'orange' : 'green' });
+  const jobsMetricStatus = metricStatus(data, ['jobs']);
+  const bidsMetricStatus = metricStatus(data, ['bids']);
+  const invoicesMetricStatus = metricStatus(data, ['invoices']);
 
   return (
     <PageFrame>
@@ -63,14 +102,14 @@ export function CustomerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/customer/loads')} />
-        <KpiCard label="Open loads" value={metrics.open} detail="Awaiting carrier quotes" tone="blue" onClick={() => router.push('/customer/loads')} />
-        <KpiCard label="Quotes received" value={metrics.quotesReceived} detail="Ready to compare" tone="purple" onClick={() => router.push('/customer/quotes')} />
-        <KpiCard label="Awaiting award" value={metrics.awaitingAward.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/customer/quotes')} />
-        <KpiCard label="Active deliveries" value={metrics.activeDeliveries.length} detail="In transit now" tone="green" onClick={() => router.push('/customer/deliveries')} />
-        <KpiCard label="Delayed" value={metrics.delayed.length} detail="Past delivery window" tone="red" onClick={() => router.push('/customer/deliveries')} />
-        <KpiCard label="POD ready" value={metrics.pod} detail="Proof of delivery available" tone="navy" onClick={() => router.push('/customer/documents')} />
-        <KpiCard label="Unpaid invoices" value={metrics.unpaidInvoices.length} detail={metrics.unpaidValue > 0 ? money(metrics.unpaidValue) : 'None outstanding'} tone={metrics.unpaidInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/customer/invoices')} />
+        <KpiCard label="Draft loads" value={draftLoadsMetric.value} detail={draftLoadsMetric.detail} tone={draftLoadsMetric.tone} onClick={() => router.push('/customer/loads')} />
+        <KpiCard label="Open loads" value={openLoadsMetric.value} detail={openLoadsMetric.detail} tone={openLoadsMetric.tone} onClick={() => router.push('/customer/loads')} />
+        <KpiCard label="Quotes received" value={quotesReceivedMetric.value} detail={quotesReceivedMetric.detail} tone={quotesReceivedMetric.tone} onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Awaiting award" value={awaitingAwardMetric.value} detail={awaitingAwardMetric.detail} tone={awaitingAwardMetric.tone} onClick={() => router.push('/customer/quotes')} />
+        <KpiCard label="Active deliveries" value={activeDeliveriesMetric.value} detail={activeDeliveriesMetric.detail} tone={activeDeliveriesMetric.tone} onClick={() => router.push('/customer/deliveries')} />
+        <KpiCard label="Delayed" value={delayedMetric.value} detail={delayedMetric.detail} tone={delayedMetric.tone} onClick={() => router.push('/customer/deliveries')} />
+        <KpiCard label="POD ready" value={podReadyMetric.value} detail={podReadyMetric.detail} tone={podReadyMetric.tone} onClick={() => router.push('/customer/documents')} />
+        <KpiCard label="Unpaid invoices" value={unpaidInvoicesMetric.value} detail={unpaidInvoicesMetric.detail} tone={unpaidInvoicesMetric.tone} onClick={() => router.push('/customer/invoices')} />
       </KpiGrid>
 
       {metrics.awaitingAward.length > 0 && (
@@ -112,7 +151,7 @@ export function CustomerDashboard() {
               <StatusBadge key="status" value={job.current_status ?? job.status} tone={metrics.delayed.includes(job) ? 'red' : undefined} />,
               <ActionButton key="action" tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Track</ActionButton>,
             ])}
-            empty={<EmptyState title="No active deliveries" description="Active deliveries appear here once a carrier accepts and starts a job." />}
+            empty={<EmptyState title={jobsMetricStatus === 'partial' ? 'Partial delivery data' : jobsMetricStatus === 'unavailable' || jobsMetricStatus === 'omitted' ? 'Delivery data unavailable' : 'No active deliveries'} description={jobsMetricStatus === 'partial' ? 'Only part of the delivery feed is available for this workspace.' : jobsMetricStatus === 'unavailable' || jobsMetricStatus === 'omitted' ? 'The delivery feed is currently unavailable for this workspace.' : 'Active deliveries appear here once a carrier accepts and starts a job.'} />}
           />
         </Panel>
 
@@ -120,10 +159,10 @@ export function CustomerDashboard() {
           <Panel title="Commercial summary" description="Pipeline, delivery evidence and invoice urgency in one place.">
             <div style={{ display: 'grid', gap: '0.55rem' }}>
               {[
-                ['Loads awaiting quotes', metrics.open, '#eff6ff', '#1d4ed8'],
-                ['Carrier awards made', metrics.awarded, '#f0fdf4', '#166534'],
-                ['POD ready', metrics.pod, '#f8fafc', '#334155'],
-                ['Invoices due soon', metrics.dueSoonInvoices.length, metrics.dueSoonInvoices.length ? '#fff7ed' : '#f8fafc', metrics.dueSoonInvoices.length ? '#c2410c' : '#475569'],
+                ['Loads awaiting quotes', degradedMetricValue(jobsMetricStatus, metrics.open), jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#eff6ff' : '#f8fafc', jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#1d4ed8' : '#475569'],
+                ['Carrier awards made', degradedMetricValue(jobsMetricStatus, metrics.awarded), jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#f0fdf4' : '#f8fafc', jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#166534' : '#475569'],
+                ['POD ready', degradedMetricValue(jobsMetricStatus, metrics.pod), jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#f8fafc' : '#f8fafc', jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#334155' : '#475569'],
+                ['Invoices due soon', degradedMetricValue(invoicesMetricStatus, metrics.dueSoonInvoices.length), invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? (metrics.dueSoonInvoices.length ? '#fff7ed' : '#f8fafc') : '#f8fafc', invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? (metrics.dueSoonInvoices.length ? '#c2410c' : '#475569') : '#475569'],
               ].map(([label, value, bg, color]) => (
                 <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', background: String(bg), border: `1px solid ${String(color)}20`, borderRadius: '8px', padding: '0.62rem 0.75rem', fontSize: '0.76rem' }}>
                   <span style={{ color: '#475569' }}>{label}</span>
@@ -158,7 +197,7 @@ export function CustomerDashboard() {
                 ))}
               </>
             ) : (
-              <EmptyState title="No outstanding invoices" description="All invoices are paid or none have been issued yet." />
+              <EmptyState title={invoicesMetricStatus === 'partial' ? 'Partial invoice data' : invoicesMetricStatus === 'unavailable' || invoicesMetricStatus === 'omitted' ? 'Invoice data unavailable' : 'No outstanding invoices'} description={invoicesMetricStatus === 'partial' ? 'Only part of the invoice feed is available for this workspace.' : invoicesMetricStatus === 'unavailable' || invoicesMetricStatus === 'omitted' ? 'The invoice feed is currently unavailable for this workspace.' : 'All invoices are paid or none have been issued yet.'} />
             )}
           </Panel>
 
@@ -179,7 +218,7 @@ export function CustomerDashboard() {
                 })}
               </div>
             ) : (
-              <EmptyState title="No quote activity yet" description="Carrier responses will appear here after publication." />
+              <EmptyState title={bidsMetricStatus === 'partial' ? 'Partial quote activity' : bidsMetricStatus === 'unavailable' || bidsMetricStatus === 'omitted' ? 'Quote activity unavailable' : 'No quote activity yet'} description={bidsMetricStatus === 'partial' ? 'Only part of the carrier quote activity is available for this workspace.' : bidsMetricStatus === 'unavailable' || bidsMetricStatus === 'omitted' ? 'The carrier quote activity feed is currently unavailable for this workspace.' : 'Carrier responses will appear here after publication.'} />
             )}
           </Panel>
 
@@ -231,7 +270,7 @@ export function CustomerDeliveriesPage(){const data=useCompanyWorkspaceData();co
 
 export function CustomerDocumentsPage(){const data=useCompanyWorkspaceData();const rows=data.jobs.filter(j=>(j.delivery_photos?.length??0)>0||['delivered','completed'].includes(j.status));return <PageFrame><PageHeader eyebrow="Delivery evidence" title="POD & Documents" description="Customer access is limited to documents for the customer&apos;s own jobs; driver and vehicle compliance documents remain private."/><Panel><DataTable columns={['Load','Route','Delivered','POD files','Status']} rows={rows.map(j=>[j.id.slice(0,8).toUpperCase(),`${j.pickup_postcode??j.pickup_location} → ${j.delivery_postcode??j.delivery_location}`,when(j.delivery_datetime),j.delivery_photos?.length??0,(j.delivery_photos?.length??0)>0?<StatusBadge key="status" value="Available" tone="green"/>:<StatusBadge key="status" value="Awaiting POD" tone="orange"/>])} empty={<EmptyState title="No POD documents available"/>}/></Panel></PageFrame>}
 
-export function CustomerInvoicesPage(){const data=useCompanyWorkspaceData();const router=useRouter();const rows=data.invoices.filter(i=>(i.buyer_company_id===data.companyId||data.jobs.some(j=>j.id===i.job_id))&&isCustomerVisibleInvoice(i));return <PageFrame><PageHeader eyebrow="Customer finance" title="Invoices" description="Invoices addressed to this customer company, linked to the transport job and payment status."/><Panel><DataTable columns={['Invoice','Job','Amount','Due','Payment status','Action']} rows={rows.map(i=>[i.invoice_number??i.id.slice(0,8),i.job_id?.slice(0,8)??'—',money(Number(i.amount??0),i.currency??'GBP'),i.due_date?new Date(i.due_date).toLocaleDateString('en-GB'):'Not set',<StatusBadge key="status" value={i.payment_status??i.status}/>,<ActionButton key="open" tone="secondary" onClick={()=>router.push(`/customer/invoices/${i.id}`)}>Open</ActionButton>])} empty={<EmptyState title="No customer invoices"/>}/></Panel></PageFrame>}
+export function CustomerInvoicesPage(){const data=useCompanyWorkspaceData();const router=useRouter();const rows=data.invoices.filter(i=>isCustomerVisibleWorkspaceInvoice(i,data.companyId));return <PageFrame><PageHeader eyebrow="Customer finance" title="Invoices" description="Invoices addressed to this customer company, linked to the transport job and payment status."/><Panel><DataTable columns={['Invoice','Job','Amount','Due','Payment status','Action']} rows={rows.map(i=>[i.invoice_number??i.id.slice(0,8),i.job_id?.slice(0,8)??'—',money(Number(i.amount??0),i.currency??'GBP'),i.due_date?new Date(i.due_date).toLocaleDateString('en-GB'):'Not set',<StatusBadge key="status" value={i.payment_status??i.status}/>,<ActionButton key="open" tone="secondary" onClick={()=>router.push(`/customer/invoices/${i.id}`)}>Open</ActionButton>])} empty={<EmptyState title="No customer invoices"/>}/></Panel></PageFrame>}
 
 export function CustomerUpdatesPage(){const {user}=useAuth();const [rows,setRows]=useState<Array<{id:string;event_type:string;entity_type:string;status:string;created_at:string;payload:Record<string,unknown>|null}>>([]);const [loading,setLoading]=useState(true);useEffect(()=>{if(!user?.companyId){setLoading(false);return;}supabase.from('notification_events').select('id,event_type,entity_type,status,created_at,payload').eq('company_id',user.companyId).order('created_at',{ascending:false}).limit(100).then(({data})=>{setRows((data??[]) as typeof rows);setLoading(false);});},[user?.companyId]);return <PageFrame><PageHeader eyebrow="Notifications" title="Updates" description="A chronological feed of quotes, awards, status changes, POD and invoice events."/><Panel>{loading?<EmptyState title="Loading updates…"/>:<DataTable columns={['Event','Entity','Time','Status','Detail']} rows={rows.map(r=>[r.event_type.replace(/_/g,' '),r.entity_type,when(r.created_at),<StatusBadge key="status" value={r.status}/>,typeof r.payload?.message==='string'?r.payload.message:'—'])} empty={<EmptyState title="No updates yet"/>}/>}</Panel></PageFrame>}
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toLegacyInvoiceStatusForDb } from '../../../lib/invoiceStatus';
+import { getFeatureFlag } from './platformFlags';
 
 type SupabaseAdminClient = SupabaseClient;
 
@@ -37,6 +38,11 @@ export async function autoGenerateMarketplaceInvoice({
   actorUserId: string;
   idempotencyKey: string;
 }): Promise<AutoInvoiceResult> {
+  const invoiceGenerationEnabled = await getFeatureFlag(supabase, 'invoice_generation');
+  if (!invoiceGenerationEnabled) {
+    return { created: false, invoiceId: null, reason: 'Invoice generation is currently disabled.' };
+  }
+
   const { data: agreement, error: agreementError } = await supabase
     .from('job_commercial_agreements')
     .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount, payment_terms, payment_due_days')

@@ -5,6 +5,10 @@ on:
     branches: ["**"]
   workflow_dispatch:
 
+concurrency:
+  group: visual-fixture-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -49,7 +53,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run workspace visual route proof gate
-        run: npx playwright test e2e/workspace-visual-auth-gate.spec.ts e2e/jobs-visual-gate.spec.ts --project=chromium --reporter=html
+        run: npx playwright test e2e/workspace-visual-auth-gate.spec.ts e2e/jobs-visual-gate.spec.ts e2e/operations-centre-layout.spec.ts --project=chromium --reporter=html
 
       - name: Upload Playwright visual gate artifacts
         if: always()

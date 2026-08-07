@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LatLngBounds } from 'leaflet';
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
 
@@ -49,6 +49,14 @@ const formatTimestamp = (value?: string | null) => {
     : parsed.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
+const hasValidCoordinates = (point: FleetMapPoint) =>
+  Number.isFinite(point.lat)
+  && Number.isFinite(point.lng)
+  && point.lat >= -90
+  && point.lat <= 90
+  && point.lng >= -180
+  && point.lng <= 180;
+
 export default function FleetPositionMapClient({
   points,
   selectedDriverId,
@@ -56,30 +64,94 @@ export default function FleetPositionMapClient({
   points: FleetMapPoint[];
   selectedDriverId: string | null;
 }) {
-  const validPoints = useMemo(
-    () => points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
-    [points]
-  );
+  const [providerError, setProviderError] = useState(false);
+  const validPoints = useMemo(() => points.filter(hasValidCoordinates), [points]);
+
+  useEffect(() => {
+    setProviderError(false);
+  }, [validPoints]);
+
   const selected = selectedDriverId
     ? validPoints.find((point) => point.driverId === selectedDriverId)
     : null;
   const centre: [number, number] = selected
     ? [selected.lat, selected.lng]
-    : validPoints.length > 0
-      ? [validPoints[0].lat, validPoints[0].lng]
-      : [54.5, -3.0];
+    : [validPoints[0]?.lat ?? 54.5, validPoints[0]?.lng ?? -3.0];
+
+  if (validPoints.length === 0) {
+    return (
+      <div
+        style={{
+          height: '440px',
+          width: '100%',
+          overflow: 'hidden',
+          borderRadius: '9px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f1f5f9',
+          color: '#64748b',
+          fontSize: '0.9rem',
+        }}
+        data-testid="fleet-map-no-coords"
+        role="status"
+        aria-live="polite"
+      >
+        No live fleet positions available.
+      </div>
+    );
+  }
 
   return (
-    <div style={{ height: '440px', width: '100%', overflow: 'hidden', borderRadius: '9px' }}>
+    <div
+      data-testid="fleet-map-ready"
+      style={{
+        position: 'relative',
+        height: '440px',
+        width: '100%',
+        overflow: 'hidden',
+        borderRadius: '9px',
+        background: '#e2e8f0',
+      }}
+    >
+      {providerError && (
+        <div
+          data-testid="fleet-map-provider-error"
+          role="alert"
+          aria-live="assertive"
+          style={{
+            position: 'absolute',
+            top: '12px',
+            left: '12px',
+            right: '12px',
+            zIndex: 1000,
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            background: 'rgba(255, 251, 235, 0.96)',
+            color: '#92400e',
+            padding: '10px 12px',
+            fontSize: '0.86rem',
+            lineHeight: 1.4,
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.14)',
+          }}
+        >
+          Map tiles are temporarily unavailable. Driver positions could not be displayed on the base map.
+        </div>
+      )}
+
       <MapContainer
         center={centre}
-        zoom={validPoints.length > 0 ? 8 : 5}
+        zoom={8}
         scrollWheelZoom={false}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          eventHandlers={{
+            tileerror: () => setProviderError(true),
+            tileload: () => setProviderError(false),
+          }}
         />
         <MapViewport points={validPoints} selectedDriverId={selectedDriverId} />
         {validPoints.map((point) => (

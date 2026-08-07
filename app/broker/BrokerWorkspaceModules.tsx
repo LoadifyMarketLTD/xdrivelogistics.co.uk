@@ -5,12 +5,46 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 import { invoiceNetAmount, invoiceSignedNetAmount, isAwaitingPayment, isCarrierPayableInvoice, isOverdue, isRevenueInvoice } from '../../lib/brokerFinance';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
-import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn } from '../components/workspace/WorkspaceUI';
+import {
+  getWorkspaceMetricPresentation,
+  getWorkspaceMetricPresentationStatus,
+  useCompanyWorkspaceData,
+  type WorkspaceDataState,
+} from '../components/workspace/useCompanyWorkspaceData';
+import { ActionButton, AlertBanner, ComplianceSummaryPanel, DataTable, DateRangeSelector, EmptyState, ExchangeKpiStrip, FinancialSummaryPanel, KpiCard, KpiGrid, PageFrame, PageHeader, Panel, QuickActionGrid, StatusBadge, TwoColumn, type WorkspaceCardTone } from '../components/workspace/WorkspaceUI';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const active = new Set(['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
+
+const metricPresentation = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+  {
+    value,
+    detail,
+    tone,
+  }: {
+    value: number | string | (() => number | string);
+    detail: string | (() => string);
+    tone: WorkspaceCardTone;
+  },
+) => getWorkspaceMetricPresentation({
+  datasets: keys.map((key) => data.datasets[key]),
+  completeValue: value,
+  completeDetail: detail,
+  completeTone: tone,
+});
+
+const metricStatus = (
+  data: WorkspaceDataState,
+  keys: Array<keyof WorkspaceDataState['datasets']>,
+) => getWorkspaceMetricPresentationStatus(keys.map((key) => data.datasets[key]));
+
+const degradedMetricValue = (
+  status: ReturnType<typeof getWorkspaceMetricPresentationStatus>,
+  value: number | string,
+) => (status === 'partial' ? 'Partial' : status === 'unavailable' || status === 'omitted' ? '—' : value);
 
 export function BrokerDashboard() {
   const router = useRouter();
@@ -104,6 +138,20 @@ export function BrokerDashboard() {
       complianceSummary: { current: currentDocs, expiring: soonDocs, expired: expiredDocs, total: docs.length },
     };
   }, [data, spendPeriod]);
+  const draftLoadsMetric = metricPresentation(data, ['jobs'], { value: metrics.draft, detail: 'Not yet published', tone: 'blue' });
+  const openLoadsMetric = metricPresentation(data, ['jobs'], { value: metrics.open, detail: 'Published for carrier pricing', tone: 'blue' });
+  const carrierQuotesMetric = metricPresentation(data, ['bids'], { value: metrics.quotes, detail: 'Commercial responses received', tone: 'purple' });
+  const awaitingAwardMetric = metricPresentation(data, ['jobs', 'bids'], { value: metrics.awaitingAwardJobs.length, detail: 'Your decision needed', tone: 'orange' });
+  const activeJobsMetric = metricPresentation(data, ['jobs'], { value: metrics.activeJobs.length, detail: 'Collections and deliveries', tone: 'green' });
+  const podMissingMetric = metricPresentation(data, ['jobs'], { value: metrics.podPending.length, detail: 'Delivered without proof', tone: metrics.podPending.length ? 'red' : 'navy' });
+  const grossMarginMetric = metricPresentation(data, ['jobs', 'bids', 'invoices'], { value: money(metrics.margin), detail: `${metrics.marginPct.toFixed(1)}% margin`, tone: metrics.margin >= 0 ? 'green' : 'red' });
+  const awaitingCustomerPaymentMetric = metricPresentation(data, ['invoices'], { value: metrics.awaitingRevenueInvoices.length, detail: money(metrics.awaitingRevenueValue), tone: metrics.awaitingRevenueInvoices.length ? 'orange' : 'green' });
+  const dueForPaymentMetric = metricPresentation(data, ['invoices'], { value: metrics.dueForPayment.length, detail: 'Due within 7 days', tone: metrics.dueForPayment.length ? 'red' : 'green' });
+  const overdueCustomerInvoicesMetric = metricPresentation(data, ['invoices'], { value: metrics.overdueRevenueInvoices.length, detail: money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0)), tone: metrics.overdueRevenueInvoices.length ? 'red' : 'green' });
+  const jobsMetricStatus = metricStatus(data, ['jobs']);
+  const bidsMetricStatus = metricStatus(data, ['bids']);
+  const invoicesMetricStatus = metricStatus(data, ['invoices']);
+  const supplierComplianceStatus = metricStatus(data, ['driverDocuments', 'vehicleDocuments']);
 
   return (
     <PageFrame>
@@ -116,16 +164,16 @@ export function BrokerDashboard() {
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <ExchangeKpiStrip>
-        <KpiCard label="Draft loads" value={metrics.draft} detail="Not yet published" onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Open loads" value={metrics.open} detail="Published for carrier pricing" tone="blue" onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Carrier quotes" value={metrics.quotes} detail="Commercial responses received" tone="purple" onClick={() => router.push('/broker/bids')} />
-        <KpiCard label="Awaiting award" value={metrics.awaitingAwardJobs.length} detail="Your decision needed" tone="orange" onClick={() => router.push('/broker/compare-quotes')} />
-        <KpiCard label="Active jobs" value={metrics.activeJobs.length} detail="Collections and deliveries" tone="green" onClick={() => router.push('/broker/jobs')} />
-        <KpiCard label="POD missing" value={metrics.podPending.length} detail="Delivered without proof" tone={metrics.podPending.length ? 'red' : 'navy'} onClick={() => router.push('/broker/pod-review')} />
-        <KpiCard label="Gross margin" value={money(metrics.margin)} detail={`${metrics.marginPct.toFixed(1)}% margin`} tone={metrics.margin >= 0 ? 'green' : 'red'} onClick={() => router.push('/broker/margins')} />
-        <KpiCard label="Awaiting customer payment" value={metrics.awaitingRevenueInvoices.length} detail={money(metrics.awaitingRevenueValue)} tone={metrics.awaitingRevenueInvoices.length ? 'orange' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Due for payment" value={metrics.dueForPayment.length} detail="Due within 7 days" tone={metrics.dueForPayment.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
-        <KpiCard label="Overdue customer invoices" value={metrics.overdueRevenueInvoices.length} detail={money(metrics.overdueRevenueInvoices.reduce((sum, inv) => sum + invoiceNetAmount(inv), 0))} tone={metrics.overdueRevenueInvoices.length ? 'red' : 'green'} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Draft loads" value={draftLoadsMetric.value} detail={draftLoadsMetric.detail} tone={draftLoadsMetric.tone} onClick={() => router.push('/broker/loads')} />
+        <KpiCard label="Open loads" value={openLoadsMetric.value} detail={openLoadsMetric.detail} tone={openLoadsMetric.tone} onClick={() => router.push('/broker/loads')} />
+        <KpiCard label="Carrier quotes" value={carrierQuotesMetric.value} detail={carrierQuotesMetric.detail} tone={carrierQuotesMetric.tone} onClick={() => router.push('/broker/bids')} />
+        <KpiCard label="Awaiting award" value={awaitingAwardMetric.value} detail={awaitingAwardMetric.detail} tone={awaitingAwardMetric.tone} onClick={() => router.push('/broker/compare-quotes')} />
+        <KpiCard label="Active jobs" value={activeJobsMetric.value} detail={activeJobsMetric.detail} tone={activeJobsMetric.tone} onClick={() => router.push('/broker/jobs')} />
+        <KpiCard label="POD missing" value={podMissingMetric.value} detail={podMissingMetric.detail} tone={podMissingMetric.tone} onClick={() => router.push('/broker/pod-review')} />
+        <KpiCard label="Gross margin" value={grossMarginMetric.value} detail={grossMarginMetric.detail} tone={grossMarginMetric.tone} onClick={() => router.push('/broker/margins')} />
+        <KpiCard label="Awaiting customer payment" value={awaitingCustomerPaymentMetric.value} detail={awaitingCustomerPaymentMetric.detail} tone={awaitingCustomerPaymentMetric.tone} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Due for payment" value={dueForPaymentMetric.value} detail={dueForPaymentMetric.detail} tone={dueForPaymentMetric.tone} onClick={() => router.push('/broker/customer-invoices')} />
+        <KpiCard label="Overdue customer invoices" value={overdueCustomerInvoicesMetric.value} detail={overdueCustomerInvoicesMetric.detail} tone={overdueCustomerInvoicesMetric.tone} onClick={() => router.push('/broker/customer-invoices')} />
       </ExchangeKpiStrip>
 
       {metrics.awaitingAwardJobs.length > 0 && (
@@ -174,7 +222,7 @@ export function BrokerDashboard() {
                 : <StatusBadge key="pod" value="pending" tone="orange" />,
               <ActionButton key="action" tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Track</ActionButton>,
             ])}
-            empty={<EmptyState title="No active jobs" description="Jobs appear here once a carrier is awarded and confirmed." />}
+            empty={<EmptyState title={jobsMetricStatus === 'partial' ? 'Partial job data' : jobsMetricStatus === 'unavailable' || jobsMetricStatus === 'omitted' ? 'Job data unavailable' : 'No active jobs'} description={jobsMetricStatus === 'partial' ? 'Only part of the broker job feed is available for this workspace.' : jobsMetricStatus === 'unavailable' || jobsMetricStatus === 'omitted' ? 'The broker job feed is currently unavailable for this workspace.' : 'Jobs appear here once a carrier is awarded and confirmed.'} />}
           />
         </Panel>
 
@@ -185,11 +233,11 @@ export function BrokerDashboard() {
           >
             <FinancialSummaryPanel
               items={[
-                { label: 'Invoiced revenue (net)', value: money(metrics.invoicedRevenueNet), background: '#f0fdf4', color: '#166534' },
-                { label: 'Carrier payables (net)', value: money(metrics.supplierPayablesNet), background: '#fff7ed', color: '#c2410c' },
-                { label: 'Gross margin', value: money(metrics.margin), background: metrics.margin >= 0 ? '#f0fdf4' : '#fef2f2', color: metrics.margin >= 0 ? '#166534' : '#dc2626' },
-                { label: 'Estimated customer budget', value: money(metrics.estimatedCustomerBudget), background: '#eff6ff', color: '#1e40af' },
-                { label: 'Estimated carrier quote cost', value: money(metrics.estimatedCarrierCost), background: metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc', color: metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b' },
+                { label: 'Invoiced revenue (net)', value: degradedMetricValue(invoicesMetricStatus, money(metrics.invoicedRevenueNet)), background: invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? '#f0fdf4' : '#f8fafc', color: invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? '#166534' : '#475569' },
+                { label: 'Carrier payables (net)', value: degradedMetricValue(invoicesMetricStatus, money(metrics.supplierPayablesNet)), background: invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? '#fff7ed' : '#f8fafc', color: invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? '#c2410c' : '#475569' },
+                { label: 'Gross margin', value: degradedMetricValue(metricStatus(data, ['jobs', 'bids', 'invoices']), money(metrics.margin)), background: grossMarginMetric.status === 'complete' || grossMarginMetric.status === 'empty' ? (metrics.margin >= 0 ? '#f0fdf4' : '#fef2f2') : '#f8fafc', color: grossMarginMetric.status === 'complete' || grossMarginMetric.status === 'empty' ? (metrics.margin >= 0 ? '#166534' : '#dc2626') : '#475569' },
+                { label: 'Estimated customer budget', value: degradedMetricValue(jobsMetricStatus, money(metrics.estimatedCustomerBudget)), background: jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#eff6ff' : '#f8fafc', color: jobsMetricStatus === 'complete' || jobsMetricStatus === 'empty' ? '#1e40af' : '#475569' },
+                { label: 'Estimated carrier quote cost', value: degradedMetricValue(bidsMetricStatus, money(metrics.estimatedCarrierCost)), background: bidsMetricStatus === 'complete' || bidsMetricStatus === 'empty' ? (metrics.estimatedCarrierCost > 0 ? '#fff7ed' : '#f8fafc') : '#f8fafc', color: bidsMetricStatus === 'complete' || bidsMetricStatus === 'empty' ? (metrics.estimatedCarrierCost > 0 ? '#c2410c' : '#64748b') : '#475569' },
               ]}
             />
           </Panel>
@@ -208,7 +256,7 @@ export function BrokerDashboard() {
                 <StatusBadge value={job.status} />
               </button>
             ))}
-            {data.jobs.length === 0 && <EmptyState title="No customer loads" />}
+            {data.jobs.length === 0 && <EmptyState title={jobsMetricStatus === 'partial' ? 'Partial load data' : jobsMetricStatus === 'unavailable' || jobsMetricStatus === 'omitted' ? 'Load data unavailable' : 'No customer loads'} description={jobsMetricStatus === 'partial' ? 'Only part of the broker load feed is available for this workspace.' : jobsMetricStatus === 'unavailable' || jobsMetricStatus === 'omitted' ? 'The broker load feed is currently unavailable for this workspace.' : undefined} />}
           </Panel>
 
           <Panel title="Quick actions" description="Shortcuts for the broker control desk.">
@@ -277,8 +325,8 @@ export function BrokerDashboard() {
             }
           >
             <div style={{ display: 'grid', gap: '0.45rem' }}>
-              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#c2410c' }}>{money(metrics.subcontractSpend)}</div>
-              <div style={{ fontSize: '0.73rem', color: '#64748b' }}>Total agreed with sub-contractors ({spendPeriod === 'month' ? '30' : spendPeriod === 'quarter' ? '90' : '365'} days)</div>
+              <div style={{ fontSize: '1.55rem', fontWeight: 900, color: invoicesMetricStatus === 'complete' || invoicesMetricStatus === 'empty' ? '#c2410c' : '#475569' }}>{degradedMetricValue(invoicesMetricStatus, money(metrics.subcontractSpend))}</div>
+              <div style={{ fontSize: '0.73rem', color: '#64748b' }}>{invoicesMetricStatus === 'partial' ? 'Only part of the supplier invoice feed is available for this period.' : invoicesMetricStatus === 'unavailable' || invoicesMetricStatus === 'omitted' ? 'Supplier invoice data is currently unavailable for this workspace.' : `Total agreed with sub-contractors (${spendPeriod === 'month' ? '30' : spendPeriod === 'quarter' ? '90' : '365'} days)`}</div>
               <div style={{ display: 'flex', gap: '0.55rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
                 {[
                   ['Latest invoices received', '/broker/carrier-costs'],
@@ -295,16 +343,20 @@ export function BrokerDashboard() {
           <Panel
             title="Supplier compliance"
             description="Document status across carriers in your network."
-            actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents/expiry')}>View all</ActionButton>}
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network')}>Carrier network</ActionButton>}
           >
-            <ComplianceSummaryPanel
-              total={metrics.complianceSummary.total}
-              rows={[
-                { label: 'Fully compliant', count: metrics.complianceSummary.current, color: '#166534', background: '#ecfdf3', border: '#bbf7d0' },
-                { label: 'About to expire', count: metrics.complianceSummary.expiring, color: '#92400e', background: '#fffbeb', border: '#fde68a' },
-                { label: 'Updates needed', count: metrics.complianceSummary.expired, color: '#b91c1c', background: '#fef2f2', border: '#fecaca' },
-              ]}
-            />
+            {supplierComplianceStatus === 'complete' || supplierComplianceStatus === 'empty' ? (
+              <ComplianceSummaryPanel
+                total={metrics.complianceSummary.total}
+                rows={[
+                  { label: 'Fully compliant', count: metrics.complianceSummary.current, color: '#166534', background: '#ecfdf3', border: '#bbf7d0' },
+                  { label: 'About to expire', count: metrics.complianceSummary.expiring, color: '#92400e', background: '#fffbeb', border: '#fde68a' },
+                  { label: 'Updates needed', count: metrics.complianceSummary.expired, color: '#b91c1c', background: '#fef2f2', border: '#fecaca' },
+                ]}
+              />
+            ) : (
+              <EmptyState title={supplierComplianceStatus === 'partial' ? 'Partial supplier compliance data' : 'Supplier compliance unavailable'} description={supplierComplianceStatus === 'partial' ? 'Only part of the broker-authorised supplier compliance feed is available.' : 'Carrier-network compliance requires a broker-authorised backend source. Invitation records do not expose supplier document status in the current backend contract.'} />
+            )}
           </Panel>
         </div>
       </TwoColumn>

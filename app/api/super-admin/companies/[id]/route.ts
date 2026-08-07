@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const GOVERNANCE_STATUSES = ['active', 'inactive', 'pending_approval', 'pending', 'rejected', 'suspended'] as const;
@@ -42,9 +43,23 @@ const resolveOwnerProfile = async (authUserId: string) => {
   return data;
 };
 
+/**
+ * Actions that require an explicit reason.
+ * Reject and suspend have immediate business impact and must be auditable.
+ */
+const REASON_REQUIRED_ACTIONS = new Set<CompanyGovernanceAction>(['reject', 'suspend']);
+
 const patchSchema = z.object({
   action: z.enum(['approve', 'reject', 'reinstate', 'suspend']),
   reason: z.string().trim().max(1000).optional(),
+}).superRefine((data, ctx) => {
+  if (REASON_REQUIRED_ACTIONS.has(data.action as CompanyGovernanceAction) && !data.reason?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: `A reason is required for the '${data.action}' action.`,
+    });
+  }
 });
 
 /**
@@ -87,11 +102,23 @@ export async function PATCH(
 
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
-    return respond(400, { error: 'Invalid action. Must be one of: approve, reject, reinstate, suspend.' });
+    const flatErrors = parsed.error.flatten();
+    const firstIssue = parsed.error.issues[0];
+    const message = firstIssue?.message ?? 'Invalid action.';
+    return respond(400, { error: message, fields: flatErrors.fieldErrors });
   }
 
   const { action, reason } = parsed.data;
   const { id: companyId } = await params;
+
+  // PR-0.2: Gate company suspension actions behind the company_suspension feature flag.
+  // Fail-open per platformFlags policy (suspension stays on if DB unreachable).
+  if (action === 'suspend' || action === 'reinstate') {
+    const suspensionEnabled = await getFeatureFlag(supabaseAdmin, 'company_suspension');
+    if (!suspensionEnabled) {
+      return respond(503, { error: 'Company suspension controls are currently disabled by a platform feature flag.' });
+    }
+  }
 
   const { data: currentCompany, error: currentCompanyError } = await supabaseAdmin
     .from('companies')
