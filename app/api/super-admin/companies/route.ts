@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { applyCompanyStatusFilter, buildCompanySearchPattern, type CompanyStatusFilter } from '../_lib/searchFilters';
+
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+
+const normalizeSearch = (raw: string) => raw.trim();
 const ALLOWED_COMPANY_STATUSES = ['active', 'inactive', 'pending', 'pending_approval', 'rejected', 'suspended', 'all'] as const;
-type CompanyStatusFilter = (typeof ALLOWED_COMPANY_STATUSES)[number];
+const normalizeCompanyStatusFilter = (status: CompanyStatusFilter): CompanyStatusFilter =>
+  (status === 'pending' || status === 'pending_approval') ? 'pending' : status;
 
 type GovernanceAuditRow = {
   id: string;
@@ -27,10 +32,37 @@ type RawGovernanceAuditRow = {
   created_at?: unknown;
 };
 
-const isPendingStatus = (value: string) => value === 'pending' || value === 'pending_approval';
+const GOVERNANCE_STATUS_COLUMN_CODES = new Set(['42703', 'PGRST204']);
+const GOVERNANCE_PRIMARY_SELECT = 'id, target_company_id, action_type, old_status, new_status, reason, created_at';
+const GOVERNANCE_LEGACY_SELECT = 'id, target_company_id, action_type, old_value, new_value, reason, created_at';
 
-const normalizeCompanyStatusFilter = (status: CompanyStatusFilter): CompanyStatusFilter =>
-  isPendingStatus(status) ? 'pending' : status;
+const findMatchingCompanyIds = async (search: string) => {
+  if (!supabaseAdmin || !search) return null;
+  const pattern = buildCompanySearchPattern(search);
+  const [nameResult, companyNumberResult, emailResult] = await Promise.all([
+    supabaseAdmin.from('companies').select('id').ilike('name', pattern).limit(200),
+    supabaseAdmin.from('companies').select('id').ilike('company_number', pattern).limit(200),
+    supabaseAdmin.from('companies').select('id').ilike('email', pattern).limit(200),
+  ]);
+  const firstError = [nameResult.error, companyNumberResult.error, emailResult.error].find(Boolean);
+  if (firstError) return { error: firstError.message };
+  return {
+    ids: Array.from(
+      new Set(
+        [nameResult.data, companyNumberResult.data, emailResult.data]
+          .flatMap((rows) => rows ?? [])
+          .map((row) => String(row.id ?? ''))
+          .filter(Boolean),
+      ),
+    ),
+  };
+};
+
+const isGovernanceStatusColumnError = (error: { code?: string; message?: string } | null | undefined) => {
+  if (!error || !error.code || !GOVERNANCE_STATUS_COLUMN_CODES.has(error.code)) return false;
+  const message = String(error.message ?? '').toLowerCase();
+  return message.includes('old_status') || message.includes('new_status');
+};
 
 const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | null => {
   const id = typeof row.id === 'string' ? row.id : null;
@@ -58,6 +90,22 @@ const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | nul
   };
 };
 
+const normalizeAuditRows = (rows: RawGovernanceAuditRow[]) => {
+  const normalizedRows: GovernanceAuditRow[] = [];
+  for (const row of rows) {
+    const normalized = normalizeAuditRow(row);
+    if (!normalized) {
+      return {
+        rows: [] as GovernanceAuditRow[],
+        error: 'Governance history rows do not match the expected schema contract.',
+      };
+    }
+    normalizedRows.push(normalized);
+  }
+
+  return { rows: normalizedRows, error: null as string | null };
+};
+
 const resolveOwnerProfile = async (authUserId: string) => {
   if (!supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
@@ -82,8 +130,14 @@ const verifyOwner = async (request: NextRequest) => {
 };
 
 /**
- * GET /api/super-admin/companies?status=active|inactive|pending|pending_approval|rejected|suspended|all
- * Returns companies filtered by status (owner only).
+ * GET /api/super-admin/companies
+ * Query params:
+ *   status  — active|inactive|pending|pending_approval|rejected|suspended|all (default: pending)
+ *   search  — case-insensitive search on name, company_number, email (optional)
+ *   page    — 1-based page number (default: 1)
+ *   limit   — results per page, 1–100 (default: 50)
+ *
+ * Returns companies filtered by status with server-side pagination (owner only).
  */
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -108,80 +162,90 @@ export async function GET(request: NextRequest) {
   }
   const status = normalizeCompanyStatusFilter(rawStatus);
 
+  // Pagination
+  const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
+  const offset = (pageParam - 1) * limitParam;
+
+  // Search
+  const search = normalizeSearch(searchParams.get('search') ?? '');
+  const searchMatches = search ? await findMatchingCompanyIds(search) : null;
+  if (searchMatches && 'error' in searchMatches) {
+    return respond(500, { error: searchMatches.error });
+  }
+  if (searchMatches && searchMatches.ids.length === 0) {
+    return respond(200, {
+      companies: [],
+      pagination: {
+        page: pageParam,
+        limit: limitParam,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: pageParam > 1,
+      },
+      governanceHistoryAvailable: true,
+      governanceHistoryError: null,
+      governanceHistoryRecent: [],
+      governanceHistoryByCompany: {},
+    });
+  }
+
   let companyQuery = supabaseAdmin
     .from('companies')
-    .select('id, name, company_number, email, status, company_type, created_at')
-    .order('created_at', { ascending: false })
-    .limit(300);
+    .select('id, name, company_number, email, status, company_type, created_at', { count: 'exact' })
+    .order('created_at', { ascending: false });
 
-  if (status !== 'all' && !isPendingStatus(status)) {
-    companyQuery = companyQuery.eq('status', status);
+  companyQuery = applyCompanyStatusFilter(companyQuery, status);
+  if (searchMatches && 'ids' in searchMatches) {
+    companyQuery = companyQuery.in('id', searchMatches.ids);
   }
+  companyQuery = companyQuery.range(offset, offset + limitParam - 1);
 
-  let { data, error } = await companyQuery;
-
-  // If the query fails with an enum mismatch for 'pending_approval', retry
-  // with the legacy 'pending' value that may be stored in older databases.
-  if (error && status === 'pending_approval' && error.message?.includes('enum')) {
-    const legacyResult = await supabaseAdmin
-      .from('companies')
-      .select('id, name, company_number, email, status, company_type, created_at')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(300);
-    if (!legacyResult.error) {
-      data = legacyResult.data;
-      error = null;
-    }
-  }
+  const { data, error, count } = await companyQuery;
 
   if (error) {
     return respond(500, { error: error.message });
   }
+  const companies = data ?? [];
 
-  const companies = (data ?? []).filter((company) => {
-    if (!isPendingStatus(status)) return true;
-    const normalized = String(company.status ?? '').trim().toLowerCase();
-    return isPendingStatus(normalized);
-  });
-
-  // Query governance history defensively: try full column set first, then fall
-  // back to a minimal set if optional columns (old_status / new_status) do not
-  // exist in the current schema (they are added by migration 087, but may be
-  // absent in older or partially-migrated databases).
+  // Query governance history defensively: try the canonical column set first,
+  // then fall back only to the verified legacy old_value/new_value shape when
+  // the status columns are genuinely absent in the live schema.
   let auditRows: GovernanceAuditRow[] | null = null;
   let auditError: { message: string } | null = null;
 
   const fullAuditResult = await supabaseAdmin
     .from('owner_audit_log')
-    .select('*')
+    .select(GOVERNANCE_PRIMARY_SELECT)
     .order('created_at', { ascending: false })
     .limit(400);
 
   if (!fullAuditResult.error) {
-    auditRows = (fullAuditResult.data ?? []) as GovernanceAuditRow[];
-  } else {
-    // Full select failed (likely missing column); fall back to safe minimal set
-    const minimalAuditResult = await supabaseAdmin
+    const normalized = normalizeAuditRows((fullAuditResult.data ?? []) as RawGovernanceAuditRow[]);
+    auditRows = normalized.error ? null : normalized.rows;
+    auditError = normalized.error ? { message: normalized.error } : null;
+  } else if (isGovernanceStatusColumnError(fullAuditResult.error)) {
+    const legacyAuditResult = await supabaseAdmin
       .from('owner_audit_log')
-      .select('id, target_company_id, action_type, created_at')
+      .select(GOVERNANCE_LEGACY_SELECT)
       .order('created_at', { ascending: false })
       .limit(400);
 
-    if (!minimalAuditResult.error) {
-      auditRows = (minimalAuditResult.data ?? []) as GovernanceAuditRow[];
+    if (!legacyAuditResult.error) {
+      const normalized = normalizeAuditRows((legacyAuditResult.data ?? []) as RawGovernanceAuditRow[]);
+      auditRows = normalized.error ? null : normalized.rows;
+      auditError = normalized.error ? { message: normalized.error } : null;
     } else {
-      auditError = { message: minimalAuditResult.error.message };
+      auditError = { message: legacyAuditResult.error.message };
     }
+  } else {
+    auditError = { message: fullAuditResult.error.message };
   }
 
   const governanceHistoryAvailable = auditError === null;
   const governanceHistoryError = auditError?.message ?? null;
-  const normalizedAuditRows = governanceHistoryAvailable
-    ? (auditRows ?? [])
-      .map((row) => normalizeAuditRow(row as RawGovernanceAuditRow))
-      .filter((row): row is GovernanceAuditRow => Boolean(row))
-    : [];
+  const normalizedAuditRows = governanceHistoryAvailable ? (auditRows ?? []) : [];
 
   const governanceHistoryByCompany = new Map<string, GovernanceAuditRow[]>();
   if (governanceHistoryAvailable) {
@@ -194,8 +258,19 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const totalCount = count ?? companies.length;
+  const totalPages = Math.ceil(totalCount / limitParam);
+
   return respond(200, {
     companies,
+    pagination: {
+      page: pageParam,
+      limit: limitParam,
+      total: totalCount,
+      totalPages,
+      hasNextPage: pageParam < totalPages,
+      hasPrevPage: pageParam > 1,
+    },
     governanceHistoryAvailable,
     governanceHistoryError,
     governanceHistoryRecent: governanceHistoryAvailable ? normalizedAuditRows : [],

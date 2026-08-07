@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react';
 import WorkspaceShell from '../../components/workspace/WorkspaceShell';
+import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
 
-const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
+export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   role: 'platform_owner',
   label: 'Platform Owner',
   subtitle: 'Global platform administration',
   homeHref: '/super-admin',
   nav: [
     { id: 'dashboard', label: 'Dashboard', items: [
-      { id: 'owner-console', label: 'Owner Console', href: '/super-admin', icon: '⌂' },
+      { id: 'command-centre', label: 'Command Centre', href: '/super-admin', icon: '⌂' },
       { id: 'analytics', label: 'Platform Analytics', href: '/super-admin/analytics', icon: '◫' },
       { id: 'health', label: 'Platform Health', href: '/super-admin/health', icon: '✓' },
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications', icon: '!' },
@@ -70,11 +71,18 @@ const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   ],
 };
 
-export default function SuperAdminWorkspaceShell({ children }: { children: ReactNode }) {
+export default function SuperAdminWorkspaceShell({
+  children,
+  fixtureOverrides,
+}: {
+  children: ReactNode;
+  fixtureOverrides?: WorkspaceShellFixtureOverrides;
+}) {
   return (
     <WorkspaceShell
       forcedRole="platform_owner"
       definitionOverride={SUPER_ADMIN_WORKSPACE_DEFINITION}
+      fixtureOverrides={fixtureOverrides}
     >
       {children}
     </WorkspaceShell>

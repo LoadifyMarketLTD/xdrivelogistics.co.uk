@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
+import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 
 type Row = {
   id: string;
@@ -21,8 +22,11 @@ type Row = {
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyTicketId, setBusyTicketId] = useState<string | null>(null);
+  // PR-0.5: modal replacing window.prompt + window.alert
+  const [pendingModal, setPendingModal] = useState<{ ticket: Row; action: 'investigating' | 'resolve' | 'close' | 'reopen' } | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
-  const runAction = async (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen') => {
+  const runAction = async (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen', reason: string) => {
     setBusyTicketId(ticket.id);
     const auth = await getAuthHeader();
     if (!auth) {
@@ -30,7 +34,6 @@ export default function Page() {
       return;
     }
 
-    const note = window.prompt('Optional note for this support action:', '') ?? '';
     const response = await fetch('/api/super-admin/support', {
       method: 'PATCH',
       headers: {
@@ -41,17 +44,21 @@ export default function Page() {
         section: 'tickets',
         ticketId: ticket.id,
         action,
-        note: note.trim() || undefined,
+        note: reason,
       }),
     });
 
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      window.alert(payload.error ?? `Action failed (${response.status})`);
+      setInlineError(payload.error ?? `Action failed (${response.status})`);
     } else {
       setReloadToken(Date.now());
     }
     setBusyTicketId(null);
+  };
+
+  const initiateAction = (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen') => {
+    setPendingModal({ ticket, action });
   };
 
   const columns = useMemo(
@@ -104,16 +111,16 @@ export default function Page() {
         label: 'Actions',
         render: (row: Row) => (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '120px' }}>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => void runAction(row, 'investigating')} style={{ fontSize: '0.68rem' }}>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'investigating')} style={{ fontSize: '0.68rem' }}>
               Investigate
             </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => void runAction(row, 'resolve')} style={{ fontSize: '0.68rem' }}>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'resolve')} style={{ fontSize: '0.68rem' }}>
               Resolve
             </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => void runAction(row, 'close')} style={{ fontSize: '0.68rem' }}>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'close')} style={{ fontSize: '0.68rem' }}>
               Close
             </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => void runAction(row, 'reopen')} style={{ fontSize: '0.68rem' }}>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'reopen')} style={{ fontSize: '0.68rem' }}>
               Reopen
             </button>
           </div>
@@ -124,16 +131,72 @@ export default function Page() {
   );
 
   return (
-    <SuperAdminLiveTablePage<Row>
-      icon="🎫"
-      title="Support Tickets"
-      sectionLabel="Support"
-      description="Ticket queue and SLA visibility across all companies."
-      endpoint={`/api/super-admin/support?section=tickets&limit=250&reload=${reloadToken}`}
-      summaryField="summary"
-      noteField="note"
-      emptyMessage="No support tickets found."
-      columns={columns}
-    />
+    <>
+      {/* PR-0.5: action modal replacing window.prompt + window.alert */}
+      {pendingModal && (
+        <ActionConfirmModal
+          open
+          title={
+            pendingModal.action === 'investigating'
+              ? '🔍 Mark as investigating'
+              : pendingModal.action === 'resolve'
+                ? '✅ Resolve ticket'
+                : pendingModal.action === 'close'
+                  ? '🔒 Close ticket'
+                  : '🔄 Reopen ticket'
+          }
+          description={
+            <>Update ticket <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.subject ?? pendingModal.ticket.id.slice(0, 8) + '…'}</strong> for <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.company_name}</strong>.</>
+          }
+          confirmLabel={
+            pendingModal.action === 'investigating'
+              ? 'Confirm investigation'
+              : pendingModal.action === 'resolve'
+                ? 'Confirm resolution'
+                : pendingModal.action === 'close'
+                  ? 'Confirm close'
+                  : 'Confirm reopen'
+          }
+          danger={pendingModal.action === 'close'}
+          reasonRequired
+          reasonLabel="Reason"
+          reasonPlaceholder="Explain why this action is required (minimum 5 characters)…"
+          submitting={busyTicketId !== null}
+          onCancel={() => setPendingModal(null)}
+          onConfirm={(reason) => {
+            const { ticket, action } = pendingModal;
+            setPendingModal(null);
+            void runAction(ticket, action, reason);
+          }}
+        />
+      )}
+      {/* PR-0.5: inline error banner replacing window.alert */}
+      {inlineError && (
+        <div
+          style={{
+            position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
+            backgroundColor: '#7f1d1d', border: '1px solid #ef4444',
+            borderRadius: '8px', padding: '0.75rem 1rem',
+            color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
+            cursor: 'pointer',
+          }}
+          onClick={() => setInlineError(null)}
+          role="alert"
+        >
+          ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
+        </div>
+      )}
+      <SuperAdminLiveTablePage<Row>
+        icon="🎫"
+        title="Support Tickets"
+        sectionLabel="Support"
+        description="Ticket queue and SLA visibility across all companies."
+        endpoint={`/api/super-admin/support?section=tickets&limit=250&reload=${reloadToken}`}
+        summaryField="summary"
+        noteField="note"
+        emptyMessage="No support tickets found."
+        columns={columns}
+      />
+    </>
   );
 }

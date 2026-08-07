@@ -9,6 +9,10 @@ export function isActionCentreRoleAllowed(
     return !['broker', 'customer', 'driver', 'owner_driver', 'viewer'].includes(resolvedRole);
   }
 
+  if (requestedRole === 'platform_owner') {
+    return resolvedRole === 'platform_owner';
+  }
+
   const requestedPath =
     requestedRole === 'broker'
       ? '/broker/action-centre'

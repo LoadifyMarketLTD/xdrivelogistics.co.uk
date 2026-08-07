@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
 
 const scopes: Record<string, string[]> = {
@@ -10,6 +11,11 @@ const scopes: Record<string, string[]> = {
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+
+  // PR-0.2: Gate driver mobile job access behind the driver_mobile_app feature flag.
+  const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
+  if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
+
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 

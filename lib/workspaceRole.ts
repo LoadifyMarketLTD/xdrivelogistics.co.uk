@@ -95,6 +95,15 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
   if (appRole === 'broker' || rawRole.includes('broker')) return 'broker';
   if (appRole === 'customer' || rawRole === 'customer' || rawRole === 'shipper' || rawRole === 'customer_shipper') return 'customer';
 
+  if (
+    membershipRole === 'owner' && (
+      user.ownerDriverWorkspace === true ||
+      ['owner_driver', 'owner_operator', 'self_employed', 'self_employed_driver', 'sole_trader'].includes(rawRole)
+    )
+  ) {
+    return 'owner_driver';
+  }
+
   if (membershipRole === 'owner') return 'company_owner';
   if (membershipRole === 'admin' || appRole === 'company_admin') return rawRole === 'carrier' ? 'carrier_admin' : 'company_admin';
 
@@ -191,6 +200,9 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
 };
 
 export const hasWorkspaceCapability = (role: WorkspaceRole, capability: WorkspaceCapability) => CAPABILITIES[role].has(capability);
+
+export const getWorkspaceCapabilities = (role: WorkspaceRole): readonly WorkspaceCapability[] =>
+  [...CAPABILITIES[role]].sort();
 
 const carrierNav: WorkspaceNavGroup[] = [
   { id: 'home', label: 'Workspace', items: [{ id: 'dashboard', label: 'Carrier Dashboard', href: '/admin', icon: '⌂' }] },
@@ -376,7 +388,10 @@ export const getVisibleWorkspaceNav = (role: WorkspaceRole): WorkspaceNavGroup[]
 
 export const resolveWorkspaceSurfaceRole = (pathname: string, role: WorkspaceRole): WorkspaceRole => {
   const cleanPath = normalizePathname(pathname);
-  if (cleanPath === '/driver' || cleanPath.startsWith('/driver/')) return 'driver';
+  if (cleanPath === '/driver' || cleanPath.startsWith('/driver/')) {
+    if (role === 'owner_driver') return 'owner_driver';
+    return 'driver';
+  }
   return role;
 };
 

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { autoGenerateMarketplaceInvoice } from '../../../../../_lib/autoGenerateMarketplaceInvoice';
+import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import {
   appendStatusHistory,
   hasPod,
@@ -76,11 +77,18 @@ const actions: Record<string, ActionConfig> = {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
+  if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
+
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const { id, action } = await params;
-  if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId);
+  if (action === 'pod') {
+    const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
+    if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
+    return savePod(request, id, driver.userId, driver.driverId);
+  }
 
   const config = actions[action];
   if (!config) return respond(404, { error: 'Unsupported driver action.' });

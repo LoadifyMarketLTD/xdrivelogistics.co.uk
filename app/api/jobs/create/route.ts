@@ -7,6 +7,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -99,6 +100,36 @@ export async function POST(request: NextRequest) {
   if (membershipError) return respond(500, { error: membershipError.message });
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
+  // Feature flag gates: exchange_marketplace gates publish=true jobs.
+  // Also read the exchange_auto_expire_hours global setting for published jobs.
+  let exchangeAutoExpireHours = 72; // in-code default
+  if (input.publish) {
+    const flags = await getFeatureFlags(supabaseAdmin, ['exchange_marketplace']);
+    if (!flags.get('exchange_marketplace')) {
+      return respond(503, { error: 'The exchange marketplace is currently disabled. You can save this job as a draft.' });
+    }
+    // Read the configurable expiry window from global settings
+    const { getGlobalSettingNumber } = await import('../../_lib/platformFlags');
+    exchangeAutoExpireHours = await getGlobalSettingNumber(supabaseAdmin, 'exchange_auto_expire_hours');
+  }
+
+  // PR-0.3: compliance_block_posting — if enabled, verify the company is in good standing before allowing job creation.
+  const complianceBlockPosting = await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting');
+  if (complianceBlockPosting) {
+    const { data: company, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('status')
+      .eq('id', input.companyId)
+      .maybeSingle();
+    if (companyError || !company?.status) {
+      return respond(503, { error: 'Company compliance status could not be verified. Please try again.' });
+    }
+    const companyStatus = String(company.status).toLowerCase();
+    if (!['active', 'fully_active', 'active_with_warnings'].includes(companyStatus)) {
+      return respond(403, { error: 'Your company account is not in good standing. Job posting is blocked until compliance issues are resolved.' });
+    }
+  }
+
   let idempotencyAvailable = true;
   const existingResult = await supabaseAdmin
     .from('jobs')
@@ -181,6 +212,9 @@ export async function POST(request: NextRequest) {
     load_details: loadDetails,
     exchange_visibility: input.publish ? 'exchange' : 'private',
     exchange_posted_at: input.publish ? now : null,
+    exchange_expires_at: input.publish
+      ? new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString()
+      : null,
     updated_at: now,
   };
   if (idempotencyAvailable) row.creation_idempotency_key = input.idempotencyKey;

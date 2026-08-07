@@ -14,7 +14,7 @@ const respond = (status: number, payload: Record<string, unknown>) =>
 const reviewSchema = z.object({
   caseId: z.string().uuid(),
   action: z.enum(['investigate', 'clear', 'confirm', 'dismiss']),
-  reason: z.string().trim().min(3).max(5000),
+  reason: z.string().trim().min(5).max(5000),
 });
 
 const verifyPlatformOwner = async (request: NextRequest) => {
@@ -160,11 +160,13 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = reviewSchema.safeParse(body);
   if (!parsed.success) {
-    return respond(400, { error: 'A valid case, action and written reason are required.' });
+    return respond(400, {
+      error: 'A valid case, action and written reason of at least 5 characters are required.',
+    });
   }
 
   const { data: decisionResult, error: decisionError } = await supabaseAdmin.rpc(
-    'owner_decide_fraud_review_case',
+    'owner_decide_fraud_review_case_audited',
     {
       p_actor_user_id: owner.id,
       p_case_id: parsed.data.caseId,
@@ -174,21 +176,43 @@ export async function PATCH(request: NextRequest) {
   );
 
   if (decisionError) {
-    if (decisionError.code === 'P0002') return respond(404, { error: 'Fraud review case not found.' });
-    if (decisionError.code === '23505') return respond(409, { error: decisionError.message });
-    if (decisionError.code === '23514') return respond(422, { error: decisionError.message });
+    if (decisionError.code === 'PGRST202' || decisionError.code === '42883') {
+      return respond(503, {
+        error: 'Fraud governance audit migration is not ready. No action was applied.',
+      });
+    }
+    if (decisionError.code === 'P0002') {
+      return respond(404, { error: 'Fraud review case not found.' });
+    }
+    if (decisionError.code === '42501') {
+      return respond(403, { error: decisionError.message });
+    }
+    if (decisionError.code === '23505') {
+      return respond(409, { error: decisionError.message });
+    }
+    if (decisionError.code === '23514' || decisionError.code === '23502') {
+      return respond(422, { error: decisionError.message });
+    }
     return respond(500, { error: decisionError.message });
   }
 
   const row = Array.isArray(decisionResult)
     ? ((decisionResult[0] as Record<string, unknown> | undefined) ?? null)
     : ((decisionResult as Record<string, unknown> | null) ?? null);
-  const nextStatus = typeof row?.new_status === 'string' ? row.new_status : null;
-  const caseId = typeof row?.case_id === 'string' ? row.case_id : parsed.data.caseId;
+
+  if (
+    !row
+    || typeof row.case_id !== 'string'
+    || typeof row.new_status !== 'string'
+  ) {
+    return respond(500, {
+      error: 'Fraud governance action returned no audited result.',
+    });
+  }
 
   return respond(200, {
     success: true,
-    caseId,
-    status: nextStatus,
+    caseId: row.case_id,
+    status: row.new_status,
   });
 }

@@ -20,7 +20,9 @@ export const filterJobsForDriver = (
   jobs: DriverJobLike[],
   opts: { driverId?: string | null; ownerDriver: boolean }
 ) =>
-  jobs.filter((job) => opts.ownerDriver || !opts.driverId || job.assigned_driver_id === opts.driverId);
+  opts.driverId
+    ? jobs.filter((job) => job.assigned_driver_id === opts.driverId)
+    : [];
 
 export const recentCompletedJobs = (jobs: DriverJobLike[], limit = 5) =>
   [...jobs]

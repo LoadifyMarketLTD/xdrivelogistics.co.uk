@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
+import { isCustomerVisibleWorkspaceInvoice, useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -22,15 +22,6 @@ const money = (value: number | null | undefined) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value ?? 0));
 const date = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString('en-GB') : 'Not set';
-
-const isCustomerVisibleInvoice = (invoice: WorkspaceInvoice) => {
-  const status = String(invoice.status ?? '').toLowerCase();
-  return (
-    !['pending', 'draft', 'cancelled'].includes(status) &&
-    Number(invoice.amount ?? 0) > 0 &&
-    Boolean(invoice.client_name?.trim())
-  );
-};
 
 const config: Record<Mode, { eyebrow: string; title: string; description: string; detailBase: string }> = {
   customer: {
@@ -62,24 +53,22 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   const invoices = useMemo(() => {
     const scoped = workspace.invoices.filter((invoice) => {
       if (mode === 'customer') {
-        const belongsToCustomer = invoice.buyer_company_id === workspace.companyId || workspace.jobs.some((job) => job.id === invoice.job_id);
-        return belongsToCustomer && isCustomerVisibleInvoice(invoice);
+        return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
       }
       if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
       return invoice.buyer_company_id === workspace.companyId;
     });
     if (status === 'all') return scoped;
     return scoped.filter((invoice) => String(invoice.payment_status ?? invoice.status).toLowerCase() === status);
-  }, [mode, status, workspace.companyId, workspace.invoices, workspace.jobs]);
+  }, [mode, status, workspace.companyId, workspace.invoices]);
 
   const allScoped = useMemo(() => workspace.invoices.filter((invoice) => {
     if (mode === 'customer') {
-      const belongsToCustomer = invoice.buyer_company_id === workspace.companyId || workspace.jobs.some((job) => job.id === invoice.job_id);
-      return belongsToCustomer && isCustomerVisibleInvoice(invoice);
+      return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
     }
     if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
     return invoice.buyer_company_id === workspace.companyId;
-  }), [mode, workspace.companyId, workspace.invoices, workspace.jobs]);
+  }), [mode, workspace.companyId, workspace.invoices]);
 
   const total = allScoped.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
   const unpaid = allScoped.filter((invoice) => !['paid', 'cancelled'].includes(String(invoice.payment_status ?? invoice.status).toLowerCase()));

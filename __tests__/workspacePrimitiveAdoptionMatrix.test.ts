@@ -85,4 +85,29 @@ describe('workspace primitive adoption matrix', () => {
     expect(matrix.operations.savedViewSelector).toBe(true);
     expect(matrix.operations.dateRangeSelector).toBe(true);
   });
+
+  it('keeps carrier workspace summary panels on the shared card family', () => {
+    const source = read('app/components/workspace/RoleDashboards.tsx');
+
+    expect(source).toContain('ActionCard');
+    expect(source).toContain('<KpiGrid>');
+    expect(source).not.toContain('OperationalLinkList');
+    expect(source).toContain('description="Available transport work"');
+    expect(source).toContain('description="Carrier pricing workflow"');
+    expect(source).toContain('description="Assign driver and vehicle"');
+    expect(source).toContain('description="Live collections and deliveries"');
+    expect(source).toContain('description="Billing and payment status"');
+  });
+
+  it('keeps customer and broker KPI availability on the shared metric presentation helper', () => {
+    const customerSource = read('app/customer/CustomerWorkspaceModules.tsx');
+    const brokerSource = read('app/broker/BrokerWorkspaceModules.tsx');
+
+    expect(customerSource).toContain('getWorkspaceMetricPresentation');
+    expect(brokerSource).toContain('getWorkspaceMetricPresentation');
+    expect(customerSource).not.toContain('const datasetUnavailable =');
+    expect(customerSource).not.toContain('const metricValue =');
+    expect(brokerSource).not.toContain('const datasetUnavailable =');
+    expect(brokerSource).not.toContain('const metricValue =');
+  });
 });

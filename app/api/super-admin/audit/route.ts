@@ -28,13 +28,25 @@ export async function GET(request: NextRequest) {
   if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
 
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+  // Pagination: page (1-based), limit (max 500)
+  const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limitParam = Math.min(500, Math.max(1, Number(searchParams.get('limit') ?? '100') || 100));
+  const offset = (pageParam - 1) * limitParam;
 
-  const { data, error } = await supabaseAdmin
+  // Filter by action_type
+  const actionTypeFilter = searchParams.get('action_type')?.trim() ?? '';
+
+  let query = supabaseAdmin
     .from('owner_audit_log')
-    .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at')
+    .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limitParam - 1);
+
+  if (actionTypeFilter) {
+    query = query.eq('action_type', actionTypeFilter);
+  }
+
+  const { data, error, count } = await query;
 
   if (error) return respond(500, { error: error.message });
 
@@ -49,17 +61,52 @@ export async function GET(request: NextRequest) {
     ((companies ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]),
   );
 
+  const totalCount = count ?? rows.length;
+  const totalPages = Math.ceil(totalCount / limitParam);
+
+  // Compute per-action counts across the SAME scope as the page query (i.e. apply
+  // actionTypeFilter when set so that summary and pagination are coherent).
+  const ACTION_TYPES = ['company_approved', 'company_suspended', 'company_reinstated', 'company_rejected'] as const;
+
+  const summaryCounts = await Promise.all(
+    ACTION_TYPES.map((at) => {
+      let q = supabaseAdmin!
+        .from('owner_audit_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('action_type', at);
+      // When a filter is active, the per-action total is either the filtered count
+      // (if it matches) or 0, keeping summary scope consistent with pagination.
+      if (actionTypeFilter && actionTypeFilter !== at) {
+        return Promise.resolve({ action: at, count: 0 });
+      }
+      if (actionTypeFilter) {
+        q = q.eq('action_type', actionTypeFilter);
+      }
+      return q.then(({ count: c }) => ({ action: at, count: c ?? 0 }));
+    }),
+  );
+
+  const summaryByAction = Object.fromEntries(summaryCounts.map(({ action, count: c }) => [action, c]));
+
   return respond(200, {
     rows: rows.map((r) => ({
       ...r,
       company_name: nameById.get(r.target_company_id as string) ?? 'Unknown',
     })),
+    pagination: {
+      page: pageParam,
+      limit: limitParam,
+      total: totalCount,
+      totalPages,
+      hasNextPage: pageParam < totalPages,
+      hasPrevPage: pageParam > 1,
+    },
     summary: {
-      total: rows.length,
-      approvals: rows.filter((r) => r.action_type === 'approve_company').length,
-      suspensions: rows.filter((r) => r.action_type === 'suspend_company').length,
-      reinstatements: rows.filter((r) => r.action_type === 'reinstate_company').length,
-      rejections: rows.filter((r) => r.action_type === 'reject_company').length,
+      total: totalCount,
+      approvals: summaryByAction['company_approved'] ?? 0,
+      suspensions: summaryByAction['company_suspended'] ?? 0,
+      reinstatements: summaryByAction['company_reinstated'] ?? 0,
+      rejections: summaryByAction['company_rejected'] ?? 0,
     },
   });
 }

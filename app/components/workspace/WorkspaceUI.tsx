@@ -110,6 +110,47 @@ export const TREND_ARROWS: Record<KpiTrend['direction'], string> = {
   neutral: '→',
 };
 
+export type WorkspaceCardTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
+
+const WORKSPACE_CARD_TONES: Record<WorkspaceCardTone, string> = {
+  blue: workspaceTheme.blue,
+  green: workspaceTheme.green,
+  orange: workspaceTheme.orange,
+  red: workspaceTheme.red,
+  purple: workspaceTheme.purple,
+  navy: workspaceTheme.navy,
+};
+
+function getWorkspaceCardStyle({
+  tone,
+  interactive,
+  minHeight = '72px',
+  maxHeight = '80px',
+}: {
+  tone: WorkspaceCardTone;
+  interactive: boolean;
+  minHeight?: string;
+  maxHeight?: string;
+}): CSSProperties {
+  return {
+    textAlign: 'left',
+    background: workspaceTheme.surface,
+    border: `1px solid ${workspaceTheme.border}`,
+    borderLeft: `3px solid ${WORKSPACE_CARD_TONES[tone]}`,
+    borderRadius: '4px',
+    padding: '8px 10px',
+    minHeight,
+    maxHeight,
+    boxShadow: compactShadow,
+    cursor: interactive ? 'pointer' : 'default',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    width: '100%',
+  };
+}
+
 export function KpiCard({
   label,
   value,
@@ -123,7 +164,7 @@ export function KpiCard({
   label: string;
   value: ReactNode;
   detail?: ReactNode;
-  tone?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'navy';
+  tone?: WorkspaceCardTone;
   onClick?: () => void;
   icon?: ReactNode;
   /** Optional trend / delta indicator shown below the value. */
@@ -131,7 +172,7 @@ export function KpiCard({
   /** Accessible label for the card. Defaults to the label text when omitted. */
   ariaLabel?: string;
 }) {
-  const color = { blue: workspaceTheme.blue, green: workspaceTheme.green, orange: workspaceTheme.orange, red: workspaceTheme.red, purple: workspaceTheme.purple, navy: workspaceTheme.navy }[tone];
+  const color = WORKSPACE_CARD_TONES[tone];
   /*
    * Section 8 numeric contract:
    * tile height: 72px target, max 80px
@@ -141,22 +182,7 @@ export function KpiCard({
    * accent bar: 3px left border
    * No min-height 100px+.
    */
-  const cardStyle: CSSProperties = {
-    textAlign: 'left',
-    background: workspaceTheme.surface,
-    border: `1px solid ${workspaceTheme.border}`,
-    borderLeft: `3px solid ${color}`,
-    borderRadius: '4px',
-    padding: '8px 10px',
-    minHeight: '72px',
-    maxHeight: '80px',
-    boxShadow: compactShadow,
-    cursor: onClick ? 'pointer' : 'default',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-  };
+  const cardStyle = getWorkspaceCardStyle({ tone, interactive: Boolean(onClick) });
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
@@ -175,6 +201,49 @@ export function KpiCard({
             </>
           )}
           {!trend && detail}
+        </div>
+      )}
+    </>
+  );
+  if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
+  return <button aria-label={computedAriaLabel} onClick={onClick} type="button" style={cardStyle}>{content}</button>;
+}
+
+export function ActionCard({
+  label,
+  description,
+  actionLabel = 'Open',
+  tone = 'navy',
+  onClick,
+  icon,
+  ariaLabel,
+}: {
+  label: string;
+  description?: ReactNode;
+  actionLabel?: ReactNode;
+  tone?: WorkspaceCardTone;
+  onClick?: () => void;
+  icon?: ReactNode;
+  ariaLabel?: string;
+}) {
+  const color = WORKSPACE_CARD_TONES[tone];
+  const cardStyle = getWorkspaceCardStyle({ tone, interactive: Boolean(onClick) });
+  const computedAriaLabel = ariaLabel ?? label;
+  const content = (
+    <>
+      <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+        <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
+      </div>
+      <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{actionLabel}</div>
+      {description ? (
+        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+          <span style={{ minWidth: 0 }}>{description}</span>
+          <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
+        </div>
+      ) : (
+        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', justifyContent: 'flex-end' }}>
+          <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
         </div>
       )}
     </>
@@ -490,13 +559,16 @@ export function OperationalFilters({
 export function FinancialSummaryPanel({
   items,
 }: {
-  items: Array<{ label: string; value: ReactNode; color: string; background: string }>;
+  items: Array<{ label: string; detail?: string; value: ReactNode; color: string; background: string }>;
 }) {
   return (
     <div className={styles.financialSummaryPanel}>
       {items.map((item) => (
         <div key={item.label} className={styles.financialSummaryRow} style={{ ['--xdrive-finance-row-bg' as const]: item.background, ['--xdrive-finance-row-color' as const]: item.color } as CSSProperties}>
-          <span className={styles.financialSummaryLabel}>{item.label}</span>
+          <span className={styles.financialSummaryLabel}>
+            {item.label}
+            {item.detail && <span className={styles.financialSummaryDetail}>{item.detail}</span>}
+          </span>
           <strong className={styles.financialSummaryValue}>{item.value}</strong>
         </div>
       ))}
@@ -526,35 +598,37 @@ export function OperationalMetricList({
 export function OperationalLinkList({
   items,
   showTrailingArrow = true,
+  compact = false,
 }: {
   items: Array<{ key: string; label: ReactNode; meta?: ReactNode; value?: ReactNode; onClick?: () => void }>;
   showTrailingArrow?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className={styles.operationalLinkList}>
+    <div className={compact ? styles.operationalLinkListCompact : styles.operationalLinkList}>
       {items.map((item) => {
         const content = (
           <>
             <span className={styles.operationalLinkCopy}>
-              <span className={styles.operationalLinkLabel}>{item.label}</span>
+              <span className={compact ? styles.operationalLinkLabelCompact : styles.operationalLinkLabel}>{item.label}</span>
               {item.meta ? <span className={styles.operationalLinkMeta}>{item.meta}</span> : null}
             </span>
             {item.value != null
               ? <span className={styles.operationalLinkValue}>{item.value}</span>
-              : showTrailingArrow ? <span aria-hidden="true">→</span> : null}
+              : showTrailingArrow ? <span aria-hidden="true" className={styles.operationalLinkArrow}>→</span> : null}
           </>
         );
 
         if (!item.onClick) {
           return (
-            <div key={item.key} className={styles.operationalLinkRow}>
+            <div key={item.key} className={compact ? styles.operationalLinkRowCompact : styles.operationalLinkRow}>
               {content}
             </div>
           );
         }
 
         return (
-          <button key={item.key} type="button" onClick={item.onClick} className={styles.operationalLinkButton}>
+          <button key={item.key} type="button" onClick={item.onClick} className={compact ? styles.operationalLinkButtonCompact : styles.operationalLinkButton}>
             {content}
           </button>
         );
@@ -786,8 +860,20 @@ export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { la
   return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
-export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
+export function EmptyState({ title, description, action, icon, compact = false }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode; compact?: boolean }) {
   const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
+  if (compact) {
+    return (
+      <div style={{ padding: '10px', color: workspaceTheme.muted, fontSize: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span aria-hidden="true">—</span>
+          <span style={{ fontWeight: 600, color: workspaceTheme.text }}>{title}</span>
+          {action && <span style={{ marginLeft: '4px' }}>{action}</span>}
+        </div>
+        {description && <p style={{ margin: '4px 0 0 16px', fontSize: '11px', color: workspaceTheme.muted, lineHeight: 1.4 }}>{description}</p>}
+      </div>
+    );
+  }
   return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.95rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.78rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
 
