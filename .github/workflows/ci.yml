@@ -109,21 +109,46 @@ jobs:
       - name: Run stable public smoke tests (mobile-safari)
         run: npx playwright test e2e/ci-public-smoke.spec.ts --project=mobile-safari
 
+  detect-expo-driver-changes:
+    name: Detect Expo Driver Changes
+    runs-on: ubuntu-latest
+    outputs:
+      driver_changed: ${{ steps.scope.outputs.driver_changed }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect driver-mobile path changes
+        id: scope
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "driver_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" | grep -Eq '^apps/driver-mobile/'; then
+            echo "driver_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "driver_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   expo-driver-typecheck:
     name: Expo Driver Typecheck
     runs-on: ubuntu-latest
-    # Mobile validation must not block website-only branches. Run it for
-    # explicitly mobile/cross-scope PRs and on main as the protected baseline.
+    needs: detect-expo-driver-changes
+    # Mobile validation must not block website-only branches, but it must run
+    # whenever driver-mobile files actually change even if scope labels are absent.
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (
-        github.event_name == 'pull_request' &&
-        (
-          contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
-          contains(toJson(github.event.pull_request.labels.*.name), 'scope:android') ||
-          contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
-        )
-      )
+      needs.detect-expo-driver-changes.outputs.driver_changed == 'true' ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:expo') ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:android') ||
+      contains(toJson(github.event.pull_request.labels.*.name), 'scope:cross')
     permissions:
       contents: read
 
