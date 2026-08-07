@@ -116,13 +116,16 @@ export async function POST(request: NextRequest) {
   // PR-0.3: compliance_block_posting — if enabled, verify the company is in good standing before allowing job creation.
   const complianceBlockPosting = await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting');
   if (complianceBlockPosting) {
-    const { data: company } = await supabaseAdmin
+    const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .select('status')
       .eq('id', input.companyId)
       .maybeSingle();
-    const companyStatus = String(company?.status ?? '').toLowerCase();
-    if (companyStatus && !['active', 'fully_active', 'active_with_warnings'].includes(companyStatus)) {
+    if (companyError || !company?.status) {
+      return respond(503, { error: 'Company compliance status could not be verified. Please try again.' });
+    }
+    const companyStatus = String(company.status).toLowerCase();
+    if (!['active', 'fully_active', 'active_with_warnings'].includes(companyStatus)) {
       return respond(403, { error: 'Your company account is not in good standing. Job posting is blocked until compliance issues are resolved.' });
     }
   }
