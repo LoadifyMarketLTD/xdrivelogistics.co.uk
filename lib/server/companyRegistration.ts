@@ -128,12 +128,17 @@ export async function registerCompaniesHouseCompany(options: {
     );
   }
 
+  // The SQL RPC predates the canonical account-type migration. Keep its legacy
+  // parameter values isolated here until the database function is replaced;
+  // no legacy value is written to auth metadata or onboarding_applications.
+  const rpcAccountType = accountType === 'transport_broker' ? 'broker_shipper' : 'fleet_courier';
+
   const { data, error } = await supabase.rpc('register_validated_company_atomic', {
     p_actor_user_id: actorUserId,
     p_company_number: registryCompanyNumber,
     p_company_name: registeredName,
     p_registry_status: registryStatus,
-    p_account_type: accountType,
+    p_account_type: rpcAccountType,
   });
 
   if (error) {
