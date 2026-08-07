@@ -2,7 +2,7 @@ import { buildSessionHandlers } from '../../_lib/handlers';
 import { brokerPatchSchema } from '../../_lib/schemas';
 
 const handlers = buildSessionHandlers({
-  expectedAccountType: 'broker_shipper',
+  expectedAccountType: 'transport_broker',
   patchSchema: brokerPatchSchema,
 });
 
