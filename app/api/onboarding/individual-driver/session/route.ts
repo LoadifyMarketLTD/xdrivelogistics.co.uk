@@ -4,9 +4,7 @@ import { isLegacyIndividualDriverOnboardingApplication } from '../../../_lib/onb
 import { isCompanyDriverOnboardingApplication } from '../../../../../lib/onboardingContract';
 
 const handlers = buildSessionHandlers({
-  // `individual_driver` remains the persisted database value. The canonical
-  // product identity is Company Driver and must be linked to one fleet company.
-  expectedAccountType: 'individual_driver',
+  expectedAccountType: 'company_driver',
   patchSchema: companyDriverPatchSchema,
   validateApplication: (application) => {
     if (isCompanyDriverOnboardingApplication(application)) return null;
@@ -18,7 +16,7 @@ const handlers = buildSessionHandlers({
     return {
       status: 403,
       body: {
-        error: 'Company Driver onboarding is invitation-only and must be linked to one fleet company.',
+        error: 'Company Driver onboarding is invitation-only and must be linked to one Fleet Operator.',
       },
     };
   },
