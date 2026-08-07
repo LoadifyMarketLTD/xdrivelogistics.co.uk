@@ -14,6 +14,10 @@ import { toLegacyInvoiceStatusForDb } from '../../../../lib/invoiceStatus';
 
 type JobPrefill = {
   id: string;
+  company_id: string | null;
+  assigned_company_id: string | null;
+  awarded_carrier_company_id: string | null;
+  customer_reference: string | null;
   client_name: string | null;
   client_email: string | null;
   pickup_location: string | null;
@@ -24,6 +28,21 @@ type JobPrefill = {
   special_requirements: string | null;
   budget_amount: number | null;
   currency: string | null;
+};
+
+type CommercialAgreementPrefill = {
+  buyer_company_id: string;
+  supplier_company_id: string;
+  agreed_amount: number | null;
+  agreed_gross_amount: number | null;
+  vat_rate: number | null;
+  currency: string | null;
+  payment_terms: string | null;
+};
+
+type BuyerCompanyPrefill = {
+  name: string | null;
+  email: string | null;
 };
 
 const firstNonEmpty = (...values: Array<string | null | undefined>) =>
@@ -39,6 +58,20 @@ const parsePositiveNumber = (value: string | null) => {
 const parseVatRate = (value: string | null): 0 | 5 | 20 | null => {
   const parsed = value ? Number(value) : NaN;
   if (parsed === 0 || parsed === 5 || parsed === 20) return parsed;
+  return null;
+};
+
+const normalizeVatRate = (value: number | null | undefined): 0 | 5 | 20 | null => {
+  if (value === 0 || value === 5 || value === 20) return value;
+  return null;
+};
+
+const normalizePaymentTerms = (value: string | null | undefined): Invoice['payment_terms'] | null => {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'pay now' || normalized === 'immediate' || normalized === 'due on receipt') return 'Pay now';
+  if (normalized.includes('30')) return '30 days';
+  if (normalized.includes('14')) return '14 days';
   return null;
 };
 
@@ -123,23 +156,25 @@ export default function NewInvoicePage() {
     const loadJobPrefill = async () => {
       setLoadingJob(true);
       setJobLoadError('');
+
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, client_name, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, special_requirements, budget_amount, currency')
+        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, customer_reference, client_name, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, special_requirements, budget_amount, currency')
         .eq('id', jobId)
-        .eq('company_id', companyId)
-        .single();
+        .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
+        .maybeSingle();
 
       if (cancelled) return;
-      setLoadingJob(false);
 
       if (error || !data) {
+        setLoadingJob(false);
         setJobLoadError(error?.message ?? 'Unable to load job details for prefill.');
         return;
       }
 
       const job = data as JobPrefill;
-      if (!jobRef) setJobRef(`JOB-${job.id.slice(0, 8).toUpperCase()}`);
+      const fallbackJobRef = `JOB-${job.id.slice(0, 8).toUpperCase()}`;
+      if (!jobRef) setJobRef(firstNonEmpty(job.customer_reference, fallbackJobRef));
       if (!clientName && job.client_name) setClientName(job.client_name);
       if (!clientEmail && job.client_email) setClientEmail(job.client_email);
       if (!pickupLocation && job.pickup_location) setPickupLocation(job.pickup_location);
@@ -150,9 +185,60 @@ export default function NewInvoicePage() {
         const description = [job.load_details, job.special_requirements].filter(Boolean).join(' • ');
         if (description) setServiceDescription(description);
       }
-      if (!amount && typeof job.budget_amount === 'number' && job.budget_amount > 0) setAmount(job.budget_amount);
       if (job.currency) setCurrency(job.currency);
       setJobId(job.id);
+
+      const { data: agreementData, error: agreementError } = await supabase
+        .from('job_commercial_agreements')
+        .select('buyer_company_id, supplier_company_id, agreed_amount, agreed_gross_amount, vat_rate, currency, payment_terms')
+        .eq('job_id', job.id)
+        .eq('supplier_company_id', companyId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (agreementError) {
+        setLoadingJob(false);
+        setJobLoadError(`Job loaded, but the accepted commercial agreement could not be read: ${agreementError.message}`);
+        return;
+      }
+
+      if (agreementData) {
+        const agreement = agreementData as CommercialAgreementPrefill;
+        const agreementVatRate = normalizeVatRate(agreement.vat_rate);
+        const agreedNet = typeof agreement.agreed_amount === 'number' && agreement.agreed_amount > 0
+          ? agreement.agreed_amount
+          : null;
+        const agreedGross = typeof agreement.agreed_gross_amount === 'number' && agreement.agreed_gross_amount > 0
+          ? agreement.agreed_gross_amount
+          : agreedNet && agreementVatRate !== null
+            ? Number((agreedNet * (1 + agreementVatRate / 100)).toFixed(2))
+            : null;
+
+        if (agreedGross) setAmount(agreedGross);
+        if (agreementVatRate !== null) setVatRate(agreementVatRate);
+        if (agreement.currency) setCurrency(agreement.currency);
+        const canonicalTerms = normalizePaymentTerms(agreement.payment_terms);
+        if (canonicalTerms) setPaymentTerms(canonicalTerms);
+
+        if (agreement.buyer_company_id) {
+          const { data: buyerData, error: buyerError } = await supabase
+            .from('companies')
+            .select('name, email')
+            .eq('id', agreement.buyer_company_id)
+            .maybeSingle();
+
+          if (!cancelled && !buyerError && buyerData) {
+            const buyer = buyerData as BuyerCompanyPrefill;
+            if (buyer.name) setClientName(buyer.name);
+            if (buyer.email) setClientEmail(buyer.email);
+          }
+        }
+      } else if (!amount && typeof job.budget_amount === 'number' && job.budget_amount > 0) {
+        setAmount(job.budget_amount);
+      }
+
+      setLoadingJob(false);
     };
 
     void loadJobPrefill();
@@ -284,7 +370,7 @@ export default function NewInvoicePage() {
           <div style={{ marginBottom: '1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.45rem' }}>Creation Context</div>
             <div style={{ color: '#334155', fontSize: '0.9rem', lineHeight: 1.5 }}>
-              {loadingJob ? 'Loading job prefill...' : 'Query params and optional job context have been applied to this draft.'}
+              {loadingJob ? 'Loading job and accepted commercial agreement...' : 'Query params and optional job context have been applied to this draft.'}
             </div>
             <div style={{ marginTop: '0.65rem', color: missingRequiredData.length ? '#b45309' : '#166534', fontSize: '0.9rem' }}>
               {missingRequiredData.length
