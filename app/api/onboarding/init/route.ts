@@ -85,20 +85,20 @@ export async function POST(request: NextRequest) {
   );
 
   if (
-    existingAccountType === 'individual_driver' &&
+    existingAccountType === 'company_driver' &&
     existing &&
     !isCompanyDriverInvite &&
     !isLegacyIndividualDriverOnboardingApplication(existing.account_type, existing.created_at)
   ) {
     return json(409, {
-      error: 'Company Driver onboarding is invitation-only. A fleet company must invite and link the driver before onboarding can start.',
+      error: 'Company Driver onboarding is invitation-only. A Fleet Operator must invite and link the driver before onboarding can start.',
       code: 'company_driver_invitation_required',
     });
   }
 
   // A valid saved onboarding selection is authoritative. Auth metadata is used
-  // only to initialise a new application. Unknown values are never converted
-  // to Customer/Shipper.
+  // only to initialise a new public application. Unknown values are never
+  // converted to Customer Shipper.
   const accountType = existingAccountType ?? metadataAccountType;
   if (!accountType) {
     return json(409, {
@@ -108,10 +108,10 @@ export async function POST(request: NextRequest) {
   }
 
   // Company Drivers cannot initialise their own onboarding from metadata. The
-  // fleet invitation flow must first create a company-linked application.
-  if (!existing && accountType === 'individual_driver') {
+  // Fleet Operator invitation flow must first create a company-linked application.
+  if (!existing && accountType === 'company_driver') {
     return json(409, {
-      error: 'Company Driver onboarding is invitation-only. Ask the fleet company to invite this email address.',
+      error: 'Company Driver onboarding is invitation-only. Ask the Fleet Operator to invite this email address.',
       code: 'company_driver_invitation_required',
     });
   }

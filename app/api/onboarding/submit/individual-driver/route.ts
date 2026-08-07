@@ -8,7 +8,10 @@ import {
 } from '../../../_lib/supabaseAdmin';
 import { isLegacyIndividualDriverOnboardingApplication } from '../../../_lib/onboarding';
 import { companyDriverPayloadSchema } from '../../_lib/schemas';
-import { isCompanyDriverOnboardingApplication } from '../../../../../lib/onboardingContract';
+import {
+  isCompanyDriverOnboardingApplication,
+  normalizeCanonicalOnboardingAccountType,
+} from '../../../../../lib/onboardingContract';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -41,7 +44,9 @@ export async function POST(request: NextRequest) {
   }
   const application = applicationRows?.[0] ?? null;
   if (!application) return json(404, { error: 'Onboarding application not found.' });
-  if (application.account_type !== 'individual_driver') {
+
+  const canonicalAccountType = normalizeCanonicalOnboardingAccountType(application.account_type);
+  if (canonicalAccountType !== 'company_driver') {
     return json(403, { error: 'Forbidden onboarding account type.' });
   }
 
@@ -52,7 +57,7 @@ export async function POST(request: NextRequest) {
   );
   if (!companyDriverInvite && !historicalLegacyAccount) {
     return json(403, {
-      error: 'Company Driver onboarding is invitation-only and must be linked to one fleet company.',
+      error: 'Company Driver onboarding is invitation-only and must be linked to one Fleet Operator.',
     });
   }
 
@@ -64,6 +69,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // RPC name is retained for database compatibility; the canonical account
+  // identity handled by the application is Company Driver.
   const { error: submitError } = await supabaseAdmin.rpc('submit_individual_driver_onboarding', {
     p_application_id: application.id,
   });

@@ -16,7 +16,7 @@ type RegisterRole =
 
 type SignupConfig = {
   appRole: 'broker' | 'company_admin' | 'driver' | 'customer';
-  accountType: 'owner_driver' | 'fleet_courier' | 'broker_shipper' | 'customer_shipper';
+  accountType: 'owner_driver' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
   workspaceMode: 'owner_driver' | 'company' | 'broker' | 'customer';
   ownerDriverWorkspace: boolean;
 };
@@ -24,13 +24,13 @@ type SignupConfig = {
 const SIGNUP_ROLE_CONFIG: Record<Exclude<RegisterRole, 'owner_operator'>, SignupConfig> = {
   fleet_operator: {
     appRole: 'company_admin',
-    accountType: 'fleet_courier',
+    accountType: 'fleet_operator',
     workspaceMode: 'company',
     ownerDriverWorkspace: false,
   },
   transport_broker: {
     appRole: 'broker',
-    accountType: 'broker_shipper',
+    accountType: 'transport_broker',
     workspaceMode: 'broker',
     ownerDriverWorkspace: false,
   },
