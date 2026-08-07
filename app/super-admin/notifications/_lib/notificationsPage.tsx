@@ -6,22 +6,24 @@ import type { TableColumn } from '../../_components/SuperAdminLiveTablePage';
 import { formatDateTime } from '../../_components/superAdminFormatters';
 import { getAuthHeader } from '../../_lib/getAuthHeader';
 
+export type NotificationSeverity = 'Critical' | 'Warning' | 'Info' | 'Success';
+
 export type NotificationRow = {
   id: string;
   user_id: string | null;
-  entity_id: string;
+  entity_id?: string;
   type: string;
   title: string | null;
   message: string;
   status: string;
-  category: string;
-  severity: 'Critical' | 'Warning' | 'Info' | 'Success';
+  category?: string;
+  severity?: NotificationSeverity;
   processed: boolean;
   created_at: string;
   last_error: string | null;
   attempt_count: number | null;
   next_attempt_at: string | null;
-  view_href: string | null;
+  view_href?: string | null;
 };
 
 export type RetryFeedback = {
@@ -35,6 +37,7 @@ export const notificationsTableProps = {
   sectionLabel: 'Platform',
   description: 'Operational notifications with category, severity, delivery state and recovery actions.',
   summaryField: 'summary',
+  noteField: 'note',
   diagnosticField: 'diagnosticNote',
   emptyMessage: 'No notifications match the selected filters.',
 } as const;
@@ -80,11 +83,18 @@ export async function performNotificationRetry({
   return { tone: 'success', message: 'Retry queued.' };
 }
 
-const severityColor: Record<NotificationRow['severity'], string> = {
+const severityColor: Record<NotificationSeverity, string> = {
   Critical: '#ef4444',
   Warning: '#f59e0b',
   Info: '#60a5fa',
   Success: '#22c55e',
+};
+
+const fallbackSeverity = (row: NotificationRow): NotificationSeverity => {
+  if (row.status === 'failed') return 'Critical';
+  if (row.status === 'pending') return 'Warning';
+  if (row.status === 'sent') return 'Success';
+  return 'Info';
 };
 
 export function createNotificationColumns({
@@ -112,7 +122,7 @@ export function createNotificationColumns({
       label: 'Category',
       render: (row) => (
         <span style={{ fontSize: '0.7rem', color: '#cbd5e1', background: '#0f172a', border: '1px solid #334155', borderRadius: '999px', padding: '0.18rem 0.48rem' }}>
-          {row.category}
+          {row.category ?? 'Platform'}
         </span>
       ),
     },
@@ -120,8 +130,9 @@ export function createNotificationColumns({
       key: 'severity',
       label: 'Severity',
       render: (row) => {
-        const color = severityColor[row.severity];
-        return <span style={{ fontSize: '0.7rem', fontWeight: 800, color, background: `${color}18`, border: `1px solid ${color}55`, borderRadius: '999px', padding: '0.18rem 0.48rem' }}>{row.severity}</span>;
+        const severity = row.severity ?? fallbackSeverity(row);
+        const color = severityColor[severity];
+        return <span style={{ fontSize: '0.7rem', fontWeight: 800, color, background: `${color}18`, border: `1px solid ${color}55`, borderRadius: '999px', padding: '0.18rem 0.48rem' }}>{severity}</span>;
       },
     },
     {
