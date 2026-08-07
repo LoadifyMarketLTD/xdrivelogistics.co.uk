@@ -7,7 +7,11 @@ import type { MembershipRole } from './membershipRole';
 import { workspaceForRoute } from './businessWorkspace';
 import { resolveMembershipRole } from './membershipRole';
 
-const LEGACY_CARRIER_FLEET_COMPANY_TYPES = new Set(['standard', 'carrier', 'fleet']);
+const LEGACY_CARRIER_FLEET_COMPANY_TYPES = new Set([
+  'standard',
+  'carrier',
+  'fleet',
+]);
 
 const ALL_WORKSPACES: readonly BusinessWorkspace[] = [
   'owner_operator',
@@ -62,10 +66,16 @@ export type WorkspaceResolutionResult =
 
 export type CompanyWorkspaceResolutionResult =
   | { ok: true; enabledWorkspaces: readonly BusinessWorkspace[] }
-  | { ok: false; error: 'unsupported_company_type' | 'workspace_not_enabled' };
+  | {
+      ok: false;
+      error: 'unsupported_company_type' | 'workspace_not_enabled';
+    };
 
-const normalizeWorkspace = (value: string | null | undefined): BusinessWorkspace | null => {
+const normalizeWorkspace = (
+  value: string | null | undefined,
+): BusinessWorkspace | null => {
   const normalized = (value ?? '').trim().toLowerCase();
+
   return (ALL_WORKSPACES as readonly string[]).includes(normalized)
     ? (normalized as BusinessWorkspace)
     : null;
@@ -75,10 +85,27 @@ const deriveLegacyWorkspace = (
   companyType: string | null | undefined,
 ): BusinessWorkspace | null => {
   const normalized = (companyType ?? '').trim().toLowerCase();
-  if (normalized === 'owner_driver' || normalized === 'owner_operator') return 'owner_operator';
-  if (normalized === 'customer' || normalized === 'shipper') return 'shipper';
-  if (normalized === 'broker') return 'broker';
-  if (LEGACY_CARRIER_FLEET_COMPANY_TYPES.has(normalized)) return 'carrier_fleet';
+
+  if (
+    normalized === 'owner_driver' ||
+    normalized === 'owner_operator' ||
+    normalized === 'sole_trader'
+  ) {
+    return 'owner_operator';
+  }
+
+  if (normalized === 'customer' || normalized === 'shipper') {
+    return 'shipper';
+  }
+
+  if (normalized === 'broker') {
+    return 'broker';
+  }
+
+  if (LEGACY_CARRIER_FLEET_COMPANY_TYPES.has(normalized)) {
+    return 'carrier_fleet';
+  }
+
   return null;
 };
 
@@ -91,19 +118,32 @@ export function resolveCompanyEnabledWorkspaces(input: {
     .filter((value): value is BusinessWorkspace => value !== null);
 
   if (fromRecord.length > 0) {
-    return { ok: true, enabledWorkspaces: [...new Set(fromRecord)] };
+    return {
+      ok: true,
+      enabledWorkspaces: [...new Set(fromRecord)],
+    };
   }
 
   if (input.enabledWorkspaces && input.enabledWorkspaces.length === 0) {
-    return { ok: false, error: 'workspace_not_enabled' };
+    return {
+      ok: false,
+      error: 'workspace_not_enabled',
+    };
   }
 
   const legacy = deriveLegacyWorkspace(input.companyType);
+
   if (!legacy) {
-    return { ok: false, error: 'unsupported_company_type' };
+    return {
+      ok: false,
+      error: 'unsupported_company_type',
+    };
   }
 
-  return { ok: true, enabledWorkspaces: [legacy] };
+  return {
+    ok: true,
+    enabledWorkspaces: [legacy],
+  };
 }
 
 export function resolveWorkspaceForCompany(
@@ -124,44 +164,68 @@ export function resolveActiveCompanyContext(
   } = {},
 ): WorkspaceResolutionResult {
   if (!memberships.length) {
-    return { ok: false, error: 'no_memberships' };
+    return {
+      ok: false,
+      error: 'no_memberships',
+    };
   }
 
-  const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname, enabledWorkspaces: explicitEnabledWorkspaces } = options;
-  const routeWorkspace = targetPathname ? workspaceForRoute(targetPathname) : null;
+  const {
+    preferredCompanyId,
+    activeWorkspace,
+    targetWorkspace,
+    targetPathname,
+    enabledWorkspaces: explicitEnabledWorkspaces,
+  } = options;
+
+  const routeWorkspace = targetPathname
+    ? workspaceForRoute(targetPathname)
+    : null;
+
+  const normalizedTargetPathname =
+    targetPathname?.split('?')[0]?.split('#')[0] ?? '';
+
   const isDriverSurfaceRoute =
-    (targetPathname?.split('?')[0]?.split('#')[0] ?? '') === '/driver' ||
-    (targetPathname?.split('?')[0]?.split('#')[0] ?? '').startsWith('/driver/');
+    normalizedTargetPathname === '/driver' ||
+    normalizedTargetPathname.startsWith('/driver/');
 
   // /driver is a shared surface. When no trusted workspace selection is supplied,
   // derive the active workspace from the selected company first. This allows an
   // employed Company Driver in a carrier_fleet company to use /driver while an
   // owner-driver company still resolves naturally to owner_operator.
   const explicitlyRequestedWorkspace =
-    activeWorkspace ?? targetWorkspace ?? (isDriverSurfaceRoute ? null : routeWorkspace);
+    activeWorkspace ??
+    targetWorkspace ??
+    (isDriverSurfaceRoute ? null : routeWorkspace);
 
-  const active = memberships.filter(
-    (m) => {
-      const companyStatus = (m.companies?.status ?? ACTIVE_COMPANY_STATUS)
-        .trim()
-        .toLowerCase();
+  const active = memberships.filter((membership) => {
+    const companyStatus = (
+      membership.companies?.status ?? ACTIVE_COMPANY_STATUS
+    )
+      .trim()
+      .toLowerCase();
 
-      return (
-        m.status === 'active' &&
-        m.companies !== null &&
-        companyStatus === ACTIVE_COMPANY_STATUS
-      );
-    },
-  );
+    return (
+      membership.status === 'active' &&
+      membership.companies !== null &&
+      companyStatus === ACTIVE_COMPANY_STATUS
+    );
+  });
 
   if (!active.length) {
-    return { ok: false, error: 'no_active_membership' };
+    return {
+      ok: false,
+      error: 'no_active_membership',
+    };
   }
 
   // Multiple active memberships — always fail closed regardless of preferredCompanyId.
   // The caller must use the shared UI context flow to resolve the correct company.
   if (active.length > 1) {
-    return { ok: false, error: 'active_company_required' };
+    return {
+      ok: false,
+      error: 'active_company_required',
+    };
   }
 
   // Single active membership.
@@ -169,20 +233,33 @@ export function resolveActiveCompanyContext(
 
   // If a preferred company was specified but doesn't match the only active membership,
   // reject to prevent a stale profile company_id from granting unintended access.
-  if (preferredCompanyId && singleMembership.company_id !== preferredCompanyId) {
-    return { ok: false, error: 'no_active_membership' };
+  if (
+    preferredCompanyId &&
+    singleMembership.company_id !== preferredCompanyId
+  ) {
+    return {
+      ok: false,
+      error: 'no_active_membership',
+    };
   }
 
   const chosen = singleMembership;
-
   const company = chosen.companies;
+
   if (!company) {
-    return { ok: false, error: 'company_inactive' };
+    return {
+      ok: false,
+      error: 'company_inactive',
+    };
   }
 
   const membershipRole = resolveMembershipRole(chosen.role_in_company);
+
   if (!membershipRole) {
-    return { ok: false, error: 'unsupported_membership_role' };
+    return {
+      ok: false,
+      error: 'unsupported_membership_role',
+    };
   }
 
   const enabled = resolveCompanyEnabledWorkspaces({
@@ -191,19 +268,33 @@ export function resolveActiveCompanyContext(
   });
 
   if (!enabled.ok) {
-    return { ok: false, error: enabled.error };
+    return {
+      ok: false,
+      error: enabled.error,
+    };
   }
 
-  if (explicitlyRequestedWorkspace && !enabled.enabledWorkspaces.includes(explicitlyRequestedWorkspace)) {
-    return { ok: false, error: 'workspace_not_enabled' };
+  if (
+    explicitlyRequestedWorkspace &&
+    !enabled.enabledWorkspaces.includes(explicitlyRequestedWorkspace)
+  ) {
+    return {
+      ok: false,
+      error: 'workspace_not_enabled',
+    };
   }
 
   const resolvedActiveWorkspace =
     explicitlyRequestedWorkspace ??
-    (enabled.enabledWorkspaces.length === 1 ? enabled.enabledWorkspaces[0] : null);
+    (enabled.enabledWorkspaces.length === 1
+      ? enabled.enabledWorkspaces[0]
+      : null);
 
   if (!resolvedActiveWorkspace) {
-    return { ok: false, error: 'active_workspace_required' };
+    return {
+      ok: false,
+      error: 'active_workspace_required',
+    };
   }
 
   if (
@@ -211,7 +302,10 @@ export function resolveActiveCompanyContext(
     routeWorkspace !== resolvedActiveWorkspace &&
     !(isDriverSurfaceRoute && resolvedActiveWorkspace === 'carrier_fleet')
   ) {
-    return { ok: false, error: 'workspace_mismatch' };
+    return {
+      ok: false,
+      error: 'workspace_mismatch',
+    };
   }
 
   return {
