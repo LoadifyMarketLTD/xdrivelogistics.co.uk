@@ -18,27 +18,29 @@ export {
   OWNER_DRIVER_DOCUMENT_TYPES,
 };
 
-// The database still stores company-driver applications under the historical
-// value `individual_driver`. Product language and permissions use Company Driver.
+// Compatibility export for older imports. Product/storage identity is Company Driver.
 export const INDIVIDUAL_DRIVER_DOCUMENT_TYPES = COMPANY_DRIVER_DOCUMENT_TYPES;
 
 export const ONBOARDING_ACCOUNT_TYPES = [
   'customer_shipper',
-  'broker_shipper',
-  'fleet_courier',
-  'individual_driver',
+  'transport_broker',
+  'fleet_operator',
+  'company_driver',
   'owner_driver',
 ] as const satisfies readonly PersistedOnboardingAccountType[];
 export type OnboardingAccountType = (typeof ONBOARDING_ACCOUNT_TYPES)[number];
 
+// Company Driver keeps the existing URL segment temporarily so invitation links
+// already issued by the platform remain valid. This is a route compatibility
+// detail only; the persisted account_type is `company_driver`.
 export const ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE: Record<
   OnboardingAccountType,
   'customer' | 'broker' | 'fleet' | 'individual-driver' | 'owner-driver'
 > = {
   customer_shipper: 'customer',
-  broker_shipper: 'broker',
-  fleet_courier: 'fleet',
-  individual_driver: 'individual-driver',
+  transport_broker: 'broker',
+  fleet_operator: 'fleet',
+  company_driver: 'individual-driver',
   owner_driver: 'owner-driver',
 };
 
@@ -47,9 +49,9 @@ export const ONBOARDING_ACCOUNT_TYPE_BY_ROUTE_SEGMENT: Record<
   OnboardingAccountType
 > = {
   customer: 'customer_shipper',
-  broker: 'broker_shipper',
-  fleet: 'fleet_courier',
-  'individual-driver': 'individual_driver',
+  broker: 'transport_broker',
+  fleet: 'fleet_operator',
+  'individual-driver': 'company_driver',
   'owner-driver': 'owner_driver',
 };
 
@@ -91,11 +93,15 @@ export const normalizeOnboardingAccountType = (
     : null;
 };
 
+/**
+ * Compatibility helper retained for historical records/tests. Any historical
+ * `individual_driver` value normalises to the canonical Company Driver identity.
+ */
 export const isLegacyIndividualDriverOnboardingApplication = (
   accountType: string | null | undefined,
   createdAt: string | null | undefined,
 ) => {
-  if (normalizeOnboardingAccountType(accountType) !== 'individual_driver') return false;
+  if ((accountType ?? '').trim().toLowerCase() !== 'individual_driver') return false;
   if (!createdAt) return true;
   const createdAtMs = Date.parse(createdAt);
   if (Number.isNaN(createdAtMs)) return true;
@@ -106,7 +112,6 @@ export const resolveOnboardingAccountTypeFromMetadata = (
   userMetadata: Record<string, unknown> | null | undefined,
   appMetadata: Record<string, unknown> | null | undefined,
 ): OnboardingAccountType | null => {
-  // Requested/signup role is more specific than the legacy account_type field.
   const candidates = [
     userMetadata?.requested_role,
     userMetadata?.signup_type,
