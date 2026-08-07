@@ -2,7 +2,7 @@ import { buildSessionHandlers } from '../../_lib/handlers';
 import { fleetPatchSchema } from '../../_lib/schemas';
 
 const handlers = buildSessionHandlers({
-  expectedAccountType: 'fleet_courier',
+  expectedAccountType: 'fleet_operator',
   patchSchema: fleetPatchSchema,
 });
 
