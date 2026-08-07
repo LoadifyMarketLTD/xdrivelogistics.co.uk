@@ -57,7 +57,7 @@ const validateAccountType = (raw: string, expected: OnboardingAccountType) => ra
 const isCompanyRegistrationAccountType = (
   accountType: OnboardingAccountType,
 ): accountType is CompanyRegistrationAccountType =>
-  accountType === 'broker_shipper' || accountType === 'fleet_courier';
+  accountType === 'transport_broker' || accountType === 'fleet_operator';
 
 const resolveApplicantPatchStatus = (
   existingStatusRaw: string | null | undefined,
@@ -304,7 +304,7 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
         companies_house_verified_at: verifiedAt,
       };
 
-      if (expectedAccountType === 'broker_shipper') {
+      if (expectedAccountType === 'transport_broker') {
         canonicalPayload.company_name = registration.registeredName;
       } else {
         canonicalPayload.legal_company_name = registration.registeredName;
