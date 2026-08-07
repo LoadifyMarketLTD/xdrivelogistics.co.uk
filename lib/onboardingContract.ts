@@ -30,12 +30,28 @@ export const COMPANY_DRIVER_DOCUMENT_TYPES = [
   'visa_document',
 ] as const;
 
-export type CanonicalOnboardingAccountType =
+export type PublicOnboardingAccountType =
   | 'customer_shipper'
   | 'broker_shipper'
   | 'fleet_courier'
-  | 'owner_driver'
-  | 'company_driver';
+  | 'owner_driver';
+
+export type InvitationOnlyOnboardingAccountType = 'company_driver';
+
+export type CanonicalOnboardingAccountType =
+  | PublicOnboardingAccountType
+  | InvitationOnlyOnboardingAccountType;
+
+export const PUBLIC_ONBOARDING_ACCOUNT_TYPES: readonly PublicOnboardingAccountType[] = [
+  'customer_shipper',
+  'broker_shipper',
+  'fleet_courier',
+  'owner_driver',
+] as const;
+
+export const INVITATION_ONLY_ONBOARDING_ACCOUNT_TYPES: readonly InvitationOnlyOnboardingAccountType[] = [
+  'company_driver',
+] as const;
 
 export type PersistedOnboardingAccountType =
   | 'customer_shipper'
@@ -76,7 +92,7 @@ const document = (
 
 export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, OnboardingContractDefinition> = {
   customer_shipper: {
-    label: 'Customer / Shipper',
+    label: 'Customer Shipper',
     description: 'A customer posting or managing freight without carrier permissions.',
     persistedAccountType: 'customer_shipper',
     routeSegment: 'customer',
@@ -86,7 +102,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     documents: [],
   },
   broker_shipper: {
-    label: 'Transport Broker / Shipper',
+    label: 'Transport Broker',
     description: 'A verified business arranging or posting transport work.',
     persistedAccountType: 'broker_shipper',
     routeSegment: 'broker',
@@ -106,7 +122,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     ],
   },
   fleet_courier: {
-    label: 'Fleet / Courier Company',
+    label: 'Fleet Operator',
     description: 'A carrier company operating a fleet and inviting its own company drivers.',
     persistedAccountType: 'fleet_courier',
     routeSegment: 'fleet',
@@ -165,7 +181,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
   },
   company_driver: {
     label: 'Company Driver',
-    description: 'A driver invited by one fleet company and operating only for that company.',
+    description: 'A driver invited by one Fleet Operator and operating only for that Fleet Operator.',
     persistedAccountType: 'individual_driver',
     routeSegment: 'individual-driver',
     publicRegistration: false,
@@ -244,6 +260,13 @@ export const toPersistedOnboardingAccountType = (
 ): PersistedOnboardingAccountType | null => {
   const contract = getOnboardingContract(raw);
   return contract?.persistedAccountType ?? null;
+};
+
+export const isPublicOnboardingAccountType = (
+  raw: string | null | undefined,
+): boolean => {
+  const canonical = normalizeCanonicalOnboardingAccountType(raw);
+  return canonical !== null && canonical !== 'company_driver';
 };
 
 export const isCompanyDriverOnboardingApplication = (application: {
