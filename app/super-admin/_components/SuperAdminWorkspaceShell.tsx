@@ -43,6 +43,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'company-compliance', label: 'Company Compliance', href: '/super-admin/companies/compliance', icon: '▤' },
     ] },
     { id: 'finance', label: 'Finance', items: [
+      { id: 'finance-overview', label: 'Finance Overview', href: '/super-admin/finance', icon: '£' },
       { id: 'invoices', label: 'Invoices', href: '/super-admin/finance/invoices', icon: '£' },
       { id: 'fees', label: 'Financial Breakdown', href: '/super-admin/finance/fees', icon: '%' },
       { id: 'revenue', label: 'Revenue', href: '/super-admin/finance/revenue', icon: '£' },
