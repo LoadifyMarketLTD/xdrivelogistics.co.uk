@@ -147,12 +147,12 @@ const normalizeMembershipRows = (rows: MembershipQueryRow[]): RawMembershipRow[]
 const readFallbackRole = (value: unknown) =>
   typeof value === 'string' && value.trim().length > 0 ? value : null;
 
-const isMissingDriverCanBidColumn = (
+const isMissingDriverCommercialColumn = (
   error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
 ): boolean => {
   if (!error || error.code !== '42703') return false;
   const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
-  return text.includes('can_commercial_bid');
+  return text.includes('can_commercial_bid') || text.includes('driver_type');
 };
 
 const isServiceFailure = (message: string | null | undefined) => {
@@ -333,7 +333,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
 
   const { data: driverDataInitial, error: driverErrorInitial } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+    .select('id, company_id, app_access, must_change_password, status, driver_type, can_commercial_bid')
     .eq('user_id', authData.user.id)
     .eq('company_id', activeCompany.context.companyId)
     .limit(1)
@@ -342,7 +342,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   // PostgreSQL 42703 compatibility: when the live schema is missing can_commercial_bid
   // (production schema drift — unapplied migration 20260725184000), retry exactly once
   // with the legacy column set.  Commercial bidding is fail-closed: null if unavailable.
-  const driverNeedsLegacyFallback = isMissingDriverCanBidColumn(driverErrorInitial);
+  const driverNeedsLegacyFallback = isMissingDriverCommercialColumn(driverErrorInitial);
   const { data: driverData, error: driverError } = driverNeedsLegacyFallback
     ? await supabaseAdmin
         .from('drivers')
@@ -368,6 +368,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     app_access?: boolean | null;
     must_change_password?: boolean | null;
     status?: string | null;
+    driver_type?: string | null;
     can_commercial_bid?: boolean | null;
   } | null;
 
@@ -383,8 +384,26 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   if (companyStatus !== 'active') {
     return { kind: 'forbidden' };
   }
+  const normalizedDriverType = (driver?.driver_type ?? '').trim().toLowerCase();
+  const normalizedCompanyType = (selectedMembership.companies.company_type ?? '').trim().toLowerCase();
+  const ownerMembership = membershipRole === 'owner' || membershipRole === 'admin';
+  const hasTrustedOwnerDriverEvidence =
+    Boolean(driver?.id) &&
+    (
+      normalizedDriverType === 'owner_driver' ||
+      (
+        ownerMembership &&
+        (
+          normalizedCompanyType === 'sole_trader' ||
+          normalizedCompanyType === 'owner_driver' ||
+          normalizedCompanyType === 'owner_operator'
+        )
+      )
+    );
+
   const ownerDriverWorkspace =
-    ownerDriverWorkspaceRequested && Boolean(driver?.id);
+    Boolean(driver?.id) &&
+    (ownerDriverWorkspaceRequested || hasTrustedOwnerDriverEvidence);
   const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
   const role = resolveAuthoritativeRole({
