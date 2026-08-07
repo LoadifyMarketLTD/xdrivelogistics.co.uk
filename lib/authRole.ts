@@ -177,6 +177,19 @@ export const resolveAuthoritativeRole = ({
     return creatorCompanyType === 'admin' ? 'company_admin' : 'company_staff';
   }
 
+  // app_metadata is server-controlled in Supabase and is therefore trusted role
+  // evidence. Broker and customer are separate portal identities and must never
+  // silently inherit carrier/company-admin surfaces because profiles.role is
+  // stale. Keep driver elevation fail-closed: driver still needs scoped driver
+  // evidence and is handled by the driver-specific rules below.
+  if (
+    resolvedFallbackRole &&
+    resolvedFallbackRole !== resolvedProfileRole &&
+    (resolvedFallbackRole === 'broker' || resolvedFallbackRole === 'customer')
+  ) {
+    return resolvedFallbackRole;
+  }
+
   if (
     resolvedFallbackRole &&
     (normalizedProfileRole === 'admin' || normalizedProfileRole === 'company') &&
