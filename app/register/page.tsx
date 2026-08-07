@@ -184,7 +184,7 @@ export default function RegisterPage() {
           <Image src="/xdrive-logo.jpeg" alt="XDrive Logistics" width={180} height={40} priority style={{ width: 'auto', height: '40px' }} />
         </div>
         <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>
-          Register as a Customer/Shipper, Transport Broker, Fleet Operator, or Owner Operator.
+          Register as a Customer Shipper, Transport Broker, Fleet Operator, or Owner Operator.
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -212,7 +212,7 @@ export default function RegisterPage() {
             disabled={loading}
             style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
           >
-            <option value="customer_shipper">Customer / Shipper</option>
+            <option value="customer_shipper">Customer Shipper</option>
             <option value="transport_broker">Transport Broker</option>
             <option value="fleet_operator">Fleet Operator</option>
             <option value="owner_operator">Owner Operator</option>
@@ -249,7 +249,7 @@ export default function RegisterPage() {
           />
 
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#5B6B85', fontSize: '0.9rem' }}>
-            Fleet Operator drivers are invited into the company after registration. Owner Operators always receive an operations workspace.
+            Company Drivers cannot create public accounts. They are invited and linked to a Fleet Operator account by that Fleet Operator.
           </p>
 
           {error && <p style={{ margin: '0 0 1rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</p>}
