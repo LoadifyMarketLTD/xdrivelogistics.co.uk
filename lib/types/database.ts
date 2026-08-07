@@ -100,7 +100,8 @@ export interface OnboardingApplication {
   id: string;
   user_id: string;
   email: string;
-  account_type: 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'individual_driver' | 'owner_driver';
+  company_id: string | null;
+  account_type: 'customer_shipper' | 'transport_broker' | 'fleet_operator' | 'company_driver' | 'owner_driver';
   status: 'invited' | 'draft' | 'in_progress' | 'under_review' | 'approved' | 'rejected' | 'request_changes';
   current_step: string;
   completion_percentage: number;
