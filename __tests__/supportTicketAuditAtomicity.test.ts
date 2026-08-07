@@ -190,8 +190,8 @@ describe('PATCH /api/super-admin/support — atomic support-ticket audit', () =>
     expect(postStart).toBeGreaterThan(patchStart);
     expect(patchHandler).toContain("'owner_update_support_ticket_with_audit'");
     expect(patchHandler.match(/supabaseAdmin\.rpc\(/g)).toHaveLength(1);
-    expect(patchHandler).not.toMatch(/\.from\(['\"]support_tickets['\"]\)[\s\S]*?\.update\(/);
-    expect(patchHandler).not.toMatch(/\.from\(['\"]owner_audit_log['\"]\)[\s\S]*?\.insert\(/);
+    expect(patchHandler).not.toMatch(/\.from\(['"]support_tickets['"]\)[\s\S]*?\.update\(/);
+    expect(patchHandler).not.toMatch(/\.from\(['"]owner_audit_log['"]\)[\s\S]*?\.insert\(/);
   });
 
   it('preserves the generic audit schema and nullable-company SQL regression', () => {
