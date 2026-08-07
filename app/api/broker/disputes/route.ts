@@ -5,7 +5,6 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import { getFeatureFlag } from '../../_lib/platformFlags';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -46,12 +45,6 @@ async function resolveCallerMembership(
 export async function PATCH(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return json(503, { error: 'Service is not configured.' });
-  }
-
-  // Feature flag gate: dispute filing must be enabled.
-  const disputeFilingEnabled = await getFeatureFlag(supabaseAdmin, 'dispute_filing');
-  if (!disputeFilingEnabled) {
-    return json(503, { error: 'Dispute filing is currently disabled.' });
   }
 
   let body: {
