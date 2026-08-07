@@ -17,8 +17,7 @@ describe('CI workflow Expo gating', () => {
     const workflow = readRepoFile('.github/workflows/ci.yml');
     const expoJob = extractJob(workflow, 'expo-driver-typecheck', 'codeql-web');
 
-    expect(expoJob).toContain("github.event_name == 'push' && github.ref == 'refs/heads/main'");
-    expect(expoJob).toContain("github.event_name == 'pull_request'");
+    expect(expoJob).toContain("needs.detect-expo-driver-changes.outputs.driver_changed == 'true'");
     expect(expoJob).toContain('scope:expo');
     expect(expoJob).toContain('scope:android');
     expect(expoJob).toContain('scope:cross');

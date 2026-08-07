@@ -77,7 +77,7 @@ const updateTicketSchema = z.object({
   section: z.literal('tickets'),
   ticketId: z.string().uuid(),
   action: z.enum(['investigating', 'resolve', 'close', 'reopen']),
-  note: z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000),
+  note: z.preprocess((value) => typeof value === 'string' ? value : '', z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000)),
 });
 
 const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
