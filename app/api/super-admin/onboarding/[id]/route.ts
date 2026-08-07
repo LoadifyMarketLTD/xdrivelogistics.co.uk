@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
-import { getGlobalSettingBoolean } from '../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -45,19 +44,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return respond(400, { error: 'Invalid review action.' });
-  }
-
-  // Check the company_approval_required global setting.
-  // If it is disabled, the platform is in open-access mode and onboarding
-  // approval steps should not be executed.
-  if (parsed.data.action === 'approve') {
-    const approvalRequired = await getGlobalSettingBoolean(supabaseAdmin, 'company_approval_required');
-    if (!approvalRequired) {
-      return respond(409, {
-        error: 'Company approval is not required in the current platform configuration. Companies are approved automatically.',
-        code: 'approval_not_required',
-      });
-    }
   }
 
   const { id } = await params;
