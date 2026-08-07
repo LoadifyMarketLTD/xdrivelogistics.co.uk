@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type CompanyRegistrationAccountType = 'broker_shipper' | 'fleet_courier';
+export type CompanyRegistrationAccountType = 'transport_broker' | 'fleet_operator';
 
 type CompaniesHouseCompany = {
   company_name?: unknown;
