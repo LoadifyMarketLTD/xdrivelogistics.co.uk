@@ -1,1 +1,7 @@
-'use client'; import { CustomerDashboard } from './CustomerWorkspaceModules'; export default function Page(){return <CustomerDashboard/>}
+'use client';
+
+import { CustomerHomeDashboard } from './CustomerHomeDashboard';
+
+export default function Page() {
+  return <CustomerHomeDashboard />;
+}
