@@ -30,12 +30,17 @@ export const COMPANY_DRIVER_DOCUMENT_TYPES = [
   'visa_document',
 ] as const;
 
+/**
+ * Public registration exposes exactly these four product account identities.
+ * The persisted Owner Operator identity remains `owner_driver` by design.
+ */
 export type PublicOnboardingAccountType =
   | 'customer_shipper'
-  | 'broker_shipper'
-  | 'fleet_courier'
+  | 'transport_broker'
+  | 'fleet_operator'
   | 'owner_driver';
 
+/** Company Driver is invitation-only and never appears in public registration. */
 export type InvitationOnlyOnboardingAccountType = 'company_driver';
 
 export type CanonicalOnboardingAccountType =
@@ -44,8 +49,8 @@ export type CanonicalOnboardingAccountType =
 
 export const PUBLIC_ONBOARDING_ACCOUNT_TYPES: readonly PublicOnboardingAccountType[] = [
   'customer_shipper',
-  'broker_shipper',
-  'fleet_courier',
+  'transport_broker',
+  'fleet_operator',
   'owner_driver',
 ] as const;
 
@@ -53,12 +58,7 @@ export const INVITATION_ONLY_ONBOARDING_ACCOUNT_TYPES: readonly InvitationOnlyOn
   'company_driver',
 ] as const;
 
-export type PersistedOnboardingAccountType =
-  | 'customer_shipper'
-  | 'broker_shipper'
-  | 'fleet_courier'
-  | 'owner_driver'
-  | 'individual_driver';
+export type PersistedOnboardingAccountType = CanonicalOnboardingAccountType;
 
 export type OnboardingDocumentFamily = 'company' | 'identity';
 export type OnboardingDocumentRequirement = 'required' | 'conditional';
@@ -75,7 +75,7 @@ export type OnboardingContractDefinition = {
   label: string;
   description: string;
   persistedAccountType: PersistedOnboardingAccountType;
-  routeSegment: 'customer' | 'broker' | 'fleet' | 'owner-driver' | 'individual-driver';
+  routeSegment: 'customer' | 'broker' | 'fleet' | 'owner-driver' | 'company-driver';
   publicRegistration: boolean;
   createsCompanyWorkspace: boolean;
   requiresPlatformReview: boolean;
@@ -101,10 +101,10 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     requiresPlatformReview: false,
     documents: [],
   },
-  broker_shipper: {
+  transport_broker: {
     label: 'Transport Broker',
-    description: 'A verified business arranging or posting transport work.',
-    persistedAccountType: 'broker_shipper',
+    description: 'A verified business arranging transport between customers and carriers.',
+    persistedAccountType: 'transport_broker',
     routeSegment: 'broker',
     publicRegistration: true,
     createsCompanyWorkspace: true,
@@ -121,10 +121,10 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
       ),
     ],
   },
-  fleet_courier: {
+  fleet_operator: {
     label: 'Fleet Operator',
-    description: 'A carrier company operating a fleet and inviting its own company drivers.',
-    persistedAccountType: 'fleet_courier',
+    description: 'A carrier company operating a fleet and inviting its own Company Drivers.',
+    persistedAccountType: 'fleet_operator',
     routeSegment: 'fleet',
     publicRegistration: true,
     createsCompanyWorkspace: true,
@@ -152,7 +152,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
   },
   owner_driver: {
     label: 'Owner Operator',
-    description: 'A verified carrier owner who operates in the driver workspace for the same business.',
+    description: 'A verified owner-operator who runs the same business and driver workspace.',
     persistedAccountType: 'owner_driver',
     routeSegment: 'owner-driver',
     publicRegistration: true,
@@ -182,8 +182,8 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
   company_driver: {
     label: 'Company Driver',
     description: 'A driver invited by one Fleet Operator and operating only for that Fleet Operator.',
-    persistedAccountType: 'individual_driver',
-    routeSegment: 'individual-driver',
+    persistedAccountType: 'company_driver',
+    routeSegment: 'company-driver',
     publicRegistration: false,
     createsCompanyWorkspace: false,
     requiresPlatformReview: true,
@@ -209,21 +209,25 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
   },
 };
 
+/**
+ * Historical aliases are accepted only at read/normalisation boundaries so
+ * existing records can be migrated safely. No caller should persist an alias.
+ */
 const ACCOUNT_TYPE_ALIASES: Readonly<Record<string, CanonicalOnboardingAccountType>> = {
   customer_shipper: 'customer_shipper',
   customer: 'customer_shipper',
   shipper: 'customer_shipper',
   client: 'customer_shipper',
 
-  broker_shipper: 'broker_shipper',
-  transport_broker: 'broker_shipper',
-  freight_broker: 'broker_shipper',
-  broker: 'broker_shipper',
+  transport_broker: 'transport_broker',
+  broker_shipper: 'transport_broker',
+  freight_broker: 'transport_broker',
+  broker: 'transport_broker',
 
-  fleet_courier: 'fleet_courier',
-  fleet_operator: 'fleet_courier',
-  company_admin: 'fleet_courier',
-  'fleet/courier': 'fleet_courier',
+  fleet_operator: 'fleet_operator',
+  fleet_courier: 'fleet_operator',
+  company_admin: 'fleet_operator',
+  'fleet/courier': 'fleet_operator',
 
   owner_driver: 'owner_driver',
   'owner-driver': 'owner_driver',
