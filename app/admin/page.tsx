@@ -5,7 +5,7 @@ import RoleDashboard from '../components/workspace/RoleDashboards';
 
 export default function CompanyWorkspaceHomePage() {
   return (
-    <ProtectedRoute allowedRoles={['owner', 'company_admin', 'company_staff', 'broker', 'driver']}>
+    <ProtectedRoute allowedRoles={['owner', 'company_admin', 'company_staff']}>
       <RoleDashboard />
     </ProtectedRoute>
   );
