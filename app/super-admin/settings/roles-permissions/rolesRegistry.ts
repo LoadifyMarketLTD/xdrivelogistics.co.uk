@@ -9,18 +9,19 @@ import {
 } from '../../../../lib/workspaceRole';
 
 export const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  warning: '#fbbf24',
-  green: '#22c55e',
-  red: '#ef4444',
-  blue: '#3b82f6',
-  purple: '#8b5cf6',
-  cyan: '#06b6d4',
+  pageBg: '#0B2F6B',
+  cardBg: '#102A56',
+  cardBorder: '#31527E',
+  surface: '#081F47',
+  text: '#FFFFFF',
+  muted: '#C5D0E0',
+  accent: '#F5A300',
+  warning: '#F5A300',
+  green: '#22C55E',
+  red: '#EF4444',
+  blue: '#1D57D8',
+  purple: '#1D57D8',
+  cyan: '#1D57D8',
 } as const;
 
 export type CapabilityGroup = {
@@ -61,21 +62,21 @@ const ROLE_METADATA: Record<
   company_admin: {
     appRole: 'company_admin',
     emoji: '👔',
-    color: THEME.purple,
+    color: THEME.blue,
     description: 'Company administration across operations, fleet, compliance and finance.',
     accessLevel: 'company',
   },
   carrier_admin: {
     appRole: 'company_admin',
     emoji: '🏭',
-    color: '#f97316',
+    color: THEME.blue,
     description: 'Carrier workspace for marketplace, execution, readiness and carrier finance.',
     accessLevel: 'company',
   },
   broker: {
     appRole: 'broker',
     emoji: '📋',
-    color: THEME.cyan,
+    color: THEME.blue,
     description: 'Broker workspace for customer loads, carrier sourcing, award decisions and margin control.',
     accessLevel: 'company',
   },
@@ -89,49 +90,49 @@ const ROLE_METADATA: Record<
   fleet_manager: {
     appRole: 'company_admin',
     emoji: '🚛',
-    color: '#14b8a6',
+    color: THEME.blue,
     description: 'Fleet workspace for allocation, live positions, maintenance and readiness.',
     accessLevel: 'operations',
   },
   dispatcher: {
     appRole: 'company_staff',
     emoji: '📡',
-    color: '#0ea5e9',
+    color: THEME.blue,
     description: 'Operations workspace for dispatch, live execution and exception recovery.',
     accessLevel: 'operations',
   },
   driver: {
     appRole: 'driver',
     emoji: '🚚',
-    color: THEME.green,
+    color: THEME.blue,
     description: 'Driver execution workspace for assigned jobs, POD, availability and own documents.',
     accessLevel: 'limited',
   },
   owner_driver: {
     appRole: 'owner_driver',
     emoji: '🚚👑',
-    color: '#a78bfa',
+    color: THEME.accent,
     description: 'Owner-driver workspace for own jobs, quotes, documents and verified finance surfaces only.',
     accessLevel: 'limited',
   },
   finance: {
     appRole: 'company_staff',
     emoji: '💷',
-    color: '#34d399',
+    color: THEME.blue,
     description: 'Finance workspace for invoice control, payment status and balances.',
     accessLevel: 'limited',
   },
   compliance: {
     appRole: 'company_staff',
     emoji: '✅',
-    color: '#10b981',
+    color: THEME.blue,
     description: 'Compliance workspace for verification, expiry and readiness controls.',
     accessLevel: 'operations',
   },
   viewer: {
     appRole: 'company_staff',
     emoji: '👁️',
-    color: '#475569',
+    color: '#F4F6F8',
     description: 'Read-only workspace limited to approved operational visibility.',
     accessLevel: 'limited',
   },
@@ -167,10 +168,10 @@ const WORKSPACE_ROLE_ORDER: WorkspaceRole[] = [
 ];
 
 export const accessLevelBadge: Record<CanonicalRole['accessLevel'], { label: string; bg: string; color: string }> = {
-  platform: { label: 'PLATFORM', bg: 'rgba(245,158,11,0.12)', color: THEME.accent },
-  company: { label: 'COMPANY', bg: 'rgba(59,130,246,0.12)', color: THEME.blue },
-  operations: { label: 'OPERATIONS', bg: 'rgba(6,182,212,0.12)', color: THEME.cyan },
-  limited: { label: 'LIMITED', bg: 'rgba(148,163,184,0.12)', color: THEME.muted },
+  platform: { label: 'PLATFORM', bg: 'rgba(245,163,0,0.14)', color: THEME.accent },
+  company: { label: 'COMPANY', bg: 'rgba(29,87,216,0.16)', color: '#9FC0FF' },
+  operations: { label: 'OPERATIONS', bg: 'rgba(29,87,216,0.16)', color: '#9FC0FF' },
+  limited: { label: 'LIMITED', bg: 'rgba(244,246,248,0.10)', color: THEME.muted },
 };
 
 const unique = <T,>(values: readonly T[]) => [...new Set(values)];
