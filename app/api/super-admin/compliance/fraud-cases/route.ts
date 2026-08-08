@@ -39,7 +39,7 @@ const verifyPlatformOwner = async (request: NextRequest) => {
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
+    return respond(503, { error: 'Fraud review service is currently unavailable.' });
   }
 
   const owner = await verifyPlatformOwner(request);
@@ -57,12 +57,17 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (status !== 'all') {
-    query = query.eq('status', status);
-  }
+  if (status !== 'all') query = query.eq('status', status);
 
   const { data: cases, error: casesError } = await query;
-  if (casesError) return respond(500, { error: casesError.message });
+  if (casesError) {
+    console.error('[fraud-review] case source unavailable', {
+      code: casesError.code,
+      message: casesError.message,
+      details: casesError.details,
+    });
+    return respond(503, { error: 'Fraud review service is currently unavailable.' });
+  }
 
   const companyIds = Array.from(
     new Set(
@@ -92,7 +97,14 @@ export async function GET(request: NextRequest) {
   ]);
 
   const relatedError = [companiesResult.error, applicationsResult.error].find(Boolean);
-  if (relatedError) return respond(500, { error: relatedError.message });
+  if (relatedError) {
+    console.error('[fraud-review] related source unavailable', {
+      code: relatedError.code,
+      message: relatedError.message,
+      details: relatedError.details,
+    });
+    return respond(503, { error: 'Fraud review service is currently unavailable.' });
+  }
 
   const companyById = new Map(
     (companiesResult.data ?? []).map((row) => [
@@ -151,7 +163,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
+    return respond(503, { error: 'Fraud review service is currently unavailable.' });
   }
 
   const owner = await verifyPlatformOwner(request);
@@ -176,38 +188,28 @@ export async function PATCH(request: NextRequest) {
   );
 
   if (decisionError) {
+    console.error('[fraud-review] governance action failed', {
+      code: decisionError.code,
+      message: decisionError.message,
+      details: decisionError.details,
+    });
     if (decisionError.code === 'PGRST202' || decisionError.code === '42883') {
-      return respond(503, {
-        error: 'Fraud governance audit migration is not ready. No action was applied.',
-      });
+      return respond(503, { error: 'Fraud governance is temporarily unavailable. No action was applied.' });
     }
-    if (decisionError.code === 'P0002') {
-      return respond(404, { error: 'Fraud review case not found.' });
-    }
-    if (decisionError.code === '42501') {
-      return respond(403, { error: decisionError.message });
-    }
-    if (decisionError.code === '23505') {
-      return respond(409, { error: decisionError.message });
-    }
-    if (decisionError.code === '23514' || decisionError.code === '23502') {
-      return respond(422, { error: decisionError.message });
-    }
-    return respond(500, { error: decisionError.message });
+    if (decisionError.code === 'P0002') return respond(404, { error: 'Fraud review case not found.' });
+    if (decisionError.code === '42501') return respond(403, { error: 'You are not authorised to perform this fraud review action.' });
+    if (decisionError.code === '23505') return respond(409, { error: 'This fraud review decision conflicts with an existing record.' });
+    if (decisionError.code === '23514' || decisionError.code === '23502') return respond(422, { error: 'The fraud review decision could not be validated.' });
+    return respond(500, { error: 'Fraud review action could not be completed.' });
   }
 
   const row = Array.isArray(decisionResult)
     ? ((decisionResult[0] as Record<string, unknown> | undefined) ?? null)
     : ((decisionResult as Record<string, unknown> | null) ?? null);
 
-  if (
-    !row
-    || typeof row.case_id !== 'string'
-    || typeof row.new_status !== 'string'
-  ) {
-    return respond(500, {
-      error: 'Fraud governance action returned no audited result.',
-    });
+  if (!row || typeof row.case_id !== 'string' || typeof row.new_status !== 'string') {
+    console.error('[fraud-review] audited decision returned no usable result');
+    return respond(500, { error: 'Fraud review action could not be completed.' });
   }
 
   return respond(200, {
