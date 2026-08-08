@@ -64,6 +64,52 @@
   color: #64748B !important;
 }
 
+/* Pale semantic colours that were intended for dark backgrounds. */
+.super-admin-light-root [style*="color: rgb(134, 239, 172)"],
+.super-admin-light-root [style*="color:#86efac"],
+.super-admin-light-root [style*="color: #86efac"],
+.super-admin-light-root [style*="color: rgb(74, 222, 128)"],
+.super-admin-light-root [style*="color:#4ade80"],
+.super-admin-light-root [style*="color: #4ade80"] {
+  color: #16A34A !important;
+}
+
+.super-admin-light-root [style*="color: rgb(252, 211, 77)"],
+.super-admin-light-root [style*="color:#fcd34d"],
+.super-admin-light-root [style*="color: #fcd34d"],
+.super-admin-light-root [style*="color: rgb(251, 191, 36)"],
+.super-admin-light-root [style*="color:#fbbf24"],
+.super-admin-light-root [style*="color: #fbbf24"] {
+  color: #B45309 !important;
+}
+
+.super-admin-light-root [style*="color: rgb(252, 165, 165)"],
+.super-admin-light-root [style*="color:#fca5a5"],
+.super-admin-light-root [style*="color: #fca5a5"],
+.super-admin-light-root [style*="color: rgb(248, 113, 113)"],
+.super-admin-light-root [style*="color:#f87171"],
+.super-admin-light-root [style*="color: #f87171"] {
+  color: #DC2626 !important;
+}
+
+.super-admin-light-root [style*="color: rgb(147, 197, 253)"],
+.super-admin-light-root [style*="color:#93c5fd"],
+.super-admin-light-root [style*="color: #93c5fd"],
+.super-admin-light-root [style*="color: rgb(96, 165, 250)"],
+.super-admin-light-root [style*="color:#60a5fa"],
+.super-admin-light-root [style*="color: #60a5fa"],
+.super-admin-light-root [style*="color: rgb(191, 219, 254)"],
+.super-admin-light-root [style*="color:#bfdbfe"],
+.super-admin-light-root [style*="color: #bfdbfe"] {
+  color: #1D57D8 !important;
+}
+
+.super-admin-light-root [style*="color: rgb(203, 213, 225)"],
+.super-admin-light-root [style*="color:#cbd5e1"],
+.super-admin-light-root [style*="color: #cbd5e1"] {
+  color: #64748B !important;
+}
+
 /* Slate borders become the shared light divider. */
 .super-admin-light-root [style*="border: 1px solid rgb(51, 65, 85)"],
 .super-admin-light-root [style*="border: 1px solid #334155"],
