@@ -7,188 +7,28 @@ import { formatDateTime } from '../../_components/superAdminFormatters';
 import { getAuthHeader } from '../../_lib/getAuthHeader';
 
 export type NotificationSeverity = 'Critical' | 'Warning' | 'Info' | 'Success';
+export type NotificationRow = { id:string; user_id:string|null; entity_id?:string; type:string; title:string|null; message:string; status:string; category?:string; severity?:NotificationSeverity; processed:boolean; created_at:string; last_error:string|null; attempt_count:number|null; next_attempt_at:string|null; view_href?:string|null };
+export type RetryFeedback = { tone:'success'|'error'; message:string };
 
-export type NotificationRow = {
-  id: string;
-  user_id: string | null;
-  entity_id?: string;
-  type: string;
-  title: string | null;
-  message: string;
-  status: string;
-  category?: string;
-  severity?: NotificationSeverity;
-  processed: boolean;
-  created_at: string;
-  last_error: string | null;
-  attempt_count: number | null;
-  next_attempt_at: string | null;
-  view_href?: string | null;
-};
+const X = { navy:'#0B2F6B', blue:'#1D57D8', orange:'#F5A300', white:'#FFFFFF', charcoal:'#1A1F2B', light:'#F4F6F8', border:'#D9E1EA', muted:'#64748B', danger:'#DC2626', success:'#16A34A' } as const;
+export const notificationsTableProps = { icon:'🔔', title:'Notification Centre', sectionLabel:'Platform', description:'Operational notifications with category, severity, delivery state and recovery actions.', summaryField:'summary', noteField:'note', diagnosticField:'diagnosticNote', emptyMessage:'No notifications match the selected filters.' } as const;
 
-export type RetryFeedback = {
-  tone: 'success' | 'error';
-  message: string;
-};
-
-export const notificationsTableProps = {
-  icon: '🔔',
-  title: 'Notification Centre',
-  sectionLabel: 'Platform',
-  description: 'Operational notifications with category, severity, delivery state and recovery actions.',
-  summaryField: 'summary',
-  noteField: 'note',
-  diagnosticField: 'diagnosticNote',
-  emptyMessage: 'No notifications match the selected filters.',
-} as const;
-
-function readRetryErrorMessage(body: unknown, fallback: string): string {
-  if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string' && body.error.trim()) {
-    return body.error;
-  }
-  return fallback;
+function readRetryErrorMessage(body:unknown,fallback:string){ if(body&&typeof body==='object'&&'error' in body&&typeof body.error==='string'&&body.error.trim()) return body.error; return fallback; }
+export async function performNotificationRetry({notificationId,getAuthHeaderImpl=getAuthHeader,fetchImpl=fetch,onSuccess}:{notificationId:string;getAuthHeaderImpl?:typeof getAuthHeader;fetchImpl?:typeof fetch;onSuccess?:()=>void|Promise<void>}):Promise<RetryFeedback>{
+ const auth=await getAuthHeaderImpl(); if(!auth)return{tone:'error',message:'No active session.'}; let response:Response;
+ try{response=await fetchImpl('/api/super-admin/platform',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:auth},body:JSON.stringify({section:'notifications',action:'retry',notificationId})});}catch(error){return{tone:'error',message:error instanceof Error?error.message:'Retry failed.'};}
+ const body=await response.json().catch(()=>null); if(!response.ok)return{tone:'error',message:readRetryErrorMessage(body,`Retry failed (HTTP ${response.status}).`)}; await onSuccess?.(); return{tone:'success',message:'Retry queued.'};
 }
+const severityColor:Record<NotificationSeverity,string>={Critical:X.danger,Warning:X.orange,Info:X.blue,Success:X.success};
+const fallbackSeverity=(row:NotificationRow):NotificationSeverity=>row.status==='failed'?'Critical':row.status==='pending'?'Warning':row.status==='sent'?'Success':'Info';
+const actionStyle={height:'32px',display:'grid',placeItems:'center',padding:'0 10px',borderRadius:'4px',fontSize:'11px',fontWeight:700,textDecoration:'none'} as const;
 
-export async function performNotificationRetry({
-  notificationId,
-  getAuthHeaderImpl = getAuthHeader,
-  fetchImpl = fetch,
-  onSuccess,
-}: {
-  notificationId: string;
-  getAuthHeaderImpl?: typeof getAuthHeader;
-  fetchImpl?: typeof fetch;
-  onSuccess?: () => void | Promise<void>;
-}): Promise<RetryFeedback> {
-  const auth = await getAuthHeaderImpl();
-  if (!auth) return { tone: 'error', message: 'No active session.' };
-
-  let response: Response;
-  try {
-    response = await fetchImpl('/api/super-admin/platform', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: auth },
-      body: JSON.stringify({ section: 'notifications', action: 'retry', notificationId }),
-    });
-  } catch (error) {
-    return { tone: 'error', message: error instanceof Error ? error.message : 'Retry failed.' };
-  }
-
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    return { tone: 'error', message: readRetryErrorMessage(body, `Retry failed (HTTP ${response.status}).`) };
-  }
-
-  await onSuccess?.();
-  return { tone: 'success', message: 'Retry queued.' };
-}
-
-const severityColor: Record<NotificationSeverity, string> = {
-  Critical: '#ef4444',
-  Warning: '#f59e0b',
-  Info: '#60a5fa',
-  Success: '#22c55e',
-};
-
-const fallbackSeverity = (row: NotificationRow): NotificationSeverity => {
-  if (row.status === 'failed') return 'Critical';
-  if (row.status === 'pending') return 'Warning';
-  if (row.status === 'sent') return 'Success';
-  return 'Info';
-};
-
-export function createNotificationColumns({
-  pendingById,
-  feedbackById,
-  onRetry,
-}: {
-  pendingById: Record<string, boolean>;
-  feedbackById: Record<string, RetryFeedback | undefined>;
-  onRetry: (notificationId: string) => void | Promise<void>;
-}): TableColumn<NotificationRow>[] {
-  return [
-    {
-      key: 'notification',
-      label: 'Notification',
-      render: (row) => (
-        <div style={{ minWidth: '220px' }}>
-          <div style={{ fontSize: '0.78rem', fontWeight: row.processed ? 500 : 800 }}>{row.title ?? '(no title)'}</div>
-          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '0.22rem', lineHeight: 1.4 }}>{row.message}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'category',
-      label: 'Category',
-      render: (row) => (
-        <span style={{ fontSize: '0.7rem', color: '#cbd5e1', background: '#0f172a', border: '1px solid #334155', borderRadius: '999px', padding: '0.18rem 0.48rem' }}>
-          {row.category ?? 'Platform'}
-        </span>
-      ),
-    },
-    {
-      key: 'severity',
-      label: 'Severity',
-      render: (row) => {
-        const severity = row.severity ?? fallbackSeverity(row);
-        const color = severityColor[severity];
-        return <span style={{ fontSize: '0.7rem', fontWeight: 800, color, background: `${color}18`, border: `1px solid ${color}55`, borderRadius: '999px', padding: '0.18rem 0.48rem' }}>{severity}</span>;
-      },
-    },
-    {
-      key: 'status',
-      label: 'Delivery',
-      render: (row) => (
-        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: row.status === 'failed' ? '#ef4444' : row.status === 'pending' ? '#f59e0b' : row.status === 'sent' ? '#22c55e' : '#94a3b8' }}>
-          {row.status}
-        </span>
-      ),
-    },
-    {
-      key: 'failure_detail',
-      label: 'Failure detail',
-      render: (row) => (
-        <div style={{ fontSize: '0.7rem', color: '#cbd5e1', maxWidth: '260px' }}>
-          {row.last_error ? (
-            <>
-              <div style={{ color: '#fca5a5', fontWeight: 600 }}>{row.last_error}</div>
-              <div style={{ color: '#94a3b8', marginTop: '0.2rem' }}>Attempts: {row.attempt_count ?? '—'} {row.next_attempt_at ? `· next ${formatDateTime(row.next_attempt_at)}` : ''}</div>
-            </>
-          ) : '—'}
-        </div>
-      ),
-    },
-    {
-      key: 'created_at',
-      label: 'Created',
-      render: (row) => <span style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{formatDateTime(row.created_at)}</span>,
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (row) => {
-        const eligible = row.status === 'failed' || row.status === 'skipped';
-        const pending = pendingById[row.id] === true;
-        const feedback = feedbackById[row.id];
-        return (
-          <div style={{ display: 'grid', gap: '0.35rem', minWidth: '90px' }}>
-            {row.view_href && (
-              <Link href={row.view_href} style={{ textDecoration: 'none', textAlign: 'center', padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid #475569', background: '#0f172a', color: '#f8fafc', fontSize: '0.7rem', fontWeight: 700 }}>
-                View
-              </Link>
-            )}
-            <button
-              type="button"
-              disabled={!eligible || pending}
-              onClick={() => { void onRetry(row.id); }}
-              style={{ padding: '0.32rem 0.55rem', borderRadius: '6px', border: '1px solid #475569', background: eligible && !pending ? '#0f172a' : '#1e293b', color: eligible && !pending ? '#f8fafc' : '#64748b', cursor: eligible && !pending ? 'pointer' : 'not-allowed', fontSize: '0.7rem', fontWeight: 700 }}
-            >
-              {pending ? 'Retrying…' : 'Retry'}
-            </button>
-            {feedback && <div style={{ fontSize: '0.66rem', color: feedback.tone === 'success' ? '#86efac' : '#fca5a5' }}>{feedback.message}</div>}
-          </div>
-        );
-      },
-    },
-  ];
-}
+export function createNotificationColumns({pendingById,feedbackById,onRetry}:{pendingById:Record<string,boolean>;feedbackById:Record<string,RetryFeedback|undefined>;onRetry:(notificationId:string)=>void|Promise<void>}):TableColumn<NotificationRow>[] { return [
+ {key:'notification',label:'Notification',render:(row)=><div style={{minWidth:'220px'}}><div style={{fontSize:'12px',fontWeight:row.processed?600:800,color:X.charcoal}}>{row.title??'(no title)'}</div><div style={{fontSize:'11px',color:X.muted,marginTop:'2px',lineHeight:1.4}}>{row.message}</div></div>},
+ {key:'category',label:'Category',render:(row)=><span style={{fontSize:'10px',fontWeight:700,color:X.navy,background:'#EEF4FF',border:`1px solid ${X.border}`,borderRadius:'4px',padding:'3px 6px'}}>{row.category??'Platform'}</span>},
+ {key:'severity',label:'Severity',render:(row)=>{const severity=row.severity??fallbackSeverity(row);const color=severityColor[severity];return <span style={{fontSize:'10px',fontWeight:800,color,border:`1px solid ${color}55`,borderRadius:'4px',padding:'3px 6px',background:X.white}}>{severity}</span>;}},
+ {key:'status',label:'Delivery',render:(row)=><span style={{fontSize:'11px',fontWeight:700,color:row.status==='failed'?X.danger:row.status==='pending'?X.orange:row.status==='sent'?X.success:X.muted}}>{row.status}</span>},
+ {key:'failure_detail',label:'Failure detail',render:(row)=><div style={{fontSize:'11px',color:X.muted,maxWidth:'260px'}}>{row.last_error?<><div style={{color:X.danger,fontWeight:600}}>{row.last_error}</div><div style={{marginTop:'2px'}}>Attempts: {row.attempt_count??'—'} {row.next_attempt_at?`· next ${formatDateTime(row.next_attempt_at)}`:''}</div></>:'—'}</div>},
+ {key:'created_at',label:'Created',render:(row)=><span style={{fontSize:'11px',whiteSpace:'nowrap'}}>{formatDateTime(row.created_at)}</span>},
+ {key:'actions',label:'Actions',render:(row)=>{const eligible=row.status==='failed'||row.status==='skipped';const pending=pendingById[row.id]===true;const feedback=feedbackById[row.id];return <div style={{display:'flex',gap:'6px',alignItems:'center',minWidth:'150px',flexWrap:'wrap'}}>{row.view_href&&<Link href={row.view_href} style={{...actionStyle,border:`1px solid ${X.navy}`,background:X.navy,color:X.white}}>View</Link>}<button type='button' disabled={!eligible||pending} onClick={()=>{void onRetry(row.id);}} style={{...actionStyle,border:`1px solid ${eligible&&!pending?X.blue:X.border}`,background:eligible&&!pending?X.white:X.light,color:eligible&&!pending?X.blue:'#9CA3AF',cursor:eligible&&!pending?'pointer':'not-allowed'}}>{pending?'Retrying…':'Retry'}</button>{feedback&&<div style={{fontSize:'10px',color:feedback.tone==='success'?X.success:X.danger}}>{feedback.message}</div>}</div>;}}
+]; }
