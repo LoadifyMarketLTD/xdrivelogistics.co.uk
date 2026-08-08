@@ -37,14 +37,16 @@ type ApiResponse = {
 };
 
 const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  green: '#22c55e',
-  red: '#ef4444',
+  pageBg: '#F4F6F8',
+  cardBg: '#FFFFFF',
+  cardBorder: '#D9E1EA',
+  text: '#1A1F2B',
+  heading: '#0B2F6B',
+  blue: '#1D57D8',
+  muted: '#64748B',
+  accent: '#F5A300',
+  green: '#16A34A',
+  red: '#DC2626',
 };
 
 function isPendingCompanyStatus(status: string): boolean {
@@ -66,7 +68,6 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [acting, setActing] = useState<{ companyId: string; action: ActionType } | null>(null);
-  // PR-0.4: modal for dangerous actions (suspend / reject) that require a reason.
   const [pendingModal, setPendingModal] = useState<{ company: Company; action: ActionType } | null>(null);
   const [governanceHistoryAvailable, setGovernanceHistoryAvailable] = useState(false);
   const [governanceHistoryError, setGovernanceHistoryError] = useState<string | null>(null);
@@ -92,7 +93,6 @@ export default function Page() {
       const auth = await getAuthHeader();
       if (!auth) {
         setError('No active session.');
-        setLoading(false);
         return;
       }
 
@@ -102,8 +102,7 @@ export default function Page() {
 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError((body as { error?: string }).error ?? `HTTP ${res.status}`);
-        setLoading(false);
+        setError('Company governance service is currently unavailable.');
         return;
       }
 
@@ -113,8 +112,8 @@ export default function Page() {
       setGovernanceHistoryError(payload.governanceHistoryError ?? null);
       setGovernanceHistoryByCompany(payload.governanceHistoryByCompany ?? {});
       setGovernanceHistoryRecent(payload.governanceHistoryRecent ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fetch failed.');
+    } catch {
+      setError('Company governance service is currently unavailable.');
     } finally {
       setLoading(false);
     }
@@ -140,21 +139,19 @@ export default function Page() {
         headers: { 'Content-Type': 'application/json', Authorization: auth },
         body: JSON.stringify({ action, ...(reason ? { reason } : {}) }),
       });
-      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage((body as { error?: string }).error ?? `HTTP ${res.status}`);
+        setMessage('The requested company action could not be completed.');
       } else {
         setMessage(`Action '${action}' applied successfully.`);
         await fetchCompanies();
       }
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Action failed.');
+    } catch {
+      setMessage('The requested company action could not be completed.');
     } finally {
       setActing(null);
     }
   };
 
-  /** Open modal for dangerous actions; fire immediately for safe ones. */
   const initiateAction = (company: Company, action: ActionType) => {
     if (action === 'suspend' || action === 'reject') {
       setPendingModal({ company, action });
@@ -165,23 +162,18 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      {/* PR-0.4: Confirmation modal for dangerous company actions */}
       <ActionConfirmModal
         open={pendingModal !== null}
         title={pendingModal?.action === 'suspend' ? '⛔ Suspend company' : '❌ Reject company'}
         description={
           pendingModal?.action === 'suspend'
-            ? <><strong style={{ color: THEME.text }}>{pendingModal.company.name}</strong> will be <strong style={{ color: THEME.red }}>suspended</strong> immediately. Drivers and brokers in this company will lose platform access.</>
-            : <><strong style={{ color: THEME.text }}>{pendingModal?.company.name}</strong> application will be <strong style={{ color: THEME.red }}>rejected</strong>. The applicant will be notified.</>
+            ? <><strong>{pendingModal.company.name}</strong> will be <strong style={{ color: THEME.red }}>suspended</strong> immediately. Drivers and brokers in this company will lose platform access.</>
+            : <><strong>{pendingModal?.company.name}</strong> application will be <strong style={{ color: THEME.red }}>rejected</strong>. The applicant will be notified.</>
         }
         confirmLabel={pendingModal?.action === 'suspend' ? 'Confirm suspension' : 'Confirm rejection'}
         danger
         reasonRequired
-        reasonPlaceholder={
-          pendingModal?.action === 'suspend'
-            ? 'Explain why this company is being suspended…'
-            : 'Explain why this application is being rejected…'
-        }
+        reasonPlaceholder={pendingModal?.action === 'suspend' ? 'Explain why this company is being suspended…' : 'Explain why this application is being rejected…'}
         submitting={acting !== null}
         onCancel={() => setPendingModal(null)}
         onConfirm={(reason) => {
@@ -190,23 +182,21 @@ export default function Page() {
           void handleAction(pendingModal.company.id, pendingModal.action, reason);
         }}
       />
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '1.5rem' }}>🏢</span>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>All Companies Governance</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-                Companies
-              </span>
-            </div>
-            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>
-              Platform-wide company register with governance actions and audit trail.
-            </p>
-          </div>
-        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.7rem', marginBottom: '1rem' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, color: THEME.text, padding: '12px' }}>
+        <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          <span aria-hidden="true" style={{ width: '28px', height: '28px', display: 'grid', placeItems: 'center', borderRadius: '4px', background: THEME.heading, color: '#FFFFFF', fontSize: '12px' }}>🏢</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '20px', lineHeight: 1.2, fontWeight: 800, color: THEME.heading, margin: 0 }}>All Companies Governance</h1>
+              <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: THEME.blue, backgroundColor: '#EEF4FF', padding: '3px 6px', borderRadius: '4px' }}>Companies</span>
+            </div>
+            <p style={{ color: THEME.muted, margin: '4px 0 0', fontSize: '12px' }}>Platform-wide company register with governance actions and audit trail.</p>
+          </div>
+          <button onClick={() => void fetchCompanies()} disabled={loading} style={{ height: '32px', padding: '0 10px', borderRadius: '4px', border: `1px solid ${THEME.blue}`, background: THEME.blue, color: '#FFFFFF', fontWeight: 800, fontSize: '11px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? .65 : 1 }}>{loading ? 'Loading…' : 'Refresh'}</button>
+        </header>
+
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
           {[
             { label: 'Total', value: statusCounts.total },
             { label: 'Active', value: statusCounts.active },
@@ -214,50 +204,28 @@ export default function Page() {
             { label: 'Pending', value: statusCounts.pending },
             { label: 'Rejected', value: statusCounts.rejected },
           ].map((item) => (
-            <div key={item.label} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.75rem' }}>
-              <div style={{ color: THEME.text, fontSize: '1.1rem', fontWeight: 700 }}>{item.value}</div>
-              <div style={{ color: THEME.muted, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
+            <div key={item.label} style={{ minHeight: '72px', backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '12px' }}>
+              <div style={{ color: THEME.heading, fontSize: '20px', fontWeight: 800 }}>{item.value}</div>
+              <div style={{ color: THEME.muted, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '5px', fontWeight: 700 }}>{item.label}</div>
             </div>
           ))}
-        </div>
+        </section>
 
-        {message && (
-          <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>
-            {message}
-          </div>
-        )}
+        {message && <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.accent}`, borderLeft: `4px solid ${THEME.accent}`, borderRadius: '4px', padding: '9px 12px', color: THEME.text, fontSize: '11px', marginBottom: '12px' }}>{message}</div>}
+        {error && <div role="alert" style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.red}`, borderLeft: `4px solid ${THEME.red}`, borderRadius: '4px', padding: '9px 12px', color: THEME.red, fontSize: '11px', fontWeight: 700, marginBottom: '12px' }}>{error}</div>}
 
-        {error && (
-          <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem' }}>
+        <section style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden', marginBottom: '12px' }}>
           {loading ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>Loading…</div>
+            <div style={{ padding: '18px', textAlign: 'center', color: THEME.muted, fontSize: '12px' }}>Loading…</div>
           ) : companies.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>No companies found.</div>
+            <div style={{ padding: '18px', textAlign: 'center', color: THEME.muted, fontSize: '12px' }}>No companies found.</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px', fontSize: '0.82rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px', fontSize: '12px' }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
+                  <tr style={{ height: '38px', background: THEME.pageBg, borderBottom: `1px solid ${THEME.cardBorder}` }}>
                     {['Company', 'Status', 'Type', 'Email', 'Created', 'Governance actions', 'Audit history'].map((heading) => (
-                      <th
-                        key={heading}
-                        style={{
-                          padding: '0.75rem 0.9rem',
-                          textAlign: 'left',
-                          color: THEME.muted,
-                          fontWeight: 600,
-                          fontSize: '0.72rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                        }}
-                      >
-                        {heading}
-                      </th>
+                      <th key={heading} style={{ padding: '0 12px', textAlign: 'left', color: THEME.heading, fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{heading}</th>
                     ))}
                   </tr>
                 </thead>
@@ -267,68 +235,25 @@ export default function Page() {
                     const companyHistory = governanceHistoryByCompany[company.id] ?? [];
                     return (
                       <tr key={company.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
-                        <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>
-                          <div style={{ fontWeight: 700 }}>{company.name}</div>
-                          <div style={{ fontSize: '0.72rem', color: THEME.muted, marginTop: '0.2rem' }}>
-                            Reg: {company.company_number ?? '—'}
-                          </div>
-                        </td>
-                        <td style={{ padding: '0.75rem 0.9rem' }}>
-                          <StatusChip value={company.status} />
-                        </td>
-                        <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{company.company_type ?? 'standard'}</td>
-                        <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{company.email ?? '—'}</td>
-                        <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{formatDateTime(company.created_at)}</td>
-                        <td style={{ padding: '0.75rem 0.9rem' }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                            {actions.length === 0 && (
-                              <span style={{ color: THEME.muted, fontSize: '0.74rem' }}>No action</span>
-                            )}
+                        <td style={{ padding: '9px 12px', color: THEME.text }}><div style={{ fontWeight: 800 }}>{company.name}</div><div style={{ fontSize: '10px', color: THEME.muted, marginTop: '2px' }}>Reg: {company.company_number ?? '—'}</div></td>
+                        <td style={{ padding: '9px 12px' }}><StatusChip value={company.status} /></td>
+                        <td style={{ padding: '9px 12px', color: THEME.text }}>{company.company_type ?? 'standard'}</td>
+                        <td style={{ padding: '9px 12px', color: THEME.text }}>{company.email ?? '—'}</td>
+                        <td style={{ padding: '9px 12px', color: THEME.text }}>{formatDateTime(company.created_at)}</td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {actions.length === 0 && <span style={{ color: THEME.muted, fontSize: '11px' }}>No action</span>}
                             {actions.map((action) => {
                               const isBusy = acting?.companyId === company.id && acting.action === action;
                               const danger = action === 'reject' || action === 'suspend';
-                              return (
-                                <button
-                                  key={action}
-                                  onClick={() => initiateAction(company, action)}
-                                  disabled={Boolean(acting)}
-                                  style={{
-                                    padding: '0.28rem 0.6rem',
-                                    borderRadius: '6px',
-                                    border: `1px solid ${danger ? THEME.red : THEME.green}`,
-                                    backgroundColor: 'transparent',
-                                    color: danger ? THEME.red : THEME.green,
-                                    fontWeight: 700,
-                                    fontSize: '0.72rem',
-                                    cursor: 'pointer',
-                                    opacity: isBusy ? 0.6 : 1,
-                                  }}
-                                >
-                                  {isBusy ? '…' : action}
-                                </button>
-                              );
+                              return <button key={action} onClick={() => initiateAction(company, action)} disabled={Boolean(acting)} style={{ height: '30px', padding: '0 9px', borderRadius: '4px', border: `1px solid ${danger ? THEME.red : THEME.green}`, backgroundColor: '#FFFFFF', color: danger ? THEME.red : THEME.green, fontWeight: 800, fontSize: '10px', cursor: 'pointer', opacity: isBusy ? .6 : 1 }}>{isBusy ? '…' : action}</button>;
                             })}
                           </div>
                         </td>
-                        <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>
+                        <td style={{ padding: '9px 12px', color: THEME.text }}>
                           {governanceHistoryAvailable ? (
-                            companyHistory.length > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                {companyHistory.map((entry) => (
-                                  <div key={entry.id} style={{ fontSize: '0.72rem' }}>
-                                    <span style={{ color: THEME.accent, fontWeight: 700 }}>{entry.action_type}</span>
-                                    <span style={{ color: THEME.muted }}> · {formatDateTime(entry.created_at)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span style={{ color: THEME.muted, fontSize: '0.74rem' }}>No entries</span>
-                            )
-                          ) : (
-                            <span style={{ color: THEME.red, fontSize: '0.74rem' }}>
-                              Audit unavailable{governanceHistoryError ? `: ${governanceHistoryError}` : ''}
-                            </span>
-                          )}
+                            companyHistory.length > 0 ? <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>{companyHistory.map((entry) => <div key={entry.id} style={{ fontSize: '10px' }}><span style={{ color: THEME.blue, fontWeight: 800 }}>{entry.action_type}</span><span style={{ color: THEME.muted }}> · {formatDateTime(entry.created_at)}</span></div>)}</div> : <span style={{ color: THEME.muted, fontSize: '11px' }}>No entries</span>
+                          ) : <span style={{ color: THEME.muted, fontSize: '11px' }}>Audit history temporarily unavailable</span>}
                         </td>
                       </tr>
                     );
@@ -337,28 +262,20 @@ export default function Page() {
               </table>
             </div>
           )}
-        </div>
+        </section>
 
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '0.9rem' }}>
-          <h2 style={{ margin: '0 0 0.6rem', color: THEME.text, fontSize: '0.92rem' }}>Recent Governance Events</h2>
+        <section style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '12px' }}>
+          <h2 style={{ margin: '0 0 8px', color: THEME.heading, fontSize: '13px', fontWeight: 800 }}>Recent Governance Events</h2>
           {!governanceHistoryAvailable ? (
-            <p style={{ margin: 0, color: THEME.red, fontSize: '0.8rem' }}>
-              Governance history table is unavailable{governanceHistoryError ? `: ${governanceHistoryError}` : ''}.
-            </p>
+            <p style={{ margin: 0, color: THEME.muted, fontSize: '11px' }}>Governance history is temporarily unavailable. {governanceHistoryError ? 'Diagnostics are available in the platform logs.' : ''}</p>
           ) : governanceHistoryRecent.length === 0 ? (
-            <p style={{ margin: 0, color: THEME.muted, fontSize: '0.8rem' }}>No governance events recorded.</p>
+            <p style={{ margin: 0, color: THEME.muted, fontSize: '11px' }}>No governance events recorded.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              {governanceHistoryRecent.slice(0, 12).map((event) => (
-                <div key={event.id} style={{ fontSize: '0.78rem', color: THEME.text }}>
-                  <span style={{ color: THEME.accent, fontWeight: 700 }}>{event.action_type}</span>
-                  <span style={{ color: THEME.muted }}> · {formatDateTime(event.created_at)} · {event.old_status} → {event.new_status}</span>
-                  <div style={{ color: THEME.muted, marginTop: '0.1rem' }}>{event.reason}</div>
-                </div>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {governanceHistoryRecent.slice(0, 12).map((event) => <div key={event.id} style={{ fontSize: '11px', color: THEME.text }}><span style={{ color: THEME.blue, fontWeight: 800 }}>{event.action_type}</span><span style={{ color: THEME.muted }}> · {formatDateTime(event.created_at)} · {event.old_status} → {event.new_status}</span><div style={{ color: THEME.muted, marginTop: '2px' }}>{event.reason}</div></div>)}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </ProtectedRoute>
   );
