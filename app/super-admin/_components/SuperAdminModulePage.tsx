@@ -7,63 +7,17 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
 
-const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-};
+const X = {
+  navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF',
+  charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626',
+} as const;
 
-interface SuperAdminModulePageProps {
-  title: string;
-  description: string;
-  section: string;
-  icon?: string;
-  children?: ReactNode;
-}
+interface SuperAdminModulePageProps { title: string; description: string; section: string; icon?: string; children?: ReactNode; }
+type PlatformStats = { companiesTotal: number; companiesActive: number; jobsTotal: number; jobsOpen: number; driversTotal: number; invoicesUnpaid: number; };
+type JobPreviewRow = { id: string; status: string; posting_company_name: string; pickup_location: string | null; pickup_postcode: string | null; delivery_location: string | null; delivery_postcode: string | null; created_at: string; bids_count: number; };
+type QuotePreviewRow = { id: string; status: string; company_name: string; customer_name: string | null; pickup_location: string | null; delivery_location: string | null; amount: number | null; currency: string | null; created_at: string; };
 
-type PlatformStats = {
-  companiesTotal: number;
-  companiesActive: number;
-  jobsTotal: number;
-  jobsOpen: number;
-  driversTotal: number;
-  invoicesUnpaid: number;
-};
-
-type JobPreviewRow = {
-  id: string;
-  status: string;
-  posting_company_name: string;
-  pickup_location: string | null;
-  pickup_postcode: string | null;
-  delivery_location: string | null;
-  delivery_postcode: string | null;
-  created_at: string;
-  bids_count: number;
-};
-
-type QuotePreviewRow = {
-  id: string;
-  status: string;
-  company_name: string;
-  customer_name: string | null;
-  pickup_location: string | null;
-  delivery_location: string | null;
-  amount: number | null;
-  currency: string | null;
-  created_at: string;
-};
-
-export default function SuperAdminModulePage({
-  title,
-  description,
-  section,
-  icon = '🧩',
-  children,
-}: SuperAdminModulePageProps) {
+export default function SuperAdminModulePage({ title, description, section, icon = '•', children }: SuperAdminModulePageProps) {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [jobsPreview, setJobsPreview] = useState<JobPreviewRow[]>([]);
   const [quotesPreview, setQuotesPreview] = useState<QuotePreviewRow[]>([]);
@@ -72,165 +26,87 @@ export default function SuperAdminModulePage({
 
   useEffect(() => {
     const run = async () => {
-      setLoading(true);
-      setDataError(null);
+      setLoading(true); setDataError(null);
       try {
         const auth = await getAuthHeader();
-        if (!auth) {
-          setDataError('No active session.');
-          setLoading(false);
-          return;
-        }
-
+        if (!auth) { setDataError('No active session.'); return; }
         const [statsRes, jobsRes, quotesRes] = await Promise.all([
           fetch('/api/super-admin/stats', { headers: { Authorization: auth } }),
           fetch('/api/super-admin/operations?section=jobs&limit=6', { headers: { Authorization: auth } }),
           fetch('/api/super-admin/operations?section=quotes&limit=6', { headers: { Authorization: auth } }),
         ]);
-
-        const [statsBody, jobsBody, quotesBody] = await Promise.all([
-          statsRes.json().catch(() => ({})),
-          jobsRes.json().catch(() => ({})),
-          quotesRes.json().catch(() => ({})),
-        ]);
-
-        if (!statsRes.ok) {
-          setDataError((statsBody as { error?: string }).error ?? `HTTP ${statsRes.status}`);
-          setLoading(false);
-          return;
-        }
-
-        if (!jobsRes.ok) {
-          setDataError((jobsBody as { error?: string }).error ?? `HTTP ${jobsRes.status}`);
-          setLoading(false);
-          return;
-        }
-
-        if (!quotesRes.ok) {
-          setDataError((quotesBody as { error?: string }).error ?? `HTTP ${quotesRes.status}`);
-          setLoading(false);
-          return;
-        }
-
+        if (!statsRes.ok || !jobsRes.ok || !quotesRes.ok) { setDataError('This module is temporarily unable to load all platform data.'); return; }
+        const [statsBody, jobsBody, quotesBody] = await Promise.all([statsRes.json(), jobsRes.json(), quotesRes.json()]);
         setStats(statsBody as PlatformStats);
         setJobsPreview(((jobsBody as { rows?: JobPreviewRow[] }).rows ?? []) as JobPreviewRow[]);
         setQuotesPreview(((quotesBody as { rows?: QuotePreviewRow[] }).rows ?? []) as QuotePreviewRow[]);
-      } catch (err) {
-        setDataError(err instanceof Error ? err.message : 'Data fetch failed.');
-      } finally {
-        setLoading(false);
-      }
+      } catch { setDataError('This module is temporarily unable to load all platform data.'); }
+      finally { setLoading(false); }
     };
-
-    if (!children) {
-      void run();
-    }
+    if (!children) void run();
   }, [children]);
 
-  return (
-    <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <span style={{ fontSize: '1.5rem' }}>{icon}</span>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>{title}</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-                {section}
-              </span>
-            </div>
-            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>{description}</p>
+  const metrics = [
+    ['Companies', stats?.companiesTotal ?? '—'], ['Active companies', stats?.companiesActive ?? '—'],
+    ['Jobs total', stats?.jobsTotal ?? '—'], ['Jobs open', stats?.jobsOpen ?? '—'],
+    ['Drivers', stats?.driversTotal ?? '—'], ['Unpaid invoices', stats?.invoicesUnpaid ?? '—'],
+  ];
+
+  return <ProtectedRoute allowedRoles={['owner']}>
+    <div style={{ minHeight: '100vh', background: X.light, padding: '12px', color: X.charcoal }}>
+      <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+        <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '4px', background: X.navy, color: X.white, display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: 800 }}>{icon}</span>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: '20px', lineHeight: 1.2, fontWeight: 800, color: X.navy, margin: 0 }}>{title}</h1>
+            <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', color: X.blue, background: '#EEF4FF', padding: '3px 6px', borderRadius: '4px' }}>{section}</span>
           </div>
+          <p style={{ color: X.muted, margin: '4px 0 0', fontSize: '12px' }}>{description}</p>
+        </div>
+      </header>
+
+      {children ?? <>
+        {dataError && <div role="alert" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px', color: X.danger, fontSize: '12px' }}>{dataError}</div>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '12px', marginBottom: '12px' }}>
+          {metrics.map(([label, value]) => <div key={String(label)} style={{ minHeight: '88px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}>
+            <div style={{ color: X.navy, fontSize: '22px', lineHeight: 1.05, fontWeight: 800 }}>{loading ? '—' : value}</div>
+            <div style={{ marginTop: '8px', color: X.charcoal, fontSize: '11px', fontWeight: 700 }}>{label}</div>
+          </div>)}
         </div>
 
-        {children ?? (
-          <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '1rem' }}>
-            {dataError && (
-              <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.65rem 0.9rem', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1rem' }}>
-                ⚠️ {dataError}
-              </div>
-            )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1fr)', gap: '12px' }}>
+          <PreviewPanel title="Recent platform jobs" loading={loading} empty={jobsPreview.length === 0}>
+            {jobsPreview.map(job => <div key={job.id} style={rowStyle}>
+              <div style={{ color: X.navy, fontWeight: 800, fontSize: '12px' }}>{routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}</div>
+              <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{job.posting_company_name} · {job.status} · bids {job.bids_count}</div>
+              <div style={{ color: X.muted, fontSize: '10px', marginTop: '2px' }}>{formatDateTime(job.created_at)}</div>
+            </div>)}
+          </PreviewPanel>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
-              {[
-                { label: 'Companies', value: stats?.companiesTotal ?? '—' },
-                { label: 'Active companies', value: stats?.companiesActive ?? '—' },
-                { label: 'Jobs total', value: stats?.jobsTotal ?? '—' },
-                { label: 'Jobs open', value: stats?.jobsOpen ?? '—' },
-                { label: 'Drivers', value: stats?.driversTotal ?? '—' },
-                { label: 'Unpaid invoices', value: stats?.invoicesUnpaid ?? '—' },
-              ].map((item) => (
-                <div key={item.label} style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '0.65rem' }}>
-                  <div style={{ color: THEME.text, fontSize: '1rem', fontWeight: 700 }}>{loading ? '…' : item.value}</div>
-                  <div style={{ color: THEME.muted, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
-                </div>
-              ))}
-            </div>
+          <PreviewPanel title="Recent quote requests" loading={loading} empty={quotesPreview.length === 0}>
+            {quotesPreview.map(quote => <div key={quote.id} style={rowStyle}>
+              <div style={{ color: X.navy, fontWeight: 800, fontSize: '12px' }}>{quote.company_name} · {quote.status}</div>
+              <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}</div>
+              <div style={{ color: X.muted, fontSize: '10px', marginTop: '2px' }}>{quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}</div>
+            </div>)}
+          </PreviewPanel>
+        </div>
+      </>}
+    </div>
+  </ProtectedRoute>;
+}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
-                <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent platform jobs</h3>
-                {loading ? (
-                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
-                ) : jobsPreview.length === 0 ? (
-                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>No jobs found.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {jobsPreview.map((job) => (
-                      <div key={job.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '7px', padding: '0.55rem' }}>
-                        <div style={{ color: THEME.text, fontWeight: 700, fontSize: '0.77rem' }}>
-                          {routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}
-                        </div>
-                        <div style={{ color: THEME.muted, fontSize: '0.72rem', marginTop: '0.15rem' }}>
-                          {job.posting_company_name} · {job.status} · bids {job.bids_count}
-                        </div>
-                        <div style={{ color: THEME.muted, fontSize: '0.68rem', marginTop: '0.1rem' }}>{formatDateTime(job.created_at)}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+const rowStyle = { minHeight: '44px', padding: '9px 12px', borderBottom: `1px solid ${X.border}`, background: X.white } as const;
 
-              <div style={{ backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.8rem' }}>
-                <h3 style={{ margin: '0 0 0.5rem', color: THEME.text, fontSize: '0.84rem' }}>Recent quote requests</h3>
-                {loading ? (
-                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>Loading…</div>
-                ) : quotesPreview.length === 0 ? (
-                  <div style={{ color: THEME.muted, fontSize: '0.78rem' }}>No quotes found.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {quotesPreview.map((quote) => (
-                      <div key={quote.id} style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '7px', padding: '0.55rem' }}>
-                        <div style={{ color: THEME.text, fontWeight: 700, fontSize: '0.77rem' }}>
-                          {quote.company_name} · {quote.status}
-                        </div>
-                        <div style={{ color: THEME.muted, fontSize: '0.72rem', marginTop: '0.15rem' }}>
-                          {quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}
-                        </div>
-                        <div style={{ color: THEME.muted, fontSize: '0.68rem', marginTop: '0.1rem' }}>
-                          {quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </ProtectedRoute>
-  );
+function PreviewPanel({ title, loading, empty, children }: { title: string; loading: boolean; empty: boolean; children: ReactNode }) {
+  return <section style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, overflow: 'hidden' }}>
+    <div style={{ height: '40px', padding: '0 12px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${X.border}`, color: X.navy, fontSize: '13px', fontWeight: 800 }}>{title}</div>
+    {loading ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>Loading…</div> : empty ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>No records found.</div> : children}
+  </section>;
 }
 
 export function BackToSuperAdminButton() {
   const router = useRouter();
-  return (
-    <button
-      onClick={() => router.push('/super-admin')}
-      style={{ padding: '0.5rem 1rem', backgroundColor: THEME.accent, color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
-    >
-      ← Back to Dashboard
-    </button>
-  );
+  return <button onClick={() => router.push('/super-admin')} style={{ height: '32px', padding: '0 12px', background: X.blue, color: X.white, border: `1px solid ${X.blue}`, borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>← Back to Dashboard</button>;
 }
