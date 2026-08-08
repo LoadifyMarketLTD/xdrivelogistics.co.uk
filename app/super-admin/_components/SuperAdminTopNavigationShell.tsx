@@ -1,11 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { useAuth } from '../../components/AuthContext';
-import SharedContextControls from '../../components/workspace/SharedContextControls';
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import {
@@ -31,6 +31,7 @@ export default function SuperAdminTopNavigationShell({
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(fixtureOverrides?.unreadCount ?? 0);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
   const navRef = useRef<HTMLDivElement | null>(null);
 
   const role = 'platform_owner' as const;
@@ -55,6 +56,19 @@ export default function SuperAdminTopNavigationShell({
     const [baseHref] = href.split('?');
     if (baseHref === definition.homeHref) return pathname === baseHref;
     return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
+  };
+
+  const navigateFromSearch = () => {
+    const normalized = searchValue.trim().toLowerCase();
+    if (!normalized) return;
+    const target = navigationTargets.find((item) => item.label.toLowerCase() === normalized)
+      ?? navigationTargets.find((item) => item.label.toLowerCase().includes(normalized));
+    if (target) {
+      router.push(target.href);
+      setSearchValue('');
+      setOpenGroup(null);
+      setAccountOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -108,16 +122,92 @@ export default function SuperAdminTopNavigationShell({
             aria-label="Platform Owner home"
             className={styles.brand}
           >
-            <span aria-hidden="true" className={styles.logo}>X</span>
-            <span className={styles.brandText}>
-              <span className={styles.brandName}>XDrive Logistics</span>
-              <span className={styles.brandSub}>Global platform administration</span>
-            </span>
+            <Image
+              src="/xdrive-logo-horizontal.png"
+              alt="XDrive Logistics"
+              width={246}
+              height={66}
+              priority
+              className={styles.brandLogo}
+            />
           </button>
 
+          <nav aria-label="Platform Owner navigation" className={styles.nav}>
+            {definition.nav.map((group) => {
+              const groupActive = group.items.some((item) => isActive(item.href));
+              const open = openGroup === group.id;
+              const buttonClass = [
+                styles.groupButton,
+                groupActive ? styles.groupActive : '',
+                open ? styles.groupOpen : '',
+              ].filter(Boolean).join(' ');
+
+              return (
+                <div key={group.id} className={styles.group}>
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={open}
+                    onClick={() => {
+                      setOpenGroup((value) => (value === group.id ? null : group.id));
+                      setAccountOpen(false);
+                    }}
+                    className={buttonClass}
+                  >
+                    {group.label}
+                    <span aria-hidden="true" className={styles.chevron}>▾</span>
+                  </button>
+
+                  {open && (
+                    <div role="menu" aria-label={`${group.label} navigation`} className={styles.dropdown}>
+                      <div className={styles.dropdownTitle}>{group.label}</div>
+                      {group.items.map((item) => {
+                        const active = isActive(item.href);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              router.push(item.href);
+                              setOpenGroup(null);
+                            }}
+                            className={`${styles.menuItem} ${active ? styles.menuItemActive : ''}`}
+                          >
+                            <span aria-hidden="true" className={styles.itemIcon}>{item.icon ?? '•'}</span>
+                            <span className={styles.itemText}>
+                              <span className={styles.itemLabel}>{item.label}</span>
+                              <span className={styles.itemDescription}>
+                                {navigationDescription(group.id, item.id)}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+
           <div className={styles.actions}>
-            <div className={styles.context}>
-              <SharedContextControls navigation={navigationTargets} />
+            <div className={styles.searchWrap}>
+              <span aria-hidden="true" className={styles.searchIcon}>⌕</span>
+              <input
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') navigateFromSearch();
+                }}
+                list="platform-owner-navigation"
+                placeholder="Search navigation"
+                aria-label="Search navigation"
+                className={styles.searchInput}
+              />
+              <datalist id="platform-owner-navigation">
+                {navigationTargets.map((item) => <option key={item.id} value={item.label} />)}
+              </datalist>
             </div>
 
             <button
@@ -135,7 +225,7 @@ export default function SuperAdminTopNavigationShell({
               title="Notifications"
               className={styles.notificationButton}
             >
-              🔔
+              <span aria-hidden="true">🔔</span>
               {unreadCount > 0 && (
                 <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
@@ -181,65 +271,6 @@ export default function SuperAdminTopNavigationShell({
             </div>
           </div>
         </header>
-
-        <nav aria-label="Platform Owner navigation" className={styles.nav}>
-          {definition.nav.map((group) => {
-            const groupActive = group.items.some((item) => isActive(item.href));
-            const open = openGroup === group.id;
-            const buttonClass = [
-              styles.groupButton,
-              groupActive ? styles.groupActive : '',
-              open ? styles.groupOpen : '',
-            ].filter(Boolean).join(' ');
-
-            return (
-              <div key={group.id} className={styles.group}>
-                <button
-                  type="button"
-                  aria-haspopup="menu"
-                  aria-expanded={open}
-                  onClick={() => {
-                    setOpenGroup((value) => (value === group.id ? null : group.id));
-                    setAccountOpen(false);
-                  }}
-                  className={buttonClass}
-                >
-                  {group.label}
-                  <span aria-hidden="true" className={styles.chevron}>▾</span>
-                </button>
-
-                {open && (
-                  <div role="menu" aria-label={`${group.label} navigation`} className={styles.dropdown}>
-                    <div className={styles.dropdownTitle}>{group.label}</div>
-                    {group.items.map((item) => {
-                      const active = isActive(item.href);
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            router.push(item.href);
-                            setOpenGroup(null);
-                          }}
-                          className={`${styles.menuItem} ${active ? styles.menuItemActive : ''}`}
-                        >
-                          <span aria-hidden="true" className={styles.itemIcon}>{item.icon ?? '•'}</span>
-                          <span>
-                            <span className={styles.itemLabel}>{item.label}</span>
-                            <span className={styles.itemDescription}>
-                              {navigationDescription(group.id, item.id)}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
       </div>
 
       <main className={styles.main}>{children}</main>
