@@ -13,11 +13,8 @@ import {
   getNotificationsRoute,
   resolveActionCentreRole,
 } from '../../components/workspace/actionCentreConfig';
-import { workspaceTheme } from '../../components/workspace/WorkspaceUI';
 import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
-
-const HEADER_HEIGHT = 54;
-const NAV_HEIGHT = 48;
+import styles from './SuperAdminTopNavigationShell.module.css';
 
 export default function SuperAdminTopNavigationShell({
   children,
@@ -102,123 +99,31 @@ export default function SuperAdminTopNavigationShell({
   }, [pathname]);
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: workspaceTheme.page,
-        color: workspaceTheme.text,
-      }}
-    >
-      <div
-        ref={navRef}
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 80,
-          background: '#fff',
-          borderBottom: `1px solid ${workspaceTheme.border}`,
-          boxShadow: '0 1px 0 rgba(15, 23, 42, 0.03)',
-        }}
-      >
-        <header
-          style={{
-            minHeight: `${HEADER_HEIGHT}px`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '14px',
-            padding: '0 18px',
-            borderBottom: `1px solid ${workspaceTheme.border}`,
-          }}
-        >
+    <div className={styles.shell}>
+      <div ref={navRef} className={styles.top}>
+        <header className={styles.header}>
           <button
             type="button"
             onClick={() => router.push(definition.homeHref)}
             aria-label="Platform Owner home"
-            style={{
-              border: 0,
-              background: 'transparent',
-              padding: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              cursor: 'pointer',
-              minWidth: 0,
-              textAlign: 'left',
-            }}
+            className={styles.brand}
           >
-            <span
-              aria-hidden="true"
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '5px',
-                background: workspaceTheme.navy,
-                color: workspaceTheme.orange,
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 950,
-                flexShrink: 0,
-              }}
-            >
-              X
-            </span>
-            <span style={{ minWidth: 0 }}>
-              <span
-                style={{
-                  display: 'block',
-                  color: workspaceTheme.text,
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                XDrive Logistics
-              </span>
-              <span
-                style={{
-                  display: 'block',
-                  marginTop: '1px',
-                  color: workspaceTheme.muted,
-                  fontSize: '10px',
-                  fontWeight: 650,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Global platform administration
-              </span>
+            <span aria-hidden="true" className={styles.logo}>X</span>
+            <span className={styles.brandText}>
+              <span className={styles.brandName}>XDrive Logistics</span>
+              <span className={styles.brandSub}>Global platform administration</span>
             </span>
           </button>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              minWidth: 0,
-              flex: 1,
-            }}
-          >
-            <div style={{ minWidth: 0, maxWidth: '620px', flex: '1 1 360px' }}>
+          <div className={styles.actions}>
+            <div className={styles.context}>
               <SharedContextControls navigation={navigationTargets} />
             </div>
 
             <button
               type="button"
               onClick={() => router.push(actionCentreHref)}
-              style={{
-                height: '34px',
-                border: `1px solid ${workspaceTheme.border}`,
-                borderRadius: '6px',
-                background: '#fff',
-                color: workspaceTheme.text,
-                padding: '0 12px',
-                fontSize: '12px',
-                fontWeight: 750,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
+              className={styles.actionButton}
             >
               Action Centre
             </button>
@@ -228,41 +133,15 @@ export default function SuperAdminTopNavigationShell({
               onClick={() => router.push(notificationsHref)}
               aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
               title="Notifications"
-              style={{
-                position: 'relative',
-                width: '34px',
-                height: '34px',
-                border: `1px solid ${workspaceTheme.border}`,
-                borderRadius: '6px',
-                background: '#fff',
-                cursor: 'pointer',
-              }}
+              className={styles.notificationButton}
             >
               🔔
               {unreadCount > 0 && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '-5px',
-                    right: '-5px',
-                    minWidth: '17px',
-                    height: '17px',
-                    padding: '0 4px',
-                    borderRadius: '999px',
-                    background: workspaceTheme.red,
-                    color: '#fff',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontSize: '9px',
-                    fontWeight: 900,
-                  }}
-                >
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
+                <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
             </button>
 
-            <div style={{ position: 'relative' }}>
+            <div className={styles.accountWrap}>
               <button
                 type="button"
                 onClick={() => {
@@ -270,92 +149,30 @@ export default function SuperAdminTopNavigationShell({
                   setOpenGroup(null);
                 }}
                 aria-expanded={accountOpen}
-                style={{
-                  height: '34px',
-                  maxWidth: '190px',
-                  border: `1px solid ${workspaceTheme.border}`,
-                  borderRadius: '6px',
-                  background: '#fff',
-                  color: workspaceTheme.text,
-                  padding: '0 10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '7px',
-                  cursor: 'pointer',
-                }}
+                className={styles.accountButton}
               >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    background: '#eef2f6',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontSize: '10px',
-                    fontWeight: 900,
-                    color: workspaceTheme.navy,
-                    flexShrink: 0,
-                  }}
-                >
-                  PO
-                </span>
-                <span
-                  style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                  }}
-                >
-                  {user?.email ?? companyName}
-                </span>
-                <span aria-hidden="true" style={{ fontSize: '9px' }}>▾</span>
+                <span aria-hidden="true" className={styles.avatar}>PO</span>
+                <span className={styles.accountLabel}>{user?.email ?? companyName}</span>
+                <span aria-hidden="true" className={styles.chevron}>▾</span>
               </button>
 
               {accountOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 7px)',
-                    right: 0,
-                    width: '210px',
-                    padding: '7px',
-                    border: `1px solid ${workspaceTheme.border}`,
-                    borderRadius: '8px',
-                    background: '#fff',
-                    boxShadow: '0 14px 34px rgba(15,23,42,0.16)',
-                  }}
-                >
-                  <div style={{ padding: '6px 8px 9px' }}>
-                    <div style={{ fontSize: '10px', color: workspaceTheme.muted, fontWeight: 700 }}>
-                      PLATFORM OWNER
-                    </div>
-                    <div
-                      style={{
-                        marginTop: '3px',
-                        fontSize: '11px',
-                        color: workspaceTheme.text,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {user?.email ?? ''}
-                    </div>
+                <div className={styles.accountMenu}>
+                  <div className={styles.accountMeta}>
+                    <div className={styles.accountRole}>PLATFORM OWNER</div>
+                    <div className={styles.accountEmail}>{user?.email ?? ''}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => router.push(definition.homeHref)}
-                    style={accountMenuButtonStyle}
+                    className={styles.accountMenuButton}
                   >
                     Command Centre
                   </button>
                   <button
                     type="button"
                     onClick={() => void logout()}
-                    style={{ ...accountMenuButtonStyle, color: workspaceTheme.red }}
+                    className={`${styles.accountMenuButton} ${styles.signout}`}
                   >
                     Sign out
                   </button>
@@ -365,24 +182,18 @@ export default function SuperAdminTopNavigationShell({
           </div>
         </header>
 
-        <nav
-          aria-label="Platform Owner navigation"
-          style={{
-            minHeight: `${NAV_HEIGHT}px`,
-            padding: '0 14px',
-            display: 'flex',
-            alignItems: 'stretch',
-            gap: '3px',
-            overflowX: 'auto',
-            overflowY: 'visible',
-            scrollbarWidth: 'thin',
-          }}
-        >
+        <nav aria-label="Platform Owner navigation" className={styles.nav}>
           {definition.nav.map((group) => {
             const groupActive = group.items.some((item) => isActive(item.href));
             const open = openGroup === group.id;
+            const buttonClass = [
+              styles.groupButton,
+              groupActive ? styles.groupActive : '',
+              open ? styles.groupOpen : '',
+            ].filter(Boolean).join(' ');
+
             return (
-              <div key={group.id} style={{ position: 'relative', flexShrink: 0 }}>
+              <div key={group.id} className={styles.group}>
                 <button
                   type="button"
                   aria-haspopup="menu"
@@ -391,57 +202,15 @@ export default function SuperAdminTopNavigationShell({
                     setOpenGroup((value) => (value === group.id ? null : group.id));
                     setAccountOpen(false);
                   }}
-                  style={{
-                    height: `${NAV_HEIGHT}px`,
-                    border: 0,
-                    borderBottom: groupActive
-                      ? `3px solid ${workspaceTheme.blue}`
-                      : '3px solid transparent',
-                    background: open || groupActive ? '#f8fafc' : '#fff',
-                    color: groupActive ? workspaceTheme.blue : workspaceTheme.text,
-                    padding: '0 11px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '11px',
-                    fontWeight: groupActive ? 800 : 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
+                  className={buttonClass}
                 >
                   {group.label}
-                  <span aria-hidden="true" style={{ fontSize: '8px', color: workspaceTheme.muted }}>▾</span>
+                  <span aria-hidden="true" className={styles.chevron}>▾</span>
                 </button>
 
                 {open && (
-                  <div
-                    role="menu"
-                    aria-label={`${group.label} navigation`}
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% - 1px)',
-                      left: 0,
-                      width: 'min(300px, 88vw)',
-                      padding: '7px',
-                      border: `1px solid ${workspaceTheme.border}`,
-                      borderRadius: '0 0 8px 8px',
-                      background: '#fff',
-                      boxShadow: '0 16px 38px rgba(15,23,42,0.16)',
-                      zIndex: 100,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '6px 9px 8px',
-                        color: workspaceTheme.muted,
-                        fontSize: '9px',
-                        fontWeight: 850,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {group.label}
-                    </div>
+                  <div role="menu" aria-label={`${group.label} navigation`} className={styles.dropdown}>
+                    <div className={styles.dropdownTitle}>{group.label}</div>
                     {group.items.map((item) => {
                       const active = isActive(item.href);
                       return (
@@ -453,51 +222,12 @@ export default function SuperAdminTopNavigationShell({
                             router.push(item.href);
                             setOpenGroup(null);
                           }}
-                          style={{
-                            width: '100%',
-                            minHeight: '38px',
-                            border: 0,
-                            borderRadius: '5px',
-                            background: active ? '#eff6ff' : '#fff',
-                            color: active ? workspaceTheme.blue : workspaceTheme.text,
-                            padding: '7px 9px',
-                            display: 'grid',
-                            gridTemplateColumns: '22px minmax(0,1fr)',
-                            alignItems: 'center',
-                            gap: '8px',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                          }}
+                          className={`${styles.menuItem} ${active ? styles.menuItemActive : ''}`}
                         >
-                          <span
-                            aria-hidden="true"
-                            style={{
-                              width: '22px',
-                              height: '22px',
-                              borderRadius: '4px',
-                              display: 'grid',
-                              placeItems: 'center',
-                              background: active ? '#dbeafe' : '#eef2f6',
-                              color: active ? workspaceTheme.blue : '#475569',
-                              fontSize: '10px',
-                              fontWeight: 900,
-                            }}
-                          >
-                            {item.icon ?? '•'}
-                          </span>
+                          <span aria-hidden="true" className={styles.itemIcon}>{item.icon ?? '•'}</span>
                           <span>
-                            <span style={{ display: 'block', fontSize: '11px', fontWeight: 800 }}>
-                              {item.label}
-                            </span>
-                            <span
-                              style={{
-                                display: 'block',
-                                marginTop: '2px',
-                                color: workspaceTheme.muted,
-                                fontSize: '9px',
-                                fontWeight: 550,
-                              }}
-                            >
+                            <span className={styles.itemLabel}>{item.label}</span>
+                            <span className={styles.itemDescription}>
                               {navigationDescription(group.id, item.id)}
                             </span>
                           </span>
@@ -512,24 +242,10 @@ export default function SuperAdminTopNavigationShell({
         </nav>
       </div>
 
-      <main style={{ minWidth: 0 }}>{children}</main>
+      <main className={styles.main}>{children}</main>
     </div>
   );
 }
-
-const accountMenuButtonStyle = {
-  width: '100%',
-  minHeight: '34px',
-  border: 0,
-  borderRadius: '5px',
-  background: '#fff',
-  color: workspaceTheme.text,
-  padding: '7px 8px',
-  textAlign: 'left' as const,
-  fontSize: '11px',
-  fontWeight: 700,
-  cursor: 'pointer',
-};
 
 function navigationDescription(groupId: string, itemId: string) {
   const descriptions: Record<string, string> = {
