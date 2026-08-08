@@ -1,16 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { supabase } from '../../lib/supabaseClient';
 
-// ---------------------------------------------------------------------------
-// Types — mirrors /api/super-admin/command-centre response shape
-// ---------------------------------------------------------------------------
-
 type Severity = 'critical' | 'warning' | 'caution' | 'ok' | 'unknown';
-
 type AttentionIndicator =
   | { count: number | null; label: string; severity: Severity; note?: string }
   | { amountGbp: number; label: string; severity: Severity; invoiceCount?: number; amountPartial?: boolean };
@@ -57,165 +52,143 @@ type CommandCentrePayload = {
   actionQueue: ActionQueue;
 };
 
-// ---------------------------------------------------------------------------
-// Styling constants
-// ---------------------------------------------------------------------------
+type PlatformStats = {
+  companiesTotal: number;
+  companiesActive: number;
+  companiesSuspended: number;
+  companiesPending: number;
+  driversTotal: number;
+  jobsTotal: number;
+  jobsOpen: number;
+  jobsDelivered: number;
+  invoicesTotal: number;
+  invoicesUnpaid: number;
+  compliancePending: number;
+};
 
 const T = {
-  pageBg:      '#0f172a',
-  cardBg:      '#1e293b',
-  cardBorder:  '#334155',
-  surface:     '#0b1220',
-  text:        '#f1f5f9',
-  muted:       '#94a3b8',
-  accent:      '#f59e0b',
-  green:       '#22c55e',
-  red:         '#ef4444',
-  orange:      '#f97316',
-  blue:        '#3b82f6',
-  yellow:      '#fbbf24',
+  pageBg: '#0f172a',
+  cardBg: '#1e293b',
+  cardBorder: '#334155',
+  surface: '#0b1220',
+  text: '#f1f5f9',
+  muted: '#94a3b8',
+  accent: '#f59e0b',
+  green: '#22c55e',
+  red: '#ef4444',
+  orange: '#f97316',
+  blue: '#3b82f6',
+  yellow: '#fbbf24',
 } as const;
 
 const ENV_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  PRODUCTION:  { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444', border: 'rgba(239,68,68,0.35)' },
-  STAGING:     { bg: 'rgba(251,191,36,0.12)',  text: '#fbbf24', border: 'rgba(251,191,36,0.35)' },
-  DEVELOPMENT: { bg: 'rgba(59,130,246,0.12)',  text: '#3b82f6', border: 'rgba(59,130,246,0.35)' },
+  PRODUCTION: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', border: 'rgba(239,68,68,0.35)' },
+  STAGING: { bg: 'rgba(251,191,36,0.12)', text: '#fbbf24', border: 'rgba(251,191,36,0.35)' },
+  DEVELOPMENT: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', border: 'rgba(59,130,246,0.35)' },
 };
 
-const SEVERITY_COLORS: Record<'P0' | 'P1' | 'P2', string> = {
-  P0: T.red,
-  P1: T.orange,
-  P2: T.yellow,
-};
+const SEVERITY_COLORS: Record<'P0' | 'P1' | 'P2', string> = { P0: T.red, P1: T.orange, P2: T.yellow };
 
-const indicatorSeverityColor = (sev: Severity): string => {
-  if (sev === 'critical') return T.red;
-  if (sev === 'warning')  return T.orange;
-  if (sev === 'caution')  return T.yellow;
-  if (sev === 'unknown')  return T.muted;
+function indicatorSeverityColor(severity: Severity): string {
+  if (severity === 'critical') return T.red;
+  if (severity === 'warning') return T.orange;
+  if (severity === 'caution') return T.yellow;
+  if (severity === 'unknown') return T.muted;
   return T.green;
-};
+}
 
-const fmtAge = (minutes: number): string => {
+function fmtAge(minutes: number): string {
   if (minutes < 0) {
     const abs = Math.abs(minutes);
     if (abs < 60) return `in ${abs}m`;
-    const h = Math.floor(abs / 60);
-    const m = abs % 60;
-    return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+    const hours = Math.floor(abs / 60);
+    const mins = abs % 60;
+    return mins > 0 ? `in ${hours}h ${mins}m` : `in ${hours}h`;
   }
   if (minutes < 60) return `${minutes}m ago`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
-};
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m ago` : `${hours}h ago`;
+}
 
 function EnvBanner({ env }: { env: CommandCentrePayload['environment'] }) {
   const colors = ENV_COLORS[env] ?? ENV_COLORS.DEVELOPMENT;
   return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-      border: `1px solid ${colors.border}`, borderRadius: '6px',
-      backgroundColor: colors.bg, padding: '0.2rem 0.65rem',
-      fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em',
-      color: colors.text, textTransform: 'uppercase',
-    }}>
-      {env === 'PRODUCTION' ? '⚠' : env === 'STAGING' ? '⬡' : '⬡'} {env}
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: `1px solid ${colors.border}`, borderRadius: '6px', backgroundColor: colors.bg, padding: '0.2rem 0.65rem', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', color: colors.text, textTransform: 'uppercase' }}>
+      {env === 'PRODUCTION' ? '⚠' : '⬡'} {env}
+    </span>
   );
 }
 
 function IndicatorCard({ indicator }: { indicator: AttentionIndicator }) {
   const color = indicatorSeverityColor(indicator.severity);
-  let value: string;
-  let subNote: string | undefined;
-  if ('count' in indicator) {
-    value = indicator.count === null ? '—' : indicator.count.toLocaleString();
-    subNote = 'note' in indicator ? indicator.note : undefined;
-  } else {
-    value = `£${indicator.amountGbp.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (indicator.amountPartial) subNote = 'Partial total';
-  }
+  const value = 'count' in indicator
+    ? (indicator.count === null ? '—' : indicator.count.toLocaleString())
+    : `£${indicator.amountGbp.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const note = 'count' in indicator ? indicator.note : indicator.amountPartial ? 'Partial total' : undefined;
   return (
-    <div style={{
-      backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`,
-      borderTop: `3px solid ${color}`, borderRadius: '10px', padding: '1rem',
-    }}>
-      <div style={{ color: T.muted, fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>{indicator.label}</div>
-      <div style={{ color, fontSize: '1.7rem', fontWeight: 900, lineHeight: 1.1 }}>{value}</div>
-      <div style={{
-        marginTop: '0.45rem', display: 'inline-block', fontSize: '0.65rem',
-        fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-        color, backgroundColor: `${color}18`, padding: '0.1rem 0.4rem', borderRadius: '3px',
-      }}>
-        {indicator.severity}
-      </div>
-      {subNote && (
-        <div style={{ color: T.muted, fontSize: '0.62rem', marginTop: '0.3rem' }}>{subNote}</div>
-      )}
+    <div style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderTop: `3px solid ${color}`, borderRadius: '10px', padding: '0.9rem' }}>
+      <div style={{ color: T.muted, fontSize: '0.66rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>{indicator.label}</div>
+      <div style={{ color, fontSize: '1.55rem', fontWeight: 900, lineHeight: 1.1 }}>{value}</div>
+      <span style={{ marginTop: '0.4rem', display: 'inline-block', fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', color, backgroundColor: `${color}18`, padding: '0.1rem 0.4rem', borderRadius: '3px' }}>{indicator.severity}</span>
+      {note && <div style={{ color: T.muted, fontSize: '0.62rem', marginTop: '0.3rem' }}>{note}</div>}
     </div>
   );
 }
 
-function SeverityBadge({ sev }: { sev: 'P0' | 'P1' | 'P2' }) {
-  const c = SEVERITY_COLORS[sev];
+function KpiCard({ label, value, note, href, tone = T.text }: { label: string; value: string | number; note: string; href: string; tone?: string }) {
   return (
-    <span style={{
-      display: 'inline-block', minWidth: '2.1rem', textAlign: 'center',
-      padding: '0.15rem 0.45rem', borderRadius: '4px',
-      backgroundColor: `${c}20`, border: `1px solid ${c}50`,
-      color: c, fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.06em',
-    }}>
-      {sev}
-    </span>
+    <Link href={href} style={{ textDecoration: 'none', backgroundColor: T.surface, border: `1px solid ${T.cardBorder}`, borderRadius: '10px', padding: '0.8rem', display: 'block' }}>
+      <div style={{ color: tone, fontSize: '1.35rem', fontWeight: 900, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ color: T.text, fontSize: '0.72rem', fontWeight: 750, marginTop: '0.35rem' }}>{label}</div>
+      <div style={{ color: T.muted, fontSize: '0.64rem', marginTop: '0.18rem' }}>{note}</div>
+    </Link>
   );
+}
+
+function ControlWidget({ title, value, detail, href, icon, tone = T.text }: { title: string; value: string | number; detail: string; href: string; icon: string; tone?: string }) {
+  return (
+    <Link href={href} style={{ textDecoration: 'none', backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '12px', padding: '0.9rem', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '0.7rem' }}>
+      <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+      <div>
+        <div style={{ color: T.text, fontSize: '0.78rem', fontWeight: 750 }}>{title}</div>
+        <div style={{ color: T.muted, fontSize: '0.66rem', marginTop: '0.15rem' }}>{detail}</div>
+      </div>
+      <div style={{ color: tone, fontSize: '1.15rem', fontWeight: 900 }}>{value}</div>
+    </Link>
+  );
+}
+
+function SeverityBadge({ sev }: { sev: 'P0' | 'P1' | 'P2' }) {
+  const color = SEVERITY_COLORS[sev];
+  return <span style={{ display: 'inline-block', minWidth: '2.1rem', textAlign: 'center', padding: '0.15rem 0.45rem', borderRadius: '4px', backgroundColor: `${color}20`, border: `1px solid ${color}50`, color, fontSize: '0.68rem', fontWeight: 800 }}>{sev}</span>;
 }
 
 function ActionQueueRow({ item }: { item: ActionQueueItem }) {
   return (
     <tr style={{ borderBottom: `1px solid ${T.cardBorder}` }}>
-      <td style={{ padding: '0.6rem 0.9rem', whiteSpace: 'nowrap' }}>
-        <SeverityBadge sev={item.severity} />
+      <td style={{ padding: '0.6rem 0.9rem' }}><SeverityBadge sev={item.severity} /></td>
+      <td style={{ padding: '0.6rem 0.9rem' }}>
+        <div style={{ color: T.text, fontSize: '0.8rem', fontWeight: 650 }}>{item.title}</div>
+        <div style={{ color: T.muted, fontSize: '0.7rem', marginTop: '0.1rem' }}>{item.description}</div>
       </td>
       <td style={{ padding: '0.6rem 0.9rem' }}>
-        <div style={{ color: T.text, fontSize: '0.82rem', fontWeight: 600 }}>{item.title}</div>
-        <div style={{ color: T.muted, fontSize: '0.72rem', marginTop: '0.1rem' }}>{item.description}</div>
+        <div style={{ color: T.text, fontSize: '0.76rem' }}>{item.entityName}</div>
+        <div style={{ color: T.muted, fontSize: '0.66rem', textTransform: 'capitalize' }}>{item.entityType}</div>
       </td>
+      <td style={{ padding: '0.6rem 0.9rem', color: T.muted, fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{fmtAge(item.ageMinutes)}</td>
       <td style={{ padding: '0.6rem 0.9rem' }}>
-        <div style={{ color: T.text, fontSize: '0.78rem', fontWeight: 500 }}>{item.entityName}</div>
-        <div style={{ color: T.muted, fontSize: '0.68rem', marginTop: '0.1rem', textTransform: 'capitalize' }}>{item.entityType}</div>
-      </td>
-      <td style={{ padding: '0.6rem 0.9rem', color: T.muted, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
-        {fmtAge(item.ageMinutes)}
-      </td>
-      <td style={{ padding: '0.6rem 0.9rem', whiteSpace: 'nowrap' }}>
-        <Link
-          href={item.href}
-          style={{
-            display: 'inline-block', padding: '0.25rem 0.6rem', borderRadius: '5px',
-            border: `1px solid ${T.accent}50`, backgroundColor: `${T.accent}12`,
-            color: T.accent, fontSize: '0.72rem', fontWeight: 700, textDecoration: 'none',
-          }}
-        >
-          Review →
-        </Link>
+        <Link href={item.href} style={{ display: 'inline-block', padding: '0.25rem 0.6rem', borderRadius: '5px', border: `1px solid ${T.accent}50`, backgroundColor: `${T.accent}12`, color: T.accent, fontSize: '0.7rem', fontWeight: 700, textDecoration: 'none' }}>Review →</Link>
       </td>
     </tr>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main page
-// ---------------------------------------------------------------------------
-
 function CommandCentre() {
-  const [data, setData]       = useState<CommandCentrePayload | null>(null);
+  const [data, setData] = useState<CommandCentrePayload | null>(null);
+  const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,15 +199,22 @@ function CommandCentre() {
       setLoading(false);
       return;
     }
+
+    const headers = { Authorization: `Bearer ${session.access_token}` };
     try {
-      const res = await fetch('/api/super-admin/command-centre', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const payload = (await res.json().catch(() => null)) as (CommandCentrePayload & { error?: string }) | null;
-      if (!res.ok) {
-        setError(payload?.error ?? `HTTP ${res.status}`);
-      } else {
-        setData(payload);
+      const [commandResult, statsResult] = await Promise.allSettled([
+        fetch('/api/super-admin/command-centre', { headers }),
+        fetch('/api/super-admin/stats', { headers }),
+      ]);
+
+      if (commandResult.status === 'rejected') throw commandResult.reason;
+      const commandBody = (await commandResult.value.json().catch(() => null)) as (CommandCentrePayload & { error?: string }) | null;
+      if (!commandResult.value.ok) throw new Error(commandBody?.error ?? `Command Centre HTTP ${commandResult.value.status}`);
+      setData(commandBody);
+
+      if (statsResult.status === 'fulfilled') {
+        const statsBody = (await statsResult.value.json().catch(() => null)) as (PlatformStats & { error?: string }) | null;
+        if (statsResult.value.ok && statsBody) setStats(statsBody);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Command Centre could not be loaded.');
@@ -246,190 +226,107 @@ function CommandCentre() {
   useEffect(() => { void load(); }, [load]);
 
   const indicators = data?.attentionIndicators;
-  const queue      = data?.actionQueue;
+  const queue = data?.actionQueue;
+  const queueTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of queue?.items ?? []) counts[item.type] = (counts[item.type] ?? 0) + 1;
+    return counts;
+  }, [queue]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: T.pageBg, padding: '1.5rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: T.pageBg, padding: '1.35rem' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.15rem', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-            <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700, color: T.text }}>
-              Command Centre
-            </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+            <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: T.text }}>Command Centre</h1>
             {data && <EnvBanner env={data.environment} />}
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-              Super Admin
-            </span>
+            <span style={{ fontSize: '0.64rem', fontWeight: 700, textTransform: 'uppercase', color: T.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Platform Owner</span>
           </div>
-          <p style={{ margin: 0, color: T.muted, fontSize: '0.85rem' }}>
-            On-demand platform snapshot — incidents, jobs at risk, blocked accounts, financial exposure and degraded services. Refreshed on page load or manual refresh.
-          </p>
-          {data?.refreshedAt && (
-            <p style={{ margin: '0.25rem 0 0', color: '#475569', fontSize: '0.72rem' }}>
-              Refreshed: {new Date(data.refreshedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-            </p>
-          )}
+          <p style={{ margin: 0, color: T.muted, fontSize: '0.82rem' }}>Global operational control: platform KPIs, risk, compliance, finance and action queues.</p>
+          {data?.refreshedAt && <p style={{ margin: '0.22rem 0 0', color: '#64748b', fontSize: '0.68rem' }}>Refreshed {new Date(data.refreshedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</p>}
         </div>
-        <button
-          onClick={() => void load()}
-          disabled={loading}
-          style={{
-            padding: '0.45rem 1rem', backgroundColor: T.accent, color: '#0f172a',
-            border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.78rem',
-            cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
-          }}
-        >
-          🔄 Refresh
-        </button>
+        <button onClick={() => void load()} disabled={loading} style={{ padding: '0.42rem 0.9rem', backgroundColor: T.accent, color: '#0f172a', border: 'none', borderRadius: '8px', fontWeight: 800, fontSize: '0.76rem', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>↻ Refresh</button>
       </div>
 
-      {error && (
-        <div style={{ marginBottom: '1rem', border: `1px solid ${T.red}`, borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', padding: '0.65rem 0.9rem', color: T.red, fontSize: '0.82rem' }}>
-          ⚠️ {error}
-        </div>
-      )}
+      {error && <div style={{ marginBottom: '0.9rem', border: `1px solid ${T.red}`, borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', padding: '0.65rem 0.9rem', color: T.red, fontSize: '0.8rem' }}>⚠ {error}</div>}
+      {data?.unavailableSources?.length ? <div style={{ marginBottom: '0.9rem', border: `1px solid ${T.cardBorder}`, borderRadius: '8px', backgroundColor: 'rgba(148,163,184,0.06)', padding: '0.6rem 0.85rem', color: T.muted, fontSize: '0.76rem' }}>Some sources are unavailable and excluded: {data.unavailableSources.join(', ')}.</div> : null}
+      {data?.queryErrors?.length ? <div style={{ marginBottom: '0.9rem', border: `1px solid ${T.orange}`, borderRadius: '8px', backgroundColor: 'rgba(249,115,22,0.08)', padding: '0.6rem 0.85rem', color: T.orange, fontSize: '0.76rem' }}>Partial data — one or more sources returned an error.</div> : null}
 
-      {data?.unavailableSources && data.unavailableSources.length > 0 && (
-        <div style={{ marginBottom: '1rem', border: `1px solid ${T.muted}`, borderRadius: '8px', backgroundColor: 'rgba(148,163,184,0.08)', padding: '0.65rem 0.9rem', color: T.muted, fontSize: '0.82rem' }}>
-          ℹ️ Some data sources are not yet available in the live schema and are excluded from this view: {data.unavailableSources.join(', ')}.
+      <section style={{ marginBottom: '1.1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '0.55rem' }}>
+          <div><h2 style={{ margin: 0, color: T.text, fontSize: '0.88rem' }}>Platform overview</h2><p style={{ margin: '0.15rem 0 0', color: T.muted, fontSize: '0.66rem' }}>Live totals from the platform stats service.</p></div>
+          <Link href="/super-admin/analytics" style={{ color: T.accent, fontSize: '0.7rem', textDecoration: 'none', fontWeight: 700 }}>Full analytics →</Link>
         </div>
-      )}
-
-      {data?.queryErrors && data.queryErrors.length > 0 && (
-        <div style={{ marginBottom: '1rem', border: `1px solid ${T.orange}`, borderRadius: '8px', backgroundColor: 'rgba(249,115,22,0.08)', padding: '0.65rem 0.9rem', color: T.orange, fontSize: '0.82rem' }}>
-          ⚠️ Partial data — one or more data sources returned an error. Some indicators may be incomplete.
-          <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', fontSize: '0.75rem', color: T.muted }}>
-            {data.queryErrors.map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.55rem' }}>
+          {loading || !stats ? Array.from({ length: 8 }).map((_, i) => <div key={i} style={{ minHeight: 74, backgroundColor: T.surface, border: `1px solid ${T.cardBorder}`, borderRadius: 10, padding: '0.8rem', color: T.muted }}>Loading…</div>) : <>
+            <KpiCard label="Active companies" value={stats.companiesActive} note={`${stats.companiesTotal} total`} href="/super-admin/companies/active" tone={T.green} />
+            <KpiCard label="Pending approvals" value={stats.companiesPending} note="Needs review" href="/super-admin/companies/approvals" tone={stats.companiesPending > 0 ? T.orange : T.green} />
+            <KpiCard label="Drivers" value={stats.driversTotal} note="External driver accounts" href="/super-admin/users/drivers" tone={T.blue} />
+            <KpiCard label="Open jobs" value={stats.jobsOpen} note={`${stats.jobsTotal} total jobs`} href="/super-admin/operations/jobs" tone={stats.jobsOpen > 0 ? T.accent : T.green} />
+            <KpiCard label="Delivered jobs" value={stats.jobsDelivered} note="Completed workload" href="/super-admin/operations/completed-jobs" tone={T.green} />
+            <KpiCard label="Unpaid invoices" value={stats.invoicesUnpaid} note={`${stats.invoicesTotal} invoices total`} href="/super-admin/finance/invoices" tone={stats.invoicesUnpaid > 0 ? T.orange : T.green} />
+            <KpiCard label="Compliance pending" value={stats.compliancePending} note="Pending or rejected documents" href="/super-admin/compliance/documents" tone={stats.compliancePending > 0 ? T.orange : T.green} />
+            <KpiCard label="Suspended companies" value={stats.companiesSuspended} note="Restricted accounts" href="/super-admin/companies/suspended" tone={stats.companiesSuspended > 0 ? T.red : T.green} />
+          </>}
         </div>
-      )}
+      </section>
 
-      {/* Attention indicators */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
-        {loading || !indicators ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '10px', padding: '1rem', minHeight: '90px' }}>
-              <div style={{ color: T.muted, fontSize: '0.8rem' }}>Loading…</div>
-            </div>
-          ))
-        ) : (
-          <>
+      <section style={{ marginBottom: '1.1rem' }}>
+        <h2 style={{ margin: '0 0 0.55rem', color: T.text, fontSize: '0.88rem' }}>Attention indicators</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.6rem' }}>
+          {loading || !indicators ? Array.from({ length: 5 }).map((_, i) => <div key={i} style={{ minHeight: 90, backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10, padding: '0.9rem', color: T.muted }}>Loading…</div>) : <>
             <IndicatorCard indicator={indicators.p0p1Incidents} />
             <IndicatorCard indicator={indicators.jobsAtRisk} />
             <IndicatorCard indicator={indicators.blockedAccounts} />
             <IndicatorCard indicator={indicators.financialExposure} />
             <IndicatorCard indicator={indicators.degradedServices} />
-          </>
-        )}
-      </div>
-
-      {/* Queue summary */}
-      {!loading && queue && (
-        <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ backgroundColor: T.surface, border: `1px solid ${T.cardBorder}`, borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.text, fontSize: '0.82rem', fontWeight: 600 }}>
-            {queue.total} items in queue
-          </div>
-          {queue.p0 > 0 && (
-            <div style={{ backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.red, fontSize: '0.82rem', fontWeight: 700 }}>
-              P0: {queue.p0}
-            </div>
-          )}
-          {queue.p1 > 0 && (
-            <div style={{ backgroundColor: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.orange, fontSize: '0.82rem', fontWeight: 700 }}>
-              P1: {queue.p1}
-            </div>
-          )}
-          {queue.p2 > 0 && (
-            <div style={{ backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '8px', padding: '0.4rem 0.85rem', color: T.yellow, fontSize: '0.82rem', fontWeight: 700 }}>
-              P2: {queue.p2}
-            </div>
-          )}
+          </>}
         </div>
-      )}
+      </section>
 
-      <div style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-        <div style={{ padding: '0.75rem 0.9rem', borderBottom: `1px solid ${T.cardBorder}`, backgroundColor: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: T.text }}>
-              Derived Action Queue
-            </h2>
-            {queue?.queueNote && (
-              <p style={{ margin: '0.2rem 0 0', color: T.muted, fontSize: '0.68rem' }}>{queue.queueNote}</p>
-            )}
-          </div>
-          <span style={{ color: T.muted, fontSize: '0.72rem' }}>
-            {loading ? '…' : `${queue?.items.length ?? 0} of ${queue?.total ?? 0} shown`}
-          </span>
+      {!loading && queue && <section style={{ marginBottom: '1.15rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.6rem' }}>
+          <ControlWidget title="Company approvals" value={stats?.companiesPending ?? queueTypeCounts.company_pending_approval ?? 0} detail="Applications waiting for platform review" href="/super-admin/companies/approvals" icon="✓" tone={(stats?.companiesPending ?? 0) > 0 ? T.orange : T.green} />
+          <ControlWidget title="Allocation pressure" value={queueTypeCounts.job_no_driver ?? 0} detail="Awarded or allocated work without driver" href="/super-admin/operations/allocations" icon="⇄" tone={(queueTypeCounts.job_no_driver ?? 0) > 0 ? T.orange : T.green} />
+          <ControlWidget title="Compliance alerts" value={(queueTypeCounts.document_expired ?? 0) + (queueTypeCounts.document_expiring ?? 0)} detail="Expired or soon-to-expire driver documents" href="/super-admin/compliance/expiries" icon="▤" tone={(queueTypeCounts.document_expired ?? 0) > 0 ? T.red : (queueTypeCounts.document_expiring ?? 0) > 0 ? T.orange : T.green} />
+          <ControlWidget title="Critical support" value={queueTypeCounts.support_ticket_critical ?? 0} detail="Critical support cases in the action queue" href="/super-admin/support/tickets" icon="?" tone={(queueTypeCounts.support_ticket_critical ?? 0) > 0 ? T.red : T.green} />
+          <ControlWidget title="Fraud review" value={queueTypeCounts.fraud_case ?? 0} detail="Open fraud or identity review cases" href="/super-admin/compliance/fraud-cases" icon="!" tone={(queueTypeCounts.fraud_case ?? 0) > 0 ? T.red : T.green} />
+          <ControlWidget title="Overdue invoices" value={stats?.invoicesUnpaid ?? queueTypeCounts.invoice_overdue ?? 0} detail="Unpaid finance workload requiring review" href="/super-admin/finance" icon="£" tone={(stats?.invoicesUnpaid ?? 0) > 0 ? T.orange : T.green} />
         </div>
-        {loading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>Loading…</div>
-        ) : !queue || queue.items.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: T.muted, fontSize: '0.88rem' }}>
-            {(data?.partialData || (data?.queryErrors && data.queryErrors.length > 0))
-              ? '⚠️ No critical actions in currently available sources. Some sources returned errors — queue may be incomplete.'
-              : data?.unavailableSources && data.unavailableSources.length > 0
-              ? '⚠️ No critical actions in available sources. Some sources are not yet active — see notice above.'
-              : '✅ No critical actions required. Platform appears to be operating normally.'}
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${T.cardBorder}` }}>
-                  {['Severity', 'Action', 'Affected Entity', 'Age', ''].map((h) => (
-                    <th key={h} style={{ padding: '0.65rem 0.9rem', textAlign: 'left', color: T.muted, fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {queue.items.map((item) => (
-                  <ActionQueueRow key={item.id} item={item} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      </section>}
 
-      {/* Quick navigation */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-        {[
-          { label: 'Companies Approval Queue', href: '/super-admin/companies/approvals', icon: '✅' },
-          { label: 'Active Operations',        href: '/super-admin/operations/active-jobs', icon: '→' },
-          { label: 'Compliance Documents',     href: '/super-admin/compliance/documents', icon: '📄' },
-          { label: 'Finance — Invoices',        href: '/super-admin/finance/invoices', icon: '£' },
-          { label: 'Support Tickets',          href: '/super-admin/support/tickets', icon: '?' },
-          { label: 'Platform Health',          href: '/super-admin/health', icon: '🩺' },
-          { label: 'Audit Logs',               href: '/super-admin/settings/audit-logs', icon: '📚' },
-          { label: 'Feature Flags',            href: '/super-admin/settings/feature-flags', icon: '🚩' },
-        ].map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.6rem',
-              backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`,
-              borderRadius: '10px', padding: '0.75rem 1rem',
-              color: T.text, fontSize: '0.82rem', fontWeight: 600,
-              textDecoration: 'none', transition: 'border-color 0.15s',
-            }}
-          >
-            <span style={{ fontSize: '1rem' }}>{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
-      </div>
+      <section style={{ backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1.15rem' }}>
+        <div style={{ padding: '0.7rem 0.85rem', borderBottom: `1px solid ${T.cardBorder}`, backgroundColor: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div><h2 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 750, color: T.text }}>Critical action queue</h2>{queue?.queueNote && <p style={{ margin: '0.15rem 0 0', color: T.muted, fontSize: '0.64rem' }}>{queue.queueNote}</p>}</div>
+          <div style={{ display: 'flex', gap: '0.35rem', fontSize: '0.68rem', fontWeight: 800 }}>
+            <span style={{ color: T.text }}>{queue?.total ?? 0} total</span>
+            {(queue?.p0 ?? 0) > 0 && <span style={{ color: T.red }}>P0 {queue?.p0}</span>}
+            {(queue?.p1 ?? 0) > 0 && <span style={{ color: T.orange }}>P1 {queue?.p1}</span>}
+            {(queue?.p2 ?? 0) > 0 && <span style={{ color: T.yellow }}>P2 {queue?.p2}</span>}
+          </div>
+        </div>
+        {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: T.muted }}>Loading…</div> : !queue?.items.length ? <div style={{ padding: '1.5rem', textAlign: 'center', color: T.muted, fontSize: '0.8rem' }}>✓ No critical actions in currently available sources.</div> : <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}><thead><tr style={{ borderBottom: `1px solid ${T.cardBorder}` }}>{['Severity', 'Action', 'Affected entity', 'Age', ''].map((heading) => <th key={heading} style={{ padding: '0.6rem 0.9rem', textAlign: 'left', color: T.muted, fontSize: '0.68rem', fontWeight: 650, textTransform: 'uppercase' }}>{heading}</th>)}</tr></thead><tbody>{queue.items.slice(0, 12).map((item) => <ActionQueueRow key={item.id} item={item} />)}</tbody></table></div>}
+      </section>
+
+      <section>
+        <h2 style={{ margin: '0 0 0.55rem', color: T.text, fontSize: '0.88rem' }}>Control areas</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.55rem' }}>
+          {[
+            ['Marketplace', '/super-admin/marketplace', '▦'],
+            ['Operations', '/super-admin/operations/active-jobs', '→'],
+            ['Companies', '/super-admin/companies', '◎'],
+            ['Finance', '/super-admin/finance', '£'],
+            ['Compliance', '/super-admin/compliance/documents', '▤'],
+            ['Notifications', '/super-admin/notifications', '!'],
+            ['Platform Health', '/super-admin/health', '✓'],
+            ['Audit Logs', '/super-admin/settings/audit-logs', '▤'],
+          ].map(([label, href, icon]) => <Link key={href} href={href} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', backgroundColor: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: '9px', padding: '0.65rem 0.8rem', color: T.text, fontSize: '0.76rem', fontWeight: 650, textDecoration: 'none' }}><span>{icon}</span>{label}</Link>)}
+        </div>
+      </section>
     </div>
   );
 }
 
 export default function SuperAdminDashboardPage() {
-  return (
-    <ProtectedRoute allowedRoles={['owner']}>
-      <CommandCentre />
-    </ProtectedRoute>
-  );
+  return <ProtectedRoute allowedRoles={['owner']}><CommandCentre /></ProtectedRoute>;
 }
