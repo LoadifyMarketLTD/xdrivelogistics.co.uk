@@ -1,0 +1,114 @@
+/*
+ * XDrive Super Admin — light visual contract
+ * Scoped to /super-admin only. This normalises legacy pages that still carry
+ * hard-coded slate/dark inline colours while they are progressively migrated
+ * to the shared CX-style components.
+ *
+ * Brand direction:
+ * Navy #0B2F6B · Blue #1D57D8 · Orange #F5A300 · White #FFFFFF
+ * Charcoal #1A1F2B · Light Grey #F4F6F8
+ */
+
+.super-admin-light-root {
+  min-height: 100vh;
+  background: #F4F6F8;
+  color: #1A1F2B;
+}
+
+/* Legacy page canvases */
+.super-admin-light-root [style*="background-color: rgb(15, 23, 42)"],
+.super-admin-light-root [style*="background-color:#0f172a"],
+.super-admin-light-root [style*="background-color: #0f172a"],
+.super-admin-light-root [style*="background: rgb(15, 23, 42)"],
+.super-admin-light-root [style*="background:#0f172a"],
+.super-admin-light-root [style*="background: #0f172a"] {
+  background-color: #F4F6F8 !important;
+  background: #F4F6F8 !important;
+}
+
+/* Legacy cards, tables and panels */
+.super-admin-light-root [style*="background-color: rgb(30, 41, 59)"],
+.super-admin-light-root [style*="background-color:#1e293b"],
+.super-admin-light-root [style*="background-color: #1e293b"],
+.super-admin-light-root [style*="background: rgb(30, 41, 59)"],
+.super-admin-light-root [style*="background:#1e293b"],
+.super-admin-light-root [style*="background: #1e293b"] {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+}
+
+/* Legacy extra-dark controls and table headers */
+.super-admin-light-root [style*="background-color: rgb(11, 18, 32)"],
+.super-admin-light-root [style*="background-color:#0b1220"],
+.super-admin-light-root [style*="background-color: #0b1220"],
+.super-admin-light-root [style*="background: rgb(11, 18, 32)"],
+.super-admin-light-root [style*="background:#0b1220"],
+.super-admin-light-root [style*="background: #0b1220"],
+.super-admin-light-root [style*="background-color: rgb(23, 32, 51)"],
+.super-admin-light-root [style*="background:#172033"],
+.super-admin-light-root [style*="background: #172033"] {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+}
+
+/* Convert legacy light-on-dark typography to the XDrive light hierarchy. */
+.super-admin-light-root [style*="color: rgb(241, 245, 249)"],
+.super-admin-light-root [style*="color:#f1f5f9"],
+.super-admin-light-root [style*="color: #f1f5f9"] {
+  color: #1A1F2B !important;
+}
+
+.super-admin-light-root [style*="color: rgb(148, 163, 184)"],
+.super-admin-light-root [style*="color:#94a3b8"],
+.super-admin-light-root [style*="color: #94a3b8"] {
+  color: #64748B !important;
+}
+
+/* Slate borders become the shared light divider. */
+.super-admin-light-root [style*="border: 1px solid rgb(51, 65, 85)"],
+.super-admin-light-root [style*="border: 1px solid #334155"],
+.super-admin-light-root [style*="border-color: rgb(51, 65, 85)"],
+.super-admin-light-root [style*="border-color:#334155"],
+.super-admin-light-root [style*="border-bottom: 1px solid rgb(51, 65, 85)"],
+.super-admin-light-root [style*="border-bottom: 1px solid #334155"] {
+  border-color: #D9E1EA !important;
+}
+
+/* Tables/lists follow the compact CX reference rather than dark admin consoles. */
+.super-admin-light-root table {
+  background: #FFFFFF;
+}
+
+.super-admin-light-root thead {
+  background: #F4F6F8;
+}
+
+.super-admin-light-root th {
+  color: #0B2F6B;
+}
+
+.super-admin-light-root tbody tr:hover {
+  background: #F8FAFC;
+}
+
+/* Native controls should never inherit an unreadable dark form surface. */
+.super-admin-light-root input:not([type="checkbox"]):not([type="radio"]),
+.super-admin-light-root textarea,
+.super-admin-light-root select {
+  background-color: #FFFFFF;
+  color: #1A1F2B;
+  border-color: #D9E1EA;
+}
+
+/* Preserve semantic overlays while keeping the actual dialog light. */
+.super-admin-light-root [role="dialog"] > div,
+.super-admin-light-root [role="dialog"] aside {
+  background: #FFFFFF;
+  color: #1A1F2B;
+}
+
+/* Consistent selection for the XDrive operational workspace. */
+.super-admin-light-root ::selection {
+  background: rgba(29, 87, 216, 0.18);
+  color: #0B2F6B;
+}
