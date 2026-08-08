@@ -5,14 +5,16 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  green: '#22c55e',
-  red: '#ef4444',
+  pageBg: '#F4F6F8',
+  cardBg: '#FFFFFF',
+  cardBorder: '#D9E1EA',
+  text: '#1A1F2B',
+  heading: '#0B2F6B',
+  blue: '#1D57D8',
+  muted: '#64748B',
+  accent: '#F5A300',
+  green: '#16A34A',
+  red: '#DC2626',
 };
 
 type Setting = {
@@ -47,7 +49,7 @@ export default function Page() {
       error?: string;
     };
     if (!res.ok) {
-      setError(payload.error ?? `HTTP ${res.status}`);
+      setError('Platform settings service is currently unavailable.');
       setSettings([]);
     } else {
       setSettings(Array.isArray(payload.settings) ? payload.settings : []);
@@ -98,9 +100,9 @@ export default function Page() {
         settings: settings.map((setting) => ({ key: setting.key, value: setting.value })),
       }),
     });
-    const payload = (await res.json().catch(() => ({}))) as { error?: string };
+    await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(payload.error ?? `HTTP ${res.status}`);
+      setError('Platform settings could not be saved right now.');
     } else {
       setMessage('Global settings saved.');
       await load();
@@ -110,192 +112,50 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.75rem',
-            marginBottom: '1rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>⚙️</span>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>⚙️</span>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>
-                  Global Platform Settings
-                </h1>
-                <span
-                  style={{
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    color: THEME.accent,
-                    backgroundColor: 'rgba(245,158,11,0.12)',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '4px',
-                  }}
-                >
-                  Settings
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Global Platform Settings</h1>
+                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A5D00', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Settings</span>
               </div>
-              <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>
-                Edit and persist platform-wide configuration defaults.
-              </p>
+              <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Edit and persist platform-wide configuration defaults.</p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.45rem' }}>
-            <button
-              type="button"
-              onClick={() => void load()}
-              disabled={loading || saving}
-              style={{
-                border: `1px solid ${THEME.cardBorder}`,
-                backgroundColor: '#0b1220',
-                color: THEME.text,
-                borderRadius: '8px',
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.76rem',
-                cursor: loading || saving ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={loading || saving}
-              style={{
-                border: `1px solid ${THEME.green}`,
-                backgroundColor: THEME.green,
-                color: '#052e16',
-                borderRadius: '8px',
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                cursor: loading || saving ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button type="button" onClick={() => void load()} disabled={loading || saving} style={{ height: '32px', border: `1px solid ${THEME.cardBorder}`, backgroundColor: THEME.cardBg, color: THEME.heading, borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 700, cursor: loading || saving ? 'not-allowed' : 'pointer' }}>Refresh</button>
+            <button type="button" onClick={() => void save()} disabled={loading || saving} style={{ height: '32px', border: `1px solid ${THEME.blue}`, backgroundColor: THEME.blue, color: '#FFFFFF', borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 800, cursor: loading || saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
 
-        {error && (
-          <div
-            style={{
-              marginBottom: '0.75rem',
-              border: `1px solid ${THEME.red}`,
-              borderRadius: '8px',
-              color: THEME.red,
-              backgroundColor: 'rgba(239,68,68,0.1)',
-              padding: '0.6rem 0.8rem',
-              fontSize: '0.8rem',
-            }}
-          >
-            {error}
-          </div>
-        )}
-        {message && (
-          <div
-            style={{
-              marginBottom: '0.75rem',
-              border: `1px solid ${THEME.green}`,
-              borderRadius: '8px',
-              color: THEME.green,
-              backgroundColor: 'rgba(34,197,94,0.1)',
-              padding: '0.6rem 0.8rem',
-              fontSize: '0.8rem',
-            }}
-          >
-            {message}
-          </div>
-        )}
+        {error && <div style={{ marginBottom: '12px', border: `1px solid ${THEME.red}`, borderRadius: '4px', color: THEME.red, backgroundColor: '#FEF2F2', padding: '8px 10px', fontSize: '12px' }}>{error}</div>}
+        {message && <div style={{ marginBottom: '12px', border: `1px solid ${THEME.green}`, borderRadius: '4px', color: THEME.green, backgroundColor: '#F0FDF4', padding: '8px 10px', fontSize: '12px' }}>{message}</div>}
 
         {loading ? (
-          <div style={{ color: THEME.muted, fontSize: '0.84rem' }}>Loading…</div>
+          <div style={{ color: THEME.muted, fontSize: '12px' }}>Loading…</div>
+        ) : grouped.length === 0 ? (
+          <div style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', backgroundColor: THEME.cardBg, minHeight: '88px', display: 'grid', placeItems: 'center', color: THEME.muted, fontSize: '12px' }}>No platform settings are available.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'grid', gap: '12px' }}>
             {grouped.map(([category, entries]) => (
-              <div
-                key={category}
-                style={{
-                  backgroundColor: THEME.cardBg,
-                  border: `1px solid ${THEME.cardBorder}`,
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderBottom: `1px solid ${THEME.cardBorder}`,
-                    backgroundColor: '#0b1220',
-                  }}
-                >
-                  <h3
-                    style={{
-                      color: THEME.accent,
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.06em',
-                      margin: 0,
-                    }}
-                  >
-                    {category}
-                  </h3>
+              <section key={category} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ minHeight: '36px', padding: '0 12px', borderBottom: `1px solid ${THEME.cardBorder}`, backgroundColor: THEME.pageBg, display: 'flex', alignItems: 'center' }}>
+                  <h3 style={{ color: THEME.heading, fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>{category}</h3>
                 </div>
-                <div style={{ padding: '0.25rem 0' }}>
-                  {entries.map((setting) => (
-                    <div
-                      key={setting.key}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: '0.8rem',
-                        padding: '0.6rem 1rem',
-                        borderBottom: '1px solid rgba(51,65,85,0.4)',
-                      }}
-                    >
+                <div>
+                  {entries.map((setting, index) => (
+                    <div key={setting.key} style={{ minHeight: '44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '8px 12px', borderBottom: index === entries.length - 1 ? 'none' : `1px solid ${THEME.cardBorder}` }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ color: THEME.text, fontSize: '0.82rem', fontWeight: 500 }}>
-                          {setting.label}
-                        </div>
-                        <div
-                          style={{
-                            color: '#475569',
-                            fontSize: '0.68rem',
-                            fontFamily: 'monospace',
-                            marginTop: '0.1rem',
-                          }}
-                        >
-                          {setting.key}
-                        </div>
+                        <div style={{ color: THEME.text, fontSize: '12px', fontWeight: 700 }}>{setting.label}</div>
+                        <div style={{ color: THEME.muted, fontSize: '10px', marginTop: '2px' }}>{setting.key}</div>
                       </div>
-                      <input
-                        value={setting.value}
-                        onChange={(event) => setValue(setting.key, event.target.value)}
-                        style={{
-                          backgroundColor: '#0b1220',
-                          border: `1px solid ${THEME.cardBorder}`,
-                          borderRadius: '6px',
-                          padding: '0.42rem 0.6rem',
-                          color: THEME.text,
-                          fontSize: '0.78rem',
-                          minWidth: '170px',
-                          textAlign: 'right',
-                        }}
-                      />
+                      <input value={setting.value} onChange={(event) => setValue(setting.key, event.target.value)} style={{ width: '220px', maxWidth: '45vw', height: '32px', boxSizing: 'border-box', backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '0 8px', color: THEME.text, fontSize: '12px' }} />
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             ))}
           </div>
         )}
