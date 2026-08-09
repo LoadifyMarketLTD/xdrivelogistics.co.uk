@@ -137,11 +137,11 @@ describe('PATCH /api/super-admin/compliance/fraud-cases — audited deployment g
   });
 
   it.each([
-    [],
-    [{}],
-    [{ case_id: CASE_ID }],
-    [{ new_status: 'cleared' }],
-  ])('never returns success for an incomplete audited result', async (data) => {
+    { data: [] },
+    { data: [{}] },
+    { data: [{ case_id: CASE_ID }] },
+    { data: [{ new_status: 'cleared' }] },
+  ])('never returns success for an incomplete audited result', async ({ data }) => {
     mocks.rpc.mockResolvedValue({ data, error: null });
 
     const response = await PATCH(
