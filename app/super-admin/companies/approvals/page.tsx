@@ -5,15 +5,17 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#0f172a',
-  cardBg: '#1e293b',
-  cardBorder: '#334155',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  accent: '#f59e0b',
-  green: '#22c55e',
-  red: '#ef4444',
-  blue: '#3b82f6',
+  pageBg: '#F4F6F8',
+  cardBg: '#FFFFFF',
+  cardBorder: '#D9E1EA',
+  text: '#1A1F2B',
+  heading: '#0B2F6B',
+  muted: '#64748B',
+  accent: '#F5A300',
+  green: '#16A34A',
+  red: '#DC2626',
+  blue: '#1D57D8',
+  amber: '#D97706',
 };
 
 type Company = {
@@ -50,16 +52,24 @@ type PendingAction = {
 
 const badgeStyle = (tone: 'green' | 'amber' | 'red' | 'blue' | 'slate') => {
   const colors = {
-    green: { fg: '#86efac', bg: 'rgba(34,197,94,.12)', border: 'rgba(34,197,94,.35)' },
-    amber: { fg: '#fcd34d', bg: 'rgba(245,158,11,.12)', border: 'rgba(245,158,11,.35)' },
-    red: { fg: '#fca5a5', bg: 'rgba(239,68,68,.12)', border: 'rgba(239,68,68,.35)' },
-    blue: { fg: '#93c5fd', bg: 'rgba(59,130,246,.12)', border: 'rgba(59,130,246,.35)' },
-    slate: { fg: '#cbd5e1', bg: 'rgba(148,163,184,.1)', border: 'rgba(148,163,184,.3)' },
+    green: { fg: '#166534', bg: '#F0FDF4', border: '#BBF7D0' },
+    amber: { fg: '#92400E', bg: '#FFFBEB', border: '#FDE68A' },
+    red: { fg: '#B91C1C', bg: '#FEF2F2', border: '#FECACA' },
+    blue: { fg: '#1D4ED8', bg: '#EEF4FF', border: '#BFDBFE' },
+    slate: { fg: '#475569', bg: '#F8FAFC', border: '#CBD5E1' },
   }[tone];
+
   return {
-    display: 'inline-flex', alignItems: 'center', gap: '.3rem',
-    border: `1px solid ${colors.border}`, backgroundColor: colors.bg, color: colors.fg,
-    borderRadius: '999px', padding: '.2rem .5rem', fontSize: '.68rem', fontWeight: 700,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    border: `1px solid ${colors.border}`,
+    backgroundColor: colors.bg,
+    color: colors.fg,
+    borderRadius: '4px',
+    padding: '2px 5px',
+    fontSize: '10px',
+    fontWeight: 800,
     whiteSpace: 'nowrap' as const,
   };
 };
@@ -80,42 +90,139 @@ function ConfirmModal({ pending, onConfirm, onCancel, submitting }: {
   const isDisabled = submitting || (isReject && reason.trim().length < 5);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
-      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '14px', padding: '1.5rem', width: '100%', maxWidth: '520px' }}>
-        <h2 style={{ margin: '0 0 .45rem', fontSize: '1.1rem', color: THEME.text }}>{isReject ? '❌ Reject company' : '✅ Approve company'}</h2>
-        <p style={{ margin: '0 0 1rem', color: THEME.muted, fontSize: '.84rem', lineHeight: 1.5 }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        backgroundColor: 'rgba(15, 23, 42, .48)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
+      onClick={(event) => { if (event.target === event.currentTarget) onCancel(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{
+          backgroundColor: THEME.cardBg,
+          border: `1px solid ${THEME.cardBorder}`,
+          borderRadius: '6px',
+          boxShadow: '0 20px 50px rgba(15, 23, 42, .18)',
+          padding: '18px',
+          width: '100%',
+          maxWidth: '520px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '8px' }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: '28px',
+              height: '28px',
+              display: 'grid',
+              placeItems: 'center',
+              borderRadius: '4px',
+              background: isReject ? THEME.red : THEME.green,
+              color: '#FFFFFF',
+              fontSize: '12px',
+              fontWeight: 900,
+            }}
+          >
+            {isReject ? '×' : '✓'}
+          </span>
+          <h2 style={{ margin: 0, fontSize: '17px', color: THEME.heading, fontWeight: 800 }}>
+            {isReject ? 'Reject company' : 'Approve company'}
+          </h2>
+        </div>
+
+        <p style={{ margin: '0 0 14px', color: THEME.muted, fontSize: '12px', lineHeight: 1.55 }}>
           {isReject
             ? <>You are about to reject <strong style={{ color: THEME.text }}>{pending.companyName}</strong>. This action is recorded in the audit log.</>
             : <>You are about to approve <strong style={{ color: THEME.text }}>{pending.companyName}</strong> and grant platform access.</>}
         </p>
 
         {readiness && (
-          <div style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '.8rem', marginBottom: '1rem', backgroundColor: '#0b1220' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', alignItems: 'center', marginBottom: '.6rem' }}>
-              <strong style={{ color: THEME.text, fontSize: '.8rem' }}>Approval readiness</strong>
-              <span style={badgeStyle(hasBlockers ? 'red' : readiness.readiness === 'review' ? 'amber' : 'green')}>{readiness.readinessScore}/100 · {readiness.readiness.toUpperCase()}</span>
+          <div style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '10px 12px', marginBottom: '14px', backgroundColor: THEME.pageBg }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', marginBottom: '7px', flexWrap: 'wrap' }}>
+              <strong style={{ color: THEME.heading, fontSize: '11px' }}>Approval readiness</strong>
+              <span style={badgeStyle(hasBlockers ? 'red' : readiness.readiness === 'review' ? 'amber' : 'green')}>
+                {readiness.readinessScore}/100 · {readiness.readiness.toUpperCase()}
+              </span>
             </div>
-            <div style={{ color: THEME.muted, fontSize: '.74rem', lineHeight: 1.65 }}>
+            <div style={{ color: THEME.muted, fontSize: '11px', lineHeight: 1.6 }}>
               Registration provided: {readiness.registrationProvided ? 'Yes' : 'No'} · Email provided: {readiness.emailProvided ? 'Yes' : 'No'}<br />
               Documents: {readiness.approvedDocuments} approved, {readiness.pendingDocuments} pending, {readiness.rejectedDocuments} rejected, {readiness.expiredDocuments} expired
             </div>
             {hasBlockers && !isReject && (
-              <div style={{ color: '#fca5a5', fontSize: '.74rem', marginTop: '.55rem' }}>
-                ⚠ This company has rejected or expired compliance documents. Approval is still a deliberate owner action, not an automatic decision.
+              <div style={{ color: THEME.red, fontSize: '11px', marginTop: '7px', fontWeight: 700 }}>
+                This company has rejected or expired compliance documents. Approval is still a deliberate owner action, not an automatic decision.
               </div>
             )}
           </div>
         )}
 
-        <label style={{ display: 'block', marginBottom: '.35rem', fontSize: '.78rem', fontWeight: 600, color: THEME.muted }}>
+        <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px', fontWeight: 700, color: THEME.heading }}>
           {isReject ? 'Reason for rejection (required)' : 'Reason / notes (optional)'}
         </label>
-        <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} placeholder={isReject ? 'Explain why this application is being rejected…' : 'Approval notes (optional)…'} style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#0b1220', border: `1px solid ${THEME.cardBorder}`, borderRadius: '8px', padding: '.6rem .75rem', color: THEME.text, fontSize: '.82rem', resize: 'vertical' }} />
-        {isReject && reason.trim().length > 0 && reason.trim().length < 5 && <p style={{ color: THEME.red, fontSize: '.72rem', margin: '.3rem 0 0' }}>Reason must be at least 5 characters.</p>}
+        <textarea
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          rows={4}
+          placeholder={isReject ? 'Explain why this application is being rejected…' : 'Approval notes (optional)…'}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            backgroundColor: '#FFFFFF',
+            border: `1px solid ${THEME.cardBorder}`,
+            borderRadius: '4px',
+            padding: '8px 10px',
+            color: THEME.text,
+            fontSize: '12px',
+            resize: 'vertical',
+            outlineColor: THEME.blue,
+          }}
+        />
+        {isReject && reason.trim().length > 0 && reason.trim().length < 5 && (
+          <p style={{ color: THEME.red, fontSize: '10px', margin: '4px 0 0' }}>Reason must be at least 5 characters.</p>
+        )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '.5rem', marginTop: '1.1rem' }}>
-          <button onClick={onCancel} disabled={submitting} style={{ padding: '.45rem .9rem', borderRadius: '7px', border: `1px solid ${THEME.cardBorder}`, background: 'transparent', color: THEME.muted, cursor: submitting ? 'not-allowed' : 'pointer' }}>Cancel</button>
-          <button onClick={() => onConfirm(reason.trim())} disabled={isDisabled} style={{ padding: '.45rem .9rem', borderRadius: '7px', border: 0, backgroundColor: isReject ? THEME.red : THEME.green, color: '#fff', fontWeight: 700, cursor: isDisabled ? 'not-allowed' : 'pointer', opacity: isDisabled ? .6 : 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '7px', marginTop: '14px', flexWrap: 'wrap' }}>
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            style={{
+              height: '32px',
+              padding: '0 11px',
+              borderRadius: '4px',
+              border: `1px solid ${THEME.cardBorder}`,
+              background: '#FFFFFF',
+              color: THEME.muted,
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(reason.trim())}
+            disabled={isDisabled}
+            style={{
+              height: '32px',
+              padding: '0 11px',
+              borderRadius: '4px',
+              border: 0,
+              backgroundColor: isReject ? THEME.red : THEME.green,
+              color: '#FFFFFF',
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              opacity: isDisabled ? .6 : 1,
+            }}
+          >
             {submitting ? 'Working…' : isReject ? 'Confirm Rejection' : 'Confirm Approval'}
           </button>
         </div>
@@ -127,10 +234,11 @@ function ConfirmModal({ pending, onConfirm, onCancel, submitting }: {
 function ReadinessCell({ readiness }: { readiness?: Readiness }) {
   if (!readiness) return <span style={badgeStyle('slate')}>Unavailable</span>;
   const tone = readiness.readiness === 'ready' ? 'green' : readiness.readiness === 'blocked' ? 'red' : 'amber';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '.35rem', minWidth: 155 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 155 }}>
       <span style={badgeStyle(tone)}>{readiness.readinessScore}/100 · {readiness.readiness}</span>
-      <span style={{ color: THEME.muted, fontSize: '.68rem' }}>
+      <span style={{ color: THEME.muted, fontSize: '10px' }}>
         {readiness.approvedDocuments}/{readiness.documentCount} docs approved
         {readiness.expiredDocuments > 0 ? ` · ${readiness.expiredDocuments} expired` : ''}
         {readiness.rejectedDocuments > 0 ? ` · ${readiness.rejectedDocuments} rejected` : ''}
@@ -226,63 +334,163 @@ function ApprovalsContent() {
   return (
     <>
       <ConfirmModal pending={pending} onConfirm={handleConfirm} onCancel={() => setPending(null)} submitting={submitting} />
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>✅</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Approvals Queue</h1>
-                <span style={{ fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,.12)', padding: '.15rem .5rem', borderRadius: '4px' }}>Companies</span>
-              </div>
-              <p style={{ color: THEME.muted, margin: '.25rem 0 0', fontSize: '.85rem' }}>Review company identity and available compliance evidence before granting platform access.</p>
+      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, color: THEME.text, padding: '12px' }}>
+        <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: '28px',
+              height: '28px',
+              display: 'grid',
+              placeItems: 'center',
+              borderRadius: '4px',
+              background: THEME.heading,
+              color: '#FFFFFF',
+              fontSize: '12px',
+              fontWeight: 900,
+            }}
+          >
+            ✓
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Approvals Queue</h1>
+              <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: THEME.blue, backgroundColor: '#EEF4FF', padding: '3px 6px', borderRadius: '4px' }}>Companies</span>
+              <span style={{ fontSize: '10px', color: THEME.muted }}>{loading ? '…' : `${companies.length} pending`}</span>
             </div>
+            <p style={{ color: THEME.muted, margin: '4px 0 0', fontSize: '12px' }}>
+              Review company identity and available compliance evidence before granting platform access.
+            </p>
           </div>
-          <button onClick={fetchPending} disabled={loading} style={{ border: `1px solid ${THEME.cardBorder}`, background: '#172033', color: THEME.text, borderRadius: '8px', padding: '.5rem .85rem', cursor: loading ? 'not-allowed' : 'pointer' }}>↻ Refresh</button>
-        </div>
+          <button
+            onClick={fetchPending}
+            disabled={loading}
+            style={{
+              height: '32px',
+              padding: '0 10px',
+              borderRadius: '4px',
+              border: `1px solid ${THEME.blue}`,
+              background: THEME.blue,
+              color: '#FFFFFF',
+              fontWeight: 800,
+              fontSize: '11px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? .65 : 1,
+            }}
+          >
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </header>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: '.75rem', marginBottom: '1rem' }}>
-          {[['Pending', summary.total, 'blue'], ['Ready', summary.ready, 'green'], ['Needs review', summary.review, 'amber'], ['Blocked', summary.blocked, 'red']].map(([label, value, tone]) => (
-            <div key={String(label)} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '.8rem .9rem' }}>
-              <div style={{ color: THEME.muted, fontSize: '.69rem', textTransform: 'uppercase', fontWeight: 700 }}>{label}</div>
-              <div style={{ color: tone === 'red' ? '#f87171' : tone === 'green' ? '#4ade80' : tone === 'amber' ? '#fbbf24' : '#60a5fa', fontWeight: 800, fontSize: '1.35rem', marginTop: '.2rem' }}>{value}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+          {[
+            ['Pending', summary.total, THEME.blue],
+            ['Ready', summary.ready, THEME.green],
+            ['Needs review', summary.review, THEME.amber],
+            ['Blocked', summary.blocked, THEME.red],
+          ].map(([label, value, color]) => (
+            <div key={String(label)} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '9px 12px' }}>
+              <div style={{ color: THEME.muted, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 800 }}>{label}</div>
+              <div style={{ color: String(color), fontWeight: 800, fontSize: '20px', marginTop: '2px' }}>{value}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ backgroundColor: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.35)', borderRadius: '8px', padding: '.65rem .9rem', color: '#bfdbfe', fontSize: '.76rem', marginBottom: '1rem' }}>
-          ℹ Readiness uses evidence available in the connected schema (registration/email presence and driver/vehicle document status). It does not claim Companies House, VAT or identity verification unless a verified source exists.
+        <div style={{ backgroundColor: '#EEF4FF', border: '1px solid #BFDBFE', borderLeft: `4px solid ${THEME.blue}`, borderRadius: '4px', padding: '9px 12px', color: '#1E40AF', fontSize: '11px', lineHeight: 1.5, marginBottom: '12px' }}>
+          Readiness uses evidence available in the connected schema (registration/email presence and driver/vehicle document status). It does not claim Companies House, VAT or identity verification unless a verified source exists.
         </div>
 
-        {actionMessage && <div style={{ backgroundColor: 'rgba(245,158,11,.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '.65rem .9rem', color: THEME.accent, fontSize: '.82rem', marginBottom: '1rem' }}>{actionMessage}</div>}
-        {error && <div style={{ backgroundColor: 'rgba(239,68,68,.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '.65rem .9rem', color: THEME.red, fontSize: '.82rem', marginBottom: '1rem' }}>⚠️ {error}</div>}
+        {actionMessage && (
+          <div role="status" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderLeft: `4px solid ${THEME.accent}`, borderRadius: '4px', padding: '9px 12px', color: '#92400E', fontSize: '11px', fontWeight: 700, marginBottom: '12px' }}>
+            {actionMessage}
+          </div>
+        )}
+        {error && (
+          <div role="alert" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderLeft: `4px solid ${THEME.red}`, borderRadius: '4px', padding: '9px 12px', color: THEME.red, fontSize: '11px', fontWeight: 700, marginBottom: '12px' }}>
+            {error}
+          </div>
+        )}
 
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflowX: 'auto' }}>
-          {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted }}>Loading approval evidence…</div> : companies.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted }}>No companies pending approval.</div>
+        <section style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: '18px', textAlign: 'center', color: THEME.muted, fontSize: '12px' }}>Loading approval evidence…</div>
+          ) : companies.length === 0 ? (
+            <div style={{ padding: '18px', textAlign: 'center', color: THEME.muted, fontSize: '12px' }}>No companies pending approval.</div>
           ) : (
-            <table style={{ width: '100%', minWidth: 1180, borderCollapse: 'collapse', fontSize: '.8rem' }}>
-              <thead><tr style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>{['Company', 'Registration', 'Email', 'Type', 'Resources', 'Compliance readiness', 'Applied', 'Actions'].map((header) => <th key={header} style={{ padding: '.75rem .8rem', textAlign: 'left', color: THEME.muted, fontWeight: 700, fontSize: '.69rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>{header}</th>)}</tr></thead>
-              <tbody>{companies.map((company) => {
-                const readiness = readinessByCompany[company.id];
-                const acting = submitting && pending?.companyId === company.id;
-                return <tr key={company.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
-                  <td style={{ padding: '.8rem', color: THEME.text, fontWeight: 700 }}>{company.name}</td>
-                  <td style={{ padding: '.8rem' }}>{company.company_number ? <span style={badgeStyle('green')}>Provided · {company.company_number}</span> : <span style={badgeStyle('amber')}>Missing</span>}</td>
-                  <td style={{ padding: '.8rem', color: THEME.muted }}>{company.email ?? '—'}</td>
-                  <td style={{ padding: '.8rem', color: THEME.muted }}>{company.company_type ?? 'standard'}</td>
-                  <td style={{ padding: '.8rem', color: THEME.muted }}>{readiness ? `${readiness.driverCount} drivers · ${readiness.vehicleCount} vehicles` : '—'}</td>
-                  <td style={{ padding: '.8rem' }}><ReadinessCell readiness={readiness} /></td>
-                  <td style={{ padding: '.8rem', color: THEME.muted }}>{fmt(company.created_at)}</td>
-                  <td style={{ padding: '.8rem' }}><div style={{ display: 'flex', gap: '.4rem' }}>
-                    <button onClick={() => openModal(company, 'approve')} disabled={acting} style={{ padding: '.32rem .65rem', borderRadius: '6px', border: 0, backgroundColor: THEME.green, color: '#fff', fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? .6 : 1 }}>Approve</button>
-                    <button onClick={() => openModal(company, 'reject')} disabled={acting} style={{ padding: '.32rem .65rem', borderRadius: '6px', border: `1px solid ${THEME.red}`, background: 'transparent', color: THEME.red, fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? .6 : 1 }}>Reject</button>
-                  </div></td>
-                </tr>;
-              })}</tbody>
-            </table>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 1180, borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ height: '38px', background: THEME.pageBg, borderBottom: `1px solid ${THEME.cardBorder}` }}>
+                    {['Company', 'Registration', 'Email', 'Type', 'Resources', 'Compliance readiness', 'Applied', 'Actions'].map((header) => (
+                      <th key={header} style={{ padding: '0 12px', textAlign: 'left', color: THEME.heading, fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {companies.map((company) => {
+                    const readiness = readinessByCompany[company.id];
+                    const acting = submitting && pending?.companyId === company.id;
+                    return (
+                      <tr key={company.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
+                        <td style={{ padding: '9px 12px', color: THEME.text, fontWeight: 700 }}>{company.name}</td>
+                        <td style={{ padding: '9px 12px' }}>
+                          {company.company_number
+                            ? <span style={badgeStyle('green')}>Provided · {company.company_number}</span>
+                            : <span style={badgeStyle('amber')}>Missing</span>}
+                        </td>
+                        <td style={{ padding: '9px 12px', color: THEME.muted }}>{company.email ?? '—'}</td>
+                        <td style={{ padding: '9px 12px', color: THEME.muted }}>{company.company_type ?? 'standard'}</td>
+                        <td style={{ padding: '9px 12px', color: THEME.muted }}>{readiness ? `${readiness.driverCount} drivers · ${readiness.vehicleCount} vehicles` : '—'}</td>
+                        <td style={{ padding: '9px 12px' }}><ReadinessCell readiness={readiness} /></td>
+                        <td style={{ padding: '9px 12px', color: THEME.muted }}>{fmt(company.created_at)}</td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => openModal(company, 'approve')}
+                              disabled={acting}
+                              style={{
+                                height: '28px',
+                                padding: '0 9px',
+                                borderRadius: '4px',
+                                border: `1px solid ${THEME.green}`,
+                                backgroundColor: THEME.green,
+                                color: '#FFFFFF',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                cursor: acting ? 'not-allowed' : 'pointer',
+                                opacity: acting ? .6 : 1,
+                              }}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => openModal(company, 'reject')}
+                              disabled={acting}
+                              style={{
+                                height: '28px',
+                                padding: '0 9px',
+                                borderRadius: '4px',
+                                border: `1px solid ${THEME.red}`,
+                                background: '#FFFFFF',
+                                color: THEME.red,
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                cursor: acting ? 'not-allowed' : 'pointer',
+                                opacity: acting ? .6 : 1,
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
+        </section>
       </div>
     </>
   );
