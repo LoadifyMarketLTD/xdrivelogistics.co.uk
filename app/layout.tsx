@@ -97,6 +97,7 @@ export default async function RootLayout({
           id="organization-schema"
           type="application/ld+json"
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
