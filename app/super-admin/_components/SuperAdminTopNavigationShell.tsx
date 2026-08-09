@@ -32,6 +32,7 @@ export default function SuperAdminTopNavigationShell({
   const [unreadCount, setUnreadCount] = useState(fixtureOverrides?.unreadCount ?? 0);
   const [accountOpen, setAccountOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const navRef = useRef<HTMLDivElement | null>(null);
 
   const role = 'platform_owner' as const;
@@ -45,6 +46,7 @@ export default function SuperAdminTopNavigationShell({
       definition.nav.flatMap((group) =>
         group.items.map((item) => ({
           id: `${group.id}-${item.id}`,
+          group: group.label,
           label: item.label,
           href: item.href,
         })),
@@ -52,23 +54,38 @@ export default function SuperAdminTopNavigationShell({
     [definition.nav],
   );
 
+  const searchResults = useMemo(() => {
+    const normalized = searchValue.trim().toLowerCase();
+    if (!normalized) return [];
+    return navigationTargets
+      .filter((item) =>
+        item.label.toLowerCase().includes(normalized)
+        || item.group.toLowerCase().includes(normalized),
+      )
+      .slice(0, 7);
+  }, [navigationTargets, searchValue]);
+
   const isActive = (href: string) => {
     const [baseHref] = href.split('?');
     if (baseHref === definition.homeHref) return pathname === baseHref;
     return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
   };
 
+  const navigateToTarget = (href: string) => {
+    router.push(href);
+    setSearchValue('');
+    setSearchOpen(false);
+    setOpenGroup(null);
+    setAccountOpen(false);
+  };
+
   const navigateFromSearch = () => {
     const normalized = searchValue.trim().toLowerCase();
     if (!normalized) return;
     const target = navigationTargets.find((item) => item.label.toLowerCase() === normalized)
+      ?? searchResults[0]
       ?? navigationTargets.find((item) => item.label.toLowerCase().includes(normalized));
-    if (target) {
-      router.push(target.href);
-      setSearchValue('');
-      setOpenGroup(null);
-      setAccountOpen(false);
-    }
+    if (target) navigateToTarget(target.href);
   };
 
   useEffect(() => {
@@ -101,6 +118,7 @@ export default function SuperAdminTopNavigationShell({
       if (!navRef.current?.contains(event.target as Node)) {
         setOpenGroup(null);
         setAccountOpen(false);
+        setSearchOpen(false);
       }
     };
     document.addEventListener('mousedown', closeMenus);
@@ -110,6 +128,7 @@ export default function SuperAdminTopNavigationShell({
   useEffect(() => {
     setOpenGroup(null);
     setAccountOpen(false);
+    setSearchOpen(false);
   }, [pathname]);
 
   return (
@@ -151,6 +170,7 @@ export default function SuperAdminTopNavigationShell({
                     onClick={() => {
                       setOpenGroup((value) => (value === group.id ? null : group.id));
                       setAccountOpen(false);
+                      setSearchOpen(false);
                     }}
                     className={buttonClass}
                   >
@@ -192,22 +212,48 @@ export default function SuperAdminTopNavigationShell({
           </nav>
 
           <div className={styles.actions}>
-            <div className={styles.searchWrap}>
-              <span aria-hidden="true" className={styles.searchIcon}>⌕</span>
-              <input
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') navigateFromSearch();
-                }}
-                list="platform-owner-navigation"
-                placeholder="Search navigation"
-                aria-label="Search navigation"
-                className={styles.searchInput}
-              />
-              <datalist id="platform-owner-navigation">
-                {navigationTargets.map((item) => <option key={item.id} value={item.label} />)}
-              </datalist>
+            <div className={styles.searchArea}>
+              <div className={styles.searchWrap}>
+                <span aria-hidden="true" className={styles.searchIcon}>⌕</span>
+                <input
+                  value={searchValue}
+                  onChange={(event) => {
+                    setSearchValue(event.target.value);
+                    setSearchOpen(Boolean(event.target.value.trim()));
+                    setOpenGroup(null);
+                    setAccountOpen(false);
+                  }}
+                  onFocus={() => setSearchOpen(Boolean(searchValue.trim()))}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') navigateFromSearch();
+                    if (event.key === 'Escape') setSearchOpen(false);
+                  }}
+                  placeholder="Search navigation"
+                  aria-label="Search navigation"
+                  aria-expanded={searchOpen && searchResults.length > 0}
+                  aria-controls="platform-owner-search-results"
+                  autoComplete="off"
+                  className={styles.searchInput}
+                />
+              </div>
+
+              {searchOpen && searchResults.length > 0 && (
+                <div id="platform-owner-search-results" className={styles.searchResults} role="listbox">
+                  {searchResults.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="option"
+                      aria-selected="false"
+                      className={styles.searchResult}
+                      onClick={() => navigateToTarget(item.href)}
+                    >
+                      <span className={styles.searchResultLabel}>{item.label}</span>
+                      <span className={styles.searchResultGroup}>{item.group}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button
@@ -237,6 +283,7 @@ export default function SuperAdminTopNavigationShell({
                 onClick={() => {
                   setAccountOpen((value) => !value);
                   setOpenGroup(null);
+                  setSearchOpen(false);
                 }}
                 aria-expanded={accountOpen}
                 className={styles.accountButton}
