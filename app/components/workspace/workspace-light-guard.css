@@ -40,9 +40,22 @@
   color: var(--xdrive-white) !important;
 }
 
+/* CX page frame: centered when a max width is supplied, never drifting left. */
 .xdrive-workspace-visual .xdrive-page-frame {
   margin-left: auto;
   margin-right: auto;
+}
+
+/* CX KPI contract: no more than six primary KPI tiles in one strip. */
+.xdrive-workspace-visual [class*="exchangeKpiStrip"] > :nth-child(n + 7) {
+  display: none !important;
+}
+
+/* Legacy cards must respect the compact 4px-radius visual contract. */
+.xdrive-workspace-visual [style*="border-radius: 8px"],
+.xdrive-workspace-visual [style*="border-radius: 10px"],
+.xdrive-workspace-visual [style*="border-radius: 12px"] {
+  border-radius: 4px !important;
 }
 
 .xdrive-workspace-visual table {
