@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { useAuth } from '../../components/AuthContext';
@@ -15,6 +15,8 @@ import {
 } from '../../components/workspace/actionCentreConfig';
 import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
 import styles from './SuperAdminTopNavigationShell.module.css';
+
+const NAV_CLOSE_DELAY_MS = 140;
 
 export default function SuperAdminTopNavigationShell({
   children,
@@ -34,6 +36,7 @@ export default function SuperAdminTopNavigationShell({
   const [searchValue, setSearchValue] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const navRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
 
   const role = 'platform_owner' as const;
   const actionRole = resolveActionCentreRole(role);
@@ -71,7 +74,30 @@ export default function SuperAdminTopNavigationShell({
     return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
   };
 
+  const cancelScheduledClose = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const openNavigationGroup = useCallback((groupId: string) => {
+    cancelScheduledClose();
+    setOpenGroup(groupId);
+    setAccountOpen(false);
+    setSearchOpen(false);
+  }, [cancelScheduledClose]);
+
+  const scheduleNavigationClose = useCallback(() => {
+    cancelScheduledClose();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpenGroup(null);
+      closeTimerRef.current = null;
+    }, NAV_CLOSE_DELAY_MS);
+  }, [cancelScheduledClose]);
+
   const navigateToTarget = (href: string) => {
+    cancelScheduledClose();
     router.push(href);
     setSearchValue('');
     setSearchOpen(false);
@@ -116,20 +142,35 @@ export default function SuperAdminTopNavigationShell({
   useEffect(() => {
     const closeMenus = (event: MouseEvent) => {
       if (!navRef.current?.contains(event.target as Node)) {
+        cancelScheduledClose();
         setOpenGroup(null);
         setAccountOpen(false);
         setSearchOpen(false);
       }
     };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      cancelScheduledClose();
+      setOpenGroup(null);
+      setAccountOpen(false);
+      setSearchOpen(false);
+    };
     document.addEventListener('mousedown', closeMenus);
-    return () => document.removeEventListener('mousedown', closeMenus);
-  }, []);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeMenus);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [cancelScheduledClose]);
 
   useEffect(() => {
+    cancelScheduledClose();
     setOpenGroup(null);
     setAccountOpen(false);
     setSearchOpen(false);
-  }, [pathname]);
+  }, [cancelScheduledClose, pathname]);
+
+  useEffect(() => () => cancelScheduledClose(), [cancelScheduledClose]);
 
   return (
     <div className={styles.shell}>
@@ -137,7 +178,7 @@ export default function SuperAdminTopNavigationShell({
         <header className={styles.header}>
           <button
             type="button"
-            onClick={() => router.push(definition.homeHref)}
+            onClick={() => navigateToTarget(definition.homeHref)}
             aria-label="Platform Owner home"
             className={styles.brand}
           >
@@ -162,12 +203,19 @@ export default function SuperAdminTopNavigationShell({
               ].filter(Boolean).join(' ');
 
               return (
-                <div key={group.id} className={styles.group}>
+                <div
+                  key={group.id}
+                  className={styles.group}
+                  onMouseEnter={() => openNavigationGroup(group.id)}
+                  onMouseLeave={scheduleNavigationClose}
+                >
                   <button
                     type="button"
                     aria-haspopup="menu"
                     aria-expanded={open}
+                    onFocus={() => openNavigationGroup(group.id)}
                     onClick={() => {
+                      cancelScheduledClose();
                       setOpenGroup((value) => (value === group.id ? null : group.id));
                       setAccountOpen(false);
                       setSearchOpen(false);
@@ -179,7 +227,13 @@ export default function SuperAdminTopNavigationShell({
                   </button>
 
                   {open && (
-                    <div role="menu" aria-label={`${group.label} navigation`} className={styles.dropdown}>
+                    <div
+                      role="menu"
+                      aria-label={`${group.label} navigation`}
+                      className={styles.dropdown}
+                      onMouseEnter={cancelScheduledClose}
+                      onMouseLeave={scheduleNavigationClose}
+                    >
                       <div className={styles.dropdownTitle}>{group.label}</div>
                       {group.items.map((item) => {
                         const active = isActive(item.href);
@@ -188,10 +242,7 @@ export default function SuperAdminTopNavigationShell({
                             key={item.id}
                             type="button"
                             role="menuitem"
-                            onClick={() => {
-                              router.push(item.href);
-                              setOpenGroup(null);
-                            }}
+                            onClick={() => navigateToTarget(item.href)}
                             className={`${styles.menuItem} ${active ? styles.menuItemActive : ''}`}
                           >
                             <span aria-hidden="true" className={styles.itemIcon}>{item.icon ?? '•'}</span>
@@ -258,7 +309,15 @@ export default function SuperAdminTopNavigationShell({
 
             <button
               type="button"
-              onClick={() => router.push(actionCentreHref)}
+              onClick={() => navigateToTarget(definition.homeHref)}
+              className={styles.homeButton}
+            >
+              Home
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigateToTarget(actionCentreHref)}
               className={styles.actionButton}
             >
               Action Centre
@@ -266,7 +325,7 @@ export default function SuperAdminTopNavigationShell({
 
             <button
               type="button"
-              onClick={() => router.push(notificationsHref)}
+              onClick={() => navigateToTarget(notificationsHref)}
               aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
               title="Notifications"
               className={styles.notificationButton}
@@ -281,6 +340,7 @@ export default function SuperAdminTopNavigationShell({
               <button
                 type="button"
                 onClick={() => {
+                  cancelScheduledClose();
                   setAccountOpen((value) => !value);
                   setOpenGroup(null);
                   setSearchOpen(false);
@@ -301,10 +361,10 @@ export default function SuperAdminTopNavigationShell({
                   </div>
                   <button
                     type="button"
-                    onClick={() => router.push(definition.homeHref)}
+                    onClick={() => navigateToTarget(definition.homeHref)}
                     className={styles.accountMenuButton}
                   >
-                    Command Centre
+                    Home / Command Centre
                   </button>
                   <button
                     type="button"
@@ -316,6 +376,14 @@ export default function SuperAdminTopNavigationShell({
                 </div>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className={styles.signOutButton}
+            >
+              Sign out
+            </button>
           </div>
         </header>
       </div>
