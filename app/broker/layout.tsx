@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
 import WorkspaceShell from '../components/workspace/WorkspaceShell';
+import '../components/workspace/workspace-light-guard.css';
 
 export const metadata: Metadata = {
   title: 'Broker Workspace | XDrive Logistics',
@@ -10,5 +11,11 @@ export const metadata: Metadata = {
 };
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
-  return <ProtectedRoute allowedRoles={['broker', 'owner']}><WorkspaceShell forcedRole="broker">{children}</WorkspaceShell></ProtectedRoute>;
+  return (
+    <div className="xdrive-workspace-visual">
+      <ProtectedRoute allowedRoles={['broker', 'owner']}>
+        <WorkspaceShell forcedRole="broker">{children}</WorkspaceShell>
+      </ProtectedRoute>
+    </div>
+  );
 }
