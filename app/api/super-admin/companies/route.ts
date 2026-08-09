@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { applyCompanyStatusFilter, buildCompanySearchPattern, type CompanyStatusFilter } from '../_lib/searchFilters';
 
-
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
 const normalizeSearch = (raw: string) => raw.trim();
@@ -70,21 +69,24 @@ const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | nul
   const actionType = typeof row.action_type === 'string' ? row.action_type : null;
   const oldStatus = typeof row.old_status === 'string'
     ? row.old_status
-    : (typeof row.old_value === 'string' ? row.old_value : null);
+    : (typeof row.old_value === 'string' ? row.old_value : undefined);
   const newStatus = typeof row.new_status === 'string'
     ? row.new_status
-    : (typeof row.new_value === 'string' ? row.new_value : null);
+    : (typeof row.new_value === 'string' ? row.new_value : undefined);
   const createdAt = typeof row.created_at === 'string' ? row.created_at : null;
-  if (!id || !targetCompanyId || !actionType || !oldStatus || !newStatus || !createdAt) {
-    return null;
-  }
+
+  // owner_audit_log also contains platform-wide events that do not target a
+  // company. Those rows are valid audit records, but they are irrelevant to
+  // this company history view and must not make the entire source appear
+  // broken. Status transitions are optional for some governance actions too.
+  if (!id || !targetCompanyId || !actionType || !createdAt) return null;
 
   return {
     id,
     target_company_id: targetCompanyId,
     action_type: actionType,
-    old_status: oldStatus,
-    new_status: newStatus,
+    ...(oldStatus !== undefined ? { old_status: oldStatus } : {}),
+    ...(newStatus !== undefined ? { new_status: newStatus } : {}),
     reason: typeof row.reason === 'string' ? row.reason : '',
     created_at: createdAt,
   };
@@ -93,11 +95,15 @@ const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | nul
 const normalizeAuditRows = (rows: RawGovernanceAuditRow[]) => {
   const normalizedRows: GovernanceAuditRow[] = [];
   for (const row of rows) {
+    // Ignore non-company audit events instead of treating them as a schema
+    // failure. This route deliberately exposes only company governance history.
+    if (typeof row.target_company_id !== 'string' || row.target_company_id.length === 0) continue;
+
     const normalized = normalizeAuditRow(row);
     if (!normalized) {
       return {
         rows: [] as GovernanceAuditRow[],
-        error: 'Governance history rows do not match the expected schema contract.',
+        error: 'Governance history is temporarily unavailable.',
       };
     }
     normalizedRows.push(normalized);
@@ -237,10 +243,18 @@ export async function GET(request: NextRequest) {
       auditRows = normalized.error ? null : normalized.rows;
       auditError = normalized.error ? { message: normalized.error } : null;
     } else {
-      auditError = { message: legacyAuditResult.error.message };
+      console.error('[super-admin/companies] governance history legacy query unavailable', {
+        code: legacyAuditResult.error.code,
+        message: legacyAuditResult.error.message,
+      });
+      auditError = { message: 'Governance history is temporarily unavailable.' };
     }
   } else {
-    auditError = { message: fullAuditResult.error.message };
+    console.error('[super-admin/companies] governance history query unavailable', {
+      code: fullAuditResult.error.code,
+      message: fullAuditResult.error.message,
+    });
+    auditError = { message: 'Governance history is temporarily unavailable.' };
   }
 
   const governanceHistoryAvailable = auditError === null;
