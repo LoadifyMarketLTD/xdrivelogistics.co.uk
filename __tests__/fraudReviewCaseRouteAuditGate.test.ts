@@ -131,7 +131,7 @@ describe('PATCH /api/super-admin/compliance/fraud-cases — audited deployment g
 
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
-      error: 'Fraud governance audit migration is not ready. No action was applied.',
+      error: 'Fraud governance is temporarily unavailable. No action was applied.',
     });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
@@ -154,7 +154,7 @@ describe('PATCH /api/super-admin/compliance/fraud-cases — audited deployment g
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
-      error: 'Fraud governance action returned no audited result.',
+      error: 'Fraud review action could not be completed.',
     });
   });
 
