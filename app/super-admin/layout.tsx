@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
 import './super-admin-light.css';
+import './super-admin-light-hardening.css';
 
 export const metadata: Metadata = {
   title: 'Super Admin | XDrive Logistics',
