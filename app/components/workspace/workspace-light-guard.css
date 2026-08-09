@@ -1,0 +1,64 @@
+.xdrive-workspace-visual {
+  --xdrive-navy: #0B2F6B;
+  --xdrive-blue: #1D57D8;
+  --xdrive-orange: #F5A300;
+  --xdrive-white: #FFFFFF;
+  --xdrive-charcoal: #1A1F2B;
+  --xdrive-light: #F4F6F8;
+  --xdrive-border: #D8DEE8;
+  min-height: 100vh;
+  background: var(--xdrive-light);
+  color: var(--xdrive-charcoal);
+  font-family: Inter, Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Guard legacy role pages from reintroducing the old dark/cinematic surfaces. */
+.xdrive-workspace-visual [class*="bg-slate-8"],
+.xdrive-workspace-visual [class*="bg-slate-9"],
+.xdrive-workspace-visual [class*="bg-gray-8"],
+.xdrive-workspace-visual [class*="bg-gray-9"],
+.xdrive-workspace-visual [class*="bg-zinc-8"],
+.xdrive-workspace-visual [class*="bg-zinc-9"],
+.xdrive-workspace-visual [class*="bg-neutral-8"],
+.xdrive-workspace-visual [class*="bg-neutral-9"] {
+  background-color: var(--xdrive-white) !important;
+  color: var(--xdrive-charcoal) !important;
+}
+
+.xdrive-workspace-visual [class*="text-slate-1"],
+.xdrive-workspace-visual [class*="text-gray-1"],
+.xdrive-workspace-visual [class*="text-zinc-1"],
+.xdrive-workspace-visual [class*="text-white"] {
+  color: var(--xdrive-charcoal) !important;
+}
+
+/* Keep deliberate brand/action buttons readable after the legacy text guard. */
+.xdrive-workspace-visual button[style*="background: rgb(29, 87, 216)"],
+.xdrive-workspace-visual button[style*="background-color: rgb(29, 87, 216)"],
+.xdrive-workspace-visual button[style*="#1D57D8"],
+.xdrive-workspace-visual button[style*="#1d57d8"] {
+  color: var(--xdrive-white) !important;
+}
+
+.xdrive-workspace-visual .xdrive-page-frame {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.xdrive-workspace-visual table {
+  border-color: var(--xdrive-border);
+}
+
+.xdrive-workspace-visual input,
+.xdrive-workspace-visual select,
+.xdrive-workspace-visual textarea {
+  border-radius: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .xdrive-workspace-visual {
+    background: var(--xdrive-light);
+    color: var(--xdrive-charcoal);
+    color-scheme: light;
+  }
+}
