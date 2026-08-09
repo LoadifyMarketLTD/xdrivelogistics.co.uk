@@ -1,12 +1,12 @@
 'use client';
 
 import ProtectedRoute from '../components/ProtectedRoute';
-import RoleDashboard from '../components/workspace/RoleDashboards';
+import AdminRoleDashboardHome from '../components/workspace/AdminRoleDashboardHome';
 
 export default function CompanyWorkspaceHomePage() {
   return (
     <ProtectedRoute allowedRoles={['owner', 'company_admin', 'company_staff']}>
-      <RoleDashboard />
+      <AdminRoleDashboardHome />
     </ProtectedRoute>
   );
 }
