@@ -233,6 +233,57 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'service_unavailable' };
   }
 
+  const superAdminRouteRequested =
+    request.nextUrl.pathname === '/super-admin' || request.nextUrl.pathname.startsWith('/super-admin/');
+
+  // Super Admin access depends only on the authoritative server-side profile.
+  // Resolve that boundary before company context so every Super Admin navigation
+  // avoids unnecessary company_memberships and companies queries.
+  if (superAdminRouteRequested) {
+    const { data: superAdminProfileData, error: superAdminProfileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role, status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+
+    if (isServiceFailure(superAdminProfileError?.message) || superAdminProfileError) {
+      return { kind: 'service_unavailable' };
+    }
+
+    const superAdminProfile = superAdminProfileData as {
+      role?: string | null;
+      status?: string | null;
+    } | null;
+
+    if (!superAdminProfile || superAdminProfile.status?.toLowerCase() !== 'active') {
+      return { kind: 'forbidden' };
+    }
+
+    const superAdminRole = mapAppRole(superAdminProfile.role ?? null);
+    if (superAdminRole !== 'owner') {
+      return { kind: 'forbidden' };
+    }
+
+    return {
+      kind: 'authenticated',
+      role: 'owner',
+      rawRole: superAdminProfile.role ?? null,
+      workspaceRole: 'platform_owner',
+      mustChangePassword: false,
+      appAccess: null,
+      ownerDriverWorkspace: false,
+      ownerDriverExecutionMode: false,
+      canAccessDriverMode: false,
+      membershipId: null,
+      membershipRole: null,
+      driverId: null,
+      canCommercialBid: null,
+      driverStatus: null,
+      accountStatus: 'active',
+      companyStatus: null,
+    };
+  }
+
   const [profileRes, membershipsRes, creatorCompanyRes] = await Promise.all([
     supabaseAdmin
       .from('profiles')
@@ -288,34 +339,6 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   const profileStatus = profile.status?.toLowerCase() ?? null;
   if (profileStatus !== 'active') {
     return { kind: 'forbidden' };
-  }
-
-  const profileRole = mapAppRole(profile.role ?? null);
-  const superAdminRouteRequested =
-    request.nextUrl.pathname === '/super-admin' || request.nextUrl.pathname.startsWith('/super-admin/');
-
-  // Platform ownership is established from the server-side profile only. It is
-  // intentionally resolved before commercial-company context because platform
-  // administrators do not require a company membership to use /super-admin.
-  if (superAdminRouteRequested && profileRole === 'owner') {
-    return {
-      kind: 'authenticated',
-      role: 'owner',
-      rawRole: profile.role ?? null,
-      workspaceRole: 'platform_owner',
-      mustChangePassword: false,
-      appAccess: null,
-      ownerDriverWorkspace: false,
-      ownerDriverExecutionMode: false,
-      canAccessDriverMode: false,
-      membershipId: null,
-      membershipRole: null,
-      driverId: null,
-      canCommercialBid: null,
-      driverStatus: null,
-      accountStatus: profileStatus,
-      companyStatus: null,
-    };
   }
 
   const activeCompany = resolveActiveCompanyContext(memberships, {
