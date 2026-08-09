@@ -1,8 +1,8 @@
 /*
  * XDrive Super Admin — light visual contract
- * Scoped to /super-admin only. This normalises legacy pages that still carry
- * hard-coded slate/dark inline colours while they are progressively migrated
- * to the shared CX-style components.
+ * Scoped to /super-admin only. The supplied CX direction is operational,
+ * compact and light: navy/blue/orange are brand accents, not cinematic page
+ * backgrounds.
  *
  * Brand direction:
  * Navy #0B2F6B · Blue #1D57D8 · Orange #F5A300 · White #FFFFFF
@@ -10,87 +10,105 @@
  */
 
 .super-admin-light-root {
+  --sa-navy: #0B2F6B;
+  --sa-blue: #1D57D8;
+  --sa-orange: #F5A300;
+  --sa-white: #FFFFFF;
+  --sa-charcoal: #1A1F2B;
+  --sa-light: #F4F6F8;
+  --sa-border: #D8DEE8;
+  --sa-muted: #64748B;
   min-height: 100vh;
-  background: #F4F6F8;
-  color: #1A1F2B;
+  background: var(--sa-light);
+  color: var(--sa-charcoal);
+  color-scheme: light;
+  font-family: Inter, Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* Legacy page canvases */
+/* Legacy page/card canvases, including Tailwind variants. */
+.super-admin-light-root [class*="bg-slate-800"],
+.super-admin-light-root [class*="bg-slate-900"],
+.super-admin-light-root [class*="bg-slate-950"],
+.super-admin-light-root [class*="bg-gray-800"],
+.super-admin-light-root [class*="bg-gray-900"],
+.super-admin-light-root [class*="bg-gray-950"],
+.super-admin-light-root [class*="bg-zinc-800"],
+.super-admin-light-root [class*="bg-zinc-900"],
+.super-admin-light-root [class*="bg-zinc-950"],
+.super-admin-light-root [class*="bg-neutral-800"],
+.super-admin-light-root [class*="bg-neutral-900"],
+.super-admin-light-root [class*="bg-neutral-950"] {
+  background: var(--sa-white) !important;
+  background-color: var(--sa-white) !important;
+  color: var(--sa-charcoal) !important;
+}
+
 .super-admin-light-root [style*="background-color: rgb(15, 23, 42)"],
-.super-admin-light-root [style*="background-color:#0f172a"],
-.super-admin-light-root [style*="background-color: #0f172a"],
-.super-admin-light-root [style*="background: rgb(15, 23, 42)"],
-.super-admin-light-root [style*="background:#0f172a"],
-.super-admin-light-root [style*="background: #0f172a"] {
-  background-color: #F4F6F8 !important;
-  background: #F4F6F8 !important;
-}
-
-/* Legacy cards, tables and panels */
+.super-admin-light-root [style*="background-color: rgb(17, 24, 39)"],
 .super-admin-light-root [style*="background-color: rgb(30, 41, 59)"],
-.super-admin-light-root [style*="background-color:#1e293b"],
-.super-admin-light-root [style*="background-color: #1e293b"],
-.super-admin-light-root [style*="background: rgb(30, 41, 59)"],
-.super-admin-light-root [style*="background:#1e293b"],
-.super-admin-light-root [style*="background: #1e293b"] {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
-}
-
-/* Legacy extra-dark controls and table headers */
 .super-admin-light-root [style*="background-color: rgb(11, 18, 32)"],
-.super-admin-light-root [style*="background-color:#0b1220"],
-.super-admin-light-root [style*="background-color: #0b1220"],
-.super-admin-light-root [style*="background: rgb(11, 18, 32)"],
+.super-admin-light-root [style*="background-color: rgb(23, 32, 51)"],
+.super-admin-light-root [style*="background:#0f172a"],
+.super-admin-light-root [style*="background: #0f172a"],
+.super-admin-light-root [style*="background:#111827"],
+.super-admin-light-root [style*="background: #111827"],
+.super-admin-light-root [style*="background:#1e293b"],
+.super-admin-light-root [style*="background: #1e293b"],
 .super-admin-light-root [style*="background:#0b1220"],
 .super-admin-light-root [style*="background: #0b1220"],
-.super-admin-light-root [style*="background-color: rgb(23, 32, 51)"],
 .super-admin-light-root [style*="background:#172033"],
 .super-admin-light-root [style*="background: #172033"] {
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
+  background-color: var(--sa-white) !important;
+  background: var(--sa-white) !important;
+  color: var(--sa-charcoal) !important;
 }
 
-/* Convert legacy light-on-dark typography to the XDrive light hierarchy. */
+/* Convert old light-on-dark type into the light-theme hierarchy. */
+.super-admin-light-root [class*="text-slate-100"],
+.super-admin-light-root [class*="text-slate-200"],
+.super-admin-light-root [class*="text-gray-100"],
+.super-admin-light-root [class*="text-gray-200"],
+.super-admin-light-root [class~="text-white"],
 .super-admin-light-root [style*="color: rgb(241, 245, 249)"],
 .super-admin-light-root [style*="color:#f1f5f9"],
 .super-admin-light-root [style*="color: #f1f5f9"] {
-  color: #1A1F2B !important;
+  color: var(--sa-charcoal) !important;
 }
 
+.super-admin-light-root [class*="text-slate-300"],
+.super-admin-light-root [class*="text-slate-400"],
+.super-admin-light-root [class*="text-gray-300"],
+.super-admin-light-root [class*="text-gray-400"],
 .super-admin-light-root [style*="color: rgb(148, 163, 184)"],
 .super-admin-light-root [style*="color:#94a3b8"],
-.super-admin-light-root [style*="color: #94a3b8"] {
-  color: #64748B !important;
+.super-admin-light-root [style*="color: #94a3b8"],
+.super-admin-light-root [style*="color: rgb(203, 213, 225)"],
+.super-admin-light-root [style*="color:#cbd5e1"],
+.super-admin-light-root [style*="color: #cbd5e1"] {
+  color: var(--sa-muted) !important;
 }
 
-/* Pale semantic colours that were intended for dark backgrounds. */
+/* Pale semantic colours designed for dark backgrounds are darkened for contrast. */
 .super-admin-light-root [style*="color: rgb(134, 239, 172)"],
 .super-admin-light-root [style*="color:#86efac"],
 .super-admin-light-root [style*="color: #86efac"],
 .super-admin-light-root [style*="color: rgb(74, 222, 128)"],
 .super-admin-light-root [style*="color:#4ade80"],
-.super-admin-light-root [style*="color: #4ade80"] {
-  color: #16A34A !important;
-}
+.super-admin-light-root [style*="color: #4ade80"] { color: #15803D !important; }
 
 .super-admin-light-root [style*="color: rgb(252, 211, 77)"],
 .super-admin-light-root [style*="color:#fcd34d"],
 .super-admin-light-root [style*="color: #fcd34d"],
 .super-admin-light-root [style*="color: rgb(251, 191, 36)"],
 .super-admin-light-root [style*="color:#fbbf24"],
-.super-admin-light-root [style*="color: #fbbf24"] {
-  color: #B45309 !important;
-}
+.super-admin-light-root [style*="color: #fbbf24"] { color: #B45309 !important; }
 
 .super-admin-light-root [style*="color: rgb(252, 165, 165)"],
 .super-admin-light-root [style*="color:#fca5a5"],
 .super-admin-light-root [style*="color: #fca5a5"],
 .super-admin-light-root [style*="color: rgb(248, 113, 113)"],
 .super-admin-light-root [style*="color:#f87171"],
-.super-admin-light-root [style*="color: #f87171"] {
-  color: #DC2626 !important;
-}
+.super-admin-light-root [style*="color: #f87171"] { color: #DC2626 !important; }
 
 .super-admin-light-root [style*="color: rgb(147, 197, 253)"],
 .super-admin-light-root [style*="color:#93c5fd"],
@@ -100,61 +118,83 @@
 .super-admin-light-root [style*="color: #60a5fa"],
 .super-admin-light-root [style*="color: rgb(191, 219, 254)"],
 .super-admin-light-root [style*="color:#bfdbfe"],
-.super-admin-light-root [style*="color: #bfdbfe"] {
-  color: #1D57D8 !important;
-}
+.super-admin-light-root [style*="color: #bfdbfe"] { color: var(--sa-blue) !important; }
 
-.super-admin-light-root [style*="color: rgb(203, 213, 225)"],
-.super-admin-light-root [style*="color:#cbd5e1"],
-.super-admin-light-root [style*="color: #cbd5e1"] {
-  color: #64748B !important;
-}
-
-/* Slate borders become the shared light divider. */
+/* Dark borders become the supplied compact divider. */
+.super-admin-light-root [class*="border-slate-700"],
+.super-admin-light-root [class*="border-slate-800"],
+.super-admin-light-root [class*="border-gray-700"],
+.super-admin-light-root [class*="border-gray-800"],
 .super-admin-light-root [style*="border: 1px solid rgb(51, 65, 85)"],
 .super-admin-light-root [style*="border: 1px solid #334155"],
 .super-admin-light-root [style*="border-color: rgb(51, 65, 85)"],
 .super-admin-light-root [style*="border-color:#334155"],
 .super-admin-light-root [style*="border-bottom: 1px solid rgb(51, 65, 85)"],
 .super-admin-light-root [style*="border-bottom: 1px solid #334155"] {
-  border-color: #D9E1EA !important;
+  border-color: var(--sa-border) !important;
 }
 
-/* Tables/lists follow the compact CX reference rather than dark admin consoles. */
-.super-admin-light-root table {
-  background: #FFFFFF;
+/* Cards, tables and controls follow the CX density contract. */
+.super-admin-light-root [style*="border-radius: 8px"],
+.super-admin-light-root [style*="border-radius: 10px"],
+.super-admin-light-root [style*="border-radius: 12px"],
+.super-admin-light-root [class*="rounded-lg"],
+.super-admin-light-root [class*="rounded-xl"],
+.super-admin-light-root [class*="rounded-2xl"] {
+  border-radius: 4px !important;
 }
 
-.super-admin-light-root thead {
-  background: #F4F6F8;
+.super-admin-light-root [class*="shadow-xl"],
+.super-admin-light-root [class*="shadow-2xl"] {
+  box-shadow: 0 1px 3px rgba(11, 47, 107, 0.10) !important;
 }
 
-.super-admin-light-root th {
-  color: #0B2F6B;
-}
+.super-admin-light-root table { background: var(--sa-white); border-color: var(--sa-border); }
+.super-admin-light-root thead { background: var(--sa-light); }
+.super-admin-light-root th { color: var(--sa-navy); }
+.super-admin-light-root tbody tr:hover { background: #F8FAFC; }
 
-.super-admin-light-root tbody tr:hover {
-  background: #F8FAFC;
-}
-
-/* Native controls should never inherit an unreadable dark form surface. */
 .super-admin-light-root input:not([type="checkbox"]):not([type="radio"]),
 .super-admin-light-root textarea,
 .super-admin-light-root select {
-  background-color: #FFFFFF;
-  color: #1A1F2B;
-  border-color: #D9E1EA;
+  background-color: var(--sa-white);
+  color: var(--sa-charcoal);
+  border-color: var(--sa-border);
+  border-radius: 4px;
 }
 
-/* Preserve semantic overlays while keeping the actual dialog light. */
+.super-admin-light-root button,
+.super-admin-light-root input,
+.super-admin-light-root select {
+  min-height: 30px;
+}
+
+/* Branded/semantic action fills keep white labels. */
+.super-admin-light-root button[class*="bg-blue-"],
+.super-admin-light-root a[class*="bg-blue-"],
+.super-admin-light-root button[class*="bg-green-"],
+.super-admin-light-root a[class*="bg-green-"],
+.super-admin-light-root button[style*="#1D57D8"],
+.super-admin-light-root button[style*="#1d57d8"] {
+  color: var(--sa-white) !important;
+}
+
+/* Preserve the overlay only; actual dialogs are white and operational. */
 .super-admin-light-root [role="dialog"] > div,
 .super-admin-light-root [role="dialog"] aside {
-  background: #FFFFFF;
-  color: #1A1F2B;
+  background: var(--sa-white);
+  color: var(--sa-charcoal);
 }
 
-/* Consistent selection for the XDrive operational workspace. */
 .super-admin-light-root ::selection {
   background: rgba(29, 87, 216, 0.18);
-  color: #0B2F6B;
+  color: var(--sa-navy);
+}
+
+@media (prefers-color-scheme: dark) {
+  .super-admin-light-root {
+    background: var(--sa-light);
+    color: var(--sa-charcoal);
+    color-scheme: light;
+  }
 }
