@@ -6,33 +6,94 @@
   --xdrive-charcoal: #1A1F2B;
   --xdrive-light: #F4F6F8;
   --xdrive-border: #D8DEE8;
+  --xdrive-muted: #64748B;
   min-height: 100vh;
   background: var(--xdrive-light);
   color: var(--xdrive-charcoal);
+  color-scheme: light;
   font-family: Inter, Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* Guard legacy role pages from reintroducing the old dark/cinematic surfaces. */
-.xdrive-workspace-visual [class*="bg-slate-8"],
-.xdrive-workspace-visual [class*="bg-slate-9"],
-.xdrive-workspace-visual [class*="bg-gray-8"],
-.xdrive-workspace-visual [class*="bg-gray-9"],
-.xdrive-workspace-visual [class*="bg-zinc-8"],
-.xdrive-workspace-visual [class*="bg-zinc-9"],
-.xdrive-workspace-visual [class*="bg-neutral-8"],
-.xdrive-workspace-visual [class*="bg-neutral-9"] {
+/*
+ * XDrive workspace visual contract
+ * --------------------------------
+ * The operational UI is deliberately LIGHT. Navy, royal blue and orange are
+ * brand/accent colours; they are not full-page cinematic surfaces.
+ * This guard keeps older role pages visually compatible while they are moved
+ * to the shared CX-style components.
+ */
+
+/* Legacy Tailwind dark/cinematic surfaces. */
+.xdrive-workspace-visual [class*="bg-slate-800"],
+.xdrive-workspace-visual [class*="bg-slate-900"],
+.xdrive-workspace-visual [class*="bg-slate-950"],
+.xdrive-workspace-visual [class*="bg-gray-800"],
+.xdrive-workspace-visual [class*="bg-gray-900"],
+.xdrive-workspace-visual [class*="bg-gray-950"],
+.xdrive-workspace-visual [class*="bg-zinc-800"],
+.xdrive-workspace-visual [class*="bg-zinc-900"],
+.xdrive-workspace-visual [class*="bg-zinc-950"],
+.xdrive-workspace-visual [class*="bg-neutral-800"],
+.xdrive-workspace-visual [class*="bg-neutral-900"],
+.xdrive-workspace-visual [class*="bg-neutral-950"] {
   background-color: var(--xdrive-white) !important;
   color: var(--xdrive-charcoal) !important;
 }
 
-.xdrive-workspace-visual [class*="text-slate-1"],
-.xdrive-workspace-visual [class*="text-gray-1"],
-.xdrive-workspace-visual [class*="text-zinc-1"],
-.xdrive-workspace-visual [class*="text-white"] {
+/* Common hard-coded dark surfaces still present in legacy pages. */
+.xdrive-workspace-visual [style*="background-color: rgb(15, 23, 42)"],
+.xdrive-workspace-visual [style*="background-color: rgb(17, 24, 39)"],
+.xdrive-workspace-visual [style*="background-color: rgb(30, 41, 59)"],
+.xdrive-workspace-visual [style*="background:#0f172a"],
+.xdrive-workspace-visual [style*="background: #0f172a"],
+.xdrive-workspace-visual [style*="background:#111827"],
+.xdrive-workspace-visual [style*="background: #111827"],
+.xdrive-workspace-visual [style*="background:#1e293b"],
+.xdrive-workspace-visual [style*="background: #1e293b"],
+.xdrive-workspace-visual [style*="background-color:#0f172a"],
+.xdrive-workspace-visual [style*="background-color: #0f172a"],
+.xdrive-workspace-visual [style*="background-color:#111827"],
+.xdrive-workspace-visual [style*="background-color: #111827"],
+.xdrive-workspace-visual [style*="background-color:#1e293b"],
+.xdrive-workspace-visual [style*="background-color: #1e293b"] {
+  background: var(--xdrive-white) !important;
+  background-color: var(--xdrive-white) !important;
   color: var(--xdrive-charcoal) !important;
 }
 
+/* Legacy light-on-dark type must become normal light-theme hierarchy. */
+.xdrive-workspace-visual [class*="text-slate-100"],
+.xdrive-workspace-visual [class*="text-slate-200"],
+.xdrive-workspace-visual [class*="text-gray-100"],
+.xdrive-workspace-visual [class*="text-gray-200"],
+.xdrive-workspace-visual [class*="text-zinc-100"],
+.xdrive-workspace-visual [class*="text-zinc-200"],
+.xdrive-workspace-visual [class~="text-white"] {
+  color: var(--xdrive-charcoal) !important;
+}
+
+.xdrive-workspace-visual [class*="text-slate-300"],
+.xdrive-workspace-visual [class*="text-slate-400"],
+.xdrive-workspace-visual [class*="text-gray-300"],
+.xdrive-workspace-visual [class*="text-gray-400"] {
+  color: var(--xdrive-muted) !important;
+}
+
+/* Dark Tailwind borders become the common CX divider. */
+.xdrive-workspace-visual [class*="border-slate-700"],
+.xdrive-workspace-visual [class*="border-slate-800"],
+.xdrive-workspace-visual [class*="border-gray-700"],
+.xdrive-workspace-visual [class*="border-gray-800"],
+.xdrive-workspace-visual [class*="border-zinc-700"],
+.xdrive-workspace-visual [class*="border-zinc-800"] {
+  border-color: var(--xdrive-border) !important;
+}
+
 /* Keep deliberate brand/action buttons readable after the legacy text guard. */
+.xdrive-workspace-visual button[class*="bg-blue-"],
+.xdrive-workspace-visual a[class*="bg-blue-"],
+.xdrive-workspace-visual button[class*="bg-green-"],
+.xdrive-workspace-visual a[class*="bg-green-"],
 .xdrive-workspace-visual button[style*="background: rgb(29, 87, 216)"],
 .xdrive-workspace-visual button[style*="background-color: rgb(29, 87, 216)"],
 .xdrive-workspace-visual button[style*="#1D57D8"],
@@ -51,21 +112,57 @@
   display: none !important;
 }
 
-/* Legacy cards must respect the compact 4px-radius visual contract. */
+/* Cards/panels: compact, light and low-shadow, matching the supplied reference. */
 .xdrive-workspace-visual [style*="border-radius: 8px"],
 .xdrive-workspace-visual [style*="border-radius: 10px"],
-.xdrive-workspace-visual [style*="border-radius: 12px"] {
+.xdrive-workspace-visual [style*="border-radius: 12px"],
+.xdrive-workspace-visual [class*="rounded-lg"],
+.xdrive-workspace-visual [class*="rounded-xl"],
+.xdrive-workspace-visual [class*="rounded-2xl"] {
   border-radius: 4px !important;
 }
 
+.xdrive-workspace-visual [class*="shadow-xl"],
+.xdrive-workspace-visual [class*="shadow-2xl"] {
+  box-shadow: 0 1px 3px rgba(11, 47, 107, 0.10) !important;
+}
+
 .xdrive-workspace-visual table {
+  background: var(--xdrive-white);
   border-color: var(--xdrive-border);
+}
+
+.xdrive-workspace-visual thead {
+  background: var(--xdrive-light);
+}
+
+.xdrive-workspace-visual th {
+  color: var(--xdrive-navy);
+}
+
+.xdrive-workspace-visual tbody tr:hover {
+  background: #F8FAFC;
 }
 
 .xdrive-workspace-visual input,
 .xdrive-workspace-visual select,
 .xdrive-workspace-visual textarea {
+  background-color: var(--xdrive-white);
+  color: var(--xdrive-charcoal);
+  border-color: var(--xdrive-border);
   border-radius: 4px;
+}
+
+/* Compact CX controls. Do not allow inherited legacy sizing to create giant bars. */
+.xdrive-workspace-visual button,
+.xdrive-workspace-visual input,
+.xdrive-workspace-visual select {
+  min-height: 30px;
+}
+
+.xdrive-workspace-visual ::selection {
+  background: rgba(29, 87, 216, 0.18);
+  color: var(--xdrive-navy);
 }
 
 @media (prefers-color-scheme: dark) {
