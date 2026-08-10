@@ -26,12 +26,15 @@ vi.mock('../app/components/workspace/useCompanyWorkspaceData', async () => {
 
 import BrokerDashboardHome from '../app/broker/BrokerDashboardHome';
 import CustomerDashboardHome from '../app/customer/CustomerDashboardHome';
-import CarrierOperationsDashboardHome from '../app/components/workspace/CarrierOperationsDashboardHome';
+import CarrierOperationsDashboardHome, {
+  isCarrierAttentionJob,
+} from '../app/components/workspace/CarrierOperationsDashboardHome';
 import FleetControlDashboardHome from '../app/components/workspace/FleetControlDashboardHome';
 import DispatcherControlDashboardHome from '../app/components/workspace/DispatcherControlDashboardHome';
 import FinanceControlDashboardHome from '../app/components/workspace/FinanceControlDashboardHome';
 import ComplianceControlDashboardHome from '../app/components/workspace/ComplianceControlDashboardHome';
 import ViewerDashboardHome from '../app/components/workspace/ViewerDashboardHome';
+import type { WorkspaceJob } from '../app/components/workspace/useCompanyWorkspaceData';
 
 const dataset = <T,>(overrides: Partial<{
   data: T[];
@@ -82,6 +85,54 @@ const workspaceState = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const render = (element: React.ReactElement) => renderToStaticMarkup(element);
+
+const carrierJob = (overrides: Partial<WorkspaceJob> = {}): WorkspaceJob => ({
+  id: 'job-1',
+  company_id: 'company-1',
+  status: 'posted',
+  current_status: 'posted',
+  pickup_location: 'Blackburn',
+  delivery_location: 'Manchester',
+  pickup_datetime: '2026-08-10T09:00:00.000Z',
+  delivery_datetime: '2026-08-10T11:00:00.000Z',
+  vehicle_type: 'luton_van',
+  assigned_driver_id: null,
+  delivery_photos: [],
+  created_at: '2026-08-09T09:00:00.000Z',
+  updated_at: '2026-08-09T09:00:00.000Z',
+  ...overrides,
+});
+
+describe('carrier attention semantics', () => {
+  it('keeps a normal live job out of Needs attention', () => {
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'allocated',
+      current_status: 'in_transit',
+      assigned_driver_id: 'driver-1',
+    }))).toBe(false);
+  });
+
+  it('includes only actionable allocation, exception and POD blockers', () => {
+    expect(isCarrierAttentionJob(carrierJob())).toBe(true);
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'failed',
+      current_status: 'delivery_failed',
+      assigned_driver_id: 'driver-1',
+    }))).toBe(true);
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'delivered',
+      current_status: 'delivered',
+      assigned_driver_id: 'driver-1',
+      delivery_photos: [],
+    }))).toBe(true);
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'delivered',
+      current_status: 'delivered',
+      assigned_driver_id: 'driver-1',
+      delivery_photos: ['pod.jpg'],
+    }))).toBe(false);
+  });
+});
 
 describe('active workspace dashboard degraded-state rendering', () => {
   beforeEach(() => {
