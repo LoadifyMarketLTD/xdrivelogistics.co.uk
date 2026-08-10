@@ -213,7 +213,6 @@ const carrierNav: WorkspaceNavGroup[] = [
     { id: 'broker-invitations', label: 'Broker Invitations', href: '/admin/broker-invitations', icon: '✉' },
   ] },
   { id: 'operations', label: 'Operations', items: [
-    { id: 'operations', label: 'Operations Centre', href: '/admin/operations-centre', icon: 'OC', capability: 'jobs.dispatch' },
     { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' },
     { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' },
     { id: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: '!', capability: 'incidents.manage' },
@@ -321,9 +320,9 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     ],
   },
   dispatcher: {
-    role: 'dispatcher', label: 'Operations Workspace', subtitle: 'Allocate, monitor and recover daily jobs', homeHref: '/admin/operations-centre',
+    role: 'dispatcher', label: 'Operations Workspace', subtitle: 'Allocate, monitor and recover daily jobs', homeHref: '/admin',
     nav: [
-      { id: 'home', label: 'Operations', items: [{ id: 'dashboard', label: 'Operations Dashboard', href: '/admin/operations-centre', icon: '⌂' }] },
+      { id: 'home', label: 'Operations', items: [{ id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' }] },
       { id: 'work', label: 'Daily Work', items: [
         { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
         { id: 'unallocated', label: 'Unallocated Jobs', href: '/admin/fleet/assignments', icon: '⇄' },
