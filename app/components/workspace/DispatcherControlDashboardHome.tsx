@@ -77,7 +77,7 @@ export default function DispatcherControlDashboardHome() {
         description="Allocation, departures, live execution and exceptions. Marketplace pricing and finance are intentionally outside this workspace."
         actions={
           <>
-            <ActionButton tone="success" onClick={() => router.push('/admin/operations-centre')}>Operations Centre</ActionButton>
+            <ActionButton tone="success" onClick={() => router.push('/admin/fleet/active-jobs')}>Active Jobs</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Diary</ActionButton>
           </>
         }
@@ -88,7 +88,7 @@ export default function DispatcherControlDashboardHome() {
       <KpiGrid>
         <KpiCard label="Unallocated jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length)} detail={metricDetail(data, ['jobs'], 'Dispatch decision required')} tone={metricTone(data, ['jobs'], 'orange')} onClick={() => router.push('/admin/fleet/assignments')} />
         <KpiCard label="Due next 2 hours" value={metricValue(data, ['jobs'], () => dueSoon.length)} detail={metricDetail(data, ['jobs'], 'Pickup window approaching')} tone={metricTone(data, ['jobs'], dueSoon.length ? 'orange' : 'navy')} onClick={() => router.push('/admin/diary')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Live execution')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/operations-centre')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Live execution')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/fleet/active-jobs')} />
         <KpiCard label="Exceptions" value={metricValue(data, ['jobs'], () => exceptions.length)} detail={metricDetail(data, ['jobs'], 'Immediate intervention')} tone={metricTone(data, ['jobs'], exceptions.length ? 'red' : 'green')} onClick={() => router.push('/admin/incidents')} />
         <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} detail={metricDetail(data, ['drivers'], 'Ready now')} tone={metricTone(data, ['drivers'], 'blue')} onClick={() => router.push('/admin/drivers')} />
         <KpiCard label="Stale positions" value={metricValue(data, ['drivers', 'locations'], () => stalePositions.length)} detail={metricDetail(data, ['drivers', 'locations'], 'No fresh GPS update')} tone={metricTone(data, ['drivers', 'locations'], stalePositions.length ? 'red' : 'navy')} onClick={() => router.push('/admin/fleet/positions')} />
@@ -97,7 +97,7 @@ export default function DispatcherControlDashboardHome() {
       <Panel
         title="Dispatch priority queue"
         description="Unallocated jobs, exceptions and imminent pickups are grouped into one operating queue."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/operations-centre')}>Full operations board</ActionButton>}
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Full jobs register</ActionButton>}
         style={{ marginTop: '12px' }}
       >
         <DataTable
@@ -148,7 +148,6 @@ export default function DispatcherControlDashboardHome() {
           <Panel title="Dispatcher actions" description="Execution and exception workflows only.">
             <QuickActionGrid
               actions={[
-                { key: 'ops', label: 'Operations Centre', onClick: () => router.push('/admin/operations-centre') },
                 { key: 'diary', label: 'Diary', onClick: () => router.push('/admin/diary') },
                 { key: 'assign', label: 'Assignments', onClick: () => router.push('/admin/fleet/assignments') },
                 { key: 'positions', label: 'Live positions', onClick: () => router.push('/admin/fleet/positions') },
