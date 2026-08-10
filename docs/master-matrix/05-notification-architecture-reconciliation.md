@@ -97,7 +97,6 @@ API endpoints
 | Web NotificationBell | notification_events | supabase.from('notification_events') | All web users |
 | Expo mobile resources API | notification_events | supabaseAdmin.from('notification_events') | Expo app |
 | Customer updates page | notification_events | supabase.from('notification_events') direct | Customer users |
-| Admin ops-centre | notification_events | /api/admin/operations-centre | Admin users |
 | Super-admin platform | notification_events | /api/super-admin/platform?section=notifications | Owner |
 | Super-admin email-readiness | notification_events | /api/super-admin/email-readiness | Owner |
 | Native Android | notifications | Supabase REST /rest/v1/notifications | Android drivers (BROKEN) |
