@@ -19,7 +19,6 @@ const roleRoutes = [
   { role: 'customer', route: '/customer', actionCentre: '/customer/action-centre', notifications: '/customer/notifications' },
   { role: 'driver', route: '/driver', actionCentre: '/driver/action-centre', notifications: '/driver/notifications' },
   { role: 'super-admin', route: '/super-admin', actionCentre: '/super-admin', notifications: '/super-admin/notifications' },
-  { role: 'operations', route: '/admin/operations-centre', actionCentre: '/admin/action-centre', notifications: '/admin/notifications' },
 ] as const;
 
 const viewports = [
