@@ -1,11 +1,11 @@
 /**
- * Job transition and operations-centre contract tests.
+ * Job transition contract tests.
  *
  * Static section: always runs in CI, validates the transition state machine
  *   and API shape contracts without credentials.
  *
  * Authenticated section: requires E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD.
- *   Tests the Operations Centre UI and inline status-transition actions.
+ *   Tests authenticated job-management actions.
  *
  * Skip matrix:
  *  - Authenticated tests: blocked by missing E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD.
@@ -89,11 +89,6 @@ test.describe('job transition API schema contract', () => {
       { data: { nextStatus: 'on_my_way' } }
     );
     expect([401, 503]).toContain(response.status());
-  });
-
-  test('operations-centre API returns 401 or 503 without auth', async ({ request }) => {
-    const response = await request.get('/api/admin/operations-centre');
-    expect([401, 403, 503]).toContain(response.status());
   });
 });
 
@@ -201,46 +196,6 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.click('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")');
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
 }
-
-test.describe('operations centre — authenticated', () => {
-  test.skip(!ADMIN_EMAIL, 'Set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD to run authenticated operations tests');
-
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
-  });
-
-  test('operations centre page loads', async ({ page }) => {
-    await page.goto('/admin/operations-centre');
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10_000 });
-  });
-
-  test('operations centre shows metric cards', async ({ page }) => {
-    await page.goto('/admin/operations-centre');
-    await page.waitForLoadState('networkidle');
-    // Metric cards are rendered as divs with numeric content
-    const metrics = page.locator('[class*="metric"], [class*="kpi"], [class*="stat"]');
-    // Gracefully pass if no metric cards found (empty state)
-    const count = await metrics.count();
-    expect(typeof count).toBe('number');
-  });
-
-  test('operations centre shows job search input', async ({ page }) => {
-    await page.goto('/admin/operations-centre');
-    await page.waitForLoadState('networkidle');
-    const searchInput = page.locator('input[type="text"], input[type="search"]').first();
-    await expect(searchInput).toBeVisible({ timeout: 8_000 });
-  });
-
-  test('inline status transition button appears for active jobs', async ({ page }) => {
-    await page.goto('/admin/operations-centre');
-    await page.waitForLoadState('networkidle');
-    // Check for inline action spans/buttons in the job list
-    const inlineActions = page.locator('.job-inline-action, [data-testid="inline-status"]');
-    const count = await inlineActions.count();
-    // Count may be 0 if no active jobs — just verify no JS crash
-    expect(typeof count).toBe('number');
-  });
-});
 
 test.describe('admin job management — authenticated', () => {
   test.skip(!ADMIN_EMAIL, 'Set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD to run authenticated job management tests');
