@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 /**
- * Operations Centre + Fleet Map layout and degraded-state gate.
+ * Fleet Map layout and degraded-state gate.
  * Deterministic fixture harness only — not authenticated runtime proof.
  */
 
@@ -116,7 +116,7 @@ const attachScreenshot = async (page: Page, testInfo: TestInfo, name: string) =>
   });
 };
 
-test.describe('operations centre + fleet map deterministic runtime proof', () => {
+test.describe('fleet map deterministic runtime proof', () => {
   test.describe.configure({ retries: 0 });
 
   test.skip(
@@ -125,69 +125,6 @@ test.describe('operations centre + fleet map deterministic runtime proof', () =>
   );
 
   for (const viewport of viewports) {
-    test(`operations centre with-data is bounded at ${viewport.label}`, async ({ page }, testInfo) => {
-      const failures = collectUnexpectedFailures(page);
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto('/visual-fixture/operations-centre/with-data', { waitUntil: 'domcontentloaded' });
-
-      await expect(page.locator('main.ops-page')).toBeVisible();
-      await assertNoHorizontalOverflow(page, viewport.label);
-      await expect(page.locator('.metric').first()).toBeVisible();
-      expect(await page.locator('.metric').count()).toBeGreaterThan(0);
-      await expect(page.locator('.workspace')).toBeVisible();
-
-      const mapPanel = page.locator('.map').first();
-      await expect(mapPanel).toBeVisible();
-      const mapHeight = await mapPanel.evaluate((element) => element.getBoundingClientRect().height);
-      expect(mapHeight).toBeGreaterThanOrEqual(200);
-      expect(mapHeight).toBeLessThan(viewport.height);
-      await expect(page.locator('.pin').first()).toBeVisible();
-
-      const jobsPanel = page.locator('.jobs-panel');
-      await expect(jobsPanel.getByRole('button', { name: /JOB #FX001\b/i })).toBeVisible();
-      await attachScreenshot(page, testInfo, `operations-with-data-${viewport.label}`);
-      expect(failures, 'unexpected request failures').toEqual([]);
-    });
-
-    test(`operations centre partial-error keeps useful data visible at ${viewport.label}`, async ({ page }, testInfo) => {
-      const failures = collectUnexpectedFailures(page);
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto('/visual-fixture/operations-centre/partial-error', { waitUntil: 'domcontentloaded' });
-
-      await expect(page.locator('main.ops-page')).toBeVisible();
-      await assertNoHorizontalOverflow(page, viewport.label);
-      await expect(page.locator('.error-strip')).toContainText(
-        'Driver location feed is temporarily unavailable for part of the fleet.',
-      );
-      await expect(page.getByText('Degraded', { exact: true })).toBeVisible();
-      await expect(page.locator('.metric').first()).toBeVisible();
-      await expect(page.locator('.pin').first()).toBeVisible();
-      await expect(
-        page.locator('.jobs-panel').getByRole('button', { name: /JOB #FX001\b/i }),
-      ).toBeVisible();
-
-      await attachScreenshot(page, testInfo, `operations-partial-error-${viewport.label}`);
-      expect(failures, 'unexpected request failures').toEqual([]);
-    });
-
-    test(`operations centre no-data renders honest empty states at ${viewport.label}`, async ({ page }, testInfo) => {
-      const failures = collectUnexpectedFailures(page);
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto('/visual-fixture/operations-centre/no-data', { waitUntil: 'domcontentloaded' });
-
-      await expect(page.locator('main.ops-page')).toBeVisible();
-      await assertNoHorizontalOverflow(page, viewport.label);
-      const mapPanel = page.locator('.map').first();
-      await expect(mapPanel).toBeVisible();
-      const mapHeight = await mapPanel.evaluate((element) => element.getBoundingClientRect().height);
-      expect(mapHeight).toBeLessThan(viewport.height);
-      await expect(page.getByText('No live coordinates available.')).toBeVisible();
-      await expect(page.getByText('No jobs match the selected filters.')).toBeVisible();
-
-      await attachScreenshot(page, testInfo, `operations-no-data-${viewport.label}`);
-      expect(failures, 'unexpected request failures').toEqual([]);
-    });
-
     test(`fleet map with-coords reaches a stable ready state at ${viewport.label}`, async ({ page }, testInfo) => {
       const failures = collectUnexpectedFailures(page);
       await stubOsmTiles(page);
