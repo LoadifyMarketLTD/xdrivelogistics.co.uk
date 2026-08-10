@@ -13,7 +13,6 @@
 | /api/admin/invoices/[id]/payment-history | POST | Yes | None detected | Yes | Manual guards | auth.users, company_memberships, invoice_payment_history, invoices | No | No | — | PARTIAL | Add contract tests for happy-path, auth and isolation failures. |
 | /api/admin/jobs/[id]/assign-driver | POST | Yes | None detected | Yes | Zod | assign_job_driver_atomic, auth.users | No | No | — | PARTIAL | Add contract tests for happy-path, auth and isolation failures. |
 | /api/admin/jobs/[id]/transition | POST | Yes | owner, admin, dispatcher | Yes | Zod | auth.users, company_memberships, job_tracking_events, jobs | No | No | — | PARTIAL | Add contract tests for happy-path, auth and isolation failures. |
-| /api/admin/operations-centre | GET | Yes | owner, driver | Yes | Manual guards | auth.users, company_memberships, driver_documents, driver_locations, drivers, invoices, job_bids, job_tracking_events, jobs, notification_events, profiles, vehicle_documents, vehicles | No | Yes | job-operations-contract.spec.ts | CLOSED | None. |
 
 ## Broker
 
