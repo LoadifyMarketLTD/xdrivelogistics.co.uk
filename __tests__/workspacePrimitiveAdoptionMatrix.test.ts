@@ -18,7 +18,7 @@ function hasPageHeader(filePath: string): boolean {
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -32,7 +32,7 @@ function rowFor(filePath: string) {
   return {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b/.test(source),
     operationalTable: /\bOperationalTable\b|\bDataTable\b/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b/.test(source),
@@ -61,7 +61,7 @@ describe('workspace primitive adoption matrix', () => {
     ]) {
       expect(hasPageHeader(filePath), `${filePath} should use the shared page-header family`).toBe(true);
       expect(hasOperationalTablePrimitive(filePath), `${filePath} should expose an operational table`).toBe(true);
-      expect(hasCompactKpiStrip(filePath), `${filePath} should expose a compact KPI strip`).toBe(true);
+      expect(hasCompactKpiStrip(filePath), `${filePath} should expose a compact operational signal strip`).toBe(true);
     }
   });
 
@@ -99,18 +99,22 @@ describe('workspace primitive adoption matrix', () => {
     expect(matrix.operations.dateRangeSelector).toBe(true);
   });
 
-  it('keeps the active carrier dashboard on the shared operational card family', () => {
+  it('keeps the active carrier dashboard on the Courier Exchange-derived control-desk family', () => {
     const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
     expect(source).toContain('DashboardHomeHeader');
-    expect(source).toContain('<KpiGrid>');
+    expect(source).toContain('CarrierControlSignals');
+    expect(source).toContain('OperationalToolbar');
+    expect(source).toContain('OperationalPageLayout');
+    expect(source).toContain('OperationalFilters');
     expect(source).toContain('<DataTable');
-    expect(source).toContain('FinancialSummaryPanel');
-    expect(source).toContain('QuickActionGrid');
-    expect(source).toContain('title="Jobs requiring attention"');
-    expect(source).toContain('title="Resource readiness"');
-    expect(source).toContain('title="Commercial position"');
-    expect(source).toContain('title="Carrier actions"');
+    expect(source).toContain('Operational workboard');
+    expect(source).toContain('Resource readiness');
+    expect(source).toContain('Commercial position');
+    expect(source).toContain('Carrier workflow');
+    expect(source).not.toContain('<KpiGrid>');
+    expect(source).not.toContain('QuickActionGrid');
+    expect(source).not.toContain('FinancialSummaryPanel');
   });
 
   it('keeps customer and broker KPI availability on the shared metric presentation helper', () => {
