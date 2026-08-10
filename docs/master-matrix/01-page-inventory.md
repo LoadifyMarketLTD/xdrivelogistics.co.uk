@@ -52,7 +52,7 @@
 | /admin/jobs/[id] | admin | Real | Actionable | Yes — auth.session, drivers, jobs | /api/admin/jobs/[]/assign-driver | auth.session, drivers, jobs | CLOSED | None. |
 | /admin/marketplace | admin | Real | Actionable | Yes — companies, job_bids, jobs | — | companies, job_bids, jobs | CLOSED | None. |
 | /admin/notifications | admin | Real | Read-only | No | — | auth.session, auth.users, notification_events | PARTIAL | Add route-level tests and tighten loading/error/empty states. |
-| /admin/operations-centre | admin | Real | Actionable | Yes — auth.session | /api/admin/jobs/[]/transition, /api/admin/operations-centre | auth.session | CLOSED | None. |
+| /admin/operations-centre | admin | Redirect | Read-only | No | — | — | RETIRED | Legacy bookmarks redirect to /admin; canonical live functions are in Dispatcher Dashboard, Live Positions, Jobs, Diary and Incidents. |
 | /admin/quotes | admin | Real | Actionable | Yes — bootstrap_company_membership, companies, company_memberships, get_or_create_company_for_user, jobs, quotes | — | bootstrap_company_membership, companies, company_memberships, get_or_create_company_for_user, jobs, quotes | CLOSED | None. |
 | /admin/returns | admin | Real | Actionable | Yes — drivers, return_journeys | — | drivers, return_journeys | PARTIAL | Add route-level tests and move client-side writes behind validated server contracts. |
 | /admin/settings | admin | Real | Actionable | Yes — auth.users, companies, company_settings | — | auth.users, companies, company_settings | PARTIAL | Add route-level tests and move client-side writes behind validated server contracts. |
