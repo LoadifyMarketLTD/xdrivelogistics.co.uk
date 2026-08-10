@@ -67,6 +67,9 @@ const isExceptionJob = (job: WorkspaceJob) => exceptionStatuses.has(jobStatus(jo
 
 const isLiveJob = (job: WorkspaceJob) => activeStatuses.has(jobStatus(job));
 
+export const isCarrierAttentionJob = (job: WorkspaceJob) =>
+  isExceptionJob(job) || isUnallocatedJob(job) || isPodOutstandingJob(job);
+
 const attentionScore = (job: WorkspaceJob) => {
   if (isExceptionJob(job)) return 0;
   if (isUnallocatedJob(job)) return 1;
@@ -252,7 +255,7 @@ export default function CarrierOperationsDashboardHome() {
     const podOutstanding = data.jobs.filter(isPodOutstandingJob);
     const exceptions = data.jobs.filter(isExceptionJob);
     const attentionJobs = data.jobs
-      .filter((job) => isExceptionJob(job) || isUnallocatedJob(job) || isLiveJob(job) || isPodOutstandingJob(job))
+      .filter(isCarrierAttentionJob)
       .sort((a, b) => attentionScore(a) - attentionScore(b));
     const overdueInvoices = carrierInvoices.filter(
       (invoice) =>
@@ -342,7 +345,7 @@ export default function CarrierOperationsDashboardHome() {
     getWorkspaceDatasetMetricValue(data.datasets.jobs, compute);
 
   const viewCounts: Record<ControlView, ReactNode> = {
-    attention: jobCount((rows) => rows.filter((job) => isExceptionJob(job) || isUnallocatedJob(job) || isLiveJob(job) || isPodOutstandingJob(job)).length),
+    attention: jobCount((rows) => rows.filter(isCarrierAttentionJob).length),
     unallocated: jobCount((rows) => rows.filter(isUnallocatedJob).length),
     live: jobCount((rows) => rows.filter(isLiveJob).length),
     pod: jobCount((rows) => rows.filter(isPodOutstandingJob).length),
