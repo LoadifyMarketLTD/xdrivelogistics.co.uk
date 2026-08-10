@@ -436,7 +436,7 @@ export function resolveWorkspaceDataQueryPlan(input: {
     };
   }
 
-  if (matchesPrefixes(pathname, ['/admin/operations-centre', '/admin/diary', '/admin/jobs'])) {
+  if (matchesPrefixes(pathname, ['/admin/diary', '/admin/jobs'])) {
     return {
       surface: 'dispatcher',
       datasets: ['jobs', 'drivers', 'vehicles', 'locations'],
