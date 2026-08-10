@@ -197,8 +197,8 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).not.toContain('No unassigned jobs');
     expect(html).toContain('Driver data unavailable');
     expect(html).not.toContain('No drivers marked available');
-    expect(html).toContain('Stale GPS positions');
-    expect(html).toContain('Documents expiring');
+    expect(html).toContain('Tracking attention');
+    expect(html).toContain('Readiness blockers');
   });
 
   it('renders dispatcher job failure as an unavailable dispatch feed', () => {
