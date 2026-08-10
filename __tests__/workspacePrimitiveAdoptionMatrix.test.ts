@@ -13,7 +13,7 @@ function hasOperationalTablePrimitive(filePath: string): boolean {
 
 function hasPageHeader(filePath: string): boolean {
   const source = read(filePath);
-  return /\bPageHeader\b/.test(source);
+  return /\bPageHeader\b|\bDashboardHomeHeader\b/.test(source);
 }
 
 function hasCompactKpiStrip(filePath: string): boolean {
@@ -30,7 +30,7 @@ function hasActionCentreRoute(filePath: string): boolean {
 function rowFor(filePath: string) {
   const source = readFileSync(resolve(process.cwd(), filePath), 'utf8');
   return {
-    pageHeader: /\bPageHeader\b/.test(source),
+    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b/.test(source),
     exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b/.test(source),
     operationalTable: /\bOperationalTable\b|\bDataTable\b/.test(source),
@@ -42,23 +42,27 @@ function rowFor(filePath: string) {
   };
 }
 
+const activeAdminDashboardFiles = [
+  'app/components/workspace/CarrierOperationsDashboardHome.tsx',
+  'app/components/workspace/FleetControlDashboardHome.tsx',
+  'app/components/workspace/DispatcherControlDashboardHome.tsx',
+  'app/components/workspace/FinanceControlDashboardHome.tsx',
+  'app/components/workspace/ComplianceControlDashboardHome.tsx',
+  'app/components/workspace/ViewerDashboardHome.tsx',
+];
+
 describe('workspace primitive adoption matrix', () => {
-  it('ensures each role has a principal operational table surface', () => {
-    expect(hasPageHeader('app/broker/BrokerWorkspaceModules.tsx')).toBe(true);
-    expect(hasOperationalTablePrimitive('app/broker/BrokerWorkspaceModules.tsx')).toBe(true);
-    expect(hasCompactKpiStrip('app/broker/BrokerWorkspaceModules.tsx')).toBe(true);
-
-    expect(hasPageHeader('app/customer/CustomerWorkspaceModules.tsx')).toBe(true);
-    expect(hasOperationalTablePrimitive('app/customer/CustomerWorkspaceModules.tsx')).toBe(true);
-    expect(hasCompactKpiStrip('app/customer/CustomerWorkspaceModules.tsx')).toBe(true);
-
-    expect(hasPageHeader('app/driver/page.tsx')).toBe(true);
-    expect(hasOperationalTablePrimitive('app/driver/page.tsx')).toBe(true);
-    expect(hasCompactKpiStrip('app/driver/page.tsx')).toBe(true);
-
-    expect(hasPageHeader('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
-    expect(hasOperationalTablePrimitive('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
-    expect(hasCompactKpiStrip('app/admin/AdminWorkspaceModules.tsx')).toBe(true);
+  it('ensures each active role dashboard has a principal operational table surface', () => {
+    for (const filePath of [
+      'app/broker/BrokerDashboardHome.tsx',
+      'app/customer/CustomerDashboardHome.tsx',
+      'app/driver/page.tsx',
+      ...activeAdminDashboardFiles,
+    ]) {
+      expect(hasPageHeader(filePath), `${filePath} should use the shared page-header family`).toBe(true);
+      expect(hasOperationalTablePrimitive(filePath), `${filePath} should expose an operational table`).toBe(true);
+      expect(hasCompactKpiStrip(filePath), `${filePath} should expose a compact KPI strip`).toBe(true);
+    }
   });
 
   it('ensures action-centre routes for all operational roles use the shared primitive page', () => {
@@ -68,46 +72,65 @@ describe('workspace primitive adoption matrix', () => {
     expect(hasActionCentreRoute('app/admin/action-centre/page.tsx')).toBe(true);
   });
 
-  it('tracks shared primitive adoption by role workspace', () => {
+  it('tracks shared primitive adoption on the active dashboard files', () => {
     const matrix = {
-      broker: rowFor('app/broker/BrokerWorkspaceModules.tsx'),
-      customer: rowFor('app/customer/CustomerWorkspaceModules.tsx'),
+      broker: rowFor('app/broker/BrokerDashboardHome.tsx'),
+      customer: rowFor('app/customer/CustomerDashboardHome.tsx'),
       driver: rowFor('app/driver/page.tsx'),
-      admin: rowFor('app/admin/AdminWorkspaceModules.tsx'),
+      carrier: rowFor('app/components/workspace/CarrierOperationsDashboardHome.tsx'),
+      fleet: rowFor('app/components/workspace/FleetControlDashboardHome.tsx'),
+      dispatcher: rowFor('app/components/workspace/DispatcherControlDashboardHome.tsx'),
+      finance: rowFor('app/components/workspace/FinanceControlDashboardHome.tsx'),
+      compliance: rowFor('app/components/workspace/ComplianceControlDashboardHome.tsx'),
+      viewer: rowFor('app/components/workspace/ViewerDashboardHome.tsx'),
       operations: rowFor('app/admin/action-centre/page.tsx'),
     };
 
     expect(matrix.broker.operationalTable).toBe(true);
     expect(matrix.customer.operationalTable).toBe(true);
-    expect(matrix.driver.operationalTable).toBe(true);
-    expect(matrix.admin.operationalTable).toBe(true);
+    expect(matrix.carrier.operationalTable).toBe(true);
+    expect(matrix.fleet.operationalTable).toBe(true);
+    expect(matrix.dispatcher.operationalTable).toBe(true);
+    expect(matrix.finance.operationalTable).toBe(true);
+    expect(matrix.compliance.operationalTable).toBe(true);
+    expect(matrix.viewer.operationalTable).toBe(true);
     expect(matrix.operations.operationalToolbar).toBe(true);
     expect(matrix.operations.savedViewSelector).toBe(true);
     expect(matrix.operations.dateRangeSelector).toBe(true);
   });
 
-  it('keeps carrier workspace summary panels on the shared card family', () => {
-    const source = read('app/components/workspace/RoleDashboards.tsx');
+  it('keeps the active carrier dashboard on the shared operational card family', () => {
+    const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(source).toContain('ActionCard');
+    expect(source).toContain('DashboardHomeHeader');
     expect(source).toContain('<KpiGrid>');
-    expect(source).not.toContain('OperationalLinkList');
-    expect(source).toContain('description="Available transport work"');
-    expect(source).toContain('description="Carrier pricing workflow"');
-    expect(source).toContain('description="Assign driver and vehicle"');
-    expect(source).toContain('description="Live collections and deliveries"');
-    expect(source).toContain('description="Billing and payment status"');
+    expect(source).toContain('<DataTable');
+    expect(source).toContain('FinancialSummaryPanel');
+    expect(source).toContain('QuickActionGrid');
+    expect(source).toContain('title="Jobs requiring attention"');
+    expect(source).toContain('title="Resource readiness"');
+    expect(source).toContain('title="Commercial position"');
+    expect(source).toContain('title="Carrier actions"');
   });
 
   it('keeps customer and broker KPI availability on the shared metric presentation helper', () => {
-    const customerSource = read('app/customer/CustomerWorkspaceModules.tsx');
-    const brokerSource = read('app/broker/BrokerWorkspaceModules.tsx');
+    const customerSource = read('app/customer/CustomerDashboardHome.tsx');
+    const brokerSource = read('app/broker/BrokerDashboardHome.tsx');
 
     expect(customerSource).toContain('getWorkspaceMetricPresentation');
     expect(brokerSource).toContain('getWorkspaceMetricPresentation');
-    expect(customerSource).not.toContain('const datasetUnavailable =');
-    expect(customerSource).not.toContain('const metricValue =');
-    expect(brokerSource).not.toContain('const datasetUnavailable =');
-    expect(brokerSource).not.toContain('const metricValue =');
+    expect(customerSource).toContain('getWorkspaceMetricPresentationStatus');
+    expect(brokerSource).toContain('getWorkspaceMetricPresentationStatus');
+  });
+
+  it('keeps RoleDashboards as compatibility exports rather than a second implementation', () => {
+    const source = read('app/components/workspace/RoleDashboards.tsx');
+
+    expect(source).toContain('Compatibility exports only');
+    expect(source).toContain("from './CarrierOperationsDashboardHome'");
+    expect(source).toContain("from './FleetControlDashboardHome'");
+    expect(source).toContain("from './FinanceControlDashboardHome'");
+    expect(source).not.toContain('export function CarrierDashboard()');
+    expect(source).not.toContain('useCompanyWorkspaceData');
   });
 });
