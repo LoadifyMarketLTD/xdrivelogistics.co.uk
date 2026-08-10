@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
-import { resolveAdminDashboard } from './RoleDashboards';
+import { resolveAdminDashboard } from './AdminDashboardResolver';
 import { ActionButton, PermissionDeniedState } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import CarrierOperationsDashboardHome from './CarrierOperationsDashboardHome';

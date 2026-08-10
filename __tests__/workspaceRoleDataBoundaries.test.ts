@@ -10,7 +10,7 @@ import {
   isCustomerVisibleWorkspaceInvoice,
   resolveWorkspaceDataQueryPlan,
 } from '../app/components/workspace/useCompanyWorkspaceData';
-import { resolveAdminDashboard } from '../app/components/workspace/RoleDashboards';
+import { resolveAdminDashboard } from '../app/components/workspace/AdminDashboardResolver';
 import {
   resolveWorkspaceRole,
   resolveWorkspaceSurfaceRole,
