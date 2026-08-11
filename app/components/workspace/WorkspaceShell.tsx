@@ -388,12 +388,12 @@ export default function WorkspaceShell({
               />
             ) : (
               <Image
-                src="/xdrive-logo.svg"
+                src="/xdrive-logo-primary.png"
                 alt="XDrive Logistics"
                 width={150}
-                height={36}
+                height={41}
                 priority
-                style={{ width: '150px', height: '36px', objectFit: 'contain', objectPosition: 'left center' }}
+                style={{ width: '150px', height: '41px', objectFit: 'contain', objectPosition: 'left center' }}
               />
             )}
           </button>

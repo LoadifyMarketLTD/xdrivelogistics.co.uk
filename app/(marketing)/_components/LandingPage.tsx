@@ -197,7 +197,7 @@ export function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-[#D7E6FA] bg-white/95 shadow-[0_8px_30px_rgba(0,43,108,0.06)] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex items-center">
-            <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={218} height={58} priority className="h-[46px] w-auto" />
+            <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[46px] w-auto" />
           </Link>
           <nav className="hidden items-center gap-6 text-sm font-black text-[#003B8F]/70 xl:flex">
             {mainNav.map((item) => (
@@ -238,7 +238,7 @@ export function LandingPage() {
 
           <div className="relative mx-auto grid min-h-[calc(100svh-72px)] max-w-[1440px] gap-12 px-5 py-12 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:py-14">
             <div className="max-w-2xl">
-              <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={410} height={110} priority className="h-auto w-[300px] max-w-full sm:w-[400px]" />
+              <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={410} height={111} priority className="h-auto w-[300px] max-w-full sm:w-[400px]" />
               <p className="mt-8 text-sm font-black uppercase tracking-[0.18em] text-[#FDB913]">Courier &amp; Freight Exchange Platform</p>
               <h1 className="mt-4 text-[3rem] font-black leading-[0.95] tracking-tight text-[#002B6C] sm:text-[4.4rem] lg:text-[5.25rem]">
                 Move freight. Manage operations. Grow your network.
@@ -413,7 +413,7 @@ export function LandingPage() {
         <div className="mx-auto max-w-[1440px]">
           <div className="grid gap-10 lg:grid-cols-[1.25fr_2fr]">
             <div className="max-w-md">
-              <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={210} height={56} className="h-[46px] w-auto" />
+              <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={210} height={57} className="h-[46px] w-auto" />
               <p className="mt-4 text-base font-black text-[#002B6C]">Courier & Freight Exchange Platform</p>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#49607F]">
                 Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.

@@ -67,7 +67,7 @@ export function MarketingFooter() {
         <div>
           <Link href="/" className="inline-flex items-center">
             <Image
-              src="/xdrive-logo.svg"
+              src="/xdrive-logo-primary.png"
               alt="XDrive Logistics"
               width={200}
               height={54}

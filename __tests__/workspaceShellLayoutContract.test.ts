@@ -32,7 +32,7 @@ describe('workspace shell layout contract', () => {
   it('uses the approved XDrive brand assets in the company workspace shell', () => {
     const shell = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceShell.tsx'), 'utf8');
 
-    expect(shell).toContain('src="/xdrive-logo.svg"');
+    expect(shell).toContain('src="/xdrive-logo-primary.png"');
     expect(shell).toContain('src="/icon-192.png"');
     expect(shell).toContain('alt="XDrive Logistics"');
     expect(shell).not.toContain("fontWeight: 950");
