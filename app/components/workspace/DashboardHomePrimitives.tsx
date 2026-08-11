@@ -49,7 +49,7 @@ export function DashboardHomeHeader({
               color: workspaceTheme.navy,
               fontSize: '20px',
               lineHeight: '26px',
-              fontWeight: 800,
+              fontWeight: 600,
             }}
           >
             {title}
