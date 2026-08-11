@@ -23,6 +23,7 @@ import {
   workspaceTheme,
 } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
+import styles from './WorkspaceUI.module.css';
 import {
   activeStatuses,
   daysUntil,
@@ -99,19 +100,20 @@ const moneyOrDash = (value: number) => (value > 0 ? money(value) : '—');
 function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
   return (
     <div
+      className={styles.carrierControlSignals}
       data-testid="carrier-control-signals"
       aria-label="Carrier control signals"
       style={{
-        overflowX: 'auto',
         border: `1px solid ${workspaceTheme.border}`,
         borderRadius: '4px',
         background: workspaceTheme.surface,
         marginBottom: '8px',
       }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(128px, 1fr))', minWidth: '780px' }}>
-        {signals.map((signal, index) => (
+      <div className={styles.carrierControlSignalsGrid}>
+        {signals.map((signal) => (
           <button
+            className={styles.carrierControlSignal}
             key={signal.key}
             type="button"
             onClick={signal.onClick}
@@ -120,7 +122,6 @@ function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
               minHeight: '54px',
               padding: '6px 9px',
               border: 0,
-              borderRight: index < signals.length - 1 ? `1px solid ${workspaceTheme.border}` : 0,
               borderTop: `3px solid ${signal.tone}`,
               background: signal.active ? '#F1F6FF' : workspaceTheme.surface,
               color: workspaceTheme.text,
