@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -376,53 +377,25 @@ export default function WorkspaceShell({
               justifyContent: isCompact ? 'center' : 'flex-start',
             }}
           >
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '4px',
-                  background: workspaceTheme.navy,
-                  display: 'grid',
-                  placeItems: 'center',
-                  flexShrink: 0,
-                  boxShadow: 'none',
-                }}
-              >
-                <span style={{ color: workspaceTheme.orange, fontWeight: 950, fontSize: '1rem' }}>
-                  X
-                </span>
-              </div>
-              {/* Hide company name and subtitle when in collapsed (tablet) or mobile-drawer mode */}
-              {!isCompact && (
-                <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      color: workspaceTheme.text,
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {companyName}
-                  </div>
-                  <div
-                    style={{
-                      color: workspaceTheme.muted,
-                      fontSize: '11px',
-                      marginTop: '0.08rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {definition.subtitle}
-                  </div>
-                </div>
-              )}
-            </div>
+            {isCompact ? (
+              <Image
+                src="/icon-192.png"
+                alt="XDrive Logistics"
+                width={32}
+                height={32}
+                priority
+                style={{ borderRadius: '4px', flexShrink: 0 }}
+              />
+            ) : (
+              <Image
+                src="/xdrive-logo.svg"
+                alt="XDrive Logistics"
+                width={150}
+                height={36}
+                priority
+                style={{ width: '150px', height: '36px', objectFit: 'contain', objectPosition: 'left center' }}
+              />
+            )}
           </button>
         </div>
 
