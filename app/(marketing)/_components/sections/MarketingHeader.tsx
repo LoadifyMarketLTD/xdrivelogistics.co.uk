@@ -9,7 +9,7 @@ export function MarketingHeader() {
     <header className="sticky top-0 z-50 h-[76px] border-b border-slate-200 bg-white/95 backdrop-blur-md sm:h-[84px] xl:h-[88px]">
       <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center">
-          <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={246} height={66} priority className="h-[46px] w-auto sm:h-[54px] lg:h-[56px] xl:h-[64px]" />
+          <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={246} height={67} priority className="h-[46px] w-auto sm:h-[54px] lg:h-[56px] xl:h-[64px]" />
         </Link>
 
         <nav className="hidden items-center gap-4 text-xs font-medium text-slate-600 lg:flex xl:gap-6 xl:text-sm">

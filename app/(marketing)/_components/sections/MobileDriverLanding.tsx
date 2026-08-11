@@ -29,7 +29,7 @@ export function MobileDriverLanding() {
           </Link>
 
           <Image
-            src="/xdrive-logo-horizontal.png"
+            src="/xdrive-logo-primary.png"
             alt="XDrive Logistics"
             width={132}
             height={36}

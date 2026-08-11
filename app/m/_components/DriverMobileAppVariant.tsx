@@ -707,7 +707,7 @@ export default function DriverMobileAppVariant({
     return (
       <div style={screenWrap}>
         <div style={topBar}>
-          <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+          <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
           <button style={menuBtn} aria-label="Notifications" onClick={() => setFlashMessage('Notifications opened.') }>
             <Bell size={22} color="#FFFFFF" />
           </button>
@@ -789,7 +789,7 @@ export default function DriverMobileAppVariant({
   const renderSimpleList = (title: string, items: string[]) => (
     <div style={screenWrap}>
       <div style={topBar}>
-        <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+        <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
       </div>
       <div style={contentArea}>
         <div style={titleRow}>
@@ -831,7 +831,7 @@ export default function DriverMobileAppVariant({
       return (
         <div style={screenWrap}>
           <div style={topBar}>
-            <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+            <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
             <button style={menuBtn} aria-label="Refresh alerts" onClick={() => void loadData()}><Bell size={24} color="#FFFFFF" /></button>
           </div>
           <div style={contentArea}>
@@ -904,7 +904,7 @@ export default function DriverMobileAppVariant({
       return (
         <div style={screenWrap}>
           <div style={topBar}>
-            <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+            <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
             <button style={menuBtn} aria-label="My Jobs" onClick={() => setFlashMessage('My jobs opened.')}><Bell size={24} color="#FFFFFF" /></button>
           </div>
           <div style={contentArea}>
@@ -1045,7 +1045,7 @@ export default function DriverMobileAppVariant({
       return (
         <div style={screenWrap}>
           <div style={topBar}>
-            <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+            <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
           </div>
           <div style={contentArea}>
             {renderFlash()}
@@ -1331,7 +1331,7 @@ export default function DriverMobileAppVariant({
       return (
         <div style={screenWrap}>
           <div style={topBar}>
-            <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+            <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
           </div>
           <div style={contentArea}>{renderFlash()}{renderDocsSubView()}</div>
           <BottomNav tab={tab} onTabChange={setTab} />
@@ -1342,7 +1342,7 @@ export default function DriverMobileAppVariant({
     return (
       <div style={screenWrap}>
         <div style={topBar}>
-          <img src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" style={logo} />
+          <img src="/xdrive-logo-primary.png" alt="XDrive Logistics" style={logo} />
         </div>
         <div style={contentArea}>
           {renderFlash()}
@@ -1615,7 +1615,6 @@ const topBar: CSSProperties = {
 const logo: CSSProperties = {
   width: 185,
   height: 'auto',
-  filter: 'brightness(0) invert(1)',
 };
 
 const menuBtn: CSSProperties = {

@@ -118,7 +118,7 @@ export default function LoginPage() {
           <div className={styles.loginFormInner}>
             <div className={styles.loginLogoRow}>
               <Image
-                src="/xdrive-logo-horizontal.png"
+                src="/xdrive-logo-primary.png"
                 alt="XDrive Logistics"
                 width={300}
                 height={84}

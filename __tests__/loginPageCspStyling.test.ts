@@ -18,7 +18,7 @@ describe('login page CSP-safe styling', () => {
 
   it('uses the canonical login hero and logo asset paths', () => {
     expect(page).toContain('src="/login-hero-operations-centre.webp"');
-    expect(page).toContain('src="/xdrive-logo-horizontal.png"');
+    expect(page).toContain('src="/xdrive-logo-primary.png"');
     expect(page).not.toContain('hero-dispatch-control.webp');
     expect(page).not.toContain('xdrive-login-hero');
   });
