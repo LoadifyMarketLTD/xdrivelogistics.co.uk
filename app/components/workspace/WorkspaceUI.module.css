@@ -38,6 +38,35 @@
   margin-bottom: 12px;
 }
 
+/* Carrier control signals must reflow inside the viewport; the operational
+ * dashboard contract explicitly forbids page-level horizontal overflow. */
+.carrierControlSignals {
+  overflow: hidden;
+}
+
+.carrierControlSignalsGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  background: #D8DEE8;
+}
+
+.carrierControlSignal {
+  min-width: 0;
+}
+
+@media (max-width: 1200px) {
+  .carrierControlSignalsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .carrierControlSignalsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .financialSummaryPanel {
   display: grid;
   gap: 8px;
