@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
+import { loadInvoicePdfContext } from '../../../../../../../lib/server/invoicePdfContext';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -366,6 +367,13 @@ export async function POST(
   if (!resolvedSubject) return failDelivery(422, 'Invoice email subject resolved to an empty value.');
   if (!resolvedMessage) return failDelivery(422, 'Invoice email message resolved to an empty value.');
 
+  const pdfContext = await loadInvoicePdfContext({
+    supabase: supabaseAdmin,
+    companyId: sender.companyId,
+    jobId: typeof claimedInvoice.job_id === 'string' ? claimedInvoice.job_id : null,
+    origin: request.nextUrl.origin,
+  });
+
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = await buildInvoicePdf({
@@ -377,12 +385,26 @@ export async function POST(
       issuerAddress,
       issuerCompanyNumber: company.company_number as string | null,
       issuerVatNumber: company.vat_number as string | null,
+      issuerEmail: pdfContext.issuerEmail,
+      issuerPhone: pdfContext.issuerPhone,
+      issuerWebsite: 'www.xdrivelogistics.co.uk',
       clientName,
       clientAddress: claimedInvoice.client_address as string | null,
       clientEmail: recipientEmail,
       pickupLocation: claimedInvoice.pickup_location as string | null,
+      pickupDateTime: pdfContext.pickupDateTime ?? claimedInvoice.pickup_datetime as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
+      deliveryDateTime: pdfContext.deliveryDateTime ?? claimedInvoice.delivery_datetime as string | null,
+      recipientName: pdfContext.recipientName,
+      cargoDescription: pdfContext.cargoDescription,
+      vehicleDescription: pdfContext.vehicleDescription,
       serviceDescription: cleanServiceDescription(claimedInvoice.service_description),
+      bankAccountName: pdfContext.bankAccountName,
+      bankSortCode: pdfContext.bankSortCode,
+      bankAccountNumber: pdfContext.bankAccountNumber,
+      paypalEmail: pdfContext.paypalEmail,
+      logoBytes: pdfContext.logoBytes,
+      evidenceImages: pdfContext.evidenceImages,
       netAmount,
       vatAmount,
       vatRate,
