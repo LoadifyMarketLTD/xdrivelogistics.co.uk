@@ -47,6 +47,20 @@ const labelStyle = {
   textTransform: 'uppercase' as const,
 };
 
+const shortcutStyle = {
+  minHeight: '44px',
+  display: 'grid',
+  gridTemplateColumns: '1fr auto',
+  alignItems: 'center',
+  gap: '8px',
+  border: '1px solid #d8dee8',
+  borderRadius: '4px',
+  background: '#fff',
+  padding: '6px 8px',
+  textAlign: 'left' as const,
+  cursor: 'pointer',
+};
+
 function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
   if (!user) return 'Driver workspace';
   if (user.ownerDriverExecutionMode) return 'Owner account · driver execution';
@@ -202,18 +216,38 @@ export default function DriverProfilePage() {
 
           <Panel title="Operational shortcuts" description="Jump directly to the settings that affect live work visibility and readiness.">
             <div style={{ display: 'grid', gap: '6px' }}>
-              <button type="button" onClick={() => router.push('/driver/availability')} style={{ minHeight: '44px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '8px', border: '1px solid #d8dee8', borderRadius: '4px', background: '#fff', padding: '6px 8px', textAlign: 'left', cursor: 'pointer' }}>
+              <button type="button" onClick={() => router.push('/driver/availability')} style={shortcutStyle}>
                 <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Availability & working radius</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Current state: {availabilityLabel}</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
               </button>
-              <button type="button" onClick={() => router.push('/driver/vehicles')} style={{ minHeight: '44px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '8px', border: '1px solid #d8dee8', borderRadius: '4px', background: '#fff', padding: '6px 8px', textAlign: 'left', cursor: 'pointer' }}>
+              <button type="button" onClick={() => router.push('/driver/vehicles')} style={shortcutStyle}>
                 <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Vehicle</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Capacity and equipment profile</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
               </button>
-              <button type="button" onClick={() => router.push('/driver/documents')} style={{ minHeight: '44px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '8px', border: '1px solid #d8dee8', borderRadius: '4px', background: '#fff', padding: '6px 8px', textAlign: 'left', cursor: 'pointer' }}>
+              <button type="button" onClick={() => router.push('/driver/documents')} style={shortcutStyle}>
                 <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Documents & compliance</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Maintain ready-to-work evidence</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
               </button>
             </div>
           </Panel>
         </div>
+
+        <Panel title="Account & exchange tools" description="Account, activity and support options available without changing the accepted workspace navigation.">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px' }}>
+            <button type="button" onClick={() => router.push('/driver/event-log')} style={shortcutStyle}>
+              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Event Log</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Search and export account activity</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/history')} style={shortcutStyle}>
+              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Experience & Record</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Completed work and operational history</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/notifications')} style={shortcutStyle}>
+              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Notifications</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Account and job notifications</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+            </button>
+            <button type="button" onClick={() => router.push('/terms')} style={shortcutStyle}>
+              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Terms & Conditions</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Platform terms and policies</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+            </button>
+            <button type="button" onClick={() => router.push('/support/feedback')} style={shortcutStyle}>
+              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Help & Support</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Submit feedback or request support</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+            </button>
+          </div>
+        </Panel>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
