@@ -7,6 +7,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { ActionButton, AlertBanner, Panel } from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
@@ -21,6 +22,9 @@ type ReturnJourneyRow = {
   from_postcode: string | null;
   to_postcode: string | null;
   available_from: string | null;
+  available_to: string | null;
+  vehicle_type: string | null;
+  notes: string | null;
 };
 
 const inputStyle = {
@@ -65,6 +69,10 @@ export default function ReturnJourneysPage() {
   const [returnFrom, setReturnFrom] = useState('');
   const [returnTo, setReturnTo] = useState('');
   const [returnDate, setReturnDate] = useState('');
+  const [returnUntil, setReturnUntil] = useState('');
+  const [returnVehicleType, setReturnVehicleType] = useState('');
+  const [returnNotes, setReturnNotes] = useState('');
+  const [goAnywhere, setGoAnywhere] = useState(false);
   const [futurePosition, setFuturePosition] = useState('');
   const [futureDate, setFutureDate] = useState('');
   const [currentReturnJourney, setCurrentReturnJourney] = useState<ReturnJourneyRow | null>(null);
@@ -103,7 +111,7 @@ export default function ReturnJourneysPage() {
 
     const { data: journey, error: journeyError } = await supabase
       .from('return_journeys')
-      .select('from_postcode, to_postcode, available_from')
+      .select('from_postcode, to_postcode, available_from, available_to, vehicle_type, notes')
       .eq('driver_id', driverId)
       .eq('status', 'available')
       .order('created_at', { ascending: false })
@@ -116,8 +124,19 @@ export default function ReturnJourneysPage() {
       setReturnFrom(current.from_postcode ?? '');
       setReturnTo(current.to_postcode ?? '');
       setReturnDate(current.available_from ? current.available_from.slice(0, 16) : '');
+      setReturnUntil(current.available_to ? current.available_to.slice(0, 16) : '');
+      setReturnVehicleType(current.vehicle_type ?? '');
+      setReturnNotes(current.notes ?? '');
+      setGoAnywhere(!current.to_postcode);
     } else {
       setCurrentReturnJourney(null);
+      setReturnFrom('');
+      setReturnTo('');
+      setReturnDate('');
+      setReturnUntil('');
+      setReturnVehicleType('');
+      setReturnNotes('');
+      setGoAnywhere(false);
       if (journeyError) setError((previous) => previous || 'Your current return journey could not be loaded.');
     }
 
@@ -167,8 +186,11 @@ export default function ReturnJourneysPage() {
         company_id: companyId,
         driver_id: driverId,
         from_postcode: returnFrom.trim(),
-        to_postcode: returnTo.trim() || null,
+        to_postcode: goAnywhere ? null : (returnTo.trim() || null),
         available_from: returnDate ? new Date(returnDate).toISOString() : null,
+        available_to: returnUntil ? new Date(returnUntil).toISOString() : null,
+        vehicle_type: returnVehicleType || null,
+        notes: returnNotes.trim() || null,
         status: 'available',
       });
 
@@ -228,8 +250,9 @@ export default function ReturnJourneysPage() {
         >
           <div className="driver-detail-grid">
             <div className="driver-detail-item"><span>Live availability</span><strong>{liveStatus}</strong></div>
-            <div className="driver-detail-item"><span>Return route</span><strong>{currentReturnJourney?.from_postcode ? `${currentReturnJourney.from_postcode}${currentReturnJourney.to_postcode ? ` → ${currentReturnJourney.to_postcode}` : ''}` : 'Not published'}</strong></div>
-            <div className="driver-detail-item"><span>Return available from</span><strong>{fmtDate(currentReturnJourney?.available_from)}</strong></div>
+            <div className="driver-detail-item"><span>Return route</span><strong>{currentReturnJourney?.from_postcode ? `${currentReturnJourney.from_postcode}${currentReturnJourney.to_postcode ? ` → ${currentReturnJourney.to_postcode}` : ' → Go Anywhere'}` : 'Not published'}</strong></div>
+            <div className="driver-detail-item"><span>Available window</span><strong>{currentReturnJourney?.available_from ? `${fmtDate(currentReturnJourney.available_from)}${currentReturnJourney.available_to ? ` → ${fmtDate(currentReturnJourney.available_to)}` : ''}` : 'Not set'}</strong></div>
+            <div className="driver-detail-item"><span>Vehicle</span><strong>{currentReturnJourney?.vehicle_type ? (VEHICLE_TYPE_LABELS[currentReturnJourney.vehicle_type] ?? currentReturnJourney.vehicle_type) : 'Not specified'}</strong></div>
             <div className="driver-detail-item"><span>Future position</span><strong>{driver?.future_position ?? 'Not published'}</strong></div>
           </div>
         </Panel>
@@ -246,14 +269,33 @@ export default function ReturnJourneysPage() {
                 </div>
                 <div>
                   <label style={labelStyle}>Preferred destination</label>
-                  <input style={inputStyle} value={returnTo} onChange={(event) => setReturnTo(event.target.value)} placeholder="e.g. Blackburn BB1 or Go Anywhere" />
+                  <input style={inputStyle} value={returnTo} disabled={goAnywhere} onChange={(event) => setReturnTo(event.target.value)} placeholder="e.g. Blackburn BB1" />
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '11px', fontWeight: 700 }}>
+                  <input type="checkbox" checked={goAnywhere} onChange={(event) => { setGoAnywhere(event.target.checked); if (event.target.checked) setReturnTo(''); }} />
+                  Go Anywhere
+                </label>
+                <div>
+                  <label style={labelStyle}>Vehicle size</label>
+                  <select style={inputStyle} value={returnVehicleType} onChange={(event) => setReturnVehicleType(event.target.value)}>
+                    <option value="">Use assigned / any vehicle</option>
+                    {Object.entries(VEHICLE_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Available from</label>
+                  <label style={labelStyle}>Departs / available from</label>
                   <input style={inputStyle} type="datetime-local" value={returnDate} onChange={(event) => setReturnDate(event.target.value)} />
                 </div>
+                <div>
+                  <label style={labelStyle}>Available until / ETA</label>
+                  <input style={inputStyle} type="datetime-local" value={returnUntil} onChange={(event) => setReturnUntil(event.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Journey notes</label>
+                  <textarea style={{ ...inputStyle, minHeight: '72px', height: 'auto', padding: '8px' }} value={returnNotes} onChange={(event) => setReturnNotes(event.target.value)} placeholder="Empty vehicle, equipment or route notes" />
+                </div>
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                  {currentReturnJourney && <ActionButton tone="secondary" onClick={() => { setReturnFrom(''); setReturnTo(''); setReturnDate(''); }}>Clear form</ActionButton>}
+                  {currentReturnJourney && <ActionButton tone="secondary" onClick={() => { setReturnFrom(''); setReturnTo(''); setReturnDate(''); setReturnUntil(''); setReturnVehicleType(''); setReturnNotes(''); setGoAnywhere(false); }}>Clear form</ActionButton>}
                   <ActionButton type="submit" tone="primary" disabled={saving}>{saving ? 'Saving…' : 'Publish return journey'}</ActionButton>
                 </div>
               </form>
