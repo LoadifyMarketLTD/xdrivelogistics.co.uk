@@ -22,6 +22,14 @@ import {
   resolveActionCentreRole,
 } from './actionCentreConfig';
 
+const FREIGHT_VISION_ROLES = new Set<WorkspaceRole>([
+  'company_owner',
+  'company_admin',
+  'carrier_admin',
+  'fleet_manager',
+  'dispatcher',
+]);
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -35,7 +43,22 @@ export default function TopWorkspaceShell({
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
-  const nav = useMemo(() => getVisibleWorkspaceNav(role), [role]);
+  const nav = useMemo(() => {
+    const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
+    if (!FREIGHT_VISION_ROLES.has(role) || !hasWorkspaceCapability(role, 'jobs.track')) return base;
+
+    const item = {
+      id: 'freight-vision',
+      label: 'Freight Vision',
+      href: '/admin/freight-vision',
+      icon: '⌖',
+      capability: 'jobs.track' as const,
+    };
+    const operations = base.find((group) => group.id === 'operations');
+    if (operations) operations.items.push(item);
+    else base.push({ id: 'operations', label: 'Operations', items: [item] });
+    return base;
+  }, [role]);
   const [companyName, setCompanyName] = useState('XDrive Logistics');
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
