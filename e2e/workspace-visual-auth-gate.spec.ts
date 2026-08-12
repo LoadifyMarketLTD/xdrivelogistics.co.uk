@@ -76,6 +76,25 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
       const failedRequests: string[] = [];
       const failingResponses: string[] = [];
 
+      // The fixture deliberately runs without an authenticated user. The real top
+      // shells include SharedContextControls, which correctly requests this API and
+      // would otherwise receive a 401. Stub only this known context dependency so
+      // visual assertions remain deterministic while every other failed request /
+      // HTTP error continues to fail the gate.
+      await page.route('**/api/auth/context', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            memberships: [],
+            current: null,
+            companySelectionRequired: false,
+            workspaceSelectionRequired: false,
+            selectedCompanyId: null,
+          }),
+        });
+      });
+
       page.on('console', (msg) => {
         if (msg.type() === 'error') consoleErrors.push(msg.text());
       });
