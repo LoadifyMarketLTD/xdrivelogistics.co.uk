@@ -6,6 +6,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { operationalError } from '../../_lib/operationalError';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -43,7 +44,14 @@ const deactivateSchema = z.object({
 
 const resolveDriver = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return { error: json(503, { error: 'Service not configured.' }) };
+    return {
+      error: operationalError({
+        status: 503,
+        message: 'Vehicle management is temporarily unavailable.',
+        context: 'driver.vehicles.config',
+        retryable: true,
+      }),
+    };
   }
   const token = getBearerToken(request);
   if (!token) return { error: json(401, { error: 'Unauthorized — missing bearer token.' }) };
@@ -54,11 +62,23 @@ const resolveDriver = async (request: NextRequest) => {
     return { error: json(401, { error: 'Unauthorized — invalid or expired token.' }) };
   }
 
-  const { data: driver } = await supabaseAdmin
+  const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
     .select('id, company_id, status')
     .eq('user_id', authData.user.id)
     .maybeSingle();
+
+  if (driverError) {
+    return {
+      error: operationalError({
+        status: 500,
+        message: 'We could not load your driver profile. Please try again.',
+        context: `driver.vehicles.resolve-driver.user:${authData.user.id}`,
+        cause: driverError,
+        retryable: true,
+      }),
+    };
+  }
 
   if (!driver || driver.status !== 'active') {
     return { error: json(403, { error: 'Active driver profile required.' }) };
@@ -80,7 +100,15 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  if (error) return json(500, { error: error.message });
+  if (error) {
+    return operationalError({
+      status: 500,
+      message: 'We could not load your vehicles. Please try again.',
+      context: `driver.vehicles.list.company:${companyId}`,
+      cause: error,
+      retryable: true,
+    });
+  }
 
   return json(200, {
     vehicles: vehicles ?? [],
@@ -112,7 +140,15 @@ export async function POST(request: NextRequest) {
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
     .maybeSingle();
 
-  if (insertError) return json(500, { error: insertError.message });
+  if (insertError) {
+    return operationalError({
+      status: 500,
+      message: 'We could not add this vehicle. Please try again.',
+      context: `driver.vehicles.create.company:${companyId}`,
+      cause: insertError,
+      retryable: true,
+    });
+  }
 
   return json(201, { vehicle: inserted });
 }
@@ -132,12 +168,21 @@ export async function PATCH(request: NextRequest) {
 
   const deactivate = deactivateSchema.safeParse(body);
   if (deactivate.success) {
-    const { data: vehicle } = await admin
+    const { data: vehicle, error: vehicleError } = await admin
       .from('vehicles')
       .select('id, company_id, assigned_driver_id, reg_plate')
       .eq('id', deactivate.data.vehicleId)
       .maybeSingle();
 
+    if (vehicleError) {
+      return operationalError({
+        status: 500,
+        message: 'We could not verify this vehicle. Please try again.',
+        context: `driver.vehicles.deactivate.lookup:${deactivate.data.vehicleId}`,
+        cause: vehicleError,
+        retryable: true,
+      });
+    }
     if (!vehicle) return json(404, { error: 'Vehicle not found.' });
     if (vehicle.company_id !== companyId) {
       return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
@@ -153,7 +198,15 @@ export async function PATCH(request: NextRequest) {
       .select('id, reg_plate, assigned_driver_id')
       .maybeSingle();
 
-    if (updateError) return json(500, { error: updateError.message });
+    if (updateError) {
+      return operationalError({
+        status: 500,
+        message: 'We could not deactivate this vehicle. Please try again.',
+        context: `driver.vehicles.deactivate.update:${deactivate.data.vehicleId}`,
+        cause: updateError,
+        retryable: true,
+      });
+    }
     return json(200, { vehicle: updated, action: 'deactivated' });
   }
 
@@ -164,12 +217,21 @@ export async function PATCH(request: NextRequest) {
 
   const { id: vehicleId, ...updateFields } = parsed.data;
 
-  const { data: vehicle } = await admin
+  const { data: vehicle, error: vehicleError } = await admin
     .from('vehicles')
     .select('id, company_id')
     .eq('id', vehicleId)
     .maybeSingle();
 
+  if (vehicleError) {
+    return operationalError({
+      status: 500,
+      message: 'We could not verify this vehicle. Please try again.',
+      context: `driver.vehicles.update.lookup:${vehicleId}`,
+      cause: vehicleError,
+      retryable: true,
+    });
+  }
   if (!vehicle) return json(404, { error: 'Vehicle not found.' });
   if (vehicle.company_id !== companyId) {
     return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
@@ -182,7 +244,15 @@ export async function PATCH(request: NextRequest) {
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
     .maybeSingle();
 
-  if (updateError) return json(500, { error: updateError.message });
+  if (updateError) {
+    return operationalError({
+      status: 500,
+      message: 'We could not update this vehicle. Please try again.',
+      context: `driver.vehicles.update:${vehicleId}`,
+      cause: updateError,
+      retryable: true,
+    });
+  }
 
   return json(200, { vehicle: updated });
 }
