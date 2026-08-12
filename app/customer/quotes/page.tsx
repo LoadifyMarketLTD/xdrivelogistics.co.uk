@@ -1,1 +1,7 @@
-'use client'; import { CustomerQuotesPage } from '../CustomerWorkspaceModules'; export default function Page(){return <CustomerQuotesPage/>}
+'use client';
+
+import { CustomerQuotesOperationalPage } from '../CustomerOperationalPages';
+
+export default function Page() {
+  return <CustomerQuotesOperationalPage />;
+}
