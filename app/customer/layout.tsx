@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
-import WorkspaceShell from '../components/workspace/WorkspaceShell';
+import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
+import '../components/workspace/top-workspace-shell.css';
 
 export const metadata: Metadata = {
   title: 'Customer Workspace | XDrive Logistics',
@@ -12,9 +13,9 @@ export const metadata: Metadata = {
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-visual">
+    <div className="xdrive-workspace-visual xdrive-operational-top-workspace">
       <ProtectedRoute allowedRoles={['customer']}>
-        <WorkspaceShell forcedRole="customer">{children}</WorkspaceShell>
+        <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
       </ProtectedRoute>
     </div>
   );
