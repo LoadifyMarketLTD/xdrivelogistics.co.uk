@@ -31,6 +31,85 @@ const cleanHeader = (value: unknown) =>
 const validEmail = (value: string) =>
   value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const DEFAULT_EMAIL_SUBJECT = 'Invoice from [[My company]] - Load: [[Load ID]]';
+const DEFAULT_EMAIL_MESSAGE = `Dear [[Customer company]],
+
+I am attaching Invoice [[Invoice number]] for Load [[Load ID]].
+
+Details:
+Kindly note that a charge of £25.00 per week will apply to invoices that are more than 7 days overdue.
+
+Invoice: [[Invoice number]]
+Date: [[Invoice date]]
+Amount Due: [[Currency symbol]][[Gross total]]
+Load: [[Load ID]]
+Supplier: [[My company]]
+
+Please let us know if you have any questions.
+
+All the best,
+[[My company]]`;
+
+const cleanTemplateText = (value: unknown, maxLength: number) =>
+  typeof value === 'string'
+    ? value.replaceAll('\u0000', '').trim().slice(0, maxLength)
+    : '';
+
+const replaceTemplateTokens = (
+  template: string,
+  values: Record<string, string>,
+) => Object.entries(values).reduce(
+  (output, [token, value]) => output.replaceAll(`[[${token}]]`, value),
+  template,
+);
+
+const currencySymbol = (code: string) => {
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+    }).formatToParts(0).find((part) => part.type === 'currency')?.value ?? `${code} `;
+  } catch {
+    return `${code} `;
+  }
+};
+
+const displayDate = (value: unknown) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return 'Not set';
+  const parsed = new Date(`${raw.slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+};
+
+const cleanServiceDescription = (value: unknown) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return 'Transport service';
+  if (!raw.startsWith('{') && !raw.startsWith('[')) return raw.slice(0, 500);
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const vehicle = typeof parsed.vehicle === 'string' ? parsed.vehicle.trim() : '';
+    const cargo = typeof parsed.cargo === 'string' ? parsed.cargo.trim() : '';
+    const parts = ['Transport service', vehicle, cargo].filter(Boolean);
+    return parts.join(' · ').slice(0, 500);
+  } catch {
+    return 'Transport service';
+  }
+};
+
+const messageToHtml = (message: string) =>
+  message
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll('\n', '<br />')}</p>`)
+    .join('\n');
+
 const isMissingDeliverySchema = (
   error: { code?: string | null; message?: string | null } | null | undefined
 ) => {
@@ -100,6 +179,23 @@ export async function POST(
     return respond(503, {
       error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.',
     });
+  }
+
+  let requestBody: Record<string, unknown> = {};
+  try {
+    const rawBody = await request.text();
+    if (rawBody.trim()) requestBody = JSON.parse(rawBody) as Record<string, unknown>;
+  } catch {
+    return respond(400, { error: 'Invalid invoice email template payload.' });
+  }
+
+  const requestedSubject = cleanTemplateText(requestBody.subject, 500);
+  const requestedMessage = cleanTemplateText(requestBody.message, 10_000);
+  if (requestBody.subject !== undefined && !requestedSubject) {
+    return respond(422, { error: 'Invoice email subject cannot be empty.' });
+  }
+  if (requestBody.message !== undefined && !requestedMessage) {
+    return respond(422, { error: 'Invoice email message cannot be empty.' });
   }
 
   const { id } = await params;
@@ -249,6 +345,27 @@ export async function POST(
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     .join(', ');
 
+  const templateValues = {
+    'My company': companyName,
+    'Customer company': clientName,
+    'Invoice number': invoiceNumber,
+    'Invoice date': displayDate(claimedInvoice.invoice_date),
+    'Currency symbol': currencySymbol(currencyCode),
+    'Gross total': totalAmount.toFixed(2),
+    'Load ID': jobReference,
+  };
+  const resolvedSubject = cleanHeader(replaceTemplateTokens(
+    requestedSubject || DEFAULT_EMAIL_SUBJECT,
+    templateValues,
+  ));
+  const resolvedMessage = replaceTemplateTokens(
+    requestedMessage || DEFAULT_EMAIL_MESSAGE,
+    templateValues,
+  ).trim();
+
+  if (!resolvedSubject) return failDelivery(422, 'Invoice email subject resolved to an empty value.');
+  if (!resolvedMessage) return failDelivery(422, 'Invoice email message resolved to an empty value.');
+
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = await buildInvoicePdf({
@@ -265,7 +382,7 @@ export async function POST(
       clientEmail: recipientEmail,
       pickupLocation: claimedInvoice.pickup_location as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
-      serviceDescription: claimedInvoice.service_description as string | null,
+      serviceDescription: cleanServiceDescription(claimedInvoice.service_description),
       netAmount,
       vatAmount,
       vatRate,
@@ -331,9 +448,6 @@ export async function POST(
   }
 
   const attemptedAt = new Date().toISOString();
-  const pickup = String(claimedInvoice.pickup_location ?? 'collection');
-  const delivery = String(claimedInvoice.delivery_location ?? 'delivery');
-  const dueDate = String(claimedInvoice.due_date ?? 'See attached invoice');
 
   let emailResponse: Response;
   try {
@@ -348,15 +462,9 @@ export async function POST(
       body: JSON.stringify({
         from: fromEmail,
         to: [recipientEmail],
-        subject: `Invoice ${invoiceNumber} from ${companyName}`,
-        html: `
-          <h2>Invoice ${escapeHtml(invoiceNumber)}</h2>
-          <p>Hello ${escapeHtml(clientName)},</p>
-          <p>Please find attached your invoice for job <strong>${escapeHtml(jobReference)}</strong>, covering the transport service from <strong>${escapeHtml(pickup)}</strong> to <strong>${escapeHtml(delivery)}</strong>.</p>
-          <p><strong>Total:</strong> ${totalAmount.toFixed(2)} ${escapeHtml(currencyCode)}<br />
-          <strong>Due date:</strong> ${escapeHtml(dueDate)}</p>
-          <p>Kind regards,<br />${escapeHtml(companyName)}</p>
-        `,
+        subject: resolvedSubject,
+        text: resolvedMessage,
+        html: messageToHtml(resolvedMessage),
         attachments: [
           {
             filename: fileName,
