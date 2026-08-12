@@ -30,6 +30,14 @@ const FREIGHT_VISION_ROLES = new Set<WorkspaceRole>([
   'dispatcher',
 ]);
 
+const LIVE_AVAILABILITY_ROLES = new Set<WorkspaceRole>([
+  'company_owner',
+  'company_admin',
+  'carrier_admin',
+  'fleet_manager',
+  'dispatcher',
+]);
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -45,18 +53,33 @@ export default function TopWorkspaceShell({
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => {
     const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
-    if (!FREIGHT_VISION_ROLES.has(role) || !hasWorkspaceCapability(role, 'jobs.track')) return base;
 
-    const item = {
-      id: 'freight-vision',
-      label: 'Freight Vision',
-      href: '/admin/freight-vision',
-      icon: '⌖',
-      capability: 'jobs.track' as const,
-    };
-    const operations = base.find((group) => group.id === 'operations');
-    if (operations) operations.items.push(item);
-    else base.push({ id: 'operations', label: 'Operations', items: [item] });
+    if (FREIGHT_VISION_ROLES.has(role) && hasWorkspaceCapability(role, 'jobs.track')) {
+      const item = {
+        id: 'freight-vision',
+        label: 'Freight Vision',
+        href: '/admin/freight-vision',
+        icon: '⌖',
+        capability: 'jobs.track' as const,
+      };
+      const operations = base.find((group) => group.id === 'operations');
+      if (operations) operations.items.push(item);
+      else base.push({ id: 'operations', label: 'Operations', items: [item] });
+    }
+
+    if (LIVE_AVAILABILITY_ROLES.has(role) && hasWorkspaceCapability(role, 'fleet.positions.view')) {
+      const item = {
+        id: 'live-availability',
+        label: 'Live Availability',
+        href: '/admin/live-availability',
+        icon: '◷',
+        capability: 'fleet.positions.view' as const,
+      };
+      const fleet = base.find((group) => group.id === 'fleet');
+      if (fleet) fleet.items.push(item);
+      else base.push({ id: 'fleet', label: 'Fleet', items: [item] });
+    }
+
     return base;
   }, [role]);
   const [companyName, setCompanyName] = useState('XDrive Logistics');
