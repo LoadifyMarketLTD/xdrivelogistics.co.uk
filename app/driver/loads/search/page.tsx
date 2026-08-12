@@ -155,7 +155,7 @@ export default function SearchLoadsPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [generatedAt, setGeneratedAt] = useState('');
-  const [radiusStatus, setRadiusStatus] = useState<SearchResponse['radiusSearch']>(null);
+  const [radiusStatus, setRadiusStatus] = useState<SearchResponse['radiusSearch'] | null>(null);
   const [recentSearches, setRecentSearches] = useState<SearchFilters[]>([]);
 
   useEffect(() => {
@@ -239,7 +239,7 @@ export default function SearchLoadsPage() {
         setPage(payload.page ?? requestedPage);
         setTotalPages(payload.totalPages ?? 1);
         setGeneratedAt(payload.generatedAt ?? '');
-        setRadiusStatus(payload.radiusSearch);
+        setRadiusStatus(payload.radiusSearch ?? null);
       }
     } catch {
       setLoads([]);
