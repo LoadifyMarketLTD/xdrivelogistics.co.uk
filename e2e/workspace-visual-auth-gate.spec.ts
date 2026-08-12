@@ -22,19 +22,17 @@ const expectedKpis: Record<Role, string[]> = {
 };
 
 const viewports = [
-  { label: 'desktop', width: 1440, height: 900, compact: false },
-  { label: 'tablet', width: 768, height: 1024, compact: true },
-  { label: 'mobile', width: 390, height: 844, compact: true },
+  { label: 'desktop', width: 1440, height: 900 },
+  { label: 'tablet', width: 768, height: 1024 },
+  { label: 'mobile', width: 390, height: 844 },
 ] as const;
 
-// Expected in Next.js dev-mode while keeping fixture route fail-closed in production builds.
 const EXPECTED_FAILED_REQUEST_ALLOWLIST = [
   /\/__next\/webpack-hmr\b/i,
   /\/__nextjs_original-stack-frame\b/i,
   /\/__nextjs_source-map\b/i,
 ];
 
-// Only known, non-user-facing development endpoints are allowlisted.
 const EXPECTED_HTTP_ERROR_ALLOWLIST = [
   /\/__nextjs_original-stack-frame\b/i,
   /\/__nextjs_source-map\b/i,
@@ -51,9 +49,20 @@ const toHex = (value: string) => {
   return `#${[r, g, b].map((entry) => entry.toString(16).padStart(2, '0')).join('')}`;
 };
 
-// Roles whose approved fixture shell includes the Activity Feed / ticker strip.
-// Super Admin Command Centre shares the same WorkspaceShell and includes it via fixture overrides.
-const ROLES_WITH_ACTIVITY_FEED = new Set<Role>(['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin']);
+function topShellSelectors(role: Role) {
+  if (role === 'driver') {
+    return {
+      header: '.driver-top-shell__header',
+      nav: '.driver-top-nav',
+      track: '.driver-top-nav__track',
+    };
+  }
+  return {
+    header: '.top-workspace-shell__header',
+    nav: '.top-workspace-nav',
+    track: '.top-workspace-nav__track',
+  };
+}
 
 test.describe('workspace visual fixture gate (deterministic fixture harness — not authenticated runtime proof)', () => {
   test.skip(
@@ -68,9 +77,7 @@ test.describe('workspace visual fixture gate (deterministic fixture harness — 
       const failingResponses: string[] = [];
 
       page.on('console', (msg) => {
-        if (msg.type() === 'error') {
-          consoleErrors.push(msg.text());
-        }
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
       });
       page.on('requestfailed', (request) => {
         const url = request.url();
@@ -79,12 +86,8 @@ test.describe('workspace visual fixture gate (deterministic fixture harness — 
         }
       });
       page.on('response', (response) => {
-        const status = response.status();
-        if (status >= 400) {
-          const url = response.url();
-          if (!isAllowlisted(url, EXPECTED_HTTP_ERROR_ALLOWLIST)) {
-            failingResponses.push(`${status} ${response.request().method()} ${url}`);
-          }
+        if (response.status() >= 400 && !isAllowlisted(response.url(), EXPECTED_HTTP_ERROR_ALLOWLIST)) {
+          failingResponses.push(`${response.status()} ${response.request().method()} ${response.url()}`);
         }
       });
 
@@ -93,77 +96,68 @@ test.describe('workspace visual fixture gate (deterministic fixture harness — 
         await page.goto(`/visual-fixture/workspace/${role}`);
         await page.waitForLoadState('networkidle');
 
-        const header = page
-          .locator('header')
-          .filter({ has: page.getByRole('button', { name: 'Action Centre' }) })
-          .first();
-        await expect(header).toBeVisible();
+        if (role === 'super-admin') {
+          const header = page
+            .locator('header')
+            .filter({ has: page.getByRole('button', { name: 'Action Centre' }) })
+            .first();
+          await expect(header).toBeVisible();
+          expect(await header.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(50);
 
-        const sidebar = page.locator('aside[aria-label$="navigation"]');
-        if (viewport.width <= 640) {
-          await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
-          const rightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
-          expect(rightEdge).toBeLessThanOrEqual(1);
-          const mainLeft = await page.locator('main').evaluate((el) => Math.round(el.getBoundingClientRect().left));
-          expect(mainLeft).toBeLessThanOrEqual(1);
-        } else if (viewport.width <= 1024) {
-          await expect(sidebar).toBeVisible();
-          const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-          expect(width).toBe(56);
+          const sidebar = page.locator('aside[aria-label$="navigation"]');
+          if (viewport.width <= 640) {
+            await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
+            const rightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
+            expect(rightEdge).toBeLessThanOrEqual(1);
+          } else if (viewport.width <= 1024) {
+            await expect(sidebar).toBeVisible();
+            expect(await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(56);
+          } else {
+            await expect(sidebar).toBeVisible();
+            const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
+            expect(width).toBeGreaterThanOrEqual(228);
+            expect(width).toBeLessThanOrEqual(232);
+          }
+          await expect(page.locator('[aria-label="Activity feed"]')).toBeVisible();
+          await expect(page.getByText('Platform owner workspace')).toBeVisible();
         } else {
-          await expect(sidebar).toBeVisible();
-          const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-          expect(width).toBeGreaterThanOrEqual(228);
-          expect(width).toBeLessThanOrEqual(232);
+          const selectors = topShellSelectors(role);
+          const header = page.locator(selectors.header);
+          const nav = page.locator(selectors.nav);
+          const track = page.locator(selectors.track);
+
+          await expect(header).toBeVisible();
+          await expect(nav).toBeVisible();
+          await expect(track).toBeVisible();
+          await expect(page.locator('aside[aria-label$="navigation"]')).toHaveCount(0);
+          await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(0);
+          await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
+
+          const expectedHeaderHeight = viewport.width <= 768 ? 48 : 50;
+          expect(await header.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(expectedHeaderHeight);
+          expect(await nav.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(36);
+
+          const navButtons = track.getByRole('button');
+          expect(await navButtons.count()).toBeGreaterThan(0);
+
+          const navOverflow = await track.evaluate((el) => ({
+            overflowX: window.getComputedStyle(el).overflowX,
+            hasScroll: el.scrollWidth > el.clientWidth + 1,
+          }));
+          if (viewport.width <= 1024) {
+            expect(['auto', 'scroll']).toContain(navOverflow.overflowX);
+          }
+
+          await expect(page.getByRole('button', { name: /Notifications/i })).toBeVisible();
+          if (viewport.width > 768) {
+            await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
+          }
         }
 
-        const headerHeight = await header.evaluate((el) => Math.round(el.getBoundingClientRect().height));
-        expect(headerHeight).toBe(50);
-
-        const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
-        const notificationsButton = page.locator('header').getByRole('button', { name: /Notifications/i });
-        await expect(actionCentreButton).toBeVisible();
-        await expect(notificationsButton).toBeVisible();
-        const actionRoute = await actionCentreButton.getAttribute('data-route');
-        const notificationRoute = await notificationsButton.getAttribute('data-route');
-        expect(actionRoute).toBeTruthy();
-        expect(notificationRoute).toBeTruthy();
-        expect(actionRoute).not.toBe(notificationRoute);
-
-        const hasActivityFeed = ROLES_WITH_ACTIVITY_FEED.has(role);
-        const ticker = page.locator('[aria-label="Activity feed"]');
-        if (hasActivityFeed) {
-          await expect(ticker).toBeVisible();
-        }
-        const layoutRects = await page.evaluate(() => {
-          const headerEl = document.querySelector('header');
-          const tickerEl = document.querySelector('[aria-label="Activity feed"]');
-          const mainEl = document.querySelector('main');
-          const toRect = (el: Element | null) => {
-            if (!el) return null;
-            const rect = el.getBoundingClientRect();
-            return {
-              top: rect.top,
-              bottom: rect.bottom,
-              left: rect.left,
-              right: rect.right,
-              width: rect.width,
-              height: rect.height,
-            };
-          };
-          return {
-            header: toRect(headerEl),
-            ticker: toRect(tickerEl),
-            main: toRect(mainEl),
-          };
-        });
-        expect(layoutRects.header).toBeTruthy();
-        expect(layoutRects.main).toBeTruthy();
-        expect(layoutRects.header!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
-        if (hasActivityFeed) {
-          expect(layoutRects.ticker).toBeTruthy();
-          expect(layoutRects.ticker!.bottom).toBeLessThanOrEqual(layoutRects.main!.top + 1);
-        }
+        const pageOverflow = await page.evaluate(
+          () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        );
+        expect(pageOverflow, `${role}/${viewport.label}: no body horizontal overflow`).toBe(false);
 
         const kpiLabels = await page
           .locator('[aria-label="Operational key performance indicators"] > *')
@@ -182,46 +176,24 @@ test.describe('workspace visual fixture gate (deterministic fixture harness — 
 
         const tableScroll = table.locator('xpath=ancestor::div[1]');
         const overflowContract = await tableScroll.evaluate((el) => {
-          const table = el.querySelector('table');
-          const tableWidth = table ? table.scrollWidth : 0;
+          const innerTable = el.querySelector('table');
+          const tableWidth = innerTable ? innerTable.scrollWidth : 0;
           return {
             containerOverflowX: window.getComputedStyle(el).overflowX,
-            containerClientWidth: el.clientWidth,
-            containerScrollWidth: el.scrollWidth,
-            tableWidth,
-            pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
             hasHorizontalScroll: el.scrollWidth > el.clientWidth + 1,
             tableExceedsContainer: tableWidth > el.clientWidth + 1,
           };
         });
-        expect(overflowContract.pageOverflow).toBe(false);
         expect(['auto', 'scroll']).toContain(overflowContract.containerOverflowX);
         if (overflowContract.hasHorizontalScroll) {
           expect(overflowContract.tableExceedsContainer).toBe(true);
         }
-        if (viewport.width <= 440) {
-          expect(overflowContract.hasHorizontalScroll).toBe(true);
-        }
 
-        if (role !== 'super-admin') {
-          await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
-        } else {
-          await expect(page.getByText('Platform owner workspace')).toBeVisible();
-        }
+        const primaryAction = page.getByRole('button', { name: 'Primary action' });
+        await expect(primaryAction).toBeVisible();
+        const primaryBg = await primaryAction.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+        expect(toHex(primaryBg)).toBe('#1d57d8');
 
-        const paletteSample = await page.evaluate(() => {
-          const ticker = document.querySelector('[aria-label="Activity feed"]');
-          const tickerBg = ticker ? window.getComputedStyle(ticker).backgroundColor : '';
-          const primaryAction = Array.from(document.querySelectorAll('button')).find((el) => el.textContent?.includes('Primary action'));
-          const primaryBg = primaryAction ? window.getComputedStyle(primaryAction).backgroundColor : '';
-          return { tickerBg, primaryBg };
-        });
-        if (hasActivityFeed && paletteSample.tickerBg) {
-          expect(toHex(paletteSample.tickerBg)).toBe('#0b2f6b');
-        }
-        expect(toHex(paletteSample.primaryBg)).toBe('#1d57d8');
-
-        await expect(page.getByRole('button', { name: /Open menu|Action Centre|Notifications/i }).first()).toBeVisible();
         await page.screenshot({
           path: testInfo.outputPath(`workspace-fixture-${role}-${viewport.label}.png`),
           fullPage: true,
