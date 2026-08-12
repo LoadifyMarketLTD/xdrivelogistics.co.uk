@@ -229,7 +229,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).not.toContain('£0.00');
   });
 
-  it('renders fleet degraded lower panels honestly for unavailable and partial datasets', () => {
+  it('renders the simplified fleet resource dashboard honestly for unavailable and partial datasets', () => {
     mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
       surface: 'fleet',
       datasets: {
@@ -244,12 +244,14 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<FleetControlDashboardHome />);
-    expect(html).toContain('Allocation data unavailable');
-    expect(html).not.toContain('No unassigned jobs');
+    expect(html).toContain('Fleet attention data unavailable');
+    expect(html).not.toContain('No fleet attention items');
     expect(html).toContain('Driver data unavailable');
-    expect(html).not.toContain('No drivers marked available');
     expect(html).toContain('Tracking attention');
     expect(html).toContain('Readiness blockers');
+    expect(html).not.toContain('Allocation board');
+    expect(html).not.toContain('Live fleet execution');
+    expect(html).not.toContain('Capacity matrix');
   });
 
   it('renders dispatcher job failure as an unavailable dispatch feed', () => {
