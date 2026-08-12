@@ -11,7 +11,7 @@ type DriverJobLike = {
   created_at?: string | null;
 };
 
-const COMPLETED_STATUSES = new Set(['delivered', 'completed', 'invoiced', 'paid']);
+const COMPLETED_STATUSES = new Set(['completed', 'invoiced', 'paid']);
 
 export const canonicalJobStatus = (currentStatus: string | null | undefined, fallbackStatus: string) =>
   currentStatus ?? fallbackStatus;
