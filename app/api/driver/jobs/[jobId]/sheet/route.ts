@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { operationalError } from '../../../../_lib/operationalError';
 import { isDriverContext, requireDriver, respond } from '../../../mobile/_lib';
 
 function text(value: unknown) {
@@ -12,7 +13,14 @@ function numberValue(value: unknown) {
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return operationalError({
+      status: 503,
+      message: 'The job sheet is temporarily unavailable.',
+      context: 'driver.job-sheet.config',
+      retryable: true,
+    });
+  }
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
@@ -23,7 +31,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
-  if (jobError) return respond(500, { error: jobError.message });
+  if (jobError) {
+    return operationalError({
+      message: 'The job sheet could not be loaded. Please retry.',
+      context: `driver.job-sheet.job:${jobId}`,
+      cause: jobError,
+    });
+  }
   if (!rawJob) return respond(404, { error: 'This job is not assigned to your driver account.' });
 
   const job = rawJob as Record<string, unknown>;
@@ -54,21 +68,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? numberValue(acceptedBid.amount)
     ?? null;
 
-  const timeline = (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
+  const timeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
     eventType: text(entry.event_type) ?? 'update',
     message: text(entry.message) ?? text(entry.note),
     meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : null,
     createdAt: text(entry.created_at),
   }));
-  const documents = (documentsResult.data ?? []).map((entry: Record<string, unknown>) => ({
+  const documents = documentsResult.error ? [] : (documentsResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
     type: text(entry.doc_type) ?? 'Document',
     fileName: text(entry.file_name),
     filePath: text(entry.file_path),
     createdAt: text(entry.created_at),
   }));
-  const invoices = (invoiceResult.data ?? []).map((entry: Record<string, unknown>) => ({
+  const invoices = invoiceResult.error ? [] : (invoiceResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
     number: text(entry.invoice_number),
     status: text(entry.status),
@@ -103,6 +117,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       timeline,
       documents,
       invoices,
+      partial: Boolean(companyResult.error || settingsResult.error || bidResult.error || trackingResult.error || invoiceResult.error || documentsResult.error || vehicleResult.error || driverResult.error),
     },
   });
 }
