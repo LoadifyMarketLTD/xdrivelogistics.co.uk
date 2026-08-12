@@ -8,6 +8,7 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
+import { operationalError } from '../../_lib/operationalError';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -70,7 +71,12 @@ const isMissingIdempotencyColumn = (error: { code?: string | null; message?: str
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server database access is not configured.' });
+    return operationalError({
+      status: 503,
+      message: 'Load posting is temporarily unavailable.',
+      context: 'jobs.create.config',
+      retryable: true,
+    });
   }
 
   const token = getBearerToken(request);
@@ -97,23 +103,27 @@ export async function POST(request: NextRequest) {
     .eq('status', 'active')
     .in('role_in_company', ['owner', 'admin', 'dispatcher'])
     .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
+  if (membershipError) {
+    return operationalError({
+      status: 500,
+      message: 'We could not verify your company access. Please try again.',
+      context: `jobs.create.membership.company:${input.companyId}.user:${authData.user.id}`,
+      cause: membershipError,
+      retryable: true,
+    });
+  }
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
-  // Feature flag gates: exchange_marketplace gates publish=true jobs.
-  // Also read the exchange_auto_expire_hours global setting for published jobs.
-  let exchangeAutoExpireHours = 72; // in-code default
+  let exchangeAutoExpireHours = 72;
   if (input.publish) {
     const flags = await getFeatureFlags(supabaseAdmin, ['exchange_marketplace']);
     if (!flags.get('exchange_marketplace')) {
       return respond(503, { error: 'The exchange marketplace is currently disabled. You can save this job as a draft.' });
     }
-    // Read the configurable expiry window from global settings
     const { getGlobalSettingNumber } = await import('../../_lib/platformFlags');
     exchangeAutoExpireHours = await getGlobalSettingNumber(supabaseAdmin, 'exchange_auto_expire_hours');
   }
 
-  // PR-0.3: compliance_block_posting — if enabled, verify the company is in good standing before allowing job creation.
   const complianceBlockPosting = await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting');
   if (complianceBlockPosting) {
     const { data: company, error: companyError } = await supabaseAdmin
@@ -121,8 +131,22 @@ export async function POST(request: NextRequest) {
       .select('status')
       .eq('id', input.companyId)
       .maybeSingle();
-    if (companyError || !company?.status) {
-      return respond(503, { error: 'Company compliance status could not be verified. Please try again.' });
+    if (companyError) {
+      return operationalError({
+        status: 503,
+        message: 'Company compliance status could not be verified. Please try again.',
+        context: `jobs.create.compliance.company:${input.companyId}`,
+        cause: companyError,
+        retryable: true,
+      });
+    }
+    if (!company?.status) {
+      return operationalError({
+        status: 503,
+        message: 'Company compliance status could not be verified. Please try again.',
+        context: `jobs.create.compliance-missing.company:${input.companyId}`,
+        retryable: true,
+      });
     }
     const companyStatus = String(company.status).toLowerCase();
     if (!['active', 'fully_active', 'active_with_warnings'].includes(companyStatus)) {
@@ -142,7 +166,13 @@ export async function POST(request: NextRequest) {
     if (isMissingIdempotencyColumn(existingResult.error)) {
       idempotencyAvailable = false;
     } else {
-      return respond(500, { error: existingResult.error.message });
+      return operationalError({
+        status: 500,
+        message: 'We could not verify whether this load was already submitted. Please try again.',
+        context: `jobs.create.idempotency-check.company:${input.companyId}`,
+        cause: existingResult.error,
+        retryable: true,
+      });
     }
   }
   if (existingResult.data) {
@@ -225,8 +255,6 @@ export async function POST(request: NextRequest) {
     .select('id, status, current_status')
     .single();
 
-  // Handles a rollout race where the API observed the new column but PostgREST
-  // refreshed to an older schema cache before the insert completed.
   if (insertResult.error && idempotencyAvailable && isMissingIdempotencyColumn(insertResult.error)) {
     idempotencyAvailable = false;
     delete row.creation_idempotency_key;
@@ -244,10 +272,28 @@ export async function POST(request: NextRequest) {
       .eq('company_id', input.companyId)
       .eq('creation_idempotency_key', input.idempotencyKey)
       .maybeSingle();
-    if (replayError) return respond(500, { error: replayError.message });
+    if (replayError) {
+      return operationalError({
+        status: 500,
+        message: 'The load may already have been submitted, but we could not verify it. Please refresh before trying again.',
+        context: `jobs.create.idempotency-replay.company:${input.companyId}`,
+        cause: replayError,
+        retryable: true,
+      });
+    }
     if (replay) return respond(200, { job: replay, replayed: true, idempotencyProtected: true });
   }
-  if (insertResult.error) return respond(500, { error: insertResult.error.message });
+  if (insertResult.error) {
+    return operationalError({
+      status: 500,
+      message: input.publish
+        ? 'We could not publish this load to the marketplace. Please try again.'
+        : 'We could not save this load. Please try again.',
+      context: `jobs.create.insert.company:${input.companyId}.mode:${input.mode}.publish:${input.publish}`,
+      cause: insertResult.error,
+      retryable: true,
+    });
+  }
 
   return respond(201, {
     job: insertResult.data,
