@@ -1,8 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import WorkspaceShell from '../components/workspace/WorkspaceShell';
+import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 
 export default function AdminPlatformShell({ children }: { children: ReactNode }) {
-  return <WorkspaceShell>{children}</WorkspaceShell>;
+  return <TopWorkspaceShell>{children}</TopWorkspaceShell>;
 }
