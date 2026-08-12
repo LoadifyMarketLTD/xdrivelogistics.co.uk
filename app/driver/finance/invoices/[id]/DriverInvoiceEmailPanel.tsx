@@ -36,12 +36,12 @@ All the best,
 const fieldStyle: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
-  border: '1px solid #d1d5db',
-  borderRadius: '6px',
-  padding: '0.55rem 0.7rem',
+  border: '1px solid #cbd5e1',
+  borderRadius: '4px',
+  padding: '0.52rem 0.62rem',
   background: '#fff',
   color: '#1e293b',
-  fontSize: '0.82rem',
+  fontSize: '0.8rem',
   lineHeight: 1.45,
   outline: 'none',
 };
@@ -50,10 +50,10 @@ const primaryButton: CSSProperties = {
   border: '1px solid #1d57d8',
   background: '#1d57d8',
   color: '#fff',
-  borderRadius: '6px',
-  minHeight: '32px',
-  padding: '0 12px',
-  fontSize: '12px',
+  borderRadius: '4px',
+  minHeight: '30px',
+  padding: '0 11px',
+  fontSize: '11px',
   fontWeight: 700,
   cursor: 'pointer',
 };
@@ -65,6 +65,23 @@ const secondaryButton: CSSProperties = {
   color: '#1a1f2b',
 };
 
+const labelStyle: CSSProperties = {
+  color: '#64748b',
+  fontSize: '0.68rem',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  marginBottom: '0.22rem',
+};
+
+const money = (value: number, currency: string) => {
+  try {
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+};
+
 export default function DriverInvoiceEmailPanel({
   invoiceId,
   invoice,
@@ -74,9 +91,11 @@ export default function DriverInvoiceEmailPanel({
   invoice: InvoiceEmailContext;
   onSent: () => Promise<void>;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const [draftSubject, setDraftSubject] = useState(DEFAULT_SUBJECT);
+  const [draftMessage, setDraftMessage] = useState(DEFAULT_MESSAGE);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -88,10 +107,23 @@ export default function DriverInvoiceEmailPanel({
     [],
   );
 
-  const resetTemplate = () => {
-    setSubject(DEFAULT_SUBJECT);
-    setMessage(DEFAULT_MESSAGE);
+  const openEditor = () => {
+    setDraftSubject(subject);
+    setDraftMessage(message);
     setError('');
+    setEditorOpen(true);
+  };
+
+  const applyTemplate = () => {
+    if (!draftSubject.trim() || !draftMessage.trim()) return;
+    setSubject(draftSubject.trim());
+    setMessage(draftMessage.trim());
+    setEditorOpen(false);
+  };
+
+  const resetDraft = () => {
+    setDraftSubject(DEFAULT_SUBJECT);
+    setDraftMessage(DEFAULT_MESSAGE);
   };
 
   const sendInvoice = async () => {
@@ -121,8 +153,7 @@ export default function DriverInvoiceEmailPanel({
       if (!response.ok) {
         setError(payload.error ?? 'Invoice could not be sent.');
       } else {
-        setNotice('Invoice email accepted for delivery and the PDF was attached.');
-        setEditing(false);
+        setNotice('Invoice sent with PDF attachment.');
         await onSent();
       }
     } catch {
@@ -133,94 +164,137 @@ export default function DriverInvoiceEmailPanel({
   };
 
   return (
-    <section style={{
-      background: '#fff',
-      border: '1px solid #d7e0ea',
-      borderRadius: '10px',
-      boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
-      padding: '1.25rem',
-      marginBottom: '1rem',
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '0.75rem',
-        flexWrap: 'wrap',
-        marginBottom: '0.85rem',
-        paddingBottom: '0.55rem',
-        borderBottom: '1px solid #e2e8f0',
+    <>
+      <section style={{
+        background: '#fff',
+        border: '1px solid #d7e0ea',
+        borderRadius: '6px',
+        boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
+        marginBottom: '0.8rem',
+        overflow: 'hidden',
       }}>
-        <div>
-          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e293b' }}>✉ Invoice email template</div>
-          <div style={{ color: '#64748b', fontSize: '0.74rem', marginTop: '0.15rem' }}>PDF invoice is generated and attached automatically when sent.</div>
-        </div>
-        {invoice.status === 'Draft' && (
-          <button type="button" style={secondaryButton} onClick={() => setEditing((value) => !value)}>
-            {editing ? 'Done' : 'Edit'}
-          </button>
-        )}
-      </div>
-
-      {error && <div style={{ marginBottom: '0.7rem', padding: '0.55rem 0.7rem', border: '1px solid #fecaca', background: '#fff1f2', color: '#b91c1c', borderRadius: '6px', fontSize: '0.78rem' }}>{error}</div>}
-      {notice && <div style={{ marginBottom: '0.7rem', padding: '0.55rem 0.7rem', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#166534', borderRadius: '6px', fontSize: '0.78rem' }}>{notice}</div>}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 0.32fr) minmax(0, 1fr)', gap: '0.8rem', marginBottom: '0.75rem' }}>
-        <div>
-          <div style={{ color: '#64748b', fontSize: '0.69rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>To</div>
-          <div style={{ fontSize: '0.8rem', color: canSend ? '#1e293b' : '#b91c1c', fontWeight: 600 }}>{recipient}</div>
-        </div>
-        <div>
-          <div style={{ color: '#64748b', fontSize: '0.69rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>Subject</div>
-          {editing ? (
-            <input value={subject} onChange={(event) => setSubject(event.target.value)} style={fieldStyle} maxLength={500} />
-          ) : (
-            <div style={{ fontSize: '0.8rem', color: '#1e293b', fontWeight: 600 }}>{subject}</div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '0.7rem',
+          flexWrap: 'wrap',
+          padding: '0.55rem 0.7rem',
+          background: '#f8fafc',
+          borderBottom: '1px solid #e2e8f0',
+        }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b' }}>Invoice email template</div>
+            <div style={{ color: '#64748b', fontSize: '0.68rem', marginTop: '0.08rem' }}>PDF invoice is attached automatically on send.</div>
+          </div>
+          {invoice.status === 'Draft' && (
+            <button type="button" style={secondaryButton} onClick={openEditor}>Edit</button>
           )}
         </div>
-      </div>
 
-      <div style={{ marginBottom: '0.75rem' }}>
-        <div style={{ color: '#64748b', fontSize: '0.69rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.3rem' }}>Message</div>
-        {editing ? (
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            style={{ ...fieldStyle, minHeight: '230px', resize: 'vertical', fontFamily: 'inherit' }}
-            maxLength={10000}
-          />
-        ) : (
-          <div style={{ whiteSpace: 'pre-wrap', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem', color: '#334155', fontSize: '0.78rem', lineHeight: 1.55 }}>{message}</div>
-        )}
-      </div>
+        <div style={{ padding: '0.62rem 0.7rem' }}>
+          {error && <div style={{ marginBottom: '0.55rem', padding: '0.42rem 0.55rem', border: '1px solid #fecaca', background: '#fff1f2', color: '#b91c1c', borderRadius: '4px', fontSize: '0.72rem' }}>{error}</div>}
+          {notice && <div style={{ marginBottom: '0.55rem', padding: '0.42rem 0.55rem', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#166534', borderRadius: '4px', fontSize: '0.72rem' }}>{notice}</div>}
 
-      {editing && (
-        <div style={{ marginBottom: '0.8rem', padding: '0.55rem 0.7rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-          <div style={{ fontSize: '0.7rem', color: '#475569', fontWeight: 700, marginBottom: '0.35rem' }}>Available variables</div>
-          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-            {tokens.map((token) => <code key={token} style={{ fontSize: '0.68rem', background: '#fff', border: '1px solid #d8dee8', borderRadius: '4px', padding: '0.2rem 0.35rem', color: '#0b2f6b' }}>{token}</code>)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.42fr) minmax(260px, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
+            <div>
+              <div style={labelStyle}>To</div>
+              <div style={{ fontSize: '0.76rem', color: canSend ? '#1e293b' : '#b91c1c', fontWeight: 600, overflowWrap: 'anywhere' }}>{recipient}</div>
+            </div>
+            <div>
+              <div style={labelStyle}>Subject</div>
+              <div style={{ fontSize: '0.76rem', color: '#1e293b', fontWeight: 600 }}>{subject}</div>
+            </div>
+            {invoice.status === 'Draft' ? (
+              <button
+                type="button"
+                style={{ ...primaryButton, opacity: sending || !canSend ? 0.55 : 1 }}
+                disabled={sending || !canSend}
+                onClick={() => void sendInvoice()}
+              >
+                {sending ? 'Sending…' : 'Send invoice & PDF'}
+              </button>
+            ) : (
+              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, paddingBottom: '0.35rem' }}>{invoice.status}</div>
+            )}
+          </div>
+
+          <div style={{ marginTop: '0.48rem', paddingTop: '0.45rem', borderTop: '1px solid #eef2f7', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: '#64748b', fontSize: '0.68rem' }}>
+            <span>Invoice: <strong style={{ color: '#334155' }}>{invoice.invoiceNumber}</strong></span>
+            <span>Load: <strong style={{ color: '#334155' }}>{invoice.jobReference}</strong></span>
+            <span>Amount: <strong style={{ color: '#334155' }}>{money(invoice.amount, invoice.currency)}</strong></span>
+            <span>Customer: <strong style={{ color: '#334155' }}>{invoice.clientName}</strong></span>
+          </div>
+        </div>
+      </section>
+
+      {editorOpen && (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setEditorOpen(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            background: 'rgba(15, 23, 42, 0.38)',
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="invoice-email-template-title" style={{ width: 'min(760px, 96vw)', maxHeight: '90vh', overflowY: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px', boxShadow: '0 18px 50px rgba(15,23,42,0.22)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', padding: '0.65rem 0.75rem', background: '#f1f5f9', borderBottom: '1px solid #d8dee8' }}>
+              <div>
+                <div id="invoice-email-template-title" style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f172a' }}>Invoice email template</div>
+                <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '0.1rem' }}>Edit the message for this invoice before sending.</div>
+              </div>
+              <button type="button" aria-label="Close invoice email template" onClick={() => setEditorOpen(false)} style={{ ...secondaryButton, width: '30px', padding: 0 }}>×</button>
+            </div>
+
+            <div style={{ padding: '0.8rem' }}>
+              <div style={{ marginBottom: '0.7rem' }}>
+                <div style={labelStyle}>Subject</div>
+                <input value={draftSubject} onChange={(event) => setDraftSubject(event.target.value)} style={fieldStyle} maxLength={500} />
+              </div>
+
+              <div style={{ marginBottom: '0.7rem' }}>
+                <div style={labelStyle}>Message</div>
+                <textarea
+                  value={draftMessage}
+                  onChange={(event) => setDraftMessage(event.target.value)}
+                  style={{ ...fieldStyle, minHeight: '300px', resize: 'vertical', fontFamily: 'inherit' }}
+                  maxLength={10000}
+                />
+              </div>
+
+              <div style={{ marginBottom: '0.8rem', padding: '0.5rem 0.6rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px' }}>
+                <div style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 700, marginBottom: '0.3rem' }}>Template variables</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {tokens.map((token) => <code key={token} style={{ fontSize: '0.66rem', background: '#fff', border: '1px solid #d8dee8', borderRadius: '3px', padding: '0.18rem 0.3rem', color: '#0b2f6b' }}>{token}</code>)}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.65rem', borderTop: '1px solid #e2e8f0' }}>
+                <button type="button" style={secondaryButton} onClick={resetDraft}>Reset</button>
+                <div style={{ display: 'flex', gap: '0.45rem' }}>
+                  <button type="button" style={secondaryButton} onClick={() => setEditorOpen(false)}>Cancel</button>
+                  <button
+                    type="button"
+                    style={{ ...primaryButton, opacity: !draftSubject.trim() || !draftMessage.trim() ? 0.55 : 1 }}
+                    disabled={!draftSubject.trim() || !draftMessage.trim()}
+                    onClick={applyTemplate}
+                  >
+                    Apply to invoice
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
-
-      {invoice.status === 'Draft' ? (
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid #e2e8f0', paddingTop: '0.8rem' }}>
-          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Invoice {invoice.invoiceNumber} · Load {invoice.jobReference} · {invoice.clientName}</div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {editing && <button type="button" style={secondaryButton} onClick={resetTemplate}>Reset template</button>}
-            <button
-              type="button"
-              style={{ ...primaryButton, opacity: sending || !canSend || !subject.trim() || !message.trim() ? 0.55 : 1 }}
-              disabled={sending || !canSend || !subject.trim() || !message.trim()}
-              onClick={() => void sendInvoice()}
-            >
-              {sending ? 'Sending invoice…' : 'Send invoice & PDF'}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.7rem', fontSize: '0.75rem', color: '#64748b' }}>Invoice status: <strong style={{ color: '#1e293b' }}>{invoice.status}</strong>. Email editing is available while the invoice is Draft.</div>
-      )}
-    </section>
+    </>
   );
 }
