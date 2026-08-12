@@ -79,10 +79,10 @@ const STATUS_LABELS: Record<string, string> = {
   driver_declined: 'Declined',
 };
 
-const STATUS_TONES: Record<string, 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'navy'> = {
+const STATUS_TONES: Record<string, 'blue' | 'green' | 'red' | 'purple' | 'orange'> = {
   allocated: 'blue',
-  collected: 'navy',
-  in_transit: 'navy',
+  collected: 'blue',
+  in_transit: 'blue',
   delivered: 'green',
   cancelled: 'red',
   disputed: 'purple',
