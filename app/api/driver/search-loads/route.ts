@@ -150,9 +150,9 @@ function relation(row: SearchLoadRow) {
   const pickup = new Date(row.pickup_datetime);
   const delivery = new Date(row.delivery_datetime);
   if (Number.isNaN(pickup.getTime()) || Number.isNaN(delivery.getTime())) return 'unknown';
-  const pickupKey = `${pickup.getFullYear()}-${pickup.getMonth()}-${pickup.getDate()}`;
-  const deliveryKey = `${delivery.getFullYear()}-${delivery.getMonth()}-${delivery.getDate()}`;
-  const days = Math.round((new Date(deliveryKey).getTime() - new Date(pickupKey).getTime()) / 86_400_000);
+  const pickupDay = Date.UTC(pickup.getUTCFullYear(), pickup.getUTCMonth(), pickup.getUTCDate());
+  const deliveryDay = Date.UTC(delivery.getUTCFullYear(), delivery.getUTCMonth(), delivery.getUTCDate());
+  const days = Math.round((deliveryDay - pickupDay) / 86_400_000);
   return days === 0 ? 'same_day' : days === 1 ? 'next_day' : days >= 2 && days <= 5 ? '3_5_days' : 'other';
 }
 
@@ -214,11 +214,11 @@ export async function GET(request: NextRequest) {
   const member = searchParams.get('member')?.trim().toLowerCase() ?? '';
   const description = searchParams.get('description')?.trim().toLowerCase() ?? '';
   const requestedLoadType = searchParams.get('loadType')?.trim().toLowerCase() ?? 'all';
-  const postedWithinHours = Number(searchParams.get('postedWithinHours') ?? '');
+  const postedWithinHours = numberOrNull(searchParams.get('postedWithinHours'));
   const dateFrom = searchParams.get('dateFrom')?.trim() ?? '';
   const dateTo = searchParams.get('dateTo')?.trim() ?? '';
-  const minBudget = Number(searchParams.get('minBudget') ?? '');
-  const maxBudget = Number(searchParams.get('maxBudget') ?? '');
+  const minBudget = numberOrNull(searchParams.get('minBudget'));
+  const maxBudget = numberOrNull(searchParams.get('maxBudget'));
   const pageSize = PAGE_SIZES.has(Number(searchParams.get('pageSize'))) ? Number(searchParams.get('pageSize')) : 25;
   const page = Math.max(1, Number(searchParams.get('page') ?? 1) || 1);
 
@@ -234,11 +234,11 @@ export async function GET(request: NextRequest) {
   if (driver.companyId) query = query.neq('company_id', driver.companyId);
   if (vehicle) query = query.or(`vehicle_type.ilike.%${vehicle}%,requested_vehicle_type.ilike.%${vehicle}%,requested_vehicle_label.ilike.%${vehicle}%`);
   if (freight) query = query.or(`cargo_type.ilike.%${freight}%,requested_cargo_label.ilike.%${freight}%`);
-  if (Number.isFinite(minBudget)) query = query.gte('budget_amount', minBudget);
-  if (Number.isFinite(maxBudget)) query = query.lte('budget_amount', maxBudget);
+  if (minBudget !== null) query = query.gte('budget_amount', minBudget);
+  if (maxBudget !== null) query = query.lte('budget_amount', maxBudget);
   if (dateFrom) query = query.gte('pickup_datetime', `${dateFrom}T00:00:00`);
   if (dateTo) query = query.lte('pickup_datetime', `${dateTo}T23:59:59`);
-  if (Number.isFinite(postedWithinHours) && postedWithinHours > 0) {
+  if (postedWithinHours !== null && postedWithinHours > 0) {
     query = query.gte('exchange_posted_at', new Date(Date.now() - postedWithinHours * 3_600_000).toISOString());
   }
 
