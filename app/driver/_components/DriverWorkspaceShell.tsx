@@ -19,7 +19,7 @@ export default function DriverWorkspaceShell({
   personaLabel?: string;
 }) {
   return (
-    <PageFrame maxWidth={1480}>
+    <PageFrame>
       <div className="driver-operational-page">
         {(driverName || subtitle || availabilityLabel || personaLabel || headerActions) && (
           <PageHeader
