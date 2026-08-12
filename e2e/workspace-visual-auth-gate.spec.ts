@@ -40,6 +40,19 @@ const EXPECTED_HTTP_ERROR_ALLOWLIST = [
 const isAllowlisted = (url: string, allowlist: RegExp[]) =>
   allowlist.some((pattern) => pattern.test(url));
 
+const isExpectedUnauthenticatedFixtureResponse = (response: {
+  status: () => number;
+  url: () => string;
+  request: () => { method: () => string };
+}) => {
+  if (response.status() !== 401 || response.request().method() !== 'GET') return false;
+  try {
+    return new URL(response.url()).pathname === '/api/auth/context';
+  } catch {
+    return false;
+  }
+};
+
 const toHex = (value: string) => {
   const match = value.match(/\d+/g);
   if (!match || match.length < 3) return value.trim().toLowerCase();
@@ -105,7 +118,11 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
         }
       });
       page.on('response', (response) => {
-        if (response.status() >= 400 && !isAllowlisted(response.url(), EXPECTED_HTTP_ERROR_ALLOWLIST)) {
+        if (
+          response.status() >= 400 &&
+          !isExpectedUnauthenticatedFixtureResponse(response) &&
+          !isAllowlisted(response.url(), EXPECTED_HTTP_ERROR_ALLOWLIST)
+        ) {
           failingResponses.push(`${response.status()} ${response.request().method()} ${response.url()}`);
         }
       });
