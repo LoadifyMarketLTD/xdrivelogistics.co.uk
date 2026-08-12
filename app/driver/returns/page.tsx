@@ -77,6 +77,37 @@ export default function ReturnJourneysPage() {
   const [futureDate, setFutureDate] = useState('');
   const [currentReturnJourney, setCurrentReturnJourney] = useState<ReturnJourneyRow | null>(null);
 
+  const getAuthHeader = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    return token ? `Bearer ${token}` : null;
+  }, []);
+
+  const loadCurrentReturnJourney = useCallback(async () => {
+    const auth = await getAuthHeader();
+    if (!auth) {
+      return { journey: null as ReturnJourneyRow | null, error: 'Your session has expired. Sign in again to manage return journeys.' };
+    }
+
+    try {
+      const response = await fetch('/api/driver/return-journey', {
+        headers: { Authorization: auth },
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        journey?: ReturnJourneyRow | null;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        return { journey: null as ReturnJourneyRow | null, error: payload.error || 'Your current return journey could not be loaded.' };
+      }
+
+      return { journey: payload.journey ?? null, error: null as string | null };
+    } catch {
+      return { journey: null as ReturnJourneyRow | null, error: 'Your current return journey could not be loaded.' };
+    }
+  }, [getAuthHeader]);
+
   const loadDriver = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) {
       setLoading(false);
@@ -109,17 +140,10 @@ export default function ReturnJourneysPage() {
 
     setDriver(row);
 
-    const { data: journey, error: journeyError } = await supabase
-      .from('return_journeys')
-      .select('from_postcode, to_postcode, available_from, available_to, vehicle_type, notes')
-      .eq('driver_id', driverId)
-      .eq('status', 'available')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const journeyResult = await loadCurrentReturnJourney();
+    const current = journeyResult.journey;
 
-    if (!journeyError && journey) {
-      const current = journey as ReturnJourneyRow;
+    if (current) {
       setCurrentReturnJourney(current);
       setReturnFrom(current.from_postcode ?? '');
       setReturnTo(current.to_postcode ?? '');
@@ -137,13 +161,16 @@ export default function ReturnJourneysPage() {
       setReturnVehicleType('');
       setReturnNotes('');
       setGoAnywhere(false);
-      if (journeyError) setError((previous) => previous || 'Your current return journey could not be loaded.');
+    }
+
+    if (journeyResult.error) {
+      setError((previous) => previous || journeyResult.error || 'Your current return journey could not be loaded.');
     }
 
     setFuturePosition(row?.future_position ?? '');
     setFutureDate(row?.future_position_date ? row.future_position_date.slice(0, 16) : '');
     setLoading(false);
-  }, [driverId]);
+  }, [driverId, loadCurrentReturnJourney]);
 
   useEffect(() => {
     void loadDriver();
@@ -156,49 +183,40 @@ export default function ReturnJourneysPage() {
     setSaving(true);
     setError('');
 
-    const { data: driverCompany, error: companyError } = await supabase
-      .from('drivers')
-      .select('company_id')
-      .eq('id', driverId)
-      .maybeSingle();
-
-    const companyId = (driverCompany as { company_id?: string | null } | null)?.company_id ?? null;
-    if (companyError || !companyId) {
-      setError('A linked company profile is required before a return journey can be published.');
+    const auth = await getAuthHeader();
+    if (!auth) {
+      setError('Your session has expired. Sign in again to manage return journeys.');
       setSaving(false);
       return;
     }
 
-    const { error: deleteError } = await supabase
-      .from('return_journeys')
-      .delete()
-      .eq('driver_id', driverId)
-      .eq('status', 'available');
-
-    if (deleteError) {
-      setError('The existing return journey could not be replaced safely.');
-      setSaving(false);
-      return;
-    }
-
-    if (returnFrom.trim()) {
-      const { error: insertError } = await supabase.from('return_journeys').insert({
-        company_id: companyId,
-        driver_id: driverId,
-        from_postcode: returnFrom.trim(),
-        to_postcode: goAnywhere ? null : (returnTo.trim() || null),
-        available_from: returnDate ? new Date(returnDate).toISOString() : null,
-        available_to: returnUntil ? new Date(returnUntil).toISOString() : null,
-        vehicle_type: returnVehicleType || null,
-        notes: returnNotes.trim() || null,
-        status: 'available',
+    try {
+      const response = await fetch('/api/driver/return-journey', {
+        method: 'PUT',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_postcode: returnFrom.trim() || null,
+          to_postcode: goAnywhere ? null : (returnTo.trim() || null),
+          available_from: returnDate ? new Date(returnDate).toISOString() : null,
+          available_to: returnUntil ? new Date(returnUntil).toISOString() : null,
+          vehicle_type: returnVehicleType || null,
+          notes: returnNotes.trim() || null,
+        }),
       });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
-      if (insertError) {
-        setError('The return journey could not be published.');
+      if (!response.ok) {
+        setError(payload.error || 'The return journey could not be published.');
         setSaving(false);
         return;
       }
+    } catch {
+      setError('The return journey could not be published.');
+      setSaving(false);
+      return;
     }
 
     setSuccessMsg(returnFrom.trim() ? 'Return journey published.' : 'Return journey cleared.');
