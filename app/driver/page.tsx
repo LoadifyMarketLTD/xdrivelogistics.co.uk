@@ -29,6 +29,10 @@ type OwnerBid = {
   }[] | null;
 };
 
+type DriverNextAction =
+  | { kind: 'transition'; nextStatus: string; label: string; description: string; resultLabel: string }
+  | { kind: 'open'; label: string; description: string };
+
 const activeStatuses = new Set([
   'awarded',
   'allocated',
@@ -41,16 +45,92 @@ const activeStatuses = new Set([
   'in_transit',
   'on_my_way_to_delivery',
   'on_site_delivery',
+  'delivered',
 ]);
 
 const upcomingStatuses = new Set(['awarded', 'allocated', 'accepted']);
-const completedStatuses = new Set(['delivered', 'completed', 'invoiced', 'paid']);
+const completedStatuses = new Set(['completed', 'invoiced', 'paid']);
 
 const BID_STATUS_TONE: Record<string, 'green' | 'orange' | 'red' | 'purple'> = {
   accepted: 'green',
   submitted: 'orange',
   rejected: 'red',
   withdrawn: 'purple',
+};
+
+const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
+  awarded: {
+    kind: 'transition',
+    nextStatus: 'on_my_way',
+    label: 'On my way to pickup',
+    description: 'Confirm departure for the collection point.',
+    resultLabel: 'On my way to pickup',
+  },
+  allocated: {
+    kind: 'transition',
+    nextStatus: 'on_my_way',
+    label: 'On my way to pickup',
+    description: 'Confirm departure for the collection point.',
+    resultLabel: 'On my way to pickup',
+  },
+  on_my_way: {
+    kind: 'transition',
+    nextStatus: 'on_site_pickup',
+    label: 'On site at pickup',
+    description: 'Confirm arrival at the collection point.',
+    resultLabel: 'On site at pickup',
+  },
+  on_site_pickup: {
+    kind: 'open',
+    label: 'Add loading photo & confirm loaded',
+    description: 'Collection evidence is required before the job can be marked loaded.',
+  },
+  loaded: {
+    kind: 'transition',
+    nextStatus: 'in_transit',
+    label: 'On my way to delivery',
+    description: 'Confirm departure from collection with the load on board.',
+    resultLabel: 'On my way to delivery',
+  },
+  in_transit: {
+    kind: 'transition',
+    nextStatus: 'on_site_delivery',
+    label: 'On site at delivery',
+    description: 'Confirm arrival at the delivery point.',
+    resultLabel: 'On site at delivery',
+  },
+  on_site_delivery: {
+    kind: 'open',
+    label: 'Capture POD & confirm delivered',
+    description: 'Delivery photo, recipient name and signature are required before delivery confirmation.',
+  },
+  delivered: {
+    kind: 'transition',
+    nextStatus: 'completed',
+    label: 'Complete job',
+    description: 'Close the delivered job after the delivery evidence has been captured.',
+    resultLabel: 'Completed',
+  },
+  accepted: {
+    kind: 'open',
+    label: 'Continue accepted job',
+    description: 'Open the job actions to continue from the accepted state safely.',
+  },
+  on_my_way_to_pickup: {
+    kind: 'open',
+    label: 'Continue pickup',
+    description: 'Open the job actions to continue the pickup workflow.',
+  },
+  collected: {
+    kind: 'open',
+    label: 'Continue delivery',
+    description: 'Open the job actions to continue the delivery workflow.',
+  },
+  on_my_way_to_delivery: {
+    kind: 'open',
+    label: 'Continue delivery',
+    description: 'Open the job actions to continue the delivery workflow.',
+  },
 };
 
 function money(value: number) {
@@ -70,6 +150,9 @@ export default function DriverDashboard() {
   const ownerDriver = workspaceRole === 'owner_driver';
   const data = useCompanyWorkspaceData();
   const [ownerBids, setOwnerBids] = useState<OwnerBid[]>([]);
+  const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
+  const [transitionError, setTransitionError] = useState('');
+  const [transitionMessage, setTransitionMessage] = useState('');
 
   const fetchOwnerBids = useCallback(async () => {
     if (!ownerDriver || !user?.id || !isSupabaseConfigured) return;
@@ -94,6 +177,14 @@ export default function DriverDashboard() {
   );
 
   const currentJob = myJobs.find((job) => activeStatuses.has(canonicalJobStatus(job.current_status, job.status)));
+  const currentStatus = currentJob ? canonicalJobStatus(currentJob.current_status, currentJob.status).toLowerCase() : null;
+  const currentAction = currentStatus
+    ? NEXT_DRIVER_ACTIONS[currentStatus] ?? {
+        kind: 'open' as const,
+        label: 'Open job actions',
+        description: 'Review the current job state and continue from the full execution screen.',
+      }
+    : null;
   const todaysJobs = myJobs
     .filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === new Date().toDateString())
     .sort((a, b) => String(a.pickup_datetime ?? '').localeCompare(String(b.pickup_datetime ?? '')));
@@ -121,6 +212,38 @@ export default function DriverDashboard() {
     .filter((invoice) => !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid')
     .reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
 
+  const runCurrentAction = async () => {
+    if (!currentJob || !currentAction) return;
+    if (currentAction.kind === 'open') {
+      router.push(`/driver/jobs/${currentJob.id}`);
+      return;
+    }
+
+    const driverId = user?.driverId?.trim() ?? '';
+    if (!driverId) {
+      setTransitionError('Your driver profile is not available. Open the job and retry from the execution screen.');
+      return;
+    }
+
+    setTransitioningJobId(currentJob.id);
+    setTransitionError('');
+    setTransitionMessage('');
+    const { error } = await supabase.rpc('driver_update_job_status_atomic', {
+      p_driver_id: driverId,
+      p_job_id: currentJob.id,
+      p_next_status: currentAction.nextStatus,
+      p_driver_notes: null,
+    });
+
+    if (error) {
+      setTransitionError('The job status could not be updated from the dashboard. Open the job and retry from the execution screen.');
+    } else {
+      setTransitionMessage(`Job updated: ${currentAction.resultLabel}.`);
+      await data.refresh();
+    }
+    setTransitioningJobId(null);
+  };
+
   return (
     <DriverWorkspaceShell
       personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
@@ -134,6 +257,8 @@ export default function DriverDashboard() {
       }
     >
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
+      {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
+      {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
 
       <div className="driver-dash-metrics" aria-label="Driver activity summary">
         <div className="driver-dash-metric"><span>Jobs today</span><strong>{todaysJobs.length}</strong></div>
@@ -154,7 +279,7 @@ export default function DriverDashboard() {
                 </div>
               </div>
               <div className="driver-dash-actions">
-                <ActionButton tone="success" onClick={() => router.push('/driver/availability')}>Update status</ActionButton>
+                <ActionButton tone="success" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/availability')}>{currentJob ? 'Current job' : 'Update status'}</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Vehicle</ActionButton>
               </div>
             </div>
@@ -236,9 +361,9 @@ export default function DriverDashboard() {
             </div>
           </section>
 
-          {currentJob && (
+          {currentJob && currentAction && (
             <section className="driver-dash-box">
-              <div className="driver-dash-box__head"><strong>Current job execution</strong><ActionButton tone="success" onClick={() => router.push(`/driver/jobs/${currentJob.id}`)}>Open actions</ActionButton></div>
+              <div className="driver-dash-box__head"><strong>Current job execution</strong><StatusBadge value={currentStatus ?? currentJob.status} tone="orange" /></div>
               <div className="driver-dash-box__body">
                 <div className="driver-current-route">
                   <div className="driver-route-stop">
@@ -252,6 +377,11 @@ export default function DriverDashboard() {
                     <strong className="driver-cell-primary">{currentJob.delivery_location ?? 'Delivery'}</strong>
                     <span className="driver-cell-secondary">{formatDateTime(currentJob.delivery_datetime)}</span>
                   </div>
+                </div>
+                <div className="driver-dash-note" style={{ marginTop: '7px' }}><strong>Next action:</strong> {currentAction.description}</div>
+                <div className="driver-dash-actions" style={{ marginTop: '7px' }}>
+                  <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>{transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}</ActionButton>
+                  <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${currentJob.id}`)}>Open full job</ActionButton>
                 </div>
               </div>
             </section>
