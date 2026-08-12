@@ -210,9 +210,19 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
       const nonHydrationErrors = consoleErrors.filter(
         (entry) => !entry.includes("A tree hydrated but some attributes of the server rendered HTML didn't match the client properties."),
       );
-      const cspErrors = nonHydrationErrors.filter((entry) => /content security policy|csp/i.test(entry));
+      const resourceConsoleErrors = nonHydrationErrors.filter((entry) =>
+        /^Failed to load resource: the server responded with a status of \d+ \(.+\)$/i.test(entry),
+      );
+      const actionableConsoleErrors = nonHydrationErrors.filter(
+        (entry) => !resourceConsoleErrors.includes(entry),
+      );
+      const cspErrors = actionableConsoleErrors.filter((entry) => /content security policy|csp/i.test(entry));
+
+      // Browser resource errors do not include the request URL in console output.
+      // Keep the HTTP response gate authoritative for those so a real 4xx/5xx still
+      // fails below with method + URL instead of being hidden by a generic message.
       expect(cspErrors).toEqual([]);
-      expect(nonHydrationErrors).toEqual([]);
+      expect(actionableConsoleErrors).toEqual([]);
       expect(failedRequests).toEqual([]);
       expect(failingResponses).toEqual([]);
     });
