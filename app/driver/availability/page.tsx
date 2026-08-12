@@ -32,6 +32,12 @@ type DriverRow = {
 
 type SlotName = 'AM' | 'PM' | 'EVENING';
 type SlotKey = `${number}_${SlotName}`;
+type WeeklySlotRow = { day_of_week: number; slot: string; available: boolean };
+type WeeklyScheduleResult = {
+  rows: WeeklySlotRow[];
+  error: string | null;
+  unavailable: boolean;
+};
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SLOTS: SlotName[] = ['AM', 'PM', 'EVENING'];
@@ -68,15 +74,6 @@ const labelStyle = {
   textTransform: 'uppercase' as const,
 };
 
-function schedulePermissionDenied(message: string | null | undefined) {
-  const normalised = String(message ?? '').toLowerCase();
-  return normalised.includes('driver_availability_slots') && (
-    normalised.includes('permission denied') ||
-    normalised.includes('row-level security') ||
-    normalised.includes('rls')
-  );
-}
-
 export default function AvailabilityPage() {
   const { user } = useAuth();
   const driverId = user?.driverId ?? null;
@@ -100,6 +97,41 @@ export default function AvailabilityPage() {
     setSuccessMsg(message);
     window.setTimeout(() => setSuccessMsg(''), 3000);
   };
+
+  const getAuthHeader = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    return token ? `Bearer ${token}` : null;
+  }, []);
+
+  const loadWeeklySchedule = useCallback(async (): Promise<WeeklyScheduleResult> => {
+    const auth = await getAuthHeader();
+    if (!auth) {
+      return { rows: [], error: 'Your session has expired. Sign in again to manage your weekly schedule.', unavailable: false };
+    }
+
+    try {
+      const response = await fetch('/api/driver/availability-slots', {
+        headers: { Authorization: auth },
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        slots?: WeeklySlotRow[];
+        error?: string;
+        code?: string;
+      };
+
+      if (!response.ok) {
+        if (payload.code === 'SCHEDULE_NOT_AVAILABLE') {
+          return { rows: [], error: null, unavailable: true };
+        }
+        return { rows: [], error: payload.error || 'Weekly schedule could not be loaded.', unavailable: false };
+      }
+
+      return { rows: payload.slots ?? [], error: null, unavailable: false };
+    } catch {
+      return { rows: [], error: 'Weekly schedule could not be loaded.', unavailable: false };
+    }
+  }, [getAuthHeader]);
 
   const loadDriver = useCallback(async () => {
     const primary = await supabase
@@ -142,10 +174,7 @@ export default function AvailabilityPage() {
         .select('type, reg_plate, payload_kg, has_tail_lift')
         .eq('assigned_driver_id', driverId)
         .maybeSingle(),
-      supabase
-        .from('driver_availability_slots')
-        .select('day_of_week, slot, available')
-        .eq('driver_id', driverId),
+      loadWeeklySchedule(),
     ]);
 
     if (driverRes.row) {
@@ -160,14 +189,13 @@ export default function AvailabilityPage() {
     }
 
     setVehicle((vehicleRes.data as VehicleRow | null) ?? null);
+    setScheduleUnavailable(slotsRes.unavailable);
 
-    if (slotsRes.error) {
+    if (slotsRes.unavailable) {
       setWeeklySlots({} as Record<SlotKey, boolean>);
-      setScheduleUnavailable(schedulePermissionDenied(slotsRes.error.message));
     } else {
-      setScheduleUnavailable(false);
       const nextSlots: Record<SlotKey, boolean> = {} as Record<SlotKey, boolean>;
-      for (const row of (slotsRes.data ?? []) as Array<{ day_of_week: number; slot: string; available: boolean }>) {
+      for (const row of slotsRes.rows) {
         if (row.slot === 'AM' || row.slot === 'PM' || row.slot === 'EVENING') {
           nextSlots[`${row.day_of_week}_${row.slot}` as SlotKey] = row.available;
         }
@@ -178,12 +206,10 @@ export default function AvailabilityPage() {
     const issues: string[] = [];
     if (driverRes.error) issues.push(driverRes.error);
     if (vehicleRes.error) issues.push('Assigned vehicle data could not be loaded.');
-    if (slotsRes.error && !schedulePermissionDenied(slotsRes.error.message)) {
-      issues.push('Weekly schedule could not be loaded.');
-    }
+    if (slotsRes.error) issues.push(slotsRes.error);
     setError(issues.join(' '));
     setLoading(false);
-  }, [driverId, loadDriver]);
+  }, [driverId, loadDriver, loadWeeklySchedule]);
 
   useEffect(() => {
     void loadAllData();
@@ -252,23 +278,40 @@ export default function AvailabilityPage() {
     setError('');
     setWeeklySlots((previous) => ({ ...previous, [key]: next }));
 
-    const { error: upsertError } = await supabase
-      .from('driver_availability_slots')
-      .upsert(
-        { driver_id: driverId, day_of_week: day, slot, available: next, updated_at: new Date().toISOString() },
-        { onConflict: 'driver_id,day_of_week,slot' }
-      );
-
-    if (upsertError) {
+    const auth = await getAuthHeader();
+    if (!auth) {
       setWeeklySlots((previous) => ({ ...previous, [key]: current }));
-      if (schedulePermissionDenied(upsertError.message)) {
-        setScheduleUnavailable(true);
-      } else {
-        setError(`The ${DAYS[day]} ${slot} slot could not be updated.`);
-      }
-    } else {
-      setTimedSuccess(`Updated ${DAYS[day]} ${slot}.`);
+      setError('Your session has expired. Sign in again to update your weekly schedule.');
+      setCalendarSaving(null);
+      return;
     }
+
+    try {
+      const response = await fetch('/api/driver/availability-slots', {
+        method: 'PATCH',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ day_of_week: day, slot, available: next }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
+
+      if (!response.ok) {
+        setWeeklySlots((previous) => ({ ...previous, [key]: current }));
+        if (payload.code === 'SCHEDULE_NOT_AVAILABLE') {
+          setScheduleUnavailable(true);
+        } else {
+          setError(payload.error || `The ${DAYS[day]} ${slot} slot could not be updated.`);
+        }
+      } else {
+        setTimedSuccess(`Updated ${DAYS[day]} ${slot}.`);
+      }
+    } catch {
+      setWeeklySlots((previous) => ({ ...previous, [key]: current }));
+      setError(`The ${DAYS[day]} ${slot} slot could not be updated.`);
+    }
+
     setCalendarSaving(null);
   };
 
@@ -296,7 +339,7 @@ export default function AvailabilityPage() {
         )}
         {scheduleUnavailable && (
           <div style={{ minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '6px 10px', border: '1px solid #fde68a', borderRadius: '4px', background: '#fffbeb', color: '#92400e', fontSize: '11px' }}>
-            <span><strong>Weekly schedule unavailable.</strong> Live availability, radius and vehicle information still work. The raw database permission error is no longer exposed to drivers.</span>
+            <span><strong>Weekly schedule unavailable.</strong> Live availability, radius and vehicle information still work. This database build does not currently expose weekly schedule storage.</span>
             <StatusBadge value="Schedule restricted" tone="orange" />
           </div>
         )}
@@ -374,7 +417,7 @@ export default function AvailabilityPage() {
         <Panel title="Weekly schedule" description="Toggle AM, PM and evening availability without horizontal scrolling.">
           {scheduleUnavailable ? (
             <div style={{ padding: '8px 0', color: '#64748b', fontSize: '12px' }}>
-              Schedule editing is temporarily disabled until database access for driver availability slots is restored.
+              Schedule editing is temporarily unavailable in this database build.
             </div>
           ) : loading ? (
             <div style={{ color: '#64748b', fontSize: '12px' }}>Loading weekly schedule…</div>
