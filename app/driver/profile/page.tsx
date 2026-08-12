@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
+import { ActionButton, AlertBanner, Panel } from '../../components/workspace/WorkspaceUI';
 
 type DriverProfileRow = {
   id: string;
@@ -17,31 +19,37 @@ type DriverProfileRow = {
   status: string | null;
 };
 
-const card: CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #d7e0ea',
-  borderRadius: '10px',
-  padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
-};
-
-const inputStyle: CSSProperties = {
-  width: '100%',
-  padding: '0.7rem 0.75rem',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '0.92rem',
-};
-
 const availabilityLabels: Record<'available' | 'busy' | 'offline', string> = {
   available: 'Available',
   busy: 'On a job',
   offline: 'Offline',
 };
 
+const inputStyle = {
+  width: '100%',
+  height: '32px',
+  padding: '0 8px',
+  borderRadius: '4px',
+  border: '1px solid #d8dee8',
+  fontSize: '12px',
+  background: '#fff',
+  color: '#1a1f2b',
+} as const;
+
+const labelStyle = {
+  display: 'block',
+  marginBottom: '3px',
+  color: '#64748b',
+  fontSize: '10px',
+  lineHeight: '14px',
+  fontWeight: 700,
+  letterSpacing: '.03em',
+  textTransform: 'uppercase' as const,
+};
+
 function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
   if (!user) return 'Driver workspace';
-  if (user.ownerDriverExecutionMode) return 'Owner account using driver execution mode';
+  if (user.ownerDriverExecutionMode) return 'Owner account · driver execution';
   if (user.ownerDriverWorkspace) return 'Owner-driver workspace';
   if (user.canAccessDriverMode) return 'Driver mode enabled';
   return 'Driver workspace';
@@ -49,6 +57,7 @@ function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
 
 export default function DriverProfilePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const driverId = user?.driverId ?? null;
 
   const [driver, setDriver] = useState<DriverProfileRow | null>(null);
@@ -83,13 +92,13 @@ export default function DriverProfilePage() {
         .eq('id', driverId)
         .maybeSingle();
       if (fallback.error) {
-        setError(`Unable to load your driver profile: ${fallback.error.message}`);
+        setError('Your driver profile could not be loaded.');
         setLoading(false);
         return;
       }
       row = (fallback.data as DriverProfileRow | null) ?? null;
     } else if (primary.error) {
-      setError(`Unable to load your driver profile: ${primary.error.message}`);
+      setError('Your driver profile could not be loaded.');
       setLoading(false);
       return;
     }
@@ -111,6 +120,7 @@ export default function DriverProfilePage() {
 
   const handleSave = async () => {
     if (!driverId || !isSupabaseConfigured) return;
+
     setSaving(true);
     setError('');
     setSuccess('');
@@ -124,7 +134,7 @@ export default function DriverProfilePage() {
       .eq('id', driverId);
 
     if (updateError) {
-      setError(`Unable to save your profile: ${updateError.message}`);
+      setError('Your profile changes could not be saved.');
     } else {
       setSuccess('Profile details updated.');
       await loadProfile();
@@ -134,99 +144,75 @@ export default function DriverProfilePage() {
 
   const workspaceMode = getWorkspaceModeLabel(user);
   const contactEmail = driver?.email ?? user?.email ?? 'Not available';
+  const companyLinked = Boolean(driver?.company_id ?? user?.companyId);
+  const driverLinked = Boolean(driver?.id ?? user?.driverId);
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Review your account summary, driver identity, workspace mode, availability, and contact details."
+        subtitle="Identity, contact, account readiness and availability shortcuts without exposing internal platform identifiers."
         driverName={driver?.display_name ?? user?.email ?? 'Driver'}
         availabilityLabel={availabilityLabel}
       >
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          {error && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem' }}>
-              {error}
-            </div>
-          )}
-          {success && (
-            <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: '8px', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600 }}>
-              {success}
-            </div>
-          )}
+        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-            <div style={card}>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>Account summary</div>
-              {[
-                { label: 'Workspace mode', value: workspaceMode },
-                { label: 'Role', value: 'Driver' },
-                { label: 'Company context', value: driver?.company_id ?? user?.companyId ?? 'Not linked' },
-                { label: 'Driver record', value: driver?.id ?? user?.driverId ?? 'Not linked' },
-              ].map((item) => (
-                <div key={item.label} style={{ padding: '0.65rem 0', borderTop: '1px solid #eef2f7' }}>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>{item.label}</div>
-                  <div style={{ fontSize: '0.88rem', color: '#0f172a', fontWeight: 600, wordBreak: 'break-word' }}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={card}>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>Availability</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>{availabilityLabel}</div>
-              <div style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.5 }}>
-                Manage working slots, driver persona, and radius preferences from the availability page.
-              </div>
-              <button
-                onClick={() => window.location.assign('/driver/availability')}
-                style={{ marginTop: '0.8rem', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid #d7e0ea', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Open availability
-              </button>
-            </div>
+        <div className="driver-profile-summary">
+          <div>
+            <span>Workspace</span>
+            <strong>{workspaceMode}</strong>
           </div>
+          <div>
+            <span>Company connection</span>
+            <strong>{companyLinked ? 'Linked' : 'Not linked'}</strong>
+          </div>
+          <div>
+            <span>Driver profile</span>
+            <strong>{driverLinked ? 'Active record' : 'Not linked'}</strong>
+          </div>
+        </div>
 
-          <div style={{ ...card, maxWidth: '680px' }}>
-            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Driver identity &amp; contact</div>
+        <div className="driver-ops-grid-2">
+          <Panel title="Driver identity & contact" description="Primary details used for driver operations and communication.">
             {loading ? (
-              <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading profile…</div>
+              <div style={{ color: '#64748b', fontSize: '12px' }}>Loading profile…</div>
             ) : (
-              <div style={{ display: 'grid', gap: '0.9rem' }}>
+              <div style={{ display: 'grid', gap: '8px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Display name</label>
+                  <label style={labelStyle}>Display name</label>
                   <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} style={inputStyle} placeholder="Driver name" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Phone</label>
+                  <label style={labelStyle}>Phone</label>
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} style={inputStyle} placeholder="Contact number" />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.8rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>Email</div>
-                    <div style={{ fontWeight: 600, color: '#0f172a', wordBreak: 'break-word' }}>{contactEmail}</div>
-                  </div>
-                  <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '0.8rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.15rem' }}>Driver account status</div>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{driver?.status ?? 'Unknown'}</div>
-                  </div>
+                <div className="driver-detail-grid">
+                  <div className="driver-detail-item"><span>Email</span><strong>{contactEmail}</strong></div>
+                  <div className="driver-detail-item"><span>Role</span><strong>Driver</strong></div>
+                  <div className="driver-detail-item"><span>Account status</span><strong>{driver?.status ?? 'Unknown'}</strong></div>
+                  <div className="driver-detail-item"><span>Availability</span><strong>{availabilityLabel}</strong></div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => void handleSave()}
-                    disabled={saving}
-                    style={{ padding: '0.7rem 1rem', borderRadius: '8px', border: 'none', backgroundColor: '#1d4ed8', color: '#fff', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
-                  >
-                    {saving ? 'Saving…' : 'Save profile'}
-                  </button>
-                  <button
-                    onClick={() => window.location.assign('/driver/change-password')}
-                    style={{ padding: '0.7rem 1rem', borderRadius: '8px', border: '1px solid #d7e0ea', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Password &amp; security
-                  </button>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/change-password')}>Password & security</ActionButton>
+                  <ActionButton tone="primary" onClick={() => void handleSave()} disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</ActionButton>
                 </div>
               </div>
             )}
-          </div>
+          </Panel>
+
+          <Panel title="Operational shortcuts" description="Jump directly to the settings that affect live work visibility and readiness.">
+            <div style={{ display: 'grid', gap: '6px' }}>
+              <button type="button" onClick={() => router.push('/driver/availability')} style={{ minHeight: '44px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '8px', border: '1px solid #d8dee8', borderRadius: '4px', background: '#fff', padding: '6px 8px', textAlign: 'left', cursor: 'pointer' }}>
+                <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Availability & working radius</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Current state: {availabilityLabel}</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/vehicles')} style={{ minHeight: '44px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '8px', border: '1px solid #d8dee8', borderRadius: '4px', background: '#fff', padding: '6px 8px', textAlign: 'left', cursor: 'pointer' }}>
+                <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Vehicle</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Capacity and equipment profile</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/documents')} style={{ minHeight: '44px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '8px', border: '1px solid #d8dee8', borderRadius: '4px', background: '#fff', padding: '6px 8px', textAlign: 'left', cursor: 'pointer' }}>
+                <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Documents & compliance</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Maintain ready-to-work evidence</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+              </button>
+            </div>
+          </Panel>
         </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
