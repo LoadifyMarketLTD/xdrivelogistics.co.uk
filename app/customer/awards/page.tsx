@@ -1,1 +1,7 @@
-'use client'; import { CustomerAwardsPage } from '../CustomerWorkspaceModules'; export default function Page(){return <CustomerAwardsPage/>}
+'use client';
+
+import { CustomerAwardsOperationalPage } from '../CustomerOperationalPages';
+
+export default function Page() {
+  return <CustomerAwardsOperationalPage />;
+}
