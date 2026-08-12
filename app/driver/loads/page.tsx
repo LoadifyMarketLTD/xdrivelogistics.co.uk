@@ -659,7 +659,7 @@ export default function AvailableLoadsPage() {
                         {load.booking_reference && <span>Booking: {load.booking_reference}</span>}
                         {load.customer_reference && <span>Customer ref: {load.customer_reference}</span>}
                         {isEuroLoad(load) && <StatusBadge value="International" tone="blue" />}
-                        {load.direct_delivery_required && <StatusBadge value="Direct" tone="navy" />}
+                        {load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}
                         {load.is_fixed_price && <StatusBadge value="Proposed price" tone="orange" />}
                         {load.myBidStatus && <StatusBadge value={`Quote ${load.myBidStatus}`} tone="purple" />}
                         {load.myBidAmount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBidAmount)}</strong>}
