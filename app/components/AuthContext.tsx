@@ -22,6 +22,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 const LOGIN_TIMEOUT_MS = 45_000;
 const LOGIN_BOOTSTRAP_RETRY_DELAY_MS = 1_500;
 const LOGIN_UNAVAILABLE_ERROR = 'Login service unavailable. Please try again.';
+const AUTH_CONTEXT_CHANGED_ERROR = 'Your authentication session changed. Please try again.';
 const RESET_PASSWORD_COOLDOWN_MS = 60_000;
 const RESET_PASSWORD_COOLDOWN_KEY = 'xdrive:last-password-reset-request-at';
 
@@ -57,6 +58,24 @@ const isServiceUnavailableError = (error: unknown): boolean => {
     message.includes('timed out') ||
     message.includes('fetch')
   );
+};
+
+const clearPersistedSupabaseSession = () => {
+  if (typeof window === 'undefined') return;
+
+  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!configuredUrl) return;
+
+  try {
+    const projectRef = new URL(configuredUrl).hostname.split('.')[0];
+    if (!projectRef) return;
+
+    const storageKey = `sb-${projectRef}-auth-token`;
+    window.localStorage.removeItem(storageKey);
+    window.localStorage.removeItem(`${storageKey}-code-verifier`);
+  } catch (error) {
+    console.warn('[XDrive Auth] failed to clear persisted local session', error);
+  }
 };
 
 /** Convert a structured failure reason into a user-facing message. */
@@ -123,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userRef = useRef<ResolvedAuthUser | null>(null);
   const hasSupabaseSessionRef = useRef(false);
   const hydrationRef = useRef<{ userId: string; promise: Promise<AuthResolutionResult> } | null>(null);
+  const authGenerationRef = useRef(0);
 
   useEffect(() => {
     userRef.current = user;
@@ -136,18 +156,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     writeRouteAuthCookie(session);
   }, []);
 
+  const beginAuthTransition = useCallback(() => {
+    authGenerationRef.current += 1;
+    hydrationRef.current = null;
+    return authGenerationRef.current;
+  }, []);
+
   const resetAuthState = useCallback(() => {
+    beginAuthTransition();
+    loginHydrating.current = false;
     setUser(null);
     userRef.current = null;
     setHasSupabaseSession(false);
     clearRouteAuthCookie();
-  }, []);
+  }, [beginAuthTransition]);
 
   const setPasswordSetupSessionState = useCallback(() => {
+    beginAuthTransition();
+    loginHydrating.current = false;
     setUser(null);
     userRef.current = null;
     setHasSupabaseSession(true);
-  }, []);
+  }, [beginAuthTransition]);
 
   const isPasswordSetupContext = useCallback((event?: string) => {
     if (pathnameRef.current === RESET_PASSWORD_PATH) return true;
@@ -168,8 +198,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return hydrationRef.current.promise;
     }
 
+    const hydrationGeneration = authGenerationRef.current;
     const hydrationPromise = (async () => {
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
+
+      // Logout, account switching, password recovery, or a forced context refresh
+      // may have started while this profile/company resolution was in flight.
+      // Never let an obsolete account resolution write back into the current session.
+      if (hydrationGeneration !== authGenerationRef.current) {
+        return result;
+      }
+
       if (!result.user) {
         setUser(null);
         userRef.current = null;
@@ -200,15 +239,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setIsLoading(true);
-    hydrationRef.current = null;
+    const refreshGeneration = beginAuthTransition();
 
     try {
       const sessionResult = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
       if (sessionResult.error) throw sessionResult.error;
+      if (refreshGeneration !== authGenerationRef.current) {
+        return { success: false, error: AUTH_CONTEXT_CHANGED_ERROR };
+      }
 
       const session = sessionResult.data.session;
       if (!session?.user) {
         resetAuthState();
+        setIsLoading(false);
         return { success: false, error: 'Your session has expired. Please sign in again.' };
       }
 
@@ -225,6 +268,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resolveAuthenticatedUser(session.user),
         LOGIN_TIMEOUT_MS,
       );
+      if (refreshGeneration !== authGenerationRef.current) {
+        return { success: false, error: AUTH_CONTEXT_CHANGED_ERROR };
+      }
 
       if (!result.user) {
         setUser(null);
@@ -244,6 +290,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHasSupabaseSession(true);
       return { success: true, user: result.user };
     } catch (error) {
+      if (refreshGeneration !== authGenerationRef.current) {
+        return { success: false, error: AUTH_CONTEXT_CHANGED_ERROR };
+      }
+
       console.error('AuthContext forced refresh failed', error);
       setUser(null);
       userRef.current = null;
@@ -252,11 +302,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
       resetAuthState();
+      setIsLoading(false);
       return { success: false, error: 'Unable to refresh account access.' };
     } finally {
-      setIsLoading(false);
+      if (refreshGeneration === authGenerationRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [resetAuthState, syncRouteAuthCookie]);
+  }, [beginAuthTransition, resetAuthState, syncRouteAuthCookie]);
 
   useEffect(() => {
     let isMounted = true;
@@ -366,7 +419,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string
   ): Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }> => {
+    const loginGeneration = beginAuthTransition();
     loginHydrating.current = true;
+
     try {
       if (!isSupabaseConfigured) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
@@ -377,11 +432,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         LOGIN_TIMEOUT_MS
       );
+      if (loginGeneration !== authGenerationRef.current) {
+        return { success: false, error: AUTH_CONTEXT_CHANGED_ERROR };
+      }
       if (error) { return { success: false, error: error.message }; }
       if (!data.user) { return { success: false, error: 'Login failed' }; }
       syncRouteAuthCookie(data.session);
 
       const result = await hydrateUser(data.user);
+      if (loginGeneration !== authGenerationRef.current) {
+        return { success: false, error: AUTH_CONTEXT_CHANGED_ERROR };
+      }
       if (!result.user) {
         if (result.reason === 'db_error') {
           console.error('[XDrive Auth] account validation db_error', {
@@ -401,13 +462,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const route = getPostLoginRoute(result.user);
       return { success: true, route };
     } catch (error) {
+      if (loginGeneration !== authGenerationRef.current) {
+        return { success: false, error: AUTH_CONTEXT_CHANGED_ERROR };
+      }
+
       console.error('Login error:', error);
       if (isServiceUnavailableError(error)) {
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
       return { success: false, error: 'An error occurred during login' };
     } finally {
-      loginHydrating.current = false;
+      if (loginGeneration === authGenerationRef.current) {
+        loginHydrating.current = false;
+      }
     }
   };
 
@@ -446,9 +513,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    if (isSupabaseConfigured) await supabase.auth.signOut();
+    setIsLoading(true);
     resetAuthState();
-    router.push('/login');
+
+    try {
+      if (isSupabaseConfigured) {
+        const { error } = await withTimeout(
+          supabase.auth.signOut({ scope: 'local' }),
+          LOGIN_TIMEOUT_MS,
+        );
+        if (error) {
+          console.warn('[XDrive Auth] Supabase local sign-out returned an error', error);
+        }
+      }
+    } catch (error) {
+      console.warn('[XDrive Auth] Supabase local sign-out failed', error);
+    } finally {
+      // supabase-js 2.97 can leave its persisted browser session behind when
+      // signOut itself fails. Clear only this project's auth keys so a Driver
+      // session cannot be resurrected when the next Customer/Broker logs in.
+      clearPersistedSupabaseSession();
+      resetAuthState();
+      setIsLoading(false);
+      router.replace('/login');
+    }
   };
 
   return (
