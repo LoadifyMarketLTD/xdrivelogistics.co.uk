@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
-import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   DataTable,
@@ -70,7 +70,7 @@ export default function FreightVisionPage() {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
   const latestLocations = useMemo(() => {
-    const map = new Map<string, (typeof data.locations)[number]>();
+    const map = new Map<string, WorkspaceLocation>();
     for (const location of data.locations) {
       const current = map.get(location.driver_id);
       const currentTime = current ? new Date(current.recorded_at ?? current.updated_at ?? 0).getTime() : 0;
