@@ -14,6 +14,8 @@ export type FleetMapPoint = {
   stale: boolean;
 };
 
+export type FleetMapMode = 'live' | 'future';
+
 function MapViewport({ points, selectedDriverId }: { points: FleetMapPoint[]; selectedDriverId: string | null }) {
   const map = useMap();
 
@@ -60,9 +62,11 @@ const hasValidCoordinates = (point: FleetMapPoint) =>
 export default function FleetPositionMapClient({
   points,
   selectedDriverId,
+  mode = 'live',
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
+  mode?: FleetMapMode;
 }) {
   const [providerError, setProviderError] = useState(false);
   const validPoints = useMemo(() => points.filter(hasValidCoordinates), [points]);
@@ -97,7 +101,7 @@ export default function FleetPositionMapClient({
         role="status"
         aria-live="polite"
       >
-        No live fleet positions available.
+        {mode === 'future' ? 'No geocoded future fleet positions available.' : 'No live fleet positions available.'}
       </div>
     );
   }
@@ -135,7 +139,7 @@ export default function FleetPositionMapClient({
             boxShadow: '0 8px 20px rgba(15, 23, 42, 0.14)',
           }}
         >
-          Map tiles are temporarily unavailable. Driver positions could not be displayed on the base map.
+          Map tiles are temporarily unavailable. {mode === 'future' ? 'Future positions' : 'Driver positions'} could not be displayed on the base map.
         </div>
       )}
 
@@ -160,8 +164,8 @@ export default function FleetPositionMapClient({
             center={[point.lat, point.lng]}
             radius={point.driverId === selectedDriverId ? 11 : 8}
             pathOptions={{
-              color: point.stale ? '#b91c1c' : '#166534',
-              fillColor: point.stale ? '#ef4444' : '#22c55e',
+              color: mode === 'future' ? '#1d4ed8' : point.stale ? '#b91c1c' : '#166534',
+              fillColor: mode === 'future' ? '#3b82f6' : point.stale ? '#ef4444' : '#22c55e',
               fillOpacity: 0.86,
               weight: point.driverId === selectedDriverId ? 4 : 2,
             }}
@@ -169,11 +173,11 @@ export default function FleetPositionMapClient({
             <Popup>
               <strong>{point.driverName}</strong>
               <br />
-              {point.stale ? 'Location is stale' : 'Live location'}
+              {mode === 'future' ? 'Future declared position' : point.stale ? 'Location is stale' : 'Live location'}
               <br />
-              Updated: {formatTimestamp(point.timestamp)}
+              {mode === 'future' ? 'Available from' : 'Updated'}: {formatTimestamp(point.timestamp)}
               <br />
-              Job: {point.jobId ? point.jobId.slice(0, 8).toUpperCase() : 'Not linked'}
+              {mode === 'future' ? 'Next job' : 'Job'}: {point.jobId ? point.jobId.slice(0, 8).toUpperCase() : 'Not linked'}
             </Popup>
           </CircleMarker>
         ))}
