@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { useCompanyWorkspaceData } from '../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -73,7 +73,7 @@ export default function LiveAvailabilityPage() {
   }, [data.drivers]);
 
   const latestLocations = useMemo(() => {
-    const map = new Map<string, (typeof data.locations)[number]>();
+    const map = new Map<string, WorkspaceLocation>();
     for (const location of data.locations) {
       const current = map.get(location.driver_id);
       const currentTime = current ? new Date(current.recorded_at ?? current.updated_at ?? 0).getTime() : 0;
