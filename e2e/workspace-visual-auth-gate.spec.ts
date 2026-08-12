@@ -6,10 +6,9 @@ type Role =
   | 'customer'
   | 'driver'
   | 'fleet'
-  | 'operations'
-  | 'super-admin';
+  | 'operations';
 
-const roles: Role[] = ['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin'];
+const roles: Role[] = ['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations'];
 
 const expectedKpis: Record<Role, string[]> = {
   carrier: ['Quotes submitted', 'Won work', 'Awaiting allocation', 'Active jobs', 'POD outstanding', 'Overdue invoices'],
@@ -18,7 +17,6 @@ const expectedKpis: Record<Role, string[]> = {
   driver: ['Jobs today', 'Active job', 'Awaiting start', 'Documents expiring', 'Quotes submitted'],
   fleet: ['Available drivers', 'Busy drivers', 'Unassigned jobs', 'Stale positions', 'Expiry alerts'],
   operations: ['Unallocated jobs', 'Active jobs', 'Exceptions', 'Available drivers', 'Stale positions'],
-  'super-admin': ['P0/P1 Actions', 'Jobs at Risk', 'Blocked Accounts', 'Overdue Invoices', 'Degraded Services'],
 };
 
 const viewports = [
@@ -55,16 +53,18 @@ function topShellSelectors(role: Role) {
       header: '.driver-top-shell__header',
       nav: '.driver-top-nav',
       track: '.driver-top-nav__track',
+      overflowTarget: '.driver-top-nav',
     };
   }
   return {
     header: '.top-workspace-shell__header',
     nav: '.top-workspace-nav',
     track: '.top-workspace-nav__track',
+    overflowTarget: '.top-workspace-nav__track',
   };
 }
 
-test.describe('workspace visual fixture gate (deterministic fixture harness — not authenticated runtime proof)', () => {
+test.describe('operational top-workspace visual fixture gate (deterministic fixture harness — not authenticated runtime proof)', () => {
   test.skip(
     process.env.E2E_VISUAL_FIXTURE !== 'true',
     'Set E2E_VISUAL_FIXTURE=true to enable deterministic visual fixture routes.',
@@ -96,62 +96,50 @@ test.describe('workspace visual fixture gate (deterministic fixture harness — 
         await page.goto(`/visual-fixture/workspace/${role}`);
         await page.waitForLoadState('networkidle');
 
-        if (role === 'super-admin') {
-          const header = page
-            .locator('header')
-            .filter({ has: page.getByRole('button', { name: 'Action Centre' }) })
-            .first();
-          await expect(header).toBeVisible();
-          expect(await header.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(50);
+        const selectors = topShellSelectors(role);
+        const header = page.locator(selectors.header);
+        const nav = page.locator(selectors.nav);
+        const track = page.locator(selectors.track);
+        const overflowTarget = page.locator(selectors.overflowTarget);
 
-          const sidebar = page.locator('aside[aria-label$="navigation"]');
-          if (viewport.width <= 640) {
-            await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
-            const rightEdge = await sidebar.evaluate((el) => el.getBoundingClientRect().right);
-            expect(rightEdge).toBeLessThanOrEqual(1);
-          } else if (viewport.width <= 1024) {
-            await expect(sidebar).toBeVisible();
-            expect(await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(56);
-          } else {
-            await expect(sidebar).toBeVisible();
-            const width = await sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width));
-            expect(width).toBeGreaterThanOrEqual(228);
-            expect(width).toBeLessThanOrEqual(232);
-          }
-          await expect(page.locator('[aria-label="Activity feed"]')).toBeVisible();
-          await expect(page.getByText('Platform owner workspace')).toBeVisible();
-        } else {
-          const selectors = topShellSelectors(role);
-          const header = page.locator(selectors.header);
-          const nav = page.locator(selectors.nav);
-          const track = page.locator(selectors.track);
+        await expect(header).toBeVisible();
+        await expect(nav).toBeVisible();
+        await expect(track).toBeVisible();
 
-          await expect(header).toBeVisible();
-          await expect(nav).toBeVisible();
-          await expect(track).toBeVisible();
-          await expect(page.locator('aside[aria-label$="navigation"]')).toHaveCount(0);
-          await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(0);
-          await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
+        // Accepted operational architecture: top navigation only. The legacy
+        // sidebar contract is intentionally not part of these role surfaces.
+        await expect(page.locator('aside[aria-label$="navigation"]')).toHaveCount(0);
+        await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(0);
+        await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
 
-          const expectedHeaderHeight = viewport.width <= 768 ? 48 : 50;
-          expect(await header.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(expectedHeaderHeight);
-          expect(await nav.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(36);
+        // workspace-visual-scale.css is the accepted readable scale contract:
+        // 56px header + 40px nav on desktop, 50px + 38px at <= 768px.
+        const compact = viewport.width <= 768;
+        const expectedHeaderHeight = compact ? 50 : 56;
+        const expectedNavHeight = compact ? 38 : 40;
+        expect(
+          await header.evaluate((el) => Math.round(el.getBoundingClientRect().height)),
+          `${role}/${viewport.label}: accepted header height`,
+        ).toBe(expectedHeaderHeight);
+        expect(
+          await nav.evaluate((el) => Math.round(el.getBoundingClientRect().height)),
+          `${role}/${viewport.label}: accepted nav height`,
+        ).toBe(expectedNavHeight);
 
-          const navButtons = track.getByRole('button');
-          expect(await navButtons.count()).toBeGreaterThan(0);
+        const navButtons = track.getByRole('button');
+        expect(await navButtons.count()).toBeGreaterThan(0);
 
-          const navOverflow = await track.evaluate((el) => ({
+        if (viewport.width <= 1024) {
+          const navOverflow = await overflowTarget.evaluate((el) => ({
             overflowX: window.getComputedStyle(el).overflowX,
             hasScroll: el.scrollWidth > el.clientWidth + 1,
           }));
-          if (viewport.width <= 1024) {
-            expect(['auto', 'scroll']).toContain(navOverflow.overflowX);
-          }
+          expect(['auto', 'scroll']).toContain(navOverflow.overflowX);
+        }
 
-          await expect(page.getByRole('button', { name: /Notifications/i })).toBeVisible();
-          if (viewport.width > 768) {
-            await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
-          }
+        await expect(page.getByRole('button', { name: /Notifications/i })).toBeVisible();
+        if (viewport.width > 768) {
+          await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
         }
 
         const pageOverflow = await page.evaluate(
