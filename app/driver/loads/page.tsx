@@ -89,7 +89,6 @@ type SavedLoadFilters = {
 };
 
 const LOAD_FETCH_LIMIT = 150;
-const DEFAULT_PAGE_SIZE: PageSize = 20 as PageSize;
 const LOAD_FILTER_STORAGE_KEY = 'xdrive.driver.loads.default-search.v1';
 
 const VEHICLE_LABELS: Record<string, string> = {
