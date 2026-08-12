@@ -181,8 +181,8 @@ export default function TopWorkspaceVisualFixture({ role }: { role: OperationalF
 
         <QuickActionGrid
           actions={config.actions.map((label, index) => ({
+            key: `${role}-action-${index}`,
             label,
-            description: index === 0 ? 'Primary operational next step' : 'Open the relevant control surface',
             onClick: () => undefined,
           }))}
         />
