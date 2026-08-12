@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { operationalError } from '../../_lib/operationalError';
 import { isDriverContext, requireDriver, respond } from '../mobile/_lib';
 
 type JourneyRow = {
@@ -143,7 +144,9 @@ function rangeForDateFilter(value: string) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
+  }
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
@@ -173,7 +176,9 @@ export async function GET(request: NextRequest) {
   if (vehicleType) query = query.eq('vehicle_type', vehicleType);
 
   const { data, error } = await query;
-  if (error) return respond(500, { error: error.message });
+  if (error) {
+    return operationalError({ message: 'Return journeys could not be loaded. Please retry.', context: `driver.return-journeys.get:${scope}`, cause: error });
+  }
   const rows = (data ?? []) as JourneyRow[];
 
   const companyIds = [...new Set(rows.map((row) => row.company_id).filter(Boolean))];
@@ -273,11 +278,14 @@ export async function GET(request: NextRequest) {
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
     generatedAt: new Date().toISOString(),
+    partialMemberData: Boolean(companiesResult.error || driversResult.error),
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
+  }
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
   if (!driver.companyId) return respond(400, { error: 'A company context is required to publish exchange journeys.' });
@@ -318,12 +326,16 @@ export async function POST(request: NextRequest) {
     status: 'available',
   };
   const { data, error } = await supabaseAdmin.from('return_journeys').insert(insert).select(BASE_SELECT).maybeSingle();
-  if (error) return respond(500, { error: error.message });
+  if (error) {
+    return operationalError({ message: 'The return journey could not be published. Please retry.', context: `driver.return-journeys.post:${driver.driverId}`, cause: error });
+  }
   return respond(201, { journey: data });
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
+  }
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
   const id = cleanText(new URL(request.url).searchParams.get('id'), 80);
@@ -335,7 +347,9 @@ export async function DELETE(request: NextRequest) {
     .eq('driver_id', driver.driverId)
     .select('id,status')
     .maybeSingle();
-  if (error) return respond(500, { error: error.message });
+  if (error) {
+    return operationalError({ message: 'The return journey could not be cancelled. Please retry.', context: `driver.return-journeys.delete:${id}`, cause: error });
+  }
   if (!data) return respond(404, { error: 'Journey not found.' });
   return respond(200, { journey: data });
 }
