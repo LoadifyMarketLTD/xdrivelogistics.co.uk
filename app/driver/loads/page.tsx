@@ -53,6 +53,10 @@ type ExchangeLoad = {
   exchange_posted_at: string | null;
   awarded_carrier_company_id: string | null;
   direct_invite_company_id: string | null;
+  pickup_country_code?: string | null;
+  delivery_country_code?: string | null;
+  service_mode?: string | null;
+  direct_delivery_required?: boolean | null;
   companies: { name: string } | Array<{ name: string }> | null;
 };
 
@@ -64,9 +68,29 @@ type LoadWithBidStatus = ExchangeLoad & {
 };
 
 type SortMode = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc';
+type RegionFilter = 'any' | 'uk_roi' | 'euro';
+type PostedWithinFilter = 'any' | '15m' | '30m' | '1h' | '2h' | '4h' | '8h' | '24h';
+type JobTimingFilter = 'any' | 'same_day_timed' | 'same_day_non_timed' | 'next_day_timed' | 'next_day_non_timed';
+type PageSize = 10 | 25 | 50;
+
+type SavedLoadFilters = {
+  vehicleFilter: string;
+  pickupFilter: string;
+  deliveryFilter: string;
+  cargoFilter: string;
+  weightMinFilter: string;
+  dateFromFilter: string;
+  dateToFilter: string;
+  memberFilter: string;
+  regionFilter: RegionFilter;
+  postedWithinFilter: PostedWithinFilter;
+  jobTimingFilter: JobTimingFilter;
+  sortBy: SortMode;
+};
 
 const LOAD_FETCH_LIMIT = 150;
-const LOADS_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE: PageSize = 20 as PageSize;
+const LOAD_FILTER_STORAGE_KEY = 'xdrive.driver.loads.default-search.v1';
 
 const VEHICLE_LABELS: Record<string, string> = {
   car: 'Car',
@@ -120,6 +144,52 @@ function money(value: number | null) {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 }
 
+function postedWithinMs(filter: PostedWithinFilter) {
+  const values: Record<Exclude<PostedWithinFilter, 'any'>, number> = {
+    '15m': 15 * 60 * 1000,
+    '30m': 30 * 60 * 1000,
+    '1h': 60 * 60 * 1000,
+    '2h': 2 * 60 * 60 * 1000,
+    '4h': 4 * 60 * 60 * 1000,
+    '8h': 8 * 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+  };
+  return filter === 'any' ? null : values[filter];
+}
+
+function isTimedLoad(load: ExchangeLoad) {
+  const values = [load.pickup_time_slot, load.delivery_time_slot]
+    .map((value) => String(value ?? '').trim().toUpperCase())
+    .filter(Boolean);
+  return values.some((value) => value !== 'ASAP');
+}
+
+function dateRelation(load: ExchangeLoad) {
+  if (!load.pickup_datetime || !load.delivery_datetime) return 'unknown';
+  const pickup = new Date(load.pickup_datetime);
+  const delivery = new Date(load.delivery_datetime);
+  if (Number.isNaN(pickup.getTime()) || Number.isNaN(delivery.getTime())) return 'unknown';
+  const pickupDate = `${pickup.getFullYear()}-${pickup.getMonth()}-${pickup.getDate()}`;
+  const deliveryDate = `${delivery.getFullYear()}-${delivery.getMonth()}-${delivery.getDate()}`;
+  return pickupDate === deliveryDate ? 'same_day' : 'next_day';
+}
+
+function matchesTiming(load: ExchangeLoad, filter: JobTimingFilter) {
+  if (filter === 'any') return true;
+  const relation = dateRelation(load);
+  const timed = isTimedLoad(load);
+  if (filter === 'same_day_timed') return relation === 'same_day' && timed;
+  if (filter === 'same_day_non_timed') return relation === 'same_day' && !timed;
+  if (filter === 'next_day_timed') return relation === 'next_day' && timed;
+  return relation === 'next_day' && !timed;
+}
+
+function isEuroLoad(load: ExchangeLoad) {
+  const pickup = String(load.pickup_country_code ?? 'GB').toUpperCase();
+  const delivery = String(load.delivery_country_code ?? 'GB').toUpperCase();
+  return !['GB', 'IE'].includes(pickup) || !['GB', 'IE'].includes(delivery);
+}
+
 export default function AvailableLoadsPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -132,6 +202,7 @@ export default function AvailableLoadsPage() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [expandedLoadId, setExpandedLoadId] = useState<string | null>(null);
+  const [expandAll, setExpandAll] = useState(false);
   const [bidLoadId, setBidLoadId] = useState<string | null>(null);
   const [bidAmount, setBidAmount] = useState('');
   const [bidMessage, setBidMessage] = useState('');
@@ -144,8 +215,14 @@ export default function AvailableLoadsPage() {
   const [weightMinFilter, setWeightMinFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
+  const [memberFilter, setMemberFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>('any');
+  const [postedWithinFilter, setPostedWithinFilter] = useState<PostedWithinFilter>('any');
+  const [jobTimingFilter, setJobTimingFilter] = useState<JobTimingFilter>('any');
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
-  const [visibleCount, setVisibleCount] = useState(LOADS_PAGE_SIZE);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [visibleCount, setVisibleCount] = useState(25);
 
   const fetchLoads = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured) {
@@ -185,22 +262,37 @@ export default function AvailableLoadsPage() {
       return;
     }
 
+    const baseLoads = ((loadsRes.data ?? []) as ExchangeLoad[]).filter((load) => !companyId || load.company_id !== companyId);
+    const advancedMap = new Map<string, { pickup_country_code?: string | null; delivery_country_code?: string | null; service_mode?: string | null; direct_delivery_required?: boolean | null }>();
+
+    if (baseLoads.length > 0) {
+      const advancedRes = await supabase
+        .from('jobs')
+        .select('id, pickup_country_code, delivery_country_code, service_mode, direct_delivery_required')
+        .in('id', baseLoads.map((load) => load.id));
+      if (!advancedRes.error) {
+        for (const row of (advancedRes.data ?? []) as Array<{ id: string; pickup_country_code?: string | null; delivery_country_code?: string | null; service_mode?: string | null; direct_delivery_required?: boolean | null }>) {
+          advancedMap.set(row.id, row);
+        }
+      }
+    }
+
     const bidMap = new Map(
       (((bidsRes.data ?? []) as Array<{ job_id: string; status: string; bid_price_gbp: number | null; amount: number | null }>) || [])
         .map((bid) => [bid.job_id, bid])
     );
 
-    const enriched = ((loadsRes.data ?? []) as ExchangeLoad[])
-      .filter((load) => !companyId || load.company_id !== companyId)
-      .map((load) => {
-        const bid = bidMap.get(load.id);
-        return {
-          ...load,
-          companies: normalizeCompany(load.companies),
-          myBidStatus: bid ? (bid.status as BidStatus) : null,
-          myBidAmount: bid ? (bid.bid_price_gbp ?? bid.amount ?? null) : null,
-        } satisfies LoadWithBidStatus;
-      });
+    const enriched = baseLoads.map((load) => {
+      const bid = bidMap.get(load.id);
+      const advanced = advancedMap.get(load.id);
+      return {
+        ...load,
+        ...(advanced ?? {}),
+        companies: normalizeCompany(load.companies),
+        myBidStatus: bid ? (bid.status as BidStatus) : null,
+        myBidAmount: bid ? (bid.bid_price_gbp ?? bid.amount ?? null) : null,
+      } satisfies LoadWithBidStatus;
+    });
 
     setLoads(enriched);
     if (bidsRes.error) {
@@ -214,13 +306,38 @@ export default function AvailableLoadsPage() {
     void fetchLoads();
   }, [fetchLoads]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
+      setVehicleFilter(saved.vehicleFilter ?? 'any');
+      setPickupFilter(saved.pickupFilter ?? '');
+      setDeliveryFilter(saved.deliveryFilter ?? '');
+      setCargoFilter(saved.cargoFilter ?? '');
+      setWeightMinFilter(saved.weightMinFilter ?? '');
+      setDateFromFilter(saved.dateFromFilter ?? '');
+      setDateToFilter(saved.dateToFilter ?? '');
+      setMemberFilter(saved.memberFilter ?? '');
+      setRegionFilter(saved.regionFilter ?? 'any');
+      setPostedWithinFilter(saved.postedWithinFilter ?? 'any');
+      setJobTimingFilter(saved.jobTimingFilter ?? 'any');
+      setSortBy(saved.sortBy ?? 'date_desc');
+      setSaveAsDefault(true);
+    } catch {
+      window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    }
+  }, []);
+
   const filteredLoads = useMemo(() => {
     const pickupNeedle = pickupFilter.trim().toLowerCase();
     const deliveryNeedle = deliveryFilter.trim().toLowerCase();
     const cargoNeedle = cargoFilter.trim().toLowerCase();
+    const memberNeedle = memberFilter.trim().toLowerCase();
     const minWeight = Number(weightMinFilter);
     const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
     const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null;
+    const postedWindow = postedWithinMs(postedWithinFilter);
 
     const filtered = loads.filter((load) => {
       if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
@@ -228,11 +345,24 @@ export default function AvailableLoadsPage() {
       const pickupSearch = `${load.pickup_location ?? ''} ${load.pickup_postcode ?? ''}`.toLowerCase();
       const deliverySearch = `${load.delivery_location ?? ''} ${load.delivery_postcode ?? ''}`.toLowerCase();
       const cargoSearch = `${load.cargo_type ?? ''} ${load.requested_cargo_label ?? ''} ${load.load_details ?? ''}`.toLowerCase();
+      const companyName = normalizeCompany(load.companies)?.name ?? '';
+      const memberSearch = `${companyName} ${load.company_id} ${load.id} ${load.customer_reference ?? ''} ${load.booking_reference ?? ''}`.toLowerCase();
 
       if (pickupNeedle && !pickupSearch.includes(pickupNeedle)) return false;
       if (deliveryNeedle && !deliverySearch.includes(deliveryNeedle)) return false;
       if (cargoNeedle && !cargoSearch.includes(cargoNeedle)) return false;
+      if (memberNeedle && !memberSearch.includes(memberNeedle)) return false;
       if (!Number.isNaN(minWeight) && weightMinFilter.trim() && (load.weight_kg ?? 0) < minWeight) return false;
+
+      if (regionFilter === 'uk_roi' && isEuroLoad(load)) return false;
+      if (regionFilter === 'euro' && !isEuroLoad(load)) return false;
+      if (!matchesTiming(load, jobTimingFilter)) return false;
+
+      if (postedWindow != null) {
+        if (!load.exchange_posted_at) return false;
+        const postedAt = new Date(load.exchange_posted_at).getTime();
+        if (Number.isNaN(postedAt) || postedAt < Date.now() - postedWindow) return false;
+      }
 
       if ((fromDate || toDate) && load.pickup_datetime) {
         const pickupTimestamp = new Date(load.pickup_datetime).getTime();
@@ -256,11 +386,36 @@ export default function AvailableLoadsPage() {
         default: return dateB - dateA;
       }
     });
-  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, loads, pickupFilter, sortBy, vehicleFilter, weightMinFilter]);
+  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
   useEffect(() => {
-    setVisibleCount(LOADS_PAGE_SIZE);
-  }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, sortBy]);
+    setVisibleCount(pageSize);
+    setExpandAll(false);
+  }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, sortBy, pageSize]);
+
+  const captureFilters = (): SavedLoadFilters => ({
+    vehicleFilter,
+    pickupFilter,
+    deliveryFilter,
+    cargoFilter,
+    weightMinFilter,
+    dateFromFilter,
+    dateToFilter,
+    memberFilter,
+    regionFilter,
+    postedWithinFilter,
+    jobTimingFilter,
+    sortBy,
+  });
+
+  const applySearch = () => {
+    setVisibleCount(pageSize);
+    if (saveAsDefault) {
+      window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters()));
+    } else {
+      window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    }
+  };
 
   const clearFilters = () => {
     setVehicleFilter('any');
@@ -270,7 +425,13 @@ export default function AvailableLoadsPage() {
     setWeightMinFilter('');
     setDateFromFilter('');
     setDateToFilter('');
+    setMemberFilter('');
+    setRegionFilter('any');
+    setPostedWithinFilter('any');
+    setJobTimingFilter('any');
     setSortBy('date_desc');
+    setSaveAsDefault(false);
+    window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
 
   const handleBidSubmit = async (loadId: string) => {
@@ -319,6 +480,18 @@ export default function AvailableLoadsPage() {
     <aside className="driver-filter-rail" aria-label="Load search filters">
       <div className="driver-filter-rail__header">Search Loads</div>
       <div className="driver-filter-rail__body">
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '10px', fontWeight: 700 }}>
+          <input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />
+          Save as Default
+        </label>
+        <div className="driver-filter-field">
+          <label htmlFor="driver-load-region">Region</label>
+          <select id="driver-load-region" value={regionFilter} onChange={(event) => setRegionFilter(event.target.value as RegionFilter)}>
+            <option value="any">UK & ROI + Euro</option>
+            <option value="uk_roi">UK & ROI</option>
+            <option value="euro">Euro / International</option>
+          </select>
+        </div>
         <div className="driver-filter-field">
           <label htmlFor="driver-load-from">From</label>
           <input id="driver-load-from" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Pickup town / postcode" />
@@ -337,6 +510,33 @@ export default function AvailableLoadsPage() {
         <div className="driver-filter-field">
           <label htmlFor="driver-load-cargo">Freight type</label>
           <input id="driver-load-cargo" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, boxes, ADR…" />
+        </div>
+        <div className="driver-filter-field">
+          <label htmlFor="driver-load-member">Member Name / ID</label>
+          <input id="driver-load-member" value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Company, load or ref" />
+        </div>
+        <div className="driver-filter-field">
+          <label htmlFor="driver-load-job-description">Job description</label>
+          <select id="driver-load-job-description" value={jobTimingFilter} onChange={(event) => setJobTimingFilter(event.target.value as JobTimingFilter)}>
+            <option value="any">Any</option>
+            <option value="same_day_timed">Same Day - Timed</option>
+            <option value="same_day_non_timed">Same Day - Non Timed</option>
+            <option value="next_day_timed">Next Day - Timed</option>
+            <option value="next_day_non_timed">Next Day - Non Timed</option>
+          </select>
+        </div>
+        <div className="driver-filter-field">
+          <label htmlFor="driver-load-posted-within">Posted within last</label>
+          <select id="driver-load-posted-within" value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}>
+            <option value="any">All</option>
+            <option value="15m">15 minutes</option>
+            <option value="30m">30 minutes</option>
+            <option value="1h">1 hour</option>
+            <option value="2h">2 hours</option>
+            <option value="4h">4 hours</option>
+            <option value="8h">8 hours</option>
+            <option value="24h">24 hours</option>
+          </select>
         </div>
         <div className="driver-filter-field">
           <label htmlFor="driver-load-weight">Minimum weight</label>
@@ -360,7 +560,7 @@ export default function AvailableLoadsPage() {
           </select>
         </div>
         <div className="driver-filter-actions">
-          <ActionButton tone="success" onClick={() => setVisibleCount(LOADS_PAGE_SIZE)}>Search</ActionButton>
+          <ActionButton tone="success" onClick={applySearch}>Search</ActionButton>
           <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
         </div>
       </div>
@@ -396,7 +596,16 @@ export default function AvailableLoadsPage() {
 
             <div className="driver-board-summary">
               <span>{loading ? 'Loading live exchange…' : `${filteredLoads.length} live result${filteredLoads.length === 1 ? '' : 's'} · showing ${Math.min(visibleCount, filteredLoads.length)}`}</span>
-              <span>Compact view · click Details to expand</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700 }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Items per Page:
+                  <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }} style={{ height: '28px', border: '1px solid #d8dee8', borderRadius: '3px', background: '#fff' }}>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </label>
+              </span>
             </div>
 
             {loading ? (
@@ -415,7 +624,7 @@ export default function AvailableLoadsPage() {
               <div className="driver-load-list">
                 {visibleLoads.map((load) => {
                   const company = normalizeCompany(load.companies)?.name ?? 'Exchange member';
-                  const expanded = expandedLoadId === load.id;
+                  const expanded = expandAll || expandedLoadId === load.id;
                   const quoted = Boolean(load.myBidStatus);
                   const vehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight';
@@ -450,12 +659,15 @@ export default function AvailableLoadsPage() {
                         <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
                         {load.booking_reference && <span>Booking: {load.booking_reference}</span>}
                         {load.customer_reference && <span>Customer ref: {load.customer_reference}</span>}
+                        {isEuroLoad(load) && <StatusBadge value="International" tone="blue" />}
+                        {load.direct_delivery_required && <StatusBadge value="Direct" tone="navy" />}
                         {load.is_fixed_price && <StatusBadge value="Proposed price" tone="orange" />}
                         {load.myBidStatus && <StatusBadge value={`Quote ${load.myBidStatus}`} tone="purple" />}
                         {load.myBidAmount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBidAmount)}</strong>}
                         <div className="driver-row-actions">
                           {!quoted && (
                             <ActionButton tone="success" onClick={() => {
+                              setExpandAll(false);
                               setExpandedLoadId(load.id);
                               setBidLoadId(load.id);
                               setBidAmount(load.is_fixed_price && load.budget_amount != null ? String(load.budget_amount) : '');
@@ -464,7 +676,14 @@ export default function AvailableLoadsPage() {
                               Quote Now
                             </ActionButton>
                           )}
-                          <ActionButton tone="secondary" onClick={() => setExpandedLoadId(expanded ? null : load.id)}>
+                          <ActionButton tone="secondary" onClick={() => {
+                            if (expandAll) {
+                              setExpandAll(false);
+                              setExpandedLoadId(null);
+                            } else {
+                              setExpandedLoadId(expanded ? null : load.id);
+                            }
+                          }}>
                             {expanded ? 'Collapse' : 'Details'}
                           </ActionButton>
                           <ActionButton tone="secondary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
@@ -520,7 +739,7 @@ export default function AvailableLoadsPage() {
 
             {canLoadMore && (
               <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '4px' }}>
-                <ActionButton tone="secondary" onClick={() => setVisibleCount((current) => current + LOADS_PAGE_SIZE)}>Load more results</ActionButton>
+                <ActionButton tone="secondary" onClick={() => setVisibleCount((current) => current + pageSize)}>Load more results</ActionButton>
               </div>
             )}
           </main>
