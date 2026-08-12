@@ -63,6 +63,15 @@ type MembershipQueryRow = {
     | null;
 };
 
+type DriverRouteRow = {
+  id?: string | null;
+  company_id?: string | null;
+  app_access?: boolean | null;
+  must_change_password?: boolean | null;
+  status?: string | null;
+  can_commercial_bid?: boolean | null;
+};
+
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
@@ -341,6 +350,122 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
+  // Customer/Shipper and Driver are valid standalone portal identities in the
+  // existing XDrive auth/RLS contracts. Resolve only those roles before the
+  // company-membership gate; all broker/admin/carrier identities continue to
+  // require an authoritative active company context.
+  if (memberships.length === 0) {
+    const rawRole = profile.role ?? fallbackRole ?? null;
+    const standaloneRole = resolveAuthoritativeRole({
+      membershipRole: null,
+      profileRole: profile.role ?? null,
+      isDriver: profile.is_driver === true,
+      hasCreatedCompany: Boolean(creatorCompany?.id),
+      creatorCompanyType: creatorCompany?.company_type ?? null,
+      fallbackRole,
+      ownerDriverWorkspaceRequested: false,
+    });
+
+    if (standaloneRole === 'customer') {
+      return {
+        kind: 'authenticated',
+        role: 'customer',
+        rawRole,
+        workspaceRole: resolveWorkspaceRole({
+          role: 'customer',
+          rawRole,
+          membershipRole: null,
+          ownerDriverWorkspace: false,
+        }),
+        mustChangePassword: false,
+        appAccess: null,
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        canAccessDriverMode: false,
+        membershipId: null,
+        membershipRole: null,
+        driverId: null,
+        canCommercialBid: null,
+        driverStatus: null,
+        accountStatus: profileStatus,
+        companyStatus: null,
+      };
+    }
+
+    const standaloneDriverIdentity =
+      standaloneRole === 'driver' ||
+      profile.is_driver === true ||
+      mapAppRole(profile.role ?? null) === 'driver' ||
+      mapAppRole(fallbackRole) === 'driver';
+
+    if (standaloneDriverIdentity) {
+      const { data: standaloneDriverInitial, error: standaloneDriverErrorInitial } = await supabaseAdmin
+        .from('drivers')
+        .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+        .eq('user_id', authData.user.id)
+        .eq('status', 'active')
+        .limit(2);
+
+      const standaloneDriverNeedsLegacyFallback = isMissingDriverCanBidColumn(standaloneDriverErrorInitial);
+      const { data: standaloneDriverData, error: standaloneDriverError } = standaloneDriverNeedsLegacyFallback
+        ? await supabaseAdmin
+            .from('drivers')
+            .select('id, company_id, app_access, must_change_password, status')
+            .eq('user_id', authData.user.id)
+            .eq('status', 'active')
+            .limit(2)
+        : { data: standaloneDriverInitial, error: standaloneDriverErrorInitial };
+
+      if (isServiceFailure(standaloneDriverError?.message)) {
+        return { kind: 'service_unavailable' };
+      }
+      if (standaloneDriverError) {
+        return { kind: 'service_unavailable' };
+      }
+
+      const standaloneDrivers = (standaloneDriverData ?? []) as DriverRouteRow[];
+      // No driver evidence, or more than one active driver context, stays
+      // fail-closed because there is no membership to disambiguate company scope.
+      if (standaloneDrivers.length !== 1) {
+        return { kind: 'forbidden' };
+      }
+
+      const driver = standaloneDrivers[0];
+      if (!driver?.id || driver.status?.toLowerCase() !== 'active' || driver.app_access !== true) {
+        return { kind: 'forbidden' };
+      }
+
+      const ownerDriverWorkspace = ownerDriverWorkspaceRequested;
+      const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
+
+      return {
+        kind: 'authenticated',
+        role: 'driver',
+        rawRole,
+        workspaceRole: resolveWorkspaceRole({
+          role: 'driver',
+          rawRole,
+          membershipRole: null,
+          ownerDriverWorkspace,
+        }),
+        mustChangePassword: driver.must_change_password === true,
+        appAccess: true,
+        ownerDriverWorkspace,
+        ownerDriverExecutionMode,
+        canAccessDriverMode: true,
+        membershipId: null,
+        membershipRole: null,
+        driverId: driver.id,
+        canCommercialBid: standaloneDriverNeedsLegacyFallback ? null : (driver.can_commercial_bid ?? null),
+        driverStatus: driver.status ?? null,
+        accountStatus: profileStatus,
+        companyStatus: null,
+      };
+    }
+
+    return { kind: 'forbidden' };
+  }
+
   const activeCompany = resolveActiveCompanyContext(memberships, {
     preferredCompanyId: profile.company_id ?? null,
     targetPathname: request.nextUrl.pathname,
@@ -385,14 +510,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'service_unavailable' };
   }
 
-  const driver = driverData as {
-    id?: string | null;
-    company_id?: string | null;
-    app_access?: boolean | null;
-    must_change_password?: boolean | null;
-    status?: string | null;
-    can_commercial_bid?: boolean | null;
-  } | null;
+  const driver = driverData as DriverRouteRow | null;
 
   if (driver && driver.company_id !== activeCompany.context.companyId) {
     return { kind: 'forbidden' };
@@ -554,6 +672,11 @@ export async function middleware(request: NextRequest) {
     return buildRedirect(request, DRIVER_CHANGE_PASSWORD_PATH);
   }
 
+  const companyStatusForAccess =
+    auth.role === 'driver' && auth.membershipId === null && auth.companyStatus === null
+      ? 'active'
+      : auth.companyStatus;
+
   if (!isRoleAllowedForPath(url.pathname, auth.role, {
     canAccessDriverMode: auth.canAccessDriverMode,
     membershipId: auth.membershipId,
@@ -567,7 +690,7 @@ export async function middleware(request: NextRequest) {
     driverStatus: auth.driverStatus,
     appAccess: auth.appAccess,
     accountStatus: auth.accountStatus,
-    companyStatus: auth.companyStatus,
+    companyStatus: companyStatusForAccess,
   })) {
     const canonicalPath = getPostLoginRoute({
       role: auth.role,
