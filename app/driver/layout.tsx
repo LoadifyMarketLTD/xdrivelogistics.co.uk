@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import WorkspaceShell from '../components/workspace/WorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import './driver-operational.css';
+import './driver-exchange-compact.css';
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0B2F6B' };
 export const metadata: Metadata = {
