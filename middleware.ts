@@ -341,6 +341,49 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
+  // A Customer/Shipper is a valid standalone portal identity. Historical and
+  // approved test customers may intentionally have no company_memberships row.
+  // Resolve that identity before active-company selection so a valid customer
+  // is not turned into a 403 merely because there is no company context.
+  if (memberships.length === 0) {
+    const standaloneRole = resolveAuthoritativeRole({
+      membershipRole: null,
+      profileRole: profile.role ?? null,
+      isDriver: profile.is_driver === true,
+      hasCreatedCompany: Boolean(creatorCompany?.id),
+      creatorCompanyType: creatorCompany?.company_type ?? null,
+      fallbackRole,
+      ownerDriverWorkspaceRequested: false,
+    });
+
+    if (standaloneRole === 'customer') {
+      const rawRole = profile.role ?? fallbackRole ?? null;
+      return {
+        kind: 'authenticated',
+        role: 'customer',
+        rawRole,
+        workspaceRole: resolveWorkspaceRole({
+          role: 'customer',
+          rawRole,
+          membershipRole: null,
+          ownerDriverWorkspace: false,
+        }),
+        mustChangePassword: false,
+        appAccess: null,
+        ownerDriverWorkspace: false,
+        ownerDriverExecutionMode: false,
+        canAccessDriverMode: false,
+        membershipId: null,
+        membershipRole: null,
+        driverId: null,
+        canCommercialBid: null,
+        driverStatus: null,
+        accountStatus: profileStatus,
+        companyStatus: null,
+      };
+    }
+  }
+
   const activeCompany = resolveActiveCompanyContext(memberships, {
     preferredCompanyId: profile.company_id ?? null,
     targetPathname: request.nextUrl.pathname,
