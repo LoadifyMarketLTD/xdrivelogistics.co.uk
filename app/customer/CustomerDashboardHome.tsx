@@ -48,6 +48,9 @@ const routeLabel = (job: {
   to: job.delivery_postcode ?? job.delivery_location ?? 'Delivery',
 });
 
+const loadReference = (job: { id: string; client_name?: string | null }) =>
+  job.client_name?.trim() || `Load ${job.id.slice(0, 8).toUpperCase()}`;
+
 export default function CustomerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
@@ -288,7 +291,7 @@ export default function CustomerDashboardHome() {
                             <td>
                               <div className="customer-dash-table__route">
                                 <strong>{route.from} → {route.to}</strong>
-                                <span>{job.customer_reference ?? job.booking_reference ?? `Load ${job.id.slice(0, 8).toUpperCase()}`}</span>
+                                <span>{loadReference(job)}</span>
                               </div>
                             </td>
                             <td>{when(job.pickup_datetime)}</td>
@@ -340,7 +343,7 @@ export default function CustomerDashboardHome() {
                             <td>
                               <div className="customer-dash-table__route">
                                 <strong>{route.from} → {route.to}</strong>
-                                <span>{job.customer_reference ?? job.booking_reference ?? `Load ${job.id.slice(0, 8).toUpperCase()}`}</span>
+                                <span>{loadReference(job)}</span>
                               </div>
                             </td>
                             <td>{when(job.pickup_datetime)}</td>
