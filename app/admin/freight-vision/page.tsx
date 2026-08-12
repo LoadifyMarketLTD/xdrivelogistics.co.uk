@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
+import { useOperationsIntelligence, type OperationsJobDetail } from '../../components/workspace/useOperationsIntelligence';
 import {
   ActionButton,
+  AlertBanner,
   DataTable,
   EmptyState,
   KpiCard,
@@ -23,6 +25,8 @@ const ACTIVE = new Set([
   'awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded',
   'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
 ]);
+const PICKUP_PROGRESS = new Set(['on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
+const DELIVERY_PROGRESS = new Set(['in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
 
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -35,22 +39,57 @@ const stateLabel: Record<TrackingState, string> = {
   not_tracking: 'Not tracking',
 };
 
+function timeValue(value: string | null | undefined) {
+  if (!value) return Number.NaN;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 function operationalState(job: WorkspaceJob, locationTimestamp: string | null): TrackingState {
   const now = Date.now();
-  const locationTime = locationTimestamp ? new Date(locationTimestamp).getTime() : Number.NaN;
+  const locationTime = timeValue(locationTimestamp);
   const fresh = Number.isFinite(locationTime) && now - locationTime <= 20 * 60_000;
   if (!fresh) return 'not_tracking';
 
-  const deliveryTime = job.delivery_datetime ? new Date(job.delivery_datetime).getTime() : Number.NaN;
-  if (!Number.isFinite(deliveryTime)) return 'on_time';
-  if (now > deliveryTime) return 'late';
-
-  const minutesToDelivery = (deliveryTime - now) / 60_000;
   const status = String(job.current_status ?? job.status ?? '').toLowerCase();
-  if (minutesToDelivery <= 30 && !['in_transit', 'on_my_way_to_delivery', 'on_site_delivery'].includes(status)) {
-    return 'behind_eta';
+  const pickupTime = timeValue(job.pickup_datetime);
+  const deliveryTime = timeValue(job.delivery_datetime);
+
+  if (Number.isFinite(deliveryTime) && now > deliveryTime && status !== 'on_site_delivery') return 'late';
+  if (Number.isFinite(pickupTime) && now > pickupTime && !PICKUP_PROGRESS.has(status)) return 'behind_eta';
+
+  if (Number.isFinite(deliveryTime)) {
+    const minutesToDelivery = (deliveryTime - now) / 60_000;
+    if (minutesToDelivery <= 30 && minutesToDelivery >= 0 && !DELIVERY_PROGRESS.has(status)) return 'behind_eta';
   }
+  if (Number.isFinite(pickupTime)) {
+    const minutesToPickup = (pickupTime - now) / 60_000;
+    if (minutesToPickup <= 30 && minutesToPickup >= 0 && !PICKUP_PROGRESS.has(status)) return 'behind_eta';
+  }
+
   return 'on_time';
+}
+
+function exceptionReason(job: WorkspaceJob, state: TrackingState) {
+  const now = Date.now();
+  const status = String(job.current_status ?? job.status ?? '').toLowerCase();
+  const pickupTime = timeValue(job.pickup_datetime);
+  const deliveryTime = timeValue(job.delivery_datetime);
+
+  if (state === 'not_tracking') return 'No fresh driver location has been received in the last 20 minutes.';
+  if (state === 'late') return `Delivery target passed ${when(job.delivery_datetime)} while the job remains ${status.replaceAll('_', ' ')}.`;
+  if (state === 'behind_eta') {
+    if (Number.isFinite(pickupTime) && !PICKUP_PROGRESS.has(status)) {
+      const minutes = Math.max(0, Math.round((pickupTime - now) / 60_000));
+      return pickupTime <= now ? 'Pickup target has passed before pickup progress was recorded.' : `Pickup target is due in ${minutes} minute(s) without pickup progress.`;
+    }
+    if (Number.isFinite(deliveryTime) && !DELIVERY_PROGRESS.has(status)) {
+      const minutes = Math.max(0, Math.round((deliveryTime - now) / 60_000));
+      return `Delivery target is due in ${minutes} minute(s) but the job has not reached delivery transit status.`;
+    }
+    return 'Schedule-risk signal detected from the current job phase and planned timestamps.';
+  }
+  return 'Fresh tracking received and no schedule-risk rule is currently triggered.';
 }
 
 function toneForState(state: TrackingState): 'green' | 'orange' | 'red' | 'grey' {
@@ -60,14 +99,29 @@ function toneForState(state: TrackingState): 'green' | 'orange' | 'red' | 'grey'
   return 'grey';
 }
 
+function contactLine(detail: OperationsJobDetail | null) {
+  const contacts = [
+    detail?.collectionContactName && `Collection: ${detail.collectionContactName}`,
+    detail?.deliveryContactName && `Delivery: ${detail.deliveryContactName}`,
+    detail?.clientName && `Customer: ${detail.clientName}`,
+  ].filter(Boolean);
+  return contacts.length ? contacts.join(' · ') : 'No operational contact names recorded.';
+}
+
 export default function FreightVisionPage() {
   const data = useCompanyWorkspaceData();
+  const intelligence = useOperationsIntelligence(data.companyId);
   const router = useRouter();
   const [pickupFilter, setPickupFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [stateFilter, setStateFilter] = useState<'all' | TrackingState>('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
+  const refreshAll = async () => {
+    await Promise.all([data.refresh(), intelligence.refresh()]);
+  };
 
   const latestLocations = useMemo(() => {
     const map = new Map<string, WorkspaceLocation>();
@@ -88,8 +142,10 @@ export default function FreightVisionPage() {
     const location = job.assigned_driver_id ? latestLocations.get(job.assigned_driver_id) ?? null : null;
     const locationTimestamp = location?.recorded_at ?? location?.updated_at ?? null;
     const state = operationalState(job, locationTimestamp);
-    return { job, driver, vehicle, location, locationTimestamp, state };
-  }), [activeJobs, data.drivers, data.vehicles, latestLocations]);
+    const detail = intelligence.jobDetailById.get(job.id) ?? null;
+    const events = intelligence.eventsByJob.get(job.id) ?? [];
+    return { job, driver, vehicle, location, locationTimestamp, state, detail, events, reason: exceptionReason(job, state) };
+  }), [activeJobs, data.drivers, data.vehicles, intelligence.eventsByJob, intelligence.jobDetailById, latestLocations]);
 
   const filtered = useMemo(() => {
     const pickupNeedle = pickupFilter.trim().toLowerCase();
@@ -121,15 +177,21 @@ export default function FreightVisionPage() {
 
   const statuses = useMemo(() => [...new Set(activeJobs.map((job) => String(job.current_status ?? job.status ?? '').toLowerCase()).filter(Boolean))].sort(), [activeJobs]);
   const count = (state: TrackingState) => rows.filter((row) => row.state === state).length;
+  const selected = selectedJobId ? rows.find((row) => row.job.id === selectedJobId) ?? null : null;
 
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Operations tracking"
         title="Freight Vision"
-        description="Active jobs, live driver positions, tracking freshness and delivery-risk signals in one operational workspace."
-        actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
+        description="Active jobs, live driver positions, planned targets, tracking freshness and exception signals in one operational control desk. Behind ETA is a schedule-risk rule, not traffic-predicted ETA."
+        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational data'}</span>}
       />
+
+      {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
+      {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
+      {intelligence.partial && <AlertBanner tone="warning">Some timeline or contact intelligence is temporarily unavailable. Core jobs and live tracking remain visible.</AlertBanner>}
 
       <KpiGrid>
         <KpiCard label="Active jobs" value={rows.length} tone="blue" />
@@ -148,7 +210,7 @@ export default function FreightVisionPage() {
         </div>
       </Panel>
 
-      <TwoColumn rightWidth="minmax(420px,0.95fr)">
+      <TwoColumn rightWidth="minmax(460px,1.05fr)">
         <Panel title="Live freight map" description="Green = fresh tracking. Red = location missing or older than 20 minutes.">
           {points.length > 0 ? (
             <FleetPositionMap points={points} selectedDriverId={selectedDriverId} />
@@ -159,22 +221,49 @@ export default function FreightVisionPage() {
 
         <Panel title="Exception register" description={`${filtered.length} active job(s) in the current view.`}>
           <DataTable
-            columns={['Job / route', 'Driver / vehicle', 'Delivery', 'Tracking', 'Last position', 'Action']}
-            rows={filtered.map(({ job, driver, vehicle, location, locationTimestamp, state }) => [
+            columns={['Job / route', 'Driver / vehicle', 'Targets', 'Tracking', 'Latest event', 'Action']}
+            rows={filtered.map(({ job, driver, vehicle, location, locationTimestamp, state, events, reason }) => [
               <div key="job"><strong style={{ display: 'block' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Pickup'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ color: '#64748b' }}>#{job.id.slice(0, 8).toUpperCase()} · {(job.current_status ?? job.status).replaceAll('_', ' ')}</span></div>,
               <div key="resource"><span style={{ display: 'block' }}>{driver?.display_name ?? driver?.email ?? 'Not assigned'}</span><span style={{ color: '#64748b' }}>{vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Vehicle not linked'}</span></div>,
-              when(job.delivery_datetime),
-              <StatusBadge key="state" value={stateLabel[state]} tone={toneForState(state)} />,
-              location ? <button key="locate" type="button" onClick={() => setSelectedDriverId(driver?.id ?? null)} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer', padding: 0 }}>{when(locationTimestamp)}</button> : 'No location',
-              <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open job</ActionButton>{driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', border: '1px solid #cbd5e1', color: '#0b2f6b', textDecoration: 'none', fontSize: 11, fontWeight: 800 }}>Call driver</a> : null}</div>,
+              <div key="targets"><span style={{ display: 'block' }}>PU {when(job.pickup_datetime)}</span><span style={{ color: '#64748b' }}>DEL {when(job.delivery_datetime)}</span></div>,
+              <div key="tracking"><StatusBadge value={stateLabel[state]} tone={toneForState(state)} /><span style={{ display: 'block', color: '#64748b', marginTop: 4, maxWidth: 230 }}>{reason}</span>{location ? <button type="button" onClick={() => setSelectedDriverId(driver?.id ?? null)} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer', padding: 0, marginTop: 3 }}>Position {when(locationTimestamp)}</button> : null}</div>,
+              events[0] ? <div key="event"><strong style={{ display: 'block' }}>{events[0].eventType.replaceAll('_', ' ')}</strong><span style={{ color: '#64748b' }}>{events[0].message ?? 'Operational status update'} · {when(events[0].createdAt)}</span></div> : <span key="event-none" style={{ color: '#64748b' }}>No timeline event</span>,
+              <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedJobId(job.id)}>Inspect</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open job</ActionButton>{driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', border: '1px solid #cbd5e1', color: '#0b2f6b', textDecoration: 'none', fontSize: 11, fontWeight: 800 }}>Call driver</a> : null}</div>,
             ])}
             empty={<EmptyState title="No active jobs match the current filters" description="Clear one or more filters or refresh the operational data." />}
           />
         </Panel>
       </TwoColumn>
+
+      {selected && (
+        <Panel
+          title={`Operational timeline · ${selected.job.id.slice(0, 8).toUpperCase()}`}
+          description={`${selected.job.pickup_location ?? selected.job.pickup_postcode ?? 'Pickup'} → ${selected.job.delivery_location ?? selected.job.delivery_postcode ?? 'Delivery'}`}
+          actions={<><ActionButton tone="secondary" onClick={() => setSelectedJobId(null)}>Close</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${selected.job.id}`)}>Open full job</ActionButton></>}
+          style={{ marginTop: 12 }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginBottom: 12 }}>
+            <div style={detailCardStyle}><strong>Operational signal</strong><div style={{ marginTop: 5 }}><StatusBadge value={stateLabel[selected.state]} tone={toneForState(selected.state)} /></div><div style={detailTextStyle}>{selected.reason}</div></div>
+            <div style={detailCardStyle}><strong>Planned targets</strong><div style={detailTextStyle}>Pickup: {when(selected.job.pickup_datetime)}{selected.detail?.pickupTimeSlot ? ` · ${selected.detail.pickupTimeSlot}` : ''}<br />Delivery: {when(selected.job.delivery_datetime)}{selected.detail?.deliveryTimeSlot ? ` · ${selected.detail.deliveryTimeSlot}` : ''}</div></div>
+            <div style={detailCardStyle}><strong>Contacts</strong><div style={detailTextStyle}>{contactLine(selected.detail)}<br />Collection: {selected.detail?.collectionContactPhone ?? 'No phone'}<br />Delivery: {selected.detail?.deliveryContactPhone ?? 'No phone'}</div></div>
+          </div>
+
+          <DataTable
+            columns={['Time', 'Event', 'Message']}
+            rows={selected.events.slice(0, 30).map((event, index) => [
+              when(event.createdAt),
+              <strong key={`event-${event.id ?? index}`}>{event.eventType.replaceAll('_', ' ')}</strong>,
+              event.message ?? 'Operational status update',
+            ])}
+            empty={<EmptyState title="No tracking timeline is available for this job" description={intelligence.capabilities.trackingTimeline === 'unavailable' ? 'The tracking timeline capability is temporarily unavailable.' : 'Timeline events will appear as operational milestones are recorded.'} />}
+          />
+        </Panel>
+      )}
     </PageFrame>
   );
 }
 
 const inputStyle = { width: '100%', minHeight: 36, border: '1px solid #cbd5e1', borderRadius: 6, padding: '6px 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
 const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
+const detailCardStyle = { border: '1px solid #dbe2ea', background: '#f8fafc', padding: 10, borderRadius: 4, color: '#0f172a', fontSize: 12 } as const;
+const detailTextStyle = { marginTop: 6, color: '#475569', lineHeight: 1.5 } as const;
