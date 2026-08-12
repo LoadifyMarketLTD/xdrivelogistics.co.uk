@@ -7,6 +7,11 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getLoadDetailSummary } from '../../../lib/loadPostingDetails';
+import {
+  formatMarketplaceLocation,
+  getMarketplaceLoadNotes,
+  hasMarketplaceProposedPrice,
+} from '../../../lib/marketplacePresentation';
 import { ActionButton, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type ExchangeLoad = {
@@ -65,6 +70,7 @@ type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 type LoadWithBidStatus = ExchangeLoad & {
   myBidStatus: BidStatus;
   myBidAmount: number | null;
+  marketplaceMemberName: string | null;
 };
 
 type SortMode = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc';
@@ -223,6 +229,42 @@ export default function AvailableLoadsPage() {
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [visibleCount, setVisibleCount] = useState(25);
 
+  const getAuthHeader = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    return token ? `Bearer ${token}` : null;
+  }, []);
+
+  const fetchMarketplaceMemberNames = useCallback(async (jobIds: string[]) => {
+    const names = new Map<string, string>();
+    if (jobIds.length === 0) return names;
+
+    const auth = await getAuthHeader();
+    if (!auth) return names;
+
+    try {
+      const response = await fetch('/api/driver/marketplace/member-names', {
+        method: 'POST',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobIds }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        members?: Record<string, string>;
+      };
+      if (!response.ok) return names;
+      for (const [jobId, memberName] of Object.entries(payload.members ?? {})) {
+        if (memberName.trim()) names.set(jobId, memberName.trim());
+      }
+    } catch {
+      return names;
+    }
+
+    return names;
+  }, [getAuthHeader]);
+
   const fetchLoads = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured) {
       setLoads([]);
@@ -264,6 +306,8 @@ export default function AvailableLoadsPage() {
     const baseLoads = ((loadsRes.data ?? []) as ExchangeLoad[]).filter((load) => !companyId || load.company_id !== companyId);
     const advancedMap = new Map<string, { pickup_country_code?: string | null; delivery_country_code?: string | null; service_mode?: string | null; direct_delivery_required?: boolean | null }>();
 
+    const memberNamesPromise = fetchMarketplaceMemberNames(baseLoads.map((load) => load.id));
+
     if (baseLoads.length > 0) {
       const advancedRes = await supabase
         .from('jobs')
@@ -276,6 +320,7 @@ export default function AvailableLoadsPage() {
       }
     }
 
+    const marketplaceMemberNames = await memberNamesPromise;
     const bidMap = new Map(
       (((bidsRes.data ?? []) as Array<{ job_id: string; status: string; bid_price_gbp: number | null; amount: number | null }>) || [])
         .map((bid) => [bid.job_id, bid])
@@ -284,12 +329,14 @@ export default function AvailableLoadsPage() {
     const enriched = baseLoads.map((load) => {
       const bid = bidMap.get(load.id);
       const advanced = advancedMap.get(load.id);
+      const relatedCompanyName = normalizeCompany(load.companies)?.name ?? null;
       return {
         ...load,
         ...(advanced ?? {}),
         companies: normalizeCompany(load.companies),
         myBidStatus: bid ? (bid.status as BidStatus) : null,
         myBidAmount: bid ? (bid.bid_price_gbp ?? bid.amount ?? null) : null,
+        marketplaceMemberName: marketplaceMemberNames.get(load.id) ?? relatedCompanyName,
       } satisfies LoadWithBidStatus;
     });
 
@@ -299,7 +346,7 @@ export default function AvailableLoadsPage() {
     }
     setLoading(false);
     setRefreshing(false);
-  }, [companyId, userId]);
+  }, [companyId, fetchMarketplaceMemberNames, userId]);
 
   useEffect(() => {
     void fetchLoads();
@@ -343,8 +390,9 @@ export default function AvailableLoadsPage() {
 
       const pickupSearch = `${load.pickup_location ?? ''} ${load.pickup_postcode ?? ''}`.toLowerCase();
       const deliverySearch = `${load.delivery_location ?? ''} ${load.delivery_postcode ?? ''}`.toLowerCase();
-      const cargoSearch = `${load.cargo_type ?? ''} ${load.requested_cargo_label ?? ''} ${load.load_details ?? ''}`.toLowerCase();
-      const companyName = normalizeCompany(load.companies)?.name ?? '';
+      const displayNotes = getMarketplaceLoadNotes(load.load_details) ?? '';
+      const cargoSearch = `${load.cargo_type ?? ''} ${load.requested_cargo_label ?? ''} ${displayNotes}`.toLowerCase();
+      const companyName = load.marketplaceMemberName ?? normalizeCompany(load.companies)?.name ?? '';
       const memberSearch = `${companyName} ${load.company_id} ${load.id} ${load.customer_reference ?? ''} ${load.booking_reference ?? ''}`.toLowerCase();
 
       if (pickupNeedle && !pickupSearch.includes(pickupNeedle)) return false;
@@ -622,24 +670,28 @@ export default function AvailableLoadsPage() {
             ) : (
               <div className="driver-load-list">
                 {visibleLoads.map((load) => {
-                  const company = normalizeCompany(load.companies)?.name ?? 'Exchange member';
+                  const company = load.marketplaceMemberName ?? normalizeCompany(load.companies)?.name ?? 'Marketplace member';
                   const expanded = expandAll || expandedLoadId === load.id;
                   const quoted = Boolean(load.myBidStatus);
                   const vehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight';
                   const detailSummary = getLoadDetailSummary(load, 12);
+                  const pickupDisplay = formatMarketplaceLocation(load.pickup_location, load.pickup_postcode, 'Collection TBC');
+                  const deliveryDisplay = formatMarketplaceLocation(load.delivery_location, load.delivery_postcode, 'Delivery TBC');
+                  const loadNotes = getMarketplaceLoadNotes(load.load_details);
+                  const hasProposedPrice = hasMarketplaceProposedPrice(load.is_fixed_price, load.budget_amount);
 
                   return (
                     <article key={load.id} className="driver-load-row" data-state={quoted ? 'quoted' : 'open'}>
                       <div className="driver-load-row__top">
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">From</span>
-                          <strong className="driver-cell-primary">{load.pickup_location ?? 'Collection TBC'}</strong>
+                          <strong className="driver-cell-primary">{pickupDisplay}</strong>
                           <span className="driver-cell-secondary">{load.pickup_postcode ?? 'Postcode TBC'} · {fmtDate(load.pickup_datetime)}</span>
                         </div>
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">To</span>
-                          <strong className="driver-cell-primary">{load.delivery_location ?? 'Delivery TBC'}</strong>
+                          <strong className="driver-cell-primary">{deliveryDisplay}</strong>
                           <span className="driver-cell-secondary">{load.delivery_postcode ?? 'Postcode TBC'} · {fmtDate(load.delivery_datetime)}</span>
                         </div>
                         <div className="driver-load-cell">
@@ -660,7 +712,7 @@ export default function AvailableLoadsPage() {
                         {load.customer_reference && <span>Customer ref: {load.customer_reference}</span>}
                         {isEuroLoad(load) && <StatusBadge value="International" tone="blue" />}
                         {load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}
-                        {load.is_fixed_price && <StatusBadge value="Proposed price" tone="orange" />}
+                        {hasProposedPrice && <StatusBadge value="Proposed price" tone="orange" />}
                         {load.myBidStatus && <StatusBadge value={`Quote ${load.myBidStatus}`} tone="purple" />}
                         {load.myBidAmount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBidAmount)}</strong>}
                         <div className="driver-row-actions">
@@ -669,7 +721,7 @@ export default function AvailableLoadsPage() {
                               setExpandAll(false);
                               setExpandedLoadId(load.id);
                               setBidLoadId(load.id);
-                              setBidAmount(load.is_fixed_price && load.budget_amount != null ? String(load.budget_amount) : '');
+                              setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : '');
                               setBidMessage('');
                             }}>
                               Quote Now
@@ -704,9 +756,9 @@ export default function AvailableLoadsPage() {
                             <div style={{ color: '#64748b', fontSize: '11px' }}>No additional load details were supplied.</div>
                           )}
 
-                          {load.load_details && (
+                          {loadNotes && (
                             <div style={{ marginTop: '8px', padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: '4px', background: '#f8fafc', color: '#1a1f2b', fontSize: '11px', lineHeight: '15px' }}>
-                              <strong>Load notes: </strong>{load.load_details}
+                              <strong>Load notes: </strong>{loadNotes}
                             </div>
                           )}
 
