@@ -7,6 +7,11 @@ import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { useAuth } from '../../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { getLoadDetailSummary } from '../../../../lib/loadPostingDetails';
+import {
+  formatMarketplaceLocation,
+  getMarketplaceLoadNotes,
+  hasMarketplaceProposedPrice,
+} from '../../../../lib/marketplacePresentation';
 
 type LoadRow = {
   id: string;
@@ -99,6 +104,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   const { user } = useAuth();
 
   const [load, setLoad] = useState<LoadRow | null>(null);
+  const [marketplaceMemberName, setMarketplaceMemberName] = useState<string | null>(null);
   const [existingBid, setExistingBid] = useState<ExistingBid | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -135,6 +141,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
     setLoading(true);
     setError('');
+    setMarketplaceMemberName(null);
 
     const { data: loadData, error: loadErr } = await supabase
       .from('jobs')
@@ -159,10 +166,34 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
     setLoad(loadData as LoadRow);
 
-    // Pre-fill bid amount with proposed price when applicable
     const row = loadData as LoadRow;
-    if (row.is_fixed_price && row.budget_amount && row.budget_amount > 0) {
+    if (hasMarketplaceProposedPrice(row.is_fixed_price, row.budget_amount)) {
       setBidAmount(String(row.budget_amount));
+    } else {
+      setBidAmount('');
+    }
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (token) {
+        const response = await fetch('/api/driver/marketplace/member-names', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ jobIds: [id] }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          members?: Record<string, string>;
+        };
+        if (response.ok) {
+          setMarketplaceMemberName(payload.members?.[id]?.trim() || null);
+        }
+      }
+    } catch {
+      setMarketplaceMemberName(null);
     }
 
     if (userId) {
@@ -223,14 +254,17 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     await fetchLoad();
   };
 
-  const companyName =
-    load?.companies
-      ? Array.isArray(load.companies)
-        ? (load.companies[0]?.name ?? 'Marketplace customer')
-        : (load.companies.name ?? 'Marketplace customer')
-      : 'Marketplace customer';
-
+  const relatedCompanyName = load?.companies
+    ? Array.isArray(load.companies)
+      ? (load.companies[0]?.name ?? null)
+      : (load.companies.name ?? null)
+    : null;
+  const companyName = marketplaceMemberName ?? relatedCompanyName ?? 'Marketplace member';
   const detailItems = load ? getLoadDetailSummary(load as Parameters<typeof getLoadDetailSummary>[0]) : [];
+  const loadNotes = getMarketplaceLoadNotes(load?.load_details);
+  const hasProposedPrice = load ? hasMarketplaceProposedPrice(load.is_fixed_price, load.budget_amount) : false;
+  const pickupDisplay = load ? formatMarketplaceLocation(load.pickup_location, load.pickup_postcode, 'Collection') : 'Collection';
+  const deliveryDisplay = load ? formatMarketplaceLocation(load.delivery_location, load.delivery_postcode, 'Delivery') : 'Delivery';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -248,9 +282,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 Marketplace load
               </div>
               <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1.1rem' }}>
-                {load
-                  ? `${load.pickup_location ?? load.pickup_postcode ?? 'Collection'} → ${load.delivery_location ?? load.delivery_postcode ?? 'Delivery'}`
-                  : 'Loading…'}
+                {load ? `${pickupDisplay} → ${deliveryDisplay}` : 'Loading…'}
               </div>
             </div>
           </div>
@@ -276,7 +308,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={card}>
                   <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Collection</div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{load.pickup_location ?? load.pickup_postcode ?? '—'}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{pickupDisplay}</div>
                   {load.pickup_postcode && load.pickup_location && (
                     <div style={{ color: '#475569', fontSize: '0.82rem' }}>{load.pickup_postcode}</div>
                   )}
@@ -293,7 +325,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
                 <div style={card}>
                   <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Delivery</div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{load.delivery_location ?? load.delivery_postcode ?? '—'}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{deliveryDisplay}</div>
                   {load.delivery_postcode && load.delivery_location && (
                     <div style={{ color: '#475569', fontSize: '0.82rem' }}>{load.delivery_postcode}</div>
                   )}
@@ -373,9 +405,9 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                     </div>
                   </div>
                 )}
-                {load.load_details && (
+                {loadNotes && (
                   <div style={{ marginTop: '0.75rem', fontSize: '0.82rem', color: '#475569', lineHeight: 1.5 }}>
-                    <strong>Additional notes: </strong>{load.load_details}
+                    <strong>Additional notes: </strong>{loadNotes}
                   </div>
                 )}
               </div>
@@ -386,7 +418,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                   <div>
                     <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pricing</div>
                     <div style={{ fontWeight: 800, fontSize: '1.35rem', color: '#0f172a' }}>
-                      {load.is_fixed_price
+                      {hasProposedPrice
                         ? money(load.budget_amount, load.currency || 'GBP')
                         : 'Quote required'}
                     </div>
@@ -398,11 +430,11 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                   <span style={{
                     fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                    backgroundColor: load.is_fixed_price ? '#fef9c3' : '#fef3c7',
-                    color: load.is_fixed_price ? '#854d0e' : '#92400e',
+                    backgroundColor: hasProposedPrice ? '#fef9c3' : '#fef3c7',
+                    color: hasProposedPrice ? '#854d0e' : '#92400e',
                     padding: '0.25rem 0.65rem', borderRadius: '4px',
                   }}>
-                    {load.is_fixed_price ? 'Proposed price' : 'Quote required'}
+                    {hasProposedPrice ? 'Proposed price' : 'Quote required'}
                   </span>
                 </div>
 
@@ -426,7 +458,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '0.6rem' }}>
-                    {load.is_fixed_price && load.budget_amount && load.budget_amount > 0 && (
+                    {hasProposedPrice && (
                       <div style={{ backgroundColor: '#fef9c3', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.75rem', fontSize: '0.82rem', color: '#713f12' }}>
                         <strong>Proposed price: {money(load.budget_amount, load.currency || 'GBP')}</strong>
                         {' '}— You may accept this or enter a different amount as a counter-offer.
@@ -461,7 +493,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      {load.is_fixed_price && load.budget_amount && load.budget_amount > 0 && (
+                      {hasProposedPrice && (
                         <button
                           style={{ ...btn, background: '#15803d', color: '#fff' }}
                           disabled={bidLoading}
@@ -475,7 +507,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                         disabled={bidLoading || !bidAmount}
                         onClick={() => void handleBidSubmit()}
                       >
-                        {bidLoading ? 'Submitting…' : load.is_fixed_price ? 'Submit counter-offer' : 'Submit quote'}
+                        {bidLoading ? 'Submitting…' : hasProposedPrice ? 'Submit counter-offer' : 'Submit quote'}
                       </button>
                       <button
                         style={{ ...btn, background: '#f1f5f9', color: '#475569' }}
