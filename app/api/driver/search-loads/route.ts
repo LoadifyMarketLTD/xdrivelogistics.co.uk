@@ -49,6 +49,8 @@ type SearchLoadRow = {
   distance_miles: number | string | null;
   job_distance_miles: number | string | null;
   exchange_posted_at: string | null;
+  exchange_visibility: string | null;
+  direct_invite_company_id: string | null;
   companies: CompanyRef;
 };
 
@@ -63,6 +65,7 @@ const SEARCH_SELECT = [
   'client_name', 'client_phone', 'customer_reference', 'booking_reference',
   'load_details', 'special_requirements', 'access_restrictions',
   'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at',
+  'exchange_visibility', 'direct_invite_company_id',
   'companies!jobs_company_id_fkey(name,company_number)',
 ].join(',');
 
@@ -231,7 +234,13 @@ export async function GET(request: NextRequest) {
     .order('exchange_posted_at', { ascending: false })
     .limit(250);
 
-  if (driver.companyId) query = query.neq('company_id', driver.companyId);
+  if (driver.companyId) {
+    query = query
+      .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})`)
+      .neq('company_id', driver.companyId);
+  } else {
+    query = query.eq('exchange_visibility', 'exchange');
+  }
   if (vehicle) query = query.or(`vehicle_type.ilike.%${vehicle}%,requested_vehicle_type.ilike.%${vehicle}%,requested_vehicle_label.ilike.%${vehicle}%`);
   if (freight) query = query.or(`cargo_type.ilike.%${freight}%,requested_cargo_label.ilike.%${freight}%`);
   if (minBudget !== null) query = query.gte('budget_amount', minBudget);
