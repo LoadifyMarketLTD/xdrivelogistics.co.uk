@@ -1,14 +1,22 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, CheckCircle2, Clock3, MapPin, Navigation, PackageCheck, RefreshCw, Truck } from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
+import {
+  ActionButton,
+  AlertBanner,
+  EmptyState,
+  KpiCard,
+  KpiGrid,
+  Panel,
+  StatusBadge,
+} from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
   id: string;
@@ -16,6 +24,8 @@ type DriverRow = {
   availability_status: string | null;
   status: string | null;
 };
+
+type StatusHistoryEntry = { status: string; timestamp: string };
 
 type JobRow = {
   id: string;
@@ -32,23 +42,33 @@ type JobRow = {
   assigned_driver_id: string | null;
   collection_photo_url: string | null;
   delivery_photos: string[] | null;
-  status_history: Array<{ status: string; timestamp: string }> | null;
+  status_history: StatusHistoryEntry[] | null;
 };
+
+type JobFilter = 'all' | 'active' | 'allocated' | 'collected' | 'in_transit' | 'delivered';
 
 const ACTIVE_STATUSES = ['allocated', 'collected', 'in_transit'];
-const TODAY_STATUSES = ['allocated', 'collected', 'in_transit', 'delivered'];
+const VISIBLE_STATUSES = ['allocated', 'collected', 'in_transit', 'delivered'];
 
 const STATUS_LABELS: Record<string, string> = {
-  allocated: 'Ready for pickup',
+  allocated: 'Allocated',
   collected: 'Loaded',
-  in_transit: 'On route',
+  in_transit: 'In transit',
   delivered: 'Delivered',
-  driver_en_route: 'On route',
-  arrived_pickup: 'Arrived pickup',
-  arrived_delivery: 'Arrived delivery',
+  on_my_way_to_pickup: 'On my way to pickup',
+  on_site_pickup: 'On site pickup',
+  on_my_way_to_delivery: 'On my way to delivery',
+  on_site_delivery: 'On site delivery',
 };
 
-const VEHICLE_LABELS = VEHICLE_TYPE_LABELS;
+const FILTERS: Array<{ id: JobFilter; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'allocated', label: 'Allocated' },
+  { id: 'collected', label: 'Loaded' },
+  { id: 'in_transit', label: 'In transit' },
+  { id: 'delivered', label: 'Completed' },
+];
 
 function fmtTime(value: string | null) {
   if (!value) return 'TBC';
@@ -75,7 +95,11 @@ function hasEvent(job: JobRow | null, event: string) {
   return Array.isArray(job?.status_history) && job.status_history.some((entry) => entry.status === event);
 }
 
-export default function DriverHomePage() {
+function routeLabel(job: JobRow) {
+  return `${job.pickup_location ?? 'Collection'} → ${job.delivery_location ?? 'Delivery'}`;
+}
+
+export default function DriverJobsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
@@ -86,12 +110,14 @@ export default function DriverHomePage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [filter, setFilter] = useState<JobFilter>('all');
 
-  const loadHome = useCallback(async () => {
+  const loadJobs = useCallback(async () => {
     if (!isSupabaseConfigured || !driverId) {
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setError('');
 
@@ -105,16 +131,19 @@ export default function DriverHomePage() {
         .from('jobs')
         .select('id, status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, cargo_type, load_details, assigned_driver_id, collection_photo_url, delivery_photos, status_history')
         .eq('assigned_driver_id', driverId)
-        .in('status', TODAY_STATUSES)
+        .in('status', VISIBLE_STATUSES)
         .order('pickup_datetime', { ascending: true })
-        .limit(20),
+        .limit(50),
     ]);
 
-    if (driverRes.error) setError(`Driver profile could not be loaded: ${driverRes.error.message}`);
-    else setDriver(driverRes.data as DriverRow | null);
+    if (driverRes.error) {
+      setError('Your driver status could not be loaded.');
+    } else {
+      setDriver(driverRes.data as DriverRow | null);
+    }
 
     if (jobsRes.error) {
-      setError(`Jobs could not be loaded: ${jobsRes.error.message}`);
+      setError('Assigned jobs could not be loaded. Refresh the page or try again shortly.');
       setJobs([]);
     } else {
       setJobs((jobsRes.data ?? []) as JobRow[]);
@@ -124,13 +153,14 @@ export default function DriverHomePage() {
   }, [driverId]);
 
   useEffect(() => {
-    void loadHome();
-  }, [loadHome]);
+    void loadJobs();
+  }, [loadJobs]);
 
   const activeJob = useMemo(
     () => jobs.find((job) => ACTIVE_STATUSES.includes(job.status)) ?? null,
     [jobs]
   );
+
   useDriverLocationPublisher(activeJob?.status, Boolean(activeJob));
 
   const todaysJobs = useMemo(
@@ -138,8 +168,15 @@ export default function DriverHomePage() {
     [jobs]
   );
 
+  const filteredJobs = useMemo(() => {
+    if (filter === 'all') return jobs;
+    if (filter === 'active') return jobs.filter((job) => ACTIVE_STATUSES.includes(job.status));
+    return jobs.filter((job) => job.status === filter);
+  }, [filter, jobs]);
+
   const updateJob = async (job: JobRow, nextStatus: string, eventOnly = false) => {
     if (!driverId || actionLoading) return;
+
     setActionLoading(true);
     setError('');
     setMessage('');
@@ -155,127 +192,189 @@ export default function DriverHomePage() {
       .eq('assigned_driver_id', driverId);
 
     if (updateError) {
-      setError(updateError.message);
+      setError('That job update could not be saved. Please retry before continuing the journey.');
     } else {
-      setMessage(`${STATUS_LABELS[nextStatus] ?? nextStatus} recorded`);
-      await loadHome();
+      setMessage(`${STATUS_LABELS[nextStatus] ?? nextStatus} recorded.`);
+      await loadJobs();
       window.setTimeout(() => setMessage(''), 3000);
     }
     setActionLoading(false);
   };
 
   const driverStatus = driver?.availability_status ?? driver?.status ?? 'active';
-  const vehicleLabel = activeJob?.vehicle_type ? (VEHICLE_LABELS[activeJob.vehicle_type] ?? activeJob.vehicle_type) : 'Not assigned';
+  const activeVehicle = activeJob?.vehicle_type
+    ? (VEHICLE_TYPE_LABELS[activeJob.vehicle_type] ?? activeJob.vehicle_type.replace(/_/g, ' '))
+    : 'Not assigned';
+
+  const activePickupEvent = 'on_my_way_to_pickup';
+  const activeArrivalEvent = activeJob?.status === 'in_transit' ? 'on_site_delivery' : 'on_site_pickup';
+  const activeRouteEvent = activeJob?.status === 'in_transit' ? 'on_my_way_to_delivery' : activePickupEvent;
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell driverName={driver?.display_name ?? undefined} availabilityLabel={driverStatus}>
-        <section style={{ display: 'grid', gap: '0.85rem' }}>
-          {error && <Notice tone="error" text={error} />}
-          {message && <Notice tone="success" text={message} />}
+      <DriverWorkspaceShell
+        driverName={driver?.display_name ?? undefined}
+        availabilityLabel={driverStatus}
+        subtitle="Execute assigned work from one operational view: route, timing, status, tracking and POD hand-off."
+        headerActions={<ActionButton tone="primary" onClick={() => void loadJobs()} disabled={loading}>Refresh</ActionButton>}
+      >
+        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {message && <AlertBanner tone="success">{message}</AlertBanner>}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-            <div>
-              <p style={{ margin: 0, color: '#facc15', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active work</p>
-              <h1 style={{ margin: '0.1rem 0 0', color: '#f8fafc', fontSize: '1.45rem', lineHeight: 1.1 }}>What is next?</h1>
-            </div>
-            <button onClick={() => void loadHome()} disabled={loading} aria-label="Refresh" style={{ width: '44px', height: '44px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#111d2f', color: '#facc15', display: 'grid', placeItems: 'center', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.55 : 1 }}>
-              <RefreshCw size={20} />
-            </button>
-          </div>
+        <KpiGrid>
+          <KpiCard label="Active job" value={activeJob ? 1 : 0} detail="Current execution" tone={activeJob ? 'green' : 'navy'} onClick={activeJob ? () => router.push(`/driver/jobs/${activeJob.id}`) : undefined} />
+          <KpiCard label="Today" value={todaysJobs.length} detail="Pickup or delivery today" tone="blue" />
+          <KpiCard label="Awaiting pickup" value={jobs.filter((job) => job.status === 'allocated').length} detail="Allocated work" tone="orange" />
+          <KpiCard label="In transit" value={jobs.filter((job) => job.status === 'in_transit').length} detail="Moving to delivery" tone="green" />
+          <KpiCard label="Completed" value={jobs.filter((job) => job.status === 'delivered').length} detail="Delivered work" tone="navy" onClick={() => router.push('/driver/history')} />
+          <KpiCard label="Vehicle" value={activeVehicle} detail="Current job requirement" tone="purple" />
+        </KpiGrid>
 
-          <div style={{ borderRadius: '24px', border: '1px solid rgba(250,204,21,0.22)', background: activeJob ? 'linear-gradient(145deg, #18243a, #101b2d)' : '#111d2f', padding: '1rem', boxShadow: '0 18px 40px rgba(0,0,0,0.28)' }}>
+        <div className="driver-ops-grid-2">
+          <Panel
+            title="Current execution"
+            description="Authoritative next action for the active job."
+            actions={activeJob ? <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${activeJob.id}`)}>Open full job</ActionButton> : undefined}
+          >
             {loading ? (
-              <div style={{ color: '#94a3b8', padding: '2rem 0', textAlign: 'center', fontWeight: 700 }}>Loading work</div>
+              <EmptyState title="Loading assigned work" />
             ) : activeJob ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <div>
-                    <span style={{ display: 'inline-flex', color: '#0b1524', background: '#facc15', borderRadius: '999px', padding: '0.22rem 0.55rem', fontSize: '0.72rem', fontWeight: 900 }}>{STATUS_LABELS[activeJob.status] ?? activeJob.status}</span>
-                    <h2 style={{ margin: '0.65rem 0 0', color: '#f8fafc', fontSize: '1.35rem', lineHeight: 1.15 }}>{activeJob.pickup_location ?? 'Pickup TBC'}</h2>
-                    <p style={{ margin: '0.25rem 0 0', color: '#94a3b8', fontWeight: 700 }}>to {activeJob.delivery_location ?? 'Delivery TBC'}</p>
+              <div>
+                <div className="driver-current-route">
+                  <div className="driver-route-stop">
+                    <span className="driver-cell-label">Pickup</span>
+                    <strong className="driver-cell-primary">{activeJob.pickup_location ?? 'Collection'}</strong>
+                    <span className="driver-cell-secondary">{activeJob.pickup_postcode ?? 'Postcode TBC'} · {fmtDate(activeJob.pickup_datetime)} {fmtTime(activeJob.pickup_datetime)}</span>
                   </div>
-                  <button onClick={() => router.push(`/driver/jobs/${activeJob.id}`)} style={{ alignSelf: 'flex-start', minHeight: '42px', borderRadius: '14px', border: 'none', background: '#f8fafc', color: '#0b1524', padding: '0 0.85rem', fontWeight: 900, cursor: 'pointer' }}>Open</button>
+                  <span className="driver-route-arrow">→</span>
+                  <div className="driver-route-stop">
+                    <span className="driver-cell-label">Delivery</span>
+                    <strong className="driver-cell-primary">{activeJob.delivery_location ?? 'Delivery'}</strong>
+                    <span className="driver-cell-secondary">{activeJob.delivery_postcode ?? 'Postcode TBC'} · {fmtDate(activeJob.delivery_datetime)} {fmtTime(activeJob.delivery_datetime)}</span>
+                  </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '1rem' }}>
-                  <MiniMetric icon={<Clock3 size={18} />} label="Pickup" value={`${fmtDate(activeJob.pickup_datetime)} ${fmtTime(activeJob.pickup_datetime)}`} />
-                  <MiniMetric icon={<MapPin size={18} />} label="Delivery" value={`${fmtDate(activeJob.delivery_datetime)} ${fmtTime(activeJob.delivery_datetime)}`} />
-                  <MiniMetric icon={<Truck size={18} />} label="Vehicle" value={vehicleLabel} />
-                  <MiniMetric icon={<Navigation size={18} />} label="Tracking" value={driverStatus} />
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '6px', borderTop: '1px solid #e5e7eb' }}>
+                  <StatusBadge value={STATUS_LABELS[activeJob.status] ?? activeJob.status} />
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>{activeJob.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span>
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>{activeVehicle}</span>
                 </div>
 
-                <div style={{ display: 'grid', gap: '0.55rem' }}>
-                  <QuickAction label="On Route" icon={<Navigation size={20} />} disabled={actionLoading || hasEvent(activeJob, 'driver_en_route')} onClick={() => updateJob(activeJob, 'driver_en_route', true)} />
-                  <QuickAction label="Arrived" icon={<MapPin size={20} />} disabled={actionLoading || hasEvent(activeJob, activeJob.status === 'in_transit' ? 'arrived_delivery' : 'arrived_pickup')} onClick={() => updateJob(activeJob, activeJob.status === 'in_transit' ? 'arrived_delivery' : 'arrived_pickup', true)} />
-                  <QuickAction label="Loaded" icon={<PackageCheck size={20} />} disabled={actionLoading || activeJob.status !== 'allocated'} onClick={() => updateJob(activeJob, 'collected')} />
-                  <QuickAction label="Delivered / POD" icon={<Camera size={20} />} disabled={actionLoading} onClick={() => router.push(`/driver/jobs/${activeJob.id}`)} />
+                <div className="driver-action-grid">
+                  <ActionButton
+                    tone="primary"
+                    disabled={actionLoading || hasEvent(activeJob, activeRouteEvent)}
+                    onClick={() => void updateJob(activeJob, activeRouteEvent, true)}
+                  >
+                    {activeJob.status === 'in_transit' ? 'On way to delivery' : 'On way to pickup'}
+                  </ActionButton>
+                  <ActionButton
+                    tone="secondary"
+                    disabled={actionLoading || hasEvent(activeJob, activeArrivalEvent)}
+                    onClick={() => void updateJob(activeJob, activeArrivalEvent, true)}
+                  >
+                    {activeJob.status === 'in_transit' ? 'On site delivery' : 'On site pickup'}
+                  </ActionButton>
+                  <ActionButton
+                    tone="success"
+                    disabled={actionLoading || activeJob.status !== 'allocated'}
+                    onClick={() => void updateJob(activeJob, 'collected')}
+                  >
+                    Loaded
+                  </ActionButton>
+                  <ActionButton tone="warning" disabled={actionLoading} onClick={() => router.push(`/driver/jobs/${activeJob.id}`)}>
+                    Delivered / POD
+                  </ActionButton>
                 </div>
-              </>
+              </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '2.25rem 0.5rem' }}>
-                <CheckCircle2 size={42} color="#86efac" />
-                <h2 style={{ color: '#f8fafc', margin: '0.7rem 0 0.25rem', fontSize: '1.25rem' }}>No active job</h2>
-                <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.45 }}>You are clear right now. New work will appear here first.</p>
+              <EmptyState title="No active job" description="Allocated work appears here immediately and becomes the primary execution card." />
+            )}
+          </Panel>
+
+          <Panel title="Today's schedule" description="Pickup and delivery work due today, in operational order.">
+            {todaysJobs.length === 0 ? (
+              <EmptyState title="No jobs scheduled today" description="Keep availability current so dispatch and marketplace matching remain accurate." />
+            ) : (
+              <div className="driver-ops-table-wrap">
+                <table className="driver-ops-table">
+                  <thead>
+                    <tr>
+                      <th>Route</th>
+                      <th>Pickup</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todaysJobs.map((job) => (
+                      <tr key={job.id}>
+                        <td><strong>{routeLabel(job)}</strong></td>
+                        <td>{fmtTime(job.pickup_datetime)}</td>
+                        <td><StatusBadge value={STATUS_LABELS[job.status] ?? job.status} /></td>
+                        <td><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </div>
+          </Panel>
+        </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-            <StatusTile label="Today" value={todaysJobs.length} />
-            <StatusTile label="Vehicle" value={vehicleLabel} />
-          </div>
+        <div className="driver-status-tabs" aria-label="Job status filters">
+          {FILTERS.map((item) => (
+            <button key={item.id} type="button" data-active={filter === item.id} onClick={() => setFilter(item.id)}>
+              {item.label} {item.id === 'all' ? jobs.length : item.id === 'active' ? jobs.filter((job) => ACTIVE_STATUSES.includes(job.status)).length : jobs.filter((job) => job.status === item.id).length}
+            </button>
+          ))}
+        </div>
 
-          <section style={{ display: 'grid', gap: '0.55rem' }}>
-            <h2 style={{ color: '#f8fafc', fontSize: '1rem', margin: '0.25rem 0 0' }}>Today's jobs</h2>
-            {todaysJobs.length === 0 ? (
-              <div style={{ color: '#94a3b8', background: '#111d2f', borderRadius: '18px', padding: '1rem', border: '1px solid rgba(255,255,255,0.08)' }}>No jobs scheduled for today.</div>
-            ) : (
-              todaysJobs.map((job) => (
-                <button key={job.id} onClick={() => router.push(`/driver/jobs/${job.id}`)} style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#111d2f', color: '#f8fafc', borderRadius: '18px', padding: '0.85rem', textAlign: 'left', display: 'grid', gap: '0.35rem', cursor: 'pointer' }}>
-                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-                    <strong style={{ fontSize: '0.95rem' }}>{job.pickup_location ?? 'Pickup TBC'}</strong>
-                    <span style={{ color: '#facc15', fontWeight: 900, fontSize: '0.78rem' }}>{fmtTime(job.pickup_datetime)}</span>
-                  </span>
-                  <span style={{ color: '#94a3b8', fontSize: '0.82rem' }}>to {job.delivery_location ?? 'Delivery TBC'}</span>
-                </button>
-              ))
-            )}
-          </section>
-        </section>
+        <Panel
+          title="Assigned work register"
+          description="Compact operational list. Open a job for notes, POD, documents and full history."
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Job history</ActionButton>}
+          flush
+        >
+          {loading ? (
+            <div style={{ padding: '20px' }}><EmptyState title="Loading jobs" /></div>
+          ) : filteredJobs.length === 0 ? (
+            <div style={{ padding: '20px' }}><EmptyState title="No jobs in this status" /></div>
+          ) : (
+            <div className="driver-ops-table-wrap">
+              <table className="driver-ops-table">
+                <thead>
+                  <tr>
+                    <th>Route</th>
+                    <th>Pickup</th>
+                    <th>Delivery</th>
+                    <th>Vehicle</th>
+                    <th>Status</th>
+                    <th>POD</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredJobs.map((job) => {
+                    const hasPod = Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0;
+                    return (
+                      <tr key={job.id}>
+                        <td><strong>{routeLabel(job)}</strong></td>
+                        <td>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</td>
+                        <td>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</td>
+                        <td>{job.vehicle_type ? (VEHICLE_TYPE_LABELS[job.vehicle_type] ?? job.vehicle_type.replace(/_/g, ' ')) : 'TBC'}</td>
+                        <td><StatusBadge value={STATUS_LABELS[job.status] ?? job.status} /></td>
+                        <td>{hasPod ? <StatusBadge value="POD captured" tone="green" /> : <span style={{ color: '#64748b' }}>—</span>}</td>
+                        <td><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
       </DriverWorkspaceShell>
     </ProtectedRoute>
-  );
-}
-
-function Notice({ tone, text }: { tone: 'error' | 'success'; text: string }) {
-  const isError = tone === 'error';
-  return <div style={{ background: isError ? 'rgba(239,68,68,0.14)' : 'rgba(34,197,94,0.14)', border: `1px solid ${isError ? 'rgba(248,113,113,0.35)' : 'rgba(134,239,172,0.35)'}`, color: isError ? '#fecaca' : '#bbf7d0', borderRadius: '16px', padding: '0.75rem 0.85rem', fontSize: '0.85rem', fontWeight: 800 }}>{text}</div>;
-}
-
-function MiniMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '18px', padding: '0.75rem', minHeight: '82px' }}>
-      <div style={{ color: '#facc15', marginBottom: '0.35rem' }}>{icon}</div>
-      <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: '#f8fafc', fontWeight: 900, fontSize: '0.88rem', marginTop: '0.15rem' }}>{value}</div>
-    </div>
-  );
-}
-
-function QuickAction({ icon, label, disabled, onClick }: { icon: React.ReactNode; label: string; disabled?: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} disabled={disabled} style={{ minHeight: '54px', borderRadius: '18px', border: 'none', background: disabled ? 'rgba(148,163,184,0.14)' : '#facc15', color: disabled ? '#64748b' : '#0b1524', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.55rem', fontWeight: 900, fontSize: '0.95rem', cursor: disabled ? 'default' : 'pointer' }}>
-      {icon}{label}
-    </button>
-  );
-}
-
-function StatusTile({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div style={{ background: '#111d2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '18px', padding: '0.85rem' }}>
-      <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ color: '#f8fafc', fontSize: '1.05rem', fontWeight: 900, marginTop: '0.2rem' }}>{value}</div>
-    </div>
   );
 }
