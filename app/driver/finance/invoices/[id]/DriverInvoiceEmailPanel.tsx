@@ -97,6 +97,7 @@ export default function DriverInvoiceEmailPanel({
   const [draftSubject, setDraftSubject] = useState(DEFAULT_SUBJECT);
   const [draftMessage, setDraftMessage] = useState(DEFAULT_MESSAGE);
   const [sending, setSending] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -124,6 +125,44 @@ export default function DriverInvoiceEmailPanel({
   const resetDraft = () => {
     setDraftSubject(DEFAULT_SUBJECT);
     setDraftMessage(DEFAULT_MESSAGE);
+  };
+
+  const previewInvoice = async () => {
+    setPreviewing(true);
+    setError('');
+    setNotice('');
+    const previewWindow = window.open('', '_blank');
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) {
+      previewWindow?.close();
+      setError('Your session has expired. Please sign in again.');
+      setPreviewing(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/preview`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        previewWindow?.close();
+        setError(payload.error ?? 'Invoice preview could not be generated.');
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      if (previewWindow) previewWindow.location.href = url;
+      else window.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+    } catch {
+      previewWindow?.close();
+      setError('Network error while generating the invoice preview.');
+    } finally {
+      setPreviewing(false);
+    }
   };
 
   const sendInvoice = async () => {
@@ -184,11 +223,11 @@ export default function DriverInvoiceEmailPanel({
           borderBottom: '1px solid #e2e8f0',
         }}>
           <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b' }}>Invoice email template</div>
-            <div style={{ color: '#64748b', fontSize: '0.68rem', marginTop: '0.08rem' }}>PDF invoice is attached automatically on send.</div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b' }}>Invoice review & delivery</div>
+            <div style={{ color: '#64748b', fontSize: '0.68rem', marginTop: '0.08rem' }}>Edit the Draft, preview the final XDrive PDF, then send it with the email attachment.</div>
           </div>
           {invoice.status === 'Draft' && (
-            <button type="button" style={secondaryButton} onClick={openEditor}>Edit</button>
+            <button type="button" style={secondaryButton} onClick={openEditor}>Edit email</button>
           )}
         </div>
 
@@ -196,7 +235,7 @@ export default function DriverInvoiceEmailPanel({
           {error && <div style={{ marginBottom: '0.55rem', padding: '0.42rem 0.55rem', border: '1px solid #fecaca', background: '#fff1f2', color: '#b91c1c', borderRadius: '4px', fontSize: '0.72rem' }}>{error}</div>}
           {notice && <div style={{ marginBottom: '0.55rem', padding: '0.42rem 0.55rem', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#166534', borderRadius: '4px', fontSize: '0.72rem' }}>{notice}</div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.42fr) minmax(260px, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.38fr) minmax(250px, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
             <div>
               <div style={labelStyle}>To</div>
               <div style={{ fontSize: '0.76rem', color: canSend ? '#1e293b' : '#b91c1c', fontWeight: 600, overflowWrap: 'anywhere' }}>{recipient}</div>
@@ -205,18 +244,36 @@ export default function DriverInvoiceEmailPanel({
               <div style={labelStyle}>Subject</div>
               <div style={{ fontSize: '0.76rem', color: '#1e293b', fontWeight: 600 }}>{subject}</div>
             </div>
-            {invoice.status === 'Draft' ? (
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {invoice.status === 'Draft' && (
+                <a
+                  href={`/driver/finance/invoices/${invoiceId}/edit`}
+                  style={{ ...secondaryButton, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+                >
+                  Edit invoice
+                </a>
+              )}
               <button
                 type="button"
-                style={{ ...primaryButton, opacity: sending || !canSend ? 0.55 : 1 }}
-                disabled={sending || !canSend}
-                onClick={() => void sendInvoice()}
+                style={{ ...secondaryButton, opacity: previewing ? 0.55 : 1 }}
+                disabled={previewing}
+                onClick={() => void previewInvoice()}
               >
-                {sending ? 'Sending…' : 'Send invoice & PDF'}
+                {previewing ? 'Opening…' : 'Preview PDF'}
               </button>
-            ) : (
-              <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, paddingBottom: '0.35rem' }}>{invoice.status}</div>
-            )}
+              {invoice.status === 'Draft' ? (
+                <button
+                  type="button"
+                  style={{ ...primaryButton, opacity: sending || !canSend ? 0.55 : 1 }}
+                  disabled={sending || !canSend}
+                  onClick={() => void sendInvoice()}
+                >
+                  {sending ? 'Sending…' : 'Send invoice & PDF'}
+                </button>
+              ) : (
+                <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, padding: '0.45rem 0.2rem 0' }}>{invoice.status}</div>
+              )}
+            </div>
           </div>
 
           <div style={{ marginTop: '0.48rem', paddingTop: '0.45rem', borderTop: '1px solid #eef2f7', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: '#64748b', fontSize: '0.68rem' }}>
@@ -224,6 +281,7 @@ export default function DriverInvoiceEmailPanel({
             <span>Load: <strong style={{ color: '#334155' }}>{invoice.jobReference}</strong></span>
             <span>Amount: <strong style={{ color: '#334155' }}>{money(invoice.amount, invoice.currency)}</strong></span>
             <span>Customer: <strong style={{ color: '#334155' }}>{invoice.clientName}</strong></span>
+            <span style={{ marginLeft: 'auto', color: '#0b2f6b', fontWeight: 700 }}>Preview does not send or change invoice status.</span>
           </div>
         </div>
       </section>
