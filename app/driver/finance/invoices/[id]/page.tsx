@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../../_components/DriverWorkspaceShell';
+import DriverInvoiceEmailPanel from './DriverInvoiceEmailPanel';
 import { supabase, isSupabaseConfigured } from '../../../../../lib/supabaseClient';
 import {
   toCanonicalInvoiceDisplayStatus,
@@ -109,6 +110,20 @@ const fmtDateTime = (iso: string) =>
     hour: '2-digit', minute: '2-digit',
   });
 
+const displayServiceDescription = (value: string | null) => {
+  const raw = value?.trim() ?? '';
+  if (!raw) return 'Transport service';
+  if (!raw.startsWith('{') && !raw.startsWith('[')) return raw;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const vehicle = typeof parsed.vehicle === 'string' ? parsed.vehicle.trim() : '';
+    const cargo = typeof parsed.cargo === 'string' ? parsed.cargo.trim() : '';
+    return ['Transport service', vehicle, cargo].filter(Boolean).join(' · ');
+  } catch {
+    return 'Transport service';
+  }
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DriverInvoiceDetailPage({
@@ -131,10 +146,6 @@ export default function DriverInvoiceDetailPage({
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-
-  // Submit state
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
 
   // Record payment state
   const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -212,26 +223,6 @@ export default function DriverInvoiceDetailPage({
   useEffect(() => { void loadDetail(); }, [loadDetail]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
-
-  const handleSubmit = async () => {
-    if (!invoiceId) return;
-    setSubmitting(true);
-    setSubmitError('');
-    const token = await getToken();
-    if (!token) { setSubmitting(false); return; }
-
-    const res = await fetch(`/api/driver/finance/invoices/${invoiceId}/submit`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token },
-    });
-    if (!res.ok) {
-      const e = await res.json() as { error?: string };
-      setSubmitError(e.error ?? 'Failed to submit invoice.');
-    } else {
-      await loadDetail();
-    }
-    setSubmitting(false);
-  };
 
   const handleRecordPayment = async () => {
     if (!invoiceId || !payAmount || Number(payAmount) <= 0) return;
@@ -476,27 +467,26 @@ export default function DriverInvoiceDetailPage({
             {invoice.service_description && (
               <div style={{ gridColumn: 'span 2' }}>
                 <div style={labelStyle}>Service</div>
-                <div style={{ fontSize: '0.78rem', color: '#475569' }}>{invoice.service_description}</div>
+                <div style={{ fontSize: '0.78rem', color: '#475569' }}>{displayServiceDescription(invoice.service_description)}</div>
               </div>
             )}
           </div>
-
-          {/* Submit action */}
-          {invoice.status === 'Draft' && (
-            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-              {submitError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{submitError}</div>
-              )}
-              <button
-                onClick={() => void handleSubmit()}
-                disabled={submitting}
-                style={{ ...btnPrimary, opacity: submitting ? 0.6 : 1 }}
-              >
-                {submitting ? 'Sending…' : '📤 Mark as Sent'}
-              </button>
-            </div>
-          )}
         </div>
+
+        <DriverInvoiceEmailPanel
+          invoiceId={invoiceId}
+          invoice={{
+            invoiceNumber: invoice.invoice_number,
+            jobReference: invoice.job_ref,
+            clientName: invoice.client_name,
+            clientEmail: invoice.client_email,
+            invoiceDate: invoice.invoice_date,
+            amount: Number(invoice.amount),
+            currency: invoice.currency,
+            status: invoice.status,
+          }}
+          onSent={loadDetail}
+        />
 
         {/* ── Payment summary ── */}
         <div style={cardStyle}>
