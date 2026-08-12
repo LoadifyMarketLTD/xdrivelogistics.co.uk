@@ -113,23 +113,23 @@ const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   },
   accepted: {
     kind: 'open',
-    label: 'Continue accepted job',
-    description: 'Open the job actions to continue from the accepted state safely.',
+    label: 'Open job details',
+    description: 'This accepted-state record is continued from the full execution screen; no direct dashboard transition is attempted.',
   },
   on_my_way_to_pickup: {
     kind: 'open',
-    label: 'Continue pickup',
-    description: 'Open the job actions to continue the pickup workflow.',
+    label: 'Open pickup details',
+    description: 'This pickup-state alias is continued from the full execution screen; no direct dashboard transition is attempted.',
   },
   collected: {
     kind: 'open',
-    label: 'Continue delivery',
-    description: 'Open the job actions to continue the delivery workflow.',
+    label: 'Open delivery details',
+    description: 'This collected-state record is continued from the full execution screen; no direct dashboard transition is attempted.',
   },
   on_my_way_to_delivery: {
     kind: 'open',
-    label: 'Continue delivery',
-    description: 'Open the job actions to continue the delivery workflow.',
+    label: 'Open delivery details',
+    description: 'This delivery-state alias is continued from the full execution screen; no direct dashboard transition is attempted.',
   },
 };
 
@@ -181,8 +181,8 @@ export default function DriverDashboard() {
   const currentAction = currentStatus
     ? NEXT_DRIVER_ACTIONS[currentStatus] ?? {
         kind: 'open' as const,
-        label: 'Open job actions',
-        description: 'Review the current job state and continue from the full execution screen.',
+        label: 'Open job details',
+        description: 'Review this job state in the full execution screen; the dashboard will not guess an unsupported transition.',
       }
     : null;
   const todaysJobs = myJobs
