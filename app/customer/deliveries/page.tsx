@@ -1,1 +1,7 @@
-'use client'; import { CustomerDeliveriesPage } from '../CustomerWorkspaceModules'; export default function Page(){return <CustomerDeliveriesPage/>}
+'use client';
+
+import { CustomerDeliveriesOperationalPage } from '../CustomerOperationalPages';
+
+export default function Page() {
+  return <CustomerDeliveriesOperationalPage />;
+}
