@@ -30,7 +30,7 @@ const FREIGHT_VISION_ROLES = new Set<WorkspaceRole>([
   'dispatcher',
 ]);
 
-const LIVE_AVAILABILITY_ROLES = new Set<WorkspaceRole>([
+const FLEET_OPERATION_ROLES = new Set<WorkspaceRole>([
   'company_owner',
   'company_admin',
   'carrier_admin',
@@ -67,17 +67,26 @@ export default function TopWorkspaceShell({
       else base.push({ id: 'operations', label: 'Operations', items: [item] });
     }
 
-    if (LIVE_AVAILABILITY_ROLES.has(role) && hasWorkspaceCapability(role, 'fleet.positions.view')) {
-      const item = {
-        id: 'live-availability',
-        label: 'Live Availability',
-        href: '/admin/live-availability',
-        icon: '◷',
-        capability: 'fleet.positions.view' as const,
-      };
+    if (FLEET_OPERATION_ROLES.has(role) && hasWorkspaceCapability(role, 'fleet.positions.view')) {
       const fleet = base.find((group) => group.id === 'fleet');
-      if (fleet) fleet.items.push(item);
-      else base.push({ id: 'fleet', label: 'Fleet', items: [item] });
+      const items = [
+        {
+          id: 'live-availability',
+          label: 'Live Availability',
+          href: '/admin/live-availability',
+          icon: '◷',
+          capability: 'fleet.positions.view' as const,
+        },
+        {
+          id: 'fleet-resources',
+          label: 'Fleet Resources',
+          href: '/admin/fleet/resources',
+          icon: '▦',
+          capability: 'fleet.positions.view' as const,
+        },
+      ];
+      if (fleet) fleet.items.push(...items);
+      else base.push({ id: 'fleet', label: 'Fleet', items });
     }
 
     return base;
