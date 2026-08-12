@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { FleetMapPoint } from './FleetPositionMapClient';
+import type { FleetMapMode, FleetMapPoint } from './FleetPositionMapClient';
 
 const FleetPositionMapClient = dynamic(() => import('./FleetPositionMapClient'), {
   ssr: false,
@@ -17,19 +17,21 @@ const FleetPositionMapClient = dynamic(() => import('./FleetPositionMapClient'),
         fontSize: '0.82rem',
       }}
     >
-      Loading live map…
+      Loading map…
     </div>
   ),
 });
 
-export type { FleetMapPoint };
+export type { FleetMapMode, FleetMapPoint };
 
 export default function FleetPositionMap({
   points,
   selectedDriverId,
+  mode = 'live',
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
+  mode?: FleetMapMode;
 }) {
-  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} />;
+  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} />;
 }
