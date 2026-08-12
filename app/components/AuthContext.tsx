@@ -519,19 +519,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (isSupabaseConfigured) {
         const { error } = await withTimeout(
-          supabase.auth.signOut({ scope: 'local' }),
+          supabase.auth.signOut(),
           LOGIN_TIMEOUT_MS,
         );
         if (error) {
-          console.warn('[XDrive Auth] Supabase local sign-out returned an error', error);
+          console.warn('[XDrive Auth] Supabase sign-out returned an error', error);
         }
       }
     } catch (error) {
-      console.warn('[XDrive Auth] Supabase local sign-out failed', error);
+      console.warn('[XDrive Auth] Supabase sign-out failed', error);
     } finally {
-      // supabase-js 2.97 can leave its persisted browser session behind when
-      // signOut itself fails. Clear only this project's auth keys so a Driver
-      // session cannot be resurrected when the next Customer/Broker logs in.
+      // The currently locked Supabase Auth client predates the upstream fix that
+      // guarantees local session cleanup after every sign-out failure. Clear only
+      // this project's auth keys so an old account cannot be resurrected on login.
       clearPersistedSupabaseSession();
       resetAuthState();
       setIsLoading(false);
