@@ -24,11 +24,14 @@ export type DriverContext = {
 
 export type MobileJobRow = {
   id: string;
+  customer_ref: string | null;
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
   company_id: string | null;
+  assigned_company_id: string | null;
   awarded_carrier_company_id: string | null;
+  vehicle_ref: string | null;
   pickup_location: string | null;
   delivery_location: string | null;
   pickup_datetime: string | null;
@@ -55,6 +58,7 @@ export type MobileJobRow = {
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
   delivery_signature_data: unknown;
+  client_signature_name: string | null;
   status_history: unknown;
   updated_at: string | null;
   created_at: string | null;
@@ -148,11 +152,14 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 
 export const jobSelect = [
   'id',
+  'customer_ref',
   'status',
   'current_status',
   'assigned_driver_id',
   'company_id',
+  'assigned_company_id',
   'awarded_carrier_company_id',
+  'vehicle_ref',
   'pickup_location',
   'delivery_location',
   'pickup_datetime',
@@ -179,6 +186,7 @@ export const jobSelect = [
   'delivery_photos',
   'pod_photos',
   'delivery_signature_data',
+  'client_signature_name',
   'status_history',
   'updated_at',
   'created_at',
@@ -193,8 +201,11 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
   return [entry];
 }
 
-export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
-  return Boolean(job.pod_generated) || safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0 || Boolean(job.delivery_signature_data);
+export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'client_signature_name' | 'pod_generated'>) {
+  const hasEvidence = safeArray(job.delivery_photos).length + safeArray(job.pod_photos).length > 0;
+  const hasSignature = Boolean(job.delivery_signature_data);
+  const hasRecipient = typeof job.client_signature_name === 'string' && job.client_signature_name.trim().length > 0;
+  return job.pod_generated === true && hasEvidence && hasSignature && hasRecipient;
 }
 
 export function toMoney(value: number | string | null | undefined) {
@@ -218,7 +229,7 @@ export function mapJob(row: MobileJobRow) {
   const contactPhone = row.delivery_contact_phone || row.collection_contact_phone || row.client_phone || undefined;
   return {
     id: row.id,
-    reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
+    reference: row.customer_ref || 'XDrive Ref pending',
     status: mobileStatus(row),
     lifecycleStatus: row.status,
     pickupLocation: row.pickup_location || 'Pickup TBC',
@@ -229,7 +240,7 @@ export function mapJob(row: MobileJobRow) {
     vehicleRequirement: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || 'Vehicle TBC',
     price: toMoney(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount),
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
-    podRequired: row.pod_required !== false,
+    podRequired: true,
     podGenerated: hasPod(row),
     contactAllowed: Boolean(contactPhone),
     contactName,
