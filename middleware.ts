@@ -548,12 +548,15 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     driver?.app_access === true;
 
   const rawRole = profile.role ?? fallbackRole ?? null;
-  const workspaceRole = resolveWorkspaceRole({
-    role,
-    rawRole,
-    membershipRole,
-    ownerDriverWorkspace,
-  });
+  const workspaceRole =
+    activeCompany.context.activeWorkspace === 'broker' && role === 'owner'
+      ? 'broker'
+      : resolveWorkspaceRole({
+          role,
+          rawRole,
+          membershipRole,
+          ownerDriverWorkspace,
+        });
 
   return {
     kind: 'authenticated',
