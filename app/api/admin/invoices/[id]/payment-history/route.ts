@@ -62,7 +62,7 @@ export async function POST(
   const callerRole = (membership?.role_in_company as string | undefined) ?? null;
   if (!canRecordInvoicePayments(callerRole)) {
     return respond(403, {
-      error: 'Forbidden — only owner, admin, dispatcher, or finance may record invoice payments.',
+      error: 'Forbidden — only owner, admin, or finance may record invoice payments.',
     });
   }
 
