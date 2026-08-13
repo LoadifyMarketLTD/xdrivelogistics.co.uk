@@ -87,7 +87,7 @@ export async function GET(
 // POST /api/driver/finance/invoices/[id]/payment-history
 // Body: { amount, idempotency_key, currency?, paid_at?, settlement_method?, external_reference?, note? }
 // idempotency_key is required to prevent duplicate payment records.
-// Caller must be an owner, admin, dispatcher, or finance member — regular drivers cannot record payments.
+// Caller must be an owner, admin, or finance member — regular Fleet Drivers and dispatchers cannot record payments.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -100,11 +100,11 @@ export async function POST(
 
   const { id } = await params;
 
-  // Only admin-tier members may record payments — never bare drivers.
+  // Finance management is limited to owner/admin/finance — never bare drivers or dispatchers.
   const callerRole = await resolveCompanyRole(driver.userId, driver.companyId);
   if (!canRecordInvoicePayments(callerRole)) {
     return respond(403, {
-      error: 'Forbidden — only owner, admin, dispatcher, or finance may record invoice payments.',
+      error: 'Forbidden — only owner, admin, or finance may record invoice payments.',
     });
   }
 
