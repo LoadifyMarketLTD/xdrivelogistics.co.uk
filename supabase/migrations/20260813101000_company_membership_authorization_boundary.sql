@@ -5,6 +5,8 @@
 -- company, invite, capability, or operator privileges.
 --
 -- This migration:
+--   * repairs canonical membership helpers against live schema drift;
+--   * preserves existing function input parameter names where PostgreSQL requires it;
 --   * removes permissive company/invite policies backed by company_members;
 --   * redefines legacy helper names against company_memberships only;
 --   * allows Owner Driver operational authority from an active owner membership
@@ -17,8 +19,135 @@
 BEGIN;
 
 -- -----------------------------------------------------------------------------
--- 1. Canonical helpers. Keep legacy function names only for compatibility with
---    older callers; the authorization source is company_memberships exclusively.
+-- 1. Restore the canonical membership foundation.
+--
+-- Live drift was observed where:
+--   * has_active_company_membership(uuid, uuid) was missing;
+--   * active_company_membership_role(uuid, uuid) was PUBLIC executable;
+--   * is_company_member(uuid) / is_company_admin(uuid) accepted non-active
+--     membership states through legacy "<> suspended" logic.
+--
+-- PostgreSQL does not allow CREATE OR REPLACE FUNCTION to rename an existing
+-- input parameter. Older XDrive migrations can leave is_company_member/admin
+-- using either "cid" or "_company_id". The adaptive block below preserves the
+-- currently installed parameter name and uses positional $1 in the function body.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.has_active_company_membership(
+  p_company_id uuid,
+  p_user_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT p_company_id IS NOT NULL
+    AND p_user_id IS NOT NULL
+    AND EXISTS (
+      SELECT 1
+      FROM public.company_memberships cm
+      JOIN public.companies c ON c.id = cm.company_id
+      WHERE cm.company_id = p_company_id
+        AND cm.user_id = p_user_id
+        AND cm.status = 'active'
+        AND c.status::text = 'active'
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.active_company_membership_role(
+  p_company_id uuid,
+  p_user_id uuid
+)
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT cm.role_in_company::text
+  FROM public.company_memberships cm
+  JOIN public.companies c ON c.id = cm.company_id
+  WHERE cm.company_id = p_company_id
+    AND cm.user_id = p_user_id
+    AND cm.status = 'active'
+    AND c.status::text = 'active'
+  LIMIT 1;
+$$;
+
+DO $outer$
+DECLARE
+  v_param text;
+BEGIN
+  -- is_company_member(uuid): preserve the installed input parameter name.
+  SELECT p.proargnames[1]
+    INTO v_param
+    FROM pg_proc p
+   WHERE p.oid = to_regprocedure('public.is_company_member(uuid)');
+
+  IF NOT FOUND OR v_param IS NULL THEN
+    v_param := 'cid';
+  END IF;
+
+  EXECUTE format(
+    $ddl$
+      CREATE OR REPLACE FUNCTION public.is_company_member(%I uuid)
+      RETURNS boolean
+      LANGUAGE sql
+      STABLE
+      SECURITY DEFINER
+      SET search_path = public, pg_temp
+      AS $fn$
+        SELECT public.has_active_company_membership($1, auth.uid());
+      $fn$;
+    $ddl$,
+    v_param
+  );
+
+  -- is_company_admin(uuid): preserve the installed input parameter name.
+  SELECT p.proargnames[1]
+    INTO v_param
+    FROM pg_proc p
+   WHERE p.oid = to_regprocedure('public.is_company_admin(uuid)');
+
+  IF NOT FOUND OR v_param IS NULL THEN
+    v_param := 'cid';
+  END IF;
+
+  EXECUTE format(
+    $ddl$
+      CREATE OR REPLACE FUNCTION public.is_company_admin(%I uuid)
+      RETURNS boolean
+      LANGUAGE sql
+      STABLE
+      SECURITY DEFINER
+      SET search_path = public, pg_temp
+      AS $fn$
+        SELECT $1 IS NOT NULL
+          AND COALESCE(
+            public.active_company_membership_role($1, auth.uid()) IN ('owner', 'admin'),
+            false
+          );
+      $fn$;
+    $ddl$,
+    v_param
+  );
+END $outer$;
+
+REVOKE ALL ON FUNCTION public.has_active_company_membership(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.active_company_membership_role(uuid, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_company_member(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_company_admin(uuid) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.has_active_company_membership(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.active_company_membership_role(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_company_member(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_company_admin(uuid) TO authenticated, service_role;
+
+-- -----------------------------------------------------------------------------
+-- 2. Canonical compatibility helpers.
+--    Keep legacy function names only for compatibility with older callers; the
+--    authorization source is company_memberships exclusively.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.can_manage_company_members(_company_id uuid)
 RETURNS boolean
@@ -30,7 +159,10 @@ AS $$
   SELECT _company_id IS NOT NULL
     AND (
       public.is_owner(auth.uid())
-      OR COALESCE(public.active_company_membership_role(_company_id, auth.uid()) IN ('owner', 'admin'), false)
+      OR COALESCE(
+        public.active_company_membership_role(_company_id, auth.uid()) IN ('owner', 'admin'),
+        false
+      )
     );
 $$;
 
@@ -43,7 +175,10 @@ SET search_path = public, pg_temp
 AS $$
   SELECT uid IS NOT NULL
     AND company IS NOT NULL
-    AND COALESCE(public.active_company_membership_role(company, uid) IN ('owner', 'admin'), false);
+    AND COALESCE(
+      public.active_company_membership_role(company, uid) IN ('owner', 'admin'),
+      false
+    );
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_company_members_admin(p_company_id uuid)
@@ -53,7 +188,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT COALESCE(public.active_company_membership_role(p_company_id, auth.uid()) IN ('owner', 'admin'), false);
+  SELECT COALESCE(
+    public.active_company_membership_role(p_company_id, auth.uid()) IN ('owner', 'admin'),
+    false
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_company_operator(cid uuid)
@@ -115,7 +253,7 @@ GRANT EXECUTE ON FUNCTION public.is_company_operator(uuid) TO authenticated, ser
 GRANT EXECUTE ON FUNCTION public.has_capability(uuid, text) TO authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
--- 2. Companies UPDATE: remove legacy company_members authorization.
+-- 3. Companies UPDATE: remove legacy company_members authorization.
 --    Ordinary company writes require canonical owner/admin membership. Platform
 --    Owner keeps its existing separate global policy.
 -- -----------------------------------------------------------------------------
@@ -134,7 +272,7 @@ WITH CHECK (public.is_company_admin(id));
 -- helper is now backed only by company_memberships.
 
 -- -----------------------------------------------------------------------------
--- 3. Legacy invites table: admin authorization must use canonical membership.
+-- 4. Legacy invites table: admin authorization must use canonical membership.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS invites_insert_company_admin ON public.invites;
 DROP POLICY IF EXISTS invites_select_owner_or_company_admin ON public.invites;
@@ -172,7 +310,7 @@ WITH CHECK (
 );
 
 -- -----------------------------------------------------------------------------
--- 4. Workspace audit visibility: no legacy membership lookup.
+-- 5. Workspace audit visibility: no legacy membership lookup.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS workspace_audit_select_company_member ON public.workspace_switch_audit;
 DROP POLICY IF EXISTS workspace_audit_select_canonical_member_v4 ON public.workspace_switch_audit;
@@ -187,6 +325,14 @@ USING (
   OR public.is_company_member(target_company_id)
 );
 
+COMMENT ON FUNCTION public.has_active_company_membership(uuid, uuid) IS
+  'Canonical active company-membership predicate. Requires active membership and active company.';
+COMMENT ON FUNCTION public.active_company_membership_role(uuid, uuid) IS
+  'Returns the active canonical company role from company_memberships, or NULL.';
+COMMENT ON FUNCTION public.is_company_member(uuid) IS
+  'Canonical company membership predicate backed only by active company_memberships.';
+COMMENT ON FUNCTION public.is_company_admin(uuid) IS
+  'Canonical owner/admin predicate backed only by active company_memberships.';
 COMMENT ON FUNCTION public.can_manage_company_members(uuid) IS
   'Canonical member-management authorization using company_memberships; company_members is legacy only.';
 COMMENT ON FUNCTION public.is_company_admin_of(uuid, uuid) IS
