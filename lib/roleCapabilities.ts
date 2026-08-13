@@ -174,11 +174,9 @@ const isDriverCommercialRoute = (pathname: string) => {
   );
 };
 
-/** Sanitised pathname (no query, no hash, no double slashes). Exported for resolvers. */
 export const cleanPathname = (pathname: string): string =>
   cleanPath(pathname).replace(/\/{2,}/g, '/');
 
-/** Route prefixes that require authentication. */
 export const PROTECTED_ROUTE_PREFIXES = [
   '/admin',
   '/broker',
@@ -187,22 +185,18 @@ export const PROTECTED_ROUTE_PREFIXES = [
   '/super-admin',
 ] as const;
 
-/** Returns true if the pathname falls under a protected prefix. */
 export const isProtectedRoute = (pathname: string): boolean =>
   PROTECTED_ROUTE_PREFIXES.some((prefix) => pathMatches(cleanPathname(pathname), prefix));
 
 export type RouteRequirement = {
   prefix: string;
-  /** BusinessWorkspace that owns this route. */
   workspace: BusinessWorkspace;
   roles?: WorkspaceRole[];
   anyOf?: WorkspaceCapability[];
-  /** When true, only an exact pathname match triggers this requirement. */
   exact?: boolean;
 };
 
 const ROUTE_REQUIREMENTS: RouteRequirement[] = [
-  // carrier_fleet (/admin)
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/fleet/future-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
@@ -236,7 +230,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
   { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
-  // broker (/broker)
+  { prefix: '/broker/enquiries', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
@@ -255,7 +249,6 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/settings', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
 
-  // shipper (/customer)
   { prefix: '/customer/post-load', workspace: 'shipper', anyOf: ['loads.create'] },
   { prefix: '/customer/loads', workspace: 'shipper', anyOf: ['loads.view.own'] },
   { prefix: '/customer/quotes', workspace: 'shipper', anyOf: ['quotes.receive'] },
@@ -264,15 +257,12 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/jobs', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/documents', workspace: 'shipper', anyOf: ['jobs.review_pod'] },
   { prefix: '/customer/invoices', workspace: 'shipper', anyOf: ['invoices.customer.manage'] },
-  // Team is currently a read-only company roster. Reuse settings access rather
-  // than granting the customer role the broader company.members.manage ability.
   { prefix: '/customer/team', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer/updates', workspace: 'shipper' },
   { prefix: '/customer/notifications', workspace: 'shipper' },
   { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
-  // owner_operator (/driver)
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
@@ -291,91 +281,56 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver', workspace: 'owner_operator', exact: true },
 ];
 
-/**
- * Returns the most-specific RouteRequirement for the given pathname,
- * or null if no requirement is registered.
- * Existing protected pages are explicitly registered; unknown paths remain denied.
- */
-export const getProtectedRouteRequirement = (pathname: string): RouteRequirement | null => {
+export const getRouteRequirement = (pathname: string): RouteRequirement | null => {
   const clean = cleanPathname(pathname);
-  let best: RouteRequirement | null = null;
-  for (const req of ROUTE_REQUIREMENTS) {
-    if (pathMatches(clean, req.prefix, req.exact)) {
-      if (!best || req.prefix.length > best.prefix.length) {
-        best = req;
-      }
-    }
-  }
-  return best;
+  const matches = ROUTE_REQUIREMENTS.filter((requirement) =>
+    pathMatches(clean, requirement.prefix, requirement.exact === true)
+  );
+  if (matches.length === 0) return null;
+  return matches.sort((a, b) => b.prefix.length - a.prefix.length)[0] ?? null;
 };
 
-export const isCapabilityAllowedForPath = (
+export const canAccessRoute = (
   pathname: string,
   role: AppUserRole | null,
   context: RouteAccessContext = {}
 ): boolean => {
-  const path = cleanPathname(pathname);
+  const clean = cleanPathname(pathname);
+  const requirement = getRouteRequirement(clean);
+
+  if (!requirement) return !isProtectedRoute(clean);
+
   const workspaceRole = resolveRole(role, context);
   if (!workspaceRole) return false;
 
-  if (pathMatches(path, '/super-admin')) return workspaceRole === 'platform_owner';
+  if (!isActiveStatus(context.accountStatus)) return false;
+  if (context.companyStatus && !isActiveStatus(context.companyStatus)) return false;
 
-  if (pathMatches(path, '/m')) {
-    return workspaceRole === 'driver' || workspaceRole === 'owner_driver';
+  if (clean.startsWith('/super-admin')) {
+    return workspaceRole === 'platform_owner';
   }
 
-  if (!isActiveStatus(context.accountStatus) || !isActiveStatus(context.companyStatus)) {
-    return false;
-  }
-
-  // Verify the role is allowed into the workspace prefix at all.
-  if (pathMatches(path, '/broker')) {
-    if (workspaceRole !== 'broker') return false;
-  } else if (pathMatches(path, '/customer')) {
-    if (workspaceRole !== 'customer') return false;
-  } else if (pathMatches(path, '/driver')) {
-    const isChangePasswordRoute = path === '/driver/change-password' || path.startsWith('/driver/change-password/');
-    if (!isChangePasswordRoute && !context.driverId) return false;
-    if (!isExplicitActiveStatus(context.accountStatus)) return false;
-    if (!isExplicitActiveStatus(context.companyStatus)) return false;
-    if (!isExplicitActiveStatus(context.driverStatus)) return false;
-    if (context.appAccess !== true) return false;
-
-    if (isDriverCommercialRoute(path)) {
-      const isQuoteRoute = path === '/driver/quotes' || path.startsWith('/driver/quotes/');
-      if (isQuoteRoute && context.canCommercialBid !== true) return false;
+  if (clean.startsWith('/driver')) {
+    if (workspaceRole === 'driver') {
+      if (!isExplicitActiveStatus(context.driverStatus)) return false;
+      if (context.appAccess === false) return false;
+      if (isDriverCommercialRoute(clean) && context.canCommercialBid === false) return false;
     }
-  } else if (pathMatches(path, '/admin')) {
-    if (
-      ![
-        'platform_owner',
-        'company_owner',
-        'company_admin',
-        'carrier_admin',
-        'fleet_manager',
-        'dispatcher',
-        'finance',
-        'compliance',
-        'viewer',
-      ].includes(workspaceRole)
-    ) {
+    if (workspaceRole === 'owner_driver' && context.appAccess === false) return false;
+  }
+
+  if (requirement.roles && !requirement.roles.includes(workspaceRole)) return false;
+
+  if (requirement.anyOf && requirement.anyOf.length > 0) {
+    if (workspaceRole === 'driver' && requirement.workspace === 'owner_operator') {
+      const granted = requirement.anyOf.some((capability) =>
+        hasDriverCapability(capability) && hasWorkspaceCapability(workspaceRole, capability)
+      );
+      if (!granted) return false;
+    } else if (!requirement.anyOf.some((capability) => hasWorkspaceCapability(workspaceRole, capability))) {
       return false;
     }
-  } else {
-    // Public or unrecognised prefix — not a protected route.
-    return true;
   }
 
-  // Use the most-specific exact-aware requirement. Unknown protected routes fail closed.
-  const requirement = getProtectedRouteRequirement(path);
-  if (!requirement) return false;
-  if (requirement.roles && !requirement.roles.includes(workspaceRole)) return false;
-  if (!requirement.anyOf?.length) return true;
-
-  const isDriverRoute = pathMatches(path, '/driver');
-  return requirement.anyOf.some((capability) =>
-    isDriverRoute
-      ? hasDriverCapability(capability)
-      : hasWorkspaceCapability(workspaceRole, capability)
-  );
+  return true;
 };
