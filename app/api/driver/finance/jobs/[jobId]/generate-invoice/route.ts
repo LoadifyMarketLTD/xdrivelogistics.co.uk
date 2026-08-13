@@ -45,7 +45,7 @@ const addDays = (date: string, days: number) => {
   return result.toISOString().slice(0, 10);
 };
 
-async function resolveFinanceOwner(request: NextRequest) {
+async function resolveFinanceOwner(request: NextRequest, jobId: string) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
   if (!token) return null;
@@ -53,27 +53,36 @@ async function resolveFinanceOwner(request: NextRequest) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return null;
 
-  const { data: driver } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id')
-    .eq('user_id', authData.user.id)
+  const { data: jobScope, error: jobScopeError } = await supabaseAdmin
+    .from('jobs')
+    .select('company_id, assigned_company_id, awarded_carrier_company_id')
+    .eq('id', jobId)
     .maybeSingle();
-  if (!driver) return null;
+  if (jobScopeError) throw new Error(jobScopeError.message);
+  if (!jobScope) return null;
+
+  const executingCompanyId = cleanText(
+    jobScope.awarded_carrier_company_id
+      ?? jobScope.assigned_company_id
+      ?? jobScope.company_id,
+  );
+  if (!executingCompanyId) return null;
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('role_in_company')
-    .eq('company_id', driver.company_id)
+    .eq('company_id', executingCompanyId)
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
+    .in('role_in_company', ['owner', 'admin', 'finance'])
     .maybeSingle();
   if (membershipError) throw new Error(membershipError.message);
+  if (!membership) return null;
 
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
+  const role = String(membership.role_in_company ?? '').toLowerCase();
   return {
     userId: authData.user.id,
-    driverId: driver.id as string,
-    companyId: driver.company_id as string,
+    companyId: executingCompanyId,
     role,
     canManageFinance: role === 'owner' || role === 'admin' || role === 'finance',
   };
@@ -87,9 +96,11 @@ export async function POST(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
+  const { jobId } = await params;
+
   let actor: Awaited<ReturnType<typeof resolveFinanceOwner>>;
   try {
-    actor = await resolveFinanceOwner(request);
+    actor = await resolveFinanceOwner(request, jobId);
   } catch (reason) {
     return respond(500, {
       error: reason instanceof Error ? reason.message : 'Finance access could not be verified.',
@@ -105,7 +116,6 @@ export async function POST(
     return respond(503, { error: 'Invoice generation is currently disabled.' });
   }
 
-  const { jobId } = await params;
   let body: Record<string, unknown> = {};
   try {
     const raw = await request.text();
