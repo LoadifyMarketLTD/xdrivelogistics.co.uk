@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { autoGenerateMarketplaceInvoice } from '../../../../../_lib/autoGenerateMarketplaceInvoice';
+import { assertCanonicalPodReady, isCanonicalPodPath, saveCanonicalPod } from '../../../../../_lib/pod';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import {
   appendStatusHistory,
-  hasPod,
   insertTrackingEvent,
   isDriverContext,
   jobSelect,
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    return savePod(request, id, driver.userId, driver.driverId);
+    return savePod(request, id, driver.userId, driver.driverId, driver.driverType);
   }
 
   const config = actions[action];
@@ -108,8 +108,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!config.allowedLifecycle.includes(lifecycle)) {
     return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
   }
-  if (config.requiresPod && job.pod_required !== false && !hasPod(job)) {
-    return respond(409, { error: 'POD is required before marking this job delivered.' });
+
+  if (config.requiresPod) {
+    try {
+      const podReady = await assertCanonicalPodReady(supabaseAdmin, id);
+      if (!podReady.ok) return respond(409, { error: podReady.reason });
+    } catch (reason) {
+      return respond(503, {
+        error: reason instanceof Error
+          ? `POD validation failed: ${reason.message}`
+          : 'POD validation failed.',
+      });
+    }
   }
 
   const now = new Date().toISOString();
@@ -166,38 +176,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return respond(200, { ok: true, job: mapJob(updatedJob) });
 }
 
-const persistentPodPath = (
+async function savePod(
+  request: NextRequest,
   jobId: string,
-  kind: 'photos' | 'documents',
-  value: unknown
-): value is string => {
-  if (typeof value !== 'string') return false;
-  const path = value.trim();
-  return (
-    path.length > 0 &&
-    path.length <= 1024 &&
-    path.startsWith(`${jobId}/${kind}/`) &&
-    !path.includes('://') &&
-    !path.includes('..') &&
-    !path.includes('\\') &&
-    !path.startsWith('/')
-  );
-};
-
-const storageObjectExists = async (path: string) => {
-  const segments = path.split('/');
-  const fileName = segments.pop();
-  const folder = segments.join('/');
-  if (!fileName || !folder) return false;
-
-  const { data, error } = await supabaseAdmin!.storage
-    .from('pod-photos')
-    .list(folder, { limit: 100, search: fileName });
-  if (error) throw new Error(error.message);
-  return (data ?? []).some((entry) => entry.name === fileName);
-};
-
-async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
+  userId: string,
+  driverId: string,
+  driverType: string | null,
+) {
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -229,67 +214,52 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   if (rawSignature && !/^data:image\/(png|jpeg);base64,/i.test(rawSignature)) {
     return respond(400, { error: 'Recipient signature format is invalid.' });
   }
-  if (rawSignature.length > 2_500_000) {
+  if (rawSignature.length > 3_500_000) {
     return respond(413, { error: 'Recipient signature is too large.' });
   }
 
-  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(jobId, 'photos', value));
-  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(jobId, 'documents', value));
+  const photoPaths = rawPhotoUris.filter((value): value is string => isCanonicalPodPath(jobId, 'photos', value));
+  const documentPaths = rawDocumentUris.filter((value): value is string => isCanonicalPodPath(jobId, 'documents', value));
   if (photoPaths.length !== rawPhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
-  if (!rawSignature && photoPaths.length + documentPaths.length === 0) {
-    return respond(400, { error: 'A recipient signature, POD photo or POD document is required.' });
-  }
+
+  const executingCompanyId = job.awarded_carrier_company_id || job.assigned_company_id || job.company_id;
+  if (!executingCompanyId) return respond(409, { error: 'Executing company could not be resolved for this job.' });
 
   try {
-    const existenceChecks = await Promise.all(
-      [...photoPaths, ...documentPaths].map((path) => storageObjectExists(path))
-    );
-    if (existenceChecks.some((exists) => !exists)) {
-      return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });
-    }
-  } catch (reason) {
-    return respond(503, {
-      error: reason instanceof Error
-        ? `POD storage could not be verified: ${reason.message}`
-        : 'POD storage could not be verified.',
+    await saveCanonicalPod({
+      supabase: supabaseAdmin!,
+      jobId,
+      companyId: executingCompanyId,
+      assignedDriverId: driverId,
+      vehicleRef: job.vehicle_ref,
+      actorUserId: userId,
+      actorRole: driverType === 'owner_driver' ? 'owner_driver' : 'driver',
+      source: driverType === 'owner_driver' ? 'owner_driver' : 'driver_mobile',
+      onBehalfOfDriverId: null,
+      reason: null,
+      recipientName,
+      signatureData: rawSignature || null,
+      photoPaths,
+      documentPaths,
+      notes: typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : null,
     });
+  } catch (reason) {
+    const message = reason instanceof Error ? reason.message : 'POD could not be saved.';
+    const status = /too large/i.test(message) ? 413 : /storage|upload/i.test(message) ? 503 : 400;
+    return respond(status, { error: message });
   }
 
-  const now = new Date().toISOString();
-  const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
-  const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const signatureData = rawSignature
-    ? {
-        type: 'driver_mobile_signature',
-        value: rawSignature,
-        captured_at: now,
-        captured_by: userId,
-      }
-    : job.delivery_signature_data ?? null;
-
-  const { data: updated, error: updateError } = await supabaseAdmin!
+  const { data: updated, error: refreshError } = await supabaseAdmin!
     .from('jobs')
-    .update({
-      delivery_photos: [...existingPhotos, ...photoPaths],
-      pod_photos: [...existingDocuments, ...documentPaths],
-      delivery_signature_data: signatureData,
-      client_signature_name: recipientName,
-      delivery_notes: typeof body.notes === 'string' && body.notes.trim()
-        ? body.notes.trim().slice(0, 5000)
-        : null,
-      pod_generated: true,
-      pod_generated_at: now,
-      updated_at: now,
-    })
+    .select(jobSelect)
     .eq('id', jobId)
     .eq('assigned_driver_id', driverId)
-    .select(jobSelect)
     .single();
 
-  if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
+  if (refreshError) return respond(500, { error: refreshError.message });
+  await insertTrackingEvent(jobId, userId, 'note', 'Canonical POD evidence saved');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
