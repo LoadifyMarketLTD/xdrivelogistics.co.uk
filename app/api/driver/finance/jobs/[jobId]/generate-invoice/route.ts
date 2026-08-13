@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { assertCanonicalPodReady } from '../../../../../_lib/pod';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 import { getFeatureFlag, getGlobalSettingNumber } from '../../../../../_lib/platformFlags';
 
@@ -73,7 +74,8 @@ async function resolveFinanceOwner(request: NextRequest) {
     userId: authData.user.id,
     driverId: driver.id as string,
     companyId: driver.company_id as string,
-    canManageFinance: role === 'owner' || role === 'admin',
+    role,
+    canManageFinance: role === 'owner' || role === 'admin' || role === 'finance',
   };
 }
 
@@ -95,10 +97,9 @@ export async function POST(
   }
   if (!actor) return respond(401, { error: 'Unauthorized.' });
   if (!actor.canManageFinance) {
-    return respond(403, { error: 'Company owner or admin access is required to create invoices.' });
+    return respond(403, { error: 'Company Owner/Admin/Finance access is required to create invoices.' });
   }
 
-  // Feature flag gate: invoice generation must be enabled.
   const invoiceGenerationEnabled = await getFeatureFlag(supabaseAdmin, 'invoice_generation');
   if (!invoiceGenerationEnabled) {
     return respond(503, { error: 'Invoice generation is currently disabled.' });
@@ -118,19 +119,36 @@ export async function POST(
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference')
+    .select('id, customer_ref, company_id, assigned_company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pod_generated, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount')
     .eq('id', jobId)
-    .or(`company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
+    .or(`company_id.eq.${actor.companyId},assigned_company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
     .maybeSingle();
 
   if (jobError) return respond(500, { error: jobError.message });
   if (!job) return respond(404, { error: 'Job not found in this company workspace.' });
 
-  const jobStatus = String(job.status ?? '').toLowerCase();
-  if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
+  const effectiveStatus = String(job.current_status || job.status || '').toLowerCase();
+  if (!['delivered', 'completed'].includes(effectiveStatus)) {
     return respond(409, {
-      error: `Invoice can only be generated after delivery. Current job status: "${jobStatus || 'unknown'}".`,
+      error: `Invoice can only be generated after delivery. Current job status: "${effectiveStatus || 'unknown'}".`,
     });
+  }
+  if (job.pod_generated !== true) {
+    return respond(409, { error: 'Invoice Draft requires a generated POD.' });
+  }
+
+  try {
+    const podReady = await assertCanonicalPodReady(supabaseAdmin, jobId);
+    if (!podReady.ok) return respond(409, { error: `Invoice Draft blocked: ${podReady.reason}` });
+  } catch (reason) {
+    return respond(503, {
+      error: reason instanceof Error ? `POD validation failed: ${reason.message}` : 'POD validation failed.',
+    });
+  }
+
+  const jobReference = cleanText(job.customer_ref);
+  if (!jobReference) {
+    return respond(422, { error: 'Canonical XDrive Job Ref is missing. The invoice was not created.' });
   }
 
   const marketplace = job.exchange_visibility === 'exchange' || job.exchange_visibility === 'direct';
@@ -230,7 +248,6 @@ export async function POST(
     : positiveNumber(body.amount) || positiveNumber(job.budget_amount);
   if (!netAmount) return respond(422, { error: 'No positive invoice amount is available for this job.' });
 
-  // PR-0.3: Read default VAT rate from global settings instead of hardcoding 20%.
   const configuredVatRate = await getGlobalSettingNumber(supabaseAdmin, 'vat_rate_default_pct');
   const platformDefaultVatRate: 0 | 5 | 20 = configuredVatRate === 5 ? 5 : configuredVatRate === 0 ? 0 : 20;
 
@@ -260,7 +277,6 @@ export async function POST(
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const dueDate = addDays(invoiceDate, resolveDueDays(paymentTerms, marketplace ? agreedDueDays : null));
   const serviceDescription = cleanText(body.service_description) || cleanText(job.load_details) || 'Transport service';
-  const jobReference = cleanText(job.customer_reference) || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
 
   const snapshot = {
     job_ref: jobReference,
@@ -286,6 +302,8 @@ export async function POST(
     buyer_company_id: buyerCompanyId,
     supplier_company_id: supplierCompanyId,
     invoice_origin: marketplace ? 'marketplace' : 'direct',
+    pod_required: true,
+    pod_generated: true,
   };
 
   if (marketplace && agreementId) {
@@ -373,11 +391,12 @@ export async function POST(
     }
   }
 
-  const fallbackNumber = `INV-${invoiceDate.slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
-  const { data: generatedNumber } = await supabaseAdmin.rpc('next_invoice_number', {
+  const { data: generatedNumber, error: numberError } = await supabaseAdmin.rpc('next_invoice_number', {
     p_company_id: actor.companyId,
   });
-  const invoiceNumber = cleanText(generatedNumber) || fallbackNumber;
+  if (numberError) return respond(500, { error: `Invoice number generation failed: ${numberError.message}` });
+  const invoiceNumber = cleanText(generatedNumber);
+  if (!invoiceNumber) return respond(500, { error: 'Invoice number generation returned an empty value.' });
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('invoices')
