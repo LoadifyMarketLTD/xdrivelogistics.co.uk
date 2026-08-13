@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
@@ -18,7 +19,7 @@ type Row = {
   created_at: string;
 };
 
-export default function Page() {
+function QuotesPageContent() {
   const searchParams = useSearchParams();
   const xdriveBusinessMode = searchParams.get('source') === 'xdrive';
 
@@ -84,5 +85,13 @@ export default function Page() {
         },
       ]}
     />
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div style={{ padding: 12, color: '#64748B', fontSize: 12 }}>Loading…</div>}>
+      <QuotesPageContent />
+    </Suspense>
   );
 }
