@@ -20,6 +20,29 @@ import {
 } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
+const DRIVER_PRIMARY_NAV = [
+  { id: 'dashboard', label: 'Dashboard', href: '/driver' },
+  { id: 'network', label: 'Network', href: '/driver/network' },
+  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
+  { id: 'loads', label: 'Loads', href: '/driver/loads' },
+  { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
+  { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
+  { id: 'diary', label: 'Diary', href: '/driver/history' },
+  { id: 'availability', label: 'Availability', href: '/driver/availability' },
+  { id: 'account', label: 'Account', href: '/driver/profile' },
+] as const;
+
+const ACCOUNT_PREFIXES = [
+  '/driver/profile',
+  '/driver/vehicles',
+  '/driver/documents',
+  '/driver/finance',
+  '/driver/messages',
+  '/driver/change-password',
+  '/driver/event-log',
+  '/driver/notifications',
+] as const;
+
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,14 +54,18 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   const [unreadCount, setUnreadCount] = useState(0);
 
   const navigationTargets = useMemo(
-    () =>
-      nav.flatMap((group) =>
-        group.items.map((item) => ({
-          id: `${group.id}-${item.id}`,
-          label: item.label,
-          href: item.href,
-        })),
+    () => [
+      ...DRIVER_PRIMARY_NAV.map((item) => ({ id: item.id, label: item.label, href: item.href })),
+      ...nav.flatMap((group) =>
+        group.items
+          .filter((item) => !DRIVER_PRIMARY_NAV.some((primary) => primary.href === item.href))
+          .map((item) => ({
+            id: `${group.id}-${item.id}`,
+            label: item.label,
+            href: item.href,
+          })),
       ),
+    ],
     [nav],
   );
 
@@ -100,9 +127,11 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   }, [user?.id]);
 
   const isActive = (href: string) => {
-    const [baseHref] = href.split('?');
-    if (baseHref === definition.homeHref) return pathname === baseHref;
-    return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
+    if (href === '/driver') return pathname === '/driver';
+    if (href === '/driver/profile') {
+      return ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -177,30 +206,23 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
       <nav className="driver-top-nav" aria-label="Driver workspace navigation">
         <div className="driver-top-nav__track">
-          {nav.map((group, groupIndex) => (
-            <div
-              key={group.id}
-              className="driver-top-nav__group"
-              data-first={groupIndex === 0 ? 'true' : 'false'}
-              aria-label={group.label}
-            >
-              {group.items.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="driver-top-nav__item"
-                    data-active={active ? 'true' : 'false'}
-                    onClick={() => router.push(item.href)}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+          <div className="driver-top-nav__group" data-first="true" aria-label="Driver workspace">
+            {DRIVER_PRIMARY_NAV.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="driver-top-nav__item"
+                  data-active={active ? 'true' : 'false'}
+                  onClick={() => router.push(item.href)}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </nav>
 
