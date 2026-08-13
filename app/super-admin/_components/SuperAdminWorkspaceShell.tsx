@@ -75,6 +75,19 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   ],
 };
 
-export default function SuperAdminWorkspaceShell({ children, fixtureOverrides }: { children: ReactNode; fixtureOverrides?: WorkspaceShellFixtureOverrides }) {
-  return <SuperAdminTopNavigationShell definition={SUPER_ADMIN_WORKSPACE_DEFINITION} fixtureOverrides={fixtureOverrides}>{children}</SuperAdminTopNavigationShell>;
+export default function SuperAdminWorkspaceShell({
+  children,
+  fixtureOverrides,
+}: {
+  children: ReactNode;
+  fixtureOverrides?: WorkspaceShellFixtureOverrides;
+}) {
+  return (
+    <SuperAdminTopNavigationShell
+      definition={SUPER_ADMIN_WORKSPACE_DEFINITION}
+      fixtureOverrides={fixtureOverrides}
+    >
+      {children}
+    </SuperAdminTopNavigationShell>
+  );
 }
