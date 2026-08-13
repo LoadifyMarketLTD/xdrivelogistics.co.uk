@@ -15,6 +15,9 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'health', label: 'Platform Health', href: '/super-admin/health', icon: '✓' },
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications', icon: '!' },
     ] },
+    { id: 'xdrive-logistics', label: 'XDrive Logistics', items: [
+      { id: 'business-operations', label: 'Public Enquiries / Business Operations', href: '/super-admin/operations/quotes?source=xdrive', icon: '✉' },
+    ] },
     { id: 'marketplace', label: 'Marketplace', items: [
       { id: 'marketplace', label: 'Marketplace', href: '/super-admin/marketplace', icon: '▦' },
       { id: 'quotes', label: 'Quotes', href: '/super-admin/operations/quotes', icon: '◫' },
@@ -72,19 +75,6 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   ],
 };
 
-export default function SuperAdminWorkspaceShell({
-  children,
-  fixtureOverrides,
-}: {
-  children: ReactNode;
-  fixtureOverrides?: WorkspaceShellFixtureOverrides;
-}) {
-  return (
-    <SuperAdminTopNavigationShell
-      definition={SUPER_ADMIN_WORKSPACE_DEFINITION}
-      fixtureOverrides={fixtureOverrides}
-    >
-      {children}
-    </SuperAdminTopNavigationShell>
-  );
+export default function SuperAdminWorkspaceShell({ children, fixtureOverrides }: { children: ReactNode; fixtureOverrides?: WorkspaceShellFixtureOverrides }) {
+  return <SuperAdminTopNavigationShell definition={SUPER_ADMIN_WORKSPACE_DEFINITION} fixtureOverrides={fixtureOverrides}>{children}</SuperAdminTopNavigationShell>;
 }
