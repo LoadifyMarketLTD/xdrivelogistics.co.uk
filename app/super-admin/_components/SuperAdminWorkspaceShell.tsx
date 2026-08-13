@@ -16,9 +16,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications', icon: '!' },
     ] },
     { id: 'xdrive-logistics', label: 'XDrive Logistics', items: [
-      { id: 'business-operations', label: 'Public Enquiries / Business Operations', href: '/super-admin/xdrive-logistics', icon: '✉' },
-      { id: 'xdrive-jobs', label: 'XDrive Jobs', href: '/super-admin/xdrive-logistics/jobs', icon: '▣' },
-      { id: 'xdrive-marketplace', label: 'XDrive Marketplace', href: '/super-admin/xdrive-logistics/marketplace', icon: '▦' },
+      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: '◎' },
     ] },
     { id: 'marketplace', label: 'Marketplace', items: [
       { id: 'marketplace', label: 'Marketplace', href: '/super-admin/marketplace', icon: '▦' },
