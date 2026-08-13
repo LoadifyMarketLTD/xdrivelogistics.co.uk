@@ -247,7 +247,6 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     nav: [
       { id: 'home', label: 'Broker', items: [{ id: 'dashboard', label: 'Broker Dashboard', href: '/broker', icon: '⌂' }] },
       { id: 'customers', label: 'Customers & Loads', items: [
-        { id: 'enquiries', label: 'Public Enquiries', href: '/broker/enquiries', icon: '✉', capability: 'quotes.receive' },
         { id: 'customers', label: 'Customers', href: '/broker/customers', icon: '◌' },
         { id: 'loads', label: 'Customer Loads', href: '/broker/loads', icon: '▦' },
         { id: 'post-load', label: 'Post Load', href: '/broker/post-load', icon: '+', capability: 'loads.create' },
@@ -279,53 +278,121 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     nav: [
       { id: 'home', label: 'Customer', items: [{ id: 'dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' }] },
       { id: 'loads', label: 'Loads', items: [
-        { id: 'loads', label: 'My Loads', href: '/customer/loads', icon: '▦' },
         { id: 'post-load', label: 'Post Load', href: '/customer/post-load', icon: '+', capability: 'loads.create' },
+        { id: 'my-loads', label: 'My Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' },
         { id: 'quotes', label: 'Quotes', href: '/customer/quotes', icon: '◫', capability: 'quotes.receive' },
         { id: 'awards', label: 'Awards', href: '/customer/awards', icon: '✓', capability: 'quotes.award' },
       ] },
-      { id: 'operations', label: 'Operations', items: [
+      { id: 'delivery', label: 'Delivery', items: [
         { id: 'deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '▣', capability: 'jobs.track' },
-        { id: 'jobs', label: 'Jobs', href: '/customer/jobs', icon: '□', capability: 'jobs.view' },
-        { id: 'documents', label: 'Documents', href: '/customer/documents', icon: '▤', capability: 'jobs.review_pod' },
+        { id: 'documents', label: 'POD & Documents', href: '/customer/documents', icon: '▤', capability: 'jobs.review_pod' },
+        { id: 'updates', label: 'Updates', href: '/customer/updates', icon: '◉' },
       ] },
-      { id: 'finance', label: 'Finance', items: [
-        { id: 'invoices', label: 'Invoices', href: '/customer/invoices', icon: '£', capability: 'invoices.customer.manage' },
-      ] },
+      { id: 'finance', label: 'Finance', items: [{ id: 'invoices', label: 'Invoices', href: '/customer/invoices', icon: '£', capability: 'invoices.customer.manage' }] },
       { id: 'settings', label: 'Administration', items: [
-        { id: 'team', label: 'Team', href: '/customer/team', icon: '◎', capability: 'settings.manage' },
-        { id: 'updates', label: 'Updates', href: '/customer/updates', icon: '◫' },
-        { id: 'notifications', label: 'Notifications', href: '/customer/notifications', icon: '◫' },
+        { id: 'team', label: 'Team', href: '/customer/team', icon: '◌' },
         { id: 'settings', label: 'Settings', href: '/customer/settings', icon: '⚙', capability: 'settings.manage' },
       ] },
     ],
   },
-  fleet_manager: { role: 'fleet_manager', label: 'Fleet Manager', subtitle: 'Fleet and operations control', homeHref: '/admin/fleet', nav: carrierNav },
-  dispatcher: { role: 'dispatcher', label: 'Dispatcher', subtitle: 'Dispatch and live operations', homeHref: '/admin/diary', nav: carrierNav },
-  driver: { role: 'driver', label: 'Driver Workspace', subtitle: 'My jobs, availability and documents', homeHref: '/driver', nav: SHARED_DRIVER_NAV },
-  owner_driver: { role: 'owner_driver', label: 'Owner Driver', subtitle: 'Marketplace, jobs and business admin', homeHref: '/driver', nav: SHARED_DRIVER_NAV },
-  finance: { role: 'finance', label: 'Finance', subtitle: 'Invoices, payments and margins', homeHref: '/admin/finance', nav: carrierNav },
-  compliance: { role: 'compliance', label: 'Compliance', subtitle: 'Documents, incidents and readiness', homeHref: '/admin/documents', nav: carrierNav },
-  viewer: { role: 'viewer', label: 'Viewer', subtitle: 'Read-only workspace', homeHref: '/admin', nav: carrierNav },
+  fleet_manager: {
+    role: 'fleet_manager', label: 'Fleet Workspace', subtitle: 'Capacity, assignments, compliance and live operations', homeHref: '/admin/fleet',
+    nav: [
+      { id: 'home', label: 'Fleet', items: [{ id: 'dashboard', label: 'Fleet Dashboard', href: '/admin/fleet', icon: '⌂' }] },
+      { id: 'resources', label: 'People & Vehicles', items: [
+        { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉', capability: 'drivers.manage' },
+        { id: 'availability', label: 'Driver Availability', href: '/admin/driver-availability', icon: '◷', capability: 'drivers.manage' },
+        { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰', capability: 'vehicles.manage' },
+        { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖', capability: 'fleet.positions.view' },
+      ] },
+      { id: 'operations', label: 'Operations', items: [
+        { id: 'assignments', label: 'Assignments', href: '/admin/fleet/assignments', icon: '⇄', capability: 'jobs.allocate' },
+        { id: 'active-jobs', label: 'Active Jobs', href: '/admin/fleet/active-jobs', icon: '▣', capability: 'jobs.track' },
+        { id: 'future', label: 'Future Availability', href: '/admin/fleet/future-availability', icon: '◷', capability: 'drivers.manage' },
+      ] },
+      { id: 'readiness', label: 'Readiness', items: [
+        { id: 'maintenance', label: 'Maintenance', href: '/admin/fleet/maintenance', icon: '⚙', capability: 'fleet.maintenance.manage' },
+        { id: 'compliance', label: 'Compliance', href: '/admin/documents', icon: '✓', capability: 'documents.company.manage' },
+        { id: 'expiry', label: 'Document Expiry', href: '/admin/documents/expiry', icon: '◷', capability: 'documents.company.manage' },
+        { id: 'incidents', label: 'Incidents', href: '/admin/incidents', icon: '!', capability: 'incidents.manage' },
+      ] },
+      { id: 'settings', label: 'Administration', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
+    ],
+  },
+  dispatcher: {
+    role: 'dispatcher', label: 'Operations Workspace', subtitle: 'Allocate, monitor and recover daily jobs', homeHref: '/admin',
+    nav: [
+      { id: 'home', label: 'Operations', items: [{ id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' }] },
+      { id: 'work', label: 'Daily Work', items: [
+        { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
+        { id: 'unallocated', label: 'Unallocated Jobs', href: '/admin/fleet/assignments', icon: '⇄' },
+        { id: 'active-jobs', label: 'Active Jobs', href: '/admin/fleet/active-jobs', icon: '▣' },
+        { id: 'collections', label: 'Collections', href: '/admin/jobs?view=collections', icon: '↑' },
+        { id: 'deliveries', label: 'Deliveries', href: '/admin/jobs?view=deliveries', icon: '↓' },
+        { id: 'exceptions', label: 'Exceptions', href: '/admin/incidents', icon: '!' },
+        { id: 'pod', label: 'POD Queue', href: '/admin/documents?view=pod', icon: '▤' },
+      ] },
+      { id: 'resources', label: 'Resources', items: [
+        { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉' },
+        { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰' },
+        { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖' },
+      ] },
+    ],
+  },
+  driver: {
+    role: 'driver', label: 'Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: SHARED_DRIVER_NAV,
+  },
+  owner_driver: {
+    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: SHARED_DRIVER_NAV,
+  },
+  finance: {
+    role: 'finance', label: 'Finance Workspace', subtitle: 'Invoices, payments, balances and reporting', homeHref: '/admin/invoices',
+    nav: [
+      { id: 'finance', label: 'Finance', items: [
+        { id: 'dashboard', label: 'Finance Dashboard', href: '/admin/invoices', icon: '⌂' },
+        { id: 'customer-invoices', label: 'Customer Invoices', href: '/admin/invoices?type=customer', icon: '£' },
+        { id: 'carrier-invoices', label: 'Carrier Invoices', href: '/admin/invoices?type=carrier', icon: '£' },
+        { id: 'payments', label: 'Payments', href: '/admin/finance/payments', icon: '✓' },
+        { id: 'balances', label: 'Outstanding Balances', href: '/admin/finance/balances', icon: '!' },
+        { id: 'reports', label: 'Reports & Exports', href: '/admin/finance/reports', icon: '▤' },
+      ] },
+    ],
+  },
+  compliance: {
+    role: 'compliance', label: 'Compliance Workspace', subtitle: 'Verification, expiry and operational readiness', homeHref: '/admin/documents',
+    nav: [
+      { id: 'compliance', label: 'Compliance', items: [
+        { id: 'dashboard', label: 'Compliance Dashboard', href: '/admin/documents', icon: '⌂' },
+        { id: 'driver-docs', label: 'Driver Documents', href: '/admin/documents?type=driver', icon: '▤' },
+        { id: 'vehicle-docs', label: 'Vehicle Documents', href: '/admin/documents?type=vehicle', icon: '▤' },
+        { id: 'company-docs', label: 'Company Documents', href: '/admin/documents?type=company', icon: '▤' },
+        { id: 'verification', label: 'Verification Queue', href: '/admin/documents?view=pending', icon: '✓' },
+        { id: 'expiry', label: 'Expiry Calendar', href: '/admin/documents/expiry', icon: '◷' },
+        { id: 'incidents', label: 'Incidents', href: '/admin/incidents', icon: '!' },
+      ] },
+    ],
+  },
+  viewer: {
+    role: 'viewer', label: 'Read-only Workspace', subtitle: 'Approved operational visibility', homeHref: '/admin',
+    nav: [{ id: 'view', label: 'Read Only', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin', icon: '⌂' }, { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣' }] }],
+  },
 };
 
 export const getWorkspaceDefinition = (role: WorkspaceRole): WorkspaceDefinition => WORKSPACE_DEFINITIONS[role];
 
-export const getWorkspaceNavGroups = (role: WorkspaceRole): WorkspaceNavGroup[] => {
-  const definition = getWorkspaceDefinition(role);
-  return definition.nav
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => !item.capability || hasWorkspaceCapability(role, item.capability)),
-    }))
+export const getVisibleWorkspaceNav = (role: WorkspaceRole): WorkspaceNavGroup[] =>
+  WORKSPACE_DEFINITIONS[role].nav
+    .map((group) => ({ ...group, items: group.items.filter((item) => !item.capability || hasWorkspaceCapability(role, item.capability)) }))
     .filter((group) => group.items.length > 0);
+
+export const resolveWorkspaceSurfaceRole = (pathname: string, role: WorkspaceRole): WorkspaceRole => {
+  const cleanPath = normalizePathname(pathname);
+  if (cleanPath === '/driver' || cleanPath.startsWith('/driver/')) {
+    if (role === 'owner_driver') return 'owner_driver';
+    return 'driver';
+  }
+  return role;
 };
 
-export const getWorkspaceHomeHref = (role: WorkspaceRole) => getWorkspaceDefinition(role).homeHref;
-
-export const isWorkspaceRoute = (role: WorkspaceRole, pathname: string) => {
-  const path = normalizePathname(pathname);
-  const definition = getWorkspaceDefinition(role);
-  if (path === definition.homeHref || path.startsWith(`${definition.homeHref}/`)) return true;
-  return definition.nav.some((group) => group.items.some((item) => path === item.href || path.startsWith(`${item.href}/`)));
-};
+export const getWorkspaceHomeRoute = (user: WorkspaceUserLike | null | undefined): string =>
+  WORKSPACE_DEFINITIONS[resolveWorkspaceRole(user)].homeHref;
