@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toLegacyInvoiceStatusForDb } from '../../../lib/invoiceStatus';
+import { assertCanonicalPodReady } from './pod';
 import { getFeatureFlag } from './platformFlags';
 
 type SupabaseAdminClient = SupabaseClient;
@@ -66,7 +67,7 @@ export async function autoGenerateMarketplaceInvoice({
   const [{ data: job, error: jobError }, { data: buyer, error: buyerError }] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email')
+      .select('id, customer_ref, status, current_status, pod_generated, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email')
       .eq('id', jobId)
       .maybeSingle(),
     supabase
@@ -79,6 +80,24 @@ export async function autoGenerateMarketplaceInvoice({
   if (jobError) throw new Error(jobError.message);
   if (!job) return { created: false, invoiceId: null, reason: 'Job not found.' };
   if (buyerError) throw new Error(buyerError.message);
+
+  const effectiveStatus = String(job.current_status || job.status || '').trim().toLowerCase();
+  if (!['delivered', 'completed'].includes(effectiveStatus)) {
+    return { created: false, invoiceId: null, reason: 'Invoice Draft requires a Delivered job.' };
+  }
+  if (job.pod_generated !== true) {
+    return { created: false, invoiceId: null, reason: 'Invoice Draft requires a generated POD.' };
+  }
+
+  const podReady = await assertCanonicalPodReady(supabase, jobId);
+  if (!podReady.ok) {
+    return { created: false, invoiceId: null, reason: `Invoice Draft blocked: ${podReady.reason}` };
+  }
+
+  const jobReference = cleanText(job.customer_ref);
+  if (!jobReference) {
+    return { created: false, invoiceId: null, reason: 'Canonical XDrive Job Ref is missing.' };
+  }
 
   const clientName = cleanText(job.client_name) || cleanText(buyer?.name);
   const clientEmail = (cleanText(job.client_email) || cleanText(buyer?.email) || null)?.toLowerCase() ?? null;
@@ -107,12 +126,12 @@ export async function autoGenerateMarketplaceInvoice({
 
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const dueDate = addDays(invoiceDate, dueDays);
-  const fallbackNumber = `INV-${invoiceDate.slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
-  const { data: generatedNumber } = await supabase.rpc('next_invoice_number', {
+  const { data: generatedNumber, error: numberError } = await supabase.rpc('next_invoice_number', {
     p_company_id: supplierCompanyId,
   });
-  const invoiceNumber = cleanText(generatedNumber) || fallbackNumber;
-  const jobReference = cleanText(job.customer_reference) || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
+  if (numberError) throw new Error(`Invoice number generation failed: ${numberError.message}`);
+  const invoiceNumber = cleanText(generatedNumber);
+  if (!invoiceNumber) throw new Error('Invoice number generation returned an empty value.');
 
   const { data: inserted, error: insertError } = await supabase
     .from('invoices')
@@ -145,6 +164,11 @@ export async function autoGenerateMarketplaceInvoice({
       buyer_company_id: agreement.buyer_company_id,
       supplier_company_id: agreement.supplier_company_id,
       invoice_generation_idempotency_key: idempotencyKey,
+      pod_required: true,
+      pod_generated: true,
+      pod_generated_at: podReady.pod.completed_at ?? new Date().toISOString(),
+      pod_photos: [...podReady.photoPaths, ...podReady.documentPaths],
+      signature: podReady.signaturePath,
     })
     .select('id')
     .single();
