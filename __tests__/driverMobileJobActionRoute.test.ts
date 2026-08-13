@@ -6,11 +6,10 @@ const mocks = vi.hoisted(() => ({
   requireDriver: vi.fn(),
   insertTrackingEvent: vi.fn(),
   appendStatusHistory: vi.fn(() => []),
-  hasPod: vi.fn(() => true),
   mapJob: vi.fn((job: unknown) => job),
   autoGenerateMarketplaceInvoice: vi.fn(),
+  assertCanonicalPodReady: vi.fn(),
   from: vi.fn(),
-  storageList: vi.fn(),
   existingJob: null as Record<string, unknown> | null,
   updatedJob: null as Record<string, unknown> | null,
 }));
@@ -19,11 +18,6 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   isSupabaseAdminConfigured: true,
   supabaseAdmin: {
     from: mocks.from,
-    storage: {
-      from: () => ({
-        list: mocks.storageList,
-      }),
-    },
   },
 }));
 
@@ -35,9 +29,14 @@ vi.mock('../app/api/_lib/autoGenerateMarketplaceInvoice', () => ({
   autoGenerateMarketplaceInvoice: mocks.autoGenerateMarketplaceInvoice,
 }));
 
+vi.mock('../app/api/_lib/pod', () => ({
+  assertCanonicalPodReady: mocks.assertCanonicalPodReady,
+  isCanonicalPodPath: () => true,
+  saveCanonicalPod: vi.fn(),
+}));
+
 vi.mock('../app/api/driver/mobile/_lib', () => ({
   appendStatusHistory: mocks.appendStatusHistory,
-  hasPod: mocks.hasPod,
   insertTrackingEvent: mocks.insertTrackingEvent,
   isDriverContext: (value: unknown) => Boolean(value && typeof value === 'object' && 'userId' in value),
   jobSelect: 'id,status,current_status,status_history,pod_required,awarded_carrier_company_id,assigned_driver_id',
@@ -73,16 +72,22 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     mocks.requireDriver.mockReset();
     mocks.insertTrackingEvent.mockReset();
     mocks.appendStatusHistory.mockReset();
-    mocks.hasPod.mockReset();
     mocks.mapJob.mockReset();
     mocks.autoGenerateMarketplaceInvoice.mockReset();
+    mocks.assertCanonicalPodReady.mockReset();
     mocks.from.mockReset();
-    mocks.storageList.mockReset();
 
     mocks.appendStatusHistory.mockReturnValue([]);
-    mocks.hasPod.mockReturnValue(true);
     mocks.mapJob.mockImplementation((job: unknown) => job);
-    mocks.requireDriver.mockResolvedValue({ userId: 'user-1', driverId: 'driver-1' });
+    mocks.requireDriver.mockResolvedValue({ userId: 'user-1', driverId: 'driver-1', driverType: 'fleet_driver' });
+    mocks.assertCanonicalPodReady.mockResolvedValue({
+      ok: true,
+      pod: { completed_at: '2026-08-06T00:00:00.000Z' },
+      recipient: 'Recipient',
+      signaturePath: 'job-1/signatures/signature.png',
+      photoPaths: ['job-1/photos/photo.jpg'],
+      documentPaths: [],
+    });
     mocks.autoGenerateMarketplaceInvoice.mockResolvedValue({
       created: false,
       invoiceId: null,
@@ -93,7 +98,8 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
       status: 'in_transit',
       current_status: 'in_transit',
       status_history: [],
-      pod_required: false,
+      pod_required: true,
+      pod_generated: true,
       awarded_carrier_company_id: 'carrier-1',
       assigned_driver_id: 'driver-1',
     };
@@ -151,7 +157,7 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     expect(mocks.getFeatureFlag.mock.calls.map(([, key]) => key)).toEqual(['driver_mobile_app', 'pod_capture']);
   });
 
-  it('keeps delivered transitions successful when the shared invoice boundary reports disabled', async () => {
+  it('keeps delivered transitions successful when canonical POD is valid and invoice generation reports disabled', async () => {
     mocks.getFeatureFlag.mockResolvedValue(true);
     const { POST } = await import('../app/api/driver/mobile/jobs/[id]/[action]/route');
 
@@ -161,6 +167,7 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(mocks.assertCanonicalPodReady).toHaveBeenCalledWith(expect.anything(), 'job-1');
     expect(mocks.autoGenerateMarketplaceInvoice).toHaveBeenCalledWith({
       supabase: expect.anything(),
       jobId: 'job-1',
