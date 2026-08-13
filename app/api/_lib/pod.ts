@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const POD_BUCKET = 'pod-photos';
+export const LEGACY_ANDROID_POD_BUCKET = 'pod-docs';
 
 export type PodKind = 'photos' | 'documents' | 'signatures';
 
@@ -21,6 +22,7 @@ export type CanonicalPodRecord = {
   completion_source?: string | null;
   completion_reason?: string | null;
   completed_at?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type SupabaseAdminClient = SupabaseClient;
@@ -30,28 +32,43 @@ const cleanText = (value: unknown) =>
 
 const unique = (values: string[]) => Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 
+const isSafeStoragePath = (value: string) => (
+  value.length > 0
+  && value.length <= 1024
+  && !value.includes('://')
+  && !value.includes('..')
+  && !value.includes('\\')
+  && !value.startsWith('/')
+);
+
 export function isCanonicalPodPath(jobId: string, kind: PodKind, value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const path = value.trim();
-  return (
-    path.length > 0
-    && path.length <= 1024
-    && path.startsWith(`${jobId}/${kind}/`)
-    && !path.includes('://')
-    && !path.includes('..')
-    && !path.includes('\\')
-    && !path.startsWith('/')
-  );
+  return isSafeStoragePath(path) && path.startsWith(`${jobId}/${kind}/`);
 }
 
-export async function podStorageObjectExists(supabase: SupabaseAdminClient, path: string) {
+export function isLegacyAndroidPodPath(jobId: string, value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const path = value.trim();
+  if (!isSafeStoragePath(path)) return false;
+  const segments = path.split('/');
+  return segments.length >= 3
+    && /^driver-[0-9a-f-]{36}$/i.test(segments[0])
+    && segments[1] === jobId;
+}
+
+export async function podStorageObjectExists(
+  supabase: SupabaseAdminClient,
+  path: string,
+  bucket = POD_BUCKET,
+) {
   const segments = path.split('/');
   const fileName = segments.pop();
   const folder = segments.join('/');
   if (!fileName || !folder) return false;
 
   const { data, error } = await supabase.storage
-    .from(POD_BUCKET)
+    .from(bucket)
     .list(folder, { limit: 100, search: fileName });
 
   if (error) throw new Error(error.message);
@@ -86,7 +103,7 @@ export async function uploadSignatureDataUri(
 export async function getCanonicalPod(supabase: SupabaseAdminClient, jobId: string) {
   const { data, error } = await supabase
     .from('proof_of_delivery')
-    .select('id, job_id, received_by, signature_url, photo_urls, document_urls, company_id, assigned_driver_id, on_behalf_of_driver_id, completed_by_user_id, completed_by_role, completion_source, completion_reason, completed_at')
+    .select('id, job_id, received_by, signature_url, photo_urls, document_urls, company_id, assigned_driver_id, on_behalf_of_driver_id, completed_by_user_id, completed_by_role, completion_source, completion_reason, completed_at, metadata')
     .eq('job_id', jobId)
     .maybeSingle();
 
@@ -100,28 +117,50 @@ export async function assertCanonicalPodReady(supabase: SupabaseAdminClient, job
 
   const recipient = cleanText(pod.received_by);
   const signaturePath = cleanText(pod.signature_url);
+  const metadataBucket = cleanText(pod.metadata?.storage_bucket);
+  const isLegacyAndroid = metadataBucket === LEGACY_ANDROID_POD_BUCKET
+    && pod.completion_source === 'driver_native';
+  const storageBucket = isLegacyAndroid ? LEGACY_ANDROID_POD_BUCKET : POD_BUCKET;
+
+  const pathIsValid = (value: unknown, kind?: PodKind): value is string => (
+    isLegacyAndroid
+      ? isLegacyAndroidPodPath(jobId, value)
+      : Boolean(kind && isCanonicalPodPath(jobId, kind, value))
+  );
+
   const photoPaths = Array.isArray(pod.photo_urls)
-    ? pod.photo_urls.filter((value): value is string => isCanonicalPodPath(jobId, 'photos', value))
+    ? pod.photo_urls.filter((value): value is string => pathIsValid(value, 'photos'))
     : [];
   const documentPaths = Array.isArray(pod.document_urls)
-    ? pod.document_urls.filter((value): value is string => isCanonicalPodPath(jobId, 'documents', value))
+    ? pod.document_urls.filter((value): value is string => pathIsValid(value, 'documents'))
     : [];
 
   if (!recipient) return { ok: false as const, reason: 'POD recipient name is missing.' };
-  if (!signaturePath || !isCanonicalPodPath(jobId, 'signatures', signaturePath)) {
+  if (!signaturePath || !pathIsValid(signaturePath, 'signatures')) {
     return { ok: false as const, reason: 'POD recipient signature is missing from XDrive storage.' };
   }
   if (photoPaths.length + documentPaths.length === 0) {
     return { ok: false as const, reason: 'POD requires at least one stored photo or document.' };
   }
 
-  const requiredPaths = [signaturePath, ...photoPaths, ...documentPaths];
-  const existence = await Promise.all(requiredPaths.map((path) => podStorageObjectExists(supabase, path)));
+  const requiredPaths = unique([signaturePath, ...photoPaths, ...documentPaths]);
+  const existence = await Promise.all(
+    requiredPaths.map((path) => podStorageObjectExists(supabase, path, storageBucket)),
+  );
   if (existence.some((exists) => !exists)) {
     return { ok: false as const, reason: 'One or more POD files are missing from XDrive storage.' };
   }
 
-  return { ok: true as const, pod, recipient, signaturePath, photoPaths, documentPaths };
+  return {
+    ok: true as const,
+    pod,
+    recipient,
+    signaturePath,
+    photoPaths,
+    documentPaths,
+    storageBucket,
+    compatibilityMode: isLegacyAndroid ? 'android_native_legacy' : null,
+  };
 }
 
 export async function saveCanonicalPod({
@@ -171,11 +210,17 @@ export async function saveCanonicalPod({
   }
 
   const existing = await getCanonicalPod(supabase, jobId);
-  const existingPhotos = Array.isArray(existing?.photo_urls) ? existing!.photo_urls!.filter((value): value is string => typeof value === 'string') : [];
-  const existingDocuments = Array.isArray(existing?.document_urls) ? existing!.document_urls!.filter((value): value is string => typeof value === 'string') : [];
+  const existingPhotos = Array.isArray(existing?.photo_urls)
+    ? existing.photo_urls.filter((value): value is string => typeof value === 'string')
+    : [];
+  const existingDocuments = Array.isArray(existing?.document_urls)
+    ? existing.document_urls.filter((value): value is string => typeof value === 'string')
+    : [];
 
-  const mergedPhotos = unique([...existingPhotos, ...validPhotos]).filter((path) => isCanonicalPodPath(jobId, 'photos', path));
-  const mergedDocuments = unique([...existingDocuments, ...validDocuments]).filter((path) => isCanonicalPodPath(jobId, 'documents', path));
+  const mergedPhotos = unique([...existingPhotos, ...validPhotos])
+    .filter((path) => isCanonicalPodPath(jobId, 'photos', path));
+  const mergedDocuments = unique([...existingDocuments, ...validDocuments])
+    .filter((path) => isCanonicalPodPath(jobId, 'documents', path));
 
   if (mergedPhotos.length + mergedDocuments.length === 0) {
     throw new Error('At least one POD photo or document is required.');
@@ -218,6 +263,10 @@ export async function saveCanonicalPod({
     document_urls: mergedDocuments,
     vehicle_ref: cleanText(vehicleRef),
     completed_at: now,
+    metadata: {
+      storage_bucket: POD_BUCKET,
+      evidence_model: 'canonical',
+    },
     updated_at: now,
   };
 
