@@ -18,8 +18,8 @@ import { canRecordInvoicePayments, PAYMENT_RECORDING_ROLES } from '../lib/financ
 // ─── Static contract tests ────────────────────────────────────────────────────
 
 test.describe('finance role permission contract', () => {
-  const paymentRoles = ['owner', 'admin', 'dispatcher', 'finance'];
-  const nonPaymentRoles = ['driver', 'customer', 'broker'];
+  const paymentRoles = ['owner', 'admin', 'finance'];
+  const nonPaymentRoles = ['dispatcher', 'driver', 'customer', 'broker'];
 
   for (const role of paymentRoles) {
     test(`${role} can record invoice payments`, () => {
@@ -40,7 +40,7 @@ test.describe('finance role permission contract', () => {
   });
 
   test('payment recording roles set has correct size', () => {
-    expect(PAYMENT_RECORDING_ROLES.size).toBe(4);
+    expect(PAYMENT_RECORDING_ROLES.size).toBe(3);
   });
 });
 
