@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   from: vi.fn(),
   autoGenerateMarketplaceInvoice: vi.fn(),
+  assertCanonicalPodReady: vi.fn(),
   jobResult: null as Record<string, unknown> | null,
   membershipResult: null as Record<string, unknown> | null,
   updatedJobResult: null as Record<string, unknown> | null,
@@ -26,6 +27,10 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
 
 vi.mock('../app/api/_lib/autoGenerateMarketplaceInvoice', () => ({
   autoGenerateMarketplaceInvoice: mocks.autoGenerateMarketplaceInvoice,
+}));
+
+vi.mock('../app/api/_lib/pod', () => ({
+  assertCanonicalPodReady: mocks.assertCanonicalPodReady,
 }));
 
 const makeJobsTable = () => ({
@@ -53,11 +58,20 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     mocks.getUser.mockReset();
     mocks.from.mockReset();
     mocks.autoGenerateMarketplaceInvoice.mockReset();
+    mocks.assertCanonicalPodReady.mockReset();
 
     mocks.getBearerToken.mockReturnValue('token');
     mocks.getUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
+    });
+    mocks.assertCanonicalPodReady.mockResolvedValue({
+      ok: true,
+      pod: { completed_at: '2026-08-06T00:00:00.000Z' },
+      recipient: 'Recipient',
+      signaturePath: 'job-1/signatures/signature.png',
+      photoPaths: ['job-1/photos/photo.jpg'],
+      documentPaths: [],
     });
     mocks.autoGenerateMarketplaceInvoice.mockResolvedValue({
       created: false,
@@ -67,16 +81,17 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     mocks.jobResult = {
       id: 'job-1',
       company_id: 'company-1',
+      assigned_company_id: 'carrier-1',
       awarded_carrier_company_id: 'carrier-1',
       assigned_driver_id: 'driver-1',
-      status: 'on_site_delivery',
+      status: 'in_transit',
       current_status: 'on_site_delivery',
       status_history: [],
-      pod_required: false,
+      pod_required: true,
       pod_generated: true,
-      delivery_photos: [],
+      delivery_photos: ['job-1/photos/photo.jpg'],
       pod_photos: [],
-      delivery_signature_data: { ok: true },
+      delivery_signature_data: { storage_path: 'job-1/signatures/signature.png' },
       client_signature_name: 'Recipient',
     };
     mocks.membershipResult = { role_in_company: 'owner' };
@@ -114,7 +129,7 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     });
   });
 
-  it('keeps the transition successful while routing delivered jobs through the shared disabled invoice boundary', async () => {
+  it('keeps the transition successful while routing delivered jobs through canonical POD and shared invoice boundaries', async () => {
     const { POST } = await import('../app/api/admin/jobs/[id]/transition/route');
 
     const res = await POST(
@@ -130,6 +145,7 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(mocks.assertCanonicalPodReady).toHaveBeenCalledWith(expect.anything(), 'job-1');
     expect(mocks.autoGenerateMarketplaceInvoice).toHaveBeenCalledWith({
       supabase: expect.anything(),
       jobId: 'job-1',
