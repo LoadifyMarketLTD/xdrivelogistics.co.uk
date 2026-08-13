@@ -7,6 +7,7 @@ import {
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
 import { autoGenerateMarketplaceInvoice } from '../../../../_lib/autoGenerateMarketplaceInvoice';
+import { assertCanonicalPodReady } from '../../../../_lib/pod';
 
 const bodySchema = z.object({
   nextStatus: z.enum([
@@ -53,26 +54,19 @@ const eventType: Record<string, string> = {
   completed: 'note',
 };
 
+const lifecycleStatusFor = (nextStatus: string, existingLifecycle: string | null) => {
+  if (nextStatus === 'in_transit' || nextStatus === 'on_site_delivery') return 'in_transit';
+  if (nextStatus === 'delivered' || nextStatus === 'completed') return 'delivered';
+  if (['on_my_way', 'on_site_pickup', 'loaded'].includes(nextStatus)) {
+    return ['awarded', 'allocated'].includes(String(existingLifecycle ?? '').toLowerCase())
+      ? 'allocated'
+      : existingLifecycle;
+  }
+  return existingLifecycle;
+};
+
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
-
-const hasCompletePod = (job: Record<string, unknown>) => {
-  const deliveryPhotos = Array.isArray(job.delivery_photos)
-    ? job.delivery_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
-    : [];
-  const podDocuments = Array.isArray(job.pod_photos)
-    ? job.pod_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
-    : [];
-  const signature = job.delivery_signature_data;
-  const hasSignature = typeof signature === 'string'
-    ? signature.trim().length > 0
-    : Boolean(signature && typeof signature === 'object');
-  const recipientName = typeof job.client_signature_name === 'string'
-    ? job.client_signature_name.trim()
-    : '';
-
-  return deliveryPhotos.length + podDocuments.length > 0 && hasSignature && recipientName.length > 0;
-};
 
 export async function POST(
   request: NextRequest,
@@ -95,20 +89,20 @@ export async function POST(
   const { id } = await params;
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, status_history, pod_required, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+    .select('id, company_id, awarded_carrier_company_id, assigned_company_id, assigned_driver_id, status, current_status, status_history, pod_required, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .eq('id', id)
     .maybeSingle();
   if (jobError) return respond(500, { error: jobError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
 
-  const operatingCompanyId = job.awarded_carrier_company_id ?? job.company_id;
+  const operatingCompanyId = job.awarded_carrier_company_id ?? job.assigned_company_id ?? job.company_id;
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('role_in_company')
     .eq('company_id', operatingCompanyId)
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .in('role_in_company', ['owner', 'admin', 'dispatcher', 'finance'])
     .maybeSingle();
   if (membershipError) return respond(500, { error: membershipError.message });
   if (!membership) return respond(403, { error: 'Only an operator of the executing company may update this job.' });
@@ -124,16 +118,23 @@ export async function POST(
   if (!job.assigned_driver_id) {
     return respond(409, { error: 'Assign an approved driver before starting job execution.' });
   }
-  if (parsed.data.nextStatus === 'delivered' && job.pod_required !== false && !hasCompletePod(job as Record<string, unknown>)) {
-    return respond(409, {
-      error: 'Complete POD is required before delivery: provide at least one photo or document, recipient signature and recipient name.',
-    });
+
+  if (parsed.data.nextStatus === 'delivered' || parsed.data.nextStatus === 'completed') {
+    try {
+      const podReady = await assertCanonicalPodReady(supabaseAdmin, id);
+      if (!podReady.ok) return respond(409, { error: podReady.reason });
+    } catch (reason) {
+      return respond(503, {
+        error: reason instanceof Error ? `POD validation failed: ${reason.message}` : 'POD validation failed.',
+      });
+    }
   }
 
   const now = new Date().toISOString();
   const history = Array.isArray(job.status_history) ? job.status_history : [];
+  const nextLifecycleStatus = lifecycleStatusFor(parsed.data.nextStatus, job.status);
   const update: Record<string, unknown> = {
-    status: parsed.data.nextStatus,
+    status: nextLifecycleStatus,
     current_status: parsed.data.nextStatus,
     status_updated_at: now,
     updated_at: now,
@@ -141,6 +142,7 @@ export async function POST(
       ...history,
       {
         status: parsed.data.nextStatus,
+        lifecycle_status: nextLifecycleStatus,
         label: parsed.data.nextStatus.replaceAll('_', ' '),
         timestamp: now,
         actor_user_id: authData.user.id,
@@ -171,14 +173,20 @@ export async function POST(
     job_id: id,
     event_type: eventType[parsed.data.nextStatus],
     created_by: authData.user.id,
+    user_id: authData.user.id,
     message: parsed.data.note || `Operator changed status to ${parsed.data.nextStatus.replaceAll('_', ' ')}.`,
+    meta: {
+      source: 'operator_api',
+      role: membership.role_in_company,
+      lifecycle_status: nextLifecycleStatus,
+    },
   });
   if (trackingError) {
     console.error('Job transition succeeded but tracking event insert failed:', trackingError.message);
   }
 
   if (
-    (parsed.data.nextStatus === 'delivered' || parsed.data.nextStatus === 'completed')
+    parsed.data.nextStatus === 'delivered'
     && typeof job.awarded_carrier_company_id === 'string'
     && job.awarded_carrier_company_id
   ) {
