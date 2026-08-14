@@ -1,1 +1,92 @@
-/* Driver Return Journeys route styles. */
+/* Driver Return Journeys — route alignment to the shared XDrive workspace matrix.
+ * Business logic remains in page.tsx; this file only standardises geometry,
+ * density and responsive behaviour using the shared workspace tokens.
+ */
+
+.driver-returns-exchange .driver-operational-page {
+  gap: var(--ws-gap-2, 4px) !important;
+  align-content: start !important;
+}
+
+.driver-returns-exchange .driver-board-layout {
+  grid-template-columns: var(--ws-rail-w, 196px) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-2, 4px) !important;
+  align-items: start !important;
+}
+
+.driver-returns-exchange .driver-board-main {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: var(--ws-gap-2, 4px) !important;
+  align-content: start !important;
+  grid-auto-rows: max-content !important;
+}
+
+.driver-returns-exchange .driver-filter-rail {
+  width: var(--ws-rail-w, 196px) !important;
+  top: var(--ws-header-h, 58px) !important;
+  border-radius: var(--ws-radius, 2px) !important;
+  box-shadow: none !important;
+}
+
+.driver-returns-exchange .driver-filter-rail__body,
+.driver-returns-exchange form {
+  gap: var(--ws-gap-2, 4px) !important;
+}
+
+.driver-returns-exchange .driver-tab-strip,
+.driver-returns-exchange .driver-status-tabs {
+  min-height: 28px !important;
+  height: 28px !important;
+  border-radius: var(--ws-radius, 2px) !important;
+  box-shadow: none !important;
+}
+
+.driver-returns-exchange section,
+.driver-returns-exchange article,
+.driver-returns-exchange [role="alert"] {
+  border-radius: var(--ws-radius, 2px) !important;
+  box-shadow: none !important;
+}
+
+.driver-returns-exchange article {
+  border-color: var(--ws-border, #cfd7e3) !important;
+}
+
+.driver-returns-exchange article > div:first-child {
+  gap: var(--ws-gap-2, 4px) !important;
+}
+
+.driver-returns-exchange article button,
+.driver-returns-exchange .driver-row-actions button {
+  min-height: 27px !important;
+  height: 27px !important;
+  border-radius: var(--ws-radius, 2px) !important;
+  font-size: 9.5px !important;
+}
+
+.driver-returns-exchange .driver-detail-grid {
+  gap: var(--ws-gap-2, 4px) !important;
+}
+
+@media (max-width: 1024px) {
+  .driver-returns-exchange .driver-board-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .driver-returns-exchange .driver-filter-rail {
+    position: static !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .driver-returns-exchange .driver-board-main {
+    gap: 4px !important;
+  }
+
+  .driver-returns-exchange article > div:first-child,
+  .driver-returns-exchange .driver-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
