@@ -6,23 +6,20 @@ import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheet
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { classifyWorkspaceJobStage, normalizedJobStatus } from '../../../lib/jobs/workspaceJobStage';
 
 type DiaryTab = 'all' | 'open' | 'awaiting_award' | 'awarded' | 'in_progress' | 'delivered' | 'cancelled';
-const IN_PROGRESS = new Set(['accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
-const DELIVERED = new Set(['delivered', 'completed', 'invoiced', 'paid']);
-const AWARDED = new Set(['awarded', 'allocated', 'accepted']);
-const statusOf = (job: WorkspaceJob) => String(job.current_status ?? job.status ?? '').trim().toLowerCase();
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 
 function matchesTab(job: WorkspaceJob, tab: DiaryTab, hasSubmittedQuote: boolean) {
-  const status = statusOf(job);
   if (tab === 'all') return true;
-  if (tab === 'open') return ['draft', 'posted', 'quoted'].includes(status) && !job.awarded_carrier_company_id;
-  if (tab === 'awaiting_award') return hasSubmittedQuote && !job.awarded_carrier_company_id && ['posted', 'quoted'].includes(status);
-  if (tab === 'awarded') return Boolean(job.awarded_carrier_company_id) || AWARDED.has(status);
-  if (tab === 'in_progress') return IN_PROGRESS.has(status);
-  if (tab === 'delivered') return DELIVERED.has(status);
-  return ['cancelled', 'driver_declined'].includes(status);
+  const stage = classifyWorkspaceJobStage(job);
+  if (tab === 'open') return stage === 'open' && !hasSubmittedQuote;
+  if (tab === 'awaiting_award') return stage === 'open' && hasSubmittedQuote;
+  if (tab === 'awarded') return stage === 'awarded' || stage === 'allocated';
+  if (tab === 'in_progress') return stage === 'in_progress';
+  if (tab === 'delivered') return stage === 'completed';
+  return stage === 'cancelled';
 }
 
 export default function CustomerDiaryPage() {
@@ -143,7 +140,7 @@ export default function CustomerDiaryPage() {
                 const podReady = (job.delivery_photos?.length ?? 0) > 0;
                 const carrierName = quoteInfo?.acceptedCompanyName ?? (job.awarded_carrier_company_id ? 'Awarded carrier' : 'Not awarded');
                 return (
-                  <article key={job.id} className="workspace-operational-row" data-state={statusOf(job)}>
+                  <article key={job.id} className="workspace-operational-row" data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
