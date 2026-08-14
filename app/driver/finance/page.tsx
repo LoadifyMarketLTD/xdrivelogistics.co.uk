@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import {
@@ -90,6 +91,8 @@ function statusTone(status: InvoiceStatus): 'green' | 'blue' | 'orange' | 'red' 
 
 export default function DriverFinancePage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [activeTab, setActiveTab] = useState<InvoiceStatus | 'All'>('All');
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -144,6 +147,7 @@ export default function DriverFinancePage() {
   useEffect(() => { void loadInvoices(); }, [loadInvoices]);
 
   const loadEligibleJobs = async () => {
+    if (!canGenerateInvoices) return;
     setJobsLoading(true);
     setGenerateError('');
     const token = await getToken();
@@ -168,12 +172,14 @@ export default function DriverFinancePage() {
   };
 
   const openJobPicker = () => {
+    if (!canGenerateInvoices) return;
     const next = !showJobPicker;
     setShowJobPicker(next);
     if (next) void loadEligibleJobs();
   };
 
   const generateInvoice = async (jobId: string) => {
+    if (!canGenerateInvoices) return;
     setGeneratingJobId(jobId);
     setGenerateError('');
     const token = await getToken();
@@ -225,7 +231,7 @@ export default function DriverFinancePage() {
             <span>{counts[tab.id]}</span>
           </button>
         ))}
-        <ActionButton tone="primary" onClick={openJobPicker}>{showJobPicker ? 'Close generator' : 'Generate Invoice'}</ActionButton>
+        {canGenerateInvoices && <ActionButton tone="primary" onClick={openJobPicker}>{showJobPicker ? 'Close generator' : 'Generate Invoice'}</ActionButton>}
       </div>
     </aside>
   );
@@ -233,8 +239,8 @@ export default function DriverFinancePage() {
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
-        subtitle="Create invoices from completed jobs and track delivery and payment status."
-        headerActions={<ActionButton tone="primary" onClick={openJobPicker}>+ Generate Invoice</ActionButton>}
+        subtitle="Track invoice delivery and payment status. Company owners and admins can generate invoices from completed jobs."
+        headerActions={canGenerateInvoices ? <ActionButton tone="primary" onClick={openJobPicker}>+ Generate Invoice</ActionButton> : undefined}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
@@ -250,7 +256,7 @@ export default function DriverFinancePage() {
               ))}
             </div>
 
-            {showJobPicker && (
+            {showJobPicker && canGenerateInvoices && (
               <section className="driver-row-details" aria-label="Generate invoice from completed job">
                 <div className="driver-detail-tabs"><strong>Completed jobs ready for invoicing</strong></div>
                 {jobsLoading ? (
@@ -290,7 +296,7 @@ export default function DriverFinancePage() {
             {loading ? (
               <div className="driver-load-row"><EmptyState compact title="Loading invoices…" /></div>
             ) : invoices.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No invoices in this view" description="Generate an invoice from a completed job or choose another status." /></div>
+              <div className="driver-load-row"><EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another status.' : 'Choose another status or refresh the payment report.'} /></div>
             ) : (
               <div className="driver-load-list">
                 {invoices.map((invoice) => (
