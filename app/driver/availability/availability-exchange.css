@@ -1,0 +1,68 @@
+/* Driver Availability migration bridge.
+ * Keeps the existing real availability/profile/schedule behaviour while
+ * forcing legacy inline control dimensions onto the shared workspace contract.
+ * Do not add business logic or route-specific colour systems here.
+ */
+
+.driver-reference-availability input:not([type="checkbox"]),
+.driver-reference-availability select,
+.driver-reference-availability textarea {
+  min-height: var(--ws-control-h) !important;
+  height: var(--ws-control-h) !important;
+  padding: 0 6px !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  color: var(--ws-text) !important;
+  font-size: 10px !important;
+  box-shadow: none !important;
+}
+
+.driver-reference-availability textarea {
+  min-height: 56px !important;
+  height: auto !important;
+  padding: 5px 6px !important;
+}
+
+.driver-reference-availability .driver-ops-grid-2 {
+  gap: var(--ws-gap-2) !important;
+}
+
+.driver-reference-availability .driver-status-choice-grid {
+  gap: var(--ws-gap-2) !important;
+}
+
+.driver-reference-availability .driver-status-choice {
+  min-height: 38px !important;
+  padding: 4px 6px !important;
+  border-radius: var(--ws-radius) !important;
+  box-shadow: none !important;
+}
+
+.driver-reference-availability .driver-status-choice strong {
+  font-size: 10px !important;
+  line-height: 12px !important;
+}
+
+.driver-reference-availability .driver-status-choice span {
+  font-size: 8.5px !important;
+  line-height: 10.5px !important;
+}
+
+.driver-reference-availability .driver-schedule-grid,
+.driver-reference-availability .driver-schedule-slots {
+  gap: var(--ws-gap-2) !important;
+}
+
+.driver-reference-availability .driver-schedule-slots button {
+  min-height: var(--ws-control-h) !important;
+  height: var(--ws-control-h) !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: 9px !important;
+}
+
+@media (max-width: 768px) {
+  .driver-reference-availability .driver-ops-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
