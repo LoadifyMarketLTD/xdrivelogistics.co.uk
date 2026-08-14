@@ -18,20 +18,19 @@ function boolValue(value: unknown) {
 
 function parseLoadDetails(value: unknown) {
   const raw = text(value)?.trim();
-  if (!raw) return { publicQuoteNotes: null, executionInstructions: null, targetCarrierCost: null };
+  if (!raw) return { publicQuoteNotes: null, executionInstructions: null };
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { publicQuoteNotes: null, executionInstructions: raw, targetCarrierCost: null };
+      return { publicQuoteNotes: null, executionInstructions: raw };
     }
     const object = parsed as Record<string, unknown>;
     return {
       publicQuoteNotes: text(object.publicQuoteNotes),
       executionInstructions: text(object.executionInstructions) ?? text(object.notes),
-      targetCarrierCost: numberValue(object.targetCarrierCost),
     };
   } catch {
-    return { publicQuoteNotes: null, executionInstructions: raw, targetCarrierCost: null };
+    return { publicQuoteNotes: null, executionInstructions: raw };
   }
 }
 
@@ -42,7 +41,7 @@ function requirementFlags(job: Record<string, unknown>, vehicle: Record<string, 
   push(job.collection_forklift_available === true || job.delivery_forklift_available === true, 'Forklift available / required');
   push(job.collection_handball_required === true || job.delivery_handball_required === true, 'Handball required');
   push(job.direct_delivery_required === true, 'Direct delivery');
-  push(vehicle.has_tail_lift === true, 'Allocated vehicle has tail lift');
+  push(vehicle.has_tail_lift === true, 'Vehicle has tail lift');
   const special = text(job.special_requirements);
   if (special) rows.push(special);
   const access = text(job.access_restrictions);
@@ -145,8 +144,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     dueDate: text(entry.due_date),
   }));
 
-  const allocatedVehicleRef = text(vehicle.reg_plate) ?? text(job.vehicle_ref) ?? text(driverRow.display_name);
-  const allocatedVehicleType = text(vehicle.type) ?? text(job.vehicle_type);
+  const allocatedVehicleRef = text(vehicle.reg_plate) ?? text(job.vehicle_ref);
+  const allocatedVehicleType = text(vehicle.type) ?? (vehicleId ? text(job.vehicle_type) : null);
   const requestedVehicle = text(job.requested_vehicle_label)
     ?? text(job.requested_vehicle_type)
     ?? text(job.vehicle_type);
@@ -162,9 +161,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       status: text(job.current_status) || text(job.status) || 'allocated',
       bookedAt: acceptedAt,
       postingCompanyId: originCompanyId,
-      bookedBy: text(company.name) || text(job.client_name) || 'Marketplace member',
+      bookedBy: text(company.name) || 'Marketplace member',
       memberCode: text(company.company_number),
-      memberPhone: text(company.phone) || text(job.client_phone),
+      memberPhone: text(company.phone),
       executingCompanyId: text(agreement.supplier_company_id) ?? text(job.awarded_carrier_company_id) ?? driver.companyId,
       driverId: driver.driverId,
       driverName: text(driverRow.display_name),
@@ -176,6 +175,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       paymentTerms,
       paymentDueDays: numberValue(agreement.payment_due_days),
       commercialSnapshotAvailable: Boolean(agreementResult.data && !agreementResult.error),
+      customerName: text(job.client_name),
       customerReference: text(job.customer_reference),
       purchaseOrderNumber: text(job.purchase_order_number),
       bookingReference: text(job.booking_reference),
@@ -190,6 +190,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         payloadKg: numberValue(vehicle.payload_kg),
         palletsCapacity: numberValue(vehicle.pallets_capacity),
         hasTailLift: boolValue(vehicle.has_tail_lift),
+        source: vehicleId ? 'job' : vehicleResult.data ? 'driver_current' : 'none',
       },
       cargo: {
         type: requestedCargo,
@@ -227,7 +228,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       executionInstructions: loadDetails.executionInstructions ?? text(job.load_notes),
       driverNotes: text(job.driver_notes),
       documentChecklist: Array.isArray(job.document_checklist) ? job.document_checklist : [],
-      targetCarrierCost: loadDetails.targetCarrierCost,
       timeline,
       documents,
       invoices,
