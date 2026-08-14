@@ -1,6 +1,6 @@
 export type WorkspaceJobStage =
   | 'open'
-  | 'unallocated'
+  | 'awarded'
   | 'allocated'
   | 'in_progress'
   | 'completed'
@@ -38,15 +38,14 @@ export function normalizedJobStatus(job: WorkspaceStageJob) {
 }
 
 /**
- * One canonical operational stage classifier for workspace views.
+ * Canonical lifecycle stage. This deliberately does not use workspace queue
+ * labels such as `unallocated`: the same awarded job means "allocated to a
+ * carrier" for a broker/customer but "won and still unallocated to a driver"
+ * for that carrier's Fleet workspace.
  *
- * Award and allocation are intentionally different:
- * - awarded carrier + no driver => unallocated company work;
- * - assigned driver / allocated / accepted => allocated, not in progress;
- * - execution starts only when the driver moves toward pickup or later.
- *
- * A page may still apply a role/company scope before calling this classifier,
- * but it must not redefine the lifecycle buckets locally.
+ * Workspace pages may map this lifecycle stage into their own queue labels,
+ * but must not redefine which raw statuses constitute award, allocation,
+ * execution or completion.
  */
 export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobStage {
   const status = normalizedJobStatus(job);
@@ -64,7 +63,7 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
     || Boolean(job.awarded_carrier_company_id)
     || Boolean(job.assigned_company_id)
   ) {
-    return 'unallocated';
+    return 'awarded';
   }
 
   if (OPEN_JOB_STATUSES.has(status)) return 'open';
@@ -74,4 +73,17 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
 export function isExecutionStage(job: WorkspaceStageJob) {
   const stage = classifyWorkspaceJobStage(job);
   return stage === 'allocated' || stage === 'in_progress';
+}
+
+export function fleetQueueStage(job: WorkspaceStageJob) {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'awarded') return 'unallocated' as const;
+  return stage;
+}
+
+export function brokerDiaryStage(job: WorkspaceStageJob) {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'open') return 'unallocated' as const;
+  if (stage === 'awarded') return 'allocated' as const;
+  return stage;
 }
