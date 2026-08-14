@@ -69,12 +69,79 @@
   gap: var(--ws-gap-2, 4px) !important;
 }
 
+/* Search Journeys follows the same 196px rail + fluid results pattern as Loads.
+ * The search Panel is the only direct form-bearing section in this route;
+ * Add Journey forms live inside the two-column add container and are untouched.
+ */
+@media (min-width: 1025px) {
+  .driver-returns-exchange .driver-operational-page:has(> section:has(> div > form)) {
+    display: grid !important;
+    grid-template-columns: var(--ws-rail-w, 196px) minmax(0, 1fr) !important;
+    gap: var(--ws-gap-2, 4px) !important;
+    align-items: start !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page:has(> section:has(> div > form)) > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) {
+    grid-column: 1 !important;
+    grid-row: span 3;
+    position: sticky !important;
+    top: var(--ws-header-h, 58px) !important;
+    align-self: start !important;
+    overflow: hidden !important;
+    border: 1px solid var(--ws-border, #cfd7e3) !important;
+    background: #f7f9fc !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) ~ * {
+    grid-column: 2 !important;
+    min-width: 0 !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) > div:first-child {
+    min-height: var(--ws-panel-head-h, 30px) !important;
+    padding: 4px 7px !important;
+    background: var(--ws-panel-head, #f2f4f7) !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) > div:first-child p {
+    margin: 1px 0 0 !important;
+    font-size: 8.5px !important;
+    line-height: 11px !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) > div:last-child {
+    padding: 6px !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> div > label) {
+    grid-template-columns: 1fr !important;
+    gap: var(--ws-gap-2, 4px) !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> button) {
+    align-items: stretch !important;
+    gap: var(--ws-gap-2, 4px) !important;
+  }
+
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> button) > button,
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> button) > select {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+}
+
 @media (max-width: 1024px) {
   .driver-returns-exchange .driver-board-layout {
     grid-template-columns: 1fr !important;
   }
 
-  .driver-returns-exchange .driver-filter-rail {
+  .driver-returns-exchange .driver-filter-rail,
+  .driver-returns-exchange .driver-operational-page > section:has(> div > form) {
     position: static !important;
     width: 100% !important;
   }
@@ -86,7 +153,8 @@
   }
 
   .driver-returns-exchange article > div:first-child,
-  .driver-returns-exchange .driver-detail-grid {
+  .driver-returns-exchange .driver-detail-grid,
+  .driver-returns-exchange .driver-ops-grid-2 {
     grid-template-columns: 1fr !important;
   }
 }
