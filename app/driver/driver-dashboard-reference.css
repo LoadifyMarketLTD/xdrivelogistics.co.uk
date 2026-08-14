@@ -1,7 +1,6 @@
-/* Driver Dashboard — v3 measured operational home.
+/* Driver Dashboard — Master Plan v3 / measured Courier Exchange operational home.
  * Shared typography, controls, rows and shell geometry come from
- * workspace-measured-cx-baseline.css. This file is imported after the generic
- * baseline and owns Dashboard composition only.
+ * workspace-measured-cx-baseline.css. This file owns Dashboard composition only.
  */
 
 .driver-reference-dashboard {
@@ -11,7 +10,7 @@
 .driver-reference-dashboard .driver-dashboard-layout {
   display: grid;
   grid-template-columns: minmax(300px, var(--driver-dashboard-left)) minmax(0, 1fr);
-  gap: var(--ws-gap-grid);
+  gap: var(--ws-gap-grid, 12px);
   align-items: start;
 }
 
@@ -19,46 +18,52 @@
 .driver-reference-dashboard .driver-dashboard-main {
   min-width: 0;
   display: grid;
-  gap: var(--ws-gap-internal);
+  gap: var(--ws-gap-internal, 8px);
   align-content: start;
 }
 
 .driver-reference-dashboard .driver-dashboard-left {
   position: sticky;
-  top: calc(var(--ws-header-h) + var(--ws-gap-grid));
+  top: calc(var(--ws-header-h, 50px) + var(--ws-gap-grid, 12px));
 }
 
 .driver-reference-dashboard .driver-dashboard-section {
   margin: 0;
   overflow: hidden;
-  border: 1px solid var(--ws-border) !important;
-  border-radius: var(--ws-radius) !important;
-  background: #fff !important;
-  box-shadow: none !important;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: #fff;
+  box-shadow: none;
 }
 
 .driver-reference-dashboard .driver-dashboard-section__header {
-  min-height: var(--ws-panel-head-h);
+  min-height: var(--ws-panel-head-h, 36px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--ws-gap-internal);
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--ws-border);
-  background: var(--ws-panel-head);
+  gap: var(--ws-gap-internal, 8px);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: var(--ws-panel-head, #f2f4f7);
 }
 
 .driver-reference-dashboard .driver-dashboard-section__header > span:first-child,
 .driver-reference-dashboard .driver-dashboard-section__header > strong:first-child {
-  color: var(--ws-text);
-  font-size: var(--ws-font-panel-title);
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-panel-title, 13px);
   line-height: 18px;
-  font-weight: 650;
+  font-weight: 700;
+}
+
+.driver-reference-dashboard .driver-dashboard-section__header > span:last-child:not(:first-child) {
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
 }
 
 .driver-reference-dashboard .driver-dashboard-section__body {
   display: grid;
-  gap: var(--ws-gap-internal);
+  gap: var(--ws-gap-internal, 8px);
   padding: 10px;
   background: #fff;
 }
@@ -70,31 +75,31 @@
   gap: 10px;
   min-height: 42px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--ws-border-soft);
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
 }
 
 .driver-reference-dashboard .driver-dashboard-status-primary > span:first-child {
-  color: var(--ws-muted);
-  font-size: var(--ws-font-label);
-  line-height: 14px;
-  font-weight: 650;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-label, 11px);
+  line-height: 15px;
+  font-weight: 700;
 }
 
 .driver-reference-dashboard .driver-dashboard-facts {
   margin: 0;
   display: grid;
-  border: 1px solid var(--ws-border-soft);
+  border: 1px solid var(--ws-border-soft, #e2e7ed);
   background: #fff;
 }
 
 .driver-reference-dashboard .driver-dashboard-facts > div {
-  min-height: 36px;
+  min-height: 38px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 7px 9px;
-  border-bottom: 1px solid var(--ws-border-soft);
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
 }
 
 .driver-reference-dashboard .driver-dashboard-facts > div:last-child {
@@ -107,16 +112,17 @@
 }
 
 .driver-reference-dashboard .driver-dashboard-facts dt {
-  color: var(--ws-muted);
-  font-size: var(--ws-font-meta);
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
   line-height: 15px;
 }
 
 .driver-reference-dashboard .driver-dashboard-facts dd {
-  color: var(--ws-text);
+  color: var(--ws-text, #172033);
   font-size: 12px;
   line-height: 16px;
   font-weight: 700;
+  text-align: right;
 }
 
 .driver-reference-dashboard .driver-dashboard-action-stack {
@@ -130,33 +136,43 @@
 }
 
 .driver-reference-dashboard .driver-dashboard-quick-row {
-  min-height: 42px;
+  min-height: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 7px 9px;
-  border: 1px solid var(--ws-border-soft);
+  padding: 8px 9px;
+  border: 1px solid var(--ws-border-soft, #e2e7ed);
   background: #fff;
 }
 
 .driver-reference-dashboard .driver-dashboard-quick-row > div {
   min-width: 0;
   display: grid;
-  gap: 1px;
+  gap: 2px;
 }
 
 .driver-reference-dashboard .driver-dashboard-quick-row strong {
-  color: var(--ws-text);
+  color: var(--ws-text, #172033);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .driver-reference-dashboard .driver-dashboard-quick-row span {
-  color: var(--ws-muted);
-  font-size: var(--ws-font-meta);
-  line-height: 14px;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
+}
+
+.driver-reference-dashboard .driver-dashboard-inline-warning {
+  padding: 7px 9px;
+  border: 1px solid #f3cf8b;
+  border-radius: var(--ws-radius, 4px);
+  background: #fff9ed;
+  color: #76520d;
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
 }
 
 .driver-reference-dashboard .driver-dashboard-next-action {
@@ -166,25 +182,115 @@
   gap: 12px;
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid var(--ws-border-soft);
+  border: 1px solid var(--ws-border-soft, #e2e7ed);
   background: #f8fafc;
-  color: var(--ws-muted);
+  color: var(--ws-muted, #64748b);
   font-size: 12px;
   line-height: 16px;
 }
 
 .driver-reference-dashboard .driver-dashboard-next-action strong {
-  color: var(--ws-text);
+  color: var(--ws-text, #172033);
 }
 
 .driver-reference-dashboard .driver-dashboard-next-action button {
   flex: 0 0 auto;
 }
 
+/* Required v3 main surfaces stay full-width. Do not compress them into narrow cards. */
+.driver-reference-dashboard .driver-dashboard-operational-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ws-gap-internal, 8px);
+  min-width: 0;
+}
+
+.driver-reference-dashboard .driver-dashboard-marketplace-row .driver-load-row__top {
+  grid-template-columns: 1.45fr 1.45fr .75fr .8fr;
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-list,
+.driver-reference-dashboard .driver-dashboard-alert-list {
+  display: grid;
+  border: 1px solid var(--ws-border-soft, #e2e7ed);
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-row,
+.driver-reference-dashboard .driver-dashboard-alert-row {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-row:last-child,
+.driver-reference-dashboard .driver-dashboard-alert-row:last-child {
+  border-bottom: 0;
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-row > div,
+.driver-reference-dashboard .driver-dashboard-alert-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-row strong,
+.driver-reference-dashboard .driver-dashboard-alert-row strong {
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-row span,
+.driver-reference-dashboard .driver-dashboard-alert-row span {
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
+  overflow-wrap: anywhere;
+}
+
+.driver-reference-dashboard .driver-dashboard-feedback-row small {
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.driver-reference-dashboard .driver-dashboard-compliance-ready {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.driver-reference-dashboard .driver-dashboard-alert-summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f8fafc;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
+}
+
+/* Secondary content may share a row only after the required operational surfaces. */
 .driver-reference-dashboard .driver-dashboard-lower-grid {
   display: grid;
-  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
-  gap: var(--ws-gap-grid);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-gap-grid, 12px);
   align-items: start;
 }
 
@@ -199,40 +305,34 @@
 }
 
 .driver-reference-dashboard .driver-dashboard-table-wrap th {
-  height: var(--ws-table-head-h) !important;
-  padding: 7px 9px !important;
-  background: #edf2f8 !important;
-  border-bottom: 1px solid var(--ws-border) !important;
-  color: var(--ws-navy) !important;
-  font-size: var(--ws-font-label) !important;
-  line-height: 14px !important;
-  font-weight: 650 !important;
-  text-transform: uppercase !important;
+  height: var(--ws-table-head-h, 40px);
+  padding: 7px 9px;
+  background: #edf2f8;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  color: var(--ws-navy, #0b2f6b);
+  font-size: var(--ws-font-label, 11px);
+  line-height: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
   text-align: left;
 }
 
 .driver-reference-dashboard .driver-dashboard-table-wrap td {
-  min-height: var(--ws-table-row-h) !important;
-  padding: 8px 9px !important;
-  border-top: 1px solid var(--ws-border-soft) !important;
-  color: var(--ws-text) !important;
-  font-size: 12px !important;
-  line-height: 16px !important;
+  min-height: var(--ws-table-row-h, 42px);
+  padding: 8px 9px;
+  border-top: 1px solid var(--ws-border-soft, #e2e7ed);
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .driver-reference-dashboard .driver-dashboard-table-wrap td:last-child {
   text-align: right;
 }
 
-.driver-reference-dashboard .driver-dashboard-table-wrap td button {
-  height: var(--ws-micro-action-h) !important;
-  min-height: var(--ws-micro-action-h) !important;
-  font-size: 11px !important;
-}
-
 .driver-reference-dashboard .driver-dashboard-section .driver-load-row .xdrive-empty-state {
-  min-height: 52px !important;
-  padding: 10px 12px !important;
+  min-height: 52px;
+  padding: 10px 12px;
 }
 
 @media (max-width: 1280px) {
@@ -258,6 +358,10 @@
     grid-template-columns: 1fr;
   }
 
+  .driver-reference-dashboard .driver-dashboard-marketplace-row .driver-load-row__top {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .driver-reference-dashboard .driver-dashboard-next-action {
     align-items: flex-start;
     flex-direction: column;
@@ -279,8 +383,15 @@
     flex-wrap: wrap;
   }
 
-  .driver-reference-dashboard .driver-dashboard-quick-row {
+  .driver-reference-dashboard .driver-dashboard-quick-row,
+  .driver-reference-dashboard .driver-dashboard-feedback-row,
+  .driver-reference-dashboard .driver-dashboard-alert-row,
+  .driver-reference-dashboard .driver-dashboard-marketplace-row .driver-load-row__top {
     grid-template-columns: 1fr;
+  }
+
+  .driver-reference-dashboard .driver-dashboard-feedback-row small {
+    white-space: normal;
   }
 
   .driver-reference-dashboard .driver-dashboard-quick-row button {
