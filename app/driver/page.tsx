@@ -86,6 +86,7 @@ const ACTIVE_STATUSES = new Set([
 ]);
 
 const UPCOMING_STATUSES = new Set(['awarded', 'allocated', 'accepted']);
+const DOCUMENT_ATTENTION_STATUSES = new Set(['pending', 'rejected', 'expired']);
 
 const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   awarded: {
@@ -266,13 +267,31 @@ export default function DriverDashboard() {
   const now = Date.now();
   const documentAlerts = myDocuments
     .filter((document) => {
+      const status = (document.status ?? '').toLowerCase();
+      if (DOCUMENT_ATTENTION_STATUSES.has(status)) return true;
       if (!document.expiry_date) return false;
       const expiry = new Date(document.expiry_date).getTime();
       return !Number.isNaN(expiry) && expiry <= now + 30 * 86_400_000;
     })
-    .sort((a, b) => new Date(a.expiry_date ?? 0).getTime() - new Date(b.expiry_date ?? 0).getTime())
+    .sort((a, b) => {
+      const aExpiry = a.expiry_date ? new Date(a.expiry_date).getTime() : Number.POSITIVE_INFINITY;
+      const bExpiry = b.expiry_date ? new Date(b.expiry_date).getTime() : Number.POSITIVE_INFINITY;
+      return aExpiry - bExpiry;
+    })
     .slice(0, 6);
-  const expiredDocuments = documentAlerts.filter((document) => new Date(document.expiry_date ?? 0).getTime() < now);
+  const pendingDocuments = myDocuments.filter((document) => (document.status ?? '').toLowerCase() === 'pending');
+  const rejectedDocuments = myDocuments.filter((document) => (document.status ?? '').toLowerCase() === 'rejected');
+  const expiredDocuments = myDocuments.filter((document) => {
+    if ((document.status ?? '').toLowerCase() === 'expired') return true;
+    if (!document.expiry_date) return false;
+    const expiry = new Date(document.expiry_date).getTime();
+    return !Number.isNaN(expiry) && expiry < now;
+  });
+  const dueSoonDocuments = myDocuments.filter((document) => {
+    if (!document.expiry_date) return false;
+    const expiry = new Date(document.expiry_date).getTime();
+    return !Number.isNaN(expiry) && expiry >= now && expiry <= now + 30 * 86_400_000;
+  });
   const myJobIds = useMemo(() => myJobs.map((job) => job.id), [myJobs]);
   const activeCompanyId = data.companyId ?? user?.companyId ?? null;
 
@@ -670,28 +689,36 @@ export default function DriverDashboard() {
               <div className="driver-dashboard-section__body">
                 {data.datasets.driverDocuments.availability === 'unavailable' ? (
                   <EmptyState compact title="Document status unavailable" description="Driver document data could not be loaded." />
+                ) : myDocuments.length === 0 ? (
+                  <EmptyState compact title="No compliance documents on record" description="Open Documents to upload and manage the records required for driver readiness." />
                 ) : documentAlerts.length === 0 ? (
                   <div className="driver-dashboard-compliance-ready">
                     <StatusBadge value="Ready" tone="green" />
-                    <span>No driver documents expire within the next 30 days.</span>
+                    <span>{myDocuments.length} document{myDocuments.length === 1 ? '' : 's'} on record with no current review, rejection, expiry or 30-day warning.</span>
                   </div>
                 ) : (
                   <div className="driver-dashboard-alert-list">
                     {documentAlerts.map((document) => {
-                      const expiry = new Date(document.expiry_date ?? 0).getTime();
-                      const expired = expiry < now;
+                      const status = (document.status ?? '').toLowerCase();
+                      const expiry = document.expiry_date ? new Date(document.expiry_date).getTime() : Number.NaN;
+                      const isRejected = status === 'rejected';
+                      const isPending = status === 'pending';
+                      const isExpired = status === 'expired' || (!Number.isNaN(expiry) && expiry < now);
+                      const isDueSoon = !isExpired && !Number.isNaN(expiry) && expiry <= now + 30 * 86_400_000;
+                      const alertLabel = isRejected ? 'Rejected' : isExpired ? 'Expired' : isPending ? 'Pending review' : isDueSoon ? 'Due soon' : humanize(status || 'Attention');
+                      const alertTone: 'red' | 'orange' | 'grey' = isRejected || isExpired ? 'red' : isPending || isDueSoon ? 'orange' : 'grey';
                       return (
                         <div key={document.id} className="driver-dashboard-alert-row">
                           <div>
                             <strong>{humanize(document.doc_type ?? 'Driver document')}</strong>
-                            <span>{expired ? 'Expired' : 'Expires'} {fmtFullDate(document.expiry_date)}</span>
+                            <span>{document.expiry_date ? `Expiry ${fmtFullDate(document.expiry_date)}` : 'No expiry date recorded'} · {humanize(status || 'Status unavailable')}</span>
                           </div>
-                          <StatusBadge value={expired ? 'Expired' : 'Due soon'} tone={expired ? 'red' : 'orange'} />
+                          <StatusBadge value={alertLabel} tone={alertTone} />
                         </div>
                       );
                     })}
                     <div className="driver-dashboard-alert-summary">
-                      <span>{expiredDocuments.length} expired · {documentAlerts.length - expiredDocuments.length} due within 30 days</span>
+                      <span>{pendingDocuments.length} pending · {rejectedDocuments.length} rejected · {expiredDocuments.length} expired · {dueSoonDocuments.length} expiring within 30 days</span>
                     </div>
                   </div>
                 )}
