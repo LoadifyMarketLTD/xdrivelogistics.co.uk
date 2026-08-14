@@ -7,13 +7,9 @@ import {
   ActionButton,
   AlertBanner,
   EmptyState,
-  KpiCard,
-  KpiGrid,
   PageFrame,
   PageHeader,
-  Panel,
   StatusBadge,
-  workspaceTheme,
 } from '../../components/workspace/WorkspaceUI';
 
 type PublicEnquiry = {
@@ -33,6 +29,8 @@ type PublicEnquiry = {
   created_at: string;
 };
 
+type EnquiryTab = 'all' | 'new' | 'priced' | 'archived';
+
 const when = (value: string) => new Date(value).toLocaleString('en-GB', {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -43,14 +41,29 @@ const money = (amount: number | null, currency: string | null) =>
     ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount)
     : 'Not priced';
 
-const normaliseStatus = (value: string | null) => (value || 'draft').replaceAll('_', ' ');
+const statusOf = (value: string | null) => String(value || 'draft').toLowerCase();
+const normaliseStatus = (value: string | null) => statusOf(value).replaceAll('_', ' ');
+
+function matchesTab(row: PublicEnquiry, tab: EnquiryTab) {
+  const status = statusOf(row.status);
+  if (tab === 'all') return true;
+  if (tab === 'new') return ['draft', 'new', 'pending', 'received'].includes(status);
+  if (tab === 'priced') return typeof row.amount === 'number' && row.amount > 0 && !['archived', 'cancelled', 'closed'].includes(status);
+  return ['archived', 'cancelled', 'closed', 'expired'].includes(status);
+}
 
 export default function BrokerPublicEnquiries() {
   const { user } = useAuth();
   const [rows, setRows] = useState<PublicEnquiry[]>([]);
-  const [selected, setSelected] = useState<PublicEnquiry | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState<EnquiryTab>('all');
+  const [customer, setCustomer] = useState('');
+  const [pickup, setPickup] = useState('');
+  const [delivery, setDelivery] = useState('');
+  const [vehicle, setVehicle] = useState('');
+  const [reference, setReference] = useState('');
 
   const load = async () => {
     if (!isSupabaseConfigured) {
@@ -87,111 +100,185 @@ export default function BrokerPublicEnquiries() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.companyId]);
 
-  const metrics = useMemo(() => {
-    const newCount = rows.filter((row) => ['draft', 'new'].includes(String(row.status || '').toLowerCase())).length;
-    const priced = rows.filter((row) => typeof row.amount === 'number' && row.amount > 0).length;
-    const today = new Date().toDateString();
-    const todayCount = rows.filter((row) => new Date(row.created_at).toDateString() === today).length;
-    return { total: rows.length, newCount, priced, todayCount };
-  }, [rows]);
+  const filtered = useMemo(() => {
+    const customerTerm = customer.trim().toLowerCase();
+    const pickupTerm = pickup.trim().toLowerCase();
+    const deliveryTerm = delivery.trim().toLowerCase();
+    const vehicleTerm = vehicle.trim().toLowerCase();
+    const referenceTerm = reference.trim().toLowerCase();
+
+    return rows
+      .filter((row) => matchesTab(row, tab))
+      .filter((row) => !customerTerm || `${row.customer_name || ''} ${row.customer_email || ''}`.toLowerCase().includes(customerTerm))
+      .filter((row) => !pickupTerm || String(row.pickup_location || '').toLowerCase().includes(pickupTerm))
+      .filter((row) => !deliveryTerm || String(row.delivery_location || '').toLowerCase().includes(deliveryTerm))
+      .filter((row) => !vehicleTerm || `${row.vehicle_type || ''} ${row.cargo_type || ''}`.toLowerCase().includes(vehicleTerm))
+      .filter((row) => !referenceTerm || row.id.toLowerCase().includes(referenceTerm));
+  }, [customer, delivery, pickup, reference, rows, tab, vehicle]);
+
+  const counts = useMemo(() => ({
+    all: rows.length,
+    new: rows.filter((row) => matchesTab(row, 'new')).length,
+    priced: rows.filter((row) => matchesTab(row, 'priced')).length,
+    archived: rows.filter((row) => matchesTab(row, 'archived')).length,
+  }), [rows]);
+
+  const clearFilters = () => {
+    setCustomer('');
+    setPickup('');
+    setDelivery('');
+    setVehicle('');
+    setReference('');
+  };
+
+  const tabs: Array<{ id: EnquiryTab; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: counts.all },
+    { id: 'new', label: 'New', count: counts.new },
+    { id: 'priced', label: 'Priced', count: counts.priced },
+    { id: 'archived', label: 'Archived', count: counts.archived },
+  ];
 
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Customer intake"
-        title="Public Enquiries"
-        description="Transport enquiries submitted through app.xdrivelogistics.co.uk. Review the customer, route and load details here before pricing or converting the work into an operational job."
+        title="Enquiries"
+        description="Review customer transport requests, route details and commercial status without leaving the operational board."
         actions={<ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
       />
 
       {error && <AlertBanner>{error}</AlertBanner>}
 
-      <KpiGrid>
-        <KpiCard label="All enquiries" value={loading ? '—' : metrics.total} detail="Current company" tone="blue" />
-        <KpiCard label="New / draft" value={loading ? '—' : metrics.newCount} detail="Needs review" tone="orange" />
-        <KpiCard label="Received today" value={loading ? '—' : metrics.todayCount} detail="New intake" tone="navy" />
-        <KpiCard label="Priced" value={loading ? '—' : metrics.priced} detail="Amount recorded" tone="green" />
-      </KpiGrid>
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Enquiry filters">
+          <div className="workspace-filter-rail__header">Search Enquiries</div>
+          <div className="workspace-filter-rail__body">
+            <label>
+              CUSTOMER
+              <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Name / email" />
+            </label>
+            <label>
+              FROM
+              <input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Collection location" />
+            </label>
+            <label>
+              TO
+              <input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Delivery location" />
+            </label>
+            <label>
+              VEHICLE / CARGO
+              <input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Vehicle or freight" />
+            </label>
+            <label>
+              ENQUIRY ID
+              <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" />
+            </label>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <ActionButton tone="primary" onClick={() => undefined}>Search</ActionButton>
+              <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
+            </div>
+          </div>
+        </aside>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? 'minmax(0, 1.55fr) minmax(340px, .85fr)' : '1fr', gap: 12, marginTop: 12 }}>
-        <Panel title="Enquiry queue" description="Select an enquiry to inspect every captured detail.">
+        <main style={{ minWidth: 0 }}>
+          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                data-active={tab === item.id ? 'true' : 'false'}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label} {item.count}
+              </button>
+            ))}
+          </div>
+
           {loading ? (
-            <div style={{ padding: 20, color: workspaceTheme.muted, fontSize: 12 }}>Loading enquiries…</div>
-          ) : rows.length === 0 ? (
-            <EmptyState title="No public enquiries" description="New requests submitted through the commercial site will appear here." />
+            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
+              <EmptyState compact title="Loading enquiries…" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
+              <EmptyState compact title="No matching enquiries" description="Adjust the filters or select another status." />
+            </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: workspaceTheme.surfaceSoft, color: workspaceTheme.muted, textAlign: 'left' }}>
-                    {['Customer', 'Route', 'Cargo / vehicle', 'Price', 'Status', 'Received', ''].map((label) => (
-                      <th key={label} style={{ padding: '8px 10px', borderBottom: `1px solid ${workspaceTheme.border}`, fontWeight: 700 }}>{label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id} style={{ borderBottom: `1px solid ${workspaceTheme.divider}`, background: selected?.id === row.id ? '#eef4ff' : '#fff' }}>
-                      <td style={{ padding: '9px 10px' }}>
-                        <strong style={{ display: 'block', color: workspaceTheme.text }}>{row.customer_name || 'Customer'}</strong>
-                        <span style={{ color: workspaceTheme.muted }}>{row.customer_email || 'No email'}</span>
-                      </td>
-                      <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}><strong>{row.pickup_location || '—'} → {row.delivery_location || '—'}</strong></td>
-                      <td style={{ padding: '9px 10px' }}>{row.cargo_type || '—'}{row.vehicle_type ? ` · ${row.vehicle_type}` : ''}</td>
-                      <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{money(row.amount, row.currency)}</td>
-                      <td style={{ padding: '9px 10px' }}><StatusBadge value={normaliseStatus(row.status)} /></td>
-                      <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{when(row.created_at)}</td>
-                      <td style={{ padding: '9px 10px' }}><ActionButton tone="secondary" onClick={() => setSelected(row)}>Open</ActionButton></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="workspace-record-list">
+              {filtered.map((row) => {
+                const open = expanded === row.id;
+                return (
+                  <article className="workspace-operational-row" key={row.id} data-state={statusOf(row.status)}>
+                    <div className="workspace-operational-row__top">
+                      <div className="workspace-operational-cell">
+                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>CUSTOMER / FROM</div>
+                        <strong>{row.customer_name || 'Customer'}</strong>
+                        <div style={{ marginTop: 2 }}>{row.pickup_location || 'Collection not supplied'}</div>
+                      </div>
+                      <div className="workspace-operational-cell">
+                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>TO</div>
+                        <strong>{row.delivery_location || 'Delivery not supplied'}</strong>
+                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(row.created_at)}</div>
+                      </div>
+                      <div className="workspace-operational-cell">
+                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>LOAD</div>
+                        <strong>{row.vehicle_type ? row.vehicle_type.replaceAll('_', ' ') : 'Vehicle not specified'}</strong>
+                        <div style={{ color: '#64748b', marginTop: 2 }}>{row.cargo_type || 'Cargo not specified'}</div>
+                      </div>
+                      <div className="workspace-operational-cell">
+                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>COMMERCIAL</div>
+                        <strong>{money(row.amount, row.currency)}</strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
+                          <StatusBadge value={normaliseStatus(row.status)} />
+                          <ActionButton tone="secondary" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close' : 'Open'}</ActionButton>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="workspace-record-meta">
+                      <span>Enquiry #{row.id.slice(0, 8).toUpperCase()}</span>
+                      <span>{row.customer_email || 'No email'}</span>
+                      <span>{row.customer_phone || 'No phone'}</span>
+                    </div>
+
+                    {open && (
+                      <div className="workspace-record-details">
+                        <div className="workspace-detail-grid">
+                          <div className="workspace-detail-item"><strong>Customer</strong><div>{row.customer_name || '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Email</strong><div>{row.customer_email || '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Phone</strong><div>{row.customer_phone || '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Current price</strong><div>{money(row.amount, row.currency)}</div></div>
+                          <div className="workspace-detail-item"><strong>Collection</strong><div>{row.pickup_location || '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Delivery</strong><div>{row.delivery_location || '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Vehicle</strong><div>{row.vehicle_type || 'Not specified'}</div></div>
+                          <div className="workspace-detail-item"><strong>Cargo</strong><div>{row.cargo_type || 'Not specified'}</div></div>
+                        </div>
+
+                        <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid #dfe5ec', background: '#fff' }}>
+                          <strong>Request notes</strong>
+                          <div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{row.notes || 'No notes supplied'}</div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
+                          {row.customer_phone && (
+                            <ActionButton tone="primary" onClick={() => { window.location.href = `tel:${row.customer_phone}`; }}>Call customer</ActionButton>
+                          )}
+                          {row.customer_email && (
+                            <ActionButton tone="secondary" onClick={() => { window.location.href = `mailto:${row.customer_email}`; }}>Email customer</ActionButton>
+                          )}
+                        </div>
+
+                        <div style={{ marginTop: 5, padding: 6, border: '1px solid #f5d98b', background: '#fff8e6', color: '#6b4d00' }}>
+                          Pricing progression and Convert to Job remain backend-dependent actions; this migration does not introduce unaudited client-side writes.
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
-        </Panel>
-
-        {selected && (
-          <Panel
-            title="Enquiry details"
-            description={`Received ${when(selected.created_at)}`}
-            actions={<ActionButton tone="secondary" onClick={() => setSelected(null)}>Close</ActionButton>}
-          >
-            <div style={{ display: 'grid', gap: 12 }}>
-              <Detail label="Customer" value={selected.customer_name || '—'} />
-              <Detail label="Email" value={selected.customer_email || '—'} />
-              <Detail label="Phone" value={selected.customer_phone || '—'} />
-              <Detail label="Route" value={`${selected.pickup_location || '—'} → ${selected.delivery_location || '—'}`} />
-              <Detail label="Cargo" value={selected.cargo_type || '—'} />
-              <Detail label="Vehicle" value={selected.vehicle_type || 'Not specified'} />
-              <Detail label="Current price" value={money(selected.amount, selected.currency)} />
-              <Detail label="Status" value={normaliseStatus(selected.status)} />
-              <Detail label="Request notes" value={selected.notes || 'No notes supplied'} multiline />
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
-                {selected.customer_phone && (
-                  <ActionButton tone="primary" onClick={() => { window.location.href = `tel:${selected.customer_phone}`; }}>Call customer</ActionButton>
-                )}
-                {selected.customer_email && (
-                  <ActionButton tone="secondary" onClick={() => { window.location.href = `mailto:${selected.customer_email}`; }}>Email customer</ActionButton>
-                )}
-              </div>
-
-              <div style={{ marginTop: 4, padding: 10, background: '#fff8e6', border: '1px solid #f5d98b', borderRadius: 4, color: '#6b4d00', fontSize: 11, lineHeight: '16px' }}>
-                Pricing, status progression and Convert to Job will be enabled through the broker server API so public enquiries remain company-scoped and auditable.
-              </div>
-            </div>
-          </Panel>
-        )}
+        </main>
       </div>
     </PageFrame>
-  );
-}
-
-function Detail({ label, value, multiline = false }: { label: string; value: string; multiline?: boolean }) {
-  return (
-    <div style={{ borderBottom: `1px solid ${workspaceTheme.divider}`, paddingBottom: 9 }}>
-      <div style={{ color: workspaceTheme.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>{label}</div>
-      <div style={{ color: workspaceTheme.text, fontSize: 12, lineHeight: multiline ? '18px' : '16px', whiteSpace: multiline ? 'pre-wrap' : 'normal' }}>{value}</div>
-    </div>
   );
 }
