@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
+import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import {
   ActionButton,
   AlertBanner,
@@ -159,6 +160,7 @@ export default function BrokerQuotesPage() {
                 const quote = priceOf(bid);
                 const budget = Number(job.budget_amount ?? 0);
                 const margin = budget > 0 && quote > 0 ? budget - quote : null;
+                const carrierName = bid.companies?.name || 'Carrier';
 
                 return (
                   <article className="workspace-operational-row" key={bid.id} data-state={bid.status}>
@@ -175,7 +177,7 @@ export default function BrokerQuotesPage() {
                       </div>
                       <div className="workspace-operational-cell">
                         <div style={labelStyle}>CARRIER</div>
-                        <strong>{bid.companies?.name || 'Carrier'}</strong>
+                        <strong><MemberIdentityLink companyId={bid.company_id}>{carrierName}</MemberIdentityLink></strong>
                         <div style={{ ...metaStyle, marginTop: 2 }}>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div>
                       </div>
                       <div className="workspace-operational-cell">
@@ -198,7 +200,7 @@ export default function BrokerQuotesPage() {
                     {open && (
                       <div className="workspace-record-details">
                         <div className="workspace-detail-grid">
-                          <div className="workspace-detail-item"><strong>Carrier</strong><div>{bid.companies?.name || 'Carrier'}</div></div>
+                          <div className="workspace-detail-item"><strong>Carrier</strong><div><MemberIdentityLink companyId={bid.company_id}>{carrierName}</MemberIdentityLink></div></div>
                           <div className="workspace-detail-item"><strong>Quote</strong><div>{quote > 0 ? money(quote) : 'Not set'}</div></div>
                           <div className="workspace-detail-item"><strong>Customer budget</strong><div>{budget > 0 ? money(budget) : 'Not set'}</div></div>
                           <div className="workspace-detail-item"><strong>Estimated spread</strong><div>{margin !== null ? money(margin) : '—'}</div></div>
