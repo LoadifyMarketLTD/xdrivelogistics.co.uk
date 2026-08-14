@@ -97,6 +97,9 @@ export default function BrokerJobsPage() {
     if (deepJob) router.push('/broker/jobs');
   };
 
+  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+
   return (
     <PageFrame>
       <PageHeader
@@ -112,24 +115,12 @@ export default function BrokerJobsPage() {
         <aside className="workspace-filter-rail" aria-label="Job filters">
           <div className="workspace-filter-rail__header">Search Jobs</div>
           <div className="workspace-filter-rail__body">
-            <label>
-              CUSTOMER
-              <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" />
-            </label>
-            <label>
-              FROM
-              <input value={from} onChange={(event) => setFrom(event.target.value)} placeholder="Pickup town / postcode" />
-            </label>
-            <label>
-              TO
-              <input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Delivery town / postcode" />
-            </label>
-            <label>
-              JOB / LOAD REF
-              <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" />
-            </label>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <ActionButton tone="primary" onClick={() => undefined}>Search</ActionButton>
+            <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
+            <label>FROM<input value={from} onChange={(event) => setFrom(event.target.value)} placeholder="Pickup town / postcode" /></label>
+            <label>TO<input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Delivery town / postcode" /></label>
+            <label>JOB / LOAD REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" /></label>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <span style={metaStyle}>Filters apply as you type.</span>
               <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
             </div>
           </div>
@@ -158,22 +149,22 @@ export default function BrokerJobsPage() {
                   <article className="workspace-operational-row" key={job.id} data-state={statusOf(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>FROM</div>
+                        <div style={labelStyle}>FROM</div>
                         <strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(job.pickup_datetime)}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>TO</div>
+                        <div style={labelStyle}>TO</div>
                         <strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(job.delivery_datetime)}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>JOB</div>
+                        <div style={labelStyle}>JOB</div>
                         <strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{job.client_name || 'Customer'}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>STATUS</div>
+                        <div style={labelStyle}>STATUS</div>
                         <StatusBadge value={job.current_status || job.status} />
                         <div style={{ marginTop: 4 }}>
                           <ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton>
