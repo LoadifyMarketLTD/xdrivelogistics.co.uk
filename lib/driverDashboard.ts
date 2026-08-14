@@ -4,11 +4,14 @@ type DriverJobLike = {
   status: string;
   current_status?: string | null;
   pickup_location?: string | null;
+  pickup_postcode?: string | null;
   delivery_location?: string | null;
+  delivery_postcode?: string | null;
   pickup_datetime?: string | null;
   vehicle_type?: string | null;
   delivery_datetime?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
 };
 
 const COMPLETED_STATUSES = new Set(['completed', 'invoiced', 'paid']);
