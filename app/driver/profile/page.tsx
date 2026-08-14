@@ -7,7 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
-import { ActionButton, AlertBanner, Panel } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type DriverProfileRow = {
   id: string;
@@ -25,42 +25,6 @@ const availabilityLabels: Record<'available' | 'busy' | 'offline', string> = {
   offline: 'Offline',
 };
 
-const inputStyle = {
-  width: '100%',
-  height: '32px',
-  padding: '0 8px',
-  borderRadius: '4px',
-  border: '1px solid #d8dee8',
-  fontSize: '12px',
-  background: '#fff',
-  color: '#1a1f2b',
-} as const;
-
-const labelStyle = {
-  display: 'block',
-  marginBottom: '3px',
-  color: '#64748b',
-  fontSize: '10px',
-  lineHeight: '14px',
-  fontWeight: 700,
-  letterSpacing: '.03em',
-  textTransform: 'uppercase' as const,
-};
-
-const shortcutStyle = {
-  minHeight: '44px',
-  display: 'grid',
-  gridTemplateColumns: '1fr auto',
-  alignItems: 'center',
-  gap: '8px',
-  border: '1px solid #d8dee8',
-  borderRadius: '4px',
-  background: '#fff',
-  padding: '6px 8px',
-  textAlign: 'left' as const,
-  cursor: 'pointer',
-};
-
 function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
   if (!user) return 'Driver workspace';
   if (user.ownerDriverExecutionMode) return 'Owner account · driver execution';
@@ -69,10 +33,27 @@ function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
   return 'Driver workspace';
 }
 
+type AccountLink = { label: string; description: string; href: string };
+
+const ACCOUNT_LINKS: AccountLink[] = [
+  { label: 'My Profile', description: 'Identity, contact details and account status', href: '/driver/profile' },
+  { label: 'Vehicle', description: 'Vehicle capacity, equipment and readiness', href: '/driver/vehicles' },
+  { label: 'Documents', description: 'Insurance, compliance and expiry evidence', href: '/driver/documents' },
+  { label: 'Invoices & Finance', description: 'Invoices, earnings and payment records', href: '/driver/finance' },
+  { label: 'Experience & Record', description: 'Completed work and operational history', href: '/driver/history' },
+  { label: 'Event Log', description: 'Search and export account activity', href: '/driver/event-log' },
+  { label: 'Messages', description: 'Operational and account conversations', href: '/driver/messages' },
+  { label: 'Notifications', description: 'Account and job notifications', href: '/driver/notifications' },
+  { label: 'Availability', description: 'Live status, matching radius and schedule', href: '/driver/availability' },
+  { label: 'Password & Security', description: 'Account access and password settings', href: '/driver/change-password' },
+  { label: 'Terms & Conditions', description: 'Platform terms and policies', href: '/terms' },
+  { label: 'Help & Support', description: 'Feedback and support requests', href: '/support/feedback' },
+];
+
 export default function DriverProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
-  const driverId = user?.driverId ?? null;
+  const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
 
   const [driver, setDriver] = useState<DriverProfileRow | null>(null);
   const [displayName, setDisplayName] = useState('');
@@ -123,9 +104,7 @@ export default function DriverProfilePage() {
     setLoading(false);
   }, [driverId]);
 
-  useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
+  useEffect(() => { void loadProfile(); }, [loadProfile]);
 
   const availabilityLabel = useMemo(() => {
     const status = driver?.availability_status;
@@ -134,22 +113,17 @@ export default function DriverProfilePage() {
 
   const handleSave = async () => {
     if (!driverId || !isSupabaseConfigured) return;
-
     setSaving(true);
     setError('');
     setSuccess('');
 
     const { error: updateError } = await supabase
       .from('drivers')
-      .update({
-        display_name: displayName.trim() || null,
-        phone: phone.trim() || null,
-      })
+      .update({ display_name: displayName.trim() || null, phone: phone.trim() || null })
       .eq('id', driverId);
 
-    if (updateError) {
-      setError('Your profile changes could not be saved.');
-    } else {
+    if (updateError) setError('Your profile changes could not be saved.');
+    else {
       setSuccess('Profile details updated.');
       await loadProfile();
     }
@@ -160,94 +134,79 @@ export default function DriverProfilePage() {
   const contactEmail = driver?.email ?? user?.email ?? 'Not available';
   const companyLinked = Boolean(driver?.company_id ?? user?.companyId);
   const driverLinked = Boolean(driver?.id ?? user?.driverId);
+  const availabilityTone = driver?.availability_status === 'available' ? 'green' : driver?.availability_status === 'busy' ? 'orange' : 'grey';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Identity, contact, account readiness and availability shortcuts without exposing internal platform identifiers."
+        subtitle="Manage driver identity, readiness and account tools from one compact account workspace."
         driverName={driver?.display_name ?? user?.email ?? 'Driver'}
         availabilityLabel={availabilityLabel}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-        <div className="driver-profile-summary">
-          <div>
-            <span>Workspace</span>
-            <strong>{workspaceMode}</strong>
-          </div>
-          <div>
-            <span>Company connection</span>
-            <strong>{companyLinked ? 'Linked' : 'Not linked'}</strong>
-          </div>
-          <div>
-            <span>Driver profile</span>
-            <strong>{driverLinked ? 'Active record' : 'Not linked'}</strong>
-          </div>
+        <div className="driver-account-status" aria-label="Account status">
+          <div><span>Workspace</span><strong>{workspaceMode}</strong></div>
+          <div><span>Company connection</span><strong>{companyLinked ? 'Linked' : 'Not linked'}</strong></div>
+          <div><span>Driver profile</span><strong>{driverLinked ? 'Active record' : 'Not linked'}</strong></div>
         </div>
 
-        <div className="driver-ops-grid-2">
-          <Panel title="Driver identity & contact" description="Primary details used for driver operations and communication.">
-            {loading ? (
-              <div style={{ color: '#64748b', fontSize: '12px' }}>Loading profile…</div>
-            ) : (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                <div>
-                  <label style={labelStyle}>Display name</label>
-                  <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} style={inputStyle} placeholder="Driver name" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Phone</label>
-                  <input value={phone} onChange={(event) => setPhone(event.target.value)} style={inputStyle} placeholder="Contact number" />
-                </div>
-                <div className="driver-detail-grid">
-                  <div className="driver-detail-item"><span>Email</span><strong>{contactEmail}</strong></div>
-                  <div className="driver-detail-item"><span>Role</span><strong>Driver</strong></div>
-                  <div className="driver-detail-item"><span>Account status</span><strong>{driver?.status ?? 'Unknown'}</strong></div>
-                  <div className="driver-detail-item"><span>Availability</span><strong>{availabilityLabel}</strong></div>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <ActionButton tone="secondary" onClick={() => router.push('/driver/change-password')}>Password & security</ActionButton>
-                  <ActionButton tone="primary" onClick={() => void handleSave()} disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</ActionButton>
-                </div>
-              </div>
-            )}
-          </Panel>
+        <div className="driver-account-hub">
+          <section className="driver-account-column" aria-label="Account sections">
+            <div className="driver-account-column__head">Account</div>
+            <div className="driver-account-column__body">
+              {ACCOUNT_LINKS.map((item) => (
+                <button key={item.href} type="button" className="driver-account-link" onClick={() => router.push(item.href)}>
+                  <span><strong>{item.label}</strong><small>{item.description}</small></span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              ))}
+            </div>
+          </section>
 
-          <Panel title="Operational shortcuts" description="Jump directly to the settings that affect live work visibility and readiness.">
-            <div style={{ display: 'grid', gap: '6px' }}>
-              <button type="button" onClick={() => router.push('/driver/availability')} style={shortcutStyle}>
-                <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Availability & working radius</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Current state: {availabilityLabel}</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+          <section className="driver-account-column" id="driver-account-profile">
+            <div className="driver-account-column__head">My Profile</div>
+            {loading ? (
+              <div className="driver-account-member-card"><div><span>Status</span><strong>Loading profile…</strong></div></div>
+            ) : (
+              <>
+                <div className="driver-account-member-card">
+                  <div><span>Email</span><strong>{contactEmail}</strong></div>
+                  <div><span>Role</span><strong>Driver</strong></div>
+                  <div><span>Account status</span><strong>{driver?.status ?? 'Unknown'}</strong></div>
+                  <div><span>Availability</span><strong><StatusBadge value={availabilityLabel} tone={availabilityTone} /></strong></div>
+                </div>
+                <div className="driver-account-edit">
+                  <label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Driver name" /></label>
+                  <label>Phone<input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Contact number" /></label>
+                  <div className="driver-account-edit__actions">
+                    <ActionButton tone="secondary" onClick={() => router.push('/driver/change-password')}>Security</ActionButton>
+                    <ActionButton tone="primary" onClick={() => void handleSave()} disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</ActionButton>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className="driver-account-column">
+            <div className="driver-account-column__head">Operational Readiness</div>
+            <div className="driver-account-column__body">
+              <button type="button" className="driver-account-link" onClick={() => router.push('/driver/availability')}>
+                <span><strong>Availability & matching</strong><small>Current state: {availabilityLabel}</small></span><span aria-hidden="true">→</span>
               </button>
-              <button type="button" onClick={() => router.push('/driver/vehicles')} style={shortcutStyle}>
-                <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Vehicle</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Capacity and equipment profile</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+              <button type="button" className="driver-account-link" onClick={() => router.push('/driver/vehicles')}>
+                <span><strong>Vehicle readiness</strong><small>Capacity and equipment profile</small></span><span aria-hidden="true">→</span>
               </button>
-              <button type="button" onClick={() => router.push('/driver/documents')} style={shortcutStyle}>
-                <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Documents & compliance</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Maintain ready-to-work evidence</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
+              <button type="button" className="driver-account-link" onClick={() => router.push('/driver/documents')}>
+                <span><strong>Documents & compliance</strong><small>Maintain ready-to-work evidence</small></span><span aria-hidden="true">→</span>
+              </button>
+              <button type="button" className="driver-account-link" onClick={() => router.push('/driver/finance')}>
+                <span><strong>Finance</strong><small>Invoices, earnings and payment records</small></span><span aria-hidden="true">→</span>
               </button>
             </div>
-          </Panel>
+          </section>
         </div>
-
-        <Panel title="Account & exchange tools" description="Account, activity and support options available without changing the accepted workspace navigation.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px' }}>
-            <button type="button" onClick={() => router.push('/driver/event-log')} style={shortcutStyle}>
-              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Event Log</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Search and export account activity</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
-            </button>
-            <button type="button" onClick={() => router.push('/driver/history')} style={shortcutStyle}>
-              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Experience & Record</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Completed work and operational history</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
-            </button>
-            <button type="button" onClick={() => router.push('/driver/notifications')} style={shortcutStyle}>
-              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Notifications</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Account and job notifications</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
-            </button>
-            <button type="button" onClick={() => router.push('/terms')} style={shortcutStyle}>
-              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Terms & Conditions</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Platform terms and policies</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
-            </button>
-            <button type="button" onClick={() => router.push('/support/feedback')} style={shortcutStyle}>
-              <span><strong style={{ display: 'block', fontSize: '12px', color: '#1a1f2b' }}>Help & Support</strong><small style={{ color: '#64748b', fontSize: '10px' }}>Submit feedback or request support</small></span><span aria-hidden="true" style={{ color: '#1d57d8' }}>→</span>
-            </button>
-          </div>
-        </Panel>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
