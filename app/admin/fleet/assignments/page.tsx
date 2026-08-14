@@ -15,19 +15,6 @@ import {
   StatusBadge,
 } from '../../../components/workspace/WorkspaceUI';
 
-type AcceptedFleetBid = {
-  id: string;
-  job_id: string;
-  company_id: string | null;
-  bidder_driver_id: string | null;
-  bidder_user_id: string | null;
-  amount: number | null;
-  bid_price_gbp: number | null;
-  currency: string | null;
-  created_at: string;
-  companies?: { name?: string | null } | null;
-};
-
 const money = (value: number | null | undefined, currency = 'GBP') =>
   typeof value === 'number' && Number.isFinite(value)
     ? new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value)
@@ -58,8 +45,6 @@ export default function FleetAssignmentsPage() {
   const searchParams = useSearchParams();
   const data = useCompanyWorkspaceData();
   const deepJobId = searchParams.get('job');
-  const [acceptedBids, setAcceptedBids] = useState<AcceptedFleetBid[]>([]);
-  const [bidError, setBidError] = useState('');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(deepJobId);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
@@ -69,10 +54,9 @@ export default function FleetAssignmentsPage() {
 
   const jobs = useMemo(
     () => data.jobs.filter((job) =>
-      normalise(job.current_status ?? job.status) === 'awarded'
+      job.awarded_carrier_company_id === data.companyId
+      && normalise(job.current_status ?? job.status) === 'awarded'
       && !job.assigned_driver_id
-      && Boolean(job.awarded_carrier_company_id)
-      && job.awarded_carrier_company_id === data.companyId
     ),
     [data.companyId, data.jobs],
   );
@@ -92,37 +76,13 @@ export default function FleetAssignmentsPage() {
   }, [data.locations]);
 
   const acceptedBidByJob = useMemo(() => {
-    const map = new Map<string, AcceptedFleetBid>();
-    for (const bid of acceptedBids) {
+    const map = new Map<string, (typeof data.bids)[number]>();
+    for (const bid of data.bids) {
+      if (bid.company_id !== data.companyId || normalise(bid.status) !== 'accepted') continue;
       if (!map.has(bid.job_id)) map.set(bid.job_id, bid);
     }
     return map;
-  }, [acceptedBids]);
-
-  useEffect(() => {
-    const loadAcceptedBids = async () => {
-      if (!data.companyId || !jobs.length) {
-        setAcceptedBids([]);
-        setBidError('');
-        return;
-      }
-      const { data: rows, error: queryError } = await supabase
-        .from('job_bids')
-        .select('id, job_id, company_id, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, currency, created_at, companies:companies!job_bids_company_id_fkey(name)')
-        .eq('company_id', data.companyId)
-        .eq('status', 'accepted')
-        .in('job_id', jobs.map((job) => job.id))
-        .order('created_at', { ascending: false });
-      if (queryError) {
-        setAcceptedBids([]);
-        setBidError('Accepted quote detail is unavailable; allocation can continue without a bidder recommendation.');
-      } else {
-        setAcceptedBids((rows ?? []) as AcceptedFleetBid[]);
-        setBidError('');
-      }
-    };
-    void loadAcceptedBids();
-  }, [data.companyId, jobs]);
+  }, [data.bids, data.companyId]);
 
   useEffect(() => {
     const requested = deepJobId && jobs.some((job) => job.id === deepJobId) ? deepJobId : null;
@@ -238,7 +198,6 @@ export default function FleetAssignmentsPage() {
       />
 
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
-      {bidError && <AlertBanner tone="warning">{bidError}</AlertBanner>}
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
