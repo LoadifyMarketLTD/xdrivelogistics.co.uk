@@ -367,10 +367,7 @@ export default function DriverDashboard() {
     } else {
       const marketplaceLoads = ((loadsRes.data ?? []) as DashboardMarketplaceLoad[])
         .filter((load) => !activeCompanyId || load.company_id !== activeCompanyId);
-      const matched = vehicleRes.vehicle?.type
-        ? marketplaceLoads.filter((load) => !load.vehicle_type || load.vehicle_type === vehicleRes.vehicle?.type)
-        : [];
-      setRelevantLoads(matched.slice(0, 4));
+      setRelevantLoads(marketplaceLoads.slice(0, 4));
     }
 
     setContextWarnings(warnings);
@@ -480,7 +477,7 @@ export default function DriverDashboard() {
         </div>
       </div>
       <div className="driver-load-row__meta">
-        <StatusBadge value="Vehicle match" tone="blue" />
+        <StatusBadge value="Live marketplace" tone="blue" />
         <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
         <div className="driver-row-actions">
           <ActionButton tone="success" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
@@ -630,10 +627,8 @@ export default function DriverDashboard() {
                 <div className="driver-dashboard-section__body">
                   {contextWarnings.loads ? (
                     <EmptyState compact title="Relevant loads unavailable" description={contextWarnings.loads} />
-                  ) : !assignedVehicle ? (
-                    <EmptyState compact title="Assign a vehicle to enable load matching" description="The Dashboard only labels marketplace work as relevant when it matches your assigned vehicle." />
                   ) : relevantLoads.length === 0 ? (
-                    <EmptyState compact title="No matching live loads" description={`No open marketplace work currently matches ${vehicleLabel(assignedVehicle.type)}.`} />
+                    <EmptyState compact title="No live marketplace loads" description="No open exchange work is currently available to show on the Dashboard." />
                   ) : (
                     <div className="driver-load-list">{relevantLoads.map(renderRelevantLoad)}</div>
                   )}
