@@ -2,34 +2,18 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import {
+  proposedPriceAmount,
+  publicOutcode,
+  publicQuoteNotes,
+} from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
 
-function publicOutcode(postcode: unknown) {
-  const value = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
-  if (!value) return '';
-  const uk = value.match(/^([A-Z]{1,2}\d[A-Z\d]?)/);
-  if (uk?.[1]) return uk[1];
-  return value.split(/\s+/)[0] ?? '';
-}
-
 function publicArea(postcode: unknown) {
   const outcode = publicOutcode(postcode);
   return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
-}
-
-function publicQuoteNotes(value: unknown) {
-  const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    const note = (parsed as Record<string, unknown>).publicQuoteNotes;
-    return typeof note === 'string' && note.trim() ? note.trim() : null;
-  } catch {
-    return null;
-  }
 }
 
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
@@ -39,7 +23,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
   ]);
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
     && executionStatuses.has(String(row.current_status ?? row.status ?? '').toLowerCase());
-  const proposedPriceVisible = row.is_fixed_price === true && Number(row.budget_amount ?? 0) > 0;
+  const proposedPrice = proposedPriceAmount(row.budget_amount);
   return {
     ...row,
     public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
@@ -58,9 +42,10 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     load_details: privateDetailsRevealed ? row.load_details : publicQuoteNotes(row.load_details),
     special_requirements: privateDetailsRevealed ? row.special_requirements : null,
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
-    budget_amount: privateDetailsRevealed || proposedPriceVisible ? row.budget_amount : null,
+    budget_amount: privateDetailsRevealed ? row.budget_amount : proposedPrice,
     private_details_revealed: privateDetailsRevealed,
-    can_update_lifecycle: privateDetailsRevealed && !['delivered', 'completed'].includes(String(row.current_status ?? row.status ?? '').toLowerCase()),
+    can_update_lifecycle: privateDetailsRevealed
+      && !['delivered', 'completed'].includes(String(row.current_status ?? row.status ?? '').toLowerCase()),
   };
 }
 
