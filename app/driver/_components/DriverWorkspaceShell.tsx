@@ -27,7 +27,10 @@ const DRIVER_ACCOUNT_PREFIXES = [
 ] as const;
 
 function resolveDriverPageTitle(pathname: string | null, explicitTitle?: string) {
-  if (pathname && DRIVER_PRIMARY_PAGE_TITLES[pathname]) return DRIVER_PRIMARY_PAGE_TITLES[pathname];
+  if (pathname) {
+    const primaryTitle = DRIVER_PRIMARY_PAGE_TITLES[pathname];
+    if (primaryTitle) return primaryTitle;
+  }
   if (explicitTitle) return explicitTitle;
   if (pathname && DRIVER_ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return 'Account';
