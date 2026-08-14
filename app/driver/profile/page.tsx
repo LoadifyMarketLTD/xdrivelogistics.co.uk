@@ -33,23 +33,6 @@ function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
   return 'Driver workspace';
 }
 
-type AccountLink = { label: string; description: string; href: string };
-
-const ACCOUNT_LINKS: AccountLink[] = [
-  { label: 'My Profile', description: 'Identity, contact details and account status', href: '/driver/profile' },
-  { label: 'Vehicle', description: 'Vehicle capacity, equipment and readiness', href: '/driver/vehicles' },
-  { label: 'Documents', description: 'Insurance, compliance and expiry evidence', href: '/driver/documents' },
-  { label: 'Invoices & Finance', description: 'Invoices, earnings and payment records', href: '/driver/finance' },
-  { label: 'Experience & Record', description: 'Completed work and operational history', href: '/driver/history' },
-  { label: 'Event Log', description: 'Search and export account activity', href: '/driver/event-log' },
-  { label: 'Messages', description: 'Operational and account conversations', href: '/driver/messages' },
-  { label: 'Notifications', description: 'Account and job notifications', href: '/driver/notifications' },
-  { label: 'Availability', description: 'Live status, matching radius and schedule', href: '/driver/availability' },
-  { label: 'Password & Security', description: 'Account access and password settings', href: '/driver/change-password' },
-  { label: 'Terms & Conditions', description: 'Platform terms and policies', href: '/terms' },
-  { label: 'Help & Support', description: 'Feedback and support requests', href: '/support/feedback' },
-];
-
 export default function DriverProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -153,18 +136,6 @@ export default function DriverProfilePage() {
         </div>
 
         <div className="driver-account-hub">
-          <section className="driver-account-column driver-account-nav-column" aria-label="Account sections">
-            <div className="driver-account-column__head">Account</div>
-            <div className="driver-account-column__body">
-              {ACCOUNT_LINKS.map((item) => (
-                <button key={item.href} type="button" className="driver-account-link" onClick={() => router.push(item.href)}>
-                  <span><strong>{item.label}</strong><small>{item.description}</small></span>
-                  <span aria-hidden="true">→</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section className="driver-account-column driver-account-profile-column" id="driver-account-profile">
             <div className="driver-account-column__head">My Profile</div>
             {loading ? (
