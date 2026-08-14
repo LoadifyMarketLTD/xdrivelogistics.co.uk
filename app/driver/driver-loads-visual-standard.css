@@ -36,6 +36,38 @@
 .driver-reference-page [role="tablist"]{min-height:28px!important;border:1px solid var(--drv-border)!important;background:#fff!important}
 .driver-reference-page [role="tablist"] button{min-height:27px!important;height:27px!important;padding:0 9px!important;border-radius:0!important;font-size:9px!important}
 
+/* Shared exchange board geometry — all operational pages use the Loads proportions. */
+.driver-reference-page .driver-board-layout{display:grid!important;grid-template-columns:198px minmax(0,1fr)!important;gap:5px!important;align-items:start!important}
+.driver-reference-page .driver-board-main{display:grid!important;gap:4px!important;align-content:start!important;min-width:0!important}
+.driver-reference-page .driver-filter-rail{width:198px!important;border:1px solid var(--drv-border)!important;border-radius:2px!important;background:#fff!important;box-shadow:none!important;overflow:hidden!important}
+.driver-reference-page .driver-filter-rail__header{min-height:29px!important;padding:5px 8px!important;border-bottom:1px solid var(--drv-border)!important;background:#f2f4f7!important;font-size:10.5px!important;font-weight:750!important;color:var(--drv-text)!important}
+.driver-reference-page .driver-filter-rail__body{display:grid!important;gap:5px!important;padding:7px!important}
+.driver-reference-page .driver-filter-field{display:grid!important;gap:1px!important}
+.driver-reference-page .driver-filter-field label{font-size:8px!important;line-height:10px!important;font-weight:750!important;text-transform:uppercase!important;letter-spacing:.025em!important;color:#526172!important}
+.driver-reference-page .driver-filter-actions{display:flex!important;gap:5px!important;align-items:center!important;flex-wrap:wrap!important}
+.driver-reference-page .driver-side-tab{display:flex!important;align-items:center!important;justify-content:space-between!important;width:100%!important;border:1px solid transparent!important;background:#fff!important;color:var(--drv-text)!important;text-align:left!important}
+.driver-reference-page .driver-side-tab[data-active="true"]{border-color:#80a7ff!important;background:#edf4ff!important;color:#0b2f6b!important}
+.driver-reference-page .driver-tab-strip{display:flex!important;align-items:center!important;gap:0!important;min-height:28px!important;height:28px!important;border:1px solid var(--drv-border)!important;background:#fff!important;overflow:hidden!important}
+.driver-reference-page .driver-tab-strip button{border:0!important;border-right:1px solid var(--drv-border)!important;background:#fff!important;color:#334155!important;border-radius:0!important;font-size:9px!important;font-weight:650!important}
+.driver-reference-page .driver-tab-strip button[data-active="true"]{background:#eaf3ff!important;color:#0b2f6b!important;border-bottom:2px solid var(--drv-blue)!important}
+.driver-reference-page .driver-board-summary{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;min-height:25px!important;padding:2px 3px!important;font-size:9px!important;color:var(--drv-muted)!important}
+.driver-reference-page .driver-load-list{display:grid!important;gap:5px!important}
+.driver-reference-page .driver-load-row{border:1px solid #3d8cff!important;border-radius:2px!important;background:#fff!important;box-shadow:none!important;overflow:hidden!important}
+.driver-reference-page .driver-load-row__top{display:grid!important;grid-template-columns:1.25fr 1.25fr .5fr .58fr!important;min-height:57px!important;border-bottom:1px solid var(--drv-border)!important}
+.driver-reference-page .driver-load-cell{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:1px!important;padding:5px 7px!important;border-right:1px solid var(--drv-border)!important;min-width:0!important}
+.driver-reference-page .driver-load-cell:last-child{border-right:0!important}
+.driver-reference-page .driver-cell-label{font-size:7.5px!important;line-height:9px!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.03em!important;color:#5b6b7c!important}
+.driver-reference-page .driver-cell-primary{font-size:10.5px!important;line-height:13px!important;font-weight:750!important;color:#172033!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.driver-reference-page .driver-cell-secondary{font-size:8.5px!important;line-height:11px!important;color:#64748b!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.driver-reference-page .driver-load-row__meta{display:flex!important;align-items:center!important;gap:6px!important;min-height:24px!important;padding:2px 6px!important;background:#f4f6f8!important;border-top:0!important;font-size:8.5px!important;color:#64748b!important;flex-wrap:wrap!important}
+.driver-reference-page .driver-row-actions{display:flex!important;gap:4px!important;align-items:center!important;margin-left:auto!important}
+.driver-reference-page .driver-row-actions button{height:24px!important;min-height:24px!important;font-size:9px!important;padding:0 8px!important}
+.driver-reference-page .driver-row-details{padding:6px!important;border-top:1px solid var(--drv-border)!important;background:#fbfcfe!important}
+.driver-reference-page .driver-detail-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}
+.driver-reference-page .driver-detail-item{min-height:36px!important;padding:4px 6px!important;border:1px solid var(--drv-border)!important;background:#fff!important}
+.driver-reference-page .driver-detail-item span{display:block!important;font-size:7.5px!important;line-height:9px!important;font-weight:800!important;text-transform:uppercase!important;color:#64748b!important}
+.driver-reference-page .driver-detail-item strong{display:block!important;margin-top:1px!important;font-size:9.5px!important;line-height:12px!important;color:#172033!important}
+
 /* Quotes: same search-rail/list proportions as Loads. */
 .driver-reference-quotes .xdrive-page-header+*{margin-top:0!important}
 .driver-reference-quotes h2{margin:0 0 6px!important;font-size:16px!important;line-height:19px!important;color:var(--drv-text)!important}
@@ -50,18 +82,11 @@
 .driver-reference-quotes h2+div+div+div{gap:5px!important}
 .driver-reference-quotes h2+div+div+div>div{border-radius:2px!important;box-shadow:none!important;padding:7px!important}
 
-/* Jobs: compact KPI strip and execution panels, matching Loads row density. */
-.driver-reference-jobs .driver-dash-metrics,
-.driver-reference-jobs .driver-ops-grid-2,
-.driver-reference-jobs .driver-ops-grid-3{gap:5px!important}
-.driver-reference-jobs .driver-dash-metric{min-height:54px!important;padding:7px 9px!important;border-radius:2px!important;box-shadow:none!important}
-.driver-reference-jobs .driver-dash-metric span{font-size:9px!important}
-.driver-reference-jobs .driver-dash-metric strong{font-size:19px!important;line-height:22px!important}
-.driver-reference-jobs .driver-job-list{gap:4px!important}
-.driver-reference-jobs .driver-job-row{border-radius:2px!important;box-shadow:none!important;border-color:var(--drv-border)!important}
-.driver-reference-jobs .driver-job-row__top{min-height:52px!important}
-.driver-reference-jobs .driver-job-cell{padding:4px 6px!important}
-.driver-reference-jobs .driver-job-row__meta{min-height:23px!important;padding:2px 6px!important;font-size:9px!important}
+/* Jobs: same board as Loads, status filters in the left rail. */
+.driver-reference-jobs .driver-board-layout{grid-template-columns:198px minmax(0,1fr)!important}
+.driver-reference-jobs .driver-load-row[data-state="delivered"]{border-color:#5fbd35!important}
+.driver-reference-jobs .driver-job-actions{display:flex!important;gap:4px!important;flex-wrap:wrap!important;margin-top:5px!important}
+.driver-reference-jobs .driver-job-actions button{height:25px!important;min-height:25px!important;font-size:9px!important}
 
 /* Diary: keep the CX-like left search rail, but use the approved Loads visual tokens. */
 .driver-reference-diary .driver-diary-layout{gap:5px!important}
@@ -101,11 +126,17 @@
 .driver-reference-account button{font-size:10px!important}
 
 @media(max-width:1024px){
+ .driver-reference-page .driver-board-layout{grid-template-columns:170px minmax(0,1fr)!important}
+ .driver-reference-page .driver-filter-rail{width:170px!important}
+ .driver-reference-page .driver-load-row__top{grid-template-columns:1.1fr 1.1fr .55fr .65fr!important}
+ .driver-reference-page .driver-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .driver-reference-quotes h2+div>div{grid-template-columns:repeat(2,minmax(145px,1fr))!important}
- .driver-reference-returns .driver-board-layout{grid-template-columns:1fr!important}
- .driver-reference-returns .driver-filter-rail{position:static!important}
 }
 @media(max-width:768px){
  .driver-reference-page .xdrive-page-frame{padding:6px!important}
+ .driver-reference-page .driver-board-layout{grid-template-columns:1fr!important}
+ .driver-reference-page .driver-filter-rail{position:static!important;width:100%!important}
+ .driver-reference-page .driver-load-row__top{grid-template-columns:1fr 1fr!important}
+ .driver-reference-page .driver-load-cell{border-bottom:1px solid var(--drv-border)!important}
  .driver-reference-quotes h2+div>div{grid-template-columns:1fr!important}
 }
