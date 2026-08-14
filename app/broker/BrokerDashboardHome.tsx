@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -11,8 +11,8 @@ import {
   isOverdue,
   isRevenueInvoice,
 } from '../../lib/brokerFinance';
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import {
-  getWorkspaceMetricPresentation,
   getWorkspaceMetricPresentationStatus,
   useCompanyWorkspaceData,
   type WorkspaceDataState,
@@ -23,14 +23,11 @@ import {
   DataTable,
   EmptyState,
   FinancialSummaryPanel,
-  KpiCard,
-  KpiGrid,
   Panel,
   QuickActionGrid,
   StatusBadge,
   TwoColumn,
   workspaceTheme,
-  type WorkspaceCardTone,
 } from '../components/workspace/WorkspaceUI';
 import { DashboardHomeHeader } from '../components/workspace/DashboardHomePrimitives';
 
@@ -57,6 +54,13 @@ const exceptionStatuses = new Set([
   'damaged',
   'breakdown',
 ]);
+const enquiryActionStatuses = new Set(['draft', 'new', 'pending', 'received']);
+
+type EnquiryActionState = {
+  loading: boolean;
+  unavailable: boolean;
+  count: number;
+};
 
 const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
@@ -65,20 +69,6 @@ const when = (value: string | null | undefined) =>
   value
     ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : 'Not set';
-
-const presentation = (
-  data: WorkspaceDataState,
-  keys: Array<keyof WorkspaceDataState['datasets']>,
-  value: number | string | (() => number | string),
-  detail: string | (() => string),
-  tone: WorkspaceCardTone,
-) =>
-  getWorkspaceMetricPresentation({
-    datasets: keys.map((key) => data.datasets[key]),
-    completeValue: value,
-    completeDetail: detail,
-    completeTone: tone,
-  });
 
 const unavailable = (
   data: WorkspaceDataState,
@@ -91,16 +81,46 @@ const unavailable = (
 export default function BrokerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const [enquiryActions, setEnquiryActions] = useState<EnquiryActionState>({ loading: true, unavailable: false, count: 0 });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadEnquiryActions = async () => {
+      if (!isSupabaseConfigured || !data.companyId) {
+        if (active) setEnquiryActions({ loading: false, unavailable: true, count: 0 });
+        return;
+      }
+
+      const { data: rows, error } = await supabase
+        .from('quotes')
+        .select('status')
+        .eq('company_id', data.companyId)
+        .limit(250);
+
+      if (!active) return;
+      if (error) {
+        setEnquiryActions({ loading: false, unavailable: true, count: 0 });
+        return;
+      }
+
+      const count = (rows ?? []).filter((row) => enquiryActionStatuses.has(String(row.status ?? 'draft').toLowerCase())).length;
+      setEnquiryActions({ loading: false, unavailable: false, count });
+    };
+
+    void loadEnquiryActions();
+    return () => { active = false; };
+  }, [data.companyId]);
 
   const metrics = useMemo(() => {
     const submittedQuotes = data.bids.filter((bid) => bid.status === 'submitted');
     const acceptedQuotes = data.bids.filter((bid) => bid.status === 'accepted');
-    const openLoads = data.jobs.filter((job) => ['posted', 'quoted'].includes(job.status));
     const awaitingAward = data.jobs.filter(
       (job) =>
         !job.awarded_carrier_company_id &&
         submittedQuotes.some((bid) => bid.job_id === job.id),
     );
+    const awardedJobs = data.jobs.filter((job) => Boolean(job.awarded_carrier_company_id));
     const activeJobs = data.jobs.filter((job) =>
       activeStatuses.has(job.current_status ?? job.status),
     );
@@ -134,18 +154,19 @@ export default function BrokerDashboardHome() {
         invoice.due_date &&
         new Date(invoice.due_date).getTime() <= Date.now() + 7 * 86_400_000,
     );
+    const grossMargin = revenue - carrierCost;
 
     return {
       draftLoads: data.jobs.filter((job) => job.status === 'draft').length,
-      openLoads,
       submittedQuotes,
       acceptedQuotes,
       awaitingAward,
+      awardedJobs,
       activeJobs,
       podMissing,
       exceptions,
-      grossMargin: revenue - carrierCost,
-      grossMarginPct: revenue > 0 ? ((revenue - carrierCost) / revenue) * 100 : 0,
+      grossMargin,
+      grossMarginPct: revenue > 0 ? (grossMargin / revenue) * 100 : 0,
       awaitingPayment,
       awaitingPaymentValue: awaitingPayment.reduce(
         (sum, invoice) => sum + invoiceNetAmount(invoice),
@@ -158,82 +179,85 @@ export default function BrokerDashboardHome() {
     };
   }, [data]);
 
-  const openMetric = presentation(
-    data,
-    ['jobs'],
-    metrics.openLoads.length,
-    'Published for carrier pricing',
-    'blue',
-  );
-  const quotesMetric = presentation(
-    data,
-    ['bids'],
-    metrics.submittedQuotes.length,
-    'Commercial responses received',
-    'purple',
-  );
-  const awardMetric = presentation(
-    data,
-    ['jobs', 'bids'],
-    metrics.awaitingAward.length,
-    'Decision required',
-    'orange',
-  );
-  const activeMetric = presentation(
-    data,
-    ['jobs'],
-    metrics.activeJobs.length,
-    'Collections and deliveries',
-    'green',
-  );
-  const podMetric = presentation(
-    data,
-    ['jobs'],
-    metrics.podMissing.length,
-    'Delivered without proof',
-    metrics.podMissing.length ? 'red' : 'navy',
-  );
-  const marginMetric = presentation(
-    data,
-    ['invoices'],
-    money(metrics.grossMargin),
-    `${metrics.grossMarginPct.toFixed(1)}% realised invoice margin`,
-    metrics.grossMargin >= 0 ? 'green' : 'red',
-  );
+  const jobsUnavailable = unavailable(data, ['jobs']);
+  const quotesUnavailable = unavailable(data, ['jobs', 'bids']);
+  const invoicesUnavailable = unavailable(data, ['invoices']);
+  const invoiceAlertCount = metrics.overdue.length + metrics.dueSoon.length;
+  const marginAlert = metrics.grossMargin < 0;
 
   return (
     <div style={{ width: '100%', padding: '12px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Broker commercial desk"
         title="Broker Dashboard"
-        badge="Commercial control"
-        description="Customer loads, quote decisions, carrier execution and margin exposure — with the next commercial action kept beside the record that needs it."
+        badge="Operational control"
+        description="Action-first control of customer enquiries, carrier decisions, awarded work, POD, invoices and realised margin."
         actions={
           <>
-            <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>
-              Post Load
-            </ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>
-              Compare Quotes
-            </ActionButton>
+            <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>Compare Quotes</ActionButton>
           </>
         }
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <KpiGrid>
-        <KpiCard label="Open loads" value={openMetric.value} detail={openMetric.detail} tone={openMetric.tone} onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Carrier quotes" value={quotesMetric.value} detail={quotesMetric.detail} tone={quotesMetric.tone} onClick={() => router.push('/broker/bids')} />
-        <KpiCard label="Awaiting award" value={awardMetric.value} detail={awardMetric.detail} tone={awardMetric.tone} onClick={() => router.push('/broker/compare-quotes')} />
-        <KpiCard label="Active jobs" value={activeMetric.value} detail={activeMetric.detail} tone={activeMetric.tone} onClick={() => router.push('/broker/jobs')} />
-        <KpiCard label="POD missing" value={podMetric.value} detail={podMetric.detail} tone={podMetric.tone} onClick={() => router.push('/broker/pod-review')} />
-        <KpiCard label="Gross margin" value={marginMetric.value} detail={marginMetric.detail} tone={marginMetric.tone} onClick={() => router.push('/broker/margins')} />
-      </KpiGrid>
+      <Panel
+        title="Operational action queue"
+        description="Master Plan v3 broker priorities, using live workspace data and truthful unavailable states."
+      >
+        <DataTable
+          columns={['Priority', 'Current state', 'Operational meaning', 'Action']}
+          rows={[
+            [
+              <strong key="priority">Enquiries awaiting action</strong>,
+              enquiryActions.loading ? 'Loading…' : enquiryActions.unavailable ? 'Unavailable' : enquiryActions.count,
+              enquiryActions.unavailable ? 'Customer enquiry data is not available to this dashboard.' : 'New or pending customer transport requests.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/enquiries')}>Open enquiries</ActionButton>,
+            ],
+            [
+              <strong key="priority">Quotes requiring action</strong>,
+              quotesUnavailable ? 'Unavailable' : metrics.awaitingAward.length,
+              'Loads with submitted carrier quotes awaiting a broker decision.',
+              <ActionButton key="action" tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare quotes</ActionButton>,
+            ],
+            [
+              <strong key="priority">Awarded</strong>,
+              jobsUnavailable ? 'Unavailable' : metrics.awardedJobs.length,
+              'Customer work already awarded to a carrier.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/jobs')}>Open jobs</ActionButton>,
+            ],
+            [
+              <strong key="priority">Active</strong>,
+              jobsUnavailable ? 'Unavailable' : metrics.activeJobs.length,
+              'Awarded work currently moving through collection or delivery.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/jobs')}>Track active</ActionButton>,
+            ],
+            [
+              <strong key="priority">POD awaiting</strong>,
+              jobsUnavailable ? 'Unavailable' : metrics.podMissing.length,
+              'Delivered or completed work without delivery proof in the current dataset.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/pod-review')}>Review POD</ActionButton>,
+            ],
+            [
+              <strong key="priority">Invoice alerts</strong>,
+              invoicesUnavailable ? 'Unavailable' : invoiceAlertCount,
+              invoicesUnavailable ? 'Invoice data is not available.' : `${metrics.overdue.length} overdue · ${metrics.dueSoon.length} due within 7 days`,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/finance')}>Open finance</ActionButton>,
+            ],
+            [
+              <strong key="priority">Margin alerts</strong>,
+              invoicesUnavailable ? 'Unavailable' : marginAlert ? 'Attention' : 'Clear',
+              invoicesUnavailable ? 'Margin data is not available.' : `${money(metrics.grossMargin)} realised margin · ${metrics.grossMarginPct.toFixed(1)}%`,
+              <ActionButton key="action" tone={marginAlert ? 'danger' : 'secondary'} onClick={() => router.push('/broker/margins')}>Review margin</ActionButton>,
+            ],
+          ]}
+        />
+      </Panel>
 
       <Panel
         title="Quote decisions requiring action"
-        description="Loads with live carrier quotes are kept above general reporting so award decisions can be made before capacity disappears."
+        description="Loads with live carrier quotes remain directly actionable below the broker queue."
         actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
         style={{ marginTop: '12px' }}
       >
@@ -266,8 +290,8 @@ export default function BrokerDashboardHome() {
           empty={
             <EmptyState
               compact
-              title={unavailable(data, ['jobs', 'bids']) ? 'Quote decision data unavailable' : 'No award decisions waiting'}
-              description={unavailable(data, ['jobs', 'bids']) ? 'The broker load or quote feed is currently incomplete.' : 'New loads with carrier quotes will appear here.'}
+              title={quotesUnavailable ? 'Quote decision data unavailable' : 'No award decisions waiting'}
+              description={quotesUnavailable ? 'The broker load or quote feed is currently incomplete.' : 'New loads with carrier quotes will appear here.'}
             />
           }
         />
@@ -295,46 +319,46 @@ export default function BrokerDashboardHome() {
                 : <StatusBadge key="pod" value="pending" tone="orange" />,
               <ActionButton key="track" tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Track</ActionButton>,
             ])}
-            empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No active carrier jobs'} />}
+            empty={<EmptyState compact title={jobsUnavailable ? 'Job data unavailable' : 'No active carrier jobs'} />}
           />
         </Panel>
 
         <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-          <Panel title="Commercial exposure" description="Secondary finance metrics are kept off the primary KPI strip.">
+          <Panel title="Commercial exposure" description="Finance detail supporting invoice and margin alerts.">
             <FinancialSummaryPanel
               items={[
                 {
                   label: 'Draft loads',
                   detail: 'Not yet published',
-                  value: unavailable(data, ['jobs']) ? '—' : metrics.draftLoads,
+                  value: jobsUnavailable ? '—' : metrics.draftLoads,
                   color: workspaceTheme.blue,
                   background: '#EEF4FF',
                 },
                 {
                   label: 'Awaiting customer payment',
                   detail: money(metrics.awaitingPaymentValue),
-                  value: unavailable(data, ['invoices']) ? '—' : metrics.awaitingPayment.length,
+                  value: invoicesUnavailable ? '—' : metrics.awaitingPayment.length,
                   color: workspaceTheme.amber,
                   background: '#FFF7ED',
                 },
                 {
                   label: 'Due within 7 days',
                   detail: 'Receivables approaching due date',
-                  value: unavailable(data, ['invoices']) ? '—' : metrics.dueSoon.length,
+                  value: invoicesUnavailable ? '—' : metrics.dueSoon.length,
                   color: workspaceTheme.orange,
                   background: '#FFF8E8',
                 },
                 {
                   label: 'Overdue customer invoices',
                   detail: money(metrics.overdueValue),
-                  value: unavailable(data, ['invoices']) ? '—' : metrics.overdue.length,
+                  value: invoicesUnavailable ? '—' : metrics.overdue.length,
                   color: metrics.overdue.length ? workspaceTheme.red : workspaceTheme.green,
                   background: metrics.overdue.length ? '#FEF2F2' : '#F0FDF4',
                 },
                 {
                   label: 'Carrier cost',
                   detail: 'Realised supplier invoices',
-                  value: unavailable(data, ['invoices']) ? '—' : money(metrics.carrierSpend),
+                  value: invoicesUnavailable ? '—' : money(metrics.carrierSpend),
                   color: workspaceTheme.navy,
                   background: workspaceTheme.surfaceMuted,
                 },
@@ -342,7 +366,7 @@ export default function BrokerDashboardHome() {
             />
           </Panel>
 
-          <Panel title="Broker actions" description="Commercial and exception workflows only.">
+          <Panel title="Broker actions" description="Existing commercial and exception workflows.">
             <QuickActionGrid
               actions={[
                 { key: 'post', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
