@@ -4,28 +4,35 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
-const DRIVER_PAGE_TITLES: ReadonlyArray<readonly [string, string]> = [
-  ['/driver/loads', 'Loads'],
-  ['/driver/quotes', 'Quotes'],
-  ['/driver/jobs', 'Jobs'],
-  ['/driver/history', 'Diary'],
-  ['/driver/availability', 'Availability'],
-  ['/driver/returns', 'Return Journeys'],
-  ['/driver/account', 'Account'],
-  ['/driver/profile', 'Account'],
-  ['/driver/vehicles', 'Account'],
-  ['/driver/documents', 'Account'],
-  ['/driver/finance', 'Account'],
-  ['/driver/messages', 'Account'],
-  ['/driver/change-password', 'Account'],
-  ['/driver/event-log', 'Account'],
-  ['/driver/notifications', 'Account'],
-];
+const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
+  '/driver': 'Driver Dashboard',
+  '/driver/loads': 'Loads',
+  '/driver/quotes': 'Quotes',
+  '/driver/jobs': 'Jobs',
+  '/driver/history': 'Diary',
+  '/driver/availability': 'Availability',
+  '/driver/returns': 'Return Journeys',
+  '/driver/account': 'Account',
+};
 
-function resolveDriverPageTitle(pathname: string | null) {
-  if (!pathname || pathname === '/driver') return 'Driver Dashboard';
-  const match = DRIVER_PAGE_TITLES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-  return match?.[1] ?? 'My Work';
+const DRIVER_ACCOUNT_PREFIXES = [
+  '/driver/profile',
+  '/driver/vehicles',
+  '/driver/documents',
+  '/driver/finance',
+  '/driver/messages',
+  '/driver/change-password',
+  '/driver/event-log',
+  '/driver/notifications',
+] as const;
+
+function resolveDriverPageTitle(pathname: string | null, explicitTitle?: string) {
+  if (pathname && DRIVER_PRIMARY_PAGE_TITLES[pathname]) return DRIVER_PRIMARY_PAGE_TITLES[pathname];
+  if (explicitTitle) return explicitTitle;
+  if (pathname && DRIVER_ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+    return 'Account';
+  }
+  return 'My Work';
 }
 
 export default function DriverWorkspaceShell({
@@ -44,7 +51,7 @@ export default function DriverWorkspaceShell({
   personaLabel?: string;
 }) {
   const pathname = usePathname();
-  const resolvedTitle = driverName ?? resolveDriverPageTitle(pathname);
+  const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
 
   return (
     <PageFrame>
