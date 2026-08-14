@@ -438,17 +438,19 @@ export default function ReturnJourneysPage() {
                     const open = expanded[journey.id] === true;
                     return (
                       <article key={journey.id} className="driver-load-row driver-return-row" data-state={journey.status}>
-                        <div className="driver-load-row__top">
-                          <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{journey.from || 'Not set'}</strong><span className="driver-cell-secondary">Departs {fmtDate(journey.availableFrom)}</span></div>
+                        <div className="driver-load-row__top driver-return-row__contract">
+                          <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{journey.from || 'Not set'}</strong></div>
                           <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set'}</strong><span className="driver-cell-secondary">{journey.availableTo ? `Until ${fmtDate(journey.availableTo)}` : 'Until not set'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Departs</span><strong className="driver-cell-primary">{fmtDate(journey.availableFrom)}</strong></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">ETA</span><strong className="driver-cell-primary driver-return-eta-unavailable">ETA unavailable</strong></div>
                           <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(journey.vehicleType)}</strong><span className="driver-cell-secondary">{journey.bodyType || 'Body not specified'}{journey.journeyDistanceMiles != null ? ` · ${journey.journeyDistanceMiles} miles` : ''}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Member / Status</span><strong className="driver-cell-primary">{tab === 'mine' ? journey.status : journey.member.name}</strong><span className="driver-cell-secondary">{journey.member.code ? `ID ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary">{journey.member.name}</strong><span className="driver-cell-secondary">{journey.member.code ? `ID ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
+                          <div className="driver-load-cell driver-return-actions-cell"><span className="driver-cell-label">Actions</span><ActionButton tone="secondary" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Collapse' : 'Details'}</ActionButton></div>
                         </div>
                         <div className="driver-load-row__meta">
                           <span>Journey #{journey.id.slice(0, 8).toUpperCase()}</span>
                           <StatusBadge value={journey.journeyKind === 'regular' ? 'Regular' : 'Ad Hoc'} tone={journey.journeyKind === 'regular' ? 'purple' : 'blue'} />
                           <StatusBadge value={journey.status} tone={journey.status === 'cancelled' ? 'red' : 'green'} />
-                          <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Collapse' : 'Details'}</ActionButton></div>
                         </div>
                         {open && (
                           <div className="driver-row-details driver-return-details">
