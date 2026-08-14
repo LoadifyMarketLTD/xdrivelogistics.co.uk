@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
+import { fleetQueueStage } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -28,8 +29,12 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const driverLabel = (driver: { display_name: string | null; email?: string | null } | undefined) =>
   driver?.display_name ?? driver?.email ?? 'Driver';
 
-const isDriverAccountEligible = (driver: { status: string | null } | undefined) =>
-  Boolean(driver) && !['suspended', 'inactive', 'rejected'].includes(normalise(driver?.status));
+// Mirror assign_job_driver_atomic exactly: NULL/blank status is not eligible,
+// and suspended/inactive/rejected are rejected server-side.
+const isDriverAccountEligible = (driver: { status: string | null } | undefined) => {
+  const status = normalise(driver?.status);
+  return Boolean(driver) && Boolean(status) && !['suspended', 'inactive', 'rejected'].includes(status);
+};
 
 const vehicleLabel = (vehicle: { reg_plate: string | null; type: string | null; make?: string | null; model?: string | null } | undefined) => {
   if (!vehicle) return 'Vehicle';
@@ -58,8 +63,7 @@ export default function FleetAssignmentsPage() {
   const jobs = useMemo(
     () => data.jobs.filter((job) =>
       job.awarded_carrier_company_id === data.companyId
-      && normalise(job.current_status ?? job.status) === 'awarded'
-      && !job.assigned_driver_id
+      && fleetQueueStage(job) === 'unallocated'
     ),
     [data.companyId, data.jobs],
   );
