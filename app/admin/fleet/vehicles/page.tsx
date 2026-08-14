@@ -34,12 +34,12 @@ export default function FleetVehiclesPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Vehicles"
-        description="Vehicle identity, driver assignment, document readiness and availability in one dense Fleet register."
+        description="Vehicle identity, driver assignment and document readiness in one dense Fleet register. Operational vehicle availability is shown only when a verified source exists."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
       />
-      <Panel title="Vehicle operations register" description="Vehicle creation and editing remain in the existing Vehicles administration page.">
+      <Panel title="Vehicle operations register" description="Unassigned does not mean available. The current verified Fleet dataset does not expose an operational vehicle-availability state, so no availability is inferred from driver assignment.">
         <DataTable
-          columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Status', 'MOT', 'Insurance', 'Availability']}
+          columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Document readiness', 'MOT', 'Insurance', 'Operational availability']}
           rows={data.vehicles.map((vehicle) => {
             const documents = documentsByVehicle.get(vehicle.id) ?? [];
             const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
@@ -62,7 +62,7 @@ export default function FleetVehiclesPage() {
               <StatusBadge key="status" value={alert ? 'attention required' : 'evidence current'} tone={alert ? 'orange' : 'green'} />,
               docValue(mot),
               docValue(insurance),
-              <StatusBadge key="availability" value={vehicle.assigned_driver_id ? 'assigned' : 'available'} tone={vehicle.assigned_driver_id ? 'blue' : 'green'} />,
+              <StatusBadge key="availability" value="Not exposed" tone="grey" />,
             ];
           })}
           empty={<EmptyState title="No vehicles in the Fleet" />}
