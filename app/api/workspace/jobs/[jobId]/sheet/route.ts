@@ -20,7 +20,9 @@ function parseLoadDetails(value: unknown) {
   if (!raw) return { publicQuoteNotes: null, executionInstructions: null, targetCarrierCost: null };
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { publicQuoteNotes: null, executionInstructions: raw, targetCarrierCost: null };
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { publicQuoteNotes: null, executionInstructions: raw, targetCarrierCost: null };
+    }
     const object = parsed as Record<string, unknown>;
     return {
       publicQuoteNotes: text(object.publicQuoteNotes),
@@ -48,15 +50,26 @@ function invoiceVisibleToCompany(invoice: Record<string, unknown>, companyId: st
   const ids = [invoice.company_id, invoice.customer_company_id, invoice.bill_to_company_id, invoice.buyer_company_id, invoice.supplier_company_id]
     .map(text)
     .filter(Boolean);
-  // Older invoice rows may only be job-linked. For a job owned by the viewer's
-  // company, an invoice without any party identifiers remains part of that job's
-  // authorised record; an invoice explicitly belonging to another company does not.
+  // Legacy job-linked invoices without party columns remain visible to the job
+  // owner. Explicitly attributed invoices must include the viewer company.
   return ids.length === 0 || ids.includes(companyId);
+}
+
+function workspaceKind(companyType: unknown) {
+  const type = String(companyType ?? '').trim().toLowerCase();
+  if (type === 'broker') return 'broker' as const;
+  if (['customer', 'shipper'].includes(type)) return 'customer' as const;
+  return 'company' as const;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return operationalError({ status: 503, message: 'The job sheet is temporarily unavailable.', context: 'workspace.job-sheet.config', retryable: true });
+    return operationalError({
+      status: 503,
+      message: 'The job sheet is temporarily unavailable.',
+      context: 'workspace.job-sheet.config',
+      retryable: true,
+    });
   }
 
   const token = getBearerToken(request);
@@ -68,7 +81,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { jobId } = await params;
   const { data: rawJob, error: jobError } = await supabaseAdmin.from('jobs').select('*').eq('id', jobId).maybeSingle();
   if (jobError) {
-    return operationalError({ status: 500, message: 'The job sheet could not be loaded.', context: `workspace.job-sheet.job:${jobId}`, cause: jobError, retryable: true });
+    return operationalError({
+      status: 500,
+      message: 'The job sheet could not be loaded.',
+      context: `workspace.job-sheet.job:${jobId}`,
+      cause: jobError,
+      retryable: true,
+    });
   }
   if (!rawJob) return respond(404, { error: 'Job not found.' });
 
@@ -84,7 +103,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq('status', 'active')
     .maybeSingle();
   if (membershipError) {
-    return operationalError({ status: 500, message: 'Your company access could not be verified.', context: `workspace.job-sheet.membership:${jobId}`, cause: membershipError, retryable: true });
+    return operationalError({
+      status: 500,
+      message: 'Your company access could not be verified.',
+      context: `workspace.job-sheet.membership:${jobId}`,
+      cause: membershipError,
+      retryable: true,
+    });
   }
   if (!membership) return respond(403, { error: 'You do not have access to this company job.' });
 
@@ -95,7 +120,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     awardedCompanyId ? supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', awardedCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    assignedDriverId ? supabaseAdmin.from('drivers').select('id, display_name, status').eq('id', assignedDriverId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    assignedDriverId ? supabaseAdmin.from('drivers').select('id, display_name').eq('id', assignedDriverId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(20),
@@ -107,6 +132,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
   const driver = (driverResult.data ?? {}) as Record<string, unknown>;
   const details = parseLoadDetails(job.load_details);
+  const viewerWorkspace = workspaceKind(ownerCompany.company_type);
 
   const carrierCost = numberValue(agreement.agreed_amount)
     ?? numberValue(job.agreed_rate_gbp)
@@ -114,76 +140,139 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? numberValue(acceptedBid.bid_price_gbp)
     ?? numberValue(acceptedBid.amount);
   const customerPrice = numberValue(job.budget_amount);
-  const margin = customerPrice != null && carrierCost != null ? customerPrice - carrierCost : null;
+  const brokerMargin = customerPrice != null && carrierCost != null ? customerPrice - carrierCost : null;
   const paymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
   const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required) ?? true;
 
   const timeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
-    id: text(entry.id), eventType: text(entry.event_type) ?? 'update', message: text(entry.message) ?? text(entry.note),
-    createdAt: text(entry.created_at) ?? text(entry.event_time), userName: text(entry.user_name),
+    id: text(entry.id),
+    eventType: text(entry.event_type) ?? 'update',
+    message: text(entry.message) ?? text(entry.note),
+    createdAt: text(entry.created_at) ?? text(entry.event_time),
+    userName: text(entry.user_name),
   }));
   const documents = documentsResult.error ? [] : (documentsResult.data ?? []).map((entry: Record<string, unknown>) => ({
-    id: text(entry.id), type: text(entry.doc_type) ?? text(entry.file_type) ?? 'Document', fileName: text(entry.file_name),
-    filePath: text(entry.file_path) ?? text(entry.file_url), createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
+    id: text(entry.id),
+    type: text(entry.doc_type) ?? text(entry.file_type) ?? 'Document',
+    fileName: text(entry.file_name),
+    filePath: text(entry.file_path) ?? text(entry.file_url),
+    createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
   const invoices = invoicesResult.error ? [] : ((invoicesResult.data ?? []) as Record<string, unknown>[])
     .filter((invoice) => invoiceVisibleToCompany(invoice, companyId))
     .map((invoice) => ({
-      id: text(invoice.id), number: text(invoice.invoice_number), status: text(invoice.status), paymentStatus: text(invoice.payment_status),
-      amount: numberValue(invoice.amount) ?? numberValue(invoice.total), currency: text(invoice.currency) ?? 'GBP', dueDate: text(invoice.due_date),
+      id: text(invoice.id),
+      number: text(invoice.invoice_number),
+      status: text(invoice.status),
+      paymentStatus: text(invoice.payment_status),
+      amount: numberValue(invoice.amount) ?? numberValue(invoice.total),
+      currency: text(invoice.currency) ?? 'GBP',
+      dueDate: text(invoice.due_date),
     }));
 
   return respond(200, {
     sheet: {
       jobId,
+      viewerWorkspace,
       status: text(job.current_status) ?? text(job.status) ?? 'unknown',
       createdAt: text(job.created_at),
       updatedAt: text(job.updated_at),
       acceptedAt: text(agreement.accepted_at) ?? text(agreement.agreed_at) ?? text(acceptedBid.updated_at) ?? text(acceptedBid.created_at),
       ownerCompany: {
-        companyId, name: text(ownerCompany.name) ?? 'Job owner', memberId: text(ownerCompany.company_number), phone: text(ownerCompany.phone), type: text(ownerCompany.company_type),
+        companyId,
+        name: text(ownerCompany.name) ?? 'Job owner',
+        memberId: text(ownerCompany.company_number),
+        phone: text(ownerCompany.phone),
+        type: text(ownerCompany.company_type),
       },
       carrier: awardedCompanyId ? {
-        companyId: awardedCompanyId, name: text(carrierCompany.name) ?? 'Awarded carrier', memberId: text(carrierCompany.company_number), phone: text(carrierCompany.phone), type: text(carrierCompany.company_type),
+        companyId: awardedCompanyId,
+        name: text(carrierCompany.name) ?? 'Awarded carrier',
+        memberId: text(carrierCompany.company_number),
+        phone: text(carrierCompany.phone),
+        type: text(carrierCompany.company_type),
       } : null,
-      driver: assignedDriverId ? { id: assignedDriverId, name: text(driver.display_name), status: text(driver.status) } : null,
+      // Driver operational identity may be useful to the booking owner; internal
+      // driver account/compliance status is deliberately not exposed here.
+      driver: assignedDriverId ? { id: assignedDriverId, name: text(driver.display_name), status: null } : null,
       customer: { name: text(job.client_name), email: text(job.client_email), phone: text(job.client_phone) },
       references: {
-        booking: text(job.booking_reference), customer: text(job.customer_reference), purchaseOrder: text(job.purchase_order_number),
+        booking: text(job.booking_reference),
+        customer: text(job.customer_reference),
+        purchaseOrder: text(job.purchase_order_number),
         xdrive: `XDL-${jobId.slice(0, 8).toUpperCase()}`,
       },
       route: {
-        pickup: { address: text(job.pickup_location), postcode: text(job.pickup_postcode), dateTime: text(job.pickup_datetime) ?? text(job.collection_window_start), slot: text(job.pickup_time_slot), contactName: text(job.collection_contact_name), contactPhone: text(job.collection_contact_phone), notes: text(job.collection_notes) },
-        delivery: { address: text(job.delivery_location), postcode: text(job.delivery_postcode), dateTime: text(job.delivery_datetime) ?? text(job.delivery_window_start), slot: text(job.delivery_time_slot), contactName: text(job.delivery_contact_name), contactPhone: text(job.delivery_contact_phone), notes: text(job.delivery_notes) },
+        pickup: {
+          address: text(job.pickup_location), postcode: text(job.pickup_postcode),
+          dateTime: text(job.pickup_datetime) ?? text(job.collection_window_start), slot: text(job.pickup_time_slot),
+          contactName: text(job.collection_contact_name), contactPhone: text(job.collection_contact_phone), notes: text(job.collection_notes),
+        },
+        delivery: {
+          address: text(job.delivery_location), postcode: text(job.delivery_postcode),
+          dateTime: text(job.delivery_datetime) ?? text(job.delivery_window_start), slot: text(job.delivery_time_slot),
+          contactName: text(job.delivery_contact_name), contactPhone: text(job.delivery_contact_phone), notes: text(job.delivery_notes),
+        },
         distanceMiles: numberValue(job.job_distance_miles) ?? numberValue(job.distance_miles),
       },
       load: {
         requestedVehicle: text(job.requested_vehicle_label) ?? text(job.requested_vehicle_type) ?? text(job.vehicle_type),
         cargoType: text(job.requested_cargo_label) ?? text(job.cargo_type),
-        weightKg: numberValue(job.weight_kg), pallets: numberValue(job.pallets), lengthCm: numberValue(job.length_cm), widthCm: numberValue(job.width_cm), heightCm: numberValue(job.height_cm),
-        cargoValueGbp: numberValue(job.cargo_value_gbp), palletType: text(job.pallet_type), stackable: boolValue(job.pallet_stackable), requirements: requirements(job),
+        weightKg: numberValue(job.weight_kg),
+        pallets: numberValue(job.pallets),
+        lengthCm: numberValue(job.length_cm),
+        widthCm: numberValue(job.width_cm),
+        heightCm: numberValue(job.height_cm),
+        cargoValueGbp: numberValue(job.cargo_value_gbp),
+        palletType: text(job.pallet_type),
+        stackable: boolValue(job.pallet_stackable),
+        requirements: requirements(job),
       },
       commercial: {
-        customerPrice, carrierCost, margin, currency: text(agreement.currency) ?? text(job.currency) ?? text(acceptedBid.currency) ?? 'GBP',
-        paymentTerms, paymentDueDays: numberValue(agreement.payment_due_days), vatRate: numberValue(agreement.vat_rate), vatAmount: numberValue(agreement.vat_amount),
-        agreedGross: numberValue(agreement.agreed_gross_amount), snapshotAvailable: Boolean(agreementResult.data && !agreementResult.error),
-        targetCarrierCost: details.targetCarrierCost,
+        customerPrice,
+        carrierCost,
+        // Broker margin/target values are an internal broker workspace concept.
+        // Customer/company job sheets do not receive them in the browser payload.
+        margin: viewerWorkspace === 'broker' ? brokerMargin : null,
+        currency: text(agreement.currency) ?? text(job.currency) ?? text(acceptedBid.currency) ?? 'GBP',
+        paymentTerms,
+        paymentDueDays: numberValue(agreement.payment_due_days),
+        vatRate: numberValue(agreement.vat_rate),
+        vatAmount: numberValue(agreement.vat_amount),
+        agreedGross: numberValue(agreement.agreed_gross_amount),
+        snapshotAvailable: Boolean(agreementResult.data && !agreementResult.error),
+        targetCarrierCost: viewerWorkspace === 'broker' ? details.targetCarrierCost : null,
       },
       pod: {
-        required: podRequired, hardCopy: text(job.hard_copy_pod), generated: boolValue(job.pod_generated), generatedAt: text(job.pod_generated_at),
+        required: podRequired,
+        hardCopy: text(job.hard_copy_pod),
+        generated: boolValue(job.pod_generated),
+        generatedAt: text(job.pod_generated_at),
         photoCount: Array.isArray(job.pod_photos) ? job.pod_photos.length : Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0,
-        reviewStatus: text(job.broker_pod_review_status), reviewNote: text(job.broker_pod_review_note),
+        reviewStatus: text(job.broker_pod_review_status),
+        reviewNote: text(job.broker_pod_review_note),
       },
       notes: {
         publicQuoteNotes: details.publicQuoteNotes,
         executionInstructions: details.executionInstructions ?? text(job.load_notes),
-        collection: text(job.collection_notes), delivery: text(job.delivery_notes), driver: text(job.driver_notes),
+        collection: text(job.collection_notes),
+        delivery: text(job.delivery_notes),
+        driver: text(job.driver_notes),
         documentChecklist: Array.isArray(job.document_checklist) ? job.document_checklist : [],
       },
       timeline,
       documents,
       invoices,
-      partial: Boolean(ownerCompanyResult.error || carrierCompanyResult.error || bidResult.error || agreementResult.error || driverResult.error || trackingResult.error || documentsResult.error || invoicesResult.error),
+      partial: Boolean(
+        ownerCompanyResult.error
+        || carrierCompanyResult.error
+        || bidResult.error
+        || agreementResult.error
+        || driverResult.error
+        || trackingResult.error
+        || documentsResult.error
+        || invoicesResult.error
+      ),
       unavailable: {
         bodyType: 'No verified body-type field is exposed by the current job contract.',
         bookingFooter: 'No immutable historical booking-footer snapshot is exposed by the current verified data contract.',
