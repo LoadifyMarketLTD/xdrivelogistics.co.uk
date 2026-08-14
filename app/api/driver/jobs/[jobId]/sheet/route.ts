@@ -9,7 +9,45 @@ function text(value: unknown) {
 
 function numberValue(value: unknown) {
   const parsed = Number(value);
-  return value !== null && value !== undefined && Number.isFinite(parsed) ? parsed : null;
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(parsed) ? parsed : null;
+}
+
+function boolValue(value: unknown) {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function parseLoadDetails(value: unknown) {
+  const raw = text(value)?.trim();
+  if (!raw) return { publicQuoteNotes: null, executionInstructions: null, targetCarrierCost: null };
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { publicQuoteNotes: null, executionInstructions: raw, targetCarrierCost: null };
+    }
+    const object = parsed as Record<string, unknown>;
+    return {
+      publicQuoteNotes: text(object.publicQuoteNotes),
+      executionInstructions: text(object.executionInstructions) ?? text(object.notes),
+      targetCarrierCost: numberValue(object.targetCarrierCost),
+    };
+  } catch {
+    return { publicQuoteNotes: null, executionInstructions: raw, targetCarrierCost: null };
+  }
+}
+
+function requirementFlags(job: Record<string, unknown>, vehicle: Record<string, unknown>) {
+  const rows: string[] = [];
+  const push = (condition: boolean, label: string) => { if (condition && !rows.includes(label)) rows.push(label); };
+  push(job.collection_tail_lift_required === true || job.delivery_tail_lift_required === true, 'Tail lift required');
+  push(job.collection_forklift_available === true || job.delivery_forklift_available === true, 'Forklift available / required');
+  push(job.collection_handball_required === true || job.delivery_handball_required === true, 'Handball required');
+  push(job.direct_delivery_required === true, 'Direct delivery');
+  push(vehicle.has_tail_lift === true, 'Allocated vehicle has tail lift');
+  const special = text(job.special_requirements);
+  if (special) rows.push(special);
+  const access = text(job.access_restrictions);
+  if (access) rows.push(`Access: ${access}`);
+  return rows;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -44,10 +82,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const originCompanyId = text(job.company_id);
   const vehicleId = text(job.vehicle_id);
 
-  const [companyResult, settingsResult, bidResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
+  const [companyResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    originCompanyId ? supabaseAdmin.from('company_settings').select('*').eq('company_id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
     supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(5),
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
@@ -58,14 +96,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ]);
 
   const company = (companyResult.data ?? {}) as Record<string, unknown>;
-  const settings = (settingsResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
+  const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
   const vehicle = (vehicleResult.data ?? {}) as Record<string, unknown>;
   const driverRow = (driverResult.data ?? {}) as Record<string, unknown>;
-  const acceptedRate = numberValue(job.agreed_rate_gbp)
+  const loadDetails = parseLoadDetails(job.load_details);
+
+  const acceptedRate = numberValue(agreement.agreed_amount)
+    ?? numberValue(job.agreed_rate_gbp)
     ?? numberValue(job.agreed_rate)
     ?? numberValue(acceptedBid.bid_price_gbp)
     ?? numberValue(acceptedBid.amount)
+    ?? null;
+  const acceptedGross = numberValue(agreement.agreed_gross_amount);
+  const paymentTerms = text(agreement.payment_terms)
+    ?? text(job.payment_terms)
+    ?? null;
+  const podRequired = boolValue(agreement.pod_required)
+    ?? boolValue(job.pod_required)
+    ?? true;
+  const acceptedAt = text(agreement.accepted_at)
+    ?? text(agreement.agreed_at)
+    ?? text(acceptedBid.updated_at)
+    ?? text(acceptedBid.created_at)
     ?? null;
 
   const timeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
@@ -73,51 +126,126 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     eventType: text(entry.event_type) ?? 'update',
     message: text(entry.message) ?? text(entry.note),
     meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : null,
-    createdAt: text(entry.created_at),
+    createdAt: text(entry.created_at) ?? text(entry.event_time),
   }));
   const documents = documentsResult.error ? [] : (documentsResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
-    type: text(entry.doc_type) ?? 'Document',
+    type: text(entry.doc_type) ?? text(entry.file_type) ?? 'Document',
     fileName: text(entry.file_name),
-    filePath: text(entry.file_path),
-    createdAt: text(entry.created_at),
+    filePath: text(entry.file_path) ?? text(entry.file_url),
+    createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
   const invoices = invoiceResult.error ? [] : (invoiceResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
     number: text(entry.invoice_number),
     status: text(entry.status),
-    amount: numberValue(entry.amount),
+    paymentStatus: text(entry.payment_status),
+    amount: numberValue(entry.amount) ?? numberValue(entry.total),
     currency: text(entry.currency) ?? 'GBP',
+    dueDate: text(entry.due_date),
   }));
+
+  const allocatedVehicleRef = text(vehicle.reg_plate) ?? text(job.vehicle_ref) ?? text(driverRow.display_name);
+  const allocatedVehicleType = text(vehicle.type) ?? text(job.vehicle_type);
+  const requestedVehicle = text(job.requested_vehicle_label)
+    ?? text(job.requested_vehicle_type)
+    ?? text(job.vehicle_type);
+  const requestedCargo = text(job.requested_cargo_label) ?? text(job.cargo_type);
+  const requirements = requirementFlags(job, vehicle);
+  const hardCopyPod = text(job.hard_copy_pod)
+    ?? (podRequired ? 'Required / digital accepted unless job instructions specify hard copy' : 'Not Required');
 
   return respond(200, {
     sheet: {
       reference: text(job.booking_reference) || `XDL-${jobId.slice(0, 8).toUpperCase()}`,
       loadId: jobId,
       status: text(job.current_status) || text(job.status) || 'allocated',
+      bookedAt: acceptedAt,
+      postingCompanyId: originCompanyId,
       bookedBy: text(company.name) || text(job.client_name) || 'Marketplace member',
       memberCode: text(company.company_number),
       memberPhone: text(company.phone) || text(job.client_phone),
+      executingCompanyId: text(agreement.supplier_company_id) ?? text(job.awarded_carrier_company_id) ?? driver.companyId,
+      driverId: driver.driverId,
+      driverName: text(driverRow.display_name),
       agreedRate: acceptedRate,
-      currency: text(job.currency) || text(acceptedBid.currency) || 'GBP',
+      agreedGross: acceptedGross,
+      vatRate: numberValue(agreement.vat_rate),
+      vatAmount: numberValue(agreement.vat_amount),
+      currency: text(agreement.currency) ?? text(job.currency) ?? text(acceptedBid.currency) ?? 'GBP',
+      paymentTerms,
+      paymentDueDays: numberValue(agreement.payment_due_days),
+      commercialSnapshotAvailable: Boolean(agreementResult.data && !agreementResult.error),
       customerReference: text(job.customer_reference),
       purchaseOrderNumber: text(job.purchase_order_number),
       bookingReference: text(job.booking_reference),
-      distanceMiles: numberValue(job.job_distance_miles),
-      vehicleRequested: text(job.requested_vehicle_label) || text(job.requested_vehicle_type) || text(job.vehicle_type),
-      vehicleRef: text(vehicle.reg_plate) || text(driverRow.display_name),
-      vehicleType: text(vehicle.type) || text(job.vehicle_type),
-      paymentTerms: text(settings.default_payment_terms) || text(job.payment_terms) || 'Not provided',
-      hardCopyPod: text(job.hard_copy_pod) || (job.pod_required === false ? 'Not Required' : 'Required / digital accepted'),
-      podRequired: job.pod_required !== false,
-      pickupSlot: text(job.pickup_time_slot),
-      deliverySlot: text(job.delivery_time_slot),
-      loadNotes: text(job.load_details),
+      distanceMiles: numberValue(job.job_distance_miles) ?? numberValue(job.distance_miles),
+      requestedVehicle,
+      allocatedVehicle: {
+        id: text(vehicle.id),
+        ref: allocatedVehicleRef,
+        type: allocatedVehicleType,
+        make: text(vehicle.make),
+        model: text(vehicle.model),
+        payloadKg: numberValue(vehicle.payload_kg),
+        palletsCapacity: numberValue(vehicle.pallets_capacity),
+        hasTailLift: boolValue(vehicle.has_tail_lift),
+      },
+      cargo: {
+        type: requestedCargo,
+        weightKg: numberValue(job.weight_kg),
+        pallets: numberValue(job.pallets),
+        lengthCm: numberValue(job.length_cm),
+        widthCm: numberValue(job.width_cm),
+        heightCm: numberValue(job.height_cm),
+        cargoValueGbp: numberValue(job.cargo_value_gbp),
+        palletType: text(job.pallet_type),
+        stackable: boolValue(job.pallet_stackable),
+      },
+      requirements,
+      hardCopyPod,
+      podRequired,
+      pickup: {
+        address: text(job.pickup_location),
+        postcode: text(job.pickup_postcode),
+        dateTime: text(job.pickup_datetime) ?? text(job.collection_window_start),
+        slot: text(job.pickup_time_slot),
+        contactName: text(job.collection_contact_name),
+        contactPhone: text(job.collection_contact_phone),
+        notes: text(job.collection_notes),
+      },
+      delivery: {
+        address: text(job.delivery_location),
+        postcode: text(job.delivery_postcode),
+        dateTime: text(job.delivery_datetime) ?? text(job.delivery_window_start),
+        slot: text(job.delivery_time_slot),
+        contactName: text(job.delivery_contact_name),
+        contactPhone: text(job.delivery_contact_phone),
+        notes: text(job.delivery_notes),
+      },
+      publicQuoteNotes: loadDetails.publicQuoteNotes,
+      executionInstructions: loadDetails.executionInstructions ?? text(job.load_notes),
       driverNotes: text(job.driver_notes),
+      documentChecklist: Array.isArray(job.document_checklist) ? job.document_checklist : [],
+      targetCarrierCost: loadDetails.targetCarrierCost,
       timeline,
       documents,
       invoices,
-      partial: Boolean(companyResult.error || settingsResult.error || bidResult.error || trackingResult.error || invoiceResult.error || documentsResult.error || vehicleResult.error || driverResult.error),
+      partial: Boolean(
+        companyResult.error
+        || bidResult.error
+        || agreementResult.error
+        || trackingResult.error
+        || invoiceResult.error
+        || documentsResult.error
+        || vehicleResult.error
+        || driverResult.error
+      ),
+      unavailable: {
+        bodyType: 'No verified body-type field is exposed by the current job/vehicle contract.',
+        extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
+        bookingFooter: 'No historical booking-footer snapshot is exposed by the current verified data contract.',
+      },
     },
   });
 }
