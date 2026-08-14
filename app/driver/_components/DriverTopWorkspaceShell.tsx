@@ -3,10 +3,9 @@
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useAuth } from '../../components/AuthContext';
-import SharedContextControls from '../../components/workspace/SharedContextControls';
 import {
   getActionCentreRoute,
   getNotificationsRoute,
@@ -14,7 +13,6 @@ import {
 } from '../../components/workspace/actionCentreConfig';
 import { workspaceTheme } from '../../components/workspace/WorkspaceUI';
 import {
-  getVisibleWorkspaceNav,
   getWorkspaceDefinition,
   hasWorkspaceCapability,
 } from '../../../lib/workspaceRole';
@@ -49,25 +47,8 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   const { user, logout } = useAuth();
   const role = 'driver' as const;
   const definition = getWorkspaceDefinition(role);
-  const nav = getVisibleWorkspaceNav(role);
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
-
-  const navigationTargets = useMemo(
-    () => [
-      ...DRIVER_PRIMARY_NAV.map((item) => ({ id: item.id, label: item.label, href: item.href })),
-      ...nav.flatMap((group) =>
-        group.items
-          .filter((item) => !DRIVER_PRIMARY_NAV.some((primary) => primary.href === item.href))
-          .map((item) => ({
-            id: `${group.id}-${item.id}`,
-            label: item.label,
-            href: item.href,
-          })),
-      ),
-    ],
-    [nav],
-  );
 
   const actionRole = resolveActionCentreRole(role);
   const actionCentreHref = getActionCentreRoute(actionRole);
@@ -159,9 +140,25 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
           </div>
         </div>
 
-        <div className="driver-top-shell__context">
-          <SharedContextControls navigation={navigationTargets} />
-        </div>
+        <nav className="driver-top-nav" aria-label="Driver workspace navigation">
+          <div className="driver-top-nav__track">
+            {DRIVER_PRIMARY_NAV.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="driver-top-nav__item"
+                  data-active={active ? 'true' : 'false'}
+                  onClick={() => router.push(item.href)}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
         <div className="driver-top-shell__actions">
           {primaryAction && (
@@ -203,28 +200,6 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
           </button>
         </div>
       </header>
-
-      <nav className="driver-top-nav" aria-label="Driver workspace navigation">
-        <div className="driver-top-nav__track">
-          <div className="driver-top-nav__group" data-first="true" aria-label="Driver workspace">
-            {DRIVER_PRIMARY_NAV.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="driver-top-nav__item"
-                  data-active={active ? 'true' : 'false'}
-                  onClick={() => router.push(item.href)}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
 
       <main className="driver-top-shell__content" style={{ background: workspaceTheme.page }}>
         {children}
