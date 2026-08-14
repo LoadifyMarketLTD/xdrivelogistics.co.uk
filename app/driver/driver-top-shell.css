@@ -28,11 +28,6 @@
   overflow: hidden;
 }
 
-/* Legacy context controls (Organisation / Search navigation) are intentionally removed. */
-.driver-top-shell__context {
-  display: none !important;
-}
-
 .driver-top-shell__brand {
   min-width: 0;
   display: flex;
@@ -487,10 +482,6 @@
 }
 
 @media (max-width: 1180px) {
-  .driver-shell-action:not(.driver-shell-action--primary) {
-    display: none;
-  }
-
   .driver-top-nav__track {
     justify-content: flex-start;
   }
@@ -546,15 +537,56 @@
     font-size: 9px;
   }
 
-  .driver-shell-action--primary {
-    display: none;
-  }
-
   .driver-top-shell__content {
     min-height: calc(100vh - 50px);
   }
 
   .xdrive-driver-workspace .xdrive-page-frame {
     padding: 6px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .driver-top-shell__header {
+    gap: 3px;
+    padding: 0 4px;
+  }
+
+  .driver-top-shell__logo-button,
+  .driver-top-shell__logo {
+    width: 72px;
+  }
+
+  .driver-top-shell__logo-button {
+    height: 40px;
+    flex-basis: 72px;
+  }
+
+  .driver-top-shell__logo {
+    height: 28px;
+  }
+
+  .driver-top-shell__actions {
+    gap: 3px;
+  }
+
+  .driver-shell-action {
+    padding: 0 4px;
+    font-size: 8px;
+  }
+
+  .driver-shell-action,
+  .driver-shell-notification {
+    height: 28px;
+    min-height: 28px;
+  }
+
+  .driver-shell-notification {
+    width: 28px;
+  }
+
+  .driver-top-nav__item {
+    padding: 0 5px;
+    font-size: 8.5px;
   }
 }
