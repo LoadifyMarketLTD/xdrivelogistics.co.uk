@@ -1,111 +1,120 @@
-/* Driver Dashboard uses the approved Loads geometry as its visual contract.
- * Dashboard-only selectors live here; Loads remains untouched.
+/* Driver Dashboard — v3 measured CX migration.
+ * Dashboard-only composition. Shared typography, controls, rail, tabs and rows
+ * come from workspace-measured-cx-baseline.css.
  */
-.driver-reference-dashboard .driver-dashboard-section{
-  margin:0!important;
-  border:1px solid var(--drv-border)!important;
-  border-radius:2px!important;
-  background:#fff!important;
-  box-shadow:none!important;
-  overflow:hidden!important;
+
+.driver-reference-dashboard .driver-board-layout {
+  grid-template-columns: minmax(300px, 315px) minmax(0, 1fr) !important;
+  gap: 12px !important;
 }
-.driver-reference-dashboard .driver-dashboard-section>.driver-filter-rail__header{
-  display:flex!important;
-  align-items:center!important;
-  justify-content:space-between!important;
-  gap:6px!important;
-  min-height:29px!important;
-  padding:4px 7px!important;
-  border-bottom:1px solid var(--drv-border)!important;
-  background:#f2f4f7!important;
-  color:var(--drv-text)!important;
-  font-size:10.5px!important;
-  line-height:13px!important;
-  font-weight:750!important;
+
+.driver-reference-dashboard .driver-filter-rail {
+  width: 100% !important;
 }
-.driver-reference-dashboard .driver-dashboard-section>.driver-filter-rail__header button{
-  height:24px!important;
-  min-height:24px!important;
-  padding:0 7px!important;
-  font-size:9px!important;
+
+.driver-reference-dashboard .driver-dashboard-section {
+  margin: 0 !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
 }
-.driver-reference-dashboard .driver-dashboard-section__body{
-  display:grid!important;
-  gap:5px!important;
-  padding:5px!important;
-  background:#fff!important;
+
+.driver-reference-dashboard .driver-dashboard-section > .driver-filter-rail__header {
+  justify-content: space-between !important;
+  gap: 8px !important;
 }
-.driver-reference-dashboard .driver-dashboard-next-action{
-  display:flex!important;
-  grid-template-columns:none!important;
-  align-items:center!important;
-  justify-content:space-between!important;
-  gap:8px!important;
-  margin:0!important;
-  padding:5px 6px!important;
-  border-top:1px solid var(--drv-border)!important;
-  color:var(--drv-muted)!important;
-  font-size:9px!important;
-  line-height:12px!important;
+
+.driver-reference-dashboard .driver-dashboard-section__body {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 10px !important;
+  background: #fff !important;
 }
-.driver-reference-dashboard .driver-dashboard-next-action button{
-  flex:0 0 auto!important;
-  height:25px!important;
-  min-height:25px!important;
-  font-size:9px!important;
+
+.driver-reference-dashboard .driver-dashboard-next-action {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin: 0 !important;
+  padding: 8px 10px !important;
+  border-top: 1px solid var(--ws-border) !important;
+  color: var(--ws-muted) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
 }
-.driver-reference-dashboard .driver-dashboard-lower-grid{
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) minmax(300px,.72fr)!important;
-  gap:5px!important;
-  align-items:start!important;
+
+.driver-reference-dashboard .driver-dashboard-next-action button {
+  flex: 0 0 auto !important;
+  height: var(--ws-control-h) !important;
+  min-height: var(--ws-control-h) !important;
+  font-size: 12px !important;
 }
-.driver-reference-dashboard .driver-dashboard-table-wrap{
-  padding:0!important;
+
+.driver-reference-dashboard .driver-dashboard-lower-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, .72fr) !important;
+  gap: 12px !important;
+  align-items: start !important;
 }
-.driver-reference-dashboard .driver-dashboard-table-wrap table{
-  width:100%!important;
-  border-collapse:collapse!important;
+
+.driver-reference-dashboard .driver-dashboard-table-wrap {
+  padding: 0 !important;
 }
-.driver-reference-dashboard .driver-dashboard-table-wrap th{
-  height:27px!important;
-  padding:0 6px!important;
-  background:#edf2f8!important;
-  border-bottom:1px solid var(--drv-border)!important;
-  color:#0b2f6b!important;
-  font-size:8px!important;
-  line-height:10px!important;
-  font-weight:800!important;
-  text-transform:uppercase!important;
+
+.driver-reference-dashboard .driver-dashboard-table-wrap table {
+  width: 100% !important;
+  border-collapse: collapse !important;
 }
-.driver-reference-dashboard .driver-dashboard-table-wrap td{
-  height:31px!important;
-  padding:3px 6px!important;
-  border-top:1px solid #e4e7eb!important;
-  color:var(--drv-text)!important;
-  font-size:9.5px!important;
-  line-height:12px!important;
+
+.driver-reference-dashboard .driver-dashboard-table-wrap th {
+  height: var(--ws-table-head-h) !important;
+  padding: 7px 9px !important;
+  background: #edf2f8 !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  color: #0b2f6b !important;
+  font-size: var(--ws-font-label) !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+  text-transform: uppercase !important;
 }
-.driver-reference-dashboard .driver-dashboard-table-wrap td:last-child{
-  text-align:right!important;
+
+.driver-reference-dashboard .driver-dashboard-table-wrap td {
+  min-height: var(--ws-table-row-h) !important;
+  padding: 8px 9px !important;
+  border-top: 1px solid var(--ws-border-soft) !important;
+  color: var(--ws-text) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
 }
-.driver-reference-dashboard .driver-dashboard-table-wrap td button{
-  height:24px!important;
-  min-height:24px!important;
-  font-size:9px!important;
+
+.driver-reference-dashboard .driver-dashboard-table-wrap td:last-child {
+  text-align: right !important;
 }
-.driver-reference-dashboard .driver-load-row .xdrive-empty-state{
-  min-height:48px!important;
-  padding:7px!important;
+
+.driver-reference-dashboard .driver-dashboard-table-wrap td button {
+  height: var(--ws-micro-action-h) !important;
+  min-height: var(--ws-micro-action-h) !important;
+  font-size: 11px !important;
 }
-@media(max-width:1024px){
-  .driver-reference-dashboard .driver-dashboard-lower-grid{
-    grid-template-columns:1fr!important;
+
+.driver-reference-dashboard .driver-load-row .xdrive-empty-state {
+  min-height: 52px !important;
+  padding: 10px 12px !important;
+}
+
+@media (max-width: 1024px) {
+  .driver-reference-dashboard .driver-board-layout,
+  .driver-reference-dashboard .driver-dashboard-lower-grid {
+    grid-template-columns: 1fr !important;
   }
 }
-@media(max-width:768px){
-  .driver-reference-dashboard .driver-dashboard-next-action{
-    align-items:flex-start!important;
-    flex-direction:column!important;
+
+@media (max-width: 768px) {
+  .driver-reference-dashboard .driver-dashboard-next-action {
+    align-items: flex-start !important;
+    flex-direction: column !important;
   }
 }
