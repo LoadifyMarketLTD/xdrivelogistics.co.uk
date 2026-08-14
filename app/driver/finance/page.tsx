@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -9,6 +9,7 @@ import {
   toCanonicalInvoiceStatusWithDueDate,
   type CanonicalInvoiceStatus,
 } from '../../../lib/invoiceStatus';
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type InvoiceStatus = CanonicalInvoiceStatus;
 
@@ -65,15 +66,6 @@ const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'Cancelled', label: 'Cancelled' },
 ];
 
-const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string }> = {
-  Draft: { bg: '#fef3c7', text: '#92400e' },
-  Sent: { bg: '#e0e7ff', text: '#3730a3' },
-  Overdue: { bg: '#fee2e2', text: '#991b1b' },
-  Paid: { bg: '#d1fae5', text: '#065f46' },
-  Disputed: { bg: '#fce7f3', text: '#9d174d' },
-  Cancelled: { bg: '#e2e8f0', text: '#475569' },
-};
-
 const money = (amount: number, currency = 'GBP') =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(Number(amount ?? 0));
 
@@ -87,6 +79,15 @@ const getToken = async () => {
   return data.session?.access_token ?? null;
 };
 
+function statusTone(status: InvoiceStatus): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
+  if (status === 'Paid') return 'green';
+  if (status === 'Sent') return 'blue';
+  if (status === 'Overdue') return 'red';
+  if (status === 'Disputed') return 'purple';
+  if (status === 'Cancelled') return 'grey';
+  return 'orange';
+}
+
 export default function DriverFinancePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<InvoiceStatus | 'All'>('All');
@@ -94,7 +95,6 @@ export default function DriverFinancePage() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
   const [showJobPicker, setShowJobPicker] = useState(false);
   const [eligibleJobs, setEligibleJobs] = useState<EligibleJob[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
@@ -157,10 +157,7 @@ export default function DriverFinancePage() {
       const response = await fetch('/api/driver/finance/jobs/eligible', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const payload = (await response.json().catch(() => null)) as {
-        rows?: EligibleJob[];
-        error?: string;
-      } | null;
+      const payload = (await response.json().catch(() => null)) as { rows?: EligibleJob[]; error?: string } | null;
       if (!response.ok) throw new Error(payload?.error ?? 'Failed to load completed jobs.');
       setEligibleJobs(payload?.rows ?? []);
     } catch (reason) {
@@ -171,8 +168,9 @@ export default function DriverFinancePage() {
   };
 
   const openJobPicker = () => {
-    setShowJobPicker(true);
-    void loadEligibleJobs();
+    const next = !showJobPicker;
+    setShowJobPicker(next);
+    if (next) void loadEligibleJobs();
   };
 
   const generateInvoice = async (jobId: string) => {
@@ -188,21 +186,11 @@ export default function DriverFinancePage() {
     try {
       const response = await fetch(`/api/driver/finance/jobs/${jobId}/generate-invoice`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
       });
-      const payload = (await response.json().catch(() => null)) as {
-        invoice?: { id: string };
-        error?: string;
-      } | null;
-      if (!response.ok || !payload?.invoice?.id) {
-        throw new Error(payload?.error ?? 'Invoice could not be generated.');
-      }
-
-      setShowJobPicker(false);
+      const payload = (await response.json().catch(() => null)) as { invoice?: { id: string }; error?: string } | null;
+      if (!response.ok || !payload?.invoice?.id) throw new Error(payload?.error ?? 'Invoice could not be generated.');
       router.push(`/driver/finance/invoices/${payload.invoice.id}`);
     } catch (reason) {
       setGenerateError(reason instanceof Error ? reason.message : 'Invoice could not be generated.');
@@ -211,252 +199,120 @@ export default function DriverFinancePage() {
     }
   };
 
-  const card: CSSProperties = {
-    background: '#fff',
-    borderRadius: 10,
-    border: '1px solid #d7e0ea',
-    boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
-  };
+  const counts = useMemo(() => ({
+    All: summary?.total ?? 0,
+    Draft: summary?.draft ?? 0,
+    Sent: summary?.sent ?? 0,
+    Overdue: summary?.overdue ?? 0,
+    Paid: summary?.paid ?? 0,
+    Disputed: summary?.disputed ?? 0,
+    Cancelled: summary?.cancelled ?? 0,
+  }), [summary]);
 
-  const summaryCards = summary
-    ? [
-        ['Total', summary.total],
-        ['Draft', summary.draft],
-        ['Sent', summary.sent],
-        ['Overdue', summary.overdue],
-        ['Paid', summary.paid],
-        ['Disputed', summary.disputed],
-        ['Cancelled', summary.cancelled],
-      ]
-    : [];
+  const financeRail = (
+    <aside className="driver-filter-rail" aria-label="Finance summary">
+      <div className="driver-filter-rail__header">Payment Report</div>
+      <div className="driver-filter-rail__body">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className="driver-account-link"
+            data-active={activeTab === tab.id ? 'true' : 'false'}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <span><strong>{tab.label}</strong><small>{counts[tab.id]} invoice{counts[tab.id] === 1 ? '' : 's'}</small></span>
+            <span>{counts[tab.id]}</span>
+          </button>
+        ))}
+        <ActionButton tone="primary" onClick={openJobPicker}>{showJobPicker ? 'Close generator' : 'Generate Invoice'}</ActionButton>
+      </div>
+    </aside>
+  );
 
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
-        subtitle="Create accurate invoices from completed jobs and track delivery and payment status."
-        headerActions={
-          <button onClick={openJobPicker} style={primaryButton}>+ Generate Invoice</button>
-        }
+        subtitle="Create invoices from completed jobs and track delivery and payment status."
+        headerActions={<ActionButton tone="primary" onClick={openJobPicker}>+ Generate Invoice</ActionButton>}
       >
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 750, color: '#1e293b', margin: '0 0 1.1rem' }}>
-          Finance Workspace
-        </h2>
+        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
 
-        {error && <div style={errorBox}>{error}</div>}
-
-        {summary && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(105px,1fr))', gap: '0.7rem', marginBottom: '1rem' }}>
-            {summaryCards.map(([label, value]) => (
-              <div key={String(label)} style={{ ...card, padding: '0.75rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.45rem', fontWeight: 850, color: '#0b2f6b' }}>{value}</div>
-                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.2rem', fontWeight: 700 }}>{label}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: '0.42rem 0.8rem',
-                borderRadius: 7,
-                border: '1px solid #d7e0ea',
-                background: activeTab === tab.id ? '#1d4ed8' : '#fff',
-                color: activeTab === tab.id ? '#fff' : '#475569',
-                fontWeight: 750,
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div style={card}>
-          {loading ? (
-            <div style={emptyBox}>Loading invoices…</div>
-          ) : invoices.length === 0 ? (
-            <div style={emptyBox}>No invoices found for this company.</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
-                <thead>
-                  <tr>
-                    {['Invoice', 'Customer', 'Job reference', 'Date', 'Due', 'Status', 'Total', 'Action'].map((heading) => (
-                      <th key={heading} style={th}>{heading}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map((invoice) => {
-                    const tone = STATUS_COLORS[invoice.status] ?? STATUS_COLORS.Draft;
-                    return (
-                      <tr key={invoice.id}>
-                        <td style={td}><strong>{invoice.invoice_number}</strong></td>
-                        <td style={td}>{invoice.client_name}</td>
-                        <td style={td}>{invoice.job_ref}</td>
-                        <td style={td}>{date(invoice.invoice_date)}</td>
-                        <td style={td}>{date(invoice.due_date)}</td>
-                        <td style={td}><span style={{ background: tone.bg, color: tone.text, padding: '0.2rem 0.48rem', borderRadius: 999, fontSize: '0.68rem', fontWeight: 800 }}>{invoice.status}</span></td>
-                        <td style={td}>{money(invoice.amount, invoice.currency)}</td>
-                        <td style={td}><button onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)} style={secondaryButton}>Open</button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <div className="driver-board-layout driver-finance-board">
+          {financeRail}
+          <main className="driver-board-main">
+            <div className="driver-tab-strip" role="tablist" aria-label="Invoice states">
+              {STATUS_TABS.map((tab) => (
+                <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>
+                  {tab.label} <span>{counts[tab.id]}</span>
+                </button>
+              ))}
             </div>
-          )}
-        </div>
 
-        {showJobPicker && (
-          <div style={overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) setShowJobPicker(false); }}>
-            <div style={modal}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
-                <div>
-                  <h3 style={{ margin: 0, color: '#0f172a' }}>Completed jobs</h3>
-                  <p style={{ margin: '0.35rem 0 0', color: '#64748b', fontSize: '0.78rem' }}>
-                    Marketplace invoices are built from the accepted quote and customer company record.
-                  </p>
-                </div>
-                <button onClick={() => setShowJobPicker(false)} style={closeButton}>×</button>
-              </div>
-
-              {generateError && <div style={{ ...errorBox, marginTop: '0.8rem' }}>{generateError}</div>}
-
-              <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.65rem', maxHeight: '62vh', overflowY: 'auto' }}>
+            {showJobPicker && (
+              <section className="driver-row-details" aria-label="Generate invoice from completed job">
+                <div className="driver-detail-tabs"><strong>Completed jobs ready for invoicing</strong></div>
                 {jobsLoading ? (
-                  <div style={emptyBox}>Loading completed jobs…</div>
+                  <EmptyState compact title="Loading completed jobs…" />
                 ) : eligibleJobs.length === 0 ? (
-                  <div style={emptyBox}>No delivered or completed jobs are available.</div>
-                ) : eligibleJobs.map((job) => (
-                  <div key={job.id} style={{ border: '1px solid #d7e0ea', borderRadius: 9, padding: '0.75rem', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <strong style={{ color: '#0f172a', fontSize: '0.82rem' }}>
-                          {job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}
-                        </strong>
-                        <div style={{ color: '#64748b', fontSize: '0.7rem', marginTop: '0.25rem' }}>
-                          {job.customer_reference ?? `JOB-${job.id.slice(0, 8).toUpperCase()}`} · {date(job.pickup_datetime)} · {job.status}
+                  <EmptyState compact title="No eligible jobs" description="No delivered or completed jobs are currently available for invoice generation." />
+                ) : (
+                  <div className="driver-load-list">
+                    {eligibleJobs.map((job) => (
+                      <article key={job.id} className="driver-load-row">
+                        <div className="driver-load-row__top">
+                          <div className="driver-load-cell"><span className="driver-cell-label">Route</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong><span className="driver-cell-secondary">{date(job.pickup_datetime)}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{job.client_name ?? 'Marketplace customer'}</strong><span className="driver-cell-secondary">{job.customer_reference ?? `JOB-${job.id.slice(0, 8).toUpperCase()}`}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Agreed amount</span><strong className="driver-cell-primary">{money(Number(job.invoice?.amount ?? job.budget_amount ?? 0))}</strong><span className="driver-cell-secondary">{job.status}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{job.invoice?.invoice_number ?? 'Not generated'}</strong><span className="driver-cell-secondary">{job.invoice?.status ?? 'Ready for draft'}</span></div>
                         </div>
-                        {job.invoice && (
-                          <div style={{ color: Number(job.invoice.amount ?? 0) > 0 ? '#166534' : '#b91c1c', fontSize: '0.7rem', marginTop: '0.25rem', fontWeight: 700 }}>
-                            Existing {job.invoice.invoice_number ?? 'invoice'} · {job.invoice.status} · {money(Number(job.invoice.amount ?? 0))}
+                        <div className="driver-load-row__meta">
+                          <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
+                          <div className="driver-row-actions">
+                            <ActionButton tone="primary" disabled={generatingJobId === job.id} onClick={() => void generateInvoice(job.id)}>
+                              {generatingJobId === job.id ? 'Preparing…' : job.invoice ? 'Open / refresh invoice' : 'Create draft invoice'}
+                            </ActionButton>
                           </div>
-                        )}
-                      </div>
-                      <button
-                        disabled={generatingJobId === job.id}
-                        onClick={() => void generateInvoice(job.id)}
-                        style={{ ...primaryButton, opacity: generatingJobId === job.id ? 0.6 : 1 }}
-                      >
-                        {generatingJobId === job.id
-                          ? 'Preparing…'
-                          : job.invoice
-                            ? 'Open / refresh invoice'
-                            : 'Create draft invoice'}
-                      </button>
-                    </div>
+                        </div>
+                      </article>
+                    ))}
                   </div>
+                )}
+              </section>
+            )}
+
+            <div className="driver-board-summary">
+              <span>{invoices.length} invoice{invoices.length === 1 ? '' : 's'} in this view</span>
+              <ActionButton tone="secondary" onClick={() => void loadInvoices()} disabled={loading}>Refresh</ActionButton>
+            </div>
+
+            {loading ? (
+              <div className="driver-load-row"><EmptyState compact title="Loading invoices…" /></div>
+            ) : invoices.length === 0 ? (
+              <div className="driver-load-row"><EmptyState compact title="No invoices in this view" description="Generate an invoice from a completed job or choose another status." /></div>
+            ) : (
+              <div className="driver-load-list">
+                {invoices.map((invoice) => (
+                  <article key={invoice.id} className="driver-load-row" data-state={invoice.status.toLowerCase()}>
+                    <div className="driver-load-row__top">
+                      <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{invoice.invoice_number}</strong><span className="driver-cell-secondary">{date(invoice.invoice_date)}</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{invoice.client_name}</strong><span className="driver-cell-secondary">Job {invoice.job_ref}</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Due</span><strong className="driver-cell-primary">{date(invoice.due_date)}</strong><span className="driver-cell-secondary">Payment status</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Total</span><strong className="driver-cell-primary">{money(invoice.amount, invoice.currency)}</strong><span className="driver-cell-secondary"><StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></span></div>
+                    </div>
+                    <div className="driver-load-row__meta">
+                      <span>{invoice.job_id ? `Job #${invoice.job_id.slice(0, 8).toUpperCase()}` : invoice.job_ref}</span>
+                      <StatusBadge value={invoice.status} tone={statusTone(invoice.status)} />
+                      <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>Open invoice</ActionButton></div>
+                    </div>
+                  </article>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
+            )}
+          </main>
+        </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }
-
-const primaryButton: CSSProperties = {
-  padding: '0.52rem 0.85rem',
-  background: '#1d4ed8',
-  color: '#fff',
-  border: 0,
-  borderRadius: 8,
-  fontSize: '0.75rem',
-  fontWeight: 800,
-  cursor: 'pointer',
-};
-
-const secondaryButton: CSSProperties = {
-  padding: '0.35rem 0.62rem',
-  background: '#fff',
-  color: '#1d4ed8',
-  border: '1px solid #bfdbfe',
-  borderRadius: 7,
-  fontSize: '0.7rem',
-  fontWeight: 800,
-  cursor: 'pointer',
-};
-
-const errorBox: CSSProperties = {
-  background: '#fef2f2',
-  border: '1px solid #fecaca',
-  color: '#991b1b',
-  padding: '0.7rem 0.8rem',
-  borderRadius: 8,
-  fontSize: '0.78rem',
-  marginBottom: '0.8rem',
-};
-
-const emptyBox: CSSProperties = {
-  padding: '2rem',
-  textAlign: 'center',
-  color: '#64748b',
-  fontSize: '0.8rem',
-};
-
-const th: CSSProperties = {
-  textAlign: 'left',
-  padding: '0.65rem 0.7rem',
-  color: '#475569',
-  fontSize: '0.65rem',
-  fontWeight: 850,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  borderBottom: '1px solid #d7e0ea',
-  background: '#f8fafc',
-};
-
-const td: CSSProperties = {
-  padding: '0.7rem',
-  color: '#0f172a',
-  fontSize: '0.76rem',
-  borderBottom: '1px solid #edf2f7',
-};
-
-const overlay: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(15,23,42,0.58)',
-  display: 'grid',
-  placeItems: 'center',
-  padding: '1rem',
-  zIndex: 1000,
-};
-
-const modal: CSSProperties = {
-  width: 'min(780px, 100%)',
-  maxHeight: '88vh',
-  overflow: 'hidden',
-  background: '#fff',
-  borderRadius: 12,
-  padding: '1rem',
-  boxShadow: '0 24px 60px rgba(15,23,42,0.3)',
-};
-
-const closeButton: CSSProperties = {
-  border: 0,
-  background: '#f1f5f9',
-  color: '#475569',
-  borderRadius: 8,
-  width: 34,
-  height: 34,
-  fontSize: '1.25rem',
-  cursor: 'pointer',
-};
