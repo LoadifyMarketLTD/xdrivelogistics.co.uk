@@ -138,6 +138,9 @@ export default function BrokerPublicEnquiries() {
     { id: 'archived', label: 'Archived', count: counts.archived },
   ];
 
+  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+
   return (
     <PageFrame>
       <PageHeader
@@ -153,28 +156,13 @@ export default function BrokerPublicEnquiries() {
         <aside className="workspace-filter-rail" aria-label="Enquiry filters">
           <div className="workspace-filter-rail__header">Search Enquiries</div>
           <div className="workspace-filter-rail__body">
-            <label>
-              CUSTOMER
-              <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Name / email" />
-            </label>
-            <label>
-              FROM
-              <input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Collection location" />
-            </label>
-            <label>
-              TO
-              <input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Delivery location" />
-            </label>
-            <label>
-              VEHICLE / CARGO
-              <input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Vehicle or freight" />
-            </label>
-            <label>
-              ENQUIRY ID
-              <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" />
-            </label>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <ActionButton tone="primary" onClick={() => undefined}>Search</ActionButton>
+            <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Name / email" /></label>
+            <label>FROM<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Collection location" /></label>
+            <label>TO<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Delivery location" /></label>
+            <label>VEHICLE / CARGO<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Vehicle or freight" /></label>
+            <label>ENQUIRY ID<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" /></label>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <span style={metaStyle}>Filters apply as you type.</span>
               <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
             </div>
           </div>
@@ -183,25 +171,16 @@ export default function BrokerPublicEnquiries() {
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
             {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                data-active={tab === item.id ? 'true' : 'false'}
-                onClick={() => setTab(item.id)}
-              >
+              <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
                 {item.label} {item.count}
               </button>
             ))}
           </div>
 
           {loading ? (
-            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
-              <EmptyState compact title="Loading enquiries…" />
-            </div>
+            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="Loading enquiries…" /></div>
           ) : filtered.length === 0 ? (
-            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
-              <EmptyState compact title="No matching enquiries" description="Adjust the filters or select another status." />
-            </div>
+            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="No matching enquiries" description="Adjust the filters or select another status." /></div>
           ) : (
             <div className="workspace-record-list">
               {filtered.map((row) => {
@@ -210,23 +189,23 @@ export default function BrokerPublicEnquiries() {
                   <article className="workspace-operational-row" key={row.id} data-state={statusOf(row.status)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>CUSTOMER / FROM</div>
+                        <div style={labelStyle}>CUSTOMER / ORIGIN</div>
                         <strong>{row.customer_name || 'Customer'}</strong>
                         <div style={{ marginTop: 2 }}>{row.pickup_location || 'Collection not supplied'}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>TO</div>
+                        <div style={labelStyle}>DESTINATION / VEHICLE</div>
                         <strong>{row.delivery_location || 'Delivery not supplied'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(row.created_at)}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{row.vehicle_type ? row.vehicle_type.replaceAll('_', ' ') : 'Vehicle not specified'}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>LOAD</div>
-                        <strong>{row.vehicle_type ? row.vehicle_type.replaceAll('_', ' ') : 'Vehicle not specified'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{row.cargo_type || 'Cargo not specified'}</div>
-                      </div>
-                      <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>COMMERCIAL</div>
+                        <div style={labelStyle}>CUSTOMER PRICE / CARRIER COST</div>
                         <strong>{money(row.amount, row.currency)}</strong>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>Carrier cost unavailable</div>
+                      </div>
+                      <div className="workspace-operational-cell">
+                        <div style={labelStyle}>MARGIN / STATUS</div>
+                        <strong>Margin unavailable</strong>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
                           <StatusBadge value={normaliseStatus(row.status)} />
                           <ActionButton tone="secondary" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close' : 'Open'}</ActionButton>
@@ -236,6 +215,8 @@ export default function BrokerPublicEnquiries() {
 
                     <div className="workspace-record-meta">
                       <span>Enquiry #{row.id.slice(0, 8).toUpperCase()}</span>
+                      <span>{when(row.created_at)}</span>
+                      <span>{row.cargo_type || 'Cargo not specified'}</span>
                       <span>{row.customer_email || 'No email'}</span>
                       <span>{row.customer_phone || 'No phone'}</span>
                     </div>
@@ -243,32 +224,24 @@ export default function BrokerPublicEnquiries() {
                     {open && (
                       <div className="workspace-record-details">
                         <div className="workspace-detail-grid">
-                          <div className="workspace-detail-item"><strong>Customer</strong><div>{row.customer_name || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Email</strong><div>{row.customer_email || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Phone</strong><div>{row.customer_phone || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Current price</strong><div>{money(row.amount, row.currency)}</div></div>
-                          <div className="workspace-detail-item"><strong>Collection</strong><div>{row.pickup_location || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Delivery</strong><div>{row.delivery_location || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Vehicle</strong><div>{row.vehicle_type || 'Not specified'}</div></div>
-                          <div className="workspace-detail-item"><strong>Cargo</strong><div>{row.cargo_type || 'Not specified'}</div></div>
+                          <div className="workspace-detail-item"><strong>Quote history</strong><div>Current enquiry price: {money(row.amount, row.currency)}. Historical quote revisions unavailable from enquiry dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Carrier offers</strong><div>Unavailable from enquiry dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Booking</strong><div>Unavailable from enquiry dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>POD</strong><div>Unavailable until a real booked job is linked.</div></div>
+                          <div className="workspace-detail-item"><strong>Customer invoice</strong><div>Unavailable from enquiry dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Carrier invoice</strong><div>Unavailable from enquiry dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Margin</strong><div>Unavailable because carrier cost is not supplied by this enquiry record.</div></div>
+                          <div className="workspace-detail-item"><strong>Customer contact</strong><div>{row.customer_name || '—'} · {row.customer_email || 'No email'} · {row.customer_phone || 'No phone'}</div></div>
                         </div>
 
-                        <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid #dfe5ec', background: '#fff' }}>
+                        <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid var(--ws-border-soft, #e2e7ed)', background: '#fff' }}>
                           <strong>Request notes</strong>
                           <div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{row.notes || 'No notes supplied'}</div>
                         </div>
 
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
-                          {row.customer_phone && (
-                            <ActionButton tone="primary" onClick={() => { window.location.href = `tel:${row.customer_phone}`; }}>Call customer</ActionButton>
-                          )}
-                          {row.customer_email && (
-                            <ActionButton tone="secondary" onClick={() => { window.location.href = `mailto:${row.customer_email}`; }}>Email customer</ActionButton>
-                          )}
-                        </div>
-
-                        <div style={{ marginTop: 5, padding: 6, border: '1px solid #f5d98b', background: '#fff8e6', color: '#6b4d00' }}>
-                          Pricing progression and Convert to Job remain backend-dependent actions; this migration does not introduce unaudited client-side writes.
+                          {row.customer_phone && <ActionButton tone="primary" onClick={() => { window.location.href = `tel:${row.customer_phone}`; }}>Call customer</ActionButton>}
+                          {row.customer_email && <ActionButton tone="secondary" onClick={() => { window.location.href = `mailto:${row.customer_email}`; }}>Email customer</ActionButton>}
                         </div>
                       </div>
                     )}
