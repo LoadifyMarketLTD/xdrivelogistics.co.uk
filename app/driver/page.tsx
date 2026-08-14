@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -252,7 +252,7 @@ export default function DriverDashboard() {
       headerActions={
         <>
           {ownerDriver && <ActionButton tone="success" onClick={() => router.push('/driver/loads')}>Find loads</ActionButton>}
-          <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>Diary</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Diary</ActionButton>
         </>
       }
     >
@@ -352,7 +352,7 @@ export default function DriverDashboard() {
                       </div>
                       <div>
                         <StatusBadge value={job.current_status ?? job.status} />
-                        <span className="driver-dash-note" style={{ display: 'block', marginTop: '3px' }}>Open job â†’</span>
+                        <span className="driver-dash-note" style={{ display: 'block', marginTop: '3px' }}>Open job →</span>
                       </div>
                     </button>
                   ))}
@@ -371,7 +371,7 @@ export default function DriverDashboard() {
                     <strong className="driver-cell-primary">{currentJob.pickup_location ?? 'Collection'}</strong>
                     <span className="driver-cell-secondary">{formatDateTime(currentJob.pickup_datetime)}</span>
                   </div>
-                  <span className="driver-route-arrow">â†’</span>
+                  <span className="driver-route-arrow">→</span>
                   <div className="driver-route-stop">
                     <span className="driver-cell-label">Delivery</span>
                     <strong className="driver-cell-primary">{currentJob.delivery_location ?? 'Delivery'}</strong>
@@ -380,7 +380,7 @@ export default function DriverDashboard() {
                 </div>
                 <div className="driver-dash-note" style={{ marginTop: '7px' }}><strong>Next action:</strong> {currentAction.description}</div>
                 <div className="driver-dash-actions" style={{ marginTop: '7px' }}>
-                  <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>{transitioningJobId === currentJob.id ? 'Savingâ€¦' : currentAction.label}</ActionButton>
+                  <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>{transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}</ActionButton>
                   <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${currentJob.id}`)}>Open full job</ActionButton>
                 </div>
               </div>
@@ -401,7 +401,7 @@ export default function DriverDashboard() {
                         const job = Array.isArray(bid.jobs) ? bid.jobs[0] : bid.jobs;
                         return (
                           <tr key={bid.id}>
-                            <td><strong>{job?.pickup_location ?? 'Collection'} â†’ {job?.delivery_location ?? 'Delivery'}</strong></td>
+                            <td><strong>{job?.pickup_location ?? 'Collection'} → {job?.delivery_location ?? 'Delivery'}</strong></td>
                             <td>{money(Number(bid.bid_price_gbp ?? 0))}</td>
                             <td><StatusBadge value={bid.status} tone={BID_STATUS_TONE[bid.status]} /></td>
                           </tr>
@@ -439,7 +439,7 @@ export default function DriverDashboard() {
                   <tbody>
                     {recentCompleted.slice(0, 6).map((job) => (
                       <tr key={job.id}>
-                        <td><strong>{job.pickup_location ?? 'Collection'} â†’ {job.delivery_location ?? 'Delivery'}</strong></td>
+                        <td><strong>{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong></td>
                         <td>{formatDateTime(job.delivery_datetime)}</td>
                         <td><StatusBadge value={job.current_status ?? job.status} /></td>
                         <td><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton></td>
