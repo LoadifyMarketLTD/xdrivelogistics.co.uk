@@ -136,7 +136,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
       const payload = (await response.json().catch(() => ({}))) as { load?: MarketplaceLoad; error?: string };
       if (!response.ok || !payload.load) throw new Error(payload.error || 'This load is no longer available on the marketplace.');
       setLoad(payload.load);
-      if (payload.load.is_fixed_price && payload.load.budget_amount != null && payload.load.budget_amount > 0) setBidAmount(String(payload.load.budget_amount));
+      if (payload.load.budget_amount != null && payload.load.budget_amount > 0) setBidAmount(String(payload.load.budget_amount));
       else setBidAmount('');
     } catch (reason) {
       setLoad(null);
@@ -166,7 +166,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     await fetchLoad();
   };
 
-  const hasProposedPrice = Boolean(load?.is_fixed_price && load.budget_amount != null && load.budget_amount > 0);
+  const hasProposedPrice = Boolean(load?.budget_amount != null && load.budget_amount > 0);
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
