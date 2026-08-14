@@ -1,47 +1,97 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ActionButton,
   PageFrame,
   PageHeader,
-  Panel,
 } from '../../components/workspace/WorkspaceUI';
 
-const compactCopy: React.CSSProperties = {
-  margin: 0,
-  color: '#64748b',
-  fontSize: 11,
-  lineHeight: '16px',
-};
+type AccountSection = 'settings' | 'team';
+
+const sections: Array<{
+  id: AccountSection;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: 'settings',
+    label: 'Company Settings',
+    description: 'Company profile and broker workspace configuration.',
+  },
+  {
+    id: 'team',
+    label: 'Team',
+    description: 'Broker users and company membership administration.',
+  },
+];
 
 export default function BrokerAccountPage() {
   const router = useRouter();
+  const [section, setSection] = useState<AccountSection>('settings');
+  const active = sections.find((item) => item.id === section) ?? sections[0];
 
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Broker administration"
         title="Account"
-        description="Company settings and team administration grouped under one account entry point."
+        description="Company administration is grouped under one compact account workspace."
       />
 
-      <div style={{ display: 'grid', gap: 5 }}>
-        <Panel
-          title="Company settings"
-          description="Manage the broker company profile and workspace configuration."
-          actions={<ActionButton tone="primary" onClick={() => router.push('/broker/settings')}>Open settings</ActionButton>}
-        >
-          <p style={compactCopy}>The existing Settings module remains the source of truth for company configuration.</p>
-        </Panel>
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Account sections">
+          <div className="workspace-filter-rail__header">Account</div>
+          <div className="workspace-filter-rail__body">
+            {sections.map((item) => {
+              const selected = item.id === section;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSection(item.id)}
+                  style={{
+                    width: '100%',
+                    minHeight: 28,
+                    padding: '4px 6px',
+                    border: `1px solid ${selected ? '#1d57d8' : '#cfd7e3'}`,
+                    background: selected ? '#eaf3ff' : '#fff',
+                    color: selected ? '#0b3f9c' : '#172033',
+                    textAlign: 'left',
+                    fontSize: 9.5,
+                    fontWeight: selected ? 800 : 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-        <Panel
-          title="Team"
-          description="Review broker users and the existing team administration surface."
-          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/team')}>Open team</ActionButton>}
-        >
-          <p style={compactCopy}>Team administration stays connected to the existing company membership workflow.</p>
-        </Panel>
+        <main style={{ minWidth: 0 }}>
+          <section className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
+            <div className="workspace-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <div>
+                <strong>{active.label}</strong>
+                <div style={{ color: '#64748b', marginTop: 2 }}>{active.description}</div>
+              </div>
+              <ActionButton
+                tone="primary"
+                onClick={() => router.push(section === 'settings' ? '/broker/settings' : '/broker/team')}
+              >
+                Open {section === 'settings' ? 'settings' : 'team'}
+              </ActionButton>
+            </div>
+            <div style={{ padding: 7, color: '#64748b', fontSize: 10.5, lineHeight: '15px' }}>
+              {section === 'settings'
+                ? 'The existing Settings module remains the source of truth for broker company configuration. No settings are duplicated in this account hub.'
+                : 'The existing Team module remains connected to the company membership workflow. Account only provides the shared navigation entry point.'}
+            </div>
+          </section>
+        </main>
       </div>
     </PageFrame>
   );
