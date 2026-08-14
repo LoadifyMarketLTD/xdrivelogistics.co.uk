@@ -1,0 +1,73 @@
+'use client';
+
+import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+
+const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
+const daysUntil = (value: string | null | undefined) => value
+  ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000)
+  : null;
+
+export default function FleetVehiclesPage() {
+  const router = useRouter();
+  const data = useCompanyWorkspaceData();
+  const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
+
+  const documentsByVehicle = useMemo(() => {
+    const map = new Map<string, (typeof data.vehicleDocuments)>();
+    for (const document of data.vehicleDocuments) {
+      if (!document.vehicle_id) continue;
+      const rows = map.get(document.vehicle_id) ?? [];
+      rows.push(document);
+      map.set(document.vehicle_id, rows);
+    }
+    return map;
+  }, [data.vehicleDocuments]);
+
+  const documentOfType = (vehicleId: string, needle: string) =>
+    (documentsByVehicle.get(vehicleId) ?? []).find((document) => normalise(document.doc_type).includes(needle));
+
+  return (
+    <PageFrame>
+      <PageHeader
+        eyebrow="Fleet resources"
+        title="Vehicles"
+        description="Vehicle identity, driver assignment, document readiness and availability in one dense Fleet register."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
+      />
+      <Panel title="Vehicle operations register" description="Vehicle creation and editing remain in the existing Vehicles administration page.">
+        <DataTable
+          columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Status', 'MOT', 'Insurance', 'Availability']}
+          rows={data.vehicles.map((vehicle) => {
+            const documents = documentsByVehicle.get(vehicle.id) ?? [];
+            const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
+            const mot = documentOfType(vehicle.id, 'mot');
+            const insurance = documentOfType(vehicle.id, 'insurance');
+            const alert = documents.length === 0 || documents.some((document) => {
+              const days = daysUntil(document.expiry_date);
+              return ['rejected', 'expired'].includes(normalise(document.status)) || (days !== null && days <= 30);
+            });
+            const docValue = (document: (typeof data.vehicleDocuments)[number] | undefined) => {
+              if (!document) return 'Not recorded';
+              const days = daysUntil(document.expiry_date);
+              return `${document.status ?? 'recorded'}${document.expiry_date ? ` · ${document.expiry_date}${days !== null ? ` (${days}d)` : ''}` : ''}`;
+            };
+            return [
+              <strong key="vehicle">{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || (vehicle.type ?? 'Vehicle').replace(/_/g, ' ')}</strong>,
+              (vehicle.type ?? 'Not specified').replace(/_/g, ' '),
+              vehicle.reg_plate ?? 'Not recorded',
+              driver?.display_name ?? driver?.email ?? 'Unassigned',
+              <StatusBadge key="status" value={alert ? 'attention required' : 'evidence current'} tone={alert ? 'orange' : 'green'} />,
+              docValue(mot),
+              docValue(insurance),
+              <StatusBadge key="availability" value={vehicle.assigned_driver_id ? 'assigned' : 'available'} tone={vehicle.assigned_driver_id ? 'blue' : 'green'} />,
+            ];
+          })}
+          empty={<EmptyState title="No vehicles in the Fleet" />}
+        />
+      </Panel>
+    </PageFrame>
+  );
+}
