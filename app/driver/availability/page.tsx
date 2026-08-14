@@ -277,7 +277,7 @@ export default function AvailabilityPage() {
             <div className="driver-availability-section">
               <div className="driver-availability-section__head">
                 <strong>Live status</strong>
-                <StatusBadge value={availabilityLabel} tone={availability === 'available' ? 'green' : availability === 'busy' ? 'orange' : 'neutral'} />
+                <StatusBadge value={availabilityLabel} tone={availability === 'available' ? 'green' : availability === 'busy' ? 'orange' : 'grey'} />
               </div>
               <div className="driver-availability-status-list">
                 {AVAILABILITY_OPTIONS.map((option) => (
@@ -338,15 +338,15 @@ export default function AvailabilityPage() {
               <div className="driver-availability-readiness-strip">
                 <div><span>Driver type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>
                 <div><span>Commercial bidding</span><StatusBadge value={driverRow?.can_commercial_bid ? 'Enabled' : 'Restricted'} tone={driverRow?.can_commercial_bid ? 'green' : 'orange'} /></div>
-                <div><span>International work</span><StatusBadge value={driverRow?.international_work_approved ? 'Approved' : 'UK only'} tone={driverRow?.international_work_approved ? 'green' : 'neutral'} /></div>
-                <div><span>Driver record</span><StatusBadge value={humanize(driverRow?.status)} tone={String(driverRow?.status ?? '').toLowerCase() === 'active' ? 'green' : 'neutral'} /></div>
+                <div><span>International work</span><StatusBadge value={driverRow?.international_work_approved ? 'Approved' : 'UK only'} tone={driverRow?.international_work_approved ? 'green' : 'grey'} /></div>
+                <div><span>Driver record</span><StatusBadge value={humanize(driverRow?.status)} tone={String(driverRow?.status ?? '').toLowerCase() === 'active' ? 'green' : 'grey'} /></div>
               </div>
             </section>
 
             <section className="driver-availability-panel">
               <div className="driver-availability-panel__head">
                 <div><strong>Weekly schedule</strong><span>Toggle AM, PM and evening availability for marketplace matching.</span></div>
-                {!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'Default available'} tone={hasSavedSchedule ? 'blue' : 'neutral'} />}
+                {!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'Default available'} tone={hasSavedSchedule ? 'blue' : 'grey'} />}
               </div>
 
               {scheduleUnavailable ? (
