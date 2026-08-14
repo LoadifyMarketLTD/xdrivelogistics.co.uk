@@ -4,14 +4,14 @@
   gap:4px;
   align-items:start;
 }
-.driver-account-hub>.driver-account-column:first-child{
+.driver-account-nav-column{
   grid-column:1;
   grid-row:1/span 2;
   position:sticky;
   top:58px;
 }
-.driver-account-hub>.driver-account-column:nth-child(2),
-.driver-account-hub>.driver-account-column:nth-child(3){
+.driver-account-profile-column,
+.driver-account-readiness-column{
   grid-column:2;
 }
 .driver-account-column{
@@ -32,11 +32,7 @@
   font-size:10.5px;
   font-weight:800;
 }
-.driver-account-column__body{
-  display:grid;
-  gap:4px;
-  padding:5px;
-}
+.driver-account-column__body{display:grid;gap:4px;padding:5px}
 .driver-account-member-card{display:grid;gap:0;padding:6px 8px}
 .driver-account-member-card>div{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;padding:5px 0;border-bottom:1px solid #edf1f5}
 .driver-account-member-card>div:last-child{border-bottom:0}
@@ -64,22 +60,14 @@
 .driver-account-link strong{display:block;color:#172033;font-size:10px;line-height:12px}
 .driver-account-link small{display:block;margin-top:1px;color:#64748b;font-size:8.5px;line-height:10.5px}
 .driver-account-link>span:last-child{color:#1d57d8;font-size:13px;font-weight:800}
-.driver-account-hub>.driver-account-column:first-child .driver-account-link{
+.driver-account-nav-column .driver-account-link{
   min-height:34px!important;
   border-color:transparent!important;
   border-bottom-color:#e2e7ed!important;
   border-radius:0!important;
 }
-.driver-account-hub>.driver-account-column:first-child .driver-account-column__body{
-  gap:0;
-  padding:0;
-}
-.driver-account-status{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:4px;
-  margin-bottom:4px;
-}
+.driver-account-nav-column .driver-account-column__body{gap:0;padding:0}
+.driver-account-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:4px}
 .driver-account-status>div{padding:4px 7px;border:1px solid #dfe5ec;border-radius:2px;background:#fff}
 .driver-account-status span{display:block;color:#64748b;font-size:8px;text-transform:uppercase;font-weight:800}
 .driver-account-status strong{display:block;margin-top:1px;color:#172033;font-size:10px;line-height:12px}
@@ -92,7 +80,7 @@
 .driver-directory-search label>span,.driver-directory-label{color:#667085;font-size:8.5px;line-height:11px;font-weight:750;text-transform:uppercase;letter-spacing:.035em}
 .driver-directory-search input{width:100%;height:28px!important;min-height:28px!important;padding:0 6px!important;border:1px solid #ccd4df!important;border-radius:2px!important;font-size:10.5px!important}
 .driver-directory-search__actions{display:flex;justify-content:flex-end}
-.driver-directory-tabs{min-height:31px;display:flex;border-bottom:1px solid #ccd4df;background:#fff}
+.driver-directory-tabs{min-height:31px;display:flex;border-bottom:1px solid #ccd4df;background:#fff;overflow-x:auto}
 .driver-directory-tabs button{min-width:130px;height:30px!important;min-height:30px!important;padding:0 12px!important;border:0!important;border-right:1px solid #ccd4df!important;border-radius:0!important;background:#fff!important;color:#536174;font-size:10px!important}
 .driver-directory-tabs button[data-active=true]{color:#0b2f6b;font-weight:800;background:#f3f5f8!important;box-shadow:inset 0 -2px 0 #1d57d8}
 .driver-directory-toolbar span{color:#667085;font-weight:500}
@@ -107,18 +95,15 @@
 
 @media(max-width:1024px){
   .driver-account-hub{grid-template-columns:170px minmax(0,1fr)}
-  .driver-account-hub>.driver-account-column:first-child{top:52px}
+  .driver-account-nav-column{top:52px}
 }
 @media(max-width:900px){
   .driver-directory-layout{grid-template-columns:1fr}
-  .driver-directory-row{grid-template-columns:minmax(180px,1.3fr) minmax(120px,.8fr) 100px}
-  .driver-directory-row>div:nth-child(3){display:none}
+  .driver-directory-row{grid-template-columns:minmax(180px,1.3fr) minmax(120px,.8fr) minmax(110px,.65fr) 100px;overflow-x:auto}
 }
 @media(max-width:760px){
   .driver-account-hub,.driver-account-status{grid-template-columns:1fr}
-  .driver-account-hub>.driver-account-column:first-child,
-  .driver-account-hub>.driver-account-column:nth-child(2),
-  .driver-account-hub>.driver-account-column:nth-child(3){grid-column:1;grid-row:auto;position:static}
+  .driver-account-nav-column,.driver-account-profile-column,.driver-account-readiness-column{grid-column:1;grid-row:auto;position:static}
   .driver-account-member-card>div{grid-template-columns:90px minmax(0,1fr)}
 }
 @media(max-width:640px){
