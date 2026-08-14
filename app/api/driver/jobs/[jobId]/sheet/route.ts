@@ -81,12 +81,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const originCompanyId = text(job.company_id);
   const vehicleId = text(job.vehicle_id);
 
+  const acceptedBidPromise = driver.companyId
+    ? supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle()
+    : supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('bidder_driver_id', driver.driverId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const invoicePromise = driver.companyId
+    ? supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).order('created_at', { ascending: false }).limit(5)
+    : Promise.resolve({ data: [], error: null });
+
   const [companyResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    acceptedBidPromise,
     supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
-    supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(5),
+    invoicePromise,
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     vehicleId
       ? supabaseAdmin.from('vehicles').select('*').eq('id', vehicleId).maybeSingle()
@@ -152,7 +159,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const requestedCargo = text(job.requested_cargo_label) ?? text(job.cargo_type);
   const requirements = requirementFlags(job, vehicle);
   const hardCopyPod = text(job.hard_copy_pod)
-    ?? (podRequired ? 'Required / digital accepted unless job instructions specify hard copy' : 'Not Required');
+    ?? (podRequired ? 'POD required; hard-copy requirement not separately supplied' : 'Not required');
+  const deliveryPhotos = Array.isArray(job.delivery_photos) ? job.delivery_photos : [];
+  const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : [];
 
   return respond(200, {
     sheet: {
@@ -185,6 +194,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         id: text(vehicle.id),
         ref: allocatedVehicleRef,
         type: allocatedVehicleType,
+        bodyType: text(vehicle.body_type),
         make: text(vehicle.make),
         model: text(vehicle.model),
         payloadKg: numberValue(vehicle.payload_kg),
@@ -223,6 +233,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         contactName: text(job.delivery_contact_name),
         contactPhone: text(job.delivery_contact_phone),
         notes: text(job.delivery_notes),
+        receiverName: text(job.client_signature_name),
+        signatureRecorded: Boolean(text(job.delivery_signature_data) ?? text(job.pod_signature_url)),
+      },
+      pod: {
+        generated: boolValue(job.pod_generated),
+        generatedAt: text(job.pod_generated_at),
+        photoCount: Math.max(deliveryPhotos.length, podPhotos.length),
+        collectionPhotoRecorded: Boolean(text(job.collection_photo_url)),
+        receiverName: text(job.client_signature_name),
+        signatureRecorded: Boolean(text(job.delivery_signature_data) ?? text(job.pod_signature_url)),
       },
       publicQuoteNotes: loadDetails.publicQuoteNotes,
       executionInstructions: loadDetails.executionInstructions ?? text(job.load_notes),
@@ -242,7 +262,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || driverResult.error
       ),
       unavailable: {
-        bodyType: 'No verified body-type field is exposed by the current job/vehicle contract.',
+        bodyType: text(vehicle.body_type) ? null : 'No verified body-type value is available for this allocated/current vehicle.',
         extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
         bookingFooter: 'No historical booking-footer snapshot is exposed by the current verified data contract.',
       },
