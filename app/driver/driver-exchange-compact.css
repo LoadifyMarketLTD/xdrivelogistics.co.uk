@@ -510,10 +510,6 @@
   line-height: 13px;
 }
 
-.driver-exchange-main .driver-dash-box__body:has(.driver-booking-list) {
-  padding: 4px;
-}
-
 @media (max-width: 1200px) {
   .driver-exchange-dashboard {
     grid-template-columns: 280px minmax(0, 1fr);
