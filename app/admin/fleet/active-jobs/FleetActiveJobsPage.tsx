@@ -3,21 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
 
-const EXECUTION_STATUSES = new Set([
-  'allocated',
-  'accepted',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
-]);
-
-const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
@@ -27,8 +14,7 @@ export default function FleetActiveJobsPage() {
   const router = useRouter();
   const jobs = data.jobs.filter((job) =>
     job.awarded_carrier_company_id === data.companyId
-    && Boolean(job.assigned_driver_id)
-    && EXECUTION_STATUSES.has(normalise(job.current_status ?? job.status))
+    && classifyWorkspaceJobStage(job) === 'in_progress'
   );
 
   return (
@@ -36,10 +22,10 @@ export default function FleetActiveJobsPage() {
       <PageHeader
         eyebrow="Fleet operations"
         title="Active Jobs"
-        description="Carrier-won jobs currently allocated to a Fleet driver and moving through execution."
+        description="Carrier-won jobs that have moved beyond allocation and are currently in execution."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
-      <Panel title="Carrier-won execution register" description="Own-company posted work awarded to another carrier is not included in this Fleet execution queue.">
+      <Panel title="Carrier-won execution register" description="Allocated/accepted jobs remain in Allocated until the driver starts execution. Own-company posted work awarded to another carrier is excluded.">
         <DataTable
           columns={['Route', 'Pickup', 'Delivery', 'Driver', 'Vehicle required', 'Status', 'Action']}
           rows={jobs.map((job) => [
@@ -51,7 +37,7 @@ export default function FleetActiveJobsPage() {
             <StatusBadge key="status" value={job.current_status ?? job.status} />,
             <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
           ])}
-          empty={<EmptyState title="No active carrier-won jobs" description="Allocated Fleet work appears here when execution begins." />}
+          empty={<EmptyState title="No active carrier-won jobs" description="Allocated Fleet work appears here after execution begins." />}
         />
       </Panel>
     </PageFrame>
