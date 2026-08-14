@@ -26,6 +26,12 @@ type JourneyMeta = {
   weightKg: number | null;
   spaceUnits: number | null;
 };
+type DatabaseErrorLike = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
 
 const BASE_SELECT = 'id,company_id,driver_id,vehicle_type,from_postcode,to_postcode,available_from,available_to,notes,status,created_at';
 const META_SOURCE = 'xdrive_return_exchange_v2';
@@ -40,6 +46,22 @@ function finiteNumber(value: unknown) {
   if (value === '' || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isReturnJourneySchemaUnavailable(error: DatabaseErrorLike | null | undefined) {
+  if (!error) return false;
+  const code = String(error.code ?? '').toUpperCase();
+  const message = [error.message, error.details, error.hint].filter(Boolean).join(' ').toLowerCase();
+  const missingSchemaCode = ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(code);
+  const mentionsReturnJourneys = message.includes('return_journeys') || message.includes('return journeys');
+  return missingSchemaCode && (mentionsReturnJourneys || code === '42P01' || code === 'PGRST205');
+}
+
+function returnJourneySchemaUnavailableResponse() {
+  return respond(503, {
+    error: 'Return Journeys is not enabled in this database build yet.',
+    code: 'RETURN_JOURNEYS_SCHEMA_UNAVAILABLE',
+  });
 }
 
 function decodeNotes(value: string | null): JourneyMeta {
@@ -177,6 +199,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) {
+    if (isReturnJourneySchemaUnavailable(error)) return returnJourneySchemaUnavailableResponse();
     return operationalError({ message: 'Return journeys could not be loaded. Please retry.', context: `driver.return-journeys.get:${scope}`, cause: error });
   }
   const rows = (data ?? []) as JourneyRow[];
@@ -327,6 +350,7 @@ export async function POST(request: NextRequest) {
   };
   const { data, error } = await supabaseAdmin.from('return_journeys').insert(insert).select(BASE_SELECT).maybeSingle();
   if (error) {
+    if (isReturnJourneySchemaUnavailable(error)) return returnJourneySchemaUnavailableResponse();
     return operationalError({ message: 'The return journey could not be published. Please retry.', context: `driver.return-journeys.post:${driver.driverId}`, cause: error });
   }
   return respond(201, { journey: data });
@@ -348,6 +372,7 @@ export async function DELETE(request: NextRequest) {
     .select('id,status')
     .maybeSingle();
   if (error) {
+    if (isReturnJourneySchemaUnavailable(error)) return returnJourneySchemaUnavailableResponse();
     return operationalError({ message: 'The return journey could not be cancelled. Please retry.', context: `driver.return-journeys.delete:${id}`, cause: error });
   }
   if (!data) return respond(404, { error: 'Journey not found.' });
