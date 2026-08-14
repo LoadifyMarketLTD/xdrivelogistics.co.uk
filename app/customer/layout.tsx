@@ -5,6 +5,7 @@ import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-visual-scale.css';
+import '../components/workspace/workspace-exchange-standard.css';
 import './customer-dashboard.css';
 
 export const metadata: Metadata = {
