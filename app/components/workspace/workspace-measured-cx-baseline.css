@@ -1,0 +1,518 @@
+/* XDrive Workspace System — measured CX v3 migration baseline.
+ * Canonical values come from the v3 Master Plan and docs/ui/cx measurements.
+ * Legacy workspace CSS remains loaded temporarily; this layer is imported last by
+ * migrated workspaces and wins only inside .xdrive-workspace-measured.
+ * Super Admin is intentionally outside this scope.
+ */
+
+.xdrive-workspace-measured {
+  --ws-header-h: 50px;
+  --ws-page-x: 12px;
+  --ws-page-y: 12px;
+  --ws-gap-micro: 4px;
+  --ws-gap-internal: 8px;
+  --ws-gap-grid: 12px;
+  --ws-gap-section: 16px;
+  --ws-shell-sidebar-w: 230px;
+  --ws-filter-rail-w: 220px;
+  --ws-control-h: 32px;
+  --ws-tab-h: 28px;
+  --ws-micro-action-h: 24px;
+  --ws-panel-head-h: 36px;
+  --ws-table-head-h: 40px;
+  --ws-table-row-h: 42px;
+  --ws-operational-row-min-h: 52px;
+  --ws-meta-h: 22px;
+  --ws-font-page-title: 20px;
+  --ws-font-section-title: 14px;
+  --ws-font-panel-title: 13px;
+  --ws-font-body: 13px;
+  --ws-font-label: 11px;
+  --ws-font-meta: 11px;
+  --ws-font-micro: 10px;
+  --ws-radius: 4px;
+  --ws-border: #cfd7e3;
+  --ws-border-soft: #e2e7ed;
+  --ws-bg: #f4f6f8;
+  --ws-panel: #ffffff;
+  --ws-panel-head: #f2f4f7;
+  --ws-text: #172033;
+  --ws-muted: #64748b;
+  --ws-blue: #1d57d8;
+  --ws-navy: #0b2f6b;
+  --ws-orange: #f5a300;
+  --ws-green: #31a354;
+  --ws-red: #c62828;
+  min-height: 100vh;
+  background: var(--ws-bg);
+  color: var(--ws-text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: var(--ws-font-body);
+  line-height: 1.35;
+}
+
+.xdrive-workspace-measured *,
+.xdrive-workspace-measured *::before,
+.xdrive-workspace-measured *::after {
+  box-sizing: border-box;
+}
+
+/* Driver shell migration adapter. */
+.xdrive-workspace-measured .driver-top-shell__header {
+  height: var(--ws-header-h) !important;
+  min-height: var(--ws-header-h) !important;
+  grid-template-rows: var(--ws-header-h) !important;
+  gap: 12px !important;
+  padding: 0 var(--ws-page-x) !important;
+  overflow: visible !important;
+}
+
+.xdrive-workspace-measured .driver-top-shell__logo-button {
+  width: 132px !important;
+  height: 42px !important;
+  flex-basis: 132px !important;
+}
+
+.xdrive-workspace-measured .driver-top-shell__logo {
+  width: 132px !important;
+  height: 38px !important;
+}
+
+.xdrive-workspace-measured .driver-top-shell__identity span {
+  font-size: var(--ws-font-micro) !important;
+  line-height: 13px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .driver-top-shell__identity strong {
+  max-width: 180px !important;
+  font-size: 12px !important;
+  line-height: 15px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .driver-top-nav,
+.xdrive-workspace-measured .driver-top-nav__track,
+.xdrive-workspace-measured .driver-top-nav__item {
+  height: var(--ws-header-h) !important;
+  min-height: var(--ws-header-h) !important;
+}
+
+.xdrive-workspace-measured .driver-top-nav__item {
+  padding: 0 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .driver-top-nav__item[data-active="true"] {
+  font-weight: 700 !important;
+  box-shadow: inset 0 -2px 0 var(--ws-blue) !important;
+}
+
+.xdrive-workspace-measured .driver-shell-action,
+.xdrive-workspace-measured .driver-shell-notification {
+  height: var(--ws-control-h) !important;
+  min-height: var(--ws-control-h) !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .driver-shell-action {
+  padding: 0 12px !important;
+}
+
+.xdrive-workspace-measured .driver-shell-notification {
+  width: var(--ws-control-h) !important;
+}
+
+.xdrive-workspace-measured .driver-top-shell__content {
+  min-height: calc(100vh - var(--ws-header-h)) !important;
+}
+
+/* Page hierarchy. */
+.xdrive-workspace-measured .xdrive-page-frame {
+  max-width: none !important;
+  width: 100% !important;
+  padding: var(--ws-page-y) var(--ws-page-x) 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-page-header {
+  min-height: 44px !important;
+  margin-bottom: var(--ws-gap-internal) !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.xdrive-workspace-measured .xdrive-page-header h1,
+.xdrive-workspace-measured h1 {
+  margin: 0 !important;
+  color: var(--ws-text) !important;
+  font-size: var(--ws-font-page-title) !important;
+  line-height: 26px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .xdrive-page-header p {
+  margin: 2px 0 0 !important;
+  color: var(--ws-muted) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-page-header > div:first-child > div:first-child {
+  margin: 0 0 2px !important;
+  font-size: var(--ws-font-label) !important;
+  line-height: 14px !important;
+  letter-spacing: .02em !important;
+}
+
+.xdrive-workspace-measured h2 {
+  margin: 0 !important;
+  font-size: var(--ws-font-section-title) !important;
+  line-height: 20px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured h3 {
+  margin: 0 !important;
+  font-size: var(--ws-font-panel-title) !important;
+  line-height: 18px !important;
+  font-weight: 650 !important;
+}
+
+/* Controls. */
+.xdrive-workspace-measured input:not([type="checkbox"]):not([type="radio"]),
+.xdrive-workspace-measured select,
+.xdrive-workspace-measured button:not(.driver-top-shell__logo-button) {
+  min-height: var(--ws-control-h) !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: 12px !important;
+}
+
+.xdrive-workspace-measured input:not([type="checkbox"]):not([type="radio"]),
+.xdrive-workspace-measured select {
+  height: var(--ws-control-h) !important;
+  padding: 0 9px !important;
+  border: 1px solid var(--ws-border) !important;
+  background: #fff !important;
+  color: var(--ws-text) !important;
+}
+
+.xdrive-workspace-measured textarea {
+  min-height: 72px !important;
+  padding: 8px 9px !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured label,
+.xdrive-workspace-measured .driver-filter-field label {
+  color: #526176 !important;
+  font-size: var(--ws-font-label) !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+}
+
+/* Operational board / search rail. */
+.xdrive-workspace-measured .driver-board-layout,
+.xdrive-workspace-measured .workspace-board-layout {
+  display: grid !important;
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid) !important;
+  align-items: start !important;
+}
+
+.xdrive-workspace-measured .driver-board-main,
+.xdrive-workspace-measured .workspace-board-main {
+  display: grid !important;
+  gap: var(--ws-gap-internal) !important;
+  align-content: start !important;
+  min-width: 0 !important;
+}
+
+.xdrive-workspace-measured .driver-filter-rail,
+.xdrive-workspace-measured .workspace-filter-rail {
+  width: var(--ws-filter-rail-w) !important;
+  position: sticky !important;
+  top: var(--ws-header-h) !important;
+  align-self: start !important;
+  overflow: hidden !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #f7f9fc !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .driver-filter-rail__header,
+.xdrive-workspace-measured .workspace-filter-rail__header,
+.xdrive-workspace-measured .driver-dashboard-section > .driver-filter-rail__header {
+  min-height: var(--ws-panel-head-h) !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 8px 10px !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+  color: var(--ws-text) !important;
+  font-size: var(--ws-font-panel-title) !important;
+  line-height: 18px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .driver-filter-rail__body,
+.xdrive-workspace-measured .workspace-filter-rail__body {
+  display: grid !important;
+  gap: 6px !important;
+  padding: 10px !important;
+}
+
+.xdrive-workspace-measured .driver-filter-field {
+  display: grid !important;
+  gap: 3px !important;
+}
+
+/* Tabs stay compact, but readable. */
+.xdrive-workspace-measured .driver-tab-strip,
+.xdrive-workspace-measured .workspace-tab-strip,
+.xdrive-workspace-measured .driver-status-tabs,
+.xdrive-workspace-measured [role="tablist"] {
+  min-height: var(--ws-tab-h) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .driver-tab-strip button,
+.xdrive-workspace-measured .workspace-tab-strip button,
+.xdrive-workspace-measured .driver-status-tabs button,
+.xdrive-workspace-measured [role="tablist"] button {
+  height: var(--ws-tab-h) !important;
+  min-height: var(--ws-tab-h) !important;
+  padding: 0 10px !important;
+  border-radius: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* Panels and sections. */
+.xdrive-workspace-measured .workspace-panel,
+.xdrive-workspace-measured .driver-panel,
+.xdrive-workspace-measured .driver-operational-card,
+.xdrive-workspace-measured .workspace-card,
+.xdrive-workspace-measured .driver-dashboard-section,
+.xdrive-workspace-measured section[data-workspace-panel="true"] {
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+}
+
+/* Operational records. */
+.xdrive-workspace-measured .driver-load-list,
+.xdrive-workspace-measured .workspace-record-list {
+  display: grid !important;
+  gap: var(--ws-gap-internal) !important;
+}
+
+.xdrive-workspace-measured .driver-load-row,
+.xdrive-workspace-measured .workspace-operational-row,
+.xdrive-workspace-measured .driver-job-row {
+  overflow: hidden !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .driver-load-row__top,
+.xdrive-workspace-measured .workspace-operational-row__top {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1.55fr) minmax(130px, .65fr) minmax(155px, .75fr) !important;
+  min-height: var(--ws-operational-row-min-h) !important;
+  height: auto !important;
+}
+
+.xdrive-workspace-measured .driver-load-cell,
+.xdrive-workspace-measured .workspace-operational-cell {
+  min-width: 0 !important;
+  padding: 8px 10px !important;
+  border-right: 1px solid var(--ws-border-soft) !important;
+}
+
+.xdrive-workspace-measured .driver-cell-label {
+  font-size: var(--ws-font-label) !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .driver-cell-primary {
+  font-size: var(--ws-font-body) !important;
+  line-height: 18px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .driver-cell-secondary {
+  font-size: var(--ws-font-meta) !important;
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured .driver-load-row__meta,
+.xdrive-workspace-measured .workspace-record-meta {
+  min-height: var(--ws-meta-h) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 3px 8px !important;
+  background: #f4f7fb !important;
+  color: var(--ws-muted) !important;
+  font-size: var(--ws-font-meta) !important;
+  line-height: 15px !important;
+  flex-wrap: wrap !important;
+}
+
+.xdrive-workspace-measured .driver-row-actions button,
+.xdrive-workspace-measured .driver-dashboard-section > .driver-filter-rail__header button {
+  height: var(--ws-micro-action-h) !important;
+  min-height: var(--ws-micro-action-h) !important;
+  padding: 0 9px !important;
+  font-size: 11px !important;
+}
+
+.xdrive-workspace-measured .driver-row-details,
+.xdrive-workspace-measured .workspace-record-details {
+  padding: 10px !important;
+  border-top: 1px solid var(--ws-border-soft) !important;
+  background: #fbfcfe !important;
+}
+
+.xdrive-workspace-measured .driver-detail-grid,
+.xdrive-workspace-measured .workspace-detail-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: var(--ws-gap-internal) !important;
+}
+
+.xdrive-workspace-measured .driver-detail-item,
+.xdrive-workspace-measured .workspace-detail-item {
+  min-width: 0 !important;
+  min-height: 44px !important;
+  padding: 7px 9px !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+}
+
+.xdrive-workspace-measured .driver-detail-item span {
+  font-size: var(--ws-font-label) !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .driver-detail-item strong {
+  margin-top: 2px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Simple tables use the measured table family, not operational-record height. */
+.xdrive-workspace-measured table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 12px !important;
+}
+
+.xdrive-workspace-measured thead th {
+  height: var(--ws-table-head-h) !important;
+  padding: 7px 9px !important;
+  font-size: var(--ws-font-label) !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured tbody td {
+  min-height: var(--ws-table-row-h) !important;
+  padding: 8px 9px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Status language. */
+.xdrive-workspace-measured [class*="status-badge"],
+.xdrive-workspace-measured [class*="StatusBadge"] {
+  min-height: 20px !important;
+  padding: 2px 7px !important;
+  font-size: 10px !important;
+  line-height: 14px !important;
+}
+
+/* Compact empty states: useful, never viewport-filling. */
+.xdrive-workspace-measured .xdrive-empty-state {
+  min-height: 52px !important;
+  padding: 10px 12px !important;
+}
+
+.xdrive-workspace-measured .xdrive-empty-state strong {
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .xdrive-empty-state p {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+@media (max-width: 1240px) {
+  .xdrive-workspace-measured .driver-top-nav__item {
+    padding: 0 7px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured {
+    --ws-page-x: 10px;
+    --ws-page-y: 10px;
+  }
+
+  .xdrive-workspace-measured .driver-board-layout,
+  .xdrive-workspace-measured .workspace-board-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-workspace-measured .driver-filter-rail,
+  .xdrive-workspace-measured .workspace-filter-rail {
+    position: static !important;
+    width: 100% !important;
+  }
+
+  .xdrive-workspace-measured .driver-detail-grid,
+  .xdrive-workspace-measured .workspace-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .xdrive-workspace-measured {
+    --ws-page-x: 8px;
+    --ws-page-y: 8px;
+  }
+
+  .xdrive-workspace-measured .driver-top-shell__header {
+    gap: 6px !important;
+  }
+
+  .xdrive-workspace-measured .driver-load-row__top,
+  .xdrive-workspace-measured .workspace-operational-row__top,
+  .xdrive-workspace-measured .driver-detail-grid,
+  .xdrive-workspace-measured .workspace-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-workspace-measured .driver-load-cell,
+  .xdrive-workspace-measured .workspace-operational-cell {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--ws-border-soft) !important;
+  }
+}
