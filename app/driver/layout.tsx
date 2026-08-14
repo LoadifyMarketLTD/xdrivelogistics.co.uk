@@ -10,6 +10,7 @@ import './driver-top-shell.css';
 import './driver-master.css';
 import './driver-account.css';
 import './driver-dashboard-reference.css';
+import './driver-loads-visual-standard.css';
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0B2F6B' };
 export const metadata: Metadata = {
