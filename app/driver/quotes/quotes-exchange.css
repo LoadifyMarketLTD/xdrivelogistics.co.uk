@@ -1,2 +1,46 @@
-/* Driver Quotes route styles. */
-.driver-quotes-exchange .driver-operational-page{display:grid!important;grid-template-columns:205px minmax(0,1fr)!important;gap:6px!important;align-items:start}.driver-quotes-exchange .xdrive-page-header{grid-column:1/-1}.driver-quotes-exchange .driver-operational-page>h2{display:none}.driver-quotes-exchange .driver-operational-page>div:nth-child(3){grid-column:1!important;grid-row:2/span 20!important;margin:0!important;padding:7px!important;border:1px solid #ccd4df!important;border-radius:3px!important;box-shadow:none!important}.driver-quotes-exchange .driver-operational-page>div:nth-child(3)>div{grid-template-columns:1fr!important;gap:6px!important}.driver-quotes-exchange .driver-operational-page>div:nth-child(3) label{min-width:0!important}.driver-quotes-exchange .driver-operational-page>div:nth-child(n+4){grid-column:2}@media(max-width:900px){.driver-quotes-exchange .driver-operational-page{grid-template-columns:1fr!important}.driver-quotes-exchange .driver-operational-page>div:nth-child(3){grid-column:1!important;grid-row:auto!important}.driver-quotes-exchange .driver-operational-page>div:nth-child(n+4){grid-column:1}}
+/* Driver Quotes route: thin route-specific layer over the shared XDrive workspace matrix.
+ * Business logic remains in page.tsx; visual geometry comes from workspace-exchange-standard.css.
+ * Keep this file intentionally small and avoid nth-child / DOM-position selectors.
+ */
+
+.driver-quotes-exchange .driver-quotes-board {
+  grid-template-columns: var(--ws-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-2) !important;
+  align-items: start !important;
+}
+
+.driver-quotes-exchange .driver-board-main {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: var(--ws-gap-2) !important;
+  align-content: start !important;
+}
+
+.driver-quotes-exchange .driver-filter-rail {
+  width: var(--ws-rail-w) !important;
+}
+
+.driver-quotes-exchange .driver-board-summary {
+  min-height: 24px !important;
+  padding: 2px 3px !important;
+}
+
+.driver-quotes-exchange .driver-load-row[data-state="accepted"] {
+  border-color: var(--ws-green) !important;
+}
+
+.driver-quotes-exchange .driver-load-row[data-state="rejected"],
+.driver-quotes-exchange .driver-load-row[data-state="withdrawn"] {
+  border-color: var(--ws-border) !important;
+}
+
+@media (max-width: 1024px) {
+  .driver-quotes-exchange .driver-quotes-board {
+    grid-template-columns: 1fr !important;
+  }
+
+  .driver-quotes-exchange .driver-filter-rail {
+    width: 100% !important;
+    position: static !important;
+  }
+}
