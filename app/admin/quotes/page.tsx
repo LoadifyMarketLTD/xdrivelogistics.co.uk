@@ -1,23 +1,23 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { useAuth } from '../../components/AuthContext';
+import {
+  ActionButton,
+  AlertBanner,
+  DataTable,
+  EmptyState,
+  PageFrame,
+  PageHeader,
+  StatusBadge,
+} from '../../components/workspace/WorkspaceUI';
 
 const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture', 'machinery', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'equipment', 'other'];
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: '#f3f4f6', text: '#6b7280' },
-  sent: { bg: '#e0f2fe', text: '#075985' },
-  accepted: { bg: '#d1fae5', text: '#065f46' },
-  declined: { bg: '#fee2e2', text: '#991b1b' },
-  converted: { bg: '#ede9fe', text: '#5b21b6' },
-  withdrawn: { bg: '#e2e8f0', text: '#475569' },
-};
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
   { id: 'received', label: 'Received', statuses: ['draft'] },
@@ -52,17 +52,11 @@ export default function QuotesPage() {
   const [flowMessage, setFlowMessage] = useState('');
 
   const loadCompanyId = async (userId: string) => {
-    // bootstrap_company_membership() returns profiles.company_id and ensures
-    // a company_memberships row exists for RLS is_company_member() checks.
-    // Unlike get_or_create_company_for_user(), it does NOT auto-provision a new
-    // company when profiles.company_id is already set — preventing the orphaned
-    // company bug where each page load creates a fresh empty company.
     const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
     if (typeof bootstrappedId === 'string' && bootstrappedId.length > 0) {
       setCompanyId(bootstrappedId);
       return;
     }
-    // Fallback: bootstrap function not yet deployed — use legacy path.
     const { data: rpcId } = await supabase.rpc('get_or_create_company_for_user');
     if (rpcId) {
       setCompanyId(rpcId as string);
@@ -81,68 +75,67 @@ export default function QuotesPage() {
   const loadQuotes = async () => {
     setLoading(true);
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const { data, error } = await supabase
+    const { data, error: queryError } = await supabase
       .from('quotes')
       .select('id, company_id, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
-    if (!error && data) setQuotes(data as Quote[]);
+    if (!queryError && data) setQuotes(data as Quote[]);
     setLoading(false);
   };
 
   const loadCompanies = async () => {
     if (!isSupabaseConfigured || !companyId) return;
-    const { data, error } = await supabase
+    const { data, error: queryError } = await supabase
       .from('companies')
       .select('id, name')
       .eq('id', companyId)
       .order('name');
-    if (error) { console.error('Failed to load companies:', error.message); return; }
+    if (queryError) { console.error('Failed to load companies:', queryError.message); return; }
     if (data) setCompanies(data as Pick<Company, 'id' | 'name'>[]);
   };
 
   useEffect(() => {
     if (user?.companyId) {
-      // Fast path: company already resolved in auth context — no RPC needed.
       setCompanyId(user.companyId);
     } else if (hasSupabaseSession && user?.id) {
-      loadCompanyId(user.id);
+      void loadCompanyId(user.id);
     }
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   useEffect(() => {
     if (!companyId) return;
-    setFormData((prev) => ({ ...prev, company_id: companyId }));
-    loadQuotes();
-    loadCompanies();
+    setFormData((previous) => ({ ...previous, company_id: companyId }));
+    void loadQuotes();
+    void loadCompanies();
   }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
     if (!companyId) { setError('Company profile is required'); return; }
     if (!formData.customer_name.trim()) { setError('Customer name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error } = await supabase.from('quotes').insert([{
+    const { error: createError } = await supabase.from('quotes').insert([{
       ...formData,
       company_id: companyId,
       amount: formData.amount ? parseFloat(formData.amount) : null,
     }]);
-    if (error) { setError(error.message); return; }
+    if (createError) { setError(createError.message); return; }
     setShowModal(false);
     setFormData({ company_id: '', customer_name: '', customer_email: '', customer_phone: '', pickup_location: '', delivery_location: '', vehicle_type: 'van_large', cargo_type: 'packages', amount: '', currency: 'GBP' });
     setError('');
-    loadQuotes();
+    void loadQuotes();
   };
 
   const handleUpdateStatus = async (quoteId: string, status: string) => {
     if (!isSupabaseConfigured || !companyId) return;
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('quotes')
       .update({ status })
       .eq('id', quoteId)
       .eq('company_id', companyId);
-    if (!error) {
+    if (!updateError) {
       setFlowMessage(`Quote moved to ${status}.`);
-      loadQuotes();
+      void loadQuotes();
     }
   };
 
@@ -180,24 +173,19 @@ export default function QuotesPage() {
         console.error('Failed to create job from quote:', jobError.message);
         return;
       }
-      // Mark quote as converted
       await supabase
         .from('quotes')
         .update({ status: 'converted' })
         .eq('id', quote.id)
         .eq('company_id', companyId);
-      loadQuotes();
+      void loadQuotes();
       setFlowMessage('Quote converted to job successfully.');
-      if (jobData?.id) {
-        router.push(`/admin/jobs/${jobData.id}`);
-      }
+      if (jobData?.id) router.push(`/admin/jobs/${jobData.id}`);
     } finally {
       setConvertingId(null);
     }
   };
 
-  const inputStyle = { width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' as const, backgroundColor: 'white' };
-  const labelStyle = { display: 'block', fontSize: '0.9rem', fontWeight: '500' as const, color: '#374151', marginBottom: '0.5rem' };
   const filteredQuotes = useMemo(() => {
     const activeStatuses = QUOTE_TABS.find((tab) => tab.id === activeTab)?.statuses ?? [];
     return quotes.filter((quote) => {
@@ -205,12 +193,7 @@ export default function QuotesPage() {
       if (vehicleFilter !== 'all' && quote.vehicle_type !== vehicleFilter) return false;
       if (!searchTerm.trim()) return true;
       const term = searchTerm.trim().toLowerCase();
-      return [
-        quote.customer_name,
-        quote.pickup_location,
-        quote.delivery_location,
-        quote.customer_email,
-      ]
+      return [quote.customer_name, quote.pickup_location, quote.delivery_location, quote.customer_email]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term));
     });
@@ -224,284 +207,155 @@ export default function QuotesPage() {
   const safeQuotePage = Math.min(quotePage, totalQuotePages - 1);
   const paginatedQuotes = filteredQuotes.slice(safeQuotePage * QUOTES_PER_PAGE, (safeQuotePage + 1) * QUOTES_PER_PAGE);
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setVehicleFilter('all');
+  };
+
   return (
     <ProtectedRoute>
-      <div style={{ display: 'flex', height: 'calc(100vh - 89px)', overflow: 'hidden', background: '#f5f7fa' }}>
+      <PageFrame>
+        <PageHeader
+          eyebrow="Carrier commercial"
+          title="Quotes"
+          description="Manage customer quotes through the existing quote lifecycle from one dense operational register."
+          actions={<ActionButton tone="success" onClick={() => setShowModal(true)}>New Quote</ActionButton>}
+        />
 
-        {/* ── Left search panel ───────────────────────────────────────────── */}
-        <aside style={{ width: '200px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', padding: '0.85rem', overflowY: 'auto', fontSize: '0.78rem' }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.7rem', fontSize: '0.8rem' }}>🔍 Search Quotes</div>
+        {!isSupabaseConfigured && <AlertBanner tone="warning">Supabase is not configured for this workspace.</AlertBanner>}
+        {flowMessage && <AlertBanner tone="success">{flowMessage}</AlertBanner>}
 
-          {!isSupabaseConfigured && (
-            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '5px', padding: '0.45rem', marginBottom: '0.6rem', color: '#92400e', fontSize: '0.7rem' }}>⚠️ Supabase not configured</div>
-          )}
-
-          <div style={{ marginBottom: '0.5rem' }}>
-            <div style={qlabelStyle}>CUSTOMER / LOCATION</div>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search…"
-              style={qInputStyle}
-            />
-          </div>
-
-          <div style={{ marginBottom: '0.5rem' }}>
-            <div style={qlabelStyle}>VEHICLE SIZE</div>
-            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={qInputStyle}>
-              <option value="all">Any</option>
-              {VEHICLE_GROUPS.map(([group, options]) => (
-                <optgroup key={group} label={group}>
-                  {options.map(([label, value]) => (
-                    <option key={value} value={value}>{label}</option>
+        <div className="workspace-board-layout">
+          <aside className="workspace-filter-rail" aria-label="Quote filters">
+            <div className="workspace-filter-rail__header">Filter Quotes</div>
+            <div className="workspace-filter-rail__body">
+              <label>
+                CUSTOMER / LOCATION
+                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Customer, route or email" />
+              </label>
+              <label>
+                VEHICLE
+                <select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}>
+                  <option value="all">Any vehicle</option>
+                  {VEHICLE_GROUPS.map(([group, options]) => (
+                    <optgroup key={group} label={group}>
+                      {options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+                    </optgroup>
                   ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+                </select>
+              </label>
+              <div style={{ fontSize: 11, color: '#64748b', lineHeight: '15px' }}>Filters apply live to the current status tab.</div>
+              <ActionButton tone="secondary" onClick={clearFilters}>Clear filters</ActionButton>
+            </div>
+          </aside>
 
-          <div style={{ marginBottom: '0.9rem' }}>
-            <div style={qlabelStyle}>DATE</div>
-            <select style={qInputStyle}>
-              <option>Anytime</option>
-              <option>Today</option>
-              <option>This Week</option>
-              <option>This Month</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button style={{ flex: 1, background: '#16a34a', color: '#fff', border: 'none', borderRadius: '5px', padding: '0.5rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
-              Search
-            </button>
-            <button onClick={() => { setSearchTerm(''); setVehicleFilter('all'); }} style={{ padding: '0.5rem 0.6rem', border: '1px solid #e2e8f0', borderRadius: '5px', background: '#fff', cursor: 'pointer', fontSize: '0.78rem', color: '#64748b' }}>
-              Clear
-            </button>
-          </div>
-        </aside>
-
-        {/* ── Main content ─────────────────────────────────────────────────── */}
-        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-
-          {/* Tab bar + New Quote button */}
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 0 }}>
+          <main style={{ minWidth: 0 }}>
+            <div className="workspace-tab-strip" role="tablist" aria-label="Quote statuses" style={{ display: 'flex', overflowX: 'auto', marginBottom: 8 }}>
               {QUOTE_TABS.map((tab) => {
-                const count = quotes.filter((q) => tab.statuses.includes((q.status || '').toLowerCase())).length;
-                const active = activeTab === tab.id;
+                const count = quotes.filter((quote) => tab.statuses.includes((quote.status || '').toLowerCase())).length;
                 return (
                   <button
                     key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.id}
+                    data-active={activeTab === tab.id ? 'true' : 'false'}
                     onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      padding: '0.65rem 0.85rem',
-                      border: 'none',
-                      borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
-                      background: 'none',
-                      cursor: 'pointer',
-                      fontSize: '0.73rem',
-                      fontWeight: 700,
-                      letterSpacing: '0.03em',
-                      color: active ? '#1d4ed8' : '#64748b',
-                      marginBottom: '-1px',
-                      whiteSpace: 'nowrap',
-                    }}
                   >
-                    {tab.label}
-                    {count > 0 && (
-                      <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
-                        {count}
-                      </span>
-                    )}
+                    {tab.label} <span>{count}</span>
                   </button>
                 );
               })}
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              + New Quote
-            </button>
-          </div>
-          {flowMessage && (
-            <div style={{ margin: '0.85rem 0.85rem 0', background: '#ecfdf5', border: '1px solid #86efac', borderRadius: '8px', padding: '0.65rem 0.8rem', color: '#166534', fontSize: '0.82rem', fontWeight: 600 }}>
-              {flowMessage}
-            </div>
-          )}
 
-          {/* Table */}
-          <div style={{ padding: '0.85rem', flex: 1, overflow: 'auto' }}>
-            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              {loading ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>Loading…</div>
-              ) : filteredQuotes.length === 0 ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💬</div>
-                  <div style={{ fontSize: '0.88rem' }}>No quotes in this category.</div>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                        {['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions'].map((h) => (
-                          <th key={h} style={{ padding: '0.6rem 0.85rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedQuotes.map((q, i) => {
-                        const sc = STATUS_COLORS[q.status] ?? STATUS_COLORS.draft;
-                        return (
-                          <tr key={q.id} style={{ borderBottom: i < paginatedQuotes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{q.customer_name || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.pickup_location || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#374151', fontSize: '0.82rem' }}>{q.delivery_location || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#64748b', fontSize: '0.8rem' }}>{(q.vehicle_type && VEHICLE_TYPE_LABELS[q.vehicle_type]) || q.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{q.amount ? `£${q.amount.toFixed(2)}` : '—'}</td>
-                            <td style={{ padding: '0.65rem 0.85rem' }}>
-                              <span style={{ background: sc.bg, color: sc.text, padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>{q.status}</span>
-                            </td>
-                            <td style={{ padding: '0.65rem 0.85rem', color: '#94a3b8', fontSize: '0.78rem' }}>{new Date(q.created_at).toLocaleDateString('en-GB')}</td>
-                            <td style={{ padding: '0.65rem 0.85rem' }}>
-                              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                {q.status === 'draft' && (
-                                  <button onClick={() => handleUpdateStatus(q.id, 'sent')} style={actionBtn('#e0f2fe', '#075985')}>Send</button>
-                                )}
-                                {(q.status === 'draft' || q.status === 'sent') && (
-                                  <>
-                                    <button onClick={() => handleUpdateStatus(q.id, 'accepted')} style={actionBtn('#dcfce7', '#15803d')}>Accept</button>
-                                    <button onClick={() => handleUpdateStatus(q.id, 'declined')} style={actionBtn('#fee2e2', '#991b1b')}>Decline</button>
-                                  </>
-                                )}
-                                {q.status === 'sent' && (
-                                  <button onClick={() => void handleReviseQuote(q.id)} style={actionBtn('#fef3c7', '#92400e')}>Revise</button>
-                                )}
-                                {(q.status === 'draft' || q.status === 'sent' || q.status === 'accepted') && (
-                                  <button onClick={() => void handleWithdrawQuote(q.id)} style={actionBtn('#e2e8f0', '#475569')}>Withdraw</button>
-                                )}
-                                {q.status === 'accepted' && (
-                                  <button onClick={() => handleConvertToJob(q)} disabled={convertingId === q.id} style={{ padding: '0.25rem 0.6rem', border: 'none', borderRadius: '5px', background: '#16a34a', color: '#fff', cursor: convertingId === q.id ? 'not-allowed' : 'pointer', fontSize: '0.73rem', fontWeight: 700 }}>
-                                    {convertingId === q.id ? 'Converting…' : '→ Job'}
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {loading ? (
+              <div className="workspace-panel"><EmptyState compact title="Loading quotes…" /></div>
+            ) : paginatedQuotes.length === 0 ? (
+              <div className="workspace-panel"><EmptyState compact title="No quotes in this view" description="Adjust the filters or choose another status." /></div>
+            ) : (
+              <div className="workspace-panel" style={{ padding: 0, overflow: 'hidden' }}>
+                <DataTable
+                  columns={['Customer', 'Pickup', 'Delivery', 'Vehicle', 'Amount', 'Status', 'Created', 'Actions']}
+                  rows={paginatedQuotes.map((quote) => [
+                    <strong key="customer">{quote.customer_name || '—'}</strong>,
+                    quote.pickup_location || '—',
+                    quote.delivery_location || '—',
+                    (quote.vehicle_type && VEHICLE_TYPE_LABELS[quote.vehicle_type]) || quote.vehicle_type?.replace(/_/g, ' ') || '—',
+                    quote.amount != null ? `£${quote.amount.toFixed(2)}` : '—',
+                    <StatusBadge key="status" value={quote.status} />,
+                    new Date(quote.created_at).toLocaleDateString('en-GB'),
+                    <div key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {quote.status === 'draft' && <ActionButton tone="primary" onClick={() => void handleUpdateStatus(quote.id, 'sent')}>Send</ActionButton>}
+                      {(quote.status === 'draft' || quote.status === 'sent') && <ActionButton tone="success" onClick={() => void handleUpdateStatus(quote.id, 'accepted')}>Accept</ActionButton>}
+                      {(quote.status === 'draft' || quote.status === 'sent') && <ActionButton tone="danger" onClick={() => void handleUpdateStatus(quote.id, 'declined')}>Decline</ActionButton>}
+                      {quote.status === 'sent' && <ActionButton tone="warning" onClick={() => void handleReviseQuote(quote.id)}>Revise</ActionButton>}
+                      {(quote.status === 'draft' || quote.status === 'sent' || quote.status === 'accepted') && <ActionButton tone="secondary" onClick={() => void handleWithdrawQuote(quote.id)}>Withdraw</ActionButton>}
+                      {quote.status === 'accepted' && <ActionButton tone="success" disabled={convertingId === quote.id} onClick={() => void handleConvertToJob(quote)}>{convertingId === quote.id ? 'Converting…' : 'Convert to Job'}</ActionButton>}
+                    </div>,
+                  ])}
+                />
+              </div>
+            )}
+
             {!loading && filteredQuotes.length > QUOTES_PER_PAGE && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', fontSize: '0.75rem', color: '#64748b' }}>
-                <span>
-                  Showing {safeQuotePage * QUOTES_PER_PAGE + 1}–{Math.min((safeQuotePage + 1) * QUOTES_PER_PAGE, filteredQuotes.length)} of {filteredQuotes.length}
-                </span>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <button
-                    onClick={() => setQuotePage((prev) => Math.max(prev - 1, 0))}
-                    disabled={safeQuotePage === 0}
-                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: safeQuotePage === 0 ? '#f8fafc' : '#fff', color: '#334155', cursor: safeQuotePage === 0 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setQuotePage((prev) => Math.min(prev + 1, totalQuotePages - 1))}
-                    disabled={safeQuotePage >= totalQuotePages - 1}
-                    style={{ padding: '0.3rem 0.65rem', border: '1px solid #e2e8f0', borderRadius: '6px', background: safeQuotePage >= totalQuotePages - 1 ? '#f8fafc' : '#fff', color: '#334155', cursor: safeQuotePage >= totalQuotePages - 1 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Next
-                  </button>
+              <div style={{ minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 11, color: '#64748b' }}>
+                <span>Showing {safeQuotePage * QUOTES_PER_PAGE + 1}–{Math.min((safeQuotePage + 1) * QUOTES_PER_PAGE, filteredQuotes.length)} of {filteredQuotes.length}</span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <ActionButton tone="secondary" onClick={() => setQuotePage((previous) => Math.max(previous - 1, 0))} disabled={safeQuotePage === 0}>Previous</ActionButton>
+                  <ActionButton tone="secondary" onClick={() => setQuotePage((previous) => Math.min(previous + 1, totalQuotePages - 1))} disabled={safeQuotePage >= totalQuotePages - 1}>Next</ActionButton>
                 </div>
               </div>
             )}
-          </div>
-        </main>
+          </main>
+        </div>
 
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>New Quote</h2>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}>×</button>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.38)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+            <div style={{ background: '#fff', border: '1px solid #cfd7e3', borderRadius: 4, width: '100%', maxWidth: 560, maxHeight: '90vh', overflow: 'auto' }}>
+              <div style={{ minHeight: 36, padding: '0 12px', borderBottom: '1px solid #e2e7ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <strong style={{ fontSize: 14 }}>New Quote</strong>
+                <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Close</ActionButton>
               </div>
-              <div style={{ padding: '1.25rem 1.5rem', display: 'grid', gap: '0.85rem' }}>
-                {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem', color: '#dc2626', fontSize: '0.85rem' }}>{error}</div>}
-                <div>
-                  <label style={labelStyle}>Company *</label>
-                  <select style={inputStyle} value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
-                    <option value="">Select a company…</option>
-                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+              <div style={{ padding: 12, display: 'grid', gap: 8 }}>
+                {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+                <QuoteField label="Company *"><select style={modalControl} value={formData.company_id} onChange={(event) => setFormData({ ...formData, company_id: event.target.value })}><option value="">Select a company…</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></QuoteField>
+                <QuoteField label="Customer Name *"><input style={modalControl} value={formData.customer_name} onChange={(event) => setFormData({ ...formData, customer_name: event.target.value })} /></QuoteField>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                  <QuoteField label="Email"><input style={modalControl} type="email" value={formData.customer_email} onChange={(event) => setFormData({ ...formData, customer_email: event.target.value })} /></QuoteField>
+                  <QuoteField label="Phone"><input style={modalControl} value={formData.customer_phone} onChange={(event) => setFormData({ ...formData, customer_phone: event.target.value })} /></QuoteField>
                 </div>
-                <div><label style={labelStyle}>Customer Name *</label><input style={inputStyle} value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="John Smith" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
-                  <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={formData.customer_email} onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })} placeholder="customer@email.com" /></div>
-                  <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.customer_phone} onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })} placeholder="07123456789" /></div>
+                <QuoteField label="Pickup Location"><input style={modalControl} value={formData.pickup_location} onChange={(event) => setFormData({ ...formData, pickup_location: event.target.value })} /></QuoteField>
+                <QuoteField label="Delivery Location"><input style={modalControl} value={formData.delivery_location} onChange={(event) => setFormData({ ...formData, delivery_location: event.target.value })} /></QuoteField>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                  <QuoteField label="Vehicle Type"><select style={modalControl} value={formData.vehicle_type} onChange={(event) => setFormData({ ...formData, vehicle_type: event.target.value as VehicleType })}>{VEHICLE_GROUPS.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}</select></QuoteField>
+                  <QuoteField label="Cargo Type"><select style={modalControl} value={formData.cargo_type} onChange={(event) => setFormData({ ...formData, cargo_type: event.target.value as CargoType })}>{CARGO_TYPES.map((type) => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}</select></QuoteField>
                 </div>
-                <div><label style={labelStyle}>Pickup Location</label><input style={inputStyle} value={formData.pickup_location} onChange={(e) => setFormData({ ...formData, pickup_location: e.target.value })} placeholder="London, SW1A 1AA" /></div>
-                <div><label style={labelStyle}>Delivery Location</label><input style={inputStyle} value={formData.delivery_location} onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })} placeholder="Manchester, M1 1AE" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
-                  <div>
-                    <label style={labelStyle}>Vehicle Type</label>
-                    <select style={inputStyle} value={formData.vehicle_type} onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value as VehicleType })}>
-                      {VEHICLE_GROUPS.map(([group, options]) => (
-                        <optgroup key={group} label={group}>
-                          {options.map(([label, value]) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Cargo Type</label>
-                    <select style={inputStyle} value={formData.cargo_type} onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value as CargoType })}>
-                      {CARGO_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div><label style={labelStyle}>Amount (£)</label><input style={inputStyle} type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} placeholder="250.00" /></div>
+                <QuoteField label="Amount (£)"><input style={modalControl} type="number" step="0.01" value={formData.amount} onChange={(event) => setFormData({ ...formData, amount: event.target.value })} /></QuoteField>
               </div>
-              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.6rem 1.25rem', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancel</button>
-                <button onClick={handleCreate} style={{ padding: '0.6rem 1.25rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>Create Quote</button>
+              <div style={{ minHeight: 44, padding: '6px 12px', borderTop: '1px solid #e2e7ed', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+                <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Cancel</ActionButton>
+                <ActionButton tone="success" onClick={() => void handleCreate()}>Create Quote</ActionButton>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </PageFrame>
     </ProtectedRoute>
   );
 }
 
-// ── Style helpers ──────────────────────────────────────────────────────────────
-
-const qlabelStyle: React.CSSProperties = {
-  fontSize: '0.65rem',
-  fontWeight: 700,
-  color: '#94a3b8',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  marginBottom: '0.2rem',
-};
-
-const qInputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.35rem 0.45rem',
-  border: '1px solid #e2e8f0',
-  borderRadius: '4px',
-  fontSize: '0.76rem',
-  color: '#374151',
-  background: '#fff',
-  marginBottom: '0',
-  boxSizing: 'border-box',
-};
-
-function actionBtn(bg: string, color: string): React.CSSProperties {
-  return { padding: '0.22rem 0.55rem', border: 'none', borderRadius: '5px', background: bg, color, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 };
+function QuoteField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#334155' }}><span>{label}</span>{children}</label>;
 }
+
+const modalControl: React.CSSProperties = {
+  width: '100%',
+  minHeight: 32,
+  boxSizing: 'border-box',
+  border: '1px solid #cfd7e3',
+  borderRadius: 4,
+  padding: '5px 8px',
+  background: '#fff',
+  color: '#172033',
+  fontSize: 13,
+};
