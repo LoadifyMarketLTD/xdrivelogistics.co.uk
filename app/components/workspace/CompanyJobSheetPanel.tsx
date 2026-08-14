@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
@@ -50,7 +50,7 @@ const when = (value: string | null) => value ? new Date(value).toLocaleString('e
 const money = (value: number | null, currency = 'GBP') => value == null ? 'Not supplied' : new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const human = (value: string | null | undefined) => value ? value.replace(/_/g, ' ') : 'Not supplied';
 
-function Detail({ label, value, detail }: { label: string; value: React.ReactNode; detail?: React.ReactNode }) {
+function Detail({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
   return <div className="workspace-detail-item"><strong>{label}</strong><div>{value}</div>{detail ? <small>{detail}</small> : null}</div>;
 }
 
