@@ -480,7 +480,7 @@ export default function AvailableLoadsPage() {
                     load.payment_terms ? ['Payment terms', load.payment_terms] : null,
                     load.hard_copy_pod ? ['Hard-copy POD', load.hard_copy_pod] : load.pod_required != null ? ['POD required', load.pod_required ? 'Yes' : 'No'] : null,
                   ].filter((item): item is [string, string] => Boolean(item));
-                  const hasProposedPrice = load.is_fixed_price && load.budget_amount != null && load.budget_amount > 0;
+                  const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
 
                   return (
                     <article key={load.id} className="driver-load-row" data-state={quoted ? 'quoted' : 'open'}>
