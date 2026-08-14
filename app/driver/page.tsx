@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { canonicalJobStatus, filterJobsForDriver, recentCompletedJobs } from '../../lib/driverDashboard';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
-import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
 import {
   ActionButton,
@@ -15,25 +15,11 @@ import {
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
 
-type OwnerBid = {
-  id: string;
-  job_id: string;
-  bid_price_gbp: number | null;
-  status: string;
-  created_at: string;
-  jobs?: {
-    pickup_location: string | null;
-    delivery_location: string | null;
-    pickup_datetime: string | null;
-    status: string;
-  }[] | null;
-};
-
 type DriverNextAction =
   | { kind: 'transition'; nextStatus: string; label: string; description: string; resultLabel: string }
   | { kind: 'open'; label: string; description: string };
 
-const activeStatuses = new Set([
+const ACTIVE_STATUSES = new Set([
   'awarded',
   'allocated',
   'accepted',
@@ -48,15 +34,7 @@ const activeStatuses = new Set([
   'delivered',
 ]);
 
-const upcomingStatuses = new Set(['awarded', 'allocated', 'accepted']);
-const completedStatuses = new Set(['completed', 'invoiced', 'paid']);
-
-const BID_STATUS_TONE: Record<string, 'green' | 'orange' | 'red' | 'purple'> = {
-  accepted: 'green',
-  submitted: 'orange',
-  rejected: 'red',
-  withdrawn: 'purple',
-};
+const UPCOMING_STATUSES = new Set(['awarded', 'allocated', 'accepted']);
 
 const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   awarded: {
@@ -82,7 +60,7 @@ const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   },
   on_site_pickup: {
     kind: 'open',
-    label: 'Add loading photo & confirm loaded',
+    label: 'Add loading photo',
     description: 'Collection evidence is required before the job can be marked loaded.',
   },
   loaded: {
@@ -101,46 +79,58 @@ const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   },
   on_site_delivery: {
     kind: 'open',
-    label: 'Capture POD & confirm delivered',
-    description: 'Delivery photo, recipient name and signature are required before delivery confirmation.',
+    label: 'Capture POD',
+    description: 'Delivery evidence is required before delivery confirmation.',
   },
   delivered: {
     kind: 'transition',
     nextStatus: 'completed',
     label: 'Complete job',
-    description: 'Close the delivered job after the delivery evidence has been captured.',
+    description: 'Close the delivered job after POD has been captured.',
     resultLabel: 'Completed',
   },
   accepted: {
     kind: 'open',
-    label: 'Open job details',
-    description: 'This accepted-state record is continued from the full execution screen; no direct dashboard transition is attempted.',
+    label: 'Open job',
+    description: 'Continue this accepted job from the full execution screen.',
   },
   on_my_way_to_pickup: {
     kind: 'open',
-    label: 'Open pickup details',
-    description: 'This pickup-state alias is continued from the full execution screen; no direct dashboard transition is attempted.',
+    label: 'Open pickup',
+    description: 'Continue this pickup state from the full execution screen.',
   },
   collected: {
     kind: 'open',
-    label: 'Open delivery details',
-    description: 'This collected-state record is continued from the full execution screen; no direct dashboard transition is attempted.',
+    label: 'Open delivery',
+    description: 'Continue this delivery state from the full execution screen.',
   },
   on_my_way_to_delivery: {
     kind: 'open',
-    label: 'Open delivery details',
-    description: 'This delivery-state alias is continued from the full execution screen; no direct dashboard transition is attempted.',
+    label: 'Open delivery',
+    description: 'Continue this delivery state from the full execution screen.',
   },
 };
 
-function money(value: number) {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+function fmtDate(value: string | null | undefined) {
+  if (!value) return 'TBC';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'TBC';
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-function formatDateTime(value: string | null | undefined) {
-  return value
-    ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-    : 'Not set';
+function statusTone(status: string): 'green' | 'orange' | 'red' | 'purple' | 'blue' | 'grey' {
+  const value = status.toLowerCase();
+  if (['completed', 'delivered', 'paid', 'accepted'].includes(value)) return 'green';
+  if (['rejected', 'cancelled', 'driver_declined'].includes(value)) return 'red';
+  if (['submitted', 'awarded', 'allocated', 'on_my_way', 'on_site_pickup', 'loaded', 'in_transit', 'on_site_delivery'].includes(value)) return 'orange';
+  if (value === 'withdrawn') return 'purple';
+  if (value === 'posted') return 'blue';
+  return 'grey';
 }
 
 export default function DriverDashboard() {
@@ -149,68 +139,49 @@ export default function DriverDashboard() {
   const workspaceRole = resolveWorkspaceRole(user);
   const ownerDriver = workspaceRole === 'owner_driver';
   const data = useCompanyWorkspaceData();
-  const [ownerBids, setOwnerBids] = useState<OwnerBid[]>([]);
   const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
-
-  const fetchOwnerBids = useCallback(async () => {
-    if (!ownerDriver || !user?.id || !isSupabaseConfigured) return;
-
-    const { data: rows } = await supabase
-      .from('job_bids')
-      .select('id, job_id, bid_price_gbp, status, created_at, jobs(pickup_location, delivery_location, pickup_datetime, status)')
-      .eq('bidder_user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    setOwnerBids((rows ?? []) as OwnerBid[]);
-  }, [ownerDriver, user?.id]);
-
-  useEffect(() => {
-    void fetchOwnerBids();
-  }, [fetchOwnerBids]);
 
   const myJobs = useMemo(
     () => filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver }),
     [data.jobs, ownerDriver, user?.driverId],
   );
 
-  const currentJob = myJobs.find((job) => activeStatuses.has(canonicalJobStatus(job.current_status, job.status)));
+  const currentJob = myJobs.find((job) => ACTIVE_STATUSES.has(canonicalJobStatus(job.current_status, job.status)));
   const currentStatus = currentJob ? canonicalJobStatus(currentJob.current_status, currentJob.status).toLowerCase() : null;
   const currentAction = currentStatus
     ? NEXT_DRIVER_ACTIONS[currentStatus] ?? {
         kind: 'open' as const,
-        label: 'Open job details',
-        description: 'Review this job state in the full execution screen; the dashboard will not guess an unsupported transition.',
+        label: 'Open job',
+        description: 'Continue this job from the full execution screen.',
       }
     : null;
+
   const todaysJobs = myJobs
     .filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === new Date().toDateString())
     .sort((a, b) => String(a.pickup_datetime ?? '').localeCompare(String(b.pickup_datetime ?? '')));
+
   const upcomingJobs = myJobs
     .filter((job) => {
       const status = canonicalJobStatus(job.current_status, job.status);
-      return upcomingStatuses.has(status) && Boolean(job.pickup_datetime) && new Date(job.pickup_datetime as string).getTime() > Date.now();
+      return UPCOMING_STATUSES.has(status)
+        && Boolean(job.pickup_datetime)
+        && new Date(job.pickup_datetime as string).getTime() > Date.now();
     })
     .sort((a, b) => String(a.pickup_datetime ?? '').localeCompare(String(b.pickup_datetime ?? '')));
-  const recentCompleted = recentCompletedJobs(myJobs);
-  const nextBookings = [...todaysJobs, ...upcomingJobs.filter((job) => !todaysJobs.some((today) => today.id === job.id))].slice(0, 4);
 
-  const myQuotes = data.bids;
+  const nextBookings = [...todaysJobs, ...upcomingJobs.filter((job) => !todaysJobs.some((today) => today.id === job.id))]
+    .filter((job) => job.id !== currentJob?.id)
+    .slice(0, 6);
+
+  const recentCompleted = recentCompletedJobs(myJobs).slice(0, 6);
+  const submittedQuotes = data.bids.filter((quote) => quote.status === 'submitted');
+  const acceptedQuotes = data.bids.filter((quote) => quote.status === 'accepted');
   const myDocuments = data.driverDocuments.filter((document) => !user?.driverId || document.driver_id === user.driverId);
   const expiringDocuments = myDocuments.filter(
     (document) => document.expiry_date && new Date(document.expiry_date).getTime() < Date.now() + 30 * 86_400_000,
   );
-  const completedJobs = myJobs.filter((job) => completedStatuses.has(canonicalJobStatus(job.current_status, job.status))).length;
-  const submittedQuotes = myQuotes.filter((quote) => quote.status === 'submitted').length;
-  const wonWork = myQuotes.filter((quote) => quote.status === 'accepted').length;
-  const pendingInvoices = data.invoices.filter(
-    (invoice) => !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid',
-  ).length;
-  const pendingInvoiceValue = data.invoices
-    .filter((invoice) => !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid')
-    .reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
 
   const runCurrentAction = async () => {
     if (!currentJob || !currentAction) return;
@@ -228,6 +199,7 @@ export default function DriverDashboard() {
     setTransitioningJobId(currentJob.id);
     setTransitionError('');
     setTransitionMessage('');
+
     const { error } = await supabase.rpc('driver_update_job_status_atomic', {
       p_driver_id: driverId,
       p_job_id: currentJob.id,
@@ -236,7 +208,7 @@ export default function DriverDashboard() {
     });
 
     if (error) {
-      setTransitionError('The job status could not be updated from the dashboard. Open the job and retry from the execution screen.');
+      setTransitionError('The job status could not be updated here. Open the job and retry from the execution screen.');
     } else {
       setTransitionMessage(`Job updated: ${currentAction.resultLabel}.`);
       await data.refresh();
@@ -244,214 +216,210 @@ export default function DriverDashboard() {
     setTransitioningJobId(null);
   };
 
+  const renderJobRow = (
+    job: (typeof myJobs)[number],
+    actionLabel: string,
+  ) => {
+    const status = canonicalJobStatus(job.current_status, job.status);
+    return (
+      <article key={job.id} className="driver-load-row" data-state={status}>
+        <div className="driver-load-row__top">
+          <div className="driver-load-cell">
+            <span className="driver-cell-label">From</span>
+            <strong className="driver-cell-primary">{job.pickup_location ?? 'Collection TBC'}</strong>
+            <span className="driver-cell-secondary">{job.pickup_postcode ?? 'Postcode TBC'} · {fmtDate(job.pickup_datetime)}</span>
+          </div>
+          <div className="driver-load-cell">
+            <span className="driver-cell-label">To</span>
+            <strong className="driver-cell-primary">{job.delivery_location ?? 'Delivery TBC'}</strong>
+            <span className="driver-cell-secondary">{job.delivery_postcode ?? 'Postcode TBC'} · {fmtDate(job.delivery_datetime)}</span>
+          </div>
+          <div className="driver-load-cell">
+            <span className="driver-cell-label">Vehicle</span>
+            <strong className="driver-cell-primary">{job.vehicle_type?.replace(/_/g, ' ') ?? 'TBC'}</strong>
+            <span className="driver-cell-secondary">Assigned work</span>
+          </div>
+          <div className="driver-load-cell">
+            <span className="driver-cell-label">Status</span>
+            <strong className="driver-cell-primary">{status.replace(/_/g, ' ')}</strong>
+            <span className="driver-cell-secondary">Job #{job.id.slice(0, 8).toUpperCase()}</span>
+          </div>
+        </div>
+        <div className="driver-load-row__meta">
+          <StatusBadge value={status.replace(/_/g, ' ')} tone={statusTone(status)} />
+          <span>Pickup {fmtDate(job.pickup_datetime)}</span>
+          <span>Delivery {fmtDate(job.delivery_datetime)}</span>
+          <div className="driver-row-actions">
+            <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>{actionLabel}</ActionButton>
+          </div>
+        </div>
+      </article>
+    );
+  };
+
   return (
-    <DriverWorkspaceShell
-      personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
-      driverName="Today"
-      subtitle="Your workday at a glance: live status, next bookings, current execution and readiness."
-      headerActions={
-        <>
-          {ownerDriver && <ActionButton tone="success" onClick={() => router.push('/driver/loads')}>Find loads</ActionButton>}
-          <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Diary</ActionButton>
-        </>
-      }
-    >
-      {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
-      {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
-      {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
+    <div className="driver-reference-page driver-reference-dashboard">
+      <DriverWorkspaceShell
+        personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
+        driverName="Driver Dashboard"
+        subtitle="Live work, next bookings, marketplace activity and readiness."
+        availabilityLabel={currentJob ? 'On a job' : 'Available'}
+        headerActions={<ActionButton tone="primary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
+      >
+        {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
+        {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
+        {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
 
-      <div className="driver-dash-metrics" aria-label="Driver activity summary">
-        <div className="driver-dash-metric"><span>Jobs today</span><strong>{todaysJobs.length}</strong></div>
-        <div className="driver-dash-metric"><span>Active / allocated</span><strong>{currentJob ? 1 : upcomingJobs.length}</strong></div>
-        <div className="driver-dash-metric"><span>Won work</span><strong>{wonWork}</strong></div>
-        <div className="driver-dash-metric"><span>Completed</span><strong>{completedJobs}</strong></div>
-      </div>
+        <div className="driver-board-layout">
+          <aside className="driver-filter-rail" aria-label="Driver shift controls">
+            <div className="driver-filter-rail__header">Shift controls</div>
+            <div className="driver-filter-rail__body">
+              <button
+                type="button"
+                className="driver-side-tab"
+                data-active={!currentJob ? 'true' : 'false'}
+                onClick={() => router.push('/driver/availability')}
+              >
+                <span>{currentJob ? 'On a job' : 'Available'}</span>
+                <strong>{currentJob ? 1 : '✓'}</strong>
+              </button>
+              <button type="button" className="driver-side-tab" onClick={() => router.push('/driver/jobs')}>
+                <span>Jobs today</span>
+                <strong>{todaysJobs.length}</strong>
+              </button>
+              <button type="button" className="driver-side-tab" onClick={() => router.push('/driver/quotes')}>
+                <span>Quotes open</span>
+                <strong>{submittedQuotes.length}</strong>
+              </button>
+              <button type="button" className="driver-side-tab" onClick={() => router.push('/driver/documents')}>
+                <span>Documents due</span>
+                <strong>{expiringDocuments.length}</strong>
+              </button>
 
-      <div className="driver-exchange-dashboard">
-        <aside className="driver-exchange-left">
-          <section className="driver-dash-box">
-            <div className="driver-dash-box__head"><strong>Update my current status</strong><StatusBadge value={currentJob ? 'On a job' : 'Available'} tone={currentJob ? 'orange' : 'green'} /></div>
-            <div className="driver-dash-box__body">
-              <div className="driver-dash-status">
-                <div>
-                  <strong>{currentJob ? 'Executing assigned work' : 'Available for new work'}</strong>
-                  <span>{currentJob ? 'Your active job is controlling your live operational state.' : 'Keep location, radius and vehicle readiness current for marketplace matching.'}</span>
-                </div>
-              </div>
-              <div className="driver-dash-actions">
-                <ActionButton tone="success" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/availability')}>{currentJob ? 'Current job' : 'Update status'}</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Vehicle</ActionButton>
-              </div>
-            </div>
-          </section>
-
-          <section className="driver-dash-box">
-            <div className="driver-dash-box__head"><strong>Advertise availability & return journey</strong></div>
-            <div className="driver-dash-box__body">
-              <div className="driver-dash-note">Publish where your empty vehicle will be after the next delivery so matching work can be surfaced faster.</div>
-              <div className="driver-dash-actions">
-                <ActionButton tone="primary" onClick={() => router.push('/driver/returns')}>Return journey</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Future position</ActionButton>
+              <div className="driver-filter-actions">
+                <ActionButton tone="success" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/availability')}>
+                  {currentJob ? 'Current job' : 'Update status'}
+                </ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Return journey</ActionButton>
               </div>
             </div>
-          </section>
+          </aside>
 
-          <section className="driver-dash-box">
-            <div className="driver-dash-box__head"><strong>Business & readiness</strong></div>
-            <div className="driver-dash-box__body">
-              <table className="driver-dash-table">
-                <tbody>
-                  <tr><td>Quotes awaiting decision</td><td><strong>{submittedQuotes}</strong></td></tr>
-                  <tr><td>Pending invoices</td><td><strong>{pendingInvoices}</strong></td></tr>
-                  <tr><td>Invoice value</td><td><strong>{money(pendingInvoiceValue)}</strong></td></tr>
-                  <tr><td>Documents expiring</td><td><strong>{expiringDocuments.length}</strong></td></tr>
-                </tbody>
-              </table>
-              <div className="driver-dash-actions">
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Documents</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Invoices</ActionButton>
+          <main className="driver-board-main">
+            <div className="driver-tab-strip" role="tablist" aria-label="Dashboard work areas">
+              <button type="button" data-active="true">Current Work <span>{currentJob ? 1 : 0}</span></button>
+              <button type="button" onClick={() => router.push('/driver/jobs')}>Jobs <span>{myJobs.length}</span></button>
+              <button type="button" onClick={() => router.push('/driver/quotes')}>Quotes <span>{data.bids.length}</span></button>
+              <button type="button" onClick={() => router.push('/driver/history')}>Diary</button>
+            </div>
+
+            <div className="driver-board-summary">
+              <span>{todaysJobs.length} today · {upcomingJobs.length} upcoming · {acceptedQuotes.length} won · {expiringDocuments.length} document alert{expiringDocuments.length === 1 ? '' : 's'}</span>
+              <span>{data.loading ? 'Refreshing…' : 'Live workspace data'}</span>
+            </div>
+
+            <section className="driver-dashboard-section">
+              <div className="driver-filter-rail__header">
+                <span>Current execution</span>
+                {currentJob && currentStatus && <StatusBadge value={currentStatus.replace(/_/g, ' ')} tone={statusTone(currentStatus)} />}
               </div>
-            </div>
-          </section>
-
-          <section className="driver-dash-box">
-            <div className="driver-dash-box__head"><strong>Quick actions</strong></div>
-            <div className="driver-dash-box__body">
-              <div className="driver-dash-actions">
-                {ownerDriver && <ActionButton tone="success" onClick={() => router.push('/driver/loads')}>Available loads</ActionButton>}
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>My jobs</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>History</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/profile')}>Account</ActionButton>
-              </div>
-            </div>
-          </section>
-        </aside>
-
-        <main className="driver-exchange-main">
-          <section className="driver-dash-box">
-            <div className="driver-dash-box__head">
-              <strong>My activity at a glance</strong>
-              <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>View all</ActionButton>
-            </div>
-            <div className="driver-dash-box__body">
-              {nextBookings.length === 0 ? (
-                <EmptyState compact title="No bookings scheduled" description="Allocated and accepted work will appear here in pickup-time order." />
-              ) : (
-                <div className="driver-booking-list">
-                  {nextBookings.map((job) => (
-                    <button key={job.id} type="button" className="driver-booking-row" onClick={() => router.push(`/driver/jobs/${job.id}`)} style={{ width: '100%', padding: 0, textAlign: 'left', cursor: 'pointer', color: 'inherit' }}>
-                      <div className="driver-booking-route">
-                        <span>From</span>
-                        <strong>{job.pickup_location ?? 'Collection'}</strong>
-                        <span>To</span>
-                        <strong>{job.delivery_location ?? 'Delivery'}</strong>
-                      </div>
-                      <div className="driver-booking-time">
-                        <span>Pickup</span><strong>{formatDateTime(job.pickup_datetime)}</strong>
-                        <span>Deliver</span><strong>{formatDateTime(job.delivery_datetime)}</strong>
-                      </div>
-                      <div>
-                        <StatusBadge value={job.current_status ?? job.status} />
-                        <span className="driver-dash-note" style={{ display: 'block', marginTop: '3px' }}>Open job →</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {currentJob && currentAction && (
-            <section className="driver-dash-box">
-              <div className="driver-dash-box__head"><strong>Current job execution</strong><StatusBadge value={currentStatus ?? currentJob.status} tone="orange" /></div>
-              <div className="driver-dash-box__body">
-                <div className="driver-current-route">
-                  <div className="driver-route-stop">
-                    <span className="driver-cell-label">Pickup</span>
-                    <strong className="driver-cell-primary">{currentJob.pickup_location ?? 'Collection'}</strong>
-                    <span className="driver-cell-secondary">{formatDateTime(currentJob.pickup_datetime)}</span>
+              <div className="driver-dashboard-section__body">
+                {!currentJob || !currentAction ? (
+                  <div className="driver-load-row">
+                    <EmptyState compact title="No active job" description="Allocated work will appear here as the primary execution row." />
                   </div>
-                  <span className="driver-route-arrow">→</span>
-                  <div className="driver-route-stop">
-                    <span className="driver-cell-label">Delivery</span>
-                    <strong className="driver-cell-primary">{currentJob.delivery_location ?? 'Delivery'}</strong>
-                    <span className="driver-cell-secondary">{formatDateTime(currentJob.delivery_datetime)}</span>
-                  </div>
-                </div>
-                <div className="driver-dash-note" style={{ marginTop: '7px' }}><strong>Next action:</strong> {currentAction.description}</div>
-                <div className="driver-dash-actions" style={{ marginTop: '7px' }}>
-                  <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>{transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}</ActionButton>
-                  <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${currentJob.id}`)}>Open full job</ActionButton>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <div className="driver-ops-grid-2">
-            <section className="driver-dash-box">
-              <div className="driver-dash-box__head"><strong>Recent marketplace activity</strong>{ownerDriver && <ActionButton tone="secondary" onClick={() => router.push('/driver/quotes')}>Quotes</ActionButton>}</div>
-              <div className="driver-dash-box__body" style={{ padding: 0 }}>
-                {!ownerDriver || ownerBids.length === 0 ? (
-                  <div style={{ padding: '7px' }}><EmptyState compact title="No recent quote activity" /></div>
                 ) : (
-                  <table className="driver-dash-table">
-                    <thead><tr><th>Route</th><th>Quote</th><th>Result</th></tr></thead>
-                    <tbody>
-                      {ownerBids.slice(0, 6).map((bid) => {
-                        const job = Array.isArray(bid.jobs) ? bid.jobs[0] : bid.jobs;
-                        return (
-                          <tr key={bid.id}>
-                            <td><strong>{job?.pickup_location ?? 'Collection'} → {job?.delivery_location ?? 'Delivery'}</strong></td>
-                            <td>{money(Number(bid.bid_price_gbp ?? 0))}</td>
-                            <td><StatusBadge value={bid.status} tone={BID_STATUS_TONE[bid.status]} /></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <>
+                    {renderJobRow(currentJob, 'Open full job')}
+                    <div className="driver-inline-quote driver-dashboard-next-action">
+                      <span><strong>Next action:</strong> {currentAction.description}</span>
+                      <ActionButton
+                        tone="success"
+                        disabled={transitioningJobId === currentJob.id}
+                        onClick={() => void runCurrentAction()}
+                      >
+                        {transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}
+                      </ActionButton>
+                    </div>
+                  </>
                 )}
               </div>
             </section>
 
-            <section className="driver-dash-box">
-              <div className="driver-dash-box__head"><strong>Readiness & compliance</strong></div>
-              <div className="driver-dash-box__body" style={{ padding: 0 }}>
-                <table className="driver-dash-table">
-                  <tbody>
-                    <tr><td>Driver documents</td><td><strong>{myDocuments.length}</strong></td><td><ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Open</ActionButton></td></tr>
-                    <tr><td>Expiring within 30 days</td><td><strong>{expiringDocuments.length}</strong></td><td><StatusBadge value={expiringDocuments.length ? 'Attention' : 'Ready'} tone={expiringDocuments.length ? 'orange' : 'green'} /></td></tr>
-                    <tr><td>Vehicle readiness</td><td colSpan={2}><ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Check vehicle</ActionButton></td></tr>
-                    <tr><td>Availability profile</td><td colSpan={2}><ActionButton tone="secondary" onClick={() => router.push('/driver/availability')}>Update</ActionButton></td></tr>
-                  </tbody>
-                </table>
+            <section className="driver-dashboard-section">
+              <div className="driver-filter-rail__header">
+                <span>Next bookings</span>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>View all</ActionButton>
+              </div>
+              <div className="driver-dashboard-section__body">
+                {nextBookings.length === 0 ? (
+                  <div className="driver-load-row"><EmptyState compact title="No bookings scheduled" /></div>
+                ) : (
+                  <div className="driver-load-list">{nextBookings.map((job) => renderJobRow(job, 'Open job'))}</div>
+                )}
               </div>
             </section>
-          </div>
 
-          <section className="driver-dash-box">
-            <div className="driver-dash-box__head"><strong>Recent completed work</strong><ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>History</ActionButton></div>
-            <div className="driver-dash-box__body" style={{ padding: 0 }}>
-              {recentCompleted.length === 0 ? (
-                <div style={{ padding: '7px' }}><EmptyState compact title="No completed jobs yet" /></div>
-              ) : (
-                <table className="driver-dash-table">
-                  <thead><tr><th>Route</th><th>Delivered</th><th>Status</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {recentCompleted.slice(0, 6).map((job) => (
-                      <tr key={job.id}>
-                        <td><strong>{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong></td>
-                        <td>{formatDateTime(job.delivery_datetime)}</td>
-                        <td><StatusBadge value={job.current_status ?? job.status} /></td>
-                        <td><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            <div className="driver-dashboard-lower-grid">
+              <section className="driver-dashboard-section">
+                <div className="driver-filter-rail__header">
+                  <span>Marketplace activity</span>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/quotes')}>Quotes</ActionButton>
+                </div>
+                <div className="driver-dashboard-section__body driver-dashboard-table-wrap">
+                  {data.bids.length === 0 ? (
+                    <EmptyState compact title="No recent quote activity" />
+                  ) : (
+                    <table>
+                      <thead><tr><th>Quote</th><th>Status</th><th>Submitted</th></tr></thead>
+                      <tbody>
+                        {data.bids.slice(0, 6).map((bid) => (
+                          <tr key={bid.id}>
+                            <td>£{Number(bid.bid_price_gbp ?? bid.amount ?? 0).toFixed(2)}</td>
+                            <td><StatusBadge value={bid.status} tone={statusTone(bid.status)} /></td>
+                            <td>{fmtDate(bid.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </section>
+
+              <section className="driver-dashboard-section">
+                <div className="driver-filter-rail__header">
+                  <span>Readiness</span>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/account')}>Account</ActionButton>
+                </div>
+                <div className="driver-dashboard-section__body driver-dashboard-table-wrap">
+                  <table>
+                    <tbody>
+                      <tr><td>Driver documents</td><td><strong>{myDocuments.length}</strong></td><td><ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Open</ActionButton></td></tr>
+                      <tr><td>Expiring within 30 days</td><td><strong>{expiringDocuments.length}</strong></td><td><StatusBadge value={expiringDocuments.length ? 'Attention' : 'Ready'} tone={expiringDocuments.length ? 'orange' : 'green'} /></td></tr>
+                      <tr><td>Availability</td><td colSpan={2}><ActionButton tone="secondary" onClick={() => router.push('/driver/availability')}>Manage</ActionButton></td></tr>
+                      <tr><td>Vehicle</td><td colSpan={2}><ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Open vehicle</ActionButton></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </div>
-          </section>
-        </main>
-      </div>
-    </DriverWorkspaceShell>
+
+            <section className="driver-dashboard-section">
+              <div className="driver-filter-rail__header">
+                <span>Recent completed work</span>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>History</ActionButton>
+              </div>
+              <div className="driver-dashboard-section__body">
+                {recentCompleted.length === 0 ? (
+                  <div className="driver-load-row"><EmptyState compact title="No completed jobs yet" /></div>
+                ) : (
+                  <div className="driver-load-list">{recentCompleted.map((job) => renderJobRow(job, 'Open'))}</div>
+                )}
+              </div>
+            </section>
+          </main>
+        </div>
+      </DriverWorkspaceShell>
+    </div>
   );
 }
