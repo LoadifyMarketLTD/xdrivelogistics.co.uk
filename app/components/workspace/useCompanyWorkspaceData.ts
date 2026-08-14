@@ -38,6 +38,9 @@ export type WorkspaceBid = {
   status: string;
   amount: number | null;
   bid_price_gbp: number | null;
+  currency?: string | null;
+  bidder_driver_id?: string | null;
+  bidder_user_id?: string | null;
   created_at: string;
   message?: string | null;
   companies?: { name?: string | null } | null;
@@ -423,7 +426,7 @@ export function resolveWorkspaceDataQueryPlan(input: {
   if (matchesPrefixes(pathname, ['/admin/fleet', '/admin/drivers', '/admin/vehicles', '/admin/driver-availability'])) {
     return {
       surface: 'fleet',
-      datasets: ['jobs', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
+      datasets: ['jobs', 'bids', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
       blocker: null,
     };
   }
@@ -457,7 +460,7 @@ export function resolveWorkspaceDataQueryPlan(input: {
       case 'fleet_manager':
         return {
           surface: 'fleet',
-          datasets: ['jobs', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
+          datasets: ['jobs', 'bids', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
           blocker: null,
         };
       case 'dispatcher':
@@ -688,6 +691,35 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           );
           break;
         }
+        case 'fleet': {
+          if (requested.has('jobs') && jobDataset.availability === 'unavailable') {
+            dependencyUnavailable<WorkspaceBid>('bids', 'jobs dataset unavailable; accepted Fleet bid query was not run.');
+            break;
+          }
+          const wonJobIds = jobDataset.data
+            .filter((job) => job.awarded_carrier_company_id === companyId)
+            .map((job) => job.id);
+          if (!wonJobIds.length) {
+            setDataset<WorkspaceBid>('bids', []);
+            break;
+          }
+          const acceptedFleetBidsRes = await supabase
+            .from('job_bids')
+            .select('id, job_id, company_id, status, amount, bid_price_gbp, currency, bidder_driver_id, bidder_user_id, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+            .eq('company_id', companyId)
+            .eq('status', 'accepted')
+            .in('job_id', wonJobIds)
+            .order('created_at', { ascending: false })
+            .limit(500);
+          const fleetBidError = getFirstError(acceptedFleetBidsRes as QueryResult<WorkspaceBid>);
+          setDataset<WorkspaceBid>(
+            'bids',
+            (acceptedFleetBidsRes.data ?? []) as WorkspaceBid[],
+            fleetBidError ? [fleetBidError] : [],
+            queryReachedLimit(acceptedFleetBidsRes.data, 500, fleetBidError),
+          );
+          break;
+        }
         default: {
           const ownBidsRes = await supabase
             .from('job_bids')
@@ -752,12 +784,6 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
             break;
           }
-          // Verified invoices SELECT contract:
-          // - invoices_select_non_driver => public.is_company_non_driver(company_id)
-          // - invoices_job_owner_read   => authenticated job-owner company members
-          //   on sent/paid customer-ready invoices via jobs.company_id membership
-          // There is no driver/owner-driver invoice SELECT policy, and no policy
-          // authorises invoice visibility from assigned_driver_id alone.
           dependencyUnavailable<WorkspaceInvoice>('invoices', DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER);
           break;
         }
