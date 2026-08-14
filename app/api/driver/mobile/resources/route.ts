@@ -6,34 +6,61 @@ import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
 
+function publicOutcode(postcode: unknown) {
+  const value = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  if (!value) return '';
+  const uk = value.match(/^([A-Z]{1,2}\d[A-Z\d]?)/);
+  if (uk?.[1]) return uk[1];
+  return value.split(/\s+/)[0] ?? '';
+}
+
 function publicArea(postcode: unknown) {
-  const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+  const outcode = publicOutcode(postcode);
+  return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
+}
+
+function publicQuoteNotes(value: unknown) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const note = (parsed as Record<string, unknown>).publicQuoteNotes;
+    return typeof note === 'string' && note.trim() ? note.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
+  const executionStatuses = new Set([
+    'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected',
+    'in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered', 'completed',
+  ]);
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
-    && ['allocated', 'collected', 'in_transit', 'delivered'].includes(String(row.status ?? '').toLowerCase());
-  const proposedPriceVisible = Number(row.budget_amount ?? 0) > 0;
+    && executionStatuses.has(String(row.current_status ?? row.status ?? '').toLowerCase());
+  const proposedPriceVisible = row.is_fixed_price === true && Number(row.budget_amount ?? 0) > 0;
   return {
     ...row,
     public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
-    posting_company_name: company?.name ?? row.booked_by_company_name ?? null,
+    posting_company_name: company?.name ?? null,
     posting_company_member_code: company?.company_number ?? null,
     pickup_location: privateDetailsRevealed ? row.pickup_location : publicArea(row.pickup_postcode),
+    pickup_postcode: privateDetailsRevealed ? row.pickup_postcode : publicOutcode(row.pickup_postcode),
     delivery_location: privateDetailsRevealed ? row.delivery_location : publicArea(row.delivery_postcode),
+    delivery_postcode: privateDetailsRevealed ? row.delivery_postcode : publicOutcode(row.delivery_postcode),
     collection_contact_name: privateDetailsRevealed ? row.collection_contact_name : null,
     collection_contact_phone: privateDetailsRevealed ? row.collection_contact_phone : null,
     delivery_contact_name: privateDetailsRevealed ? row.delivery_contact_name : null,
     delivery_contact_phone: privateDetailsRevealed ? row.delivery_contact_phone : null,
     client_name: privateDetailsRevealed ? row.client_name : null,
     client_phone: privateDetailsRevealed ? row.client_phone : null,
-    load_details: privateDetailsRevealed ? row.load_details : null,
+    load_details: privateDetailsRevealed ? row.load_details : publicQuoteNotes(row.load_details),
     special_requirements: privateDetailsRevealed ? row.special_requirements : null,
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
-    budget_amount: proposedPriceVisible ? row.budget_amount : null,
+    budget_amount: privateDetailsRevealed || proposedPriceVisible ? row.budget_amount : null,
     private_details_revealed: privateDetailsRevealed,
-    can_update_lifecycle: privateDetailsRevealed && String(row.status ?? '').toLowerCase() !== 'delivered',
+    can_update_lifecycle: privateDetailsRevealed && !['delivered', 'completed'].includes(String(row.current_status ?? row.status ?? '').toLowerCase()),
   };
 }
 
@@ -56,13 +83,15 @@ export async function GET(request: NextRequest) {
   const bids = (bidsResult.data ?? []) as AnyRow[];
   const jobIds = [...new Set(bids.map((bid) => String(bid.job_id ?? '')).filter(Boolean))];
   const jobsResult = jobIds.length > 0
-    ? await supabaseAdmin!.from('jobs').select('id,company_id,status,assigned_driver_id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,client_name,client_phone,load_details,special_requirements,access_restrictions,budget_amount').in('id', jobIds)
+    ? await supabaseAdmin!.from('jobs').select('id,company_id,status,current_status,assigned_driver_id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,client_name,client_phone,load_details,special_requirements,access_restrictions,budget_amount,is_fixed_price').in('id', jobIds)
     : { data: [], error: null };
   if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
   const jobs = (jobsResult.data ?? []) as AnyRow[];
 
   const companyIds = [...new Set([...(context.companyId ? [context.companyId] : []), ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
-  const companiesResult = await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds);
+  const companiesResult = companyIds.length
+    ? await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds)
+    : { data: [], error: null };
   if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
   const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
   const jobsById = new Map(jobs.map((job) => [String(job.id), sanitizeQuoteJob(job, context.driverId, companies.get(String(job.company_id)))]));
