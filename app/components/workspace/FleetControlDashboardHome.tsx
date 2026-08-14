@@ -140,19 +140,29 @@ export default function FleetControlDashboardHome() {
   }, [data.vehicles]);
 
   const wonUnallocatedJobs = useMemo(
-    () => data.jobs.filter((job) => normalise(job.current_status ?? job.status) === 'awarded' && !job.assigned_driver_id),
-    [data.jobs],
+    () => data.jobs.filter((job) =>
+      job.awarded_carrier_company_id === data.companyId
+      && normalise(job.current_status ?? job.status) === 'awarded'
+      && !job.assigned_driver_id
+    ),
+    [data.companyId, data.jobs],
   );
   const allocatedJobs = useMemo(
     () => data.jobs.filter((job) => {
       const status = normalise(job.current_status ?? job.status);
-      return Boolean(job.assigned_driver_id) && ['awarded', 'allocated', 'accepted'].includes(status);
+      return job.awarded_carrier_company_id === data.companyId
+        && Boolean(job.assigned_driver_id)
+        && ['awarded', 'allocated', 'accepted'].includes(status);
     }),
-    [data.jobs],
+    [data.companyId, data.jobs],
   );
   const activeJobs = useMemo(
-    () => data.jobs.filter((job) => Boolean(job.assigned_driver_id) && EXECUTION_STATUSES.has(normalise(job.current_status ?? job.status))),
-    [data.jobs],
+    () => data.jobs.filter((job) =>
+      job.awarded_carrier_company_id === data.companyId
+      && Boolean(job.assigned_driver_id)
+      && EXECUTION_STATUSES.has(normalise(job.current_status ?? job.status))
+    ),
+    [data.companyId, data.jobs],
   );
   const fleetJobQueue = useMemo(
     () => [
@@ -169,7 +179,6 @@ export default function FleetControlDashboardHome() {
     const timestamp = locationTimestamp(location);
     return Boolean(timestamp) && Date.now() - new Date(timestamp as string).getTime() > 20 * 60_000;
   });
-  const staleDrivers = [...missingLocationDrivers, ...staleLocationDrivers];
 
   const documents = data.driverDocuments.concat(data.vehicleDocuments);
   const vehicleDocumentCount = new Map<string, number>();
@@ -181,22 +190,9 @@ export default function FleetControlDashboardHome() {
   const vehiclesMissingDocuments = data.vehicles.filter(
     (vehicle) => (vehicleDocumentCount.get(vehicle.id) ?? 0) === 0,
   );
-  const readyVehicles = data.vehicles.filter((vehicle) => {
-    const vehicleDocuments = data.vehicleDocuments.filter((document) => document.vehicle_id === vehicle.id);
-    return vehicleDocuments.length > 0 && vehicleDocuments.every((document) => {
-      const days = daysUntil(document.expiry_date);
-      return days === null || days > 30;
-    });
-  });
-  const readinessBlockerCount = vehiclesMissingDocuments.length;
-
   const expiring = documents.filter((document) => {
     const days = daysUntil(document.expiry_date);
     return days !== null && days <= 30;
-  });
-  const expired = documents.filter((document) => {
-    const days = daysUntil(document.expiry_date);
-    return days !== null && days < 0;
   });
 
   const attentionItems = useMemo<FleetAttentionItem[]>(() => {
@@ -275,7 +271,6 @@ export default function FleetControlDashboardHome() {
     return focusMatch && urgencyMatch && searchMatch;
   });
 
-  const criticalAttention = attentionItems.filter((item) => item.priority === 'critical').length;
   const driverDataUnavailable = unavailable(data, ['drivers']);
   const trackingDataUnavailable = unavailable(data, ['drivers', 'locations']);
   const clearFilters = () => {
@@ -348,7 +343,7 @@ export default function FleetControlDashboardHome() {
       <OperationalPageLayout>
         <OperationalCard
           title="Won / Received → Allocation → Execution"
-          subtitle="Carrier-awarded jobs remain company work until an authorised fleet operator allocates a driver. Allocation does not assume the driver who quoted."
+          subtitle="Only jobs awarded to this Fleet company enter this carrier-won queue. Driver allocation remains a separate authorised action."
           actions={<ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Open allocation</ActionButton>}
           flush
         >
@@ -372,7 +367,7 @@ export default function FleetControlDashboardHome() {
                 </ActionButton>,
               ];
             })}
-            empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Fleet job data unavailable' : 'No won, allocated or active fleet jobs'} />}
+            empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Fleet job data unavailable' : 'No carrier-won jobs in allocation or execution'} />}
           />
         </OperationalCard>
 
