@@ -171,11 +171,11 @@ function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRo
   return hasRecentFeedback(job, reviews);
 }
 
-function statusTone(status: string): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'neutral' {
+function statusTone(status: string): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'grey' {
   if (COMPLETED_STATUSES.has(status)) return 'green';
   if (CANCELLED_STATUSES.has(status)) return 'red';
   if (status === 'disputed') return 'purple';
-  if (status === 'expired') return 'neutral';
+  if (status === 'expired') return 'grey';
   if (ALLOCATED_STATUSES.has(status) || IN_PROGRESS_STATUSES.has(status)) return 'blue';
   return 'orange';
 }
@@ -450,7 +450,7 @@ export default function JobHistoryPage() {
                         <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>
                         {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
                         {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                        <StatusBadge value={expired ? 'Expired' : (STATUS_LABELS[job.status] ?? job.status)} tone={expired ? 'neutral' : statusTone(job.status)} />
+                        <StatusBadge value={expired ? 'Expired' : (STATUS_LABELS[job.status] ?? job.status)} tone={expired ? 'grey' : statusTone(job.status)} />
                         {hasPod && <StatusBadge value="POD captured" tone="green" />}
                         {awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}
                         {feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
