@@ -1,0 +1,111 @@
+/* Loads is the approved Driver visual reference. This stylesheet propagates its spacing, borders, density and control language to the rest of Driver Workspace without changing business logic. */
+.driver-reference-page{
+  --drv-border:#d7e0ea;
+  --drv-border-strong:#b9c7d8;
+  --drv-surface:#fff;
+  --drv-surface-muted:#f4f6f8;
+  --drv-page:#f4f6f8;
+  --drv-text:#172033;
+  --drv-muted:#64748b;
+  --drv-blue:#1d57d8;
+  --drv-green:#35a853;
+  min-width:0;
+}
+.driver-reference-page .xdrive-page-frame{max-width:none!important;width:100%!important;padding:7px 10px 12px!important;box-sizing:border-box!important}
+.driver-reference-page .xdrive-page-header{min-height:34px!important;margin-bottom:5px!important;gap:8px!important;align-items:center!important}
+.driver-reference-page .xdrive-page-header h1{margin:0!important;font-size:16px!important;line-height:19px!important;font-weight:750!important;color:var(--drv-text)!important}
+.driver-reference-page .xdrive-page-header p{margin:1px 0 0!important;font-size:10px!important;line-height:13px!important;color:var(--drv-muted)!important}
+.driver-reference-page .xdrive-page-header>div:first-child>div:first-child{margin:0 0 1px!important;font-size:9px!important;line-height:11px!important;letter-spacing:.04em!important}
+.driver-reference-page section,
+.driver-reference-page article{border-radius:2px!important;box-shadow:none!important}
+.driver-reference-page section{border-color:var(--drv-border)!important}
+.driver-reference-page section>div:first-child{min-height:29px!important;padding:4px 7px!important;background:#f2f4f7!important}
+.driver-reference-page section>div:first-child h2,
+.driver-reference-page section>div:first-child h3{font-size:10.5px!important;line-height:13px!important;font-weight:750!important}
+.driver-reference-page section>div:first-child p{margin-top:0!important;font-size:9px!important;line-height:11px!important}
+.driver-reference-page button,
+.driver-reference-page input,
+.driver-reference-page select{min-height:27px!important;height:27px!important;border-radius:2px!important;font-size:10.5px!important;box-sizing:border-box!important}
+.driver-reference-page button{padding-left:8px!important;padding-right:8px!important}
+.driver-reference-page input,
+.driver-reference-page select{border-color:var(--drv-border)!important;padding-left:7px!important;padding-right:7px!important;background:#fff!important;color:var(--drv-text)!important}
+.driver-reference-page textarea{border:1px solid var(--drv-border)!important;border-radius:2px!important;font-size:10.5px!important;line-height:14px!important;padding:7px!important}
+.driver-reference-page table{width:100%!important;border-collapse:collapse!important;border-spacing:0!important}
+.driver-reference-page th{height:27px!important;padding:0 6px!important;background:#edf2f8!important;color:#0b2f6b!important;font-size:8px!important;line-height:10px!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.02em!important}
+.driver-reference-page td{padding:4px 6px!important;border-top:1px solid #e4e7eb!important;font-size:9.5px!important;line-height:12px!important;color:var(--drv-text)!important}
+.driver-reference-page [role="tablist"]{min-height:28px!important;border:1px solid var(--drv-border)!important;background:#fff!important}
+.driver-reference-page [role="tablist"] button{min-height:27px!important;height:27px!important;padding:0 9px!important;border-radius:0!important;font-size:9px!important}
+
+/* Quotes: same search-rail/list proportions as Loads. */
+.driver-reference-quotes .xdrive-page-header+*{margin-top:0!important}
+.driver-reference-quotes h2{margin:0 0 6px!important;font-size:16px!important;line-height:19px!important;color:var(--drv-text)!important}
+.driver-reference-quotes h2+div{margin-bottom:5px!important;padding:7px!important;border:1px solid var(--drv-border)!important;border-radius:2px!important;box-shadow:none!important;background:#fff!important}
+.driver-reference-quotes h2+div>div{gap:5px!important;grid-template-columns:repeat(4,minmax(145px,1fr)) auto!important}
+.driver-reference-quotes h2+div label{gap:1px!important;min-width:0!important}
+.driver-reference-quotes h2+div label span{font-size:8px!important;line-height:10px!important;text-transform:uppercase!important;letter-spacing:.03em!important}
+.driver-reference-quotes h2+div+div{min-height:28px!important;margin-bottom:5px!important;border:1px solid var(--drv-border)!important;background:#fff!important;gap:0!important}
+.driver-reference-quotes h2+div+div>div{gap:0!important}
+.driver-reference-quotes h2+div+div button{border-radius:0!important;border-color:transparent!important;background:#fff!important;font-size:9px!important;padding:0 10px!important}
+.driver-reference-quotes h2+div+div button:hover{background:#f5f8fc!important}
+.driver-reference-quotes h2+div+div+div{gap:5px!important}
+.driver-reference-quotes h2+div+div+div>div{border-radius:2px!important;box-shadow:none!important;padding:7px!important}
+
+/* Jobs: compact KPI strip and execution panels, matching Loads row density. */
+.driver-reference-jobs .driver-dash-metrics,
+.driver-reference-jobs .driver-ops-grid-2,
+.driver-reference-jobs .driver-ops-grid-3{gap:5px!important}
+.driver-reference-jobs .driver-dash-metric{min-height:54px!important;padding:7px 9px!important;border-radius:2px!important;box-shadow:none!important}
+.driver-reference-jobs .driver-dash-metric span{font-size:9px!important}
+.driver-reference-jobs .driver-dash-metric strong{font-size:19px!important;line-height:22px!important}
+.driver-reference-jobs .driver-job-list{gap:4px!important}
+.driver-reference-jobs .driver-job-row{border-radius:2px!important;box-shadow:none!important;border-color:var(--drv-border)!important}
+.driver-reference-jobs .driver-job-row__top{min-height:52px!important}
+.driver-reference-jobs .driver-job-cell{padding:4px 6px!important}
+.driver-reference-jobs .driver-job-row__meta{min-height:23px!important;padding:2px 6px!important;font-size:9px!important}
+
+/* Diary: keep the CX-like left search rail, but use the approved Loads visual tokens. */
+.driver-reference-diary .driver-diary-layout{gap:5px!important}
+.driver-reference-diary .driver-diary-search{width:198px!important}
+.driver-reference-diary .driver-diary-search,
+.driver-reference-diary .driver-diary-main{border-radius:2px!important}
+.driver-reference-diary .driver-diary-tabs{min-height:28px!important}
+.driver-reference-diary .driver-diary-entry{border-radius:2px!important;box-shadow:none!important;border-color:var(--drv-border)!important}
+
+/* Availability: eliminate oversized settings-card feel. */
+.driver-reference-availability .driver-ops-grid-2,
+.driver-reference-availability .driver-ops-grid-3{gap:5px!important;align-items:start!important}
+.driver-reference-availability section{margin-bottom:5px!important}
+.driver-reference-availability section button{border-radius:2px!important}
+.driver-reference-availability [class*="schedule"]{gap:4px!important}
+.driver-reference-availability [class*="schedule"] button{min-height:30px!important;height:30px!important}
+
+/* Return Journeys: same search/control density as Loads. */
+.driver-reference-returns .driver-board-layout{grid-template-columns:198px minmax(0,1fr)!important;gap:5px!important;align-items:start!important}
+.driver-reference-returns .driver-board-main{gap:4px!important;align-content:start!important;grid-auto-rows:max-content!important}
+.driver-reference-returns .driver-filter-rail{top:63px!important;border-radius:2px!important;box-shadow:none!important}
+.driver-reference-returns .driver-tab-strip,
+.driver-reference-returns .driver-status-tabs{min-height:28px!important;height:28px!important;border-radius:2px!important}
+.driver-reference-returns .driver-load-row,
+.driver-reference-returns .driver-job-row{border-radius:2px!important;box-shadow:none!important}
+
+/* Account and every account subdivision: compact hub/panel language from Loads. */
+.driver-reference-account .driver-account-hub,
+.driver-reference-account [class*="account"]{border-radius:2px!important;box-shadow:none!important}
+.driver-reference-account .driver-account-grid,
+.driver-reference-account .driver-ops-grid-2,
+.driver-reference-account .driver-ops-grid-3,
+.driver-reference-account .driver-profile-summary{gap:5px!important;align-items:start!important;align-content:start!important}
+.driver-reference-account section{margin-bottom:5px!important}
+.driver-reference-account section>div:first-child{background:#f2f4f7!important}
+.driver-reference-account a,
+.driver-reference-account button{font-size:10px!important}
+
+@media(max-width:1024px){
+ .driver-reference-quotes h2+div>div{grid-template-columns:repeat(2,minmax(145px,1fr))!important}
+ .driver-reference-returns .driver-board-layout{grid-template-columns:1fr!important}
+ .driver-reference-returns .driver-filter-rail{position:static!important}
+}
+@media(max-width:768px){
+ .driver-reference-page .xdrive-page-frame{padding:6px!important}
+ .driver-reference-quotes h2+div>div{grid-template-columns:1fr!important}
+}
