@@ -13,8 +13,8 @@ function publicMemberType(value: unknown) {
   const raw = String(value ?? '').trim().toLowerCase();
   if (!raw) return 'Member';
   if (raw.includes('broker')) return 'Broker';
-  if (raw.includes('carrier') || raw.includes('fleet') || raw.includes('courier')) return 'Carrier / Fleet';
   if (raw.includes('owner_driver') || raw.includes('owner driver')) return 'Owner Driver';
+  if (raw.includes('carrier') || raw.includes('fleet') || raw.includes('courier')) return 'Carrier / Fleet';
   if (raw.includes('customer') || raw.includes('shipper')) return 'Customer / Shipper';
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -35,22 +35,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: authData, error: authError } = await validator.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
 
-  const { data: viewer, error: viewerError } = await supabaseAdmin
-    .from('profiles')
-    .select('status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (viewerError) {
+  const [membershipResult, driverResult] = await Promise.all([
+    supabaseAdmin
+      .from('company_memberships')
+      .select('company_id, status')
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('drivers')
+      .select('id, status, is_active, app_access')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+  ]);
+
+  if (membershipResult.error || driverResult.error) {
     return operationalError({
       status: 500,
       message: 'Your member access could not be verified.',
       context: `member-profile.viewer:${authData.user.id}`,
-      cause: viewerError,
+      cause: membershipResult.error ?? driverResult.error,
       retryable: true,
     });
   }
-  if (!viewer || String(viewer.status ?? '').toLowerCase() !== 'active') {
-    return respond(403, { error: 'An active XDrive account is required to view member profiles.' });
+
+  const driverStatus = String(driverResult.data?.status ?? 'active').trim().toLowerCase();
+  const activeDriver = Boolean(driverResult.data)
+    && !['suspended', 'inactive', 'blocked', 'rejected'].includes(driverStatus)
+    && driverResult.data?.is_active !== false
+    && driverResult.data?.app_access !== false;
+  if (!membershipResult.data && !activeDriver) {
+    return respond(403, { error: 'An active XDrive workspace membership is required to view member profiles.' });
   }
 
   const { companyId } = await params;
