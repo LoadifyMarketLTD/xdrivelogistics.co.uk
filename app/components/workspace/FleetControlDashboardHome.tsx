@@ -27,6 +27,7 @@ import {
 } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import { daysUntil, metricDetail, metricTone, metricValue, unavailable } from './AdminDashboardShared';
+import { fleetQueueStage } from '../../../lib/jobs/workspaceJobStage';
 
 type FleetFocus = 'all' | 'tracking' | 'compliance';
 type FleetUrgency = 'all' | 'critical' | 'high';
@@ -55,17 +56,6 @@ const PRIORITY_TONE: Record<FleetPriority, 'red' | 'orange' | 'blue'> = {
   medium: 'blue',
 };
 
-const EXECUTION_STATUSES = new Set([
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
-]);
-
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 
 const driverName = (driver: WorkspaceDriver | undefined) =>
@@ -88,9 +78,10 @@ const compactTimeAgo = (timestamp: string | null) => {
   return `${hours}h since last position`;
 };
 
-const when = (value: string | null | undefined) => value
-  ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-  : 'Not set';
+const when = (value: string | null | undefined) =>
+  value
+    ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Not set';
 
 function documentEntity(
   document: WorkspaceDocument,
@@ -139,31 +130,26 @@ export default function FleetControlDashboardHome() {
     return map;
   }, [data.vehicles]);
 
+  const carrierWonJobs = useMemo(
+    () => data.jobs.filter((job) => job.awarded_carrier_company_id === data.companyId),
+    [data.companyId, data.jobs],
+  );
+
   const wonUnallocatedJobs = useMemo(
-    () => data.jobs.filter((job) =>
-      job.awarded_carrier_company_id === data.companyId
-      && normalise(job.current_status ?? job.status) === 'awarded'
-      && !job.assigned_driver_id
-    ),
-    [data.companyId, data.jobs],
+    () => carrierWonJobs.filter((job) => fleetQueueStage(job) === 'unallocated'),
+    [carrierWonJobs],
   );
+
   const allocatedJobs = useMemo(
-    () => data.jobs.filter((job) => {
-      const status = normalise(job.current_status ?? job.status);
-      return job.awarded_carrier_company_id === data.companyId
-        && Boolean(job.assigned_driver_id)
-        && ['awarded', 'allocated', 'accepted'].includes(status);
-    }),
-    [data.companyId, data.jobs],
+    () => carrierWonJobs.filter((job) => fleetQueueStage(job) === 'allocated'),
+    [carrierWonJobs],
   );
+
   const activeJobs = useMemo(
-    () => data.jobs.filter((job) =>
-      job.awarded_carrier_company_id === data.companyId
-      && Boolean(job.assigned_driver_id)
-      && EXECUTION_STATUSES.has(normalise(job.current_status ?? job.status))
-    ),
-    [data.companyId, data.jobs],
+    () => carrierWonJobs.filter((job) => fleetQueueStage(job) === 'in_progress'),
+    [carrierWonJobs],
   );
+
   const fleetJobQueue = useMemo(
     () => [
       ...wonUnallocatedJobs.map((job) => ({ job, stage: 'Won / Received', tone: 'orange' as const })),
@@ -233,8 +219,8 @@ export default function FleetControlDashboardHome() {
         entity: vehicleName(vehicle),
         detail: 'No vehicle documents are currently recorded.',
         state: 'Documents missing',
-        href: '/admin/documents',
-        actionLabel: 'Upload',
+        href: '/admin/fleet/compliance',
+        actionLabel: 'Review',
       });
     }
 
@@ -255,7 +241,7 @@ export default function FleetControlDashboardHome() {
         entity: documentEntity(document, driverById, vehicleById),
         detail: `${(document.doc_type ?? 'Document').replace(/_/g, ' ')} · ${document.expiry_date ?? 'No expiry date'}`,
         state,
-        href: '/admin/documents/expiry',
+        href: '/admin/fleet/compliance',
         actionLabel: 'Review',
       });
     }
@@ -290,8 +276,8 @@ export default function FleetControlDashboardHome() {
         actions={
           <>
             <ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Drivers</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton>
           </>
         }
@@ -311,9 +297,9 @@ export default function FleetControlDashboardHome() {
 
       <ExchangeKpiStrip>
         <KpiCard
-          label="Won / unallocated"
+          label="Unallocated work"
           value={metricValue(data, ['jobs'], () => wonUnallocatedJobs.length)}
-          detail={metricDetail(data, ['jobs'], 'Carrier award received — allocation required')}
+          detail={metricDetail(data, ['jobs'], 'Carrier award received — driver allocation required')}
           tone={metricTone(data, ['jobs'], wonUnallocatedJobs.length ? 'orange' : 'green')}
           onClick={() => router.push('/admin/fleet/assignments')}
         />
@@ -322,7 +308,7 @@ export default function FleetControlDashboardHome() {
           value={metricValue(data, ['jobs'], () => allocatedJobs.length)}
           detail={metricDetail(data, ['jobs'], 'Driver selected, execution not yet moving')}
           tone={metricTone(data, ['jobs'], 'blue')}
-          onClick={() => router.push('/admin/diary')}
+          onClick={() => router.push('/admin/fleet/jobs')}
         />
         <KpiCard
           label="Active jobs"
@@ -336,7 +322,21 @@ export default function FleetControlDashboardHome() {
           value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.availability_status) === 'available').length)}
           detail={metricDetail(data, ['drivers'], 'Ready for allocation review')}
           tone={metricTone(data, ['drivers'], 'green')}
-          onClick={() => router.push('/admin/driver-availability')}
+          onClick={() => router.push('/admin/fleet/availability')}
+        />
+        <KpiCard
+          label="Vehicles unavailable"
+          value="—"
+          detail="Operational vehicle availability is not exposed by the verified Fleet dataset"
+          tone="blue"
+          onClick={() => router.push('/admin/fleet/vehicles')}
+        />
+        <KpiCard
+          label="Documents expiring"
+          value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expiring.length)}
+          detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Driver and vehicle evidence due within 30 days')}
+          tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], expiring.length ? 'orange' : 'green')}
+          onClick={() => router.push('/admin/fleet/compliance')}
         />
       </ExchangeKpiStrip>
 
@@ -443,11 +443,12 @@ export default function FleetControlDashboardHome() {
             }
           />
         </OperationalCard>
+
         <div style={{ marginTop: '12px' }}>
           <OperationalCard
             title="Fleet resource status"
-            subtitle="Driver, assigned vehicle, tracking freshness and readiness in one operational register."
-            actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>All drivers</ActionButton>}
+            subtitle="Driver, assigned vehicle, tracking freshness and document readiness in one operational register."
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>All drivers</ActionButton>}
             flush
           >
             <DataTable
@@ -465,7 +466,7 @@ export default function FleetControlDashboardHome() {
                   <StatusBadge key="tracking" value={trackingDataUnavailable ? 'Unavailable' : timestamp ? compactTimeAgo(timestamp) : 'Position missing'} tone={!timestamp ? 'orange' : undefined} />,
                   <StatusBadge key="readiness" value={!vehicle ? 'No vehicle' : hasVehicleDocuments ? 'Evidence recorded' : 'Documents missing'} tone={!vehicle || !hasVehicleDocuments ? 'red' : 'green'} />,
                   <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
-                  <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>View</ActionButton>,
+                  <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/fleet/drivers?driver=${driver.id}`)}>View</ActionButton>,
                 ];
               })}
               empty={<EmptyState compact title={driverDataUnavailable ? 'Driver data unavailable' : 'No fleet resources recorded'} />}
