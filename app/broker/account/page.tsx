@@ -53,13 +53,15 @@ export default function BrokerAccountPage() {
                   onClick={() => setSection(item.id)}
                   style={{
                     width: '100%',
-                    minHeight: 28,
-                    padding: '4px 6px',
+                    minHeight: 'var(--ws-control-h, 32px)',
+                    padding: '0 8px',
                     border: `1px solid ${selected ? '#1d57d8' : '#cfd7e3'}`,
+                    borderRadius: 'var(--ws-radius, 4px)',
                     background: selected ? '#eaf3ff' : '#fff',
                     color: selected ? '#0b3f9c' : '#172033',
                     textAlign: 'left',
-                    fontSize: 9.5,
+                    fontSize: 'var(--ws-font-label, 11px)',
+                    lineHeight: '15px',
                     fontWeight: selected ? 800 : 700,
                     cursor: 'pointer',
                   }}
@@ -73,10 +75,10 @@ export default function BrokerAccountPage() {
 
         <main style={{ minWidth: 0 }}>
           <section className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
-            <div className="workspace-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            <div className="workspace-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div>
                 <strong>{active.label}</strong>
-                <div style={{ color: '#64748b', marginTop: 2 }}>{active.description}</div>
+                <div style={{ color: '#64748b', marginTop: 2, fontSize: 'var(--ws-font-meta, 11px)', lineHeight: '15px' }}>{active.description}</div>
               </div>
               <ActionButton
                 tone="primary"
@@ -85,7 +87,7 @@ export default function BrokerAccountPage() {
                 Open {section === 'settings' ? 'settings' : 'team'}
               </ActionButton>
             </div>
-            <div style={{ padding: 7, color: '#64748b', fontSize: 10.5, lineHeight: '15px' }}>
+            <div style={{ padding: 8, color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)', lineHeight: '15px' }}>
               {section === 'settings'
                 ? 'The existing Settings module remains the source of truth for broker company configuration. No settings are duplicated in this account hub.'
                 : 'The existing Team module remains connected to the company membership workflow. Account only provides the shared navigation entry point.'}
