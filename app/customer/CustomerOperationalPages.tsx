@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
+import { MemberIdentityLink } from '../components/workspace/MemberProfile';
 import {
   ActionButton,
   AlertBanner,
@@ -271,7 +272,7 @@ export function CustomerQuotesOperationalPage() {
               <DataTable
                 columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']}
                 rows={quotes.map((bid, index) => [
-                  <strong key="carrier">{bid.companies?.name ?? 'Carrier'}</strong>,
+                  <strong key="carrier"><MemberIdentityLink companyId={bid.company_id}>{bid.companies?.name ?? 'Carrier'}</MemberIdentityLink></strong>,
                   <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0))}</strong>,
                   index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
                   bid.message ?? 'No message',
