@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
-import { ActionButton, EmptyState, StatusBadge, workspaceTheme } from './WorkspaceUI';
+import { ActionButton, EmptyState, workspaceTheme } from './WorkspaceUI';
 
 type SectionState = {
   state: 'unavailable' | 'restricted' | 'available';
@@ -67,7 +67,7 @@ export function MemberIdentityLink({
   title,
 }: {
   companyId: string | null | undefined;
-  children: React.ReactNode;
+  children: ReactNode;
   title?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -232,8 +232,8 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
                   ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
                   ['Member since', memberSince(profile.member.memberSince)],
                   ['Account status', profile.member.status],
-                ].map(([label, value], index) => (
-                  <div key={label} style={{ minHeight: 50, padding: '7px 9px', borderRight: index % 3 === 2 ? 0 : `1px solid ${workspaceTheme.divider}`, borderBottom: `1px solid ${workspaceTheme.divider}` }}>
+                ].map(([label, value]) => (
+                  <div key={label} style={{ minHeight: 50, padding: '7px 9px', borderRight: `1px solid ${workspaceTheme.divider}`, borderBottom: `1px solid ${workspaceTheme.divider}` }}>
                     <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10, lineHeight: '13px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
                     <strong style={{ display: 'block', marginTop: 2, color: workspaceTheme.text, fontSize: 12, lineHeight: '16px', fontWeight: 650 }}>{value}</strong>
                   </div>
