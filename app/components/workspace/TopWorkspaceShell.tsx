@@ -15,7 +15,6 @@ import {
   resolveWorkspaceSurfaceRole,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
-import SharedContextControls from './SharedContextControls';
 import {
   getActionCentreRoute,
   getNotificationsRoute,
@@ -95,18 +94,6 @@ export default function TopWorkspaceShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
-
-  const navigationTargets = useMemo(
-    () =>
-      nav.flatMap((group) =>
-        group.items.map((item) => ({
-          id: `${group.id}-${item.id}`,
-          label: item.label,
-          href: item.href,
-        })),
-      ),
-    [nav],
-  );
 
   const actionRole = resolveActionCentreRole(role);
   const actionCentreHref = getActionCentreRoute(actionRole);
@@ -225,9 +212,83 @@ export default function TopWorkspaceShell({
           </div>
         </div>
 
-        <div className="top-workspace-shell__context">
-          <SharedContextControls navigation={navigationTargets} />
-        </div>
+        <nav
+          ref={navRef}
+          className="top-workspace-nav top-workspace-nav--inline"
+          aria-label={`${definition.label} navigation`}
+        >
+          <div className="top-workspace-nav__track">
+            {nav.map((group, groupIndex) => {
+              const groupActive = group.items.some((item) => isActive(item.href));
+
+              if (group.items.length === 1) {
+                const item = group.items[0];
+                const active = isActive(item.href);
+                return (
+                  <div
+                    key={group.id}
+                    className="top-workspace-nav__group"
+                    data-first={groupIndex === 0 ? 'true' : 'false'}
+                  >
+                    <button
+                      type="button"
+                      className="top-workspace-nav__item"
+                      data-active={active ? 'true' : 'false'}
+                      onClick={() => openRoute(item.href)}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </button>
+                  </div>
+                );
+              }
+
+              const open = openGroupId === group.id;
+              return (
+                <div
+                  key={group.id}
+                  className="top-workspace-nav__group top-workspace-nav__group--menu"
+                  data-first={groupIndex === 0 ? 'true' : 'false'}
+                >
+                  <button
+                    type="button"
+                    className="top-workspace-nav__item top-workspace-nav__trigger"
+                    data-active={groupActive ? 'true' : 'false'}
+                    data-open={open ? 'true' : 'false'}
+                    aria-expanded={open}
+                    aria-haspopup="menu"
+                    onClick={() => setOpenGroupId(open ? null : group.id)}
+                  >
+                    <span>{group.label}</span>
+                    <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
+                  </button>
+                  {open && (
+                    <div className="top-workspace-nav__menu" role="menu" aria-label={group.label}>
+                      {group.items.map((item) => {
+                        const active = isActive(item.href);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            role="menuitem"
+                            className="top-workspace-nav__menu-item"
+                            data-active={active ? 'true' : 'false'}
+                            onClick={() => openRoute(item.href)}
+                          >
+                            <span className="top-workspace-nav__menu-icon" aria-hidden="true">
+                              {item.icon ?? '•'}
+                            </span>
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </nav>
 
         <div className="top-workspace-shell__actions">
           {primaryAction && (
@@ -269,84 +330,6 @@ export default function TopWorkspaceShell({
           </button>
         </div>
       </header>
-
-      <nav
-        ref={navRef}
-        className="top-workspace-nav"
-        aria-label={`${definition.label} navigation`}
-      >
-        <div className="top-workspace-nav__track">
-          {nav.map((group, groupIndex) => {
-            const groupActive = group.items.some((item) => isActive(item.href));
-
-            if (group.items.length === 1) {
-              const item = group.items[0];
-              const active = isActive(item.href);
-              return (
-                <div
-                  key={group.id}
-                  className="top-workspace-nav__group"
-                  data-first={groupIndex === 0 ? 'true' : 'false'}
-                >
-                  <button
-                    type="button"
-                    className="top-workspace-nav__item"
-                    data-active={active ? 'true' : 'false'}
-                    onClick={() => openRoute(item.href)}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    {item.label}
-                  </button>
-                </div>
-              );
-            }
-
-            const open = openGroupId === group.id;
-            return (
-              <div
-                key={group.id}
-                className="top-workspace-nav__group top-workspace-nav__group--menu"
-                data-first={groupIndex === 0 ? 'true' : 'false'}
-              >
-                <button
-                  type="button"
-                  className="top-workspace-nav__item top-workspace-nav__trigger"
-                  data-active={groupActive ? 'true' : 'false'}
-                  data-open={open ? 'true' : 'false'}
-                  aria-expanded={open}
-                  aria-haspopup="menu"
-                  onClick={() => setOpenGroupId(open ? null : group.id)}
-                >
-                  <span>{group.label}</span>
-                  <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
-                </button>
-                {open && (
-                  <div className="top-workspace-nav__menu" role="menu" aria-label={group.label}>
-                    {group.items.map((item) => {
-                      const active = isActive(item.href);
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="menuitem"
-                          className="top-workspace-nav__menu-item"
-                          data-active={active ? 'true' : 'false'}
-                          onClick={() => openRoute(item.href)}
-                        >
-                          <span className="top-workspace-nav__menu-icon" aria-hidden="true">
-                            {item.icon ?? '•'}
-                          </span>
-                          <span>{item.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </nav>
 
       <main className="top-workspace-shell__content">{children}</main>
     </div>
