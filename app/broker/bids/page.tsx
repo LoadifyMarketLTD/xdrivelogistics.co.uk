@@ -107,6 +107,9 @@ export default function BrokerQuotesPage() {
     { id: 'unsuccessful', label: 'Unsuccessful', count: counts.unsuccessful },
   ];
 
+  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+
   return (
     <PageFrame>
       <PageHeader
@@ -123,28 +126,13 @@ export default function BrokerQuotesPage() {
         <aside className="workspace-filter-rail" aria-label="Quote filters">
           <div className="workspace-filter-rail__header">Search Quotes</div>
           <div className="workspace-filter-rail__body">
-            <label>
-              CUSTOMER
-              <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" />
-            </label>
-            <label>
-              FROM
-              <input value={from} onChange={(event) => setFrom(event.target.value)} placeholder="Pickup town / postcode" />
-            </label>
-            <label>
-              TO
-              <input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Delivery town / postcode" />
-            </label>
-            <label>
-              CARRIER
-              <input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company" />
-            </label>
-            <label>
-              LOAD / QUOTE REF
-              <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" />
-            </label>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <ActionButton tone="primary" onClick={() => undefined}>Search</ActionButton>
+            <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
+            <label>FROM<input value={from} onChange={(event) => setFrom(event.target.value)} placeholder="Pickup town / postcode" /></label>
+            <label>TO<input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Delivery town / postcode" /></label>
+            <label>CARRIER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company" /></label>
+            <label>LOAD / QUOTE REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" /></label>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <span style={metaStyle}>Filters apply as you type.</span>
               <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
             </div>
           </div>
@@ -176,22 +164,22 @@ export default function BrokerQuotesPage() {
                   <article className="workspace-operational-row" key={bid.id} data-state={bid.status}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>FROM</div>
+                        <div style={labelStyle}>FROM</div>
                         <strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{job.client_name || 'Customer'}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>TO</div>
+                        <div style={labelStyle}>TO</div>
                         <strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(job.pickup_datetime)}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>CARRIER</div>
+                        <div style={labelStyle}>CARRIER</div>
                         <strong>{bid.companies?.name || 'Carrier'}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>COMMERCIAL</div>
+                        <div style={labelStyle}>COMMERCIAL</div>
                         <strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}>
                           <StatusBadge value={bid.status} />
@@ -220,7 +208,7 @@ export default function BrokerQuotesPage() {
                           <div className="workspace-detail-item"><strong>Status</strong><div>{bid.status.replaceAll('_', ' ')}</div></div>
                         </div>
 
-                        <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid #dfe5ec', background: '#fff' }}>
+                        <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid var(--ws-border-soft, #e2e7ed)', background: '#fff' }}>
                           <strong>Carrier message</strong>
                           <div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{bid.message || 'No message supplied'}</div>
                         </div>
