@@ -60,11 +60,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   }
 
-  const driverStatus = String(driverResult.data?.status ?? 'active').trim().toLowerCase();
+  // Driver-only viewers use the same fail-closed activation semantics as the
+  // canonical driver workspace: missing status/app-access is not active.
+  const driverStatus = String(driverResult.data?.status ?? '').trim().toLowerCase();
   const activeDriver = Boolean(driverResult.data)
-    && !['suspended', 'inactive', 'blocked', 'rejected'].includes(driverStatus)
+    && driverStatus === 'active'
     && driverResult.data?.is_active !== false
-    && driverResult.data?.app_access !== false;
+    && driverResult.data?.app_access === true;
   if (!membershipResult.data && !activeDriver) {
     return respond(403, { error: 'An active XDrive workspace membership is required to view member profiles.' });
   }
