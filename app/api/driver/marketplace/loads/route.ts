@@ -47,6 +47,21 @@ const numberOrNull = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+function publicQuoteNotes(value: unknown) {
+  const raw = text(value);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const notes = (parsed as Record<string, unknown>).publicQuoteNotes;
+    return text(notes);
+  } catch {
+    // Legacy free-text load_details predates the privacy split. It is private by
+    // default and is deliberately not returned to Marketplace.
+    return null;
+  }
+}
+
 function safePostcodeArea(value: unknown) {
   const raw = text(value)?.toUpperCase().replace(/\s+/g, ' ');
   if (!raw) return null;
@@ -151,7 +166,7 @@ function publicLoad(
     hard_copy_pod: text(job.hard_copy_pod),
     pod_required: typeof job.pod_required === 'boolean' ? job.pod_required : null,
     payment_terms: text(job.payment_terms),
-    public_quote_notes: null,
+    public_quote_notes: publicQuoteNotes(job.load_details),
     member: {
       companyId,
       name: company?.name ?? 'Marketplace member',
