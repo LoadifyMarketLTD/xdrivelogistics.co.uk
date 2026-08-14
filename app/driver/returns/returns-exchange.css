@@ -1,160 +1,310 @@
-/* Driver Return Journeys — route alignment to the shared XDrive workspace matrix.
- * Business logic remains in page.tsx; this file only standardises geometry,
- * density and responsive behaviour using the shared workspace tokens.
+/* Driver Return Journeys route.
+ * Explicit Loads-style board: 196px filter rail + fluid operational rows.
+ * No DOM-shape selectors or :has() reconstruction.
  */
 
-.driver-returns-exchange .driver-operational-page {
-  gap: var(--ws-gap-2, 4px) !important;
-  align-content: start !important;
+.driver-returns-exchange .driver-returns-tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
-.driver-returns-exchange .driver-board-layout {
-  grid-template-columns: var(--ws-rail-w, 196px) minmax(0, 1fr) !important;
-  gap: var(--ws-gap-2, 4px) !important;
-  align-items: start !important;
+.driver-returns-exchange .driver-returns-board,
+.driver-returns-exchange .driver-returns-add-board {
+  grid-template-columns: var(--ws-rail-w, 196px) minmax(0, 1fr);
+  gap: var(--ws-gap-2, 4px);
+  align-items: start;
 }
 
 .driver-returns-exchange .driver-board-main {
-  min-width: 0 !important;
-  display: grid !important;
-  gap: var(--ws-gap-2, 4px) !important;
-  align-content: start !important;
-  grid-auto-rows: max-content !important;
+  min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-2, 4px);
+  align-content: start;
 }
 
 .driver-returns-exchange .driver-filter-rail {
-  width: var(--ws-rail-w, 196px) !important;
-  top: var(--ws-header-h, 58px) !important;
-  border-radius: var(--ws-radius, 2px) !important;
-  box-shadow: none !important;
+  width: var(--ws-rail-w, 196px);
+  position: sticky;
+  top: calc(var(--ws-header-h, 58px) + 5px);
+  border-radius: var(--ws-radius, 2px);
+  box-shadow: none;
 }
 
-.driver-returns-exchange .driver-filter-rail__body,
-.driver-returns-exchange form {
-  gap: var(--ws-gap-2, 4px) !important;
+.driver-returns-exchange .driver-filter-rail__body {
+  display: grid;
+  gap: var(--ws-gap-2, 4px);
 }
 
-.driver-returns-exchange .driver-tab-strip,
-.driver-returns-exchange .driver-status-tabs {
-  min-height: 28px !important;
-  height: 28px !important;
-  border-radius: var(--ws-radius, 2px) !important;
-  box-shadow: none !important;
+.driver-returns-exchange .driver-filter-field {
+  min-width: 0;
 }
 
-.driver-returns-exchange section,
-.driver-returns-exchange article,
-.driver-returns-exchange [role="alert"] {
-  border-radius: var(--ws-radius, 2px) !important;
-  box-shadow: none !important;
+.driver-returns-exchange .driver-filter-field input,
+.driver-returns-exchange .driver-filter-field select,
+.driver-returns-exchange .driver-filter-field textarea,
+.driver-returns-exchange .driver-returns-pagination select {
+  width: 100%;
+  min-height: var(--ws-control-h, 28px);
+  height: var(--ws-control-h, 28px);
+  padding: 0 6px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 2px);
+  background: var(--ws-panel, #fff);
+  color: var(--ws-text, #172033);
+  font-size: 9.5px;
+  box-shadow: none;
 }
 
-.driver-returns-exchange article {
-  border-color: var(--ws-border, #cfd7e3) !important;
+.driver-returns-exchange .driver-filter-field textarea {
+  min-height: 58px;
+  height: 58px;
+  padding: 5px 6px;
+  resize: vertical;
 }
 
-.driver-returns-exchange article > div:first-child {
-  gap: var(--ws-gap-2, 4px) !important;
+.driver-returns-exchange .driver-returns-link-button {
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-blue, #1d57d8);
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
 }
 
-.driver-returns-exchange article button,
-.driver-returns-exchange .driver-row-actions button {
-  min-height: 27px !important;
-  height: 27px !important;
-  border-radius: var(--ws-radius, 2px) !important;
-  font-size: 9.5px !important;
+.driver-returns-exchange .driver-returns-rail-stat {
+  display: grid;
+  gap: 2px;
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
 }
 
-.driver-returns-exchange .driver-detail-grid {
-  gap: var(--ws-gap-2, 4px) !important;
+.driver-returns-exchange .driver-returns-rail-stat span,
+.driver-returns-exchange .driver-returns-rail-stat small {
+  color: var(--ws-muted, #64748b);
+  font-size: 8px;
+  line-height: 10px;
 }
 
-/* Search Journeys follows the same 196px rail + fluid results pattern as Loads.
- * The search Panel is the only direct form-bearing section in this route;
- * Add Journey forms live inside the two-column add container and are untouched.
- */
-@media (min-width: 1025px) {
-  .driver-returns-exchange .driver-operational-page:has(> section:has(> div > form)) {
-    display: grid !important;
-    grid-template-columns: var(--ws-rail-w, 196px) minmax(0, 1fr) !important;
-    gap: var(--ws-gap-2, 4px) !important;
-    align-items: start !important;
-  }
+.driver-returns-exchange .driver-returns-rail-stat strong {
+  color: var(--ws-text, #172033);
+  font-size: 9.5px;
+  line-height: 12px;
+  overflow-wrap: anywhere;
+}
 
-  .driver-returns-exchange .driver-operational-page:has(> section:has(> div > form)) > * {
-    grid-column: 1 / -1;
-    min-width: 0;
-  }
+.driver-returns-exchange .driver-returns-summary,
+.driver-returns-exchange .driver-returns-pagination {
+  gap: 6px;
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) {
-    grid-column: 1 !important;
-    grid-row: span 3;
-    position: sticky !important;
-    top: var(--ws-header-h, 58px) !important;
-    align-self: start !important;
-    overflow: hidden !important;
-    border: 1px solid var(--ws-border, #cfd7e3) !important;
-    background: #f7f9fc !important;
-  }
+.driver-returns-exchange .driver-returns-summary-actions,
+.driver-returns-exchange .driver-returns-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) ~ * {
-    grid-column: 2 !important;
-    min-width: 0 !important;
-  }
+.driver-returns-exchange .driver-returns-summary-actions button {
+  min-height: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 2px);
+  background: #fff;
+  color: var(--ws-text, #172033);
+  font-size: 8.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) > div:first-child {
-    min-height: var(--ws-panel-head-h, 30px) !important;
-    padding: 4px 7px !important;
-    background: var(--ws-panel-head, #f2f4f7) !important;
-  }
+.driver-returns-exchange .driver-returns-summary-actions button[data-active="true"] {
+  border-color: var(--ws-blue, #1d57d8);
+  background: #eef4ff;
+  color: var(--ws-navy, #0b2f6b);
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) > div:first-child p {
-    margin: 1px 0 0 !important;
-    font-size: 8.5px !important;
-    line-height: 11px !important;
-  }
+.driver-returns-exchange .driver-return-row {
+  border-color: var(--ws-border, #cfd7e3);
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) > div:last-child {
-    padding: 6px !important;
-  }
+.driver-returns-exchange .driver-return-row[data-state="available"],
+.driver-returns-exchange .driver-return-row[data-state="active"] {
+  border-color: var(--ws-blue, #1d57d8);
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> div > label) {
-    grid-template-columns: 1fr !important;
-    gap: var(--ws-gap-2, 4px) !important;
-  }
+.driver-returns-exchange .driver-return-row[data-state="cancelled"] {
+  border-color: var(--ws-border, #cfd7e3);
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> button) {
-    align-items: stretch !important;
-    gap: var(--ws-gap-2, 4px) !important;
-  }
+.driver-returns-exchange .driver-return-details {
+  padding: 5px;
+}
 
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> button) > button,
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) form > div:has(> button) > select {
-    width: 100% !important;
-    margin-left: 0 !important;
-  }
+.driver-returns-exchange .driver-returns-notes {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 5px;
+  border: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+}
+
+.driver-returns-exchange .driver-returns-notes strong {
+  font-size: 8.5px;
+  color: var(--ws-text, #172033);
+}
+
+.driver-returns-exchange .driver-returns-notes span {
+  color: var(--ws-muted, #64748b);
+  font-size: 8.5px;
+  line-height: 11px;
+  white-space: pre-wrap;
+}
+
+.driver-returns-exchange .driver-returns-detail-actions {
+  margin-top: 5px;
+  justify-content: flex-end;
+}
+
+.driver-returns-exchange .driver-returns-action-link {
+  min-height: 27px;
+  height: 27px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 2px);
+  background: #fff;
+  color: var(--ws-navy, #0b2f6b);
+  font-size: 9px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.driver-returns-exchange .driver-returns-form-panel {
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 2px);
+  background: var(--ws-panel, #fff);
+  box-shadow: none;
+}
+
+.driver-returns-exchange .driver-returns-panel-head {
+  min-height: var(--ws-panel-head-h, 30px);
+  padding: 4px 7px;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: var(--ws-panel-head, #f2f4f7);
+}
+
+.driver-returns-exchange .driver-returns-panel-head > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.driver-returns-exchange .driver-returns-panel-head strong {
+  color: var(--ws-text, #172033);
+  font-size: 10.5px;
+}
+
+.driver-returns-exchange .driver-returns-panel-head span {
+  color: var(--ws-muted, #64748b);
+  font-size: 8.5px;
+}
+
+.driver-returns-exchange .driver-returns-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-gap-2, 4px);
+  padding: 6px;
+}
+
+.driver-returns-exchange .driver-returns-span-2 {
+  grid-column: 1 / -1;
+}
+
+.driver-returns-exchange .driver-returns-check {
+  min-height: var(--ws-control-h, 28px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 5px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 2px);
+  background: #fff;
+  color: var(--ws-text, #172033);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.driver-returns-exchange .driver-returns-check input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.driver-returns-exchange .driver-returns-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.driver-returns-exchange .driver-returns-pagination label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8.5px;
+  color: var(--ws-muted, #64748b);
+}
+
+.driver-returns-exchange .driver-returns-pagination select {
+  width: 60px;
+  min-height: 25px;
+  height: 25px;
 }
 
 @media (max-width: 1024px) {
-  .driver-returns-exchange .driver-board-layout {
-    grid-template-columns: 1fr !important;
+  .driver-returns-exchange .driver-returns-board,
+  .driver-returns-exchange .driver-returns-add-board {
+    grid-template-columns: 1fr;
   }
 
-  .driver-returns-exchange .driver-filter-rail,
-  .driver-returns-exchange .driver-operational-page > section:has(> div > form) {
-    position: static !important;
-    width: 100% !important;
+  .driver-returns-exchange .driver-filter-rail {
+    width: 100%;
+    position: static;
   }
 }
 
 @media (max-width: 768px) {
-  .driver-returns-exchange .driver-board-main {
-    gap: 4px !important;
+  .driver-returns-exchange .driver-returns-form-grid {
+    grid-template-columns: 1fr;
   }
 
-  .driver-returns-exchange article > div:first-child,
-  .driver-returns-exchange .driver-detail-grid,
-  .driver-returns-exchange .driver-ops-grid-2 {
-    grid-template-columns: 1fr !important;
+  .driver-returns-exchange .driver-returns-span-2 {
+    grid-column: auto;
+  }
+
+  .driver-returns-exchange .driver-returns-summary,
+  .driver-returns-exchange .driver-returns-pagination {
+    align-items: flex-start;
+  }
+
+  .driver-returns-exchange .driver-returns-summary-actions,
+  .driver-returns-exchange .driver-returns-pagination-actions {
+    width: 100%;
+  }
+
+  .driver-returns-exchange .driver-returns-pagination-actions label {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .driver-returns-exchange .driver-returns-summary-actions button {
+    flex: 1 1 auto;
   }
 }
