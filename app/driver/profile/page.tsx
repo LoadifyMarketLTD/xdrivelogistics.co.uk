@@ -153,7 +153,7 @@ export default function DriverProfilePage() {
         </div>
 
         <div className="driver-account-hub">
-          <section className="driver-account-column" aria-label="Account sections">
+          <section className="driver-account-column driver-account-nav-column" aria-label="Account sections">
             <div className="driver-account-column__head">Account</div>
             <div className="driver-account-column__body">
               {ACCOUNT_LINKS.map((item) => (
@@ -165,7 +165,7 @@ export default function DriverProfilePage() {
             </div>
           </section>
 
-          <section className="driver-account-column" id="driver-account-profile">
+          <section className="driver-account-column driver-account-profile-column" id="driver-account-profile">
             <div className="driver-account-column__head">My Profile</div>
             {loading ? (
               <div className="driver-account-member-card"><div><span>Status</span><strong>Loading profile…</strong></div></div>
@@ -189,7 +189,7 @@ export default function DriverProfilePage() {
             )}
           </section>
 
-          <section className="driver-account-column">
+          <section className="driver-account-column driver-account-readiness-column">
             <div className="driver-account-column__head">Operational Readiness</div>
             <div className="driver-account-column__body">
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/availability')}>
