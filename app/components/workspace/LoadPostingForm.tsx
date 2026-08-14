@@ -10,8 +10,9 @@ import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
 
-const fieldStyle = { width: '100%', minHeight: '42px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.62rem 0.7rem', fontSize: '0.82rem', boxSizing: 'border-box' as const, background: '#fff', color: '#0f172a' };
-const labelStyle = { display: 'grid', gap: '0.32rem', color: '#334155', fontSize: '0.74rem', fontWeight: 750 };
+const fieldStyle = { width: '100%', minHeight: '32px', border: '1px solid #cfd7e3', borderRadius: '4px', padding: '0 8px', fontSize: '12px', boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
+const textareaStyle = { ...fieldStyle, minHeight: '72px', padding: '7px 8px', resize: 'vertical' as const };
+const labelStyle = { display: 'grid', gap: '4px', color: '#334155', fontSize: '11px', lineHeight: '14px', fontWeight: 700 };
 
 const numberOrNull = (value: string) => {
   if (!value.trim()) return null;
@@ -33,7 +34,8 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', length: '', width: '', height: '', cargoValue: '',
     customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '',
     tailLift: false, forklift: false, handball: false, adr: false, temperatureControlled: false, fragile: false,
-    notes: '',
+    publicQuoteNotes: '',
+    executionInstructions: '',
   });
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
@@ -106,7 +108,8 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           adr: form.adr,
           temperatureControlled: form.temperatureControlled,
           fragile: form.fragile,
-          notes: form.notes || null,
+          publicQuoteNotes: form.publicQuoteNotes || null,
+          executionInstructions: form.executionInstructions || null,
         }),
       });
 
@@ -133,7 +136,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   };
 
   return (
-    <div style={{ display: 'grid', gap: '0.9rem' }}>
+    <div style={{ display: 'grid', gap: '12px' }}>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
@@ -147,42 +150,66 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         </Panel>
       )}
 
-      <Panel title="Collection and delivery" description="Dates, time windows, full addresses and site contacts.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: '0.9rem' }}>
+      <Panel title="Collection and delivery" description="Full execution addresses and site contacts are stored for the awarded job; Marketplace shows only broad route areas before award.">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: '12px' }}>
           <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(value) => set('pickupDate', value)} onTime={(value) => set('pickupTime', value)} onPostcode={(value) => set('pickupPostcode', value)} onAddress={(value) => set('pickupAddress', value)} onContact={(value) => set('collectionContact', value)} onPhone={(value) => set('collectionPhone', value)} requiredDate />
           <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(value) => set('deliveryDate', value)} onTime={(value) => set('deliveryTime', value || 'ASAP')} onPostcode={(value) => set('deliveryPostcode', value)} onAddress={(value) => set('deliveryAddress', value)} onContact={(value) => set('deliveryContact', value)} onPhone={(value) => set('deliveryPhone', value)} />
         </div>
       </Panel>
 
       <Panel title="Cargo and vehicle" description="Vehicle capability and load dimensions used by carriers when pricing.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '0.7rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => set('vehicle', event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
           {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => (
             <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" value={form[key]} onChange={(event) => set(key, event.target.value)} /></label>
           ))}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', marginTop: '0.8rem' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
           {([['tailLift', 'Tail lift'], ['forklift', 'Forklift'], ['handball', 'Handball'], ['adr', 'ADR'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile']] as const).map(([key, label]) => (
-            <label key={key} style={{ display: 'flex', gap: '0.38rem', alignItems: 'center', fontSize: '0.78rem', fontWeight: 700 }}>
+            <label key={key} style={{ display: 'flex', gap: '5px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
               <input type="checkbox" checked={form[key]} onChange={(event) => set(key, event.target.checked)} />{label}
             </label>
           ))}
         </div>
       </Panel>
 
-      <Panel title="Commercial references" description={mode === 'broker' ? 'Customer revenue and carrier target cost remain separate so margin is visible.' : 'References and optional target budget for carrier quotes.'}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '0.7rem' }}>
+      <Panel title="Commercial references" description={mode === 'broker' ? 'Customer revenue and carrier target cost remain internal commercial fields; references remain hidden from the pre-award Marketplace.' : 'References and customer budget remain part of the job record; private references are not exposed pre-award.'}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Customer reference<input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} /></label>
           <label style={labelStyle}>PO number<input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} /></label>
           <label style={labelStyle}>Booking reference<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /></label>
           <label style={labelStyle}>{mode === 'broker' ? 'Customer price (£)' : 'Budget (£)'}<input style={fieldStyle} type="number" min="0" value={form.customerPrice} onChange={(event) => set('customerPrice', event.target.value)} /></label>
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
-        <label style={{ ...labelStyle, marginTop: '0.7rem' }}>Operational notes<textarea style={{ ...fieldStyle, minHeight: 90 }} value={form.notes} onChange={(event) => set('notes', event.target.value)} /></label>
       </Panel>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.55rem', flexWrap: 'wrap' }}>
+      <Panel title="Marketplace notes & execution instructions" description="Keep quote-visible information separate from the exact instructions released after award.">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '12px' }}>
+          <label style={labelStyle}>
+            Public quote notes
+            <textarea
+              style={textareaStyle}
+              value={form.publicQuoteNotes}
+              onChange={(event) => set('publicQuoteNotes', event.target.value)}
+              placeholder="Visible before award: pricing-relevant information only, e.g. timed collection, 1 pallet, assistance unavailable. Do not put gate codes, contact names or exact access instructions here."
+            />
+            <span style={{ color: '#64748b', fontWeight: 500 }}>Visible to eligible Marketplace users before they quote.</span>
+          </label>
+          <label style={labelStyle}>
+            Private execution instructions
+            <textarea
+              style={textareaStyle}
+              value={form.executionInstructions}
+              onChange={(event) => set('executionInstructions', event.target.value)}
+              placeholder="Released only after authorised award/allocation: gate codes, loading-bay instructions, site-specific notes and other execution detail."
+            />
+            <span style={{ color: '#64748b', fontWeight: 500 }}>Hidden from the pre-award Marketplace and available to authorised execution users.</span>
+          </label>
+        </div>
+      </Panel>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
         <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>{saving ? 'Saving…' : 'Save Draft'}</ActionButton>
         <ActionButton tone="warning" disabled={saving} onClick={() => void save(true)}>{saving ? 'Publishing…' : 'Publish Load'}</ActionButton>
       </div>
@@ -196,15 +223,15 @@ function StopFields({ title, date, time, postcode, address, contact, phone, onDa
   onAddress: (value: string) => void; onContact: (value: string) => void; onPhone: (value: string) => void; requiredDate?: boolean;
 }) {
   return (
-    <div style={{ display: 'grid', gap: '0.65rem' }}>
-      <h3 style={{ margin: 0, fontSize: '0.88rem' }}>{title}</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+    <div style={{ display: 'grid', gap: '8px' }}>
+      <h3 style={{ margin: 0, fontSize: '13px', lineHeight: '18px', fontWeight: 600 }}>{title}</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Date{requiredDate ? ' *' : ''}<input style={fieldStyle} type="date" value={date} onChange={(event) => onDate(event.target.value)} /></label>
         <label style={labelStyle}>Time<input style={fieldStyle} type="time" value={time} onChange={(event) => onTime(event.target.value)} /></label>
       </div>
       <label style={labelStyle}>Postcode *<input style={fieldStyle} value={postcode} onChange={(event) => onPostcode(event.target.value)} /></label>
-      <label style={labelStyle}>Address *<textarea style={{ ...fieldStyle, minHeight: 84 }} value={address} onChange={(event) => onAddress(event.target.value)} /></label>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+      <label style={labelStyle}>Address *<textarea style={textareaStyle} value={address} onChange={(event) => onAddress(event.target.value)} /></label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
         <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
       </div>
@@ -212,4 +239,4 @@ function StopFields({ title, date, time, postcode, address, contact, phone, onDa
   );
 }
 
-const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.75rem' };
+const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '8px' };
