@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -25,6 +26,7 @@ export default function CustomerNetworkPage() {
   const carriers = useMemo(() => {
     const map = new Map<string, {
       key: string;
+      companyId: string | null;
       name: string;
       quotes: number;
       accepted: number;
@@ -36,7 +38,7 @@ export default function CustomerNetworkPage() {
       const name = bid.companies?.name?.trim();
       if (!name) continue;
       const key = bid.company_id || name.toLowerCase();
-      const row = map.get(key) ?? { key, name, quotes: 0, accepted: 0, latestPrice: null, jobIds: new Set<string>() };
+      const row = map.get(key) ?? { key, companyId: bid.company_id ?? null, name, quotes: 0, accepted: 0, latestPrice: null, jobIds: new Set<string>() };
       row.quotes += 1;
       if (bid.status === 'accepted') row.accepted += 1;
       const price = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
@@ -64,7 +66,7 @@ export default function CustomerNetworkPage() {
         <DataTable
           columns={['Company', 'Loads quoted', 'Quotes', 'Accepted', 'Latest visible price', 'Relationship', 'Action']}
           rows={carriers.map((carrier) => [
-            <strong key="company">{carrier.name}</strong>,
+            <strong key="company">{carrier.companyId ? <MemberIdentityLink companyId={carrier.companyId}>{carrier.name}</MemberIdentityLink> : carrier.name}</strong>,
             carrier.jobIds.size,
             carrier.quotes,
             carrier.accepted,
