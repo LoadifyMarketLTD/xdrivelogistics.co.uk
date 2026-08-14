@@ -1,0 +1,68 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../components/AuthContext';
+import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+
+function AccountLink({ title, detail, onClick }: { title: string; detail: string; onClick: () => void }) {
+  return (
+    <button type="button" className="driver-account-link" onClick={onClick}>
+      <span><strong>{title}</strong><small>{detail}</small></span>
+      <span aria-hidden="true">→</span>
+    </button>
+  );
+}
+
+export default function DriverAccountPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const accountName = user?.email ?? 'Driver account';
+  const companyLinked = Boolean(user?.companyId);
+  const driverLinked = Boolean(user?.driverId);
+
+  return (
+    <DriverWorkspaceShell
+      personaLabel="Account"
+      driverName="Account"
+      subtitle="Member information, business readiness, account record and support."
+    >
+      <div className="driver-account-status">
+        <div><span>Account</span><strong>{accountName}</strong></div>
+        <div><span>Company connection</span><strong>{companyLinked ? 'Linked' : 'Not linked'}</strong></div>
+        <div><span>Driver profile</span><strong>{driverLinked ? 'Active record' : 'Not linked'}</strong></div>
+      </div>
+
+      <div className="driver-account-hub">
+        <section className="driver-account-column">
+          <div className="driver-account-column__head">Member Info</div>
+          <div className="driver-account-column__body">
+            <AccountLink title="My Profile" detail="Identity, contact details and account status" onClick={() => router.push('/driver/profile')} />
+            <AccountLink title="Vehicle" detail="Vehicle capacity, equipment and readiness" onClick={() => router.push('/driver/vehicles')} />
+            <AccountLink title="Documents" detail="Insurance, compliance and expiry evidence" onClick={() => router.push('/driver/documents')} />
+            <AccountLink title="Invoices & Finance" detail="Invoices, earnings and payment records" onClick={() => router.push('/driver/finance')} />
+          </div>
+        </section>
+
+        <section className="driver-account-column">
+          <div className="driver-account-column__head">Record & Communication</div>
+          <div className="driver-account-column__body">
+            <AccountLink title="Experience & Record" detail="Completed work and operational history" onClick={() => router.push('/driver/history')} />
+            <AccountLink title="Event Log" detail="Search and export account activity" onClick={() => router.push('/driver/event-log')} />
+            <AccountLink title="Messages" detail="Operational and account conversations" onClick={() => router.push('/driver/messages')} />
+            <AccountLink title="Notifications" detail="Account and job notifications" onClick={() => router.push('/driver/notifications')} />
+          </div>
+        </section>
+
+        <section className="driver-account-column">
+          <div className="driver-account-column__head">Settings & Help</div>
+          <div className="driver-account-column__body">
+            <AccountLink title="Availability" detail="Working radius, live status and schedule" onClick={() => router.push('/driver/availability')} />
+            <AccountLink title="Password & Security" detail="Account access and password settings" onClick={() => router.push('/driver/change-password')} />
+            <AccountLink title="Terms & Conditions" detail="Platform terms and policies" onClick={() => router.push('/terms')} />
+            <AccountLink title="Help & Support" detail="Feedback and support requests" onClick={() => router.push('/support/feedback')} />
+          </div>
+        </section>
+      </div>
+    </DriverWorkspaceShell>
+  );
+}
