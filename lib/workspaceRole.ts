@@ -245,32 +245,16 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
   broker: {
     role: 'broker', label: 'Broker Workspace', subtitle: 'Customer loads, carrier sourcing and margin control', homeHref: '/broker', primaryAction: { label: 'Post Load', href: '/broker/post-load', capability: 'loads.create' },
     nav: [
-      { id: 'home', label: 'Broker', items: [{ id: 'dashboard', label: 'Broker Dashboard', href: '/broker', icon: '⌂' }] },
-      { id: 'customers', label: 'Customers & Loads', items: [
-        { id: 'customers', label: 'Customers', href: '/broker/customers', icon: '◌' },
-        { id: 'loads', label: 'Customer Loads', href: '/broker/loads', icon: '▦' },
-        { id: 'post-load', label: 'Post Load', href: '/broker/post-load', icon: '+', capability: 'loads.create' },
-      ] },
-      { id: 'commercial', label: 'Commercial', items: [
-        { id: 'carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: '◫', capability: 'quotes.receive' },
-        { id: 'compare', label: 'Compare Quotes', href: '/broker/compare-quotes', icon: '⇄', capability: 'quotes.compare' },
-        { id: 'awards', label: 'Awards', href: '/broker/awards', icon: '✓', capability: 'quotes.award' },
-        { id: 'margins', label: 'Margin / Profit', href: '/broker/margins', icon: '%', capability: 'margins.view' },
-      ] },
-      { id: 'operations', label: 'Operations', items: [
-        { id: 'jobs', label: 'Active Jobs', href: '/broker/jobs', icon: '▣', capability: 'jobs.track' },
-        { id: 'pod', label: 'POD Review', href: '/broker/pod-review', icon: '▤', capability: 'jobs.review_pod' },
-        { id: 'disputes', label: 'Disputes', href: '/broker/disputes', icon: '!', capability: 'incidents.manage' },
-      ] },
-      { id: 'finance', label: 'Finance', items: [
-        { id: 'customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: '£', capability: 'invoices.customer.manage' },
-        { id: 'carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: '£', capability: 'invoices.carrier.manage' },
-      ] },
-      { id: 'settings', label: 'Administration', items: [
-        { id: 'settings', label: 'Settings', href: '/broker/settings', icon: '⚙', capability: 'settings.manage' },
-        { id: 'team', label: 'Team', href: '/broker/team', icon: '◎', capability: 'settings.manage' },
-        { id: 'carrier-network', label: 'Carrier Network', href: '/broker/carrier-network', icon: '⊕', capability: 'settings.manage' },
-      ] },
+      { id: 'broker-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/broker', icon: '⌂' }] },
+      { id: 'broker-enquiries', label: 'Enquiries', items: [{ id: 'enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: '◫', capability: 'loads.view.own' }] },
+      { id: 'broker-loads', label: 'Loads', items: [{ id: 'loads', label: 'Loads', href: '/broker/loads', icon: '▦', capability: 'loads.view.own' }] },
+      { id: 'broker-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/broker/bids', icon: '◫', capability: 'quotes.receive' }] },
+      { id: 'broker-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/broker/jobs', icon: '▣', capability: 'jobs.track' }] },
+      { id: 'broker-carriers', label: 'Carriers', items: [{ id: 'carriers', label: 'Carriers', href: '/broker/carrier-network', icon: '⊕', capability: 'settings.manage' }] },
+      { id: 'broker-customers', label: 'Customers', items: [{ id: 'customers', label: 'Customers', href: '/broker/customers', icon: '◌' }] },
+      { id: 'broker-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/broker/diary', icon: '□', capability: 'jobs.view' }] },
+      { id: 'broker-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/broker/finance', icon: '£', capability: 'invoices.customer.manage' }] },
+      { id: 'broker-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/broker/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   customer: {
