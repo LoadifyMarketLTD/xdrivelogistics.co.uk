@@ -5,23 +5,16 @@ import { useRouter } from 'next/navigation';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { brokerDiaryStage, normalizedJobStatus } from '../../../lib/jobs/workspaceJobStage';
 
 type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'feedback';
-const ACTIVE = new Set(['accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const postcodeOrLocation = (postcode: string | null | undefined, location: string | null | undefined) => postcode || location || 'Not set';
-const statusOf = (job: WorkspaceJob) => String(job.current_status || job.status || '').toLowerCase();
 
 function matchesTab(job: WorkspaceJob, tab: DiaryTab) {
-  const status = statusOf(job);
   if (tab === 'all') return true;
-  if (tab === 'unallocated') return !job.awarded_carrier_company_id && !job.assigned_driver_id && ['draft', 'posted', 'quoted'].includes(status);
-  if (tab === 'allocated') return Boolean(job.awarded_carrier_company_id || job.assigned_driver_id) && ['awarded', 'allocated', 'accepted'].includes(status);
-  if (tab === 'in_progress') return ACTIVE.has(status);
-  if (tab === 'completed') return ['delivered', 'completed'].includes(status);
-  if (tab === 'cancelled') return status === 'cancelled';
-  if (tab === 'expired') return status === 'expired';
-  return false;
+  if (tab === 'feedback') return false;
+  return brokerDiaryStage(job) === tab;
 }
 
 export default function BrokerDiaryPage() {
@@ -114,7 +107,7 @@ export default function BrokerDiaryPage() {
               {visibleRows.map((job) => {
                 const open = expanded === job.id; const podReady = (job.delivery_photos?.length || 0) > 0;
                 return (
-                  <article className="workspace-operational-row" key={job.id} data-state={statusOf(job)}>
+                  <article className="workspace-operational-row" key={job.id} data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{postcodeOrLocation(job.pickup_postcode, job.pickup_location)}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{postcodeOrLocation(job.delivery_postcode, job.delivery_location)}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
