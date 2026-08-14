@@ -28,6 +28,9 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const driverLabel = (driver: { display_name: string | null; email?: string | null } | undefined) =>
   driver?.display_name ?? driver?.email ?? 'Driver';
 
+const isDriverAccountEligible = (driver: { status: string | null } | undefined) =>
+  Boolean(driver) && !['suspended', 'inactive', 'rejected'].includes(normalise(driver?.status));
+
 const vehicleLabel = (vehicle: { reg_plate: string | null; type: string | null; make?: string | null; model?: string | null } | undefined) => {
   if (!vehicle) return 'Vehicle';
   const makeModel = [vehicle.make, vehicle.model].filter(Boolean).join(' ');
@@ -97,8 +100,12 @@ export default function FleetAssignmentsPage() {
 
   const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
   const acceptedBid = selectedJob ? acceptedBidByJob.get(selectedJob.id) : undefined;
-  const recommendedDriverId = acceptedBid?.bidder_driver_id && driverById.has(acceptedBid.bidder_driver_id)
+  const quotedDriverId = acceptedBid?.bidder_driver_id && driverById.has(acceptedBid.bidder_driver_id)
     ? acceptedBid.bidder_driver_id
+    : null;
+  const quotedDriver = quotedDriverId ? driverById.get(quotedDriverId) : undefined;
+  const recommendedDriverId = quotedDriverId && isDriverAccountEligible(quotedDriver)
+    ? quotedDriverId
     : null;
 
   useEffect(() => {
@@ -158,10 +165,10 @@ export default function FleetAssignmentsPage() {
     })
     : [];
 
-  const driverAccountEligible = Boolean(selectedDriver) && !['suspended', 'inactive', 'rejected'].includes(normalise(selectedDriver?.status));
+  const driverAccountEligible = isDriverAccountEligible(selectedDriver);
 
   const allocate = async () => {
-    if (!selectedJob || !selectedDriverId) {
+    if (!selectedJob || !selectedDriverId || !driverAccountEligible) {
       setError('Select an eligible driver before allocation.');
       return;
     }
@@ -193,7 +200,7 @@ export default function FleetAssignmentsPage() {
       <PageHeader
         eyebrow="Fleet allocation"
         title="Won / Received — Unallocated"
-        description="Carrier-awarded work stays with the company until an authorised fleet operator selects the executing driver. The quoting driver is a recommendation, not an automatic assignment."
+        description="Carrier-awarded work stays with the company until an authorised fleet operator selects the executing driver. The quoting driver is recommended only while that driver remains allocation-eligible."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
 
@@ -213,7 +220,9 @@ export default function FleetAssignmentsPage() {
               <strong key="route">{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong>,
               when(job.pickup_datetime),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-              bidderDriver ? driverLabel(bidderDriver) : bid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Driver not recorded on accepted quote',
+              bidderDriver
+                ? `${driverLabel(bidderDriver)}${isDriverAccountEligible(bidderDriver) ? '' : ' · not currently eligible'}`
+                : bid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Driver not recorded on accepted quote',
               quote && quote > 0 ? money(quote, bid?.currency ?? 'GBP') : 'Not supplied',
               <ActionButton key="action" tone="success" onClick={() => setSelectedJobId(job.id)}>Allocate</ActionButton>,
             ];
@@ -229,7 +238,7 @@ export default function FleetAssignmentsPage() {
         >
           <div className="workspace-detail-grid">
             <div className="workspace-detail-item"><strong>Carrier award</strong><div>{acceptedBid?.companies?.name ?? 'This carrier company'}</div></div>
-            <div className="workspace-detail-item"><strong>Quoted by</strong><div>{recommendedDriverId ? driverLabel(driverById.get(recommendedDriverId)) : 'No driver recommendation available'}</div></div>
+            <div className="workspace-detail-item"><strong>Quoted by</strong><div>{quotedDriver ? `${driverLabel(quotedDriver)}${recommendedDriverId ? ' · recommended' : ' · not currently eligible'}` : acceptedBid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Driver not recorded on accepted quote'}</div></div>
             <div className="workspace-detail-item"><strong>Accepted quote</strong><div>{acceptedBid ? money(Number(acceptedBid.bid_price_gbp ?? acceptedBid.amount ?? 0), acceptedBid.currency ?? 'GBP') : 'Not supplied'}</div></div>
             <div className="workspace-detail-item"><strong>Required vehicle</strong><div>{(selectedJob.vehicle_type ?? 'Not specified').replace(/_/g, ' ')}</div></div>
             <div className="workspace-detail-item"><strong>Body type</strong><div>Not exposed by current Fleet dataset</div></div>
@@ -243,9 +252,10 @@ export default function FleetAssignmentsPage() {
                 <select value={selectedDriverId} onChange={(event) => setSelectedDriverId(event.target.value)} style={{ minHeight: 32 }}>
                   <option value="">Select driver</option>
                   {data.drivers.map((driver) => {
-                    const invalid = ['suspended', 'inactive', 'rejected'].includes(normalise(driver.status));
+                    const invalid = !isDriverAccountEligible(driver);
                     const recommended = driver.id === recommendedDriverId;
-                    return <option key={driver.id} value={driver.id} disabled={invalid}>{driverLabel(driver)}{recommended ? ' — quoted this job' : ''} · {driver.availability_status ?? 'offline'}{invalid ? ' · ineligible account' : ''}</option>;
+                    const quoted = driver.id === quotedDriverId;
+                    return <option key={driver.id} value={driver.id} disabled={invalid}>{driverLabel(driver)}{recommended ? ' — quoted this job · recommended' : quoted ? ' — quoted this job · ineligible' : ''} · {driver.availability_status ?? 'offline'}{invalid ? ' · ineligible account' : ''}</option>;
                   })}
                 </select>
               </label>
