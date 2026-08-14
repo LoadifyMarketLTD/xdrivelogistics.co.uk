@@ -175,7 +175,7 @@ export default function DriverDashboard() {
     .filter((job) => job.id !== currentJob?.id)
     .slice(0, 6);
 
-  const recentCompleted = recentCompletedJobs(myJobs).slice(0, 6);
+  const recentCompleted = recentCompletedJobs(myJobs).slice(0, 4);
   const submittedQuotes = data.bids.filter((quote) => quote.status === 'submitted');
   const acceptedQuotes = data.bids.filter((quote) => quote.status === 'accepted');
   const myDocuments = data.driverDocuments.filter((document) => !user?.driverId || document.driver_id === user.driverId);
@@ -262,7 +262,7 @@ export default function DriverDashboard() {
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Driver Dashboard"
-        subtitle="Live work, next bookings, marketplace activity and readiness."
+        subtitle="Current execution, next bookings, journey controls and readiness."
         availabilityLabel={currentJob ? 'On a job' : 'Available'}
         headerActions={<ActionButton tone="primary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
       >
@@ -270,68 +270,103 @@ export default function DriverDashboard() {
         {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
         {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
 
-        <div className="driver-board-layout">
-          <aside className="driver-filter-rail" aria-label="Driver shift controls">
-            <div className="driver-filter-rail__header">Shift controls</div>
-            <div className="driver-filter-rail__body">
-              <button
-                type="button"
-                className="driver-side-tab"
-                data-active={!currentJob ? 'true' : 'false'}
-                onClick={() => router.push('/driver/availability')}
-              >
-                <span>{currentJob ? 'On a job' : 'Available'}</span>
-                <strong>{currentJob ? 1 : '✓'}</strong>
-              </button>
-              <button type="button" className="driver-side-tab" onClick={() => router.push('/driver/jobs')}>
-                <span>Jobs today</span>
-                <strong>{todaysJobs.length}</strong>
-              </button>
-              <button type="button" className="driver-side-tab" onClick={() => router.push('/driver/quotes')}>
-                <span>Quotes open</span>
-                <strong>{submittedQuotes.length}</strong>
-              </button>
-              <button type="button" className="driver-side-tab" onClick={() => router.push('/driver/documents')}>
-                <span>Documents due</span>
-                <strong>{expiringDocuments.length}</strong>
-              </button>
-
-              <div className="driver-filter-actions">
-                <ActionButton tone="success" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/availability')}>
-                  {currentJob ? 'Current job' : 'Update status'}
-                </ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Return journey</ActionButton>
+        <div className="driver-dashboard-layout">
+          <aside className="driver-dashboard-left" aria-label="Driver operational controls">
+            <section className="driver-dashboard-section">
+              <div className="driver-dashboard-section__header">
+                <span>Current status</span>
+                <span>{data.loading ? 'Refreshing…' : 'Live'}</span>
               </div>
-            </div>
-          </aside>
-
-          <main className="driver-board-main">
-            <div className="driver-tab-strip" role="tablist" aria-label="Dashboard work areas">
-              <button type="button" data-active="true">Current Work <span>{currentJob ? 1 : 0}</span></button>
-              <button type="button" onClick={() => router.push('/driver/jobs')}>Jobs <span>{myJobs.length}</span></button>
-              <button type="button" onClick={() => router.push('/driver/quotes')}>Quotes <span>{data.bids.length}</span></button>
-              <button type="button" onClick={() => router.push('/driver/history')}>Diary</button>
-            </div>
-
-            <div className="driver-board-summary">
-              <span>{todaysJobs.length} today · {upcomingJobs.length} upcoming · {acceptedQuotes.length} won · {expiringDocuments.length} document alert{expiringDocuments.length === 1 ? '' : 's'}</span>
-              <span>{data.loading ? 'Refreshing…' : 'Live workspace data'}</span>
-            </div>
+              <div className="driver-dashboard-section__body">
+                <div className="driver-dashboard-status-primary">
+                  <span>Availability</span>
+                  <StatusBadge
+                    value={currentStatus ? currentStatus.replace(/_/g, ' ') : 'Available'}
+                    tone={currentStatus ? statusTone(currentStatus) : 'green'}
+                  />
+                </div>
+                <dl className="driver-dashboard-facts">
+                  <div><dt>Jobs today</dt><dd>{todaysJobs.length}</dd></div>
+                  <div><dt>Upcoming</dt><dd>{upcomingJobs.length}</dd></div>
+                  <div><dt>Quotes open</dt><dd>{submittedQuotes.length}</dd></div>
+                  <div><dt>Quotes won</dt><dd>{acceptedQuotes.length}</dd></div>
+                </dl>
+                <div className="driver-dashboard-action-stack">
+                  <ActionButton
+                    tone="success"
+                    onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/availability')}
+                  >
+                    {currentJob ? 'Open current job' : 'Update availability'}
+                  </ActionButton>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>Open jobs</ActionButton>
+                </div>
+              </div>
+            </section>
 
             <section className="driver-dashboard-section">
-              <div className="driver-filter-rail__header">
+              <div className="driver-dashboard-section__header">
+                <span>Journey & position</span>
+              </div>
+              <div className="driver-dashboard-section__body">
+                <div className="driver-dashboard-quick-row">
+                  <div>
+                    <strong>Return journey</strong>
+                    <span>Advertise or manage the journey back.</span>
+                  </div>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Open</ActionButton>
+                </div>
+                <div className="driver-dashboard-quick-row">
+                  <div>
+                    <strong>Future position</strong>
+                    <span>Set where you expect to become available.</span>
+                  </div>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/availability')}>Manage</ActionButton>
+                </div>
+                <div className="driver-dashboard-quick-row">
+                  <div>
+                    <strong>Vehicle</strong>
+                    <span>Open the real vehicle record and readiness details.</span>
+                  </div>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Open</ActionButton>
+                </div>
+              </div>
+            </section>
+
+            <section className="driver-dashboard-section">
+              <div className="driver-dashboard-section__header">
+                <span>Readiness</span>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/account')}>Account</ActionButton>
+              </div>
+              <div className="driver-dashboard-section__body">
+                <dl className="driver-dashboard-facts">
+                  <div><dt>Driver documents</dt><dd>{myDocuments.length}</dd></div>
+                  <div>
+                    <dt>Expiring within 30 days</dt>
+                    <dd><StatusBadge value={expiringDocuments.length ? String(expiringDocuments.length) : 'Ready'} tone={expiringDocuments.length ? 'orange' : 'green'} /></dd>
+                  </div>
+                </dl>
+                <div className="driver-dashboard-action-stack">
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Open documents</ActionButton>
+                </div>
+              </div>
+            </section>
+          </aside>
+
+          <main className="driver-dashboard-main">
+            <section className="driver-dashboard-section">
+              <div className="driver-dashboard-section__header">
                 <span>Current execution</span>
                 {currentJob && currentStatus && <StatusBadge value={currentStatus.replace(/_/g, ' ')} tone={statusTone(currentStatus)} />}
               </div>
               <div className="driver-dashboard-section__body">
                 {!currentJob || !currentAction ? (
                   <div className="driver-load-row">
-                    <EmptyState compact title="No active job" description="Allocated work will appear here as the primary execution row." />
+                    <EmptyState compact title="No active job" description="Allocated work will appear here as the primary execution record." />
                   </div>
                 ) : (
                   <>
                     {renderJobRow(currentJob, 'Open full job')}
-                    <div className="driver-inline-quote driver-dashboard-next-action">
+                    <div className="driver-dashboard-next-action">
                       <span><strong>Next action:</strong> {currentAction.description}</span>
                       <ActionButton
                         tone="success"
@@ -347,7 +382,7 @@ export default function DriverDashboard() {
             </section>
 
             <section className="driver-dashboard-section">
-              <div className="driver-filter-rail__header">
+              <div className="driver-dashboard-section__header">
                 <span>Next bookings</span>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>View all</ActionButton>
               </div>
@@ -362,8 +397,8 @@ export default function DriverDashboard() {
 
             <div className="driver-dashboard-lower-grid">
               <section className="driver-dashboard-section">
-                <div className="driver-filter-rail__header">
-                  <span>Marketplace activity</span>
+                <div className="driver-dashboard-section__header">
+                  <span>Quote activity</span>
                   <ActionButton tone="secondary" onClick={() => router.push('/driver/quotes')}>Quotes</ActionButton>
                 </div>
                 <div className="driver-dashboard-section__body driver-dashboard-table-wrap">
@@ -387,36 +422,19 @@ export default function DriverDashboard() {
               </section>
 
               <section className="driver-dashboard-section">
-                <div className="driver-filter-rail__header">
-                  <span>Readiness</span>
-                  <ActionButton tone="secondary" onClick={() => router.push('/driver/account')}>Account</ActionButton>
+                <div className="driver-dashboard-section__header">
+                  <span>Recent completed work</span>
+                  <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Diary</ActionButton>
                 </div>
-                <div className="driver-dashboard-section__body driver-dashboard-table-wrap">
-                  <table>
-                    <tbody>
-                      <tr><td>Driver documents</td><td><strong>{myDocuments.length}</strong></td><td><ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Open</ActionButton></td></tr>
-                      <tr><td>Expiring within 30 days</td><td><strong>{expiringDocuments.length}</strong></td><td><StatusBadge value={expiringDocuments.length ? 'Attention' : 'Ready'} tone={expiringDocuments.length ? 'orange' : 'green'} /></td></tr>
-                      <tr><td>Availability</td><td colSpan={2}><ActionButton tone="secondary" onClick={() => router.push('/driver/availability')}>Manage</ActionButton></td></tr>
-                      <tr><td>Vehicle</td><td colSpan={2}><ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Open vehicle</ActionButton></td></tr>
-                    </tbody>
-                  </table>
+                <div className="driver-dashboard-section__body">
+                  {recentCompleted.length === 0 ? (
+                    <div className="driver-load-row"><EmptyState compact title="No completed jobs yet" /></div>
+                  ) : (
+                    <div className="driver-load-list">{recentCompleted.map((job) => renderJobRow(job, 'Open'))}</div>
+                  )}
                 </div>
               </section>
             </div>
-
-            <section className="driver-dashboard-section">
-              <div className="driver-filter-rail__header">
-                <span>Recent completed work</span>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>History</ActionButton>
-              </div>
-              <div className="driver-dashboard-section__body">
-                {recentCompleted.length === 0 ? (
-                  <div className="driver-load-row"><EmptyState compact title="No completed jobs yet" /></div>
-                ) : (
-                  <div className="driver-load-list">{recentCompleted.map((job) => renderJobRow(job, 'Open'))}</div>
-                )}
-              </div>
-            </section>
           </main>
         </div>
       </DriverWorkspaceShell>
