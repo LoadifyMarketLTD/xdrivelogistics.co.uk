@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
+import { useAuth } from '../../../../components/AuthContext';
 import DriverWorkspaceShell from '../../../_components/DriverWorkspaceShell';
 import DriverInvoiceEmailPanel from './DriverInvoiceEmailPanel';
 import { supabase, isSupabaseConfigured } from '../../../../../lib/supabaseClient';
@@ -11,11 +12,9 @@ import {
   toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
 } from '../../../../../lib/invoiceStatus';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../../../components/workspace/WorkspaceUI';
 
 type InvoiceStatus = CanonicalInvoiceStatus;
-
 type InvoiceDetail = {
   id: string;
   invoice_number: string;
@@ -45,72 +44,16 @@ type InvoiceDetail = {
   paid_at: string | null;
   created_at: string;
 };
+type StatusHistoryItem = { id: string; from_status: string | null; to_status: string; note: string | null; changed_at: string };
+type PaymentRecord = { id: string; amount: number; currency: string; paid_at: string; settlement_method: string; external_reference: string | null; note: string | null };
+type DisputeRecord = { id: string; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string; resolved_at: string | null };
+type DocumentRecord = { id: string; doc_type: string; file_url: string; file_name: string | null; file_size_bytes: number | null; created_at: string };
 
-type StatusHistoryItem = {
-  id: string;
-  from_status: string | null;
-  to_status: string;
-  note: string | null;
-  changed_at: string;
-};
+const fmtCurrency = (amount: number, currency = 'GBP') => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(Number(amount ?? 0));
+const fmtDate = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtDateTime = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
-type PaymentRecord = {
-  id: string;
-  amount: number;
-  currency: string;
-  paid_at: string;
-  settlement_method: string;
-  external_reference: string | null;
-  note: string | null;
-};
-
-type DisputeRecord = {
-  id: string;
-  reason: string;
-  details: string | null;
-  status: string;
-  resolution_note: string | null;
-  commercial_agreement_id?: string | null;
-  buyer_company_id?: string | null;
-  supplier_company_id?: string | null;
-  job_id?: string | null;
-  created_at: string;
-  resolved_at: string | null;
-};
-
-type DocumentRecord = {
-  id: string;
-  doc_type: string;
-  file_url: string;
-  file_name: string | null;
-  file_size_bytes: number | null;
-  created_at: string;
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string }> = {
-  Draft:     { bg: '#fef3c7', text: '#92400e' },
-  Sent:      { bg: '#e0e7ff', text: '#3730a3' },
-  Cancelled: { bg: '#e2e8f0', text: '#475569' },
-  Paid:      { bg: '#d1fae5', text: '#065f46' },
-  Disputed:  { bg: '#fce7f3', text: '#9d174d' },
-  Overdue:   { bg: '#fee2e2', text: '#991b1b' },
-};
-
-const fmtCurrency = (amount: number, currency = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount);
-
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-
-const fmtDateTime = (iso: string) =>
-  new Date(iso).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-
-const displayServiceDescription = (value: string | null) => {
+function displayServiceDescription(value: string | null) {
   const raw = value?.trim() ?? '';
   if (!raw) return 'Transport service';
   if (!raw.startsWith('{') && !raw.startsWith('[')) return raw;
@@ -122,32 +65,30 @@ const displayServiceDescription = (value: string | null) => {
   } catch {
     return 'Transport service';
   }
-};
+}
 
-// ── Component ─────────────────────────────────────────────────────────────────
+function invoiceTone(status: InvoiceStatus): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
+  if (status === 'Paid') return 'green';
+  if (status === 'Sent') return 'blue';
+  if (status === 'Overdue') return 'red';
+  if (status === 'Disputed') return 'purple';
+  if (status === 'Cancelled') return 'grey';
+  return 'orange';
+}
 
-export default function DriverInvoiceDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const financeOperator = ['owner', 'admin', 'dispatcher', 'finance'].includes(String(user?.membershipRole ?? ''));
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
-
-  useEffect(() => {
-    void params.then((p) => setInvoiceId(p.id));
-  }, [params]);
-
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [disputes, setDisputes] = useState<DisputeRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  // Record payment state
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('bank_transfer');
@@ -156,14 +97,12 @@ export default function DriverInvoiceDetailPage({
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState('');
 
-  // Open dispute state
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [disputeDetails, setDisputeDetails] = useState('');
   const [openingDispute, setOpeningDispute] = useState(false);
   const [disputeError, setDisputeError] = useState('');
 
-  // Record document state
   const [showDocForm, setShowDocForm] = useState(false);
   const [docUrl, setDocUrl] = useState('');
   const [docName, setDocName] = useState('');
@@ -171,9 +110,11 @@ export default function DriverInvoiceDetailPage({
   const [savingDoc, setSavingDoc] = useState(false);
   const [docError, setDocError] = useState('');
 
+  useEffect(() => { void params.then((resolved) => setInvoiceId(resolved.id)); }, [params]);
+
   const getToken = async () => {
     const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token ?? null;
+    return data.session?.access_token ?? null;
   };
 
   const loadDetail = useCallback(async () => {
@@ -181,40 +122,34 @@ export default function DriverInvoiceDetailPage({
     setLoading(true);
     setLoadError('');
     const token = await getToken();
-    if (!token) { setLoading(false); return; }
+    if (!token) {
+      setLoadError('Your session has expired. Please sign in again.');
+      setLoading(false);
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/driver/finance/invoices/${invoiceId}`, {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      if (!res.ok) {
-        const e = await res.json() as { error?: string };
-        setLoadError(e.error ?? 'Failed to load invoice.');
-        setLoading(false);
-        return;
-      }
-      const json = await res.json() as {
-        invoice: InvoiceDetail;
-        statusHistory: StatusHistoryItem[];
-        payments: PaymentRecord[];
-        disputes: DisputeRecord[];
-        documents: DocumentRecord[];
+      const response = await fetch(`/api/driver/finance/invoices/${invoiceId}`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = (await response.json().catch(() => ({}))) as {
+        invoice?: InvoiceDetail;
+        statusHistory?: StatusHistoryItem[];
+        payments?: PaymentRecord[];
+        disputes?: DisputeRecord[];
+        documents?: DocumentRecord[];
+        error?: string;
       };
+      if (!response.ok || !payload.invoice) throw new Error(payload.error ?? 'Failed to load invoice.');
       setInvoice({
-        ...json.invoice,
-        status: toCanonicalInvoiceDisplayStatus(
-          json.invoice.status,
-          json.invoice.due_date,
-          json.invoice.payment_status
-        ),
-        payment_status: toCanonicalPaymentStatus(json.invoice.payment_status),
+        ...payload.invoice,
+        status: toCanonicalInvoiceDisplayStatus(payload.invoice.status, payload.invoice.due_date, payload.invoice.payment_status),
+        payment_status: toCanonicalPaymentStatus(payload.invoice.payment_status),
       });
-      setStatusHistory(json.statusHistory ?? []);
-      setPayments(json.payments ?? []);
-      setDisputes(json.disputes ?? []);
-      setDocuments(json.documents ?? []);
-    } catch {
-      setLoadError('Network error loading invoice.');
+      setStatusHistory(payload.statusHistory ?? []);
+      setPayments(payload.payments ?? []);
+      setDisputes(payload.disputes ?? []);
+      setDocuments(payload.documents ?? []);
+    } catch (reason) {
+      setLoadError(reason instanceof Error ? reason.message : 'Failed to load invoice.');
     } finally {
       setLoading(false);
     }
@@ -222,35 +157,23 @@ export default function DriverInvoiceDetailPage({
 
   useEffect(() => { void loadDetail(); }, [loadDetail]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
-
   const handleRecordPayment = async () => {
-    if (!invoiceId || !payAmount || Number(payAmount) <= 0) return;
+    if (!financeOperator || !invoiceId || !payAmount || Number(payAmount) <= 0) return;
     setRecordingPayment(true);
     setPaymentError('');
     const token = await getToken();
     if (!token) { setRecordingPayment(false); return; }
-
-    const res = await fetch(`/api/driver/finance/invoices/${invoiceId}/payment-history`, {
+    const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/payment-history`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: Number(payAmount),
-        settlement_method: payMethod,
-        external_reference: payRef || null,
-        note: payNote || null,
-        idempotency_key: crypto.randomUUID(),
-      }),
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: Number(payAmount), settlement_method: payMethod, external_reference: payRef || null, note: payNote || null, idempotency_key: crypto.randomUUID() }),
     });
-    if (!res.ok) {
-      const e = await res.json() as { error?: string };
-      setPaymentError(e.error ?? 'Failed to record payment.');
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setPaymentError(payload.error ?? 'Failed to record payment.');
     } else {
       setShowPaymentForm(false);
-      setPayAmount('');
-      setPayMethod('bank_transfer');
-      setPayRef('');
-      setPayNote('');
+      setPayAmount(''); setPayMethod('bank_transfer'); setPayRef(''); setPayNote('');
       await loadDetail();
     }
     setRecordingPayment(false);
@@ -262,19 +185,16 @@ export default function DriverInvoiceDetailPage({
     setDisputeError('');
     const token = await getToken();
     if (!token) { setOpeningDispute(false); return; }
-
-    const res = await fetch(`/api/driver/finance/invoices/${invoiceId}/disputes`, {
+    const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/disputes`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: disputeReason, details: disputeDetails || null }),
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: disputeReason.trim(), details: disputeDetails.trim() || null }),
     });
-    if (!res.ok) {
-      const e = await res.json() as { error?: string };
-      setDisputeError(e.error ?? 'Failed to open dispute.');
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setDisputeError(payload.error ?? 'Failed to open dispute.');
     } else {
-      setShowDisputeForm(false);
-      setDisputeReason('');
-      setDisputeDetails('');
+      setShowDisputeForm(false); setDisputeReason(''); setDisputeDetails('');
       await loadDetail();
     }
     setOpeningDispute(false);
@@ -286,491 +206,140 @@ export default function DriverInvoiceDetailPage({
     setDocError('');
     const token = await getToken();
     if (!token) { setSavingDoc(false); return; }
-
-    const res = await fetch(`/api/driver/finance/invoices/${invoiceId}/documents`, {
+    const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/documents`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ doc_type: docType, file_url: docUrl, file_name: docName || null }),
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_type: docType, file_url: docUrl.trim(), file_name: docName.trim() || null }),
     });
-    if (!res.ok) {
-      const e = await res.json() as { error?: string };
-      setDocError(e.error ?? 'Failed to save document.');
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      setDocError(payload.error ?? 'Failed to save document.');
     } else {
-      setShowDocForm(false);
-      setDocUrl('');
-      setDocName('');
-      setDocType('invoice_pdf');
+      setShowDocForm(false); setDocUrl(''); setDocName(''); setDocType('invoice_pdf');
       await loadDetail();
     }
     setSavingDoc(false);
   };
 
-  // ── Styles ────────────────────────────────────────────────────────────────────
-
-  const cardStyle: CSSProperties = {
-    background: '#fff',
-    borderRadius: '10px',
-    border: '1px solid #d7e0ea',
-    boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
-    padding: '1.25rem',
-    marginBottom: '1rem',
-  };
-
-  const sectionTitle: CSSProperties = {
-    fontSize: '0.875rem',
-    fontWeight: 700,
-    color: '#1e293b',
-    marginBottom: '0.75rem',
-    paddingBottom: '0.5rem',
-    borderBottom: '1px solid #e2e8f0',
-  };
-
-  const labelStyle: CSSProperties = {
-    fontSize: '0.72rem',
-    color: '#64748b',
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    marginBottom: '0.2rem',
-  };
-
-  const valueStyle: CSSProperties = {
-    fontSize: '0.875rem',
-    color: '#1e293b',
-  };
-
-  const inputStyle: CSSProperties = {
-    width: '100%',
-    padding: '0.5rem 0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    outline: 'none',
-    boxSizing: 'border-box',
-  };
-
-  const btnPrimary: CSSProperties = {
-    padding: '0.5rem 1.1rem',
-    background: '#1d4ed8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '7px',
-    fontSize: '0.83rem',
-    fontWeight: 700,
-    cursor: 'pointer',
-  };
-
-  const btnDanger: CSSProperties = {
-    ...btnPrimary,
-    background: '#dc2626',
-  };
-
-  const btnSecondary: CSSProperties = {
-    ...btnPrimary,
-    background: '#f1f5f9',
-    color: '#475569',
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────────
+  const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
+  const balance = invoice ? Math.max(0, Number(invoice.amount) - totalPaid) : 0;
 
   if (loading || !invoiceId) {
-    return (
-      <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
-        <DriverWorkspaceShell>
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading invoice…</div>
-        </DriverWorkspaceShell>
-      </ProtectedRoute>
-    );
+    return <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}><DriverWorkspaceShell><div className="driver-load-row"><EmptyState compact title="Loading invoice…" /></div></DriverWorkspaceShell></ProtectedRoute>;
   }
 
   if (loadError || !invoice) {
     return (
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
-        <DriverWorkspaceShell>
-          <div style={{ padding: '2rem' }}>
-            <div style={{ color: '#dc2626', marginBottom: '1rem', fontSize: '0.875rem' }}>
-              {loadError || 'Invoice not found.'}
-            </div>
-            <button onClick={() => router.push('/driver/finance')} style={btnSecondary}>
-              ← Back to Finance
-            </button>
-          </div>
+        <DriverWorkspaceShell headerActions={<ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>← Finance</ActionButton>}>
+          <AlertBanner tone="danger">{loadError || 'Invoice not found.'}</AlertBanner>
         </DriverWorkspaceShell>
       </ProtectedRoute>
     );
   }
 
-  const sc = STATUS_COLORS[invoice.status as InvoiceStatus] ?? { bg: '#f1f5f9', text: '#475569' };
-  const totalPaid = payments.reduce((s: number, p: PaymentRecord) => s + Number(p.amount), 0);
-  const balance = Math.max(0, Number(invoice.amount) - totalPaid);
+  const rail = (
+    <aside className="driver-filter-rail" aria-label="Invoice summary">
+      <div className="driver-filter-rail__header">Invoice Summary</div>
+      <div className="driver-filter-rail__body">
+        <div className="driver-detail-item"><span>Invoice</span><strong>{invoice.invoice_number}</strong></div>
+        <div className="driver-detail-item"><span>Status</span><strong><StatusBadge value={invoice.status} tone={invoiceTone(invoice.status)} /></strong></div>
+        <div className="driver-detail-item"><span>Total</span><strong>{fmtCurrency(invoice.amount, invoice.currency)}</strong></div>
+        <div className="driver-detail-item"><span>Received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
+        <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
+        <div className="driver-detail-item"><span>Due</span><strong>{fmtDate(invoice.due_date)}</strong></div>
+        {financeOperator && invoice.status === 'Draft' && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}/edit`)}>Edit draft</ActionButton>}
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>← Finance</ActionButton>
+      </div>
+    </aside>
+  );
 
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
-      <DriverWorkspaceShell
-        subtitle={`Invoice ${invoice.invoice_number}`}
-        headerActions={
-          <button onClick={() => router.push('/driver/finance')} style={btnSecondary}>
-            ← Finance
-          </button>
-        }
-      >
-        {/* ── Header card ── */}
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
-                {invoice.invoice_number}
-              </h2>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                Ref: {invoice.job_ref} · Created {fmtDate(invoice.created_at)}
+      <DriverWorkspaceShell subtitle={`Invoice ${invoice.invoice_number}`} headerActions={<ActionButton tone="secondary" onClick={() => void loadDetail()}>Refresh</ActionButton>}>
+        <div className="driver-board-layout driver-invoice-detail-board">
+          {rail}
+          <main className="driver-board-main">
+            <section className="driver-row-details">
+              <div className="driver-detail-tabs"><strong>Invoice & Booking</strong></div>
+              <div className="driver-detail-grid">
+                <div className="driver-detail-item"><span>Client</span><strong>{invoice.client_name}</strong></div>
+                <div className="driver-detail-item"><span>Client email</span><strong>{invoice.client_email ?? '—'}</strong></div>
+                <div className="driver-detail-item"><span>Job ref</span><strong>{invoice.job_ref}</strong></div>
+                <div className="driver-detail-item"><span>Invoice date</span><strong>{fmtDate(invoice.invoice_date)}</strong></div>
+                <div className="driver-detail-item"><span>Due date</span><strong>{fmtDate(invoice.due_date)}</strong></div>
+                <div className="driver-detail-item"><span>Terms</span><strong>{invoice.payment_terms || '—'}</strong></div>
+                <div className="driver-detail-item"><span>Net</span><strong>{fmtCurrency(invoice.net_amount, invoice.currency)}</strong></div>
+                <div className="driver-detail-item"><span>VAT</span><strong>{fmtCurrency(invoice.vat_amount, invoice.currency)} ({invoice.vat_rate}%)</strong></div>
+                <div className="driver-detail-item"><span>Route</span><strong>{invoice.pickup_location ?? 'Collection'} → {invoice.delivery_location ?? 'Delivery'}</strong></div>
+                <div className="driver-detail-item"><span>Service</span><strong>{displayServiceDescription(invoice.service_description)}</strong></div>
               </div>
-            </div>
-            <span style={{ padding: '0.35rem 1rem', borderRadius: '999px', fontSize: '0.82rem', fontWeight: 700, backgroundColor: sc.bg, color: sc.text }}>
-              {invoice.status}
-            </span>
-          </div>
+            </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-            <div>
-              <div style={labelStyle}>Client</div>
-              <div style={valueStyle}>{invoice.client_name}</div>
-              {invoice.client_email && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{invoice.client_email}</div>}
-            </div>
-            <div>
-              <div style={labelStyle}>Amount</div>
-              <div style={{ ...valueStyle, fontWeight: 800, fontSize: '1.1rem' }}>
-                {fmtCurrency(Number(invoice.amount), invoice.currency)}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                Net {fmtCurrency(Number(invoice.net_amount), invoice.currency)} + VAT {invoice.vat_rate}%
-              </div>
-            </div>
-            <div>
-              <div style={labelStyle}>Invoice Date</div>
-              <div style={valueStyle}>{fmtDate(invoice.invoice_date)}</div>
-            </div>
-            <div>
-              <div style={labelStyle}>Due Date</div>
-              <div style={{ ...valueStyle, color: new Date(invoice.due_date) < new Date() && invoice.payment_status !== 'paid' ? '#dc2626' : '#1e293b' }}>
-                {fmtDate(invoice.due_date)}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{invoice.payment_terms}</div>
-            </div>
-            {invoice.pickup_location && (
-              <div>
-                <div style={labelStyle}>Route</div>
-                <div style={{ fontSize: '0.78rem', color: '#475569' }}>
-                  {invoice.pickup_location} → {invoice.delivery_location ?? '—'}
-                </div>
-              </div>
+            {financeOperator && (
+              <DriverInvoiceEmailPanel
+                invoiceId={invoiceId}
+                invoice={{ invoiceNumber: invoice.invoice_number, jobReference: invoice.job_ref, clientName: invoice.client_name, clientEmail: invoice.client_email, invoiceDate: invoice.invoice_date, amount: Number(invoice.amount), currency: invoice.currency, status: invoice.status }}
+                onSent={loadDetail}
+              />
             )}
-            {invoice.service_description && (
-              <div style={{ gridColumn: 'span 2' }}>
-                <div style={labelStyle}>Service</div>
-                <div style={{ fontSize: '0.78rem', color: '#475569' }}>{displayServiceDescription(invoice.service_description)}</div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        <DriverInvoiceEmailPanel
-          invoiceId={invoiceId}
-          invoice={{
-            invoiceNumber: invoice.invoice_number,
-            jobReference: invoice.job_ref,
-            clientName: invoice.client_name,
-            clientEmail: invoice.client_email,
-            invoiceDate: invoice.invoice_date,
-            amount: Number(invoice.amount),
-            currency: invoice.currency,
-            status: invoice.status,
-          }}
-          onSent={loadDetail}
-        />
-
-        {/* ── Payment summary ── */}
-        <div style={cardStyle}>
-          <div style={sectionTitle}>💰 Payment Summary</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <div style={labelStyle}>Invoice Total</div>
-              <div style={{ ...valueStyle, fontWeight: 700 }}>{fmtCurrency(Number(invoice.amount), invoice.currency)}</div>
-            </div>
-            <div>
-              <div style={labelStyle}>Total Received</div>
-              <div style={{ ...valueStyle, fontWeight: 700, color: totalPaid > 0 ? '#065f46' : '#94a3b8' }}>
-                {fmtCurrency(totalPaid, invoice.currency)}
+            <section className="driver-row-details">
+              <div className="driver-detail-tabs"><strong>Payment</strong></div>
+              <div className="driver-detail-grid">
+                <div className="driver-detail-item"><span>Invoice total</span><strong>{fmtCurrency(invoice.amount, invoice.currency)}</strong></div>
+                <div className="driver-detail-item"><span>Total received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
+                <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
+                <div className="driver-detail-item"><span>Payment status</span><strong>{invoice.payment_status ?? 'unpaid'}</strong></div>
               </div>
-            </div>
-            <div>
-              <div style={labelStyle}>Outstanding Balance</div>
-              <div style={{ ...valueStyle, fontWeight: 700, color: balance > 0 ? '#dc2626' : '#065f46' }}>
-                {fmtCurrency(balance, invoice.currency)}
-              </div>
-            </div>
-          </div>
-          {invoice.payment_status !== 'paid' && (
-            <button
-              onClick={() => setShowPaymentForm(!showPaymentForm)}
-              style={btnSecondary}
-            >
-              {showPaymentForm ? 'Cancel' : '+ Record Payment'}
-            </button>
-          )}
-
-          {showPaymentForm && (
-            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-              {paymentError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{paymentError}</div>
+              {financeOperator && invoice.payment_status !== 'paid' && (
+                <div className="driver-row-actions" style={{ marginTop: 5 }}><ActionButton tone="secondary" onClick={() => setShowPaymentForm((value) => !value)}>{showPaymentForm ? 'Cancel' : '+ Record Payment'}</ActionButton></div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <div>
-                  <div style={labelStyle}>Amount (GBP)</div>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
-                    style={inputStyle}
-                  />
+              {showPaymentForm && financeOperator && (
+                <div className="driver-detail-grid" style={{ marginTop: 5 }}>
+                  {paymentError && <div className="driver-diary-text-block"><strong>Error</strong><span>{paymentError}</span></div>}
+                  <label className="driver-filter-field">Amount (GBP)<input type="number" min="0.01" step="0.01" value={payAmount} onChange={(event) => setPayAmount(event.target.value)} /></label>
+                  <label className="driver-filter-field">Method<select value={payMethod} onChange={(event) => setPayMethod(event.target.value)}><option value="bank_transfer">Bank Transfer</option><option value="faster_payments">Faster Payments</option><option value="bacs">BACS</option><option value="chaps">CHAPS</option><option value="cash">Cash</option><option value="cheque">Cheque</option><option value="card">Card</option><option value="paypal">PayPal</option><option value="other">Other</option></select></label>
+                  <label className="driver-filter-field">Reference<input value={payRef} onChange={(event) => setPayRef(event.target.value)} /></label>
+                  <label className="driver-filter-field">Note<input value={payNote} onChange={(event) => setPayNote(event.target.value)} /></label>
+                  <div className="driver-row-actions"><ActionButton tone="primary" disabled={recordingPayment || !payAmount || Number(payAmount) <= 0} onClick={() => void handleRecordPayment()}>{recordingPayment ? 'Saving…' : 'Save Payment'}</ActionButton></div>
                 </div>
-                <div>
-                  <div style={labelStyle}>Method</div>
-                  <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} style={inputStyle}>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="bacs">BACS</option>
-                    <option value="chaps">CHAPS</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="cash">Cash</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <div style={labelStyle}>Reference</div>
-                  <input
-                    type="text"
-                    placeholder="External reference"
-                    value={payRef}
-                    onChange={(e) => setPayRef(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <div style={labelStyle}>Note</div>
-                  <input
-                    type="text"
-                    placeholder="Optional note"
-                    value={payNote}
-                    onChange={(e) => setPayNote(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-              <button
-                onClick={() => void handleRecordPayment()}
-                disabled={recordingPayment || !payAmount || Number(payAmount) <= 0}
-                style={{ ...btnPrimary, opacity: recordingPayment || !payAmount ? 0.6 : 1 }}
-              >
-                {recordingPayment ? 'Saving…' : 'Save Payment'}
-              </button>
-            </div>
-          )}
-
-          {payments.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem' }}>Payment Records</div>
-              {payments.map((p) => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.83rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: 700, color: '#065f46' }}>{fmtCurrency(Number(p.amount), p.currency)}</span>
-                  <span style={{ color: '#64748b' }}>Method: {p.settlement_method}</span>
-                  {p.external_reference && <span style={{ color: '#94a3b8' }}>Ref: {p.external_reference}</span>}
-                  <span style={{ color: '#94a3b8' }}>{fmtDate(p.paid_at)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Status timeline ── */}
-        <div style={cardStyle}>
-          <div style={sectionTitle}>📋 Status Timeline</div>
-          {statusHistory.length === 0 ? (
-            <div style={{ fontSize: '0.83rem', color: '#94a3b8' }}>No status history yet.</div>
-          ) : (
-            <div style={{ position: 'relative' }}>
-              {statusHistory.map((h, i) => (
-                <div key={h.id} style={{ display: 'flex', gap: '0.75rem', marginBottom: i < statusHistory.length - 1 ? '0.75rem' : 0 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1d4ed8', flexShrink: 0, marginTop: '0.2rem' }} />
-                    {i < statusHistory.length - 1 && (
-                      <div style={{ width: 1, flex: 1, background: '#e2e8f0', marginTop: '0.3rem' }} />
-                    )}
-                  </div>
-                  <div style={{ paddingBottom: '0.5rem' }}>
-                    <div style={{ fontSize: '0.83rem', fontWeight: 600, color: '#1e293b' }}>
-                      {h.from_status ? `${h.from_status} → ${h.to_status}` : h.to_status}
-                    </div>
-                    {h.note && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>{h.note}</div>}
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>{fmtDateTime(h.changed_at)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Documents ── */}
-        <div style={cardStyle}>
-          <div style={{ ...sectionTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📎 Documents</span>
-            <button onClick={() => setShowDocForm(!showDocForm)} style={{ ...btnSecondary, fontSize: '0.75rem', padding: '0.3rem 0.75rem' }}>
-              {showDocForm ? 'Cancel' : '+ Add Document'}
-            </button>
-          </div>
-
-          {showDocForm && (
-            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-              {docError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{docError}</div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <div style={labelStyle}>Document URL</div>
-                  <input
-                    type="text"
-                    placeholder="https://…"
-                    value={docUrl}
-                    onChange={(e) => setDocUrl(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <div style={labelStyle}>File Name</div>
-                  <input
-                    type="text"
-                    placeholder="invoice.pdf"
-                    value={docName}
-                    onChange={(e) => setDocName(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <div style={labelStyle}>Document Type</div>
-                  <select
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value as typeof docType)}
-                    style={inputStyle}
-                  >
-                    <option value="invoice_pdf">Invoice PDF</option>
-                    <option value="pod_photo">POD Photo</option>
-                    <option value="pod_signature">POD Signature</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-              <button
-                onClick={() => void handleSaveDoc()}
-                disabled={savingDoc || !docUrl.trim()}
-                style={{ ...btnPrimary, opacity: savingDoc || !docUrl.trim() ? 0.6 : 1 }}
-              >
-                {savingDoc ? 'Saving…' : 'Save Document'}
-              </button>
-            </div>
-          )}
+              {payments.length > 0 && <div className="driver-load-list" style={{ marginTop: 5 }}>{payments.map((payment) => <div key={payment.id} className="driver-load-row"><div className="driver-load-row__meta"><strong>{fmtCurrency(payment.amount, payment.currency)}</strong><span>{payment.settlement_method}</span>{payment.external_reference && <span>Ref: {payment.external_reference}</span>}<span>{fmtDate(payment.paid_at)}</span></div></div>)}</div>}
+            </section>
 
-          {documents.length === 0 ? (
-            <div style={{ fontSize: '0.83rem', color: '#94a3b8' }}>No documents attached.</div>
-          ) : (
-            documents.map((doc) => (
-              <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: '1px solid #f1f5f9', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <div>
-                  <a
-                    href={doc.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: '0.83rem', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}
-                  >
-                    📄 {doc.file_name ?? 'Document'}
-                  </a>
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', color: '#94a3b8' }}>{doc.doc_type}</span>
+            <section className="driver-row-details">
+              <div className="driver-detail-tabs"><strong>Status Timeline</strong></div>
+              {statusHistory.length === 0 ? <EmptyState compact title="No status history yet" /> : <div className="driver-diary-history-list">{statusHistory.map((item) => <div key={item.id} className="driver-diary-history-row"><strong>{item.from_status ? `${item.from_status} → ${item.to_status}` : item.to_status}</strong><span>{fmtDateTime(item.changed_at)}</span><span>{item.note ?? 'Invoice status update'}</span></div>)}</div>}
+            </section>
+
+            <section className="driver-row-details">
+              <div className="driver-detail-tabs"><strong>Documents</strong><ActionButton tone="secondary" onClick={() => setShowDocForm((value) => !value)}>{showDocForm ? 'Cancel' : '+ Add Document'}</ActionButton></div>
+              {showDocForm && (
+                <div className="driver-detail-grid" style={{ marginTop: 5 }}>
+                  {docError && <div className="driver-diary-text-block"><strong>Error</strong><span>{docError}</span></div>}
+                  <label className="driver-filter-field">Document URL<input value={docUrl} onChange={(event) => setDocUrl(event.target.value)} placeholder="https://…" /></label>
+                  <label className="driver-filter-field">File name<input value={docName} onChange={(event) => setDocName(event.target.value)} /></label>
+                  <label className="driver-filter-field">Type<select value={docType} onChange={(event) => setDocType(event.target.value as typeof docType)}><option value="invoice_pdf">Invoice PDF</option><option value="pod_photo">POD Photo</option><option value="pod_signature">POD Signature</option><option value="other">Other</option></select></label>
+                  <div className="driver-row-actions"><ActionButton tone="primary" disabled={savingDoc || !docUrl.trim()} onClick={() => void handleSaveDoc()}>{savingDoc ? 'Saving…' : 'Save Document'}</ActionButton></div>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{fmtDate(doc.created_at)}</span>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* ── Disputes ── */}
-        <div style={cardStyle}>
-          <div style={{ ...sectionTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>⚠️ Disputes</span>
-            {invoice.payment_status !== 'paid' && (
-              <button onClick={() => setShowDisputeForm(!showDisputeForm)} style={{ ...btnDanger, fontSize: '0.75rem', padding: '0.3rem 0.75rem' }}>
-                {showDisputeForm ? 'Cancel' : 'Open Dispute'}
-              </button>
-            )}
-          </div>
-
-          {showDisputeForm && (
-            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3' }}>
-              {disputeError && (
-                <div style={{ marginBottom: '0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{disputeError}</div>
               )}
-              <div style={{ marginBottom: '0.75rem' }}>
-                <div style={labelStyle}>Reason *</div>
-                <input
-                  type="text"
-                  placeholder="Brief reason for the dispute"
-                  value={disputeReason}
-                  onChange={(e) => setDisputeReason(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div style={{ marginBottom: '0.75rem' }}>
-                <div style={labelStyle}>Details</div>
-                <textarea
-                  placeholder="Provide additional context…"
-                  value={disputeDetails}
-                  onChange={(e) => setDisputeDetails(e.target.value)}
-                  style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
-                />
-              </div>
-              <button
-                onClick={() => void handleOpenDispute()}
-                disabled={openingDispute || !disputeReason.trim()}
-                style={{ ...btnDanger, opacity: openingDispute || !disputeReason.trim() ? 0.6 : 1 }}
-              >
-                {openingDispute ? 'Opening…' : 'Open Dispute'}
-              </button>
-            </div>
-          )}
+              {documents.length === 0 ? <EmptyState compact title="No documents attached" /> : <div className="driver-load-list" style={{ marginTop: 5 }}>{documents.map((document) => <div key={document.id} className="driver-load-row"><div className="driver-load-row__meta"><a href={document.file_url} target="_blank" rel="noopener noreferrer">{document.file_name ?? 'Document'}</a><span>{document.doc_type}</span><span>{fmtDate(document.created_at)}</span></div></div>)}</div>}
+            </section>
 
-          {disputes.length === 0 ? (
-            <div style={{ fontSize: '0.83rem', color: '#94a3b8' }}>No disputes raised.</div>
-          ) : (
-            disputes.map((d) => (
-              <div key={d.id} style={{ padding: '0.75rem', background: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3', marginBottom: '0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                  <span style={{ fontSize: '0.83rem', fontWeight: 700, color: '#9d174d' }}>{d.reason}</span>
-                  <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: d.status === 'resolved' ? '#d1fae5' : '#fee2e2', color: d.status === 'resolved' ? '#065f46' : '#991b1b', fontWeight: 700 }}>
-                    {d.status}
-                  </span>
+            <section className="driver-row-details">
+              <div className="driver-detail-tabs"><strong>Disputes</strong>{invoice.payment_status !== 'paid' && <ActionButton tone="danger" onClick={() => setShowDisputeForm((value) => !value)}>{showDisputeForm ? 'Cancel' : 'Open Dispute'}</ActionButton>}</div>
+              {showDisputeForm && (
+                <div className="driver-detail-grid" style={{ marginTop: 5 }}>
+                  {disputeError && <div className="driver-diary-text-block"><strong>Error</strong><span>{disputeError}</span></div>}
+                  <label className="driver-filter-field">Reason<input value={disputeReason} onChange={(event) => setDisputeReason(event.target.value)} /></label>
+                  <label className="driver-filter-field">Details<textarea value={disputeDetails} onChange={(event) => setDisputeDetails(event.target.value)} /></label>
+                  <div className="driver-row-actions"><ActionButton tone="danger" disabled={openingDispute || !disputeReason.trim()} onClick={() => void handleOpenDispute()}>{openingDispute ? 'Opening…' : 'Open Dispute'}</ActionButton></div>
                 </div>
-                {d.details && <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '0.3rem' }}>{d.details}</div>}
-                {d.resolution_note && (
-                  <div style={{ fontSize: '0.78rem', color: '#065f46', background: '#d1fae5', padding: '0.4rem', borderRadius: '6px' }}>
-                    Resolution: {d.resolution_note}
-                  </div>
-                )}
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.3rem' }}>
-                  Opened {fmtDateTime(d.created_at)}
-                  {d.resolved_at ? ` · Resolved ${fmtDate(d.resolved_at)}` : ''}
-                </div>
-              </div>
-            ))
-          )}
+              )}
+              {disputes.length === 0 ? <EmptyState compact title="No disputes raised" /> : <div className="driver-load-list" style={{ marginTop: 5 }}>{disputes.map((dispute) => <article key={dispute.id} className="driver-load-row" data-state={dispute.status}><div className="driver-load-row__top"><div className="driver-load-cell"><span className="driver-cell-label">Reason</span><strong className="driver-cell-primary">{dispute.reason}</strong><span className="driver-cell-secondary">{dispute.details ?? 'No additional detail'}</span></div><div className="driver-load-cell"><span className="driver-cell-label">Opened</span><strong className="driver-cell-primary">{fmtDateTime(dispute.created_at)}</strong><span className="driver-cell-secondary">{dispute.resolved_at ? `Resolved ${fmtDate(dispute.resolved_at)}` : 'Open'}</span></div><div className="driver-load-cell"><span className="driver-cell-label">Resolution</span><strong className="driver-cell-primary">{dispute.resolution_note ?? '—'}</strong></div><div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary"><StatusBadge value={dispute.status} tone={dispute.status === 'resolved' ? 'green' : 'red'} /></strong></div></div></article>)}</div>}
+            </section>
+          </main>
         </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
