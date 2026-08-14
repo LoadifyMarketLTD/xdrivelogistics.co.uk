@@ -265,7 +265,7 @@ export default function DriverJobsPage() {
 
                       <div className="driver-load-row__meta">
                         <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
-                        <StatusBadge value={STATUS_LABELS[status] ?? status} tone={complete ? 'green' : isActive ? 'orange' : 'neutral'} />
+                        <StatusBadge value={STATUS_LABELS[status] ?? status} tone={complete ? 'green' : isActive ? 'orange' : 'grey'} />
                         {hasPod && <StatusBadge value="POD captured" tone="green" />}
                         <div className="driver-row-actions">
                           <ActionButton tone="secondary" onClick={() => setExpandedJobId(expanded ? null : job.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
