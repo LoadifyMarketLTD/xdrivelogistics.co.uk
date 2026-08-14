@@ -55,6 +55,17 @@ const PRIORITY_TONE: Record<FleetPriority, 'red' | 'orange' | 'blue'> = {
   medium: 'blue',
 };
 
+const EXECUTION_STATUSES = new Set([
+  'on_my_way',
+  'on_my_way_to_pickup',
+  'on_site_pickup',
+  'loaded',
+  'collected',
+  'in_transit',
+  'on_my_way_to_delivery',
+  'on_site_delivery',
+]);
+
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 
 const driverName = (driver: WorkspaceDriver | undefined) =>
@@ -76,6 +87,10 @@ const compactTimeAgo = (timestamp: string | null) => {
   const hours = Math.floor(ageMinutes / 60);
   return `${hours}h since last position`;
 };
+
+const when = (value: string | null | undefined) => value
+  ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+  : 'Not set';
 
 function documentEntity(
   document: WorkspaceDocument,
@@ -123,6 +138,30 @@ export default function FleetControlDashboardHome() {
     }
     return map;
   }, [data.vehicles]);
+
+  const wonUnallocatedJobs = useMemo(
+    () => data.jobs.filter((job) => normalise(job.current_status ?? job.status) === 'awarded' && !job.assigned_driver_id),
+    [data.jobs],
+  );
+  const allocatedJobs = useMemo(
+    () => data.jobs.filter((job) => {
+      const status = normalise(job.current_status ?? job.status);
+      return Boolean(job.assigned_driver_id) && ['awarded', 'allocated', 'accepted'].includes(status);
+    }),
+    [data.jobs],
+  );
+  const activeJobs = useMemo(
+    () => data.jobs.filter((job) => Boolean(job.assigned_driver_id) && EXECUTION_STATUSES.has(normalise(job.current_status ?? job.status))),
+    [data.jobs],
+  );
+  const fleetJobQueue = useMemo(
+    () => [
+      ...wonUnallocatedJobs.map((job) => ({ job, stage: 'Won / Received', tone: 'orange' as const })),
+      ...allocatedJobs.map((job) => ({ job, stage: 'Allocated', tone: 'blue' as const })),
+      ...activeJobs.map((job) => ({ job, stage: 'Active', tone: 'green' as const })),
+    ],
+    [activeJobs, allocatedJobs, wonUnallocatedJobs],
+  );
 
   const missingLocationDrivers = data.drivers.filter((driver) => !latestLocationByDriver.get(driver.id));
   const staleLocationDrivers = data.drivers.filter((driver) => {
@@ -252,10 +291,11 @@ export default function FleetControlDashboardHome() {
         eyebrow="Fleet operations"
         title="Fleet Command Centre"
         badge="Resource control"
-        description="Drivers, vehicles, live tracking and operational readiness in one resource workspace. Job allocation and execution remain in Carrier Control Desk."
+        description="Won carrier work, driver allocation, active execution, fleet resources, live tracking and operational readiness in one workspace."
         actions={
           <>
-            <ActionButton tone="success" onClick={() => router.push('/admin/drivers')}>Drivers</ActionButton>
+            <ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Drivers</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton>
           </>
@@ -267,7 +307,7 @@ export default function FleetControlDashboardHome() {
       <OperationalToolbar>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
           <strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Fleet desk</strong>
-          <span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>drivers · vehicles · tracking · readiness</span>
+          <span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>won · allocate · execute · track · readiness</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <ActionButton tone="primary" onClick={() => void data.refresh()}>Refresh</ActionButton>
@@ -276,74 +316,106 @@ export default function FleetControlDashboardHome() {
 
       <ExchangeKpiStrip>
         <KpiCard
+          label="Won / unallocated"
+          value={metricValue(data, ['jobs'], () => wonUnallocatedJobs.length)}
+          detail={metricDetail(data, ['jobs'], 'Carrier award received — allocation required')}
+          tone={metricTone(data, ['jobs'], wonUnallocatedJobs.length ? 'orange' : 'green')}
+          onClick={() => router.push('/admin/fleet/assignments')}
+        />
+        <KpiCard
+          label="Allocated"
+          value={metricValue(data, ['jobs'], () => allocatedJobs.length)}
+          detail={metricDetail(data, ['jobs'], 'Driver selected, execution not yet moving')}
+          tone={metricTone(data, ['jobs'], 'blue')}
+          onClick={() => router.push('/admin/diary')}
+        />
+        <KpiCard
+          label="Active jobs"
+          value={metricValue(data, ['jobs'], () => activeJobs.length)}
+          detail={metricDetail(data, ['jobs'], 'Fleet work currently in execution')}
+          tone={metricTone(data, ['jobs'], activeJobs.length ? 'green' : 'navy')}
+          onClick={() => router.push('/admin/fleet/active-jobs')}
+        />
+        <KpiCard
           label="Available drivers"
           value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.availability_status) === 'available').length)}
-          detail={metricDetail(data, ['drivers'], 'Ready to allocate')}
+          detail={metricDetail(data, ['drivers'], 'Ready for allocation review')}
           tone={metricTone(data, ['drivers'], 'green')}
           onClick={() => router.push('/admin/driver-availability')}
-        />
-        <KpiCard
-          label="Ready vehicles"
-          value={metricValue(data, ['vehicles', 'vehicleDocuments'], () => readyVehicles.length)}
-          detail={metricDetail(data, ['vehicles', 'vehicleDocuments'], 'Evidence present, no time-critical records')}
-          tone={metricTone(data, ['vehicles', 'vehicleDocuments'], readyVehicles.length ? 'green' : 'navy')}
-          onClick={() => router.push('/admin/fleet/maintenance')}
-        />
-        <KpiCard
-          label="Tracking attention"
-          value={metricValue(data, ['drivers', 'locations'], () => staleDrivers.length)}
-          detail={metricDetail(data, ['drivers', 'locations'], 'Missing or stale positions')}
-          tone={metricTone(data, ['drivers', 'locations'], staleDrivers.length ? 'red' : 'green')}
-          onClick={() => router.push('/admin/fleet/positions')}
-        />
-        <KpiCard
-          label="Readiness blockers"
-          value={metricValue(data, ['vehicles', 'driverDocuments', 'vehicleDocuments'], () => readinessBlockerCount + expiring.length)}
-          detail={metricDetail(data, ['vehicles', 'driverDocuments', 'vehicleDocuments'], 'Missing or time-critical evidence')}
-          tone={metricTone(data, ['vehicles', 'driverDocuments', 'vehicleDocuments'], criticalAttention || expired.length ? 'red' : readinessBlockerCount || expiring.length ? 'orange' : 'green')}
-          onClick={() => router.push('/admin/documents/expiry')}
         />
       </ExchangeKpiStrip>
 
       <OperationalPageLayout>
-        <OperationalToolbar>
-          <div style={{ flex: '1 1 240px', minWidth: '180px' }}>
-            <OperationalFilterInput
-              id="fleet-attention-search"
-              value={searchDraft}
-              onChange={setSearchDraft}
-              onClear={() => {
-                setSearchDraft('');
-                setSearchTerm('');
-              }}
-              placeholder="Find driver, vehicle or signal"
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <OperationalFilterSelect
-              id="fleet-focus"
-              value={focus}
-              onChange={(value) => setFocus(value as FleetFocus)}
-              options={[
-                { value: 'all', label: 'All attention' },
-                { value: 'tracking', label: 'Tracking' },
-                { value: 'compliance', label: 'Compliance' },
-              ]}
-            />
-            <OperationalFilterSelect
-              id="fleet-urgency"
-              value={urgency}
-              onChange={(value) => setUrgency(value as FleetUrgency)}
-              options={[
-                { value: 'all', label: 'All priorities' },
-                { value: 'critical', label: 'Critical only' },
-                { value: 'high', label: 'High only' },
-              ]}
-            />
-            <ActionButton tone="primary" onClick={() => setSearchTerm(searchDraft.trim().toLowerCase())}>Search</ActionButton>
-            <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
-          </div>
-        </OperationalToolbar>
+        <OperationalCard
+          title="Won / Received → Allocation → Execution"
+          subtitle="Carrier-awarded jobs remain company work until an authorised fleet operator allocates a driver. Allocation does not assume the driver who quoted."
+          actions={<ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Open allocation</ActionButton>}
+          flush
+        >
+          <DataTable
+            columns={['Stage', 'Route', 'Pickup', 'Vehicle required', 'Driver', 'State', 'Action']}
+            rows={fleetJobQueue.slice(0, 12).map(({ job, stage, tone }) => {
+              const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
+              return [
+                <StatusBadge key="stage" value={stage} tone={tone} />,
+                <strong key="route">{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong>,
+                when(job.pickup_datetime),
+                (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
+                assignedDriver ? driverName(assignedDriver) : 'Unallocated',
+                <StatusBadge key="state" value={job.assigned_driver_id ? (job.current_status ?? job.status) : 'unallocated'} tone={job.assigned_driver_id ? undefined : 'orange'} />,
+                <ActionButton
+                  key="action"
+                  tone={!job.assigned_driver_id ? 'success' : 'secondary'}
+                  onClick={() => router.push(!job.assigned_driver_id ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
+                >
+                  {!job.assigned_driver_id ? 'Allocate' : 'Open'}
+                </ActionButton>,
+              ];
+            })}
+            empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Fleet job data unavailable' : 'No won, allocated or active fleet jobs'} />}
+          />
+        </OperationalCard>
+
+        <div style={{ marginTop: '12px' }}>
+          <OperationalToolbar>
+            <div style={{ flex: '1 1 240px', minWidth: '180px' }}>
+              <OperationalFilterInput
+                id="fleet-attention-search"
+                value={searchDraft}
+                onChange={setSearchDraft}
+                onClear={() => {
+                  setSearchDraft('');
+                  setSearchTerm('');
+                }}
+                placeholder="Find driver, vehicle or signal"
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <OperationalFilterSelect
+                id="fleet-focus"
+                value={focus}
+                onChange={(value) => setFocus(value as FleetFocus)}
+                options={[
+                  { value: 'all', label: 'All attention' },
+                  { value: 'tracking', label: 'Tracking' },
+                  { value: 'compliance', label: 'Compliance' },
+                ]}
+              />
+              <OperationalFilterSelect
+                id="fleet-urgency"
+                value={urgency}
+                onChange={(value) => setUrgency(value as FleetUrgency)}
+                options={[
+                  { value: 'all', label: 'All priorities' },
+                  { value: 'critical', label: 'Critical only' },
+                  { value: 'high', label: 'High only' },
+                ]}
+              />
+              <ActionButton tone="primary" onClick={() => setSearchTerm(searchDraft.trim().toLowerCase())}>Search</ActionButton>
+              <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
+            </div>
+          </OperationalToolbar>
+        </div>
 
         <OperationalCard
           title="Fleet attention queue"
