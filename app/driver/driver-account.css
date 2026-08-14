@@ -1,76 +1,34 @@
 .driver-account-hub{
   display:grid;
-  grid-template-columns:196px minmax(0,1fr);
-  gap:4px;
+  grid-template-columns:230px minmax(0,1fr);
+  gap:var(--ws-gap-grid,12px);
   align-items:start;
 }
-.driver-account-nav-column{
-  grid-column:1;
-  grid-row:1/span 2;
-  position:sticky;
-  top:58px;
-}
-.driver-account-profile-column,
-.driver-account-readiness-column{
-  grid-column:2;
-}
-.driver-account-column{
-  border:1px solid #cfd7e3;
-  border-radius:2px;
-  background:#fff;
-  overflow:hidden;
-  box-shadow:none;
-}
-.driver-account-column__head{
-  min-height:30px;
-  display:flex;
-  align-items:center;
-  padding:4px 7px;
-  border-bottom:1px solid #cfd7e3;
-  background:#f2f4f7;
-  color:#172033;
-  font-size:10.5px;
-  font-weight:800;
-}
-.driver-account-column__body{display:grid;gap:4px;padding:5px}
-.driver-account-member-card{display:grid;gap:0;padding:6px 8px}
-.driver-account-member-card>div{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;padding:5px 0;border-bottom:1px solid #edf1f5}
+.driver-account-nav-column{grid-column:1;grid-row:1/span 2;position:sticky;top:calc(var(--ws-header-h,50px) + 12px)}
+.driver-account-profile-column,.driver-account-readiness-column{grid-column:2}
+.driver-account-column{border:1px solid var(--ws-border,#cfd7e3);border-radius:var(--ws-radius,4px);background:#fff;overflow:hidden;box-shadow:none}
+.driver-account-column__head{min-height:var(--ws-panel-head-h,36px);display:flex;align-items:center;padding:7px 10px;border-bottom:1px solid var(--ws-border,#cfd7e3);background:var(--ws-panel-head,#f2f4f7);color:var(--ws-text,#172033);font-size:var(--ws-font-panel-title,13px);line-height:18px;font-weight:700}
+.driver-account-column__body{display:grid;gap:6px;padding:8px}
+.driver-account-member-card{display:grid;padding:8px 10px}
+.driver-account-member-card>div{min-height:40px;display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--ws-border-soft,#e2e7ed)}
 .driver-account-member-card>div:last-child{border-bottom:0}
-.driver-account-member-card span{color:#667085;font-size:8.8px;font-weight:700;text-transform:uppercase}
-.driver-account-member-card strong{color:#202938;font-size:10px;line-height:13px}
-.driver-account-edit{display:grid;gap:5px;padding:6px 8px 8px;border-top:1px solid #edf1f5;background:#fafbfd}
-.driver-account-edit label{display:grid;gap:2px;color:#667085;font-size:8.8px;font-weight:700;text-transform:uppercase}
-.driver-account-edit input{height:28px!important;min-height:28px!important;padding:0 6px!important;border:1px solid #cfd7e3!important;border-radius:2px!important;font-size:10px!important}
-.driver-account-edit__actions{display:flex;justify-content:flex-end;gap:4px}
-.driver-account-link{
-  min-height:38px!important;
-  height:auto!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) auto!important;
-  align-items:center!important;
-  gap:6px!important;
-  padding:4px 6px!important;
-  border:1px solid #e2e7ed!important;
-  border-radius:2px!important;
-  background:#fff!important;
-  text-align:left!important;
-  box-shadow:none!important;
-}
-.driver-account-link:hover{border-color:#9db9e7!important;background:#f8fbff!important}
-.driver-account-link strong{display:block;color:#172033;font-size:10px;line-height:12px}
-.driver-account-link small{display:block;margin-top:1px;color:#64748b;font-size:8.5px;line-height:10.5px}
-.driver-account-link>span:last-child{color:#1d57d8;font-size:13px;font-weight:800}
-.driver-account-nav-column .driver-account-link{
-  min-height:34px!important;
-  border-color:transparent!important;
-  border-bottom-color:#e2e7ed!important;
-  border-radius:0!important;
-}
+.driver-account-member-card span{color:var(--ws-muted,#64748b);font-size:var(--ws-font-label,11px);line-height:15px;font-weight:700}
+.driver-account-member-card strong{color:var(--ws-text,#172033);font-size:12px;line-height:16px}
+.driver-account-edit{display:grid;gap:8px;padding:10px;border-top:1px solid var(--ws-border-soft,#e2e7ed);background:#fafbfd}
+.driver-account-edit label{display:grid;gap:4px;color:var(--ws-muted,#64748b);font-size:var(--ws-font-label,11px);line-height:15px;font-weight:700}
+.driver-account-edit input{height:var(--ws-control-h,32px);min-height:var(--ws-control-h,32px);padding:0 8px;border:1px solid var(--ws-border,#cfd7e3);border-radius:var(--ws-radius,4px);background:#fff;color:var(--ws-text,#172033);font-size:12px}
+.driver-account-edit__actions{display:flex;justify-content:flex-end;gap:8px}
+.driver-account-link{min-height:48px;height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--ws-border-soft,#e2e7ed);border-radius:var(--ws-radius,4px);background:#fff;text-align:left;box-shadow:none;cursor:pointer}
+.driver-account-link:hover{border-color:#9db9e7;background:#f8fbff}
+.driver-account-link strong{display:block;color:var(--ws-text,#172033);font-size:12px;line-height:16px}
+.driver-account-link small{display:block;margin-top:2px;color:var(--ws-muted,#64748b);font-size:var(--ws-font-meta,11px);line-height:15px}
+.driver-account-link>span:last-child{color:var(--ws-blue,#1d57d8);font-size:15px;font-weight:800}
+.driver-account-nav-column .driver-account-link{min-height:44px;border-color:transparent;border-bottom-color:var(--ws-border-soft,#e2e7ed);border-radius:0;padding:7px 10px}
 .driver-account-nav-column .driver-account-column__body{gap:0;padding:0}
-.driver-account-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:4px}
-.driver-account-status>div{padding:4px 7px;border:1px solid #dfe5ec;border-radius:2px;background:#fff}
-.driver-account-status span{display:block;color:#64748b;font-size:8px;text-transform:uppercase;font-weight:800}
-.driver-account-status strong{display:block;margin-top:1px;color:#172033;font-size:10px;line-height:12px}
+.driver-account-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--ws-gap-internal,8px);margin-bottom:var(--ws-gap-internal,8px)}
+.driver-account-status>div{min-height:48px;padding:7px 10px;border:1px solid var(--ws-border,#cfd7e3);border-radius:var(--ws-radius,4px);background:#fff}
+.driver-account-status span{display:block;color:var(--ws-muted,#64748b);font-size:var(--ws-font-label,11px);line-height:15px;font-weight:700}
+.driver-account-status strong{display:block;margin-top:2px;color:var(--ws-text,#172033);font-size:12px;line-height:16px}
 
 .driver-directory-layout{display:grid;grid-template-columns:205px minmax(0,1fr);gap:6px;align-items:start}
 .driver-directory-search,.driver-directory-results{border:1px solid #ccd4df;border-radius:3px;background:#fff;overflow:hidden}
@@ -93,21 +51,7 @@
 .driver-directory-row__identity span{color:#667085;font-size:9px;line-height:11px}
 .driver-directory-row__status{align-items:center;text-align:center}
 
-@media(max-width:1024px){
-  .driver-account-hub{grid-template-columns:170px minmax(0,1fr)}
-  .driver-account-nav-column{top:52px}
-}
-@media(max-width:900px){
-  .driver-directory-layout{grid-template-columns:1fr}
-  .driver-directory-row{grid-template-columns:minmax(180px,1.3fr) minmax(120px,.8fr) minmax(110px,.65fr) 100px;overflow-x:auto}
-}
-@media(max-width:760px){
-  .driver-account-hub,.driver-account-status{grid-template-columns:1fr}
-  .driver-account-nav-column,.driver-account-profile-column,.driver-account-readiness-column{grid-column:1;grid-row:auto;position:static}
-  .driver-account-member-card>div{grid-template-columns:90px minmax(0,1fr)}
-}
-@media(max-width:640px){
-  .driver-directory-row{grid-template-columns:1fr}
-  .driver-directory-row>div{border-right:0;border-bottom:1px solid #e3e8ef}
-  .driver-directory-row>div:last-child{border-bottom:0}
-}
+@media(max-width:1024px){.driver-account-hub{grid-template-columns:210px minmax(0,1fr)}.driver-account-nav-column{top:calc(var(--ws-header-h,50px) + 8px)}}
+@media(max-width:900px){.driver-directory-layout{grid-template-columns:1fr}.driver-directory-row{grid-template-columns:minmax(180px,1.3fr) minmax(120px,.8fr) minmax(110px,.65fr) 100px;overflow-x:auto}}
+@media(max-width:768px){.driver-account-hub,.driver-account-status{grid-template-columns:1fr}.driver-account-nav-column,.driver-account-profile-column,.driver-account-readiness-column{grid-column:1;grid-row:auto;position:static}.driver-account-member-card>div{grid-template-columns:110px minmax(0,1fr)}}
+@media(max-width:640px){.driver-directory-row{grid-template-columns:1fr}.driver-directory-row>div{border-right:0;border-bottom:1px solid #e3e8ef}.driver-directory-row>div:last-child{border-bottom:0}}
