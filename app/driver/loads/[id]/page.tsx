@@ -6,6 +6,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { useAuth } from '../../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { ActionButton, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
 type MarketplaceLoad = {
@@ -135,11 +136,8 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
       const payload = (await response.json().catch(() => ({}))) as { load?: MarketplaceLoad; error?: string };
       if (!response.ok || !payload.load) throw new Error(payload.error || 'This load is no longer available on the marketplace.');
       setLoad(payload.load);
-      if (payload.load.is_fixed_price && payload.load.budget_amount != null && payload.load.budget_amount > 0) {
-        setBidAmount(String(payload.load.budget_amount));
-      } else {
-        setBidAmount('');
-      }
+      if (payload.load.is_fixed_price && payload.load.budget_amount != null && payload.load.budget_amount > 0) setBidAmount(String(payload.load.budget_amount));
+      else setBidAmount('');
     } catch (reason) {
       setLoad(null);
       setError(reason instanceof Error ? reason.message : 'Unable to load this marketplace listing.');
@@ -152,36 +150,17 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleBidSubmit = async (overrideAmount?: number) => {
     if (!userId || bidLoading) return;
-    if (bidBlockedMessage) {
-      setError(bidBlockedMessage);
-      return;
-    }
+    if (bidBlockedMessage) { setError(bidBlockedMessage); return; }
     const amount = overrideAmount ?? Number.parseFloat(bidAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Enter a valid quote amount greater than £0.');
-      return;
-    }
+    if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a valid quote amount greater than £0.'); return; }
 
-    setBidLoading(true);
-    setError('');
+    setBidLoading(true); setError('');
     const { error: bidError } = await supabase.from('job_bids').insert({
-      job_id: id,
-      company_id: companyId ?? null,
-      bidder_user_id: userId,
-      bidder_driver_id: driverId ?? null,
-      bid_price_gbp: amount,
-      amount,
-      currency: 'GBP',
-      message: bidMessage.trim() || null,
-      status: 'submitted',
+      job_id: id, company_id: companyId ?? null, bidder_user_id: userId, bidder_driver_id: driverId ?? null,
+      bid_price_gbp: amount, amount, currency: 'GBP', message: bidMessage.trim() || null, status: 'submitted',
     });
     setBidLoading(false);
-
-    if (bidError) {
-      setError(`Failed to submit quote: ${bidError.message}`);
-      return;
-    }
-
+    if (bidError) { setError(`Failed to submit quote: ${bidError.message}`); return; }
     setSuccess('Quote submitted successfully. The posting member will review it.');
     setBidMessage('');
     await fetchLoad();
@@ -193,37 +172,24 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell>
         <div style={{ display: 'grid', gap: 8 }}>
-          <div className="driver-board-summary" style={{ justifyContent: 'space-between' }}>
-            <span><button type="button" onClick={() => router.back()} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700, padding: 0 }}>← Back to Loads</button></span>
-            <span>Pre-award marketplace view · exact execution details protected</span>
-          </div>
-
+          <div className="driver-board-summary" style={{ justifyContent: 'space-between' }}><span><button type="button" onClick={() => router.back()} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700, padding: 0 }}>← Back to Loads</button></span><span>Pre-award marketplace view · exact execution details protected</span></div>
           {error && <div role="alert" style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>{error}</div>}
           {success && <div style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #bbf7d0', borderRadius: 4, background: '#ecfdf3', color: '#166534', fontSize: 12, fontWeight: 700 }}>{success}</div>}
 
-          {loading ? (
-            <div className="driver-load-row"><EmptyState compact title="Loading marketplace load…" /></div>
-          ) : load ? (
+          {loading ? <div className="driver-load-row"><EmptyState compact title="Loading marketplace load…" /></div> : load ? (
             <article className="driver-load-row" data-state={load.myBid?.status ? 'quoted' : 'open'}>
               <div className="driver-load-row__top">
                 <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{load.pickup_area}</strong><span className="driver-cell-secondary">Area only · {formatDT(load.pickup_datetime)}{load.pickup_time_slot ? ` · ${load.pickup_time_slot}` : ''}</span></div>
                 <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{load.delivery_area}</strong><span className="driver-cell-secondary">Area only · {formatDT(load.delivery_datetime)}{load.delivery_time_slot ? ` · ${load.delivery_time_slot}` : ''}</span></div>
                 <div className="driver-load-cell"><span className="driver-cell-label">Load</span><strong className="driver-cell-primary">{load.requested_vehicle_label ?? load.requested_vehicle_type?.replace(/_/g, ' ') ?? load.vehicle_type?.replace(/_/g, ' ') ?? 'Vehicle TBC'}</strong><span className="driver-cell-secondary">{load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight'}{load.weight_kg != null ? ` · ${load.weight_kg} kg` : ''}{load.pallets != null ? ` · ${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : ''}</span></div>
-                <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary">{load.member.name}{load.member.memberId ? ` · ${load.member.memberId}` : ''}</span></div>
+                <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink>{load.member.memberId ? ` · ${load.member.memberId}` : ''}</span></div>
               </div>
 
-              <div className="driver-load-row__meta">
-                <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
-                <span>Posted {formatDT(load.exchange_posted_at)}</span>
-                {load.member.postedBy && <span>Posted by {load.member.postedBy}</span>}
-                {load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}
-                {load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}
-                {load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}
-              </div>
+              <div className="driver-load-row__meta"><span>Load #{load.id.slice(0, 8).toUpperCase()}</span><span>Posted {formatDT(load.exchange_posted_at)}</span>{load.member.postedBy && <span>Posted by {load.member.postedBy}</span>}{load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}{load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}{load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}</div>
 
               <div className="driver-row-details" style={{ display: 'grid', gap: 8 }}>
                 <div className="driver-detail-grid">
-                  <div className="driver-detail-item"><span>Posting member</span><strong>{load.member.name}</strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity supplied'}</small></div>
+                  <div className="driver-detail-item"><span>Posting member</span><strong><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink></strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity supplied'}</small></div>
                   <div className="driver-detail-item"><span>Quote contact</span><strong>{load.member.phone ?? 'Business phone not supplied'}</strong><small>{load.member.postedBy ? `Posted by ${load.member.postedBy}` : 'Posted-by name not supplied'}</small></div>
                   <div className="driver-detail-item"><span>Member since</span><strong>{formatDate(load.member.memberSince)}</strong></div>
                   <div className="driver-detail-item"><span>Distance</span><strong>{load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles` : 'Not supplied'}</strong></div>
@@ -238,20 +204,8 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 {load.public_quote_notes && <div style={{ padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Public quote notes: </strong>{load.public_quote_notes}</div>}
                 <div style={{ padding: '8px 9px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Execution privacy boundary:</strong> exact street addresses, collection/delivery contacts, customer reference, PO number, booking reference, access instructions and private execution notes are intentionally not delivered to this pre-award page. After an authorised award/allocation, use Won Work / Jobs / Diary for the full job sheet.</div>
 
-                {load.myBid ? (
-                  <div style={{ padding: 8, border: '1px solid #bae6fd', borderRadius: 4, background: '#f0f9ff', color: '#0369a1', fontSize: 12 }}>
-                    <strong>Quote already submitted</strong><div style={{ marginTop: 3 }}>Amount: {money(load.myBid.amount)} · Status: {load.myBid.status ?? 'submitted'}</div>{load.myBid.message && <div style={{ marginTop: 3 }}>Message: {load.myBid.message}</div>}
-                  </div>
-                ) : bidBlockedMessage ? (
-                  <div style={{ padding: 8, border: '1px solid #fcd34d', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontSize: 12, fontWeight: 600 }}>{bidBlockedMessage}</div>
-                ) : (
-                  <div className="driver-inline-quote">
-                    <div className="driver-filter-field"><label htmlFor="marketplace-quote-amount">Your quote (£)</label><input id="marketplace-quote-amount" type="number" min="0" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="e.g. 250.00" /></div>
-                    <div className="driver-filter-field"><label htmlFor="marketplace-quote-message">Message</label><textarea id="marketplace-quote-message" rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div>
-                    {hasProposedPrice && <ActionButton tone="success" disabled={bidLoading} onClick={() => void handleBidSubmit(load.budget_amount ?? undefined)}>{bidLoading ? 'Accepting…' : `Accept proposed price (${money(load.budget_amount, load.currency)})`}</ActionButton>}
-                    <ActionButton tone="primary" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit()}>{bidLoading ? 'Submitting…' : hasProposedPrice ? 'Submit counter-offer' : 'Submit quote'}</ActionButton>
-                    <ActionButton tone="secondary" onClick={() => router.back()}>Cancel</ActionButton>
-                  </div>
+                {load.myBid ? <div style={{ padding: 8, border: '1px solid #bae6fd', borderRadius: 4, background: '#f0f9ff', color: '#0369a1', fontSize: 12 }}><strong>Quote already submitted</strong><div style={{ marginTop: 3 }}>Amount: {money(load.myBid.amount)} · Status: {load.myBid.status ?? 'submitted'}</div>{load.myBid.message && <div style={{ marginTop: 3 }}>Message: {load.myBid.message}</div>}</div> : bidBlockedMessage ? <div style={{ padding: 8, border: '1px solid #fcd34d', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontSize: 12, fontWeight: 600 }}>{bidBlockedMessage}</div> : (
+                  <div className="driver-inline-quote"><div className="driver-filter-field"><label htmlFor="marketplace-quote-amount">Your quote (£)</label><input id="marketplace-quote-amount" type="number" min="0" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="e.g. 250.00" /></div><div className="driver-filter-field"><label htmlFor="marketplace-quote-message">Message</label><textarea id="marketplace-quote-message" rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div>{hasProposedPrice && <ActionButton tone="success" disabled={bidLoading} onClick={() => void handleBidSubmit(load.budget_amount ?? undefined)}>{bidLoading ? 'Accepting…' : `Accept proposed price (${money(load.budget_amount, load.currency)})`}</ActionButton>}<ActionButton tone="primary" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit()}>{bidLoading ? 'Submitting…' : hasProposedPrice ? 'Submit counter-offer' : 'Submit quote'}</ActionButton><ActionButton tone="secondary" onClick={() => router.back()}>Cancel</ActionButton></div>
                 )}
               </div>
             </article>
