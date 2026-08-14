@@ -21,11 +21,7 @@ export default function DriverAccountPage() {
   const driverLinked = Boolean(user?.driverId);
 
   return (
-    <DriverWorkspaceShell
-      personaLabel="Account"
-      driverName="Account"
-      subtitle="Member information, business readiness, account record and support."
-    >
+    <DriverWorkspaceShell personaLabel="Account" driverName="Account" subtitle="Member information, business readiness, account record and support.">
       <div className="driver-account-status">
         <div><span>Account</span><strong>{accountName}</strong></div>
         <div><span>Company connection</span><strong>{companyLinked ? 'Linked' : 'Not linked'}</strong></div>
@@ -36,7 +32,7 @@ export default function DriverAccountPage() {
         <section className="driver-account-column">
           <div className="driver-account-column__head">Member Info</div>
           <div className="driver-account-column__body">
-            <AccountLink title="My Profile" detail="Identity, contact details and account status" onClick={() => router.push('/driver/profile')} />
+            <AccountLink title="My Profile" detail="Identity, contact details and account status" onClick={() => router.push('/driver/account/profile')} />
             <AccountLink title="Vehicle" detail="Vehicle capacity, equipment and readiness" onClick={() => router.push('/driver/vehicles')} />
             <AccountLink title="Documents" detail="Insurance, compliance and expiry evidence" onClick={() => router.push('/driver/documents')} />
             <AccountLink title="Invoices & Finance" detail="Invoices, earnings and payment records" onClick={() => router.push('/driver/finance')} />
