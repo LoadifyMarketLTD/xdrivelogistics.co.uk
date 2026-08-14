@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData } from '../../components/workspace/useCompanyWorkspaceData';
@@ -10,7 +10,6 @@ import {
   EmptyState,
   PageFrame,
   PageHeader,
-  Panel,
   StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
 
@@ -22,6 +21,8 @@ const money = (value: number | null | undefined) =>
 export default function CustomerNetworkPage() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const [companySearch, setCompanySearch] = useState('');
+  const [relationship, setRelationship] = useState<'all' | 'booked' | 'quoted'>('all');
 
   const carriers = useMemo(() => {
     const map = new Map<string, {
@@ -50,33 +51,55 @@ export default function CustomerNetworkPage() {
     return [...map.values()].sort((a, b) => b.accepted - a.accepted || b.quotes - a.quotes || a.name.localeCompare(b.name));
   }, [data.bids]);
 
+  const visibleCarriers = useMemo(() => {
+    const needle = companySearch.trim().toLowerCase();
+    return carriers.filter((carrier) => {
+      if (needle && !carrier.name.toLowerCase().includes(needle) && !carrier.companyId?.toLowerCase().includes(needle)) return false;
+      if (relationship === 'booked' && carrier.accepted === 0) return false;
+      if (relationship === 'quoted' && carrier.accepted > 0) return false;
+      return true;
+    });
+  }, [carriers, companySearch, relationship]);
+
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Customer network"
-        title="Companies / Network"
-        description="Carrier companies that have appeared in quote activity for your own transport requests."
+        eyebrow="Customer relationships"
+        title="Companies"
+        description="Carrier companies that have quoted for or been booked on your own XDrive transport requests."
         actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
       />
 
-      <Panel
-        title="Carrier relationship register"
-        description="This is not a global directory. It contains only carrier identities already exposed through your authorised Customer quote data."
-      >
-        <DataTable
-          columns={['Company', 'Loads quoted', 'Quotes', 'Accepted', 'Latest visible price', 'Relationship', 'Action']}
-          rows={carriers.map((carrier) => [
-            <strong key="company">{carrier.companyId ? <MemberIdentityLink companyId={carrier.companyId}>{carrier.name}</MemberIdentityLink> : carrier.name}</strong>,
-            carrier.jobIds.size,
-            carrier.quotes,
-            carrier.accepted,
-            money(carrier.latestPrice),
-            <StatusBadge key="relationship" value={carrier.accepted > 0 ? 'booked carrier' : 'quote activity'} tone={carrier.accepted > 0 ? 'green' : 'blue'} />,
-            <ActionButton key="action" tone="secondary" onClick={() => router.push('/customer/quotes')}>View quote activity</ActionButton>,
-          ])}
-          empty={<EmptyState title={data.loading ? 'Loading carrier relationships…' : 'No carrier relationships yet'} description="Carrier companies will appear after they submit quotes on your loads." />}
-        />
-      </Panel>
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Company relationship filters">
+          <div className="workspace-filter-rail__header">Search Companies</div>
+          <div className="workspace-filter-rail__body">
+            <label>COMPANY / MEMBER<input value={companySearch} onChange={(event) => setCompanySearch(event.target.value)} placeholder="Company name or ID" /></label>
+            <label>RELATIONSHIP<select value={relationship} onChange={(event) => setRelationship(event.target.value as 'all' | 'booked' | 'quoted')}><option value="all">All relationships</option><option value="booked">Booked carriers</option><option value="quoted">Quote activity only</option></select></label>
+            <div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>This is your commercial relationship register. It is not the global XDrive Directory.</div>
+            <ActionButton tone="secondary" onClick={() => { setCompanySearch(''); setRelationship('all'); }}>Clear</ActionButton>
+          </div>
+        </aside>
+
+        <main style={{ minWidth: 0 }}>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 4 }}><span><strong>{visibleCarriers.length}</strong> compan{visibleCarriers.length === 1 ? 'y' : 'ies'}</span><span>{carriers.length} authorised relationship record{carriers.length === 1 ? '' : 's'}</span></div>
+          <div className="workspace-panel">
+            <DataTable
+              columns={['Company', 'Loads quoted', 'Quotes', 'Accepted', 'Latest visible price', 'Relationship', 'Action']}
+              rows={visibleCarriers.map((carrier) => [
+                <strong key="company">{carrier.companyId ? <MemberIdentityLink companyId={carrier.companyId}>{carrier.name}</MemberIdentityLink> : carrier.name}</strong>,
+                carrier.jobIds.size,
+                carrier.quotes,
+                carrier.accepted,
+                money(carrier.latestPrice),
+                <StatusBadge key="relationship" value={carrier.accepted > 0 ? 'booked carrier' : 'quote activity'} tone={carrier.accepted > 0 ? 'green' : 'blue'} />,
+                <ActionButton key="action" tone="secondary" onClick={() => router.push('/customer/quotes')}>View quote activity</ActionButton>,
+              ])}
+              empty={<EmptyState title={data.loading ? 'Loading carrier relationships…' : 'No companies in this view'} description={carriers.length === 0 ? 'Carrier companies appear here after they submit quotes on your loads.' : 'Adjust the company or relationship filter.'} />}
+            />
+          </div>
+        </main>
+      </div>
     </PageFrame>
   );
 }
