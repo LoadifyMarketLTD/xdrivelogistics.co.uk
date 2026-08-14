@@ -240,23 +240,14 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
   customer: {
     role: 'customer', label: 'Customer Workspace', subtitle: 'Post, award and track your transport', homeHref: '/customer', primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' },
     nav: [
-      { id: 'home', label: 'Customer', items: [{ id: 'dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' }] },
-      { id: 'loads', label: 'Loads', items: [
-        { id: 'post-load', label: 'Post Load', href: '/customer/post-load', icon: '+', capability: 'loads.create' },
-        { id: 'my-loads', label: 'My Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' },
-        { id: 'quotes', label: 'Quotes', href: '/customer/quotes', icon: '◫', capability: 'quotes.receive' },
-        { id: 'awards', label: 'Awards', href: '/customer/awards', icon: '✓', capability: 'quotes.award' },
-      ] },
-      { id: 'delivery', label: 'Delivery', items: [
-        { id: 'deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '▣', capability: 'jobs.track' },
-        { id: 'documents', label: 'POD & Documents', href: '/customer/documents', icon: '▤', capability: 'jobs.review_pod' },
-        { id: 'updates', label: 'Updates', href: '/customer/updates', icon: '◉' },
-      ] },
-      { id: 'finance', label: 'Finance', items: [{ id: 'invoices', label: 'Invoices', href: '/customer/invoices', icon: '£', capability: 'invoices.customer.manage' }] },
-      { id: 'settings', label: 'Administration', items: [
-        { id: 'team', label: 'Team', href: '/customer/team', icon: '◌' },
-        { id: 'settings', label: 'Settings', href: '/customer/settings', icon: '⚙', capability: 'settings.manage' },
-      ] },
+      { id: 'customer-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/customer', icon: '⌂' }] },
+      { id: 'customer-loads', label: 'Loads', items: [{ id: 'loads', label: 'Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' }] },
+      { id: 'customer-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/customer/quotes', icon: '◫', capability: 'quotes.receive' }] },
+      { id: 'customer-bookings', label: 'Bookings', items: [{ id: 'bookings', label: 'Bookings', href: '/customer/bookings', icon: '▣', capability: 'jobs.view' }] },
+      { id: 'customer-tracking', label: 'Tracking', items: [{ id: 'tracking', label: 'Tracking', href: '/customer/tracking', icon: '⌖', capability: 'jobs.track' }] },
+      { id: 'customer-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/customer/diary', icon: '□', capability: 'jobs.view' }] },
+      { id: 'customer-companies', label: 'Companies', items: [{ id: 'companies', label: 'Companies', href: '/customer/network', icon: '◌' }] },
+      { id: 'customer-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/customer/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   fleet_manager: {
