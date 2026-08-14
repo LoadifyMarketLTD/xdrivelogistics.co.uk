@@ -1,54 +1,46 @@
-/* Driver Availability route.
- * Compact operational surface: live status rail + destination matching + weekly pattern.
- * Uses the shared workspace tokens and keeps route-specific CSS structural only.
- */
+/* Driver Availability — Master Plan v3 operational status workspace. */
+
+.driver-reference-availability {
+  --availability-rail: var(--ws-filter-rail-w, 220px);
+}
 
 .driver-reference-availability .driver-availability-board {
   display: grid;
-  grid-template-columns: var(--ws-rail-w, 196px) minmax(0, 1fr);
-  gap: var(--ws-gap-2, 4px);
+  grid-template-columns: var(--availability-rail) minmax(0, 1fr);
+  gap: var(--ws-gap-grid, 12px);
   align-items: start;
 }
 
 .driver-reference-availability .driver-availability-rail,
 .driver-reference-availability .driver-availability-main {
   min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-internal, 8px);
+  align-content: start;
 }
 
 .driver-reference-availability .driver-availability-rail {
-  display: grid;
-  gap: var(--ws-gap-2, 4px);
   position: sticky;
-  top: calc(var(--ws-header-h, 58px) + 6px);
-}
-
-.driver-reference-availability .driver-availability-main {
-  display: grid;
-  gap: var(--ws-gap-2, 4px);
+  top: calc(var(--ws-header-h, 50px) + var(--ws-gap-grid, 12px));
 }
 
 .driver-reference-availability .driver-availability-section,
 .driver-reference-availability .driver-availability-panel {
   border: 1px solid var(--ws-border, #cfd7e3);
-  border-radius: var(--ws-radius, 2px);
+  border-radius: var(--ws-radius, 4px);
   background: var(--ws-panel, #fff);
   box-shadow: none;
 }
 
 .driver-reference-availability .driver-availability-section__head,
 .driver-reference-availability .driver-availability-panel__head {
-  min-height: var(--ws-panel-head-h, 30px);
-  padding: 4px 6px;
+  min-height: var(--ws-panel-head-h, 36px);
+  padding: 7px 10px;
   border-bottom: 1px solid var(--ws-border, #cfd7e3);
   background: var(--ws-panel-head, #f2f4f7);
-}
-
-.driver-reference-availability .driver-availability-section__head,
-.driver-reference-availability .driver-availability-panel__head,
-.driver-reference-availability .driver-availability-panel__head > div {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .driver-reference-availability .driver-availability-panel__head {
@@ -56,37 +48,38 @@
 }
 
 .driver-reference-availability .driver-availability-panel__head > div {
-  align-items: baseline;
   min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .driver-reference-availability .driver-availability-section__head strong,
 .driver-reference-availability .driver-availability-panel__head strong {
   color: var(--ws-text, #172033);
-  font-size: 10.5px;
-  line-height: 13px;
+  font-size: var(--ws-font-panel-title, 13px);
+  line-height: 18px;
 }
 
 .driver-reference-availability .driver-availability-panel__head span {
   color: var(--ws-muted, #64748b);
-  font-size: 8.5px;
-  line-height: 11px;
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
 }
 
 .driver-reference-availability .driver-availability-status-list {
   display: grid;
-  gap: 2px;
-  padding: 4px;
+  gap: 6px;
+  padding: 8px;
 }
 
 .driver-reference-availability .driver-availability-status {
+  min-height: 52px;
   display: grid;
-  gap: 1px;
-  min-height: 38px;
-  padding: 4px 6px;
+  gap: 2px;
+  padding: 8px 9px;
   text-align: left;
   border: 1px solid var(--ws-border, #cfd7e3);
-  border-radius: var(--ws-radius, 2px);
+  border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
   cursor: pointer;
@@ -104,301 +97,224 @@
 }
 
 .driver-reference-availability .driver-availability-status strong {
-  font-size: 10px;
-  line-height: 12px;
+  font-size: var(--ws-font-body, 13px);
+  line-height: 18px;
 }
 
 .driver-reference-availability .driver-availability-status span {
   color: var(--ws-muted, #64748b);
-  font-size: 8.5px;
-  line-height: 10.5px;
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
 }
 
 .driver-reference-availability .driver-availability-facts {
   margin: 0;
-  padding: 2px 5px 4px;
+  padding: 6px 9px 8px;
 }
 
 .driver-reference-availability .driver-availability-facts > div {
+  min-height: 38px;
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 5px;
-  padding: 4px 1px;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 6px 1px;
   border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
 }
 
-.driver-reference-availability .driver-availability-facts > div:last-child {
-  border-bottom: 0;
-}
-
+.driver-reference-availability .driver-availability-facts > div:last-child { border-bottom: 0; }
 .driver-reference-availability .driver-availability-facts dt,
-.driver-reference-availability .driver-availability-facts dd {
-  margin: 0;
-  font-size: 8.8px;
-  line-height: 11px;
-}
-
+.driver-reference-availability .driver-availability-facts dd { margin: 0; }
 .driver-reference-availability .driver-availability-facts dt {
   color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-label, 11px);
+  line-height: 15px;
 }
-
 .driver-reference-availability .driver-availability-facts dd {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--ws-text, #172033);
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 700;
 }
 
 .driver-reference-availability .driver-availability-section > .xdrive-action-button,
-.driver-reference-availability .driver-availability-section > button:last-child {
-  margin: 0 5px 5px;
-}
+.driver-reference-availability .driver-availability-section > button:last-child { margin: 0 9px 9px; }
 
 .driver-reference-availability .driver-availability-matching-row {
   display: grid;
-  grid-template-columns: minmax(190px, .8fr) minmax(180px, .5fr);
-  gap: var(--ws-gap-2, 4px);
-  padding: 5px;
+  grid-template-columns: minmax(220px, .8fr) minmax(220px, .55fr);
+  gap: var(--ws-gap-internal, 8px);
+  padding: 10px;
   border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
 }
 
 .driver-reference-availability .driver-availability-toggle,
 .driver-reference-availability .driver-availability-field {
-  min-height: 34px;
-  padding: 3px 5px;
+  min-height: 44px;
+  padding: 7px 9px;
   border: 1px solid var(--ws-border, #cfd7e3);
-  border-radius: var(--ws-radius, 2px);
+  border-radius: var(--ws-radius, 4px);
   background: #fff;
 }
 
 .driver-reference-availability .driver-availability-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.driver-reference-availability .driver-availability-toggle input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-}
-
-.driver-reference-availability .driver-availability-toggle > span {
-  display: grid;
-  gap: 1px;
-}
-
+.driver-reference-availability .driver-availability-toggle input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
+.driver-reference-availability .driver-availability-toggle > span { display: grid; gap: 2px; }
 .driver-reference-availability .driver-availability-toggle strong,
 .driver-reference-availability .driver-availability-field > span:first-child {
   color: var(--ws-text, #172033);
-  font-size: 9px;
-  line-height: 11px;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 700;
 }
-
 .driver-reference-availability .driver-availability-toggle small {
   color: var(--ws-muted, #64748b);
-  font-size: 8px;
-  line-height: 10px;
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
 }
 
 .driver-reference-availability .driver-availability-field {
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr);
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .driver-reference-availability .driver-availability-input-suffix {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: minmax(0, 1fr) 48px;
   align-items: center;
   min-width: 0;
+}
+
+.driver-reference-availability .driver-availability-input-suffix input,
+.driver-reference-availability .driver-availability-input-suffix em {
+  height: var(--ws-control-h, 32px);
+  min-height: var(--ws-control-h, 32px);
 }
 
 .driver-reference-availability .driver-availability-input-suffix input {
   min-width: 0;
   width: 100%;
-  height: var(--ws-control-h, 28px);
-  padding: 0 5px;
+  padding: 0 8px;
   border: 1px solid var(--ws-border, #cfd7e3);
-  border-radius: var(--ws-radius, 2px) 0 0 var(--ws-radius, 2px);
+  border-radius: var(--ws-radius, 4px) 0 0 var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 9px;
+  font-size: 12px;
   box-shadow: none;
 }
 
-.driver-reference-availability .driver-availability-input-suffix input:disabled {
-  background: var(--ws-bg, #f4f6f8);
-  color: var(--ws-muted, #64748b);
-}
-
+.driver-reference-availability .driver-availability-input-suffix input:disabled { background: var(--ws-bg, #f4f6f8); color: var(--ws-muted, #64748b); }
 .driver-reference-availability .driver-availability-input-suffix em {
-  height: var(--ws-control-h, 28px);
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--ws-border, #cfd7e3);
   border-left: 0;
-  border-radius: 0 var(--ws-radius, 2px) var(--ws-radius, 2px) 0;
+  border-radius: 0 var(--ws-radius, 4px) var(--ws-radius, 4px) 0;
   background: var(--ws-panel-head, #f2f4f7);
   color: var(--ws-muted, #64748b);
-  font-size: 8px;
+  font-size: var(--ws-font-meta, 11px);
   font-style: normal;
 }
 
 .driver-reference-availability .driver-availability-readiness-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  padding: 0 5px 5px;
+  padding: 0 10px 10px;
 }
 
 .driver-reference-availability .driver-availability-readiness-strip > div {
-  min-height: 40px;
-  padding: 5px 7px;
+  min-height: 52px;
+  padding: 8px 9px;
   border: 1px solid var(--ws-border-soft, #e2e7ed);
   border-left: 0;
   display: grid;
   align-content: center;
-  gap: 2px;
+  gap: 3px;
 }
-
-.driver-reference-availability .driver-availability-readiness-strip > div:first-child {
-  border-left: 1px solid var(--ws-border-soft, #e2e7ed);
-}
-
+.driver-reference-availability .driver-availability-readiness-strip > div:first-child { border-left: 1px solid var(--ws-border-soft, #e2e7ed); }
 .driver-reference-availability .driver-availability-readiness-strip span {
   color: var(--ws-muted, #64748b);
-  font-size: 8px;
-  line-height: 10px;
+  font-size: var(--ws-font-label, 11px);
+  line-height: 15px;
 }
-
 .driver-reference-availability .driver-availability-readiness-strip strong {
   color: var(--ws-text, #172033);
-  font-size: 9.5px;
-  line-height: 11px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
-.driver-reference-availability .driver-availability-schedule {
-  display: grid;
-  gap: 2px;
-  padding: 5px;
-}
-
+.driver-reference-availability .driver-availability-schedule { display: grid; gap: 4px; padding: 10px; }
 .driver-reference-availability .driver-availability-day {
   display: grid;
-  grid-template-columns: 52px repeat(3, minmax(0, 1fr));
-  gap: 2px;
+  grid-template-columns: 60px repeat(3, minmax(0, 1fr));
+  gap: 4px;
   align-items: stretch;
 }
-
 .driver-reference-availability .driver-availability-day > strong {
   display: flex;
   align-items: center;
-  padding: 0 5px;
+  padding: 0 8px;
   border: 1px solid var(--ws-border-soft, #e2e7ed);
   background: var(--ws-panel-head, #f2f4f7);
   color: var(--ws-text, #172033);
-  font-size: 9px;
+  font-size: var(--ws-font-label, 11px);
 }
-
 .driver-reference-availability .driver-availability-day button {
-  min-height: 30px;
-  padding: 2px 5px;
+  min-height: 40px;
+  padding: 6px 8px;
   border: 1px solid var(--ws-border, #cfd7e3);
-  border-radius: var(--ws-radius, 2px);
+  border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
   box-shadow: none;
 }
-
-.driver-reference-availability .driver-availability-day button[data-available="true"] {
-  border-color: #86d9a1;
-  background: #effbf3;
-  color: #176b35;
-}
-
-.driver-reference-availability .driver-availability-day button[data-available="false"] {
-  background: var(--ws-bg, #f4f6f8);
-  color: var(--ws-muted, #64748b);
-}
-
+.driver-reference-availability .driver-availability-day button[data-available="true"] { border-color: #86d9a1; background: #effbf3; color: #176b35; }
+.driver-reference-availability .driver-availability-day button[data-available="false"] { background: var(--ws-bg, #f4f6f8); color: var(--ws-muted, #64748b); }
 .driver-reference-availability .driver-availability-day button span,
-.driver-reference-availability .driver-availability-day button strong {
-  font-size: 8.5px;
-  line-height: 10px;
-}
+.driver-reference-availability .driver-availability-day button strong { font-size: 11px; line-height: 15px; }
 
 .driver-reference-availability .driver-availability-empty {
-  min-height: 44px;
+  min-height: 52px;
   display: flex;
   align-items: center;
-  padding: 6px;
+  padding: 10px;
   color: var(--ws-muted, #64748b);
-  font-size: 9px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 @media (max-width: 1024px) {
-  .driver-reference-availability .driver-availability-board {
-    grid-template-columns: 1fr;
-  }
-
-  .driver-reference-availability .driver-availability-rail {
-    position: static;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .driver-reference-availability .driver-availability-readiness-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .driver-reference-availability .driver-availability-readiness-strip > div:nth-child(3) {
-    border-left: 1px solid var(--ws-border-soft, #e2e7ed);
-  }
+  .driver-reference-availability .driver-availability-board { grid-template-columns: 1fr; }
+  .driver-reference-availability .driver-availability-rail { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .driver-reference-availability .driver-availability-readiness-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .driver-reference-availability .driver-availability-readiness-strip > div:nth-child(3) { border-left: 1px solid var(--ws-border-soft, #e2e7ed); }
 }
 
 @media (max-width: 768px) {
   .driver-reference-availability .driver-availability-rail,
   .driver-reference-availability .driver-availability-matching-row,
-  .driver-reference-availability .driver-availability-readiness-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .driver-reference-availability .driver-availability-readiness-strip > div {
-    border-left: 1px solid var(--ws-border-soft, #e2e7ed);
-  }
-
-  .driver-reference-availability .driver-availability-panel__head,
-  .driver-reference-availability .driver-availability-panel__head > div {
-    align-items: flex-start;
-  }
-
-  .driver-reference-availability .driver-availability-panel__head > div {
-    display: grid;
-    gap: 1px;
-  }
-
-  .driver-reference-availability .driver-availability-day {
-    grid-template-columns: 44px repeat(3, minmax(68px, 1fr));
-    overflow-x: auto;
-  }
+  .driver-reference-availability .driver-availability-readiness-strip { grid-template-columns: 1fr; }
+  .driver-reference-availability .driver-availability-readiness-strip > div { border-left: 1px solid var(--ws-border-soft, #e2e7ed); }
+  .driver-reference-availability .driver-availability-panel__head { align-items: flex-start; flex-direction: column; }
+  .driver-reference-availability .driver-availability-day { grid-template-columns: 52px repeat(3, minmax(92px, 1fr)); overflow-x: auto; }
 }
 
 @media (max-width: 430px) {
-  .driver-reference-availability .driver-availability-day {
-    grid-template-columns: 38px repeat(3, minmax(64px, 1fr));
-  }
-
-  .driver-reference-availability .driver-availability-day button {
-    display: grid;
-    justify-items: start;
-    gap: 0;
-  }
+  .driver-reference-availability .driver-availability-day { grid-template-columns: 44px repeat(3, minmax(86px, 1fr)); }
+  .driver-reference-availability .driver-availability-day button { display: grid; justify-items: start; gap: 1px; }
 }
