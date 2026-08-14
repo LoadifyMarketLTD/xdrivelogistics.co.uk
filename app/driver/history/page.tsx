@@ -32,12 +32,21 @@ type HistoryJob = {
   deadline_at: string | null;
   budget_amount: number | null;
   vehicle_type: string | null;
+  requested_vehicle_label: string | null;
   cargo_type: string | null;
   load_details: string | null;
   load_notes: string | null;
   collection_notes: string | null;
   delivery_notes: string | null;
   driver_notes: string | null;
+  collection_contact_name: string | null;
+  collection_contact_phone: string | null;
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  purchase_order_number: string | null;
+  special_requirements: string | null;
+  access_restrictions: string | null;
+  document_checklist: string[] | null;
   hard_copy_pod: string | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
@@ -53,6 +62,28 @@ type HistoryJob = {
   customer_reference: string | null;
   booking_reference: string | null;
   companies: { name: string } | null;
+};
+
+type OrderSheet = {
+  reference: string;
+  bookedBy: string;
+  memberCode: string | null;
+  agreedRate: number | null;
+  currency: string;
+  customerReference: string | null;
+  purchaseOrderNumber: string | null;
+  bookingReference: string | null;
+  distanceMiles: number | null;
+  vehicleRequested: string | null;
+  vehicleRef: string | null;
+  vehicleType: string | null;
+  paymentTerms: string;
+  hardCopyPod: string;
+  podRequired: boolean;
+  pickupSlot: string | null;
+  deliverySlot: string | null;
+  loadNotes: string | null;
+  timeline: Array<{ eventType: string; createdAt: string | null }>;
 };
 
 type ReviewRow = { id: string; job_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
@@ -125,8 +156,8 @@ function fmtDate(value: string | null) {
   });
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+function money(value: number, currency = 'GBP') {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 }
 
 function withinHours(value: string | null, window: TimeWindow) {
@@ -217,6 +248,9 @@ export default function JobHistoryPage() {
   const [invoicesByJob, setInvoicesByJob] = useState<Record<string, InvoiceRow>>({});
   const [documentsByJob, setDocumentsByJob] = useState<Record<string, DocumentRow[]>>({});
   const [eventsByJob, setEventsByJob] = useState<Record<string, TrackingEventRow[]>>({});
+  const [orderSheetsByJob, setOrderSheetsByJob] = useState<Record<string, OrderSheet | null>>({});
+  const [orderLoadingByJob, setOrderLoadingByJob] = useState<Record<string, boolean>>({});
+  const [orderErrorsByJob, setOrderErrorsByJob] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [detailWarning, setDetailWarning] = useState('');
@@ -229,6 +263,26 @@ export default function JobHistoryPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
 
+  const fetchOrderSheet = useCallback(async (jobId: string) => {
+    if (orderSheetsByJob[jobId] !== undefined || orderLoadingByJob[jobId]) return;
+    setOrderLoadingByJob((current) => ({ ...current, [jobId]: true }));
+    setOrderErrorsByJob((current) => ({ ...current, [jobId]: '' }));
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/driver/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = await response.json().catch(() => ({})) as { sheet?: OrderSheet; error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Order confirmation is unavailable.');
+      setOrderSheetsByJob((current) => ({ ...current, [jobId]: payload.sheet ?? null }));
+    } catch (reason) {
+      setOrderSheetsByJob((current) => ({ ...current, [jobId]: null }));
+      setOrderErrorsByJob((current) => ({ ...current, [jobId]: reason instanceof Error ? reason.message : 'Order confirmation is unavailable.' }));
+    } finally {
+      setOrderLoadingByJob((current) => ({ ...current, [jobId]: false }));
+    }
+  }, [orderLoadingByJob, orderSheetsByJob]);
+
   const fetchHistory = useCallback(async () => {
     if (!isSupabaseConfigured || authLoading) return;
     if (!driverId) { setLoading(false); return; }
@@ -239,7 +293,7 @@ export default function JobHistoryPage() {
 
     const { data, error: fetchError } = await supabase
       .from('jobs')
-      .select('id, status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, budget_amount, vehicle_type, cargo_type, load_details, load_notes, collection_notes, delivery_notes, driver_notes, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+      .select('id, status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, budget_amount, vehicle_type, requested_vehicle_label, cargo_type, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
       .eq('assigned_driver_id', driverId)
       .order('updated_at', { ascending: false })
       .limit(250);
@@ -324,11 +378,15 @@ export default function JobHistoryPage() {
   useEffect(() => { setPage(1); }, [statusFilter, feedbackMode, appliedSearch, itemsPerPage]);
 
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
-  const toggleExpandAll = () => setExpandedIds((previous) => {
-    const next = new Set(previous);
-    visibleJobs.forEach((job) => allExpanded ? next.delete(job.id) : next.add(job.id));
-    return next;
-  });
+  const toggleExpandAll = () => {
+    const expanding = !allExpanded;
+    setExpandedIds((previous) => {
+      const next = new Set(previous);
+      visibleJobs.forEach((job) => expanding ? next.add(job.id) : next.delete(job.id));
+      return next;
+    });
+    if (expanding) visibleJobs.forEach((job) => void fetchOrderSheet(job.id));
+  };
 
   const filterRail = (
     <aside className="driver-filter-rail driver-diary-filter-rail" aria-label="Diary search filters">
@@ -451,6 +509,9 @@ export default function JobHistoryPage() {
                   const documents = documentsByJob[job.id] ?? [];
                   const trackingEvents = eventsByJob[job.id] ?? [];
                   const detailTab = detailTabs[job.id] ?? 'order';
+                  const orderSheet = orderSheetsByJob[job.id];
+                  const orderLoading = orderLoadingByJob[job.id] === true;
+                  const orderError = orderErrorsByJob[job.id] || '';
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
                   const hasPod = Boolean(job.pod_generated || podPhotos.length > 0);
                   const feedbackReceived = hasRecentFeedback(job, reviews);
@@ -477,6 +538,12 @@ export default function JobHistoryPage() {
                     ['Driver notes', job.driver_notes],
                     ['POD review note', job.broker_pod_review_note],
                   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+                  const bookedAt = orderSheet?.timeline.find((entry) => ['awarded', 'allocated', 'accepted'].includes(entry.eventType))?.createdAt ?? null;
+                  const bookingNotes = orderSheet?.loadNotes?.trim() || job.load_notes?.trim() || job.load_details?.trim() || null;
+                  const workingInstructions = [job.special_requirements, job.access_restrictions].filter((value): value is string => Boolean(value?.trim()));
+                  const paperworkInstructions = Array.isArray(job.document_checklist) && job.document_checklist.length ? job.document_checklist.join(' · ') : null;
+                  const requestedVehicle = orderSheet?.vehicleRequested?.replace(/_/g, ' ') ?? job.requested_vehicle_label ?? job.vehicle_type?.replace(/_/g, ' ') ?? 'Not supplied';
+                  const allocatedVehicle = orderSheet?.vehicleType?.replace(/_/g, ' ') ?? job.vehicle_type?.replace(/_/g, ' ') ?? 'Not supplied';
 
                   return (
                     <article key={job.id} className="driver-load-row driver-diary-entry" data-state={expired ? 'expired' : job.status}>
@@ -499,7 +566,7 @@ export default function JobHistoryPage() {
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">Status / commercial</span>
                           <strong className="driver-cell-primary">{expired ? 'Expired' : (STATUS_LABELS[job.status] ?? job.status)}</strong>
-                          <span className="driver-cell-secondary">{job.companies?.name ?? 'Member not supplied'} · {job.budget_amount != null ? money(job.budget_amount) : 'Rate TBC'}</span>
+                          <span className="driver-cell-secondary">{job.companies?.name ?? 'Member not supplied'} · Commercial terms in Order</span>
                         </div>
                       </div>
 
@@ -512,11 +579,15 @@ export default function JobHistoryPage() {
                         {awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}
                         {feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
                         <div className="driver-row-actions">
-                          <ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => {
-                            const next = new Set(previous);
-                            if (next.has(job.id)) next.delete(job.id); else next.add(job.id);
-                            return next;
-                          })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
+                          <ActionButton tone="secondary" onClick={() => {
+                            const willExpand = !expanded;
+                            setExpandedIds((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(job.id)) next.delete(job.id); else next.add(job.id);
+                              return next;
+                            });
+                            if (willExpand) void fetchOrderSheet(job.id);
+                          }}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
                           <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton>
                         </div>
                       </div>
@@ -531,7 +602,10 @@ export default function JobHistoryPage() {
                                 role="tab"
                                 aria-selected={detailTab === tab.id}
                                 data-active={detailTab === tab.id ? 'true' : 'false'}
-                                onClick={() => setDetailTabs((current) => ({ ...current, [job.id]: tab.id }))}
+                                onClick={() => {
+                                  setDetailTabs((current) => ({ ...current, [job.id]: tab.id }));
+                                  if (tab.id === 'order') void fetchOrderSheet(job.id);
+                                }}
                               >
                                 {tab.label}{tab.id === 'documents' && documents.length > 0 ? ` ${documents.length}` : ''}
                               </button>
@@ -540,30 +614,53 @@ export default function JobHistoryPage() {
 
                           <div className="driver-diary-detail-panel">
                             {detailTab === 'order' && (
-                              <>
-                                <div className="driver-detail-grid">
-                                  <div className="driver-detail-item"><span>Booked by</span><strong>{job.companies?.name ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Agreed rate</span><strong>{job.budget_amount != null ? money(job.budget_amount) : '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Booking ref</span><strong>{job.booking_reference ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Customer ref</span><strong>{job.customer_reference ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Vehicle</span><strong>{job.vehicle_type?.replace(/_/g, ' ') ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Freight</span><strong>{job.cargo_type?.replace(/_/g, ' ') ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Hard copy POD</span><strong>{job.hard_copy_pod ?? (job.pod_required ? 'Required' : 'Not required')}</strong></div>
-                                  <div className="driver-detail-item"><span>Route</span><strong>{job.pickup_postcode ?? '—'} → {job.delivery_postcode ?? '—'}</strong></div>
-                                </div>
-                                {(job.load_notes || job.load_details) && <div className="driver-diary-text-block"><strong>Load notes</strong><span>{job.load_notes ?? job.load_details}</span></div>}
-                                {reviews.length > 0 && (
-                                  <div className="driver-diary-feedback-list" aria-label="Booking feedback">
-                                    {reviews.map((review) => (
-                                      <div key={review.id} className="driver-diary-feedback-row">
-                                        <strong>{review.rating != null ? `${review.rating}/5` : 'Feedback received'}</strong>
-                                        <span>{review.comment?.trim() || 'No written comment supplied.'}</span>
-                                        <small>{fmtDate(review.created_at)}</small>
-                                      </div>
-                                    ))}
+                              orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
+                                <>
+                                  {orderError && <AlertBanner tone="warning">{orderError} Existing job fields are shown below; unavailable commercial fields are not fabricated.</AlertBanner>}
+                                  <div className="driver-detail-grid">
+                                    <div className="driver-detail-item"><span>Booking / job reference</span><strong>{orderSheet?.bookingReference ?? job.booking_reference ?? orderSheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`}</strong></div>
+                                    <div className="driver-detail-item"><span>Booked / allocated</span><strong>{bookedAt ? fmtDate(bookedAt) : 'Timestamp not exposed'}</strong></div>
+                                    <div className="driver-detail-item"><span>Requested vehicle</span><strong>{requestedVehicle}</strong></div>
+                                    <div className="driver-detail-item"><span>Allocated vehicle</span><strong>{allocatedVehicle}</strong><small>{orderSheet?.vehicleRef ? `Vehicle ref: ${orderSheet.vehicleRef}` : 'Vehicle ref not supplied'}</small></div>
+                                    <div className="driver-detail-item"><span>Body type</span><strong>Not supplied</strong></div>
+                                    <div className="driver-detail-item"><span>Subcontracted by</span><strong>{orderSheet?.bookedBy ?? job.companies?.name ?? 'Not supplied'}</strong><small>{orderSheet?.memberCode ? `Member ${orderSheet.memberCode}` : ''}</small></div>
+                                    <div className="driver-detail-item"><span>Subcontracted to</span><strong>Company identity not exposed to driver</strong></div>
+                                    <div className="driver-detail-item"><span>Agreed rate</span><strong>{orderSheet?.agreedRate != null ? money(orderSheet.agreedRate, orderSheet.currency) : 'Not supplied'}</strong></div>
+                                    <div className="driver-detail-item"><span>Extras</span><strong>Not supplied</strong></div>
+                                    <div className="driver-detail-item"><span>Payment terms</span><strong>{orderSheet?.paymentTerms ?? 'Not supplied'}</strong></div>
+                                    <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{orderSheet?.hardCopyPod ?? job.hard_copy_pod ?? (job.pod_required ? 'Required' : 'Requirement not supplied')}</strong></div>
+                                    <div className="driver-detail-item"><span>Customer ref</span><strong>{orderSheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
+                                    <div className="driver-detail-item"><span>PO number</span><strong>{orderSheet?.purchaseOrderNumber ?? job.purchase_order_number ?? 'Not supplied'}</strong></div>
+                                    <div className="driver-detail-item"><span>Distance</span><strong>{orderSheet?.distanceMiles != null ? `${orderSheet.distanceMiles} miles` : 'Not supplied'}</strong></div>
                                   </div>
-                                )}
-                              </>
+
+                                  {bookingNotes && <div className="driver-diary-text-block"><strong>Notes &amp; Details</strong><span>{bookingNotes}</span></div>}
+
+                                  <div className="driver-diary-note-list">
+                                    <div className="driver-diary-text-block">
+                                      <strong>Pickup</strong>
+                                      <span>{[job.pickup_location, job.pickup_postcode].filter(Boolean).join(', ') || 'Address not supplied'} · {fmtDate(job.pickup_datetime ?? job.collection_window_start)}{orderSheet?.pickupSlot ? ` · ${orderSheet.pickupSlot}` : ''}</span>
+                                      <span>Company: not separately supplied</span>
+                                      <span>Contact: {job.collection_contact_name ?? 'Not supplied'} · {job.collection_contact_phone ?? 'Phone not supplied'}</span>
+                                    </div>
+                                    <div className="driver-diary-text-block">
+                                      <strong>Delivery</strong>
+                                      <span>{[job.delivery_location, job.delivery_postcode].filter(Boolean).join(', ') || 'Address not supplied'} · {fmtDate(job.delivery_datetime ?? job.delivery_window_start)}{orderSheet?.deliverySlot ? ` · ${orderSheet.deliverySlot}` : ''}</span>
+                                      <span>Company: not separately supplied</span>
+                                      <span>Contact: {job.delivery_contact_name ?? 'Not supplied'} · {job.delivery_contact_phone ?? 'Phone not supplied'}</span>
+                                    </div>
+                                  </div>
+
+                                  {(workingInstructions.length > 0 || paperworkInstructions || orderSheet?.hardCopyPod) && (
+                                    <div className="driver-diary-text-block">
+                                      <strong>Working &amp; paperwork instructions</strong>
+                                      {workingInstructions.map((instruction) => <span key={instruction}>{instruction}</span>)}
+                                      {paperworkInstructions && <span>Paperwork: {paperworkInstructions}</span>}
+                                      {orderSheet?.hardCopyPod && <span>POD: {orderSheet.hardCopyPod}</span>}
+                                    </div>
+                                  )}
+                                </>
+                              )
                             )}
 
                             {detailTab === 'pod' && (
@@ -625,6 +722,18 @@ export default function JobHistoryPage() {
                               )
                             )}
                           </div>
+
+                          {reviews.length > 0 && (
+                            <div className="driver-diary-feedback-list" aria-label="Booking feedback">
+                              {reviews.map((review) => (
+                                <div key={review.id} className="driver-diary-feedback-row">
+                                  <strong>{review.rating != null ? `${review.rating}/5` : 'Feedback received'}</strong>
+                                  <span>{review.comment?.trim() || 'No written comment supplied.'}</span>
+                                  <small>{fmtDate(review.created_at)}</small>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </article>
