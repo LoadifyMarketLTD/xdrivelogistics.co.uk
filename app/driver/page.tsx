@@ -262,8 +262,6 @@ export default function DriverDashboard() {
     .slice(0, 6);
 
   const recentCompleted = recentCompletedJobs(myJobs).slice(0, 4);
-  const submittedQuotes = data.bids.filter((quote) => quote.status === 'submitted');
-  const acceptedQuotes = data.bids.filter((quote) => quote.status === 'accepted');
   const myDocuments = data.driverDocuments.filter((document) => !user?.driverId || document.driver_id === user.driverId);
   const now = Date.now();
   const documentAlerts = myDocuments
@@ -512,7 +510,7 @@ export default function DriverDashboard() {
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Driver Dashboard"
         subtitle="Current execution, bookings, marketplace matching, feedback and compliance readiness."
-        availabilityLabel={driverProfile?.availability_status ? availabilityValue : (currentJob ? 'On a job' : undefined)}
+        availabilityLabel={driverProfile?.availability_status ? availabilityValue : undefined}
         headerActions={<ActionButton tone="primary" onClick={() => void refreshDashboard()} disabled={data.loading || contextLoading}>Refresh</ActionButton>}
       >
         {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
