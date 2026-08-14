@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import AccountSectionNav from './AccountSectionNav';
 
 const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver': 'Driver Dashboard',
@@ -26,15 +27,19 @@ const DRIVER_ACCOUNT_PREFIXES = [
   '/driver/notifications',
 ] as const;
 
+function isDriverAccountPath(pathname: string | null) {
+  if (!pathname) return false;
+  if (pathname === '/driver/account') return true;
+  return DRIVER_ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 function resolveDriverPageTitle(pathname: string | null, explicitTitle?: string) {
   if (pathname) {
     const primaryTitle = DRIVER_PRIMARY_PAGE_TITLES[pathname];
     if (primaryTitle) return primaryTitle;
   }
   if (explicitTitle) return explicitTitle;
-  if (pathname && DRIVER_ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-    return 'Account';
-  }
+  if (isDriverAccountPath(pathname)) return 'Account';
   return 'My Work';
 }
 
@@ -55,6 +60,7 @@ export default function DriverWorkspaceShell({
 }) {
   const pathname = usePathname();
   const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
+  const accountPath = isDriverAccountPath(pathname);
 
   return (
     <PageFrame>
@@ -72,7 +78,12 @@ export default function DriverWorkspaceShell({
             }
           />
         )}
-        {children}
+        {accountPath ? (
+          <div className="driver-account-workspace">
+            <AccountSectionNav />
+            <div className="driver-account-workspace__content">{children}</div>
+          </div>
+        ) : children}
       </div>
     </PageFrame>
   );
