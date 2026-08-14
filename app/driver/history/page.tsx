@@ -103,9 +103,9 @@ function normalizeCompany(value: CompanyRelation) {
 }
 
 function fmtDate(value: string | null) {
-  if (!value) return '—';
+  if (!value) return 'â€”';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return Number.isNaN(date.getTime()) ? 'â€”' : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function money(value: number) {
@@ -367,7 +367,7 @@ export default function JobHistoryPage() {
             </div>
 
             <div className="driver-board-summary">
-              <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
+              <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} Â· showing {visibleJobs.length}</span>
               <span className="driver-diary-summary-actions">
                 <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
                 <label>
@@ -382,7 +382,7 @@ export default function JobHistoryPage() {
             </div>
 
             {loading ? (
-              <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div>
+              <div className="driver-load-row"><EmptyState compact title="Loading diaryâ€¦" /></div>
             ) : visibleJobs.length === 0 ? (
               <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
             ) : (
@@ -427,22 +427,22 @@ export default function JobHistoryPage() {
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">From</span>
                           <strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'}</strong>
-                          <span className="driver-cell-secondary">{job.pickup_postcode ?? '—'}</span>
+                          <span className="driver-cell-secondary">{job.pickup_postcode ?? 'â€”'}</span>
                         </div>
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">To</span>
                           <strong className="driver-cell-primary">{job.delivery_location ?? 'Delivery'}</strong>
-                          <span className="driver-cell-secondary">{job.delivery_postcode ?? '—'}</span>
+                          <span className="driver-cell-secondary">{job.delivery_postcode ?? 'â€”'}</span>
                         </div>
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">Timing / Load</span>
                           <strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong>
-                          <span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {job.vehicle_type?.replace(/_/g, ' ') ?? 'Vehicle TBC'}</span>
+                          <span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} Â· {job.vehicle_type?.replace(/_/g, ' ') ?? 'Vehicle TBC'}</span>
                         </div>
                         <div className="driver-load-cell">
                           <span className="driver-cell-label">Status / Commercial</span>
                           <strong className="driver-cell-primary">{expired ? 'Expired' : (STATUS_LABELS[job.status] ?? job.status)}</strong>
-                          <span className="driver-cell-secondary">{job.companies?.name ?? 'Member not supplied'} · {job.budget_amount != null ? money(job.budget_amount) : 'Rate TBC'}</span>
+                          <span className="driver-cell-secondary">{job.companies?.name ?? 'Member not supplied'} Â· {job.budget_amount != null ? money(job.budget_amount) : 'Rate TBC'}</span>
                         </div>
                       </div>
 
@@ -457,7 +457,7 @@ export default function JobHistoryPage() {
                         <div className="driver-row-actions">
                           <ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => {
                             const next = new Set(previous);
-                            next.has(job.id) ? next.delete(job.id) : next.add(job.id);
+                            if (next.has(job.id)) { next.delete(job.id); } else { next.add(job.id); }
                             return next;
                           })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
                           <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton>
@@ -484,14 +484,14 @@ export default function JobHistoryPage() {
                             {detailTab === 'order' && (
                               <>
                                 <div className="driver-detail-grid">
-                                  <div className="driver-detail-item"><span>Booked by</span><strong>{job.companies?.name ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Agreed rate</span><strong>{job.budget_amount != null ? money(job.budget_amount) : '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Booking ref</span><strong>{job.booking_reference ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Customer ref</span><strong>{job.customer_reference ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Vehicle</span><strong>{job.vehicle_type?.replace(/_/g, ' ') ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Freight</span><strong>{job.cargo_type?.replace(/_/g, ' ') ?? '—'}</strong></div>
+                                  <div className="driver-detail-item"><span>Booked by</span><strong>{job.companies?.name ?? 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Agreed rate</span><strong>{job.budget_amount != null ? money(job.budget_amount) : 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Booking ref</span><strong>{job.booking_reference ?? 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Customer ref</span><strong>{job.customer_reference ?? 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Vehicle</span><strong>{job.vehicle_type?.replace(/_/g, ' ') ?? 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Freight</span><strong>{job.cargo_type?.replace(/_/g, ' ') ?? 'â€”'}</strong></div>
                                   <div className="driver-detail-item"><span>Hard copy POD</span><strong>{job.hard_copy_pod ?? (job.pod_required ? 'Required' : 'Not required')}</strong></div>
-                                  <div className="driver-detail-item"><span>Route</span><strong>{job.pickup_postcode ?? '—'} → {job.delivery_postcode ?? '—'}</strong></div>
+                                  <div className="driver-detail-item"><span>Route</span><strong>{job.pickup_postcode ?? 'â€”'} â†’ {job.delivery_postcode ?? 'â€”'}</strong></div>
                                 </div>
                                 {(job.load_notes || job.load_details) && <div className="driver-diary-text-block"><strong>Load notes</strong><span>{job.load_notes ?? job.load_details}</span></div>}
                               </>
@@ -502,7 +502,7 @@ export default function JobHistoryPage() {
                                 <div className="driver-detail-item"><span>POD required</span><strong>{job.pod_required ? 'Yes' : 'No'}</strong></div>
                                 <div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div>
                                 <div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div>
-                                <div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div>
+                                <div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : 'â€”'}</strong></div>
                                 <div className="driver-detail-item"><span>Broker review</span><strong>{job.broker_pod_review_status?.replace(/_/g, ' ') ?? 'Not reviewed'}</strong></div>
                                 <div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div>
                               </div>
@@ -535,7 +535,7 @@ export default function JobHistoryPage() {
                                 <div className="driver-diary-document-list">
                                   {documents.map((document) => (
                                     <div key={document.id} className="driver-diary-document-row">
-                                      <span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>
+                                      <span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} Â· {fmtDate(document.uploaded_at)}</small></span>
                                       {document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}
                                     </div>
                                   ))}
@@ -548,10 +548,10 @@ export default function JobHistoryPage() {
                                 <div className="driver-detail-grid">
                                   <div className="driver-detail-item"><span>Invoice</span><strong>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</strong></div>
                                   <div className="driver-detail-item"><span>Amount</span><strong>{money(Number(invoice.total ?? invoice.amount ?? 0))}</strong></div>
-                                  <div className="driver-detail-item"><span>Status</span><strong>{invoice.status ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Payment</span><strong>{invoice.payment_status ?? '—'}</strong></div>
-                                  <div className="driver-detail-item"><span>Due</span><strong>{invoice.due_date ? fmtDate(invoice.due_date) : '—'}</strong></div>
-                                  <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (£)</ActionButton></div>
+                                  <div className="driver-detail-item"><span>Status</span><strong>{invoice.status ?? 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Payment</span><strong>{invoice.payment_status ?? 'â€”'}</strong></div>
+                                  <div className="driver-detail-item"><span>Due</span><strong>{invoice.due_date ? fmtDate(invoice.due_date) : 'â€”'}</strong></div>
+                                  <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (Â£)</ActionButton></div>
                                 </div>
                               ) : (
                                 <div className="driver-diary-empty-action"><EmptyState compact title="No invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>

@@ -170,7 +170,7 @@ export default function MyQuotesPage() {
               <button type="button" onClick={toggleExpandAll} disabled={!visibleBids.length} style={{ border: 0, background: 'transparent', color: visibleBids.length ? '#1d57d8' : '#94a3b8', fontWeight: 700 }}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
             </div>
             {error && <div role="alert" className="driver-board-alert driver-board-alert--error">{error}</div>}
-            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading quotes…" /></div>
+            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading quotesâ€¦" /></div>
               : visibleBids.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No quotes here" description={`No ${activeTab} quotes found.`} /></div>
               : <div className="driver-load-list">{visibleBids.map((bid) => {
                   const job = bid.jobs;
@@ -180,10 +180,10 @@ export default function MyQuotesPage() {
                   const quoteParty = bid.direction === 'incoming' ? (bid.bidder_company_name ?? 'Exchange member') : bookedBy;
                   return <article key={bid.id} className="driver-load-row" data-state={bid.status === 'accepted' ? 'accepted' : bid.status}>
                     <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{job?.pickup_location ?? 'Collection TBC'}</strong><span className="driver-cell-secondary">Pickup · {fmtDate(job?.pickup_datetime ?? null)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{job?.delivery_location ?? 'Delivery TBC'}</strong><span className="driver-cell-secondary">Delivery · {fmtDate(job?.delivery_datetime ?? null)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Quote</span><strong className="driver-cell-primary">{bidPrice == null ? '—' : `£${bidPrice.toFixed(2)}`}</strong><span className="driver-cell-secondary">{bid.direction === 'incoming' ? 'Received' : 'Your quote'}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{quoteParty}</strong><span className="driver-cell-secondary">Submitted · {fmtDate(bid.created_at)}</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{job?.pickup_location ?? 'Collection TBC'}</strong><span className="driver-cell-secondary">Pickup Â· {fmtDate(job?.pickup_datetime ?? null)}</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{job?.delivery_location ?? 'Delivery TBC'}</strong><span className="driver-cell-secondary">Delivery Â· {fmtDate(job?.delivery_datetime ?? null)}</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Quote</span><strong className="driver-cell-primary">{bidPrice == null ? 'â€”' : `Â£${bidPrice.toFixed(2)}`}</strong><span className="driver-cell-secondary">{bid.direction === 'incoming' ? 'Received' : 'Your quote'}</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{quoteParty}</strong><span className="driver-cell-secondary">Submitted Â· {fmtDate(bid.created_at)}</span></div>
                     </div>
                     <div className="driver-load-row__meta">
                       <span>Load #{(job?.id ?? bid.job_id).slice(0, 8).toUpperCase()}</span>
@@ -191,7 +191,7 @@ export default function MyQuotesPage() {
                       {job?.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
                       <StatusBadge value={bid.status.charAt(0).toUpperCase() + bid.status.slice(1)} tone={quoteTone(bid.status)} />
                       <div className="driver-row-actions">
-                        <ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); next.has(bid.id) ? next.delete(bid.id) : next.add(bid.id); return next; })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
+                        <ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); if (next.has(bid.id)) { next.delete(bid.id); } else { next.add(bid.id); } return next; })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
                         {bid.direction === 'outgoing' && bid.status === 'submitted' && <ActionButton tone="secondary" onClick={() => void handleWithdrawBid(bid.id)}>Withdraw</ActionButton>}
                       </div>
                     </div>
@@ -199,7 +199,7 @@ export default function MyQuotesPage() {
                       <div className="driver-detail-item"><span>Load ID / Ref</span><strong>{job?.booking_reference || job?.customer_reference || bid.job_id}</strong></div>
                       <div className="driver-detail-item"><span>Booked by</span><strong>{bookedBy}</strong></div>
                       <div className="driver-detail-item"><span>Vehicle</span><strong>{job?.vehicle_type?.replace(/_/g, ' ') || 'Not supplied'}</strong></div>
-                      <div className="driver-detail-item"><span>Budget</span><strong>{job?.budget_amount == null ? 'Open' : `£${job.budget_amount.toFixed(2)}`}</strong></div>
+                      <div className="driver-detail-item"><span>Budget</span><strong>{job?.budget_amount == null ? 'Open' : `Â£${job.budget_amount.toFixed(2)}`}</strong></div>
                       <div className="driver-detail-item"><span>Direction</span><strong>{bid.direction === 'incoming' ? 'Received' : 'Submitted'}</strong></div>
                       {bid.message && <div className="driver-detail-item"><span>Message</span><strong>{bid.message}</strong></div>}
                     </div></div>}
