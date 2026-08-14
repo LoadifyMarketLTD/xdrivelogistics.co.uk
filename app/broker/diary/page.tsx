@@ -121,6 +121,9 @@ export default function BrokerDiaryPage() {
     { id: 'feedback', label: 'Feedback' },
   ];
 
+  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+
   return (
     <PageFrame>
       <PageHeader
@@ -136,28 +139,13 @@ export default function BrokerDiaryPage() {
         <aside className="workspace-filter-rail" aria-label="Diary filters">
           <div className="workspace-filter-rail__header">Search Diary</div>
           <div className="workspace-filter-rail__body">
-            <label>
-              DATE
-              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-            </label>
-            <label>
-              PICKUP
-              <input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" />
-            </label>
-            <label>
-              DELIVERY
-              <input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" />
-            </label>
-            <label>
-              LOAD ID / REF
-              <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load reference" />
-            </label>
-            <label>
-              MEMBER / CUSTOMER
-              <input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" />
-            </label>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <ActionButton tone="primary" onClick={() => undefined}>Search</ActionButton>
+            <label>DATE<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+            <label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load reference" /></label>
+            <label>MEMBER / CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <span style={metaStyle}>Filters apply as you type.</span>
               <ActionButton tone="secondary" onClick={reset}>Clear</ActionButton>
             </div>
           </div>
@@ -198,22 +186,22 @@ export default function BrokerDiaryPage() {
                   <article className="workspace-operational-row" key={job.id}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>FROM</div>
+                        <div style={labelStyle}>FROM</div>
                         <strong>{postcodeOrLocation(job.pickup_postcode, job.pickup_location)}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(job.pickup_datetime)}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>TO</div>
+                        <div style={labelStyle}>TO</div>
                         <strong>{postcodeOrLocation(job.delivery_postcode, job.delivery_location)}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{when(job.delivery_datetime)}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>LOAD</div>
+                        <div style={labelStyle}>LOAD</div>
                         <strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong>
-                        <div style={{ color: '#64748b', marginTop: 2 }}>{job.client_name || 'Customer'}</div>
+                        <div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div>
                       </div>
                       <div className="workspace-operational-cell">
-                        <div style={{ fontSize: 8.5, color: '#64748b', fontWeight: 800 }}>STATUS</div>
+                        <div style={labelStyle}>STATUS</div>
                         <StatusBadge value={job.current_status || job.status} />
                         <div style={{ marginTop: 4 }}>
                           <ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Open'}</ActionButton>
