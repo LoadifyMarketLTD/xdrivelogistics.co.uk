@@ -3,14 +3,79 @@ import { NextRequest } from 'next/server';
 import { resolveDriverBidEligibility } from '../../../driver/_lib/bidEligibility';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag, getGlobalSettingNumber } from '../../../_lib/platformFlags';
+import { publicAreaLabel } from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver, respond } from '../_lib';
+
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
+  if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
+
+  const driver = await requireDriver(request);
+  if (!isDriverContext(driver)) return driver;
+
+  const identityFilters = [
+    `bidder_user_id.eq.${driver.userId}`,
+    `bidder_driver_id.eq.${driver.driverId}`,
+    driver.companyId ? `company_id.eq.${driver.companyId}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const { data: bids, error: bidsError } = await supabaseAdmin
+    .from('job_bids')
+    .select('id, job_id, company_id, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, currency, status, message, created_at')
+    .or(identityFilters.join(','))
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (bidsError) return respond(500, { error: bidsError.message });
+
+  const jobIds = [...new Set((bids ?? []).map((bid) => String(bid.job_id)).filter(Boolean))];
+  const { data: jobs, error: jobsError } = jobIds.length
+    ? await supabaseAdmin
+        .from('jobs')
+        .select('id, assigned_driver_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, client_name')
+        .in('id', jobIds)
+    : { data: [], error: null };
+  if (jobsError) return respond(500, { error: jobsError.message });
+
+  const jobById = new Map((jobs ?? []).map((job) => [String(job.id), job]));
+  return respond(200, {
+    bids: (bids ?? []).map((bid) => {
+      const job = jobById.get(String(bid.job_id));
+      const executionUnlocked = Boolean(job && job.assigned_driver_id === driver.driverId);
+      return {
+        id: bid.id,
+        jobId: bid.job_id,
+        amount: bid.bid_price_gbp ?? bid.amount ?? null,
+        currency: bid.currency || 'GBP',
+        status: bid.status || 'submitted',
+        message: bid.message || '',
+        createdAt: bid.created_at,
+        pickupLocation: job
+          ? executionUnlocked
+            ? (job.pickup_location || job.pickup_postcode || 'Collection')
+            : publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area')
+          : 'Collection area',
+        deliveryLocation: job
+          ? executionUnlocked
+            ? (job.delivery_location || job.delivery_postcode || 'Delivery')
+            : publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area')
+          : 'Delivery area',
+        pickupDatetime: job?.pickup_datetime ?? null,
+        clientName: executionUnlocked ? (job?.client_name || '') : '',
+        executionUnlocked,
+      };
+    }),
+  });
+}
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  // PR-0.2: Gate entire driver mobile bidding behind the driver_mobile_app feature flag.
   const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
   if (!mobileAppEnabled) {
     return respond(503, { error: 'The driver mobile app is currently disabled.' });
@@ -29,11 +94,10 @@ export async function POST(request: NextRequest) {
   if (driver.companyId && driver.companyStatus !== 'active') return respond(403, { error: 'Driver company workspace is not active.' });
   if (message.length > 1_000) return respond(400, { error: 'Quote message is too long.' });
 
-  // PR-0.3: Enforce configurable bid submission limits from global settings.
   const [minBidIntervalMinutes, maxBidsPerJob] = await Promise.all([
     getGlobalSettingNumber(supabaseAdmin, 'min_bid_interval_minutes'),
     getGlobalSettingNumber(supabaseAdmin, 'max_bids_per_job'),
-  ]);;
+  ]);
 
   let eligibilityResult: Awaited<ReturnType<typeof resolveDriverBidEligibility>>;
   try {
@@ -59,7 +123,6 @@ export async function POST(request: NextRequest) {
     return respond(400, { error: 'Enter a valid quote amount.' });
   }
 
-  // PR-0.3: Enforce max bids per job (configurable via global setting).
   if (maxBidsPerJob > 0) {
     const { count: existingBidCount } = await supabaseAdmin
       .from('job_bids')
@@ -71,7 +134,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // PR-0.3: Enforce minimum interval between bids from the same driver (configurable).
   if (minBidIntervalMinutes > 0) {
     const intervalMs = minBidIntervalMinutes * 60 * 1000;
     const since = new Date(Date.now() - intervalMs).toISOString();
