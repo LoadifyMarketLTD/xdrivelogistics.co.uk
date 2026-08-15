@@ -236,7 +236,7 @@ export default function DriverVehiclesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Vehicle capacity and equipment in a compact register tied to driver readiness."
+        subtitle="Vehicle capacity and equipment in a compact register tied to driver readiness. Assignment is shown separately from operational availability."
         headerActions={<ActionButton tone="primary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -286,12 +286,12 @@ export default function DriverVehiclesPage() {
                   const assigned = vehicle.id === assignedVehicleId;
                   const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
                   return (
-                    <article key={vehicle.id} className="driver-load-row" data-state={assigned ? 'active' : 'available'}>
+                    <article key={vehicle.id} className="driver-load-row" data-state={assigned ? 'active' : 'recorded'}>
                       <div className="driver-load-row__top">
                         <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleName(vehicle)}</strong><span className="driver-cell-secondary">{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Capacity</span><strong className="driver-cell-primary">{vehicle.payload_kg ? `${vehicle.payload_kg} kg` : 'Payload not set'}</strong><span className="driver-cell-secondary">{vehicle.pallets_capacity != null ? `${vehicle.pallets_capacity} pallet positions` : 'Pallet capacity not set'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Equipment</span><strong className="driver-cell-primary">{equipment}</strong><span className="driver-cell-secondary">Readiness equipment</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Assignment</span><strong className="driver-cell-primary">{assigned ? 'Assigned to you' : 'Fleet vehicle'}</strong><span className="driver-cell-secondary"><StatusBadge value={assigned ? 'Assigned' : 'Available record'} tone={assigned ? 'green' : 'grey'} /></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Assignment</span><strong className="driver-cell-primary">{assigned ? 'Assigned to you' : 'Not assigned to you'}</strong><span className="driver-cell-secondary"><StatusBadge value={assigned ? 'Assigned' : 'Fleet record'} tone={assigned ? 'green' : 'grey'} /></span></div>
                       </div>
                       <div className="driver-load-row__meta">
                         <span>Vehicle #{vehicle.id.slice(0, 8).toUpperCase()}</span>
