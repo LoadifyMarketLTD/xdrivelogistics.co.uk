@@ -5,12 +5,9 @@ import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/workspace-visual-scale.css';
 import './driver-operational.css';
-import './driver-exchange-compact.css';
 import './driver-master.css';
 import './driver-top-shell.css';
 import './driver-account.css';
-import './driver-loads-visual-standard.css';
-import './driver-exchange-structural-v2.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import './driver-dashboard-reference.css';
 
