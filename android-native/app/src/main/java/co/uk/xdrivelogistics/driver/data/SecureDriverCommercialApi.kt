@@ -60,22 +60,20 @@ class SecureDriverCommercialApi(
         val assignedRows = assignedPayload.getAsJsonArray("jobs") ?: JsonArray()
         val assigned = buildList {
             for (index in 0 until assignedRows.size()) {
-                val row = assignedRows[index].asJsonObject
-                add(mapAssignedJob(row))
+                add(mapAssignedJob(assignedRows[index].asJsonObject))
             }
         }
 
-        val nearbyPayload = getJson("/api/driver/mobile/nearby-jobs", session.accessToken)
+        val nearbyPayload = getJson("/api/driver/mobile/nearby-jobs?limit=100", session.accessToken)
         val nearbyRows = nearbyPayload.getAsJsonArray("jobs") ?: JsonArray()
         val nearby = buildList {
             for (index in 0 until nearbyRows.size()) {
-                val row = nearbyRows[index].asJsonObject
-                add(mapMarketplaceJob(row))
+                add(mapMarketplaceJob(nearbyRows[index].asJsonObject))
             }
         }
 
         val assignedIds = assigned.mapTo(mutableSetOf()) { it.id }
-        (assigned + nearby.filterNot { it.id in assignedIds })
+        return@networkResult (assigned + nearby.filterNot { it.id in assignedIds })
             .sortedWith(compareBy<DriverJob> { it.isPosted() }.thenBy { it.pickupDatetime ?: "" })
     }
 
@@ -140,15 +138,12 @@ class SecureDriverCommercialApi(
         val delivery = row.getAsJsonObject("delivery")
         val price = row.getAsJsonObject("publicPrice")
         val poster = row.getAsJsonObject("poster")
-        val proposed = row.doubleOrNull("proposedPriceGbp")
-            ?: price?.doubleOrNull("amount")
+        val proposed = row.doubleOrNull("proposedPriceGbp") ?: price?.doubleOrNull("amount")
         val safeDetails = buildList {
-            row.string("dimensions").takeIf { it.isNotBlank() }?.let { add("Dimensions: $it") }
             row.doubleOrNull("weightKg")?.let { add("Weight: ${it.toInt()} kg") }
-            row.doubleOrNull("palletCount")?.let { add("Pallets: ${it.toInt()}") }
-            row.getAsJsonArray("badges")?.forEach { badge ->
-                badge.takeUnless { it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }?.let(::add)
-            }
+            row.doubleOrNull("pallets")?.let { add("Pallets: ${it.toInt()}") }
+            row.string("notesSummary").takeIf { it.isNotBlank() }?.let(::add)
+            if (row.booleanOrNull("directDeliveryRequired") == true) add("Direct delivery")
         }.joinToString(" · ")
         return DriverJob(
             id = row.string("id"),
@@ -164,8 +159,11 @@ class SecureDriverCommercialApi(
             cargoType = row.string("freightType"),
             budgetAmount = proposed,
             loadDetails = safeDetails,
-            distanceMiles = row.doubleOrNull("distanceMiles"),
-            pickupDistanceFromActiveDeliveryMiles = row.doubleOrNull("distanceFromCurrentDeliveryMiles"),
+            pickupPostcode = pickup?.string("postcode").orEmpty(),
+            deliveryPostcode = delivery?.string("postcode").orEmpty(),
+            distanceMiles = row.doubleOrNull("journeyDistanceMiles"),
+            pickupDistanceFromActiveDeliveryMiles = row.doubleOrNull("distanceFromCurrentDeliveryMiles")
+                ?: row.doubleOrNull("distanceToPickupMiles"),
             podRequired = true,
         )
     }
