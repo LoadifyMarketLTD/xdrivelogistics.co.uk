@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus } from '../../../lib/jobs/workspaceJobStage';
@@ -23,6 +24,7 @@ export default function BrokerDiaryPage() {
   const [tab, setTab] = useState<DiaryTab>('all');
   const [reference, setReference] = useState('');
   const [customer, setCustomer] = useState('');
+  const [carrier, setCarrier] = useState('');
   const [pickup, setPickup] = useState('');
   const [delivery, setDelivery] = useState('');
   const [date, setDate] = useState('');
@@ -30,18 +32,38 @@ export default function BrokerDiaryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  const acceptedCarrierByJob = useMemo(() => {
+    const map = new Map<string, { companyId: string | null; companyName: string | null }>();
+    for (const bid of data.bids) {
+      if (bid.status !== 'accepted') continue;
+      map.set(bid.job_id, {
+        companyId: bid.company_id ?? null,
+        companyName: bid.companies?.name ?? null,
+      });
+    }
+    return map;
+  }, [data.bids]);
+
   const rows = useMemo(() => {
-    const refTerm = reference.trim().toLowerCase(); const customerTerm = customer.trim().toLowerCase();
-    const pickupTerm = pickup.trim().toLowerCase(); const deliveryTerm = delivery.trim().toLowerCase();
+    const refTerm = reference.trim().toLowerCase();
+    const customerTerm = customer.trim().toLowerCase();
+    const carrierTerm = carrier.trim().toLowerCase();
+    const pickupTerm = pickup.trim().toLowerCase();
+    const deliveryTerm = delivery.trim().toLowerCase();
     return data.jobs
       .filter((job) => matchesTab(job, tab))
       .filter((job) => !refTerm || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refTerm))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
+      .filter((job) => {
+        if (!carrierTerm) return true;
+        const carrierInfo = acceptedCarrierByJob.get(job.id);
+        return `${carrierInfo?.companyName ?? ''} ${carrierInfo?.companyId ?? ''} ${job.awarded_carrier_company_id ?? ''}`.toLowerCase().includes(carrierTerm);
+      })
       .filter((job) => !pickupTerm || `${job.pickup_postcode || ''} ${job.pickup_location || ''}`.toLowerCase().includes(pickupTerm))
       .filter((job) => !deliveryTerm || `${job.delivery_postcode || ''} ${job.delivery_location || ''}`.toLowerCase().includes(deliveryTerm))
       .filter((job) => !date || String(job.pickup_datetime || '').slice(0, 10) === date)
       .sort((a, b) => String(b.pickup_datetime || b.created_at).localeCompare(String(a.pickup_datetime || a.created_at)));
-  }, [customer, data.jobs, date, delivery, pickup, reference, tab]);
+  }, [acceptedCarrierByJob, carrier, customer, data.jobs, date, delivery, pickup, reference, tab]);
 
   const counts = useMemo(() => ({
     all: data.jobs.length,
@@ -56,9 +78,9 @@ export default function BrokerDiaryPage() {
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
-  useEffect(() => { setPage(1); setExpanded(null); }, [tab, reference, customer, pickup, delivery, date, pageSize]);
+  useEffect(() => { setPage(1); setExpanded(null); }, [tab, reference, customer, carrier, pickup, delivery, date, pageSize]);
 
-  const reset = () => { setReference(''); setCustomer(''); setPickup(''); setDelivery(''); setDate(''); };
+  const reset = () => { setReference(''); setCustomer(''); setCarrier(''); setPickup(''); setDelivery(''); setDate(''); };
   const tabs: Array<{ id: DiaryTab; label: string; count?: number }> = [
     { id: 'all', label: 'All', count: counts.all }, { id: 'unallocated', label: 'Unallocated', count: counts.unallocated },
     { id: 'allocated', label: 'Allocated', count: counts.allocated }, { id: 'in_progress', label: 'In Progress', count: counts.in_progress },
@@ -81,8 +103,9 @@ export default function BrokerDiaryPage() {
             <label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
             <label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
             <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
-            <label>MEMBER / CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
-            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><ActionButton tone="secondary" onClick={reset}>Clear</ActionButton></div>
+            <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
+            <label>CARRIER / MEMBER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier name / company ID" /></label>
+            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Customer and executing carrier remain separate operational relationships.</span><ActionButton tone="secondary" onClick={reset}>Clear</ActionButton></div>
           </div>
         </aside>
 
@@ -105,16 +128,20 @@ export default function BrokerDiaryPage() {
           ) : (
             <div className="workspace-record-list">
               {visibleRows.map((job) => {
-                const open = expanded === job.id; const podReady = (job.delivery_photos?.length || 0) > 0;
+                const open = expanded === job.id;
+                const deliveryPhotoAvailable = (job.delivery_photos?.length || 0) > 0;
+                const carrierInfo = acceptedCarrierByJob.get(job.id);
+                const carrierCompanyId = carrierInfo?.companyId ?? job.awarded_carrier_company_id ?? null;
+                const carrierName = carrierInfo?.companyName ?? (carrierCompanyId ? 'Awarded carrier' : 'Not awarded');
                 return (
                   <article className="workspace-operational-row" key={job.id} data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{postcodeOrLocation(job.pickup_postcode, job.pickup_location)}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{postcodeOrLocation(job.delivery_postcode, job.delivery_location)}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>CUSTOMER / LOAD</div><strong>{job.client_name || 'Customer not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>CUSTOMER / CARRIER</div><strong>{job.client_name || 'Customer not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : carrierName} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={job.current_status || job.status} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open job</ActionButton></div></div>
                     </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>POD: {podReady ? 'Captured' : 'Pending'}</span></div>
+                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span></div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="broker" />}
                   </article>
                 );
