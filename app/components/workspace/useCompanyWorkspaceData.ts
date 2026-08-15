@@ -26,6 +26,8 @@ export type WorkspaceJob = {
   awarded_carrier_company_id?: string | null;
   budget_amount?: number | null;
   delivery_photos?: string[] | null;
+  booking_reference?: string | null;
+  customer_reference?: string | null;
   created_at: string;
   updated_at: string;
   client_name?: string | null;
@@ -608,7 +610,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         } else {
           const jobsRes = await supabase
             .from('jobs')
-            .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
+            .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name')
             .eq('assigned_driver_id', user.driverId)
             .order('updated_at', { ascending: false })
             .limit(500);
@@ -623,7 +625,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       } else {
         const jobsRes = await supabase
           .from('jobs')
-          .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
+          .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name')
           .or(
             plan.surface === 'customer' || plan.surface === 'broker'
               ? `company_id.eq.${companyId}`
