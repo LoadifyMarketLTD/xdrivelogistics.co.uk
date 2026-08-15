@@ -53,6 +53,15 @@ describe('load posting operational contract', () => {
     expect(source).toContain('heightCm');
   });
 
+  it('keeps capability-labelled vehicle choices consistent with stored requirements', () => {
+    expect(form).toContain("value === 'Luton Tail Lift' ? true");
+    expect(form).toContain("value === 'ADR Vehicle' ? true");
+    expect(form).toContain("value === 'Refrigerated Vehicle' || value === 'Artic 44T Refrigerated'");
+    expect(form).toContain('Tail lift required');
+    expect(form).toContain('Forklift available at collection');
+    expect(form).toContain('Handball required');
+  });
+
   it('keeps public quote notes distinct from private execution instructions', () => {
     expect(source).toContain('publicQuoteNotes');
     expect(source).toContain('executionInstructions');
