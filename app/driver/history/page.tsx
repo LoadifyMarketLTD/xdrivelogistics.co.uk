@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -22,6 +23,7 @@ type HistoryJob = {
   id: string;
   company_id: string;
   status: string;
+  current_status: string | null;
   assigned_driver_id: string | null;
   pickup_location: string | null;
   pickup_postcode: string | null;
@@ -154,7 +156,6 @@ type OrderSheet = {
 };
 
 type ReviewRow = { id: string; job_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
-type InvoiceRow = { id: string; job_id: string | null; invoice_number: string | null; status: string | null; payment_status: string | null; total: number | null; amount: number | null; due_date: string | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
 type SearchFilters = { dateRange: DateRange; pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; memberName: string; archive: ArchiveFilter };
@@ -172,16 +173,12 @@ const DETAIL_TABS: Array<{ id: DetailTab; label: string }> = [
 const TIME_WINDOWS: Array<{ value: TimeWindow; label: string }> = [
   { value: 'any', label: 'Any' }, { value: '2', label: '2 hours' }, { value: '4', label: '4 hours' }, { value: '8', label: '8 hours' }, { value: '24', label: '24 hours' },
 ];
-const ALLOCATED_STATUSES = new Set(['awarded', 'allocated', 'accepted']);
-const IN_PROGRESS_STATUSES = new Set(['collected', 'loaded', 'in_transit', 'on_my_way_to_pickup', 'on_site_pickup', 'on_my_way_to_delivery', 'on_site_delivery']);
-const COMPLETED_STATUSES = new Set(['delivered', 'completed']);
-const CANCELLED_STATUSES = new Set(['cancelled', 'driver_declined']);
 const STATUS_LABELS: Record<string, string> = {
   posted: 'Posted', quoted: 'Quoted', awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted',
-  collected: 'Loaded', loaded: 'Loaded', in_transit: 'In transit', delivered: 'Delivered', completed: 'Completed',
-  cancelled: 'Cancelled', disputed: 'Disputed', driver_declined: 'Declined', expired: 'Expired',
-  on_my_way_to_pickup: 'On my way to pickup', on_site_pickup: 'On site pickup',
-  on_my_way_to_delivery: 'On my way to delivery', on_site_delivery: 'On site delivery',
+  on_my_way: 'On my way to pickup', on_my_way_to_pickup: 'On my way to pickup', on_site_pickup: 'On site pickup',
+  collected: 'Loaded', loaded: 'Loaded', in_transit: 'In transit', on_my_way_to_delivery: 'On my way to delivery', on_site_delivery: 'On site delivery',
+  delivered: 'Delivered', completed: 'Completed', invoiced: 'Invoiced', paid: 'Paid', cancelled: 'Cancelled', disputed: 'Disputed',
+  driver_declined: 'Declined', expired: 'Expired',
 };
 
 function normalizeCompany(value: CompanyRelation) { return !value ? null : Array.isArray(value) ? (value[0] ?? null) : value; }
@@ -192,6 +189,8 @@ function fmtDate(value: string | null) {
 }
 function money(value: number, currency = 'GBP') { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
 function human(value: string | null | undefined) { return value ? value.replace(/_/g, ' ') : 'Not supplied'; }
+function effectiveStatus(job: HistoryJob) { return String(job.current_status || job.status || '').trim().toLowerCase(); }
+function jobStage(job: HistoryJob) { return classifyWorkspaceJobStage(job); }
 function withinHours(value: string | null, window: TimeWindow) {
   if (window === 'any') return true;
   if (!value) return false;
@@ -216,8 +215,9 @@ function groupByJobId<T extends { job_id: string | null }>(rows: T[]) {
   return grouped;
 }
 function isDerivedExpired(job: HistoryJob) {
-  if (job.status === 'expired') return true;
-  if (!['posted', 'quoted', 'awarded'].includes(job.status)) return false;
+  if (jobStage(job) === 'expired') return true;
+  const status = effectiveStatus(job);
+  if (!['posted', 'quoted', 'awarded'].includes(status)) return false;
   const target = job.deadline_at ?? job.pickup_datetime ?? job.collection_window_start;
   if (!target) return false;
   const timestamp = new Date(target).getTime();
@@ -226,28 +226,30 @@ function isDerivedExpired(job: HistoryJob) {
 function hasRecentFeedback(job: HistoryJob, reviews: ReviewRow[]) {
   return reviews.length > 0 || ['received', 'completed', 'submitted', 'left', 'recent'].includes((job.feedback_status ?? '').toLowerCase());
 }
-function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[]) { return COMPLETED_STATUSES.has(job.status) && !hasRecentFeedback(job, reviews); }
-function isClosedRecord(job: HistoryJob) { return COMPLETED_STATUSES.has(job.status) || CANCELLED_STATUSES.has(job.status) || isDerivedExpired(job); }
+function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[]) { return jobStage(job) === 'completed' && !hasRecentFeedback(job, reviews); }
+function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired' || isDerivedExpired(job); }
 function feedbackMatches(job: HistoryJob, reviews: ReviewRow[], mode: FeedbackMode) {
   const awaiting = isAwaitingFeedback(job, reviews); const recent = hasRecentFeedback(job, reviews);
   return mode === 'awaiting' ? awaiting : mode === 'recent' ? recent : awaiting || recent;
 }
 function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[], feedbackMode: FeedbackMode = 'all') {
   if (filter === 'all') return true;
+  const stage = jobStage(job);
   if (filter === 'unallocated') return !job.assigned_driver_id;
-  if (filter === 'allocated') return ALLOCATED_STATUSES.has(job.status);
-  if (filter === 'in_progress') return IN_PROGRESS_STATUSES.has(job.status);
-  if (filter === 'completed') return COMPLETED_STATUSES.has(job.status);
-  if (filter === 'cancelled') return CANCELLED_STATUSES.has(job.status);
-  if (filter === 'expired') return isDerivedExpired(job);
+  if (filter === 'allocated') return stage === 'awarded' || stage === 'allocated';
+  if (filter === 'in_progress') return stage === 'in_progress';
+  if (filter === 'completed') return stage === 'completed';
+  if (filter === 'cancelled') return stage === 'cancelled';
+  if (filter === 'expired') return stage === 'expired' || isDerivedExpired(job);
   return feedbackMatches(job, reviews, feedbackMode);
 }
-function statusTone(status: string): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'grey' {
-  if (COMPLETED_STATUSES.has(status)) return 'green';
-  if (CANCELLED_STATUSES.has(status)) return 'red';
-  if (status === 'disputed') return 'purple';
-  if (status === 'expired') return 'grey';
-  if (ALLOCATED_STATUSES.has(status) || IN_PROGRESS_STATUSES.has(status)) return 'blue';
+function statusTone(job: HistoryJob): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'grey' {
+  const stage = jobStage(job);
+  if (stage === 'completed') return 'green';
+  if (stage === 'cancelled') return 'red';
+  if (stage === 'disputed') return 'purple';
+  if (stage === 'expired') return 'grey';
+  if (stage === 'awarded' || stage === 'allocated' || stage === 'in_progress') return 'blue';
   return 'orange';
 }
 function parsePrivateNotes(value: string | null) {
@@ -273,7 +275,6 @@ export default function JobHistoryPage() {
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
-  const [invoicesByJob, setInvoicesByJob] = useState<Record<string, InvoiceRow>>({});
   const [documentsByJob, setDocumentsByJob] = useState<Record<string, DocumentRow[]>>({});
   const [eventsByJob, setEventsByJob] = useState<Record<string, TrackingEventRow[]>>({});
   const [orderSheetsByJob, setOrderSheetsByJob] = useState<Record<string, OrderSheet | null>>({});
@@ -318,7 +319,7 @@ export default function JobHistoryPage() {
 
     const { data, error: fetchError } = await supabase
       .from('jobs')
-      .select('id, company_id, status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, budget_amount, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+      .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, budget_amount, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
       .eq('assigned_driver_id', driverId)
       .order('updated_at', { ascending: false })
       .limit(250);
@@ -330,12 +331,11 @@ export default function JobHistoryPage() {
     setJobs(normalized);
     const jobIds = normalized.map((job) => job.id);
     if (!jobIds.length) {
-      setReviewsByJob({}); setInvoicesByJob({}); setDocumentsByJob({}); setEventsByJob({}); setLoading(false); return;
+      setReviewsByJob({}); setDocumentsByJob({}); setEventsByJob({}); setLoading(false); return;
     }
 
-    const [reviewsRes, invoicesRes, documentsRes, eventsRes] = await Promise.all([
+    const [reviewsRes, documentsRes, eventsRes] = await Promise.all([
       supabase.from('reviews').select('id, job_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
-      supabase.from('invoices').select('id, job_id, invoice_number, status, payment_status, total, amount, due_date, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
@@ -343,11 +343,6 @@ export default function JobHistoryPage() {
     if (reviewsRes.error) warnings.push('feedback'); else setReviewsByJob(groupByJobId((reviewsRes.data ?? []) as ReviewRow[]));
     if (documentsRes.error) warnings.push('documents'); else setDocumentsByJob(groupByJobId((documentsRes.data ?? []) as DocumentRow[]));
     if (eventsRes.error) warnings.push('history'); else setEventsByJob(groupByJobId((eventsRes.data ?? []) as TrackingEventRow[]));
-    if (invoicesRes.error) warnings.push('invoice'); else {
-      const invoiceMap: Record<string, InvoiceRow> = {};
-      for (const invoice of (invoicesRes.data ?? []) as InvoiceRow[]) if (invoice.job_id && !invoiceMap[invoice.job_id]) invoiceMap[invoice.job_id] = invoice;
-      setInvoicesByJob(invoiceMap);
-    }
     if (warnings.length) setDetailWarning(`Some Diary detail data is temporarily unavailable: ${warnings.join(', ')}.`);
     setLoading(false);
   }, [authLoading, driverId]);
@@ -388,7 +383,7 @@ export default function JobHistoryPage() {
         <div className="driver-filter-field"><label>Pickup window</label><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="driver-filter-field"><label>Delivery window</label><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="driver-filter-field"><label>Load ID / reference</label><input value={search.loadRef} onChange={(e) => setSearch((current) => ({ ...current, loadRef: e.target.value }))} placeholder="Job, booking or ref" /></div>
-        <div className="driver-filter-field"><label>Member / customer</label><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
+        <div className="driver-filter-field"><label>Company / member</label><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
         <div className="driver-filter-field"><label>Archive</label><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
         <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
         <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
@@ -419,11 +414,13 @@ export default function JobHistoryPage() {
             {loading ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
               <div className="driver-load-list driver-diary-list">
                 {visibleJobs.map((job) => {
-                  const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? []; const invoice = invoicesByJob[job.id];
+                  const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? [];
                   const documents = documentsByJob[job.id] ?? []; const trackingEvents = eventsByJob[job.id] ?? []; const detailTab = detailTabs[job.id] ?? 'order';
                   const sheet = orderSheetsByJob[job.id]; const orderLoading = orderLoadingByJob[job.id] === true; const orderError = orderErrorsByJob[job.id] || '';
+                  const invoice = sheet?.invoices?.[0] ?? null;
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
                   const hasPod = Boolean(job.pod_generated || podPhotos.length > 0); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
+                  const currentStatus = effectiveStatus(job);
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -444,23 +441,23 @@ export default function JobHistoryPage() {
                   const cargoWeight = sheet?.cargo.weightKg ?? job.weight_kg; const cargoPallets = sheet?.cargo.pallets ?? job.pallets; const cargoValue = sheet?.cargo.cargoValueGbp ?? job.cargo_value_gbp;
 
                   return (
-                    <article key={job.id} className="driver-load-row driver-diary-entry" data-state={expired ? 'expired' : job.status}>
+                    <article key={job.id} className="driver-load-row driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
                       <div className="driver-load-row__top driver-diary-entry__top">
                         <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'}</strong><span className="driver-cell-secondary">{job.pickup_postcode ?? '—'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{job.delivery_location ?? 'Delivery'}</strong><span className="driver-cell-secondary">{job.delivery_postcode ?? '—'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : (STATUS_LABELS[job.status] ?? job.status)}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
                       </div>
                       <div className="driver-load-row__meta">
                         <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                        <StatusBadge value={expired ? 'Expired' : (STATUS_LABELS[job.status] ?? job.status)} tone={expired ? 'grey' : statusTone(job.status)} />{hasPod && <StatusBadge value="POD captured" tone="green" />}{awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}{feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
+                        <StatusBadge value={expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))} tone={expired ? 'grey' : statusTone(job)} />{hasPod && <StatusBadge value="POD captured" tone="green" />}{awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}{feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
                         <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton></div>
                       </div>
 
                       {expanded && (
                         <div className="driver-row-details driver-diary-details">
                           <div className="driver-diary-detail-tabs" role="tablist" aria-label={`Booking ${job.id} details`}>
-                            {DETAIL_TABS.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={detailTab === tab.id} data-active={detailTab === tab.id ? 'true' : 'false'} onClick={() => { setDetailTabs((current) => ({ ...current, [job.id]: tab.id })); if (tab.id === 'order' || tab.id === 'notes') void fetchOrderSheet(job.id); }}>{tab.label}{tab.id === 'documents' && documents.length > 0 ? ` ${documents.length}` : ''}</button>)}
+                            {DETAIL_TABS.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={detailTab === tab.id} data-active={detailTab === tab.id ? 'true' : 'false'} onClick={() => { setDetailTabs((current) => ({ ...current, [job.id]: tab.id })); if (tab.id === 'order' || tab.id === 'notes' || tab.id === 'invoice') void fetchOrderSheet(job.id); }}>{tab.label}{tab.id === 'documents' && documents.length > 0 ? ` ${documents.length}` : ''}</button>)}
                           </div>
                           <div className="driver-diary-detail-panel">
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
@@ -499,14 +496,10 @@ export default function JobHistoryPage() {
                             ))}
 
                             {detailTab === 'notes' && (orderLoading ? <EmptyState compact title="Loading notes…" /> : noteRows.length ? <div className="driver-diary-note-list">{noteRows.map(([label, value]) => <div key={label} className="driver-diary-text-block"><strong>{label}</strong><span>{value}</span></div>)}</div> : <EmptyState compact title="No notes recorded" />)}
-
                             {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.slice(0, 50).map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
-
                             {detailTab === 'documents' && (documents.length ? <div className="driver-diary-document-list">{documents.map((document) => <div key={document.id} className="driver-diary-document-row"><span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>{document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}</div>)}</div> : <EmptyState compact title="No documents attached" />)}
-
-                            {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>{sheet?.podRequired ?? job.pod_required ? 'Yes' : 'No'}</strong></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
-
-                            {detailTab === 'invoice' && (invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{money(Number(invoice.total ?? invoice.amount ?? 0))}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{invoice.status ?? '—'}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{invoice.payment_status ?? '—'}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.due_date ? fmtDate(invoice.due_date) : '—'}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (£)</ActionButton></div></div> : <div className="driver-diary-empty-action"><EmptyState compact title="No invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
+                            {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>{(sheet?.podRequired ?? job.pod_required) ? 'Yes' : 'No'}</strong></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
+                            {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{invoice.status ?? '—'}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{invoice.paymentStatus ?? '—'}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
                           </div>
 
                           {reviews.length > 0 && <div className="driver-diary-feedback-list" aria-label="Booking feedback">{reviews.map((review) => <div key={review.id} className="driver-diary-feedback-row"><strong>{review.rating != null ? `${review.rating}/5` : 'Feedback received'}</strong><span>{review.comment?.trim() || 'No written comment supplied.'}</span><small>{fmtDate(review.created_at)}</small></div>)}</div>}
