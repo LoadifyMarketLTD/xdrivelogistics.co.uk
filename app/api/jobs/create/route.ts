@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
 
   const specialRequirements = [
     input.tailLift && 'Tail lift required',
-    input.forklift && 'Forklift required',
+    input.forklift && 'Forklift available at collection',
     input.handball && 'Handball required',
     input.adr && 'ADR required',
     input.temperatureControlled && 'Temperature controlled',
