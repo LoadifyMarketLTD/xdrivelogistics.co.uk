@@ -34,6 +34,18 @@ describe('Marketplace consumer boundary', () => {
     expect(searchApi).toContain('publicAreaLabel');
   });
 
+  it('converges Driver Web quote writes on the canonical server mutation', () => {
+    const loads = fs.readFileSync(path.join(root, 'app/driver/loads/page.tsx'), 'utf8');
+    const detail = fs.readFileSync(path.join(root, 'app/driver/loads/[id]/page.tsx'), 'utf8');
+    const server = fs.readFileSync(path.join(root, 'app/api/driver/bids/route.ts'), 'utf8');
+
+    for (const source of [loads, detail]) {
+      expect(source).toContain("fetch('/api/driver/bids'");
+      expect(source).not.toMatch(/\.from\(['"]job_bids['"]\)\.insert/);
+    }
+    expect(server).toContain('submitDriverQuote');
+  });
+
   it('routes Android Marketplace and quote reads through XDrive server projections', () => {
     const viewModel = fs.readFileSync(
       path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/DriverViewModel.kt'),
