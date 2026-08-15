@@ -41,18 +41,26 @@ type DashboardMarketplaceLoad = {
   company_id: string;
   status: string;
   vehicle_type: string | null;
-  pickup_location: string | null;
-  pickup_postcode: string | null;
+  requested_vehicle_type: string | null;
+  requested_vehicle_label: string | null;
+  pickup_area: string;
+  pickup_postcode_area: string | null;
   pickup_datetime: string | null;
-  delivery_location: string | null;
-  delivery_postcode: string | null;
+  delivery_area: string;
+  delivery_postcode_area: string | null;
   delivery_datetime: string | null;
   weight_kg: number | null;
   pallets: number | null;
   budget_amount: number | null;
-  is_fixed_price: boolean | null;
   currency: string | null;
   exchange_posted_at: string | null;
+  member: {
+    companyId: string;
+    name: string;
+    memberId: string | null;
+    phone: string | null;
+    postedBy: string | null;
+  } | null;
 };
 
 type DashboardReview = {
@@ -198,9 +206,9 @@ function vehicleLabel(value: string | null | undefined) {
   return VEHICLE_TYPE_LABELS[value] ?? humanize(value);
 }
 
-function money(value: number | null | undefined) {
+function money(value: number | null | undefined, currency = 'GBP') {
   if (value == null) return 'Open quote';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 }
 
 function statusTone(status: string): 'green' | 'orange' | 'red' | 'purple' | 'blue' | 'grey' {
@@ -293,7 +301,6 @@ export default function DriverDashboard() {
     return !Number.isNaN(expiry) && expiry >= now && expiry <= now + 30 * 86_400_000;
   });
   const myJobIds = useMemo(() => myJobs.map((job) => job.id), [myJobs]);
-  const activeCompanyId = data.companyId ?? user?.companyId ?? null;
 
   const loadDashboardContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
@@ -316,14 +323,27 @@ export default function DriverDashboard() {
       .eq('id', driverId)
       .maybeSingle();
 
-    const loadsPromise = supabase
-      .from('jobs')
-      .select('id, company_id, status, vehicle_type, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, weight_kg, pallets, budget_amount, is_fixed_price, currency, exchange_posted_at')
-      .not('exchange_posted_at', 'is', null)
-      .is('awarded_carrier_company_id', null)
-      .in('status', ['posted'])
-      .order('exchange_posted_at', { ascending: false })
-      .limit(40);
+    const loadsPromise = (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return { data: [] as DashboardMarketplaceLoad[], error: 'Marketplace session could not be verified.' };
+      try {
+        const response = await fetch('/api/driver/marketplace/loads', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          loads?: DashboardMarketplaceLoad[];
+          error?: string;
+        };
+        if (!response.ok) {
+          return { data: [] as DashboardMarketplaceLoad[], error: payload.error || 'Relevant marketplace loads could not be loaded.' };
+        }
+        return { data: payload.loads ?? [], error: null as string | null };
+      } catch {
+        return { data: [] as DashboardMarketplaceLoad[], error: 'Relevant marketplace loads could not be loaded.' };
+      }
+    })();
 
     const feedbackPromise = myJobIds.length
       ? supabase
@@ -381,17 +401,15 @@ export default function DriverDashboard() {
     }
 
     if (loadsRes.error) {
-      warnings.loads = 'Relevant marketplace loads could not be loaded.';
+      warnings.loads = loadsRes.error;
       setRelevantLoads([]);
     } else {
-      const marketplaceLoads = ((loadsRes.data ?? []) as DashboardMarketplaceLoad[])
-        .filter((load) => !activeCompanyId || load.company_id !== activeCompanyId);
-      setRelevantLoads(marketplaceLoads.slice(0, 4));
+      setRelevantLoads((loadsRes.data ?? []).slice(0, 4));
     }
 
     setContextWarnings(warnings);
     setContextLoading(false);
-  }, [activeCompanyId, myJobIds, user?.driverId]);
+  }, [myJobIds, user?.driverId]);
 
   useEffect(() => {
     void loadDashboardContext();
@@ -476,27 +494,28 @@ export default function DriverDashboard() {
       <div className="driver-load-row__top">
         <div className="driver-load-cell">
           <span className="driver-cell-label">From</span>
-          <strong className="driver-cell-primary">{load.pickup_location ?? 'Collection TBC'}</strong>
-          <span className="driver-cell-secondary">{load.pickup_postcode ?? 'Postcode TBC'} · {fmtDate(load.pickup_datetime)}</span>
+          <strong className="driver-cell-primary">{load.pickup_area || 'Collection area TBC'}</strong>
+          <span className="driver-cell-secondary">{fmtDate(load.pickup_datetime)}</span>
         </div>
         <div className="driver-load-cell">
           <span className="driver-cell-label">To</span>
-          <strong className="driver-cell-primary">{load.delivery_location ?? 'Delivery TBC'}</strong>
-          <span className="driver-cell-secondary">{load.delivery_postcode ?? 'Postcode TBC'} · {fmtDate(load.delivery_datetime)}</span>
+          <strong className="driver-cell-primary">{load.delivery_area || 'Delivery area TBC'}</strong>
+          <span className="driver-cell-secondary">{fmtDate(load.delivery_datetime)}</span>
         </div>
         <div className="driver-load-cell">
           <span className="driver-cell-label">Load</span>
-          <strong className="driver-cell-primary">{vehicleLabel(load.vehicle_type)}</strong>
+          <strong className="driver-cell-primary">{vehicleLabel(load.requested_vehicle_label ?? load.requested_vehicle_type ?? load.vehicle_type)}</strong>
           <span className="driver-cell-secondary">{load.pallets != null ? `${load.pallets} pallets` : 'Pallets TBC'} · {load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight TBC'}</span>
         </div>
         <div className="driver-load-cell">
           <span className="driver-cell-label">Commercial</span>
-          <strong className="driver-cell-primary">{money(load.budget_amount)}</strong>
+          <strong className="driver-cell-primary">{money(load.budget_amount, load.currency ?? 'GBP')}</strong>
           <span className="driver-cell-secondary">Posted {fmtDate(load.exchange_posted_at)}</span>
         </div>
       </div>
       <div className="driver-load-row__meta">
         <StatusBadge value="Live marketplace" tone="blue" />
+        <span>{load.member?.name ?? 'Marketplace member'}{load.member?.phone ? ` · ${load.member.phone}` : ''}</span>
         <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
         <div className="driver-row-actions">
           <ActionButton tone="success" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
