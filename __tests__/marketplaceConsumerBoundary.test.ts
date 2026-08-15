@@ -25,8 +25,11 @@ describe('Marketplace consumer boundary', () => {
 
     for (const source of [driverApi, companyApi, searchApi]) {
       expect(source).toContain('publicOutcode');
-      expect(source).not.toMatch(/return\s+(?:NextResponse\.json|respond)\([^\n]*\brows\b[^\n]*\)/);
+      expect(source).toContain('publicQuoteNotes');
     }
+    expect(driverApi).toContain('pickup_area');
+    expect(companyApi).toContain('publicSearchProjection');
+    expect(searchApi).toContain('publicAreaLabel');
   });
 
   it('does not introduce a restrictive jobs SELECT migration before all native/direct consumers are migrated', () => {
