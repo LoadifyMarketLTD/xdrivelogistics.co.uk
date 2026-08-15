@@ -44,6 +44,7 @@ export default function CustomerDashboardHome() {
   const data = useCompanyWorkspaceData();
 
   const metrics = useMemo(() => {
+    const now = Date.now();
     const submittedQuotes = data.bids.filter((bid) => bid.status === 'submitted');
     const awaitingAward = data.jobs.filter((job) =>
       classifyWorkspaceJobStage(job) === 'open'
@@ -52,7 +53,7 @@ export default function CustomerDashboardHome() {
     const activeDeliveries = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
     const delayed = activeDeliveries.filter((job) =>
       Boolean(job.delivery_datetime)
-      && new Date(job.delivery_datetime as string).getTime() < Date.now()
+      && new Date(job.delivery_datetime as string).getTime() < now
     );
     // WorkspaceJob currently exposes delivery_photos but not the complete POD
     // submission flag/signature contract. Keep this metric explicitly about
@@ -64,9 +65,11 @@ export default function CustomerDashboardHome() {
     const unpaidInvoices = customerInvoices.filter((invoice) =>
       invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status)
     );
-    const dueSoonInvoices = unpaidInvoices.filter((invoice) =>
-      invoice.due_date && new Date(invoice.due_date).getTime() <= Date.now() + 7 * 86_400_000
-    );
+    const dueSoonInvoices = unpaidInvoices.filter((invoice) => {
+      if (!invoice.due_date) return false;
+      const dueAt = new Date(invoice.due_date).getTime();
+      return Number.isFinite(dueAt) && dueAt >= now && dueAt <= now + 7 * 86_400_000;
+    });
     const openLoads = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'open' && String(job.status).toLowerCase() !== 'draft');
     const draftLoads = data.jobs.filter((job) => String(job.status).toLowerCase() === 'draft');
     const awardedLoads = data.jobs.filter((job) => ['awarded', 'allocated', 'in_progress', 'completed'].includes(classifyWorkspaceJobStage(job)));
