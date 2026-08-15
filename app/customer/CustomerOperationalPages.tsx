@@ -78,13 +78,17 @@ function CustomerOperationalRow({
 }) {
   const router = useRouter();
   const presentationStatus = workspaceJobPresentationStatus(job);
+  const openDetails = () => {
+    if (sheet) onToggle();
+    else router.push(`/customer/jobs/${job.id}`);
+  };
   return (
     <article className="workspace-operational-row" data-state={presentationStatus}>
       <div className="workspace-operational-row__top">
         <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
         <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
         <div className="workspace-operational-cell"><div style={labelStyle}>{middleLabel}</div><strong>{middleValue}</strong>{middleMeta ? <div style={{ ...metaStyle, marginTop: 2 }}>{middleMeta}</div> : null}</div>
-        <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={presentationStatus} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={onToggle}>{open ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(actionHref)}>{actionLabel}</ActionButton></div></div>
+        <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={presentationStatus} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={openDetails}>{sheet && open ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(actionHref)}>{actionLabel}</ActionButton></div></div>
       </div>
       <div className="workspace-record-meta"><span>XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Customer booking ref {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Vehicle {(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</span></div>
       {open && sheet ? <CompanyJobSheetPanel jobId={job.id} mode="customer" /> : null}
@@ -161,7 +165,7 @@ export function CustomerLoadsOperationalPage() {
         <aside className="workspace-filter-rail" aria-label="Customer load filters"><div className="workspace-filter-rail__header">Search Loads</div><div className="workspace-filter-rail__body"><label>DATE<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label><label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive, customer booking or customer ref" /></label><ActionButton tone="secondary" onClick={() => { setReference(''); setPickup(''); setDelivery(''); setDate(''); }}>Clear</ActionButton></div></aside>
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" role="tablist" aria-label="Customer load states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => { setTab(item.id); setExpanded(null); }}>{item.label} {tabCount(item.id)}</button>)}</div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{rows.length}</strong> load{rows.length === 1 ? '' : 's'} in this view</span><span>Expand a row for the booking sheet after award</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{rows.length}</strong> load{rows.length === 1 ? '' : 's'} in this view</span><span>Open details before award; expand the booking sheet after award</span></div>
           {data.loading ? <div className="workspace-panel"><EmptyState compact title="Loading loads…" /></div> : rows.length === 0 ? <div className="workspace-panel"><EmptyState title="No loads in this view" description="Adjust the filters or post a new transport request." /></div> : <div className="workspace-record-list">{rows.map((job) => { const quoteState = countsByJob.get(job.id) ?? { submitted: 0, accepted: 0, rejected: 0, total: 0 }; const open = expanded === job.id; return <CustomerOperationalRow key={job.id} job={job} middleLabel="QUOTES / VEHICLE" middleValue={`${quoteState.total} quote${quoteState.total === 1 ? '' : 's'} recorded`} middleMeta={`${quoteState.submitted} awaiting decision · ${(job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' ')}`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel={quoteState.submitted > 0 && !job.awarded_carrier_company_id ? 'Review quotes' : 'Open booking'} actionHref={quoteState.submitted > 0 && !job.awarded_carrier_company_id ? '/customer/quotes' : `/customer/jobs/${job.id}`} sheet={classifyWorkspaceJobStage(job) !== 'open'} />; })}</div>}
         </main>
       </div>
