@@ -187,6 +187,34 @@ function fmtDate(value: string | null) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function rawDateLabel(value: string | null) {
+  const raw = value?.trim();
+  if (!raw) return 'Date not supplied';
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return fmtDate(value);
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString('en-GB', { dateStyle: 'medium' });
+}
+function transportSchedule(dateTime: string | null, slot: string | null) {
+  const cleanSlot = slot?.trim();
+  if (!cleanSlot) return fmtDate(dateTime);
+  if (/^\d{1,2}:\d{2}(?:\s*[-–]\s*\d{1,2}:\d{2})?$/.test(cleanSlot) || cleanSlot.toUpperCase() === 'ASAP') {
+    return `${rawDateLabel(dateTime)} · ${cleanSlot}`;
+  }
+  return `${fmtDate(dateTime)} · ${cleanSlot}`;
+}
+function normalizeComparable(value: string | null | undefined) { return (value ?? '').trim().replace(/[,.]+$/g, '').replace(/\s+/g, ' ').toUpperCase(); }
+function formatExecutionAddress(address: string | null, postcode: string | null) {
+  const cleanAddress = address?.trim() || '';
+  const cleanPostcode = postcode?.trim() || '';
+  if (!cleanAddress) return cleanPostcode || 'Not supplied';
+  if (!cleanPostcode) return cleanAddress;
+  return normalizeComparable(cleanAddress).includes(normalizeComparable(cleanPostcode)) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
+}
+function postcodeSecondary(address: string | null, postcode: string | null) {
+  if (!postcode) return '—';
+  return normalizeComparable(address).includes(normalizeComparable(postcode)) ? 'Route address' : postcode;
+}
 function money(value: number, currency = 'GBP') { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
 function human(value: string | null | undefined) { return value ? value.replace(/_/g, ' ') : 'Not supplied'; }
 function effectiveStatus(job: HistoryJob) { return String(job.current_status || job.status || '').trim().toLowerCase(); }
@@ -215,40 +243,37 @@ function groupByJobId<T extends { job_id: string | null }>(rows: T[]) {
   return grouped;
 }
 function isDerivedExpired(job: HistoryJob) {
-  if (jobStage(job) === 'expired') return true;
-  const status = effectiveStatus(job);
-  if (!['posted', 'quoted', 'awarded'].includes(status)) return false;
-  const target = job.deadline_at ?? job.pickup_datetime ?? job.collection_window_start;
-  if (!target) return false;
-  const timestamp = new Date(target).getTime();
-  return !Number.isNaN(timestamp) && timestamp < Date.now();
+  // Diary lifecycle must follow the canonical persisted job lifecycle. A past
+  // pickup/deadline is an operational exception, not permission to relabel an
+  // awarded/allocated booking as Expired in a second overlapping bucket.
+  return jobStage(job) === 'expired';
 }
 function hasRecentFeedback(job: HistoryJob, reviews: ReviewRow[]) {
   return reviews.length > 0 || ['received', 'completed', 'submitted', 'left', 'recent'].includes((job.feedback_status ?? '').toLowerCase());
 }
 function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[]) { return jobStage(job) === 'completed' && !hasRecentFeedback(job, reviews); }
-function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired' || isDerivedExpired(job); }
+function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired'; }
 function feedbackMatches(job: HistoryJob, reviews: ReviewRow[], mode: FeedbackMode) {
   const awaiting = isAwaitingFeedback(job, reviews); const recent = hasRecentFeedback(job, reviews);
   return mode === 'awaiting' ? awaiting : mode === 'recent' ? recent : awaiting || recent;
 }
 function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[], feedbackMode: FeedbackMode = 'all') {
   if (filter === 'all') return true;
+  if (filter === 'feedback') return feedbackMatches(job, reviews, feedbackMode);
   const stage = jobStage(job);
-  if (filter === 'unallocated') return !job.assigned_driver_id;
-  if (filter === 'allocated') return stage === 'awarded' || stage === 'allocated';
+  if (filter === 'unallocated') return stage === 'open' || stage === 'awarded';
+  if (filter === 'allocated') return stage === 'allocated';
   if (filter === 'in_progress') return stage === 'in_progress';
   if (filter === 'completed') return stage === 'completed';
   if (filter === 'cancelled') return stage === 'cancelled';
-  if (filter === 'expired') return stage === 'expired' || isDerivedExpired(job);
-  return feedbackMatches(job, reviews, feedbackMode);
+  return stage === 'expired';
 }
 function statusTone(job: HistoryJob): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'grey' {
   const stage = jobStage(job);
+  if (stage === 'expired') return 'grey';
   if (stage === 'completed') return 'green';
   if (stage === 'cancelled') return 'red';
   if (stage === 'disputed') return 'purple';
-  if (stage === 'expired') return 'grey';
   if (stage === 'awarded' || stage === 'allocated' || stage === 'in_progress') return 'blue';
   return 'orange';
 }
@@ -370,7 +395,7 @@ export default function JobHistoryPage() {
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
   const toggleExpandAll = () => {
     const expanding = !allExpanded;
-    setExpandedIds((previous) => { const next = new Set(previous); visibleJobs.forEach((job) => expanding ? next.add(job.id) : next.delete(job.id)); return next; });
+    setExpandedIds((previous) => { const next = new Set(previous); visibleJobs.forEach((job) => { if (expanding) next.add(job.id); else next.delete(job.id); }); return next; });
     if (expanding) visibleJobs.forEach((job) => void fetchOrderSheet(job.id));
   };
 
@@ -443,8 +468,8 @@ export default function JobHistoryPage() {
                   return (
                     <article key={job.id} className="driver-load-row driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
                       <div className="driver-load-row__top driver-diary-entry__top">
-                        <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'}</strong><span className="driver-cell-secondary">{job.pickup_postcode ?? '—'}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{job.delivery_location ?? 'Delivery'}</strong><span className="driver-cell-secondary">{job.delivery_postcode ?? '—'}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.pickup_location, job.pickup_postcode)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.delivery_location, job.delivery_postcode)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
                       </div>
@@ -457,7 +482,7 @@ export default function JobHistoryPage() {
                       {expanded && (
                         <div className="driver-row-details driver-diary-details">
                           <div className="driver-diary-detail-tabs" role="tablist" aria-label={`Booking ${job.id} details`}>
-                            {DETAIL_TABS.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={detailTab === tab.id} data-active={detailTab === tab.id ? 'true' : 'false'} onClick={() => { setDetailTabs((current) => ({ ...current, [job.id]: tab.id })); if (tab.id === 'order' || tab.id === 'notes' || tab.id === 'invoice') void fetchOrderSheet(job.id); }}>{tab.label}{tab.id === 'documents' && documents.length > 0 ? ` ${documents.length}` : ''}</button>)}
+                            {DETAIL_TABS.map((detailItem) => <button key={detailItem.id} type="button" role="tab" aria-selected={detailTab === detailItem.id} data-active={detailTab === detailItem.id ? 'true' : 'false'} onClick={() => { setDetailTabs((current) => ({ ...current, [job.id]: detailItem.id })); if (detailItem.id === 'order' || detailItem.id === 'notes' || detailItem.id === 'invoice') void fetchOrderSheet(job.id); }}>{detailItem.label}{detailItem.id === 'documents' && documents.length > 0 ? ` ${documents.length}` : ''}</button>)}
                           </div>
                           <div className="driver-diary-detail-panel">
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
@@ -469,12 +494,12 @@ export default function JobHistoryPage() {
                                   <div className="driver-detail-item"><span>Booked / allocated</span><strong>{sheet?.bookedAt ? fmtDate(sheet.bookedAt) : 'Timestamp not supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>Requested vehicle</span><strong>{requestedVehicle}</strong></div>
                                   <div className="driver-detail-item"><span>{sheet?.allocatedVehicle.source === 'driver_current' ? 'Current driver vehicle' : 'Allocated vehicle'}</span><strong>{allocatedVehicleName}</strong><small>{sheet?.allocatedVehicle.ref ? `Vehicle ref: ${sheet.allocatedVehicle.ref}` : 'Vehicle ref not supplied'}{sheet?.allocatedVehicle.source === 'driver_current' ? ' · no job-level vehicle snapshot' : ''}</small></div>
-                                  <div className="driver-detail-item"><span>Body type</span><strong>Not supplied</strong><small>{sheet?.unavailable.bodyType ?? 'No verified body-type field available'}</small></div>
-                                  <div className="driver-detail-item"><span>Subcontracted by</span><strong><MemberIdentityLink companyId={sheet?.postingCompanyId ?? job.company_id}>{sheet?.bookedBy ?? job.companies?.name ?? 'Not supplied'}</MemberIdentityLink></strong><small>{[sheet?.memberCode ? `Member ${sheet.memberCode}` : null, sheet?.memberPhone].filter(Boolean).join(' · ') || 'Business contact not supplied'}</small></div>
+                                  <div className="driver-detail-item"><span>Body type</span><strong>Not supplied</strong><small>{sheet?.unavailable.bodyType ?? 'Not available for this booking.'}</small></div>
+                                  <div className="driver-detail-item"><span>Subcontracted by</span><strong><MemberIdentityLink companyId={sheet?.postingCompanyId ?? job.company_id}>{sheet?.bookedBy ?? job.companies?.name ?? 'Not supplied'}</MemberIdentityLink></strong><small>{[sheet?.memberCode ? `Company no. ${sheet.memberCode}` : null, sheet?.memberPhone].filter(Boolean).join(' · ') || 'Business contact not supplied'}</small></div>
                                   <div className="driver-detail-item"><span>Executing driver / carrier</span><strong>{sheet?.driverName ?? 'Assigned driver'}</strong><small>{sheet?.executingCompanyId ? <MemberIdentityLink companyId={sheet.executingCompanyId}>Open executing carrier profile</MemberIdentityLink> : 'Executing company not supplied'}</small></div>
-                                  <div className="driver-detail-item"><span>Agreed rate</span><strong>{sheet?.agreedRate != null ? money(sheet.agreedRate, sheet.currency) : 'Not supplied'}</strong><small>{sheet?.agreedGross != null ? `Gross ${money(sheet.agreedGross, sheet.currency)}${sheet.vatRate != null ? ` · VAT ${sheet.vatRate}%` : ''}` : sheet?.commercialSnapshotAvailable ? 'Commercial snapshot available' : 'No immutable commercial snapshot returned'}</small></div>
-                                  <div className="driver-detail-item"><span>Extras</span><strong>Not supplied</strong><small>{sheet?.unavailable.extras ?? 'No immutable extras snapshot available'}</small></div>
-                                  <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : sheet?.commercialSnapshotAvailable ? 'Snapshot has no due-day value' : 'Job-level value only / unavailable'}</small></div>
+                                  <div className="driver-detail-item"><span>Agreed rate</span><strong>{sheet?.agreedRate != null ? money(sheet.agreedRate, sheet.currency) : 'Not supplied'}</strong><small>{sheet?.agreedGross != null ? `Gross ${money(sheet.agreedGross, sheet.currency)}${sheet.vatRate != null ? ` · VAT ${sheet.vatRate}%` : ''}` : sheet?.commercialSnapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'}</small></div>
+                                  <div className="driver-detail-item"><span>Extras</span><strong>Not supplied</strong><small>{sheet?.unavailable.extras ?? 'No historical extras record is available for this booking.'}</small></div>
+                                  <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : 'Due-day value not supplied'}</small></div>
                                   <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? job.hard_copy_pod ?? (job.pod_required ? 'Required' : 'Requirement not supplied')}</strong></div>
                                   <div className="driver-detail-item"><span>Customer</span><strong>{sheet?.customerName ?? 'Not supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
@@ -486,12 +511,12 @@ export default function JobHistoryPage() {
                                 </div>
 
                                 <div className="driver-diary-note-list">
-                                  <div className="driver-diary-text-block"><strong>Pickup</strong><span>{[pickupAddress, pickupPostcode].filter(Boolean).join(', ') || 'Address not supplied'} · {fmtDate(sheet?.pickup.dateTime ?? job.pickup_datetime ?? job.collection_window_start)}{sheet?.pickup.slot ? ` · ${sheet.pickup.slot}` : ''}</span><span>Company context: {sheet?.bookedBy ?? job.companies?.name ?? 'Not separately supplied'}</span><span>Contact: {sheet?.pickup.contactName ?? job.collection_contact_name ?? 'Not supplied'} · {sheet?.pickup.contactPhone ?? job.collection_contact_phone ?? 'Phone not supplied'}</span>{sheet?.pickup.notes && <span>Notes: {sheet.pickup.notes}</span>}</div>
-                                  <div className="driver-diary-text-block"><strong>Delivery</strong><span>{[deliveryAddress, deliveryPostcode].filter(Boolean).join(', ') || 'Address not supplied'} · {fmtDate(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start)}{sheet?.delivery.slot ? ` · ${sheet.delivery.slot}` : ''}</span><span>Company context: {sheet?.customerName ?? 'Not separately supplied'}</span><span>Contact: {sheet?.delivery.contactName ?? job.delivery_contact_name ?? 'Not supplied'} · {sheet?.delivery.contactPhone ?? job.delivery_contact_phone ?? 'Phone not supplied'}</span>{sheet?.delivery.notes && <span>Notes: {sheet.delivery.notes}</span>}</div>
+                                  <div className="driver-diary-text-block"><strong>Pickup</strong><span>{formatExecutionAddress(pickupAddress, pickupPostcode)} · {transportSchedule(sheet?.pickup.dateTime ?? job.pickup_datetime ?? job.collection_window_start, sheet?.pickup.slot ?? null)}</span><span>Company context: {sheet?.bookedBy ?? job.companies?.name ?? 'Not separately supplied'}</span><span>Contact: {sheet?.pickup.contactName ?? job.collection_contact_name ?? 'Not supplied'} · {sheet?.pickup.contactPhone ?? job.collection_contact_phone ?? 'Phone not supplied'}</span>{sheet?.pickup.notes && <span>Notes: {sheet.pickup.notes}</span>}</div>
+                                  <div className="driver-diary-text-block"><strong>Delivery</strong><span>{formatExecutionAddress(deliveryAddress, deliveryPostcode)} · {transportSchedule(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start, sheet?.delivery.slot ?? null)}</span><span>Company context: {sheet?.customerName ?? 'Not separately supplied'}</span><span>Contact: {sheet?.delivery.contactName ?? job.delivery_contact_name ?? 'Not supplied'} · {sheet?.delivery.contactPhone ?? job.delivery_contact_phone ?? 'Phone not supplied'}</span>{sheet?.delivery.notes && <span>Notes: {sheet.delivery.notes}</span>}</div>
                                 </div>
                                 {(sheet?.publicQuoteNotes || sheet?.executionInstructions) && <div className="driver-diary-note-list">{sheet.publicQuoteNotes && <div className="driver-diary-text-block"><strong>Public quote notes</strong><span>{sheet.publicQuoteNotes}</span></div>}{sheet.executionInstructions && <div className="driver-diary-text-block"><strong>Private execution instructions</strong><span>{sheet.executionInstructions}</span></div>}</div>}
                                 {((sheet?.requirements.length ?? 0) > 0 || (sheet?.documentChecklist.length ?? 0) > 0) && <div className="driver-diary-text-block"><strong>Working &amp; paperwork requirements</strong>{sheet?.requirements.map((instruction) => <span key={instruction}>{instruction}</span>)}{sheet?.documentChecklist.length ? <span>Paperwork: {sheet.documentChecklist.join(' · ')}</span> : null}<span>POD: {sheet?.hardCopyPod ?? 'Not supplied'}</span></div>}
-                                <div className="driver-diary-text-block"><strong>Booking footer / working instructions</strong><span>{sheet?.unavailable.bookingFooter ?? 'No historical booking-footer snapshot is available.'}</span></div>
+                                <div className="driver-diary-text-block"><strong>Booking footer / working instructions</strong><span>{sheet?.unavailable.bookingFooter ?? 'Not available for this historical booking.'}</span></div>
                               </>
                             ))}
 
@@ -499,7 +524,7 @@ export default function JobHistoryPage() {
                             {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.slice(0, 50).map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
                             {detailTab === 'documents' && (documents.length ? <div className="driver-diary-document-list">{documents.map((document) => <div key={document.id} className="driver-diary-document-row"><span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>{document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}</div>)}</div> : <EmptyState compact title="No documents attached" />)}
                             {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>{(sheet?.podRequired ?? job.pod_required) ? 'Yes' : 'No'}</strong></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
-                            {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{invoice.status ?? '—'}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{invoice.paymentStatus ?? '—'}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
+                            {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{human(invoice.status)}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{human(invoice.paymentStatus)}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
                           </div>
 
                           {reviews.length > 0 && <div className="driver-diary-feedback-list" aria-label="Booking feedback">{reviews.map((review) => <div key={review.id} className="driver-diary-feedback-row"><strong>{review.rating != null ? `${review.rating}/5` : 'Feedback received'}</strong><span>{review.comment?.trim() || 'No written comment supplied.'}</span><small>{fmtDate(review.created_at)}</small></div>)}</div>}
