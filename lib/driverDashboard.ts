@@ -1,3 +1,5 @@
+import { classifyWorkspaceJobStage, normalizedJobStatus } from './jobs/workspaceJobStage';
+
 type DriverJobLike = {
   id: string;
   assigned_driver_id?: string | null;
@@ -14,10 +16,8 @@ type DriverJobLike = {
   updated_at?: string | null;
 };
 
-const COMPLETED_STATUSES = new Set(['completed', 'invoiced', 'paid']);
-
 export const canonicalJobStatus = (currentStatus: string | null | undefined, fallbackStatus: string) =>
-  currentStatus ?? fallbackStatus;
+  normalizedJobStatus({ current_status: currentStatus, status: fallbackStatus });
 
 export const filterJobsForDriver = (
   jobs: DriverJobLike[],
@@ -29,7 +29,7 @@ export const filterJobsForDriver = (
 
 export const recentCompletedJobs = (jobs: DriverJobLike[], limit = 5) =>
   [...jobs]
-    .filter((job) => COMPLETED_STATUSES.has(canonicalJobStatus(job.current_status, job.status)))
+    .filter((job) => classifyWorkspaceJobStage(job) === 'completed')
     .sort((a, b) =>
       String(b.delivery_datetime ?? b.created_at ?? '').localeCompare(String(a.delivery_datetime ?? a.created_at ?? ''))
     )
