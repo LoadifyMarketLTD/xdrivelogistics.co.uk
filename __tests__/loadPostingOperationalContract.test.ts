@@ -60,6 +60,8 @@ describe('load posting operational contract', () => {
     expect(form).toContain('Tail lift required');
     expect(form).toContain('Forklift available at collection');
     expect(form).toContain('Handball required');
+    expect(createApi).toContain("input.forklift && 'Forklift available at collection'");
+    expect(createApi).not.toContain("input.forklift && 'Forklift required'");
   });
 
   it('keeps public quote notes distinct from private execution instructions', () => {
