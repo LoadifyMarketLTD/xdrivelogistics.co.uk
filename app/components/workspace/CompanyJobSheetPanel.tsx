@@ -45,7 +45,7 @@ type JobSheet = {
     paymentDueDays: number | null; vatRate: number | null; vatAmount: number | null; agreedGross: number | null;
     snapshotAvailable: boolean; targetCarrierCost: number | null;
   };
-  pod: { required: boolean; hardCopy: string | null; generated: boolean | null; generatedAt: string | null; photoCount: number; reviewStatus: string | null; reviewNote: string | null };
+  pod: { required: boolean | null; hardCopy: string | null; generated: boolean | null; generatedAt: string | null; photoCount: number; reviewStatus: string | null; reviewNote: string | null };
   notes: { publicQuoteNotes: string | null; executionInstructions: string | null; collection: string | null; delivery: string | null; driver: string | null; documentChecklist: string[] };
   timeline: Array<{ id: string | null; eventType: string; message: string | null; createdAt: string | null; userName: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
@@ -116,7 +116,11 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
     ['Private execution instructions', sheet.notes.executionInstructions],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
   const hardCopyPod = sheet.pod.hardCopy
-    ?? (sheet.pod.required ? 'POD required; hard-copy requirement not separately supplied' : 'Not required');
+    ?? (sheet.pod.required === true
+      ? 'POD required; hard-copy requirement not separately supplied'
+      : sheet.pod.required === false
+        ? 'Not required'
+        : 'Not supplied');
   const podState = sheet.pod.generated
     ? { label: 'POD generated', tone: 'green' as const, detail: sheet.pod.photoCount > 0 ? `${sheet.pod.photoCount} evidence file(s)` : 'Generated POD record' }
     : sheet.pod.photoCount > 0
@@ -127,6 +131,7 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
     status: sheet.status,
     awarded_carrier_company_id: sheet.carrier?.companyId ?? null,
     assigned_driver_id: sheet.driver?.id ?? null,
+    vehicle_id: sheet.vehicle?.id ?? null,
   });
   const allocatedVehicleLabel = sheet.vehicle
     ? [sheet.vehicle.registration, sheet.vehicle.make, sheet.vehicle.model].filter(Boolean).join(' · ') || human(sheet.vehicle.type)
@@ -199,7 +204,7 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
 
       {tab === 'documents' && (sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{document.type}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" />)}
 
-      {tab === 'pod' && <div className="workspace-detail-grid"><Detail label="POD required" value={sheet.pod.required ? 'Yes' : 'No'} /><Detail label="Hard-copy POD" value={hardCopyPod} /><Detail label="POD status" value={<StatusBadge value={podState.label} tone={podState.tone} />} detail={podState.detail} /><Detail label="Evidence files" value={sheet.pod.photoCount} /><Detail label="Generated" value={sheet.pod.generated ? when(sheet.pod.generatedAt) : 'Not confirmed'} /><Detail label="Review" value={human(sheet.pod.reviewStatus)} detail={sheet.pod.reviewNote ?? undefined} /></div>}
+      {tab === 'pod' && <div className="workspace-detail-grid"><Detail label="POD required" value={sheet.pod.required == null ? 'Not supplied' : sheet.pod.required ? 'Yes' : 'No'} /><Detail label="Hard-copy POD" value={hardCopyPod} /><Detail label="POD status" value={<StatusBadge value={podState.label} tone={podState.tone} />} detail={podState.detail} /><Detail label="Evidence files" value={sheet.pod.photoCount} /><Detail label="Generated" value={sheet.pod.generated ? when(sheet.pod.generatedAt) : 'Not confirmed'} /><Detail label="Review" value={human(sheet.pod.reviewStatus)} detail={sheet.pod.reviewNote ?? undefined} /></div>}
 
       {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{invoice.paymentStatus ?? invoice.status ?? 'Not supplied'}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No authorised invoice linked to this job" />)}
     </div>
