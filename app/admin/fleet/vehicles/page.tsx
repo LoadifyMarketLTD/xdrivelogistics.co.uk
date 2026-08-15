@@ -9,6 +9,7 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const daysUntil = (value: string | null | undefined) => value
   ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000)
   : null;
+const VERIFIED_DOCUMENT_STATUSES = new Set(['approved', 'valid', 'verified', 'current']);
 
 export default function FleetVehiclesPage() {
   const router = useRouter();
@@ -29,6 +30,23 @@ export default function FleetVehiclesPage() {
   const documentOfType = (vehicleId: string, needle: string) =>
     (documentsByVehicle.get(vehicleId) ?? []).find((document) => normalise(document.doc_type).includes(needle));
 
+  const readiness = (documents: (typeof data.vehicleDocuments)) => {
+    if (!documents.length) return { label: 'documents missing', tone: 'red' as const };
+    if (documents.some((document) => {
+      const days = daysUntil(document.expiry_date);
+      return ['rejected', 'expired'].includes(normalise(document.status)) || (days !== null && days < 0);
+    })) return { label: 'blocked / expired', tone: 'red' as const };
+    if (documents.some((document) => {
+      const status = normalise(document.status);
+      const days = daysUntil(document.expiry_date);
+      return ['pending', 'under_review'].includes(status) || (days !== null && days <= 30);
+    })) return { label: 'attention required', tone: 'orange' as const };
+    if (documents.every((document) => VERIFIED_DOCUMENT_STATUSES.has(normalise(document.status)))) {
+      return { label: 'evidence current', tone: 'green' as const };
+    }
+    return { label: 'verification unclear', tone: 'orange' as const };
+  };
+
   return (
     <PageFrame>
       <PageHeader
@@ -45,21 +63,18 @@ export default function FleetVehiclesPage() {
             const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
             const mot = documentOfType(vehicle.id, 'mot');
             const insurance = documentOfType(vehicle.id, 'insurance');
-            const alert = documents.length === 0 || documents.some((document) => {
-              const days = daysUntil(document.expiry_date);
-              return ['rejected', 'expired'].includes(normalise(document.status)) || (days !== null && days <= 30);
-            });
+            const documentReadiness = readiness(documents);
             const docValue = (document: (typeof data.vehicleDocuments)[number] | undefined) => {
               if (!document) return 'Not recorded';
               const days = daysUntil(document.expiry_date);
-              return `${document.status ?? 'recorded'}${document.expiry_date ? ` · ${document.expiry_date}${days !== null ? ` (${days}d)` : ''}` : ''}`;
+              return `${document.status ?? 'status unavailable'}${document.expiry_date ? ` · ${document.expiry_date}${days !== null ? ` (${days}d)` : ''}` : ''}`;
             };
             return [
               <strong key="vehicle">{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || (vehicle.type ?? 'Vehicle').replace(/_/g, ' ')}</strong>,
               (vehicle.type ?? 'Not specified').replace(/_/g, ' '),
               vehicle.reg_plate ?? 'Not recorded',
               driver?.display_name ?? driver?.email ?? 'Unassigned',
-              <StatusBadge key="status" value={alert ? 'attention required' : 'evidence current'} tone={alert ? 'orange' : 'green'} />,
+              <StatusBadge key="status" value={documentReadiness.label} tone={documentReadiness.tone} />,
               docValue(mot),
               docValue(insurance),
               <StatusBadge key="availability" value="Not exposed" tone="grey" />,
