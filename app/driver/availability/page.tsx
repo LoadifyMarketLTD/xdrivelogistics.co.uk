@@ -209,7 +209,9 @@ export default function AvailabilityPage() {
   const toggleSlot = async (day: number, slot: SlotName) => {
     if (!driverId || !isSupabaseConfigured || scheduleUnavailable) return;
     const key: SlotKey = `${day}_${slot}`;
-    const current = weeklySlots[key] ?? true;
+    // Missing rows are not evidence of availability. The first click explicitly
+    // opts that slot in; persisted false rows remain off.
+    const current = weeklySlots[key] ?? false;
     const next = !current;
     setCalendarSaving(key);
     setError('');
@@ -305,12 +307,12 @@ export default function AvailabilityPage() {
             </section>
 
             <section className="driver-availability-panel">
-              <div className="driver-availability-panel__head"><div><strong>Weekly schedule</strong><span>Toggle AM, PM and evening availability for marketplace matching.</span></div>{!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'Default available'} tone={hasSavedSchedule ? 'blue' : 'grey'} />}</div>
+              <div className="driver-availability-panel__head"><div><strong>Weekly schedule</strong><span>Only explicitly saved AM, PM and evening slots are treated as available for marketplace matching.</span></div>{!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'No saved pattern'} tone={hasSavedSchedule ? 'blue' : 'grey'} />}</div>
               {scheduleUnavailable ? <div className="driver-availability-empty">Schedule editing is unavailable in this database build.</div> : loading ? <div className="driver-availability-empty">Loading weekly schedule…</div> : (
                 <div className="driver-availability-schedule" role="grid" aria-label="Weekly availability">
                   {DAYS.map((day, dayIndex) => <div key={day} className="driver-availability-day" role="row"><strong>{day}</strong>{SLOTS.map((slot) => {
-                    const key: SlotKey = `${dayIndex}_${slot}`; const isAvailable = weeklySlots[key] !== false; const isSaving = calendarSaving === key;
-                    return <button key={slot} type="button" data-available={isAvailable ? 'true' : 'false'} disabled={isSaving} onClick={() => void toggleSlot(dayIndex, slot)} title={isAvailable ? 'Available — click to mark unavailable' : 'Unavailable — click to mark available'}><span>{slot}</span><strong>{isSaving ? '…' : isAvailable ? 'Available' : 'Off'}</strong></button>;
+                    const key: SlotKey = `${dayIndex}_${slot}`; const isAvailable = weeklySlots[key] === true; const isSaving = calendarSaving === key;
+                    return <button key={slot} type="button" data-available={isAvailable ? 'true' : 'false'} disabled={isSaving} onClick={() => void toggleSlot(dayIndex, slot)} title={isAvailable ? 'Available — click to mark unavailable' : 'Not saved as available — click to opt in'}><span>{slot}</span><strong>{isSaving ? '…' : isAvailable ? 'Available' : 'Off'}</strong></button>;
                   })}</div>)}
                 </div>
               )}
