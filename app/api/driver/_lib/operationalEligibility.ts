@@ -17,6 +17,7 @@ type VehicleRow = {
   id: string;
   company_id: string | null;
   assigned_driver_id: string | null;
+  status: string | null;
   type: string | null;
   reg_plate: string | null;
 };
@@ -72,9 +73,9 @@ const dateIsCurrent = (value: string | null | undefined) => {
  * Canonical operational readiness for both owner_driver and company_driver.
  *
  * This deliberately fails closed. Account status, verified onboarding identity,
- * current personal compliance, company relationship, one explicit driver↔vehicle
- * assignment and current vehicle compliance must all be present before a
- * driver-originated Marketplace quote is considered eligible.
+ * current personal compliance, company relationship, one explicit ACTIVE
+ * driver↔vehicle assignment and current vehicle compliance must all be present
+ * before a driver-originated Marketplace quote is considered eligible.
  */
 export async function resolveDriverOperationalEligibility(
   supabaseAdmin: AdminClient,
@@ -160,8 +161,9 @@ export async function resolveDriverOperationalEligibility(
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin
       .from('vehicles')
-      .select('id,company_id,assigned_driver_id,type,reg_plate')
+      .select('id,company_id,assigned_driver_id,status,type,reg_plate')
       .eq('assigned_driver_id', driver.id)
+      .eq('status', 'active')
       .limit(3),
   ]);
 
@@ -239,18 +241,19 @@ export async function resolveDriverOperationalEligibility(
   );
   if (!membershipActive) blockers.push('driver_company_membership_not_active');
 
-  // XDrive's verified operational relationship is vehicles.assigned_driver_id.
-  // Do not infer readiness from an unassigned fleet vehicle and do not assume
-  // non-canonical status/is_available columns. Exactly one explicit assignment
-  // makes the driver's own operational vehicle unambiguous.
-  const vehicles = ((vehiclesResult.data ?? []) as VehicleRow[]).filter((vehicle) => vehicle.assigned_driver_id === driver.id);
-  const canonicalVehiclePresent = vehicles.length > 0;
-  const canonicalVehicleUnambiguous = vehicles.length === 1;
-  const canonicalVehicle = canonicalVehicleUnambiguous ? vehicles[0] : null;
+  // The live schema confirms vehicles.status is canonical. Current availability
+  // is deliberately NOT a commercial eligibility gate: an eligible driver may
+  // quote future work while busy now. Exactly one ACTIVE assigned vehicle makes
+  // the execution vehicle unambiguous.
+  const activeVehicles = ((vehiclesResult.data ?? []) as VehicleRow[])
+    .filter((vehicle) => vehicle.assigned_driver_id === driver.id && normalise(vehicle.status) === 'active');
+  const canonicalVehiclePresent = activeVehicles.length > 0;
+  const canonicalVehicleUnambiguous = activeVehicles.length === 1;
+  const canonicalVehicle = canonicalVehicleUnambiguous ? activeVehicles[0] : null;
   const vehicleActive = Boolean(canonicalVehicle);
 
   if (!canonicalVehiclePresent) blockers.push('canonical_vehicle_missing');
-  if (vehicles.length > 1) blockers.push('canonical_vehicle_ambiguous');
+  if (activeVehicles.length > 1) blockers.push('canonical_vehicle_ambiguous');
 
   let vehicleComplianceValid = false;
   if (canonicalVehicle) {
