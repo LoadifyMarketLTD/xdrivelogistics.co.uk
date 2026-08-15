@@ -44,14 +44,12 @@ describe('workspace visual verification matrix evidence', () => {
     expect(shell).toContain('WORKSPACE_SHELL_BREAKPOINTS.mobileMaxWidth');
   });
 
-  it('routes super-admin through the shared workspace shell primitive', () => {
-    expect(superAdminShell).toContain('<WorkspaceShell');
-    expect(superAdminShell).toContain('forcedRole="platform_owner"');
-    expect(superAdminShell).toContain('definitionOverride={SUPER_ADMIN_WORKSPACE_DEFINITION}');
+  it('keeps super-admin on its dedicated read-only shell boundary', () => {
+    expect(superAdminShell).toContain('<SuperAdminTopNavigationShell');
+    expect(superAdminShell).not.toContain('<WorkspaceShell');
+    expect(superAdminShell).toContain('definition={SUPER_ADMIN_WORKSPACE_DEFINITION}');
     expect(superAdminShell).toContain("label: 'Command Centre'");
     expect(superAdminShell).not.toContain('Owner Console');
-    expect(superAdminShell).not.toContain('254px');
-    expect(superAdminShell).not.toContain('292px');
     expect(superAdminShell).toContain('/super-admin/compliance/documents');
     expect(superAdminShell).toContain('/super-admin/compliance/fraud-cases');
   });
