@@ -1,5 +1,5 @@
-import DriverMobileApp from '../_components/DriverMobileApp';
+import { redirect } from 'next/navigation';
 
 export default function MobileDriverPage() {
-  return <DriverMobileApp />;
+  redirect('/driver');
 }
