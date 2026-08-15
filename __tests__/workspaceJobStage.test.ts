@@ -3,6 +3,7 @@ import {
   brokerDiaryStage,
   classifyWorkspaceJobStage,
   fleetQueueStage,
+  workspaceJobPresentationStatus,
   type WorkspaceStageJob,
 } from '../lib/jobs/workspaceJobStage';
 
@@ -34,5 +35,15 @@ describe('workspace job lifecycle stage', () => {
     expect(classifyWorkspaceJobStage(job('paid'))).toBe('completed');
     expect(classifyWorkspaceJobStage(job('cancelled'))).toBe('cancelled');
     expect(classifyWorkspaceJobStage(job('driver_declined'))).toBe('cancelled');
+  });
+
+  it('presents stale legacy pre-award statuses from stronger persisted facts', () => {
+    expect(workspaceJobPresentationStatus(job('posted', { awarded_carrier_company_id: 'carrier-1' }))).toBe('awarded');
+    expect(workspaceJobPresentationStatus(job('posted', { awarded_carrier_company_id: 'carrier-1', assigned_driver_id: 'driver-1' }))).toBe('allocated');
+  });
+
+  it('preserves specific execution and completion labels', () => {
+    expect(workspaceJobPresentationStatus(job('loaded', { assigned_driver_id: 'driver-1' }))).toBe('loaded');
+    expect(workspaceJobPresentationStatus(job('delivered', { assigned_driver_id: 'driver-1' }))).toBe('delivered');
   });
 });
