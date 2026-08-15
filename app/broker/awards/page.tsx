@@ -1,3 +1,5 @@
-'use client';
-import { BrokerAwardsPage } from '../BrokerWorkspaceModules';
-export default function Page() { return <BrokerAwardsPage />; }
+import { redirect } from 'next/navigation';
+
+export default function BrokerAwardsCompatibilityPage() {
+  redirect('/broker/jobs');
+}
