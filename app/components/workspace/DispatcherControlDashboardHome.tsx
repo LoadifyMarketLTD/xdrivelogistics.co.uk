@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import {
   getWorkspaceDatasetMetricValue,
   useCompanyWorkspaceData,
@@ -22,7 +23,6 @@ import {
 } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import {
-  activeStatuses,
   exceptionStatuses,
   metricDetail,
   metricTone,
@@ -32,9 +32,25 @@ import {
   when,
 } from './AdminDashboardShared';
 
+const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
+
 export default function DispatcherControlDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+
+  // Dispatcher execution follows the canonical operating-company rule used by
+  // the job transition API: awarded carrier when present, otherwise job owner.
+  // This prevents a customer-owned job awarded to another carrier from leaking
+  // into this company's dispatch queue merely because company_id matches.
+  const dispatcherExecutionJobs = useMemo(
+    () => data.jobs.filter((job) => (job.awarded_carrier_company_id ?? job.company_id) === data.companyId),
+    [data.companyId, data.jobs],
+  );
+
+  const operationalDrivers = useMemo(
+    () => data.drivers.filter((driver) => normalise(driver.status) === 'active'),
+    [data.drivers],
+  );
 
   const latestLocationByDriver = useMemo(() => {
     const map = new Map<string, WorkspaceDataState['locations'][number]>();
@@ -47,19 +63,19 @@ export default function DispatcherControlDashboardHome() {
     return map;
   }, [data.locations]);
 
-  const stalePositions = data.drivers.filter((driver) => {
+  const stalePositions = operationalDrivers.filter((driver) => {
     const location = latestLocationByDriver.get(driver.id);
     const timestamp = location?.recorded_at ?? location?.updated_at;
     return !timestamp || Date.now() - new Date(timestamp).getTime() > 20 * 60_000;
   });
 
-  const unallocated = data.jobs.filter(
-    (job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id,
+  const unallocated = dispatcherExecutionJobs.filter(
+    (job) => ['posted', 'awarded'].includes(normalise(job.current_status ?? job.status)) && !job.assigned_driver_id,
   );
-  const active = data.jobs.filter((job) => activeStatuses.has(job.current_status ?? job.status));
-  const exceptions = data.jobs.filter((job) => exceptionStatuses.has(job.current_status ?? job.status));
-  const dueSoon = data.jobs.filter((job) => {
-    if (!job.pickup_datetime || terminalStatuses.has(job.current_status ?? job.status)) return false;
+  const active = dispatcherExecutionJobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
+  const exceptions = dispatcherExecutionJobs.filter((job) => exceptionStatuses.has(normalise(job.current_status ?? job.status)));
+  const dueSoon = dispatcherExecutionJobs.filter((job) => {
+    if (!job.pickup_datetime || terminalStatuses.has(normalise(job.current_status ?? job.status))) return false;
     const pickup = new Date(job.pickup_datetime).getTime();
     return pickup >= Date.now() && pickup <= Date.now() + 2 * 60 * 60_000;
   });
@@ -86,17 +102,17 @@ export default function DispatcherControlDashboardHome() {
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <KpiGrid>
-        <KpiCard label="Unallocated jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id).length)} detail={metricDetail(data, ['jobs'], 'Dispatch decision required')} tone={metricTone(data, ['jobs'], 'orange')} onClick={() => router.push('/admin/fleet/assignments')} />
+        <KpiCard label="Unallocated jobs" value={metricValue(data, ['jobs'], () => unallocated.length)} detail={metricDetail(data, ['jobs'], 'Dispatch decision required')} tone={metricTone(data, ['jobs'], 'orange')} onClick={() => router.push('/admin/fleet/assignments')} />
         <KpiCard label="Due next 2 hours" value={metricValue(data, ['jobs'], () => dueSoon.length)} detail={metricDetail(data, ['jobs'], 'Pickup window approaching')} tone={metricTone(data, ['jobs'], dueSoon.length ? 'orange' : 'navy')} onClick={() => router.push('/admin/diary')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'Live execution')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/fleet/active-jobs')} />
+        <KpiCard label="Active jobs" value={metricValue(data, ['jobs'], () => active.length)} detail={metricDetail(data, ['jobs'], 'Execution in progress')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/fleet/active-jobs')} />
         <KpiCard label="Exceptions" value={metricValue(data, ['jobs'], () => exceptions.length)} detail={metricDetail(data, ['jobs'], 'Immediate intervention')} tone={metricTone(data, ['jobs'], exceptions.length ? 'red' : 'green')} onClick={() => router.push('/admin/incidents')} />
-        <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} detail={metricDetail(data, ['drivers'], 'Ready now')} tone={metricTone(data, ['drivers'], 'blue')} onClick={() => router.push('/admin/drivers')} />
-        <KpiCard label="Stale positions" value={metricValue(data, ['drivers', 'locations'], () => stalePositions.length)} detail={metricDetail(data, ['drivers', 'locations'], 'No fresh GPS update')} tone={metricTone(data, ['drivers', 'locations'], stalePositions.length ? 'red' : 'navy')} onClick={() => router.push('/admin/fleet/positions')} />
+        <KpiCard label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available').length)} detail={metricDetail(data, ['drivers'], 'Active and ready now')} tone={metricTone(data, ['drivers'], 'blue')} onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Stale positions" value={metricValue(data, ['drivers', 'locations'], () => stalePositions.length)} detail={metricDetail(data, ['drivers', 'locations'], 'Active drivers without a fresh GPS update')} tone={metricTone(data, ['drivers', 'locations'], stalePositions.length ? 'red' : 'navy')} onClick={() => router.push('/admin/fleet/positions')} />
       </KpiGrid>
 
       <Panel
         title="Dispatch priority queue"
-        description="Unallocated jobs, exceptions and imminent pickups are grouped into one operating queue."
+        description="Unallocated jobs, exceptions and imminent pickups are grouped into one operating-company queue."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Full jobs register</ActionButton>}
         style={{ marginTop: '12px' }}
       >
@@ -105,7 +121,7 @@ export default function DispatcherControlDashboardHome() {
           rows={priorityJobs.slice(0, 10).map((job) => {
             const driver = data.drivers.find((item) => item.id === job.assigned_driver_id);
             const status = job.current_status ?? job.status;
-            const priority = exceptionStatuses.has(status)
+            const priority = exceptionStatuses.has(normalise(status))
               ? 'Exception'
               : !job.assigned_driver_id
                 ? 'Allocate'
@@ -118,7 +134,7 @@ export default function DispatcherControlDashboardHome() {
               driver?.display_name ?? driver?.email ?? '—',
               <StatusBadge key="priority" value={priority} tone={priority === 'Exception' ? 'red' : priority === 'Allocate' || priority === 'Due soon' ? 'orange' : 'blue'} />,
               <StatusBadge key="status" value={status} />,
-              <ActionButton key="action" tone={!job.assigned_driver_id ? 'success' : 'secondary'} onClick={() => router.push(!job.assigned_driver_id ? `/admin/diary?job=${job.id}` : `/admin/jobs/${job.id}`)}>
+              <ActionButton key="action" tone={!job.assigned_driver_id ? 'success' : 'secondary'} onClick={() => router.push(!job.assigned_driver_id ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>
                 {!job.assigned_driver_id ? 'Allocate' : 'Open'}
               </ActionButton>,
             ];
@@ -130,14 +146,14 @@ export default function DispatcherControlDashboardHome() {
       <TwoColumn>
         <Panel
           title="Live resource picture"
-          description="Driver availability and tracking freshness."
+          description="Active driver availability and tracking freshness."
           style={{ marginTop: '12px' }}
         >
           <OperationalLinkList
             showTrailingArrow={false}
             items={[
-              { key: 'available', label: 'Drivers available', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length), onClick: () => router.push('/admin/drivers') },
-              { key: 'busy', label: 'Drivers busy', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'busy').length), onClick: () => router.push('/admin/drivers') },
+              { key: 'available', label: 'Drivers available', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available').length), onClick: () => router.push('/admin/drivers') },
+              { key: 'busy', label: 'Drivers busy', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'busy').length), onClick: () => router.push('/admin/drivers') },
               { key: 'vehicles', label: 'Vehicles visible', value: getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.length), onClick: () => router.push('/admin/vehicles') },
               { key: 'stale', label: 'Stale GPS positions', value: unavailable(data, ['drivers', 'locations']) ? '—' : stalePositions.length, onClick: () => router.push('/admin/fleet/positions') },
             ]}
