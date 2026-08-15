@@ -54,7 +54,10 @@ export default function CustomerDashboardHome() {
       Boolean(job.delivery_datetime)
       && new Date(job.delivery_datetime as string).getTime() < Date.now()
     );
-    const podReady = data.jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0);
+    // WorkspaceJob currently exposes delivery_photos but not the complete POD
+    // submission flag/signature contract. Keep this metric explicitly about
+    // delivery-photo evidence rather than claiming a complete POD is ready.
+    const deliveryPhotoJobs = data.jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0);
     const customerInvoices = data.invoices.filter((invoice) =>
       isCustomerVisibleWorkspaceInvoice(invoice, data.companyId),
     );
@@ -77,7 +80,7 @@ export default function CustomerDashboardHome() {
       awaitingAward,
       activeDeliveries,
       delayed,
-      podReady,
+      deliveryPhotoJobs,
       customerInvoices,
       unpaidInvoices,
       dueSoonInvoices,
@@ -122,7 +125,7 @@ export default function CustomerDashboardHome() {
           <button className="customer-dash-metric" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span>Awaiting award</span><strong>{metrics.awaitingAward.length}</strong><small>Customer decision needed</small></button>
           <button className="customer-dash-metric" data-tone="green" type="button" onClick={() => router.push('/customer/tracking')}><span>Active deliveries</span><strong>{metrics.activeDeliveries.length}</strong><small>Execution currently moving</small></button>
           <button className="customer-dash-metric" data-tone={metrics.delayed.length ? 'red' : 'green'} type="button" onClick={() => router.push('/customer/tracking')}><span>Delayed</span><strong>{metrics.delayed.length}</strong><small>Past recorded delivery time</small></button>
-          <button className="customer-dash-metric" data-tone="navy" type="button" onClick={() => router.push('/customer/bookings')}><span>POD ready</span><strong>{metrics.podReady.length}</strong><small>Proof available to review</small></button>
+          <button className="customer-dash-metric" data-tone="navy" type="button" onClick={() => router.push('/customer/bookings')}><span>Delivery photos</span><strong>{metrics.deliveryPhotoJobs.length}</strong><small>Photo evidence available to review</small></button>
         </div>
 
         <div className="customer-exchange-dashboard">
@@ -132,7 +135,7 @@ export default function CustomerDashboardHome() {
               <div className="customer-dash-box__body"><div className="customer-attention-list">
                 <button className="customer-attention-row" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span className="customer-attention-row__copy"><strong>Quotes awaiting decision</strong><span>Compare carrier price and member profile</span></span><span className="customer-attention-row__count">{metrics.awaitingAward.length}</span></button>
                 <button className="customer-attention-row" data-tone="red" type="button" onClick={() => router.push('/customer/tracking')}><span className="customer-attention-row__copy"><strong>Delivery exceptions</strong><span>Past recorded delivery time</span></span><span className="customer-attention-row__count">{metrics.delayed.length}</span></button>
-                <button className="customer-attention-row" data-tone="green" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>POD ready</strong><span>Delivery evidence available</span></span><span className="customer-attention-row__count">{metrics.podReady.length}</span></button>
+                <button className="customer-attention-row" data-tone="green" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Delivery photo evidence</strong><span>Photos available for review; open the booking for full POD state</span></span><span className="customer-attention-row__count">{metrics.deliveryPhotoJobs.length}</span></button>
                 <button className="customer-attention-row" type="button" onClick={() => router.push('/customer/invoices')}><span className="customer-attention-row__copy"><strong>Invoices due soon</strong><span>Due within the next 7 days</span></span><span className="customer-attention-row__count">{metrics.dueSoonInvoices.length}</span></button>
               </div></div>
             </section>
@@ -161,7 +164,7 @@ export default function CustomerDashboardHome() {
             </section>
 
             <div className="customer-ops-grid-2">
-              <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>POD & delivery evidence</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton></div>{metrics.podReady.length === 0 ? <div className="customer-empty"><EmptyState compact title="No POD waiting" /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th>Load</th><th>Status</th><th>Open</th></tr></thead><tbody>{metrics.podReady.slice(0, 5).map((job) => { const route = routeLabel(job); return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{job.delivery_photos?.length ?? 0} delivery photo(s)</span></div></td><td><StatusBadge value={job.current_status ?? job.status} /></td><td><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Review</ActionButton></td></tr>; })}</tbody></table></div>}</section>
+              <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Delivery photo evidence</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton></div>{metrics.deliveryPhotoJobs.length === 0 ? <div className="customer-empty"><EmptyState compact title="No delivery photos waiting" /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th>Load</th><th>Status</th><th>Open</th></tr></thead><tbody>{metrics.deliveryPhotoJobs.slice(0, 5).map((job) => { const route = routeLabel(job); return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{job.delivery_photos?.length ?? 0} delivery photo(s)</span></div></td><td><StatusBadge value={job.current_status ?? job.status} /></td><td><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Review</ActionButton></td></tr>; })}</tbody></table></div>}</section>
               <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Invoice position</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>Invoice register</ActionButton></div><div className="customer-dash-box__body"><div className="customer-dash-summary"><div className="customer-dash-summary__row"><span>Total invoices</span><strong>{metrics.customerInvoices.length}</strong></div><div className="customer-dash-summary__row"><span>Outstanding</span><strong>{metrics.unpaidInvoices.length}</strong></div><div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{money(metrics.unpaidValue)}</strong></div><div className="customer-dash-summary__row"><span>Due within 7 days</span><strong>{metrics.dueSoonInvoices.length}</strong></div></div></div></section>
             </div>
           </main>
