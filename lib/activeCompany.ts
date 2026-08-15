@@ -6,14 +6,27 @@ type ResolveActiveCompanyOptions = {
   fallbackCompanyId?: string | null;
 };
 
+type ResolvedUserCompanyContext = {
+  id?: string | null;
+  companyId?: string | null;
+} | null | undefined;
+
 const inflightCompanyResolution = new Map<string, Promise<string | null>>();
 
-export const resolveActiveCompanyId = async ({
-  userId,
-  fallbackCompanyId = null,
-}: ResolveActiveCompanyOptions): Promise<string | null> => {
-  if (!isSupabaseConfigured) return fallbackCompanyId;
-  if (!userId) return fallbackCompanyId;
+export function resolveActiveCompanyId(user: ResolvedUserCompanyContext): string | null;
+export function resolveActiveCompanyId(options: ResolveActiveCompanyOptions): Promise<string | null>;
+export function resolveActiveCompanyId(
+  input: ResolveActiveCompanyOptions | ResolvedUserCompanyContext,
+): Promise<string | null> | string | null {
+  if (!input) return null;
+
+  if (!('userId' in input)) {
+    return input.companyId ?? null;
+  }
+
+  const { userId, fallbackCompanyId = null } = input;
+  if (!isSupabaseConfigured) return Promise.resolve(fallbackCompanyId);
+  if (!userId) return Promise.resolve(fallbackCompanyId);
 
   const existingResolution = inflightCompanyResolution.get(userId);
   if (existingResolution) return existingResolution;
@@ -33,11 +46,9 @@ export const resolveActiveCompanyId = async ({
   })();
 
   inflightCompanyResolution.set(userId, resolutionPromise);
-  try {
-    return await resolutionPromise;
-  } finally {
+  return resolutionPromise.finally(() => {
     if (inflightCompanyResolution.get(userId) === resolutionPromise) {
       inflightCompanyResolution.delete(userId);
     }
-  }
-};
+  });
+}
