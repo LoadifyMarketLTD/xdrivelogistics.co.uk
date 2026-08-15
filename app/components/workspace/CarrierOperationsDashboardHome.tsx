@@ -52,30 +52,37 @@ const CONTROL_VIEWS: Array<{ value: ControlView; label: string }> = [
   { value: 'attention', label: 'Needs attention' },
   { value: 'unallocated', label: 'Unallocated' },
   { value: 'live', label: 'Live jobs' },
-  { value: 'pod', label: 'POD outstanding' },
+  { value: 'pod', label: 'Evidence review' },
   { value: 'exceptions', label: 'Exceptions' },
   { value: 'all', label: 'All carrier work' },
 ];
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 const jobStatus = (job: WorkspaceJob) => normalise(job.current_status ?? job.status);
+const isActiveAvailableDriver = (driver: { status: string | null; availability_status: string | null }) =>
+  normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available';
+const isActiveBusyDriver = (driver: { status: string | null; availability_status: string | null }) =>
+  normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'busy';
 
 // These predicates are lifecycle predicates only. Carrier company scoping is
 // applied first at `carrierExecutionJobs` and never delegated to the predicate.
 const isUnallocatedJob = (job: WorkspaceJob) => fleetQueueStage(job) === 'unallocated';
 const isLiveJob = (job: WorkspaceJob) => classifyWorkspaceJobStage(job) === 'in_progress';
-const isPodOutstandingJob = (job: WorkspaceJob) =>
+// The shared dashboard feed exposes delivery_photos but not the full POD
+// signature/recipient/document contract. This predicate therefore means only
+// "completed work with no delivery-photo evidence in this feed".
+const isDeliveryEvidenceMissingJob = (job: WorkspaceJob) =>
   classifyWorkspaceJobStage(job) === 'completed' && (job.delivery_photos?.length ?? 0) === 0;
 const isExceptionJob = (job: WorkspaceJob) => exceptionStatuses.has(jobStatus(job));
 
 export const isCarrierAttentionJob = (job: WorkspaceJob) =>
-  isExceptionJob(job) || isUnallocatedJob(job) || isPodOutstandingJob(job);
+  isExceptionJob(job) || isUnallocatedJob(job) || isDeliveryEvidenceMissingJob(job);
 
 const attentionScore = (job: WorkspaceJob) => {
   if (isExceptionJob(job)) return 0;
   if (isUnallocatedJob(job)) return 1;
   if (isLiveJob(job)) return 2;
-  if (isPodOutstandingJob(job)) return 3;
+  if (isDeliveryEvidenceMissingJob(job)) return 3;
   return 4;
 };
 
@@ -83,7 +90,7 @@ const priorityLabel = (job: WorkspaceJob) => {
   if (isExceptionJob(job)) return 'Exception';
   if (isUnallocatedJob(job)) return 'Allocate';
   if (isLiveJob(job)) return 'Live';
-  if (isPodOutstandingJob(job)) return 'POD';
+  if (isDeliveryEvidenceMissingJob(job)) return 'Evidence';
   return 'Routine';
 };
 
@@ -91,7 +98,7 @@ const priorityStyle = (job: WorkspaceJob) => {
   if (isExceptionJob(job)) return { color: workspaceTheme.red, background: '#FEF2F2', border: '#FECACA' };
   if (isUnallocatedJob(job)) return { color: '#92400E', background: '#FFFBEB', border: '#FDE68A' };
   if (isLiveJob(job)) return { color: workspaceTheme.blue, background: '#EFF6FF', border: '#BFDBFE' };
-  if (isPodOutstandingJob(job)) return { color: '#92400E', background: '#FFF8E8', border: '#FDE68A' };
+  if (isDeliveryEvidenceMissingJob(job)) return { color: '#92400E', background: '#FFF8E8', border: '#FDE68A' };
   return { color: workspaceTheme.muted, background: workspaceTheme.surfaceMuted, border: workspaceTheme.border };
 };
 
@@ -182,22 +189,18 @@ export default function CarrierOperationsDashboardHome() {
     const carrierInvoices = data.invoices.filter((invoice) => invoice.company_id === data.companyId);
     const unallocatedJobs = carrierExecutionJobs.filter(isUnallocatedJob);
     const liveJobs = carrierExecutionJobs.filter(isLiveJob);
-    const podOutstanding = carrierExecutionJobs.filter(isPodOutstandingJob);
+    const evidenceReview = carrierExecutionJobs.filter(isDeliveryEvidenceMissingJob);
     const exceptions = carrierExecutionJobs.filter(isExceptionJob);
     const attentionJobs = carrierExecutionJobs.filter(isCarrierAttentionJob).sort((a, b) => attentionScore(a) - attentionScore(b));
     const overdueInvoices = carrierInvoices.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status));
     const overdueExposure = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
     const wonValue = companyBids.filter((bid) => bid.status === 'accepted').reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
-    const quotesAwaitingDecision = companyBids.filter((bid) => ['submitted', 'pending'].includes(normalise(bid.status)));
-    const availableDrivers = data.drivers.filter((driver) => driver.availability_status === 'available').length;
-    const busyDrivers = data.drivers.filter((driver) => driver.availability_status === 'busy').length;
-    const unassignedVehicles = data.vehicles.filter((vehicle) => !vehicle.assigned_driver_id).length;
     const expiringDocuments = data.driverDocuments.concat(data.vehicleDocuments).filter((document) => {
       const days = daysUntil(document.expiry_date);
-      return days !== null && days <= 30;
+      return days !== null && days >= 0 && days <= 30;
     }).length;
 
-    return { companyBids, unallocatedJobs, liveJobs, podOutstanding, exceptions, attentionJobs, overdueInvoices, overdueExposure, wonValue, quotesAwaitingDecision, availableDrivers, busyDrivers, unassignedVehicles, expiringDocuments };
+    return { companyBids, unallocatedJobs, liveJobs, evidenceReview, exceptions, attentionJobs, overdueInvoices, overdueExposure, wonValue, expiringDocuments };
   }, [carrierExecutionJobs, data]);
 
   const filteredJobs = useMemo(() => {
@@ -208,7 +211,7 @@ export default function CarrierOperationsDashboardHome() {
         : view === 'live'
           ? metrics.liveJobs
           : view === 'pod'
-            ? metrics.podOutstanding
+            ? metrics.evidenceReview
             : view === 'exceptions'
               ? metrics.exceptions
               : carrierExecutionJobs;
@@ -236,7 +239,7 @@ export default function CarrierOperationsDashboardHome() {
     attention: metricValue(data, ['jobs'], () => metrics.attentionJobs.length),
     unallocated: metricValue(data, ['jobs'], () => metrics.unallocatedJobs.length),
     live: metricValue(data, ['jobs'], () => metrics.liveJobs.length),
-    pod: metricValue(data, ['jobs'], () => metrics.podOutstanding.length),
+    pod: metricValue(data, ['jobs'], () => metrics.evidenceReview.length),
     exceptions: metricValue(data, ['jobs'], () => metrics.exceptions.length),
     all: metricValue(data, ['jobs'], () => carrierExecutionJobs.length),
   };
@@ -245,8 +248,8 @@ export default function CarrierOperationsDashboardHome() {
     { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: workspaceTheme.orange, active: view === 'attention', onClick: () => setView('attention') },
     { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: workspaceTheme.orange, active: view === 'unallocated', onClick: () => setView('unallocated') },
     { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: workspaceTheme.blue, active: view === 'live', onClick: () => setView('live') },
-    { key: 'pod', label: 'POD outstanding', value: viewCounts.pod, tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
-    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length), tone: workspaceTheme.green, onClick: () => router.push('/admin/fleet/drivers') },
+    { key: 'pod', label: 'Evidence review', value: viewCounts.pod, tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
+    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: workspaceTheme.green, onClick: () => router.push('/admin/fleet/drivers') },
     { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: workspaceTheme.red, active: view === 'exceptions', onClick: () => setView('exceptions') },
   ];
 
@@ -258,14 +261,14 @@ export default function CarrierOperationsDashboardHome() {
         eyebrow="Carrier operations"
         title="Carrier Control Desk"
         badge="Live operations"
-        description="A working desk for carrier-awarded freight, allocation, live delivery, POD and exceptions. Customer-role jobs owned by this company stay outside carrier execution signals."
+        description="A working desk for carrier-awarded freight, allocation, live delivery, delivery evidence and exceptions. Customer-role jobs owned by this company stay outside carrier execution signals."
         actions={<><ActionButton tone="success" onClick={() => router.push('/admin/marketplace')}>Find Loads</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton></>}
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <OperationalToolbar>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · POD · exception recovery</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery evidence · exception recovery</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/quotes')}>Quotes</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
       </OperationalToolbar>
 
@@ -281,8 +284,8 @@ export default function CarrierOperationsDashboardHome() {
             footer={
               <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px solid ${workspaceTheme.border}` }}>
                 <div style={{ marginBottom: '3px', color: workspaceTheme.navy, fontSize: '10px', lineHeight: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Resource readiness</div>
-                <RailMetric label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'available').length)} onClick={() => router.push('/admin/fleet/drivers')} />
-                <RailMetric label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => driver.availability_status === 'busy').length)} onClick={() => router.push('/admin/fleet/drivers')} />
+                <RailMetric label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length)} onClick={() => router.push('/admin/fleet/drivers')} />
+                <RailMetric label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveBusyDriver).length)} onClick={() => router.push('/admin/fleet/drivers')} />
                 <RailMetric label="Unassigned vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} onClick={() => router.push('/admin/fleet/vehicles')} />
                 <RailMetric label="Document expiry alerts" value={unavailable(data, ['driverDocuments', 'vehicleDocuments']) ? '—' : metrics.expiringDocuments} onClick={() => router.push('/admin/fleet/compliance')} />
               </div>
@@ -301,10 +304,10 @@ export default function CarrierOperationsDashboardHome() {
             <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{data.datasets.jobs.availability === 'unavailable' ? 'Job data unavailable' : `${filteredJobs.length} visible`}</div>
           </div>
 
-          <div role="tablist" aria-label="Carrier work views" style={{ display: 'flex', alignItems: 'stretch', minHeight: '36px', overflowX: 'auto', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface }}>
+          <div role="tablist" aria-label="Carrier work views" style={{ display: 'flex', alignItems: 'stretch', minHeight: '28px', overflowX: 'auto', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface }}>
             {CONTROL_VIEWS.map((item) => {
               const selected = item.value === view;
-              return <button key={item.value} type="button" role="tab" aria-selected={selected} onClick={() => setView(item.value)} style={{ height: '36px', padding: '0 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, borderBottom: `2px solid ${selected ? workspaceTheme.blue : 'transparent'}`, background: selected ? '#F1F6FF' : 'transparent', color: selected ? workspaceTheme.blue : workspaceTheme.muted, fontSize: '11px', fontWeight: selected ? 800 : 650, whiteSpace: 'nowrap', cursor: 'pointer' }}>{item.label}<span style={{ minWidth: '18px', height: '18px', padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9px', background: selected ? workspaceTheme.blue : workspaceTheme.surfaceMuted, color: selected ? '#fff' : workspaceTheme.text, fontSize: '10px', fontWeight: 800 }}>{viewCounts[item.value]}</span></button>;
+              return <button key={item.value} type="button" role="tab" aria-selected={selected} onClick={() => setView(item.value)} style={{ height: '28px', padding: '0 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, borderBottom: `2px solid ${selected ? workspaceTheme.blue : 'transparent'}`, background: selected ? '#F1F6FF' : 'transparent', color: selected ? workspaceTheme.blue : workspaceTheme.muted, fontSize: '11px', fontWeight: selected ? 800 : 650, whiteSpace: 'nowrap', cursor: 'pointer' }}>{item.label}<span style={{ minWidth: '18px', height: '18px', padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9px', background: selected ? workspaceTheme.blue : workspaceTheme.surfaceMuted, color: selected ? '#fff' : workspaceTheme.text, fontSize: '10px', fontWeight: 800 }}>{viewCounts[item.value]}</span></button>;
             })}
           </div>
 
@@ -337,7 +340,7 @@ export default function CarrierOperationsDashboardHome() {
           <OperationalCard title="Commercial position" subtitle="Commercial hand-off without displacing the live workboard.">
             <CommercialRow label="Won work value" detail="Accepted carrier quotes" value={metricValue(data, ['bids'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/bids')} />
             <CommercialRow label="Overdue invoices" detail="Past-due carrier receivables" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
-            <CommercialRow label="POD follow-up" detail="Delivered carrier work still missing proof" value={unavailable(data, ['jobs']) ? '—' : metrics.podOutstanding.length} onClick={() => setView('pod')} />
+            <CommercialRow label="Delivery evidence review" detail="Completed carrier work with no delivery-photo evidence in the dashboard feed; open the job sheet for full POD state" value={unavailable(data, ['jobs']) ? '—' : metrics.evidenceReview.length} onClick={() => setView('pod')} />
             <CommercialRow label="Quotes awaiting decision" detail="Submitted pricing still open" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && ['submitted', 'pending'].includes(normalise(bid.status))).length)} onClick={() => router.push('/admin/quotes')} />
           </OperationalCard>
 
@@ -346,7 +349,7 @@ export default function CarrierOperationsDashboardHome() {
             <WorkflowLink label="2. Price and review quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/quotes')} />
             <WorkflowLink label="3. Allocate awarded work" detail="Assign the executing driver; vehicle planning remains advisory" onClick={() => router.push('/admin/fleet/assignments')} />
             <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
-            <WorkflowLink label="5. Close POD and exceptions" detail="Resolve proof and operational exceptions" onClick={() => setView('attention')} />
+            <WorkflowLink label="5. Close evidence and exceptions" detail="Resolve delivery proof and operational exceptions" onClick={() => setView('attention')} />
           </OperationalCard>
         </div>
       </OperationalPageLayout>
