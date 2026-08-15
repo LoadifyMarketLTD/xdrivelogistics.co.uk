@@ -19,15 +19,15 @@ type DriverJobLike = {
 export const canonicalJobStatus = (currentStatus: string | null | undefined, fallbackStatus: string) =>
   normalizedJobStatus({ current_status: currentStatus, status: fallbackStatus });
 
-export const filterJobsForDriver = (
-  jobs: DriverJobLike[],
+export const filterJobsForDriver = <T extends DriverJobLike>(
+  jobs: T[],
   opts: { driverId?: string | null; ownerDriver: boolean }
-) =>
+): T[] =>
   opts.driverId
     ? jobs.filter((job) => job.assigned_driver_id === opts.driverId)
     : [];
 
-export const recentCompletedJobs = (jobs: DriverJobLike[], limit = 5) =>
+export const recentCompletedJobs = <T extends DriverJobLike>(jobs: T[], limit = 5): T[] =>
   [...jobs]
     .filter((job) => classifyWorkspaceJobStage(job) === 'completed')
     .sort((a, b) =>
