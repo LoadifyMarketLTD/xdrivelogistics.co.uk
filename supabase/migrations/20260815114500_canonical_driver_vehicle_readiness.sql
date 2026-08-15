@@ -34,6 +34,7 @@ DECLARE
   v_onboarding_status text;
   v_onboarding_risk_status text;
   v_onboarding_account_type text;
+  v_onboarding_company_id uuid;
   v_company_status text;
   v_membership_status text;
   v_vehicle_count integer := 0;
@@ -87,20 +88,21 @@ BEGIN
     v_blockers := array_append(v_blockers, 'verified_driver_identity_missing');
   END IF;
 
-  SELECT oa.id, oa.status, oa.risk_status, oa.account_type
-  INTO v_onboarding_id, v_onboarding_status, v_onboarding_risk_status, v_onboarding_account_type
+  SELECT oa.id, oa.status, oa.risk_status, oa.account_type, oa.company_id
+  INTO v_onboarding_id, v_onboarding_status, v_onboarding_risk_status, v_onboarding_account_type, v_onboarding_company_id
   FROM public.onboarding_applications oa
   WHERE oa.user_id = v_driver.user_id
-    AND (
-      oa.company_id = v_driver.company_id
-      OR (oa.company_id IS NULL AND COALESCE(v_driver.driver_type, '') = 'owner_driver')
-    )
   ORDER BY oa.created_at DESC
   LIMIT 1;
 
+  -- Owner Driver onboarding may begin before its company exists, but the
+  -- canonical company-binding migration attaches that same application before
+  -- activation. Operational eligibility therefore requires the approved row to
+  -- be bound to the exact driver company for BOTH driver types.
   IF v_onboarding_id IS NULL
      OR COALESCE(v_onboarding_status, '') <> 'approved'
      OR COALESCE(v_onboarding_risk_status, '') <> 'clear'
+     OR v_onboarding_company_id IS DISTINCT FROM v_driver.company_id
      OR (COALESCE(v_driver.driver_type, '') = 'owner_driver' AND COALESCE(v_onboarding_account_type, '') <> 'owner_driver')
      OR (COALESCE(v_driver.driver_type, '') = 'company_driver' AND COALESCE(v_onboarding_account_type, '') NOT IN ('individual_driver', 'company_driver'))
   THEN
@@ -196,7 +198,7 @@ GRANT EXECUTE ON FUNCTION public.driver_operational_eligibility(uuid) TO authent
 GRANT EXECUTE ON FUNCTION public.driver_operational_eligibility(uuid) TO service_role;
 
 COMMENT ON FUNCTION public.driver_operational_eligibility(uuid) IS
-  'Canonical fail-closed owner/company driver readiness: active account, current verified onboarding identity, active company membership, exactly one active assigned vehicle, current MOT and vehicle insurance.';
+  'Canonical fail-closed owner/company driver readiness: active account, current verified onboarding identity bound to the same company, active company membership, exactly one active assigned vehicle, current MOT and vehicle insurance.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
