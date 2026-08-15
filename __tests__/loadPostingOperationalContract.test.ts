@@ -8,34 +8,36 @@ const createApi = fs.readFileSync(path.join(root, 'app/api/jobs/create/route.ts'
 const source = `${form}\n${createApi}`;
 
 const requiredOperationalConcepts = [
-  'pickup',
-  'delivery',
-  'collectionContactName',
-  'collectionContactPhone',
-  'deliveryContactName',
-  'deliveryContactPhone',
-  'customerReference',
-  'purchaseOrder',
-  'vehicle',
-  'cargo',
-  'weight',
-  'pallet',
-  'tailLift',
-  'forklift',
-  'handball',
-  'pod',
-  'publicQuoteNotes',
-  'executionInstructions',
-];
+  ['pickup', ['pickupAddress', 'pickupPostcode', 'pickupDateTime']],
+  ['delivery', ['deliveryAddress', 'deliveryPostcode', 'deliveryDateTime']],
+  ['collection contact', ['collectionContact', 'collectionPhone', 'collection_contact_name', 'collection_contact_phone']],
+  ['delivery contact', ['deliveryContact', 'deliveryPhone', 'delivery_contact_name', 'delivery_contact_phone']],
+  ['customer reference', ['customerReference', 'customer_reference']],
+  ['purchase order', ['purchaseOrder', 'purchase_order_number']],
+  ['booking reference', ['bookingReference', 'booking_reference']],
+  ['vehicle', ['vehicleLabel', 'vehicle_type']],
+  ['cargo', ['cargoLabel', 'cargo_type']],
+  ['weight', ['weightKg', 'weight_kg']],
+  ['pallets', ['pallets']],
+  ['tail lift', ['tailLift', 'collection_tail_lift_required']],
+  ['forklift', ['forklift', 'collection_forklift_available']],
+  ['handball', ['handball', 'collection_handball_required']],
+  ['public quote notes', ['publicQuoteNotes']],
+  ['private execution instructions', ['executionInstructions']],
+] as const;
 
 describe('load posting operational contract', () => {
-  it.each(requiredOperationalConcepts)('keeps %s represented by the Post Load form/API contract', (concept) => {
-    expect(source.toLowerCase()).toContain(concept.toLowerCase());
+  it.each(requiredOperationalConcepts)('keeps %s represented by the Post Load form/API contract', (_label, tokens) => {
+    for (const token of tokens) expect(source).toContain(token);
   });
 
   it('keeps public quote notes distinct from private execution instructions', () => {
     expect(source).toContain('publicQuoteNotes');
     expect(source).toContain('executionInstructions');
     expect(source.indexOf('publicQuoteNotes')).not.toBe(source.indexOf('executionInstructions'));
+  });
+
+  it('does not claim unsupported POD-entry controls are part of the current Post Load form contract', () => {
+    expect(form).not.toMatch(/name=["']pod|set\(['"]pod/i);
   });
 });
