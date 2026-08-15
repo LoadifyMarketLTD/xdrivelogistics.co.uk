@@ -120,7 +120,6 @@ export function CustomerLoadsOperationalPage() {
   }, [countsByJob, data.jobs, date, delivery, pickup, reference, tab]);
 
   const tabCount = (target: typeof tab) => data.jobs.filter((job) => {
-    const previous = tab;
     const stage = classifyWorkspaceJobStage(job);
     const quotes = countsByJob.get(job.id)?.submitted ?? 0;
     if (target === 'all') return true;
@@ -130,7 +129,6 @@ export function CustomerLoadsOperationalPage() {
     if (target === 'awarded') return stage === 'awarded' || stage === 'allocated';
     if (target === 'in_progress') return stage === 'in_progress';
     if (target === 'completed') return stage === 'completed';
-    void previous;
     return stage === 'cancelled';
   }).length;
 
@@ -222,7 +220,7 @@ export function CustomerQuotesOperationalPage() {
 
 export function CustomerAwardsOperationalPage() {
   const data = useCompanyWorkspaceData();
-  const [tab, setTab] = useState<'all' | 'allocated' | 'in_progress' | 'completed' | 'pod_ready'>('all');
+  const [tab, setTab] = useState<'all' | 'allocated' | 'in_progress' | 'completed' | 'photo_evidence'>('all');
   const [reference, setReference] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -234,7 +232,7 @@ export function CustomerAwardsOperationalPage() {
       if (tab === 'allocated' && !['awarded', 'allocated'].includes(stage)) return false;
       if (tab === 'in_progress' && stage !== 'in_progress') return false;
       if (tab === 'completed' && stage !== 'completed') return false;
-      if (tab === 'pod_ready' && (job.delivery_photos?.length ?? 0) === 0) return false;
+      if (tab === 'photo_evidence' && (job.delivery_photos?.length ?? 0) === 0) return false;
       return !needle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(needle);
     });
   }, [bookings, reference, tab]);
@@ -245,8 +243,8 @@ export function CustomerAwardsOperationalPage() {
       <PageHeader eyebrow="Customer operations" title="Bookings" description="Awarded transport stays in one booking register from carrier award through live execution, POD and completion." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Booking filters"><div className="workspace-filter-rail__header">Search Bookings</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load, booking or customer ref" /></label><div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Expand any booking to review the authorised Order, route, contacts, POD, history, documents and invoice data.</div><ActionButton tone="secondary" onClick={() => setReference('')}>Clear</ActionButton></div></aside>
-        <main style={{ minWidth: 0 }}><div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'allocated', 'in_progress', 'completed', 'pod_ready'] as const).map((item) => <button key={item} type="button" data-active={tab === item ? 'true' : 'false'} onClick={() => { setTab(item); setExpanded(null); }}>{item === 'all' ? 'All' : item === 'allocated' ? 'Awarded / Allocated' : item === 'in_progress' ? 'In Progress' : item === 'completed' ? 'Completed' : 'POD Ready'} {count(item)}</button>)}</div><div className="workspace-record-meta"><span><strong>{rows.length}</strong> booking{rows.length === 1 ? '' : 's'}</span></div>{rows.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading bookings…' : 'No bookings in this view'} /></div> : <div className="workspace-record-list">{rows.map((job) => { const open = expanded === job.id; return <CustomerOperationalRow key={job.id} job={job} middleLabel="BOOKING / POD" middleValue={job.booking_reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`} middleMeta={(job.delivery_photos?.length ?? 0) > 0 ? 'POD captured' : 'POD pending'} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionHref={`/customer/jobs/${job.id}`} sheet />; })}</div>}</main>
+        <aside className="workspace-filter-rail" aria-label="Booking filters"><div className="workspace-filter-rail__header">Search Bookings</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load, booking or customer ref" /></label><div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Expand any booking to review the authorised Order, route, contacts, POD, history, documents and invoice data. The Photo Evidence tab is intentionally narrower than complete POD state.</div><ActionButton tone="secondary" onClick={() => setReference('')}>Clear</ActionButton></div></aside>
+        <main style={{ minWidth: 0 }}><div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'allocated', 'in_progress', 'completed', 'photo_evidence'] as const).map((item) => <button key={item} type="button" data-active={tab === item ? 'true' : 'false'} onClick={() => { setTab(item); setExpanded(null); }}>{item === 'all' ? 'All' : item === 'allocated' ? 'Awarded / Allocated' : item === 'in_progress' ? 'In Progress' : item === 'completed' ? 'Completed' : 'Photo Evidence'} {count(item)}</button>)}</div><div className="workspace-record-meta"><span><strong>{rows.length}</strong> booking{rows.length === 1 ? '' : 's'}</span></div>{rows.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading bookings…' : 'No bookings in this view'} /></div> : <div className="workspace-record-list">{rows.map((job) => { const open = expanded === job.id; const hasDeliveryPhotos = (job.delivery_photos?.length ?? 0) > 0; return <CustomerOperationalRow key={job.id} job={job} middleLabel="BOOKING / EVIDENCE" middleValue={job.booking_reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`} middleMeta={hasDeliveryPhotos ? 'Delivery photo available · open booking for full POD state' : 'No delivery photo recorded · open booking for full POD state'} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionHref={`/customer/jobs/${job.id}`} sheet />; })}</div>}</main>
       </div>
     </PageFrame>
   );
@@ -254,7 +252,7 @@ export function CustomerAwardsOperationalPage() {
 
 export function CustomerDeliveriesOperationalPage() {
   const data = useCompanyWorkspaceData();
-  const [tab, setTab] = useState<'all' | 'upcoming' | 'live' | 'delayed' | 'delivered' | 'pod_ready'>('all');
+  const [tab, setTab] = useState<'all' | 'upcoming' | 'live' | 'delayed' | 'delivered' | 'photo_evidence'>('all');
   const [reference, setReference] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -268,7 +266,7 @@ export function CustomerDeliveriesOperationalPage() {
       if (tab === 'live' && stage !== 'in_progress') return false;
       if (tab === 'delayed' && !isDelayed(job)) return false;
       if (tab === 'delivered' && stage !== 'completed') return false;
-      if (tab === 'pod_ready' && (job.delivery_photos?.length ?? 0) === 0) return false;
+      if (tab === 'photo_evidence' && (job.delivery_photos?.length ?? 0) === 0) return false;
       return !needle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(needle);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,11 +277,11 @@ export function CustomerDeliveriesOperationalPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Customer delivery control" title="Tracking" description="Track awarded transport from upcoming collection through live movement, delivery and POD readiness." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
+      <PageHeader eyebrow="Customer delivery control" title="Tracking" description="Track awarded transport from upcoming collection through live movement, delivery and available delivery-photo evidence." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Tracking filters"><div className="workspace-filter-rail__header">Search Tracking</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load, booking or customer ref" /></label><div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Delayed means an in-progress booking whose recorded delivery time has passed. No location or ETA is fabricated.</div><ActionButton tone="secondary" onClick={() => setReference('')}>Clear</ActionButton></div></aside>
-        <main style={{ minWidth: 0 }}><div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'upcoming', 'live', 'delayed', 'delivered', 'pod_ready'] as const).map((item) => <button key={item} type="button" data-active={tab === item ? 'true' : 'false'} onClick={() => setTab(item)}>{item === 'all' ? 'All' : item === 'pod_ready' ? 'POD Ready' : item[0].toUpperCase() + item.slice(1)} {count(item)}</button>)}</div><div className="workspace-record-meta"><span><strong>{rows.length}</strong> tracked booking{rows.length === 1 ? '' : 's'}</span></div>{rows.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading tracking…' : 'No tracked bookings in this view'} /></div> : <div className="workspace-record-list">{rows.map((job) => { const open = expanded === job.id; const delayed = isDelayed(job); return <CustomerOperationalRow key={job.id} job={job} middleLabel="TRACKING / POD" middleValue={delayed ? <StatusBadge value="Delayed" tone="red" /> : <StatusBadge value={classifyWorkspaceJobStage(job)} />} middleMeta={(job.delivery_photos?.length ?? 0) > 0 ? 'POD captured' : `Delivery ${when(job.delivery_datetime)}`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel="Open booking" actionHref={`/customer/jobs/${job.id}`} sheet />; })}</div>}</main>
+        <aside className="workspace-filter-rail" aria-label="Tracking filters"><div className="workspace-filter-rail__header">Search Tracking</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load, booking or customer ref" /></label><div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Delayed means an in-progress booking whose recorded delivery time has passed. No location or ETA is fabricated. Full POD state remains in the booking sheet.</div><ActionButton tone="secondary" onClick={() => setReference('')}>Clear</ActionButton></div></aside>
+        <main style={{ minWidth: 0 }}><div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'upcoming', 'live', 'delayed', 'delivered', 'photo_evidence'] as const).map((item) => <button key={item} type="button" data-active={tab === item ? 'true' : 'false'} onClick={() => setTab(item)}>{item === 'all' ? 'All' : item === 'photo_evidence' ? 'Photo Evidence' : item[0].toUpperCase() + item.slice(1)} {count(item)}</button>)}</div><div className="workspace-record-meta"><span><strong>{rows.length}</strong> tracked booking{rows.length === 1 ? '' : 's'}</span></div>{rows.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading tracking…' : 'No tracked bookings in this view'} /></div> : <div className="workspace-record-list">{rows.map((job) => { const open = expanded === job.id; const delayed = isDelayed(job); const hasDeliveryPhotos = (job.delivery_photos?.length ?? 0) > 0; return <CustomerOperationalRow key={job.id} job={job} middleLabel="TRACKING / EVIDENCE" middleValue={delayed ? <StatusBadge value="Delayed" tone="red" /> : <StatusBadge value={classifyWorkspaceJobStage(job)} />} middleMeta={hasDeliveryPhotos ? 'Delivery photo available · open booking for full POD state' : `Delivery ${when(job.delivery_datetime)} · full POD state in booking`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel="Open booking" actionHref={`/customer/jobs/${job.id}`} sheet />; })}</div>}</main>
       </div>
     </PageFrame>
   );
