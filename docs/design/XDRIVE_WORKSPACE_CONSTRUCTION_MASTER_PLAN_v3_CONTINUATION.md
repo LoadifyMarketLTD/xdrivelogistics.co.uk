@@ -2,7 +2,11 @@
 # WORKSPACE CONSTRUCTION MASTER PLAN
 ## Master Execution Specification — v3 Continuation — Operational Privacy, Member Identity & Final Delivery Programme
 
-**Status:** AUTHORITATIVE CONTINUATION OF `XDRIVE_WORKSPACE_CONSTRUCTION_MASTER_PLAN_v3.md`
+**Status:** SUBORDINATE IMPLEMENTATION ADDENDUM TO `XDRIVE_WORKSPACE_CONSTRUCTION_MASTER_PLAN_v3.md` — it does not override or self-authorise changes outside the controlling Master Plan.
+
+**Controlling specification:** `docs/design/XDRIVE_WORKSPACE_CONSTRUCTION_MASTER_PLAN_v3.md` remains authoritative for PR #357. Where this addendum conflicts with Master Plan v3, Master Plan v3 wins.
+
+**Approved driver contract:** `docs/design/XDRIVE_CANONICAL_DRIVER_ELIGIBILITY_AWARD_CONTRACT.md` records the owner-approved driver/vehicle eligibility and Owner Driver/Fleet Driver award clarification. It is interpreted through Master Plan v3 and authorises only the minimum backend/data-path work demonstrably required to implement that approved contract.
 
 **Branch:** `workspace-cx-matrix-v1`
 
@@ -10,7 +14,7 @@
 
 **Merge boundary:** do not merge to `main` until the complete workspace programme has passed final repository audit and the single final local validation phase.
 
-This continuation records the operational rules derived from the measured Courier Exchange reference set, the XDrive repository audit, and the real transport workflow requirements confirmed during implementation. Where an older implementation detail conflicts with this continuation, this continuation wins unless the underlying XDrive business contract or security policy requires a stricter rule.
+This continuation records operational privacy, member identity and diary/job-sheet requirements derived from the measured Courier Exchange reference set, repository audit and transport workflow review. It is guidance subordinate to Master Plan v3. It cannot by itself authorise DB/schema/RLS/auth/permission changes. Any such change must either be required by the owner-approved canonical driver contract or be documented as a separate blocker/approval decision.
 
 ---
 
@@ -25,7 +29,7 @@ For every route:
 3. inspect existing XDrive functionality and data sources;
 4. identify privacy / permission boundaries before changing UI;
 5. implement using shared workspace primitives where safe;
-6. preserve real routing, statuses, bids, allocations, POD, invoices, tracking and permissions;
+6. preserve real routing, statuses, bids, allocations, POD, invoices, tracking and permissions except for the minimum verified changes required by the owner-approved canonical driver eligibility/award contract;
 7. self-audit the changed source and committed diff;
 8. continue to the next route unless a concrete source/data/backend blocker prevents implementation.
 
@@ -86,7 +90,7 @@ Before a carrier / driver has won the job, the marketplace must expose enough in
 - customer personal data not required for the quote;
 - any field that lets an unawarded driver go directly to the freight.
 
-**Security rule:** this boundary must be enforced server-side / data-contract-side where possible. Hiding a field only in JSX while returning it to the browser is not considered compliant.
+**Security rule:** this boundary must be enforced server-side / data-contract-side where possible. Hiding a field only in JSX while returning it to the browser is not considered compliant. A database/RLS change is not automatically authorised merely because this privacy objective exists; use the narrowest implementation compatible with Master Plan v3 and the approved business contracts.
 
 ## S2. AWARDED / EXECUTION PHASE
 
@@ -283,12 +287,13 @@ Target order:
 
 Additional mandatory corrections:
 
-- Driver Loads remains the visual / workflow reference but must adopt the server-enforced pre-award privacy contract;
-- individual Marketplace load details must obey exactly the same privacy contract;
-- company identity remains visible for trust / quote clarification;
+- Driver Loads remains the visual / workflow reference and must preserve the measured CX scan→expand→quote contract;
+- Marketplace pre-award list/detail must keep private execution data out of unauthorised client payloads;
+- driver quote permission must converge on `XDRIVE_CANONICAL_DRIVER_ELIGIBILITY_AWARD_CONTRACT.md`;
+- company identity remains visible for trust / quote clarification where authorised;
 - exact freight location and execution contacts remain hidden until award;
 - Diary must use all available job-sheet data and keep Feedback/POD/Documents/Invoice real;
-- no rewrite of canonical job lifecycle / POD / quote business logic unless required by a verified bug.
+- no rewrite of unrelated canonical job lifecycle / POD logic unless required by a verified bug or the owner-approved award/allocation rule.
 
 ## W2. Broker
 
@@ -315,9 +320,10 @@ Broker Carrier Network must evolve from invitation-only presentation into the au
 Correct semantic drift before visual closure:
 
 - define Active Jobs once and reuse it;
-- separate won-but-unallocated, allocated/accepted, and execution-in-progress consistently;
-- vehicle availability must not be inferred from `assigned_driver_id` alone;
-- driver allocation eligibility must match the canonical backend rule;
+- use the canonical driver+vehicle operational eligibility contract for Owner Driver and Fleet Driver alike;
+- a named Fleet Driver accepted bid auto-allocates to that bidder driver by default; only a company-level bid without a named bidder driver enters won/unallocated;
+- Fleet reallocation, where allowed, must revalidate the replacement driver+vehicle and preserve commercial award history;
+- vehicle readiness must not be inferred from `assigned_driver_id` alone;
 - carrier operational metrics must be scoped to carrier-owned / carrier-won work correctly;
 - shared operational rows / rails / tabs should replace duplicated local page structures only when no business logic is lost.
 
@@ -338,6 +344,8 @@ Required conceptual surfaces:
 - Account.
 
 Customer Diary must become expandable and useful for post-booking operations, not only a status table.
+
+Awarded commercial identity and currently assigned execution driver must remain separate; generic assignment is not proof of the original commercial winner.
 
 Customer Companies / Network relationship history may exist separately, but must not be mistaken for the global/authorised Directory contract.
 
@@ -387,30 +395,33 @@ Before a route is GREEN, check:
 - Does a direct URL bypass the intended visibility state?
 - Does the route rely on client-side filtering for a security boundary? If yes, it is not GREEN.
 
+Security hardening must remain proportional to the approved contract. Do not redefine unrelated role permissions merely to make a UI route convenient.
+
 ---
 
 # Z. Final programme order
 
 The implementation programme after this continuation is:
 
-1. document and freeze the shared privacy / member / diary contracts;
-2. Driver Marketplace pre-award privacy — list and detail;
-3. Marketplace posting member identity contract;
-4. public quote notes vs private execution instructions — source/data contract;
-5. shared Member Identity / Member Profile foundation;
-6. Driver Diary full job-sheet completion;
-7. Broker Diary full job-sheet completion;
-8. Customer Diary full job-sheet completion;
-9. authorised Directory / Network alignment;
-10. Fleet / Carrier semantic corrections and workspace completion;
-11. Customer operational workspace completion;
-12. Broker remaining workspace completion;
-13. shared CSS / primitive consolidation;
-14. cross-workspace permission/privacy audit;
-15. responsive audit at 1920×1080, 1440×900, 1024, 768 and 390–430;
-16. final repository-wide audit against Master Plan v3 + this continuation + CX references;
-17. one final local PowerShell validation: lint, typecheck, tests, production build and runtime smoke checks;
-18. only after all gates are GREEN may merge/deployment be discussed.
+1. freeze Master Plan v3 as controlling specification and the canonical driver eligibility/award contract as the approved business clarification;
+2. converge Driver Marketplace quote eligibility on driver+vehicle readiness;
+3. preserve/verify Marketplace pre-award privacy — list and detail;
+4. preserve Marketplace posting member identity contract;
+5. public quote notes vs private execution instructions — source/data contract;
+6. shared Member Identity / Member Profile foundation using existing authorised data;
+7. Driver Diary full job-sheet completion;
+8. Broker Diary full job-sheet completion;
+9. Customer Diary full job-sheet completion and award/execution identity correction;
+10. authorised Directory / Network alignment;
+11. Fleet / Carrier named-driver auto-allocation, company-bid unallocated flow and controlled reallocation semantics;
+12. Customer operational workspace completion;
+13. Broker remaining workspace completion;
+14. shared CSS / primitive consolidation onto the measured Master Plan v3 baseline;
+15. cross-workspace permission/privacy/lifecycle audit;
+16. responsive source audit at 1920×1080, 1440×900, 1024, 768 and 390–430;
+17. final repository-wide audit against Master Plan v3 + approved subordinate contracts + CX references;
+18. one final local PowerShell validation: lint, typecheck, tests, production build and runtime smoke checks;
+19. only after all gates are GREEN may merge/deployment be discussed.
 
 `/super-admin` remains excluded from every implementation item above.
 
@@ -418,10 +429,14 @@ The implementation programme after this continuation is:
 
 # FINAL CONTINUATION RULE
 
+**Master Plan v3 controls the programme.**
+
 **Marketplace gives enough information to QUOTE, never enough information to EXECUTE before award.**
+
+**Only a canonically eligible driver with a canonically eligible vehicle may submit a driver-originated quote.**
+
+**An accepted named-driver bid defaults execution to that bidder driver; a company-level bid without a named bidder driver is the normal won/unallocated Fleet case.**
 
 **Diary / Job Sheet gives the authorised execution user everything required to EXECUTE after award.**
 
 **Member Profile gives enough trustworthy information to VERIFY a trading member without exposing private personal data or fabricating performance/compliance facts.**
-
-These three contracts are now mandatory across Driver, Broker, Fleet/Carrier and Customer workspaces.
