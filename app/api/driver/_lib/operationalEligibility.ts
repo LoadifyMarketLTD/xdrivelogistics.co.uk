@@ -17,8 +17,6 @@ type VehicleRow = {
   id: string;
   company_id: string | null;
   assigned_driver_id: string | null;
-  status: string | null;
-  is_available: boolean | null;
   type: string | null;
   reg_plate: string | null;
 };
@@ -165,7 +163,7 @@ export async function resolveDriverOperationalEligibility(
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin
       .from('vehicles')
-      .select('id,company_id,assigned_driver_id,status,is_available,type,reg_plate')
+      .select('id,company_id,assigned_driver_id,type,reg_plate')
       .eq('assigned_driver_id', driver.id)
       .limit(3),
   ]);
@@ -232,15 +230,18 @@ export async function resolveDriverOperationalEligibility(
   );
   if (!membershipActive) blockers.push('driver_company_membership_not_active');
 
+  // XDrive's verified operational relationship is vehicles.assigned_driver_id.
+  // Do not infer readiness from an unassigned fleet vehicle and do not assume
+  // non-canonical status/is_available columns. Exactly one explicit assignment
+  // makes the driver's own operational vehicle unambiguous.
   const vehicles = ((vehiclesResult.data ?? []) as VehicleRow[]).filter((vehicle) => vehicle.assigned_driver_id === driver.id);
-  const activeVehicles = vehicles.filter((vehicle) => normalise(vehicle.status) === 'active');
-  const canonicalVehiclePresent = activeVehicles.length > 0;
-  const canonicalVehicleUnambiguous = activeVehicles.length === 1;
-  const canonicalVehicle = canonicalVehicleUnambiguous ? activeVehicles[0] : null;
+  const canonicalVehiclePresent = vehicles.length > 0;
+  const canonicalVehicleUnambiguous = vehicles.length === 1;
+  const canonicalVehicle = canonicalVehicleUnambiguous ? vehicles[0] : null;
   const vehicleActive = Boolean(canonicalVehicle);
 
   if (!canonicalVehiclePresent) blockers.push('canonical_vehicle_missing');
-  if (activeVehicles.length > 1) blockers.push('canonical_vehicle_ambiguous');
+  if (vehicles.length > 1) blockers.push('canonical_vehicle_ambiguous');
 
   let vehicleComplianceValid = false;
   if (canonicalVehicle) {
