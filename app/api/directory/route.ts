@@ -8,6 +8,9 @@ import {
 import { operationalError } from '../_lib/operationalError';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const COMPANY_LIMIT = 500;
+const DRIVER_LIMIT = 500;
+const VEHICLE_LIMIT = 1000;
 
 function text(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -79,18 +82,18 @@ export async function GET(request: NextRequest) {
       .select('id, name, company_number, phone, company_type, status, created_at, city, postcode, country')
       .eq('status', 'active')
       .order('name', { ascending: true })
-      .limit(500),
+      .limit(COMPANY_LIMIT),
     supabaseAdmin
       .from('drivers')
       .select('id, company_id, display_name, status, availability_status')
       .eq('status', 'active')
       .order('display_name', { ascending: true })
-      .limit(500),
+      .limit(DRIVER_LIMIT),
     supabaseAdmin
       .from('vehicles')
       .select('id, assigned_driver_id, type')
       .not('assigned_driver_id', 'is', null)
-      .limit(1000),
+      .limit(VEHICLE_LIMIT),
   ]);
 
   if (companiesResult.error) {
@@ -146,10 +149,26 @@ export async function GET(request: NextRequest) {
     })
     .filter(Boolean);
 
+  const companiesMayBeTruncated = (companiesResult.data?.length ?? 0) >= COMPANY_LIMIT;
+  const driversMayBeTruncated = (driversResult.data?.length ?? 0) >= DRIVER_LIMIT;
+  const vehicleEnrichmentMayBeTruncated = (vehiclesResult.data?.length ?? 0) >= VEHICLE_LIMIT;
+
   return respond(200, {
     companies,
     drivers,
-    partial: Boolean(driversResult.error || vehiclesResult.error),
+    partial: Boolean(
+      driversResult.error
+      || vehiclesResult.error
+      || companiesMayBeTruncated
+      || driversMayBeTruncated
+      || vehicleEnrichmentMayBeTruncated
+    ),
+    truncation: {
+      companies: companiesMayBeTruncated,
+      drivers: driversMayBeTruncated,
+      vehicleEnrichment: vehicleEnrichmentMayBeTruncated,
+      limits: { companies: COMPANY_LIMIT, drivers: DRIVER_LIMIT, vehicles: VEHICLE_LIMIT },
+    },
     generatedAt: new Date().toISOString(),
     privacy: 'Business-facing member identity only. No home address, personal email, private phone, exact live location or compliance document URL is exposed.',
   });
