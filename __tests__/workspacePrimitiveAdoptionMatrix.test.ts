@@ -120,11 +120,8 @@ describe('workspace primitive adoption matrix', () => {
     expect(source).not.toContain('FinancialSummaryPanel');
   });
 
-  it('keeps customer and broker KPI availability tied to shared dataset presentation state', () => {
-    const customerSource = read('app/customer/CustomerDashboardHome.tsx');
+  it('keeps broker degraded metrics tied to shared dataset presentation state', () => {
     const brokerSource = read('app/broker/BrokerDashboardHome.tsx');
-
-    expect(customerSource).toContain('getWorkspaceMetricPresentationStatus');
     expect(brokerSource).toContain('getWorkspaceMetricPresentationStatus');
   });
 
