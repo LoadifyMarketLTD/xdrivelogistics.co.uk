@@ -21,10 +21,10 @@ as restrictive
 for select
 to authenticated
 using (
-  -- Non-Marketplace rows and awarded work continue through the existing jobs
-  -- policy matrix unchanged.
+  -- POSTED and QUOTED are both pre-award states. The first quote must never
+  -- unlock the full execution row for competing Marketplace members.
   not (
-    lower(coalesce(status::text, '')) = 'posted'
+    lower(coalesce(status::text, '')) in ('posted', 'quoted')
     and awarded_carrier_company_id is null
     and (
       exchange_posted_at is not null
@@ -58,6 +58,6 @@ using (
 );
 
 comment on policy jobs_preaward_marketplace_privacy_guard on public.jobs is
-  'Pre-award Marketplace job rows are readable in full only by the posting company or Platform Owner; competing members consume the quote-safe server projection.';
+  'Pre-award Marketplace POSTED/QUOTED job rows are readable in full only by the posting company or Platform Owner; competing members consume the quote-safe server projection.';
 
 commit;
