@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -13,19 +14,6 @@ import {
 } from '../../components/workspace/WorkspaceUI';
 
 type LoadTab = 'all' | 'draft' | 'open' | 'awarded' | 'active' | 'completed';
-
-const ACTIVE = new Set([
-  'allocated',
-  'accepted',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
-]);
 
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -39,13 +27,14 @@ const money = (value: number | null | undefined) =>
 const statusOf = (job: WorkspaceJob) => String(job.current_status || job.status || '').toLowerCase();
 
 function matchesTab(job: WorkspaceJob, tab: LoadTab) {
-  const status = statusOf(job);
   if (tab === 'all') return true;
+  const status = statusOf(job);
+  const stage = classifyWorkspaceJobStage(job);
   if (tab === 'draft') return status === 'draft';
-  if (tab === 'open') return ['posted', 'quoted'].includes(status);
-  if (tab === 'awarded') return Boolean(job.awarded_carrier_company_id) || ['awarded'].includes(status);
-  if (tab === 'active') return ACTIVE.has(status);
-  return ['delivered', 'completed'].includes(status);
+  if (tab === 'open') return stage === 'open' && status !== 'draft';
+  if (tab === 'awarded') return stage === 'awarded' || stage === 'allocated';
+  if (tab === 'active') return stage === 'in_progress';
+  return stage === 'completed';
 }
 
 export default function BrokerLoadsPage() {
@@ -99,11 +88,7 @@ export default function BrokerLoadsPage() {
   ];
 
   const clearFilters = () => {
-    setFrom('');
-    setTo('');
-    setVehicle('');
-    setCustomer('');
-    setReference('');
+    setFrom(''); setTo(''); setVehicle(''); setCustomer(''); setReference('');
     if (deepJob || deepCustomer) router.push('/broker/loads');
   };
 
@@ -112,13 +97,7 @@ export default function BrokerLoadsPage() {
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow="Customer loads"
-        title="Loads"
-        description="Scan customer transport requests, quote activity and operational state from one broker board."
-        actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>}
-      />
-
+      <PageHeader eyebrow="Customer loads" title="Loads" description="Scan customer transport requests, quote activity and operational state from one broker board." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -130,72 +109,35 @@ export default function BrokerLoadsPage() {
             <label>VEHICLE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Vehicle type" /></label>
             <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
             <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load reference" /></label>
-            <div style={{ display: 'grid', gap: 4 }}>
-              <span style={metaStyle}>Filters apply as you type.</span>
-              <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
-            </div>
+            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton></div>
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {tabs.map((item) => (
-              <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
-                {item.label} {item.count}
-              </button>
-            ))}
+            {tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
           </div>
 
           {rows.length === 0 ? (
-            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}>
-              <EmptyState compact title="No matching loads" description="Adjust the filters or post a new customer load." action={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />
-            </div>
+            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="No matching loads" description="Adjust the filters or post a new customer load." action={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} /></div>
           ) : (
             <div className="workspace-record-list">
               {rows.map((job) => {
                 const open = expanded === job.id;
                 const quotes = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
-                const bestQuote = quotes
-                  .map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0))
-                  .filter((amount) => amount > 0)
-                  .sort((a, b) => a - b)[0];
+                const bestQuote = quotes.map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0)).filter((amount) => amount > 0).sort((a, b) => a - b)[0];
                 const budget = Number(job.budget_amount ?? 0);
+                const stage = classifyWorkspaceJobStage(job);
 
                 return (
                   <article className="workspace-operational-row" key={job.id} data-state={statusOf(job)}>
                     <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell">
-                        <div style={labelStyle}>FROM</div>
-                        <strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong>
-                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div>
-                      </div>
-                      <div className="workspace-operational-cell">
-                        <div style={labelStyle}>TO</div>
-                        <strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong>
-                        <div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div>
-                      </div>
-                      <div className="workspace-operational-cell">
-                        <div style={labelStyle}>LOAD</div>
-                        <strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong>
-                        <div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div>
-                      </div>
-                      <div className="workspace-operational-cell">
-                        <div style={labelStyle}>COMMERCIAL</div>
-                        <strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong>
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}>
-                          <StatusBadge value={job.current_status || job.status} />
-                          <ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton>
-                        </div>
-                      </div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>LOAD</div><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={job.current_status || job.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
                     </div>
-
-                    <div className="workspace-record-meta">
-                      <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>
-                      <span>Quotes: {quotes.length}</span>
-                      <span>{bestQuote ? `Best quote: ${money(bestQuote)}` : 'No live quote'}</span>
-                      <span>{job.awarded_carrier_company_id ? 'Carrier awarded' : 'Awaiting carrier decision'}</span>
-                    </div>
-
+                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quotes: {quotes.length}</span><span>{bestQuote ? `Best quote: ${money(bestQuote)}` : 'No live quote'}</span><span>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span></div>
                     {open && (
                       <div className="workspace-record-details">
                         <div className="workspace-detail-grid">
@@ -211,7 +153,7 @@ export default function BrokerLoadsPage() {
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                           <ActionButton tone="primary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & award</ActionButton>
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Job view</ActionButton>
-                          {['delivered', 'completed'].includes(statusOf(job)) && <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD</ActionButton>}
+                          {stage === 'completed' && <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD</ActionButton>}
                         </div>
                       </div>
                     )}
