@@ -6,6 +6,7 @@ import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { canonicalJobStatus, filterJobsForDriver, recentCompletedJobs } from '../../lib/driverDashboard';
 import { jobLifecyclePresentationGroup } from '../../lib/jobs/jobLifecyclePresentation';
+import { workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
@@ -194,6 +195,26 @@ function vehicleLabel(value: string | null | undefined) {
   return VEHICLE_TYPE_LABELS[value] ?? humanize(value);
 }
 
+function normalizeVehicleMatch(value: string | null | undefined) {
+  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function loadMatchesAssignedVehicle(load: DashboardMarketplaceLoad, vehicle: DashboardVehicle | null) {
+  if (!vehicle?.type) return false;
+  const vehicleCandidates = new Set([
+    normalizeVehicleMatch(vehicle.type),
+    normalizeVehicleMatch(vehicleLabel(vehicle.type)),
+  ].filter(Boolean));
+  const loadCandidates = [
+    load.vehicle_type,
+    load.requested_vehicle_type,
+    load.requested_vehicle_label,
+    vehicleLabel(load.vehicle_type),
+    vehicleLabel(load.requested_vehicle_type),
+  ].map(normalizeVehicleMatch).filter(Boolean);
+  return loadCandidates.some((candidate) => vehicleCandidates.has(candidate));
+}
+
 function money(value: number | null | undefined, currency = 'GBP') {
   if (value == null) return 'Open quote';
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
@@ -231,9 +252,9 @@ export default function DriverDashboard() {
   );
 
   const currentJob = myJobs.find((job) =>
-    jobLifecyclePresentationGroup(canonicalJobStatus(job.current_status, job.status)) === 'active'
+    jobLifecyclePresentationGroup(workspaceJobPresentationStatus(job)) === 'active'
   );
-  const currentStatus = currentJob ? canonicalJobStatus(currentJob.current_status, currentJob.status).toLowerCase() : null;
+  const currentStatus = currentJob ? workspaceJobPresentationStatus(currentJob).toLowerCase() : null;
   const currentAction = currentStatus
     ? NEXT_DRIVER_ACTIONS[currentStatus] ?? {
         kind: 'open' as const,
@@ -248,7 +269,7 @@ export default function DriverDashboard() {
 
   const upcomingJobs = myJobs
     .filter((job) =>
-      jobLifecyclePresentationGroup(canonicalJobStatus(job.current_status, job.status)) === 'upcoming'
+      jobLifecyclePresentationGroup(workspaceJobPresentationStatus(job)) === 'upcoming'
       && Boolean(job.pickup_datetime)
       && new Date(job.pickup_datetime as string).getTime() > Date.now()
     )
@@ -392,8 +413,10 @@ export default function DriverDashboard() {
     if (loadsRes.error) {
       warnings.loads = loadsRes.error;
       setRelevantLoads([]);
+    } else if (!vehicleRes.vehicle) {
+      setRelevantLoads([]);
     } else {
-      setRelevantLoads((loadsRes.data ?? []).slice(0, 4));
+      setRelevantLoads((loadsRes.data ?? []).filter((load) => loadMatchesAssignedVehicle(load, vehicleRes.vehicle)).slice(0, 4));
     }
 
     setContextWarnings(warnings);
@@ -441,7 +464,7 @@ export default function DriverDashboard() {
     job: (typeof myJobs)[number],
     actionLabel: string,
   ) => {
-    const status = canonicalJobStatus(job.current_status, job.status);
+    const status = workspaceJobPresentationStatus(job);
     return (
       <article key={job.id} className="driver-load-row" data-state={status}>
         <div className="driver-load-row__top">
@@ -503,9 +526,9 @@ export default function DriverDashboard() {
         </div>
       </div>
       <div className="driver-load-row__meta">
-        <StatusBadge value="Live marketplace" tone="blue" />
+        <StatusBadge value="Vehicle match" tone="blue" />
         <span>{load.member?.name ?? 'Marketplace member'}{load.member?.phone ? ` · ${load.member.phone}` : ''}</span>
-        <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
+        <span>XDrive XDL-{load.id.slice(0, 8).toUpperCase()}</span>
         <div className="driver-row-actions">
           <ActionButton tone="success" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
         </div>
@@ -654,8 +677,10 @@ export default function DriverDashboard() {
                 <div className="driver-dashboard-section__body">
                   {contextWarnings.loads ? (
                     <EmptyState compact title="Relevant loads unavailable" description={contextWarnings.loads} />
+                  ) : !assignedVehicle ? (
+                    <EmptyState compact title="No vehicle-matched loads" description="An assigned canonical vehicle is required before Dashboard loads can be matched truthfully." />
                   ) : relevantLoads.length === 0 ? (
-                    <EmptyState compact title="No live marketplace loads" description="No open exchange work is currently available to show on the Dashboard." />
+                    <EmptyState compact title="No vehicle-matched loads" description={`No open exchange work currently matches ${vehicleLabel(assignedVehicle.type)}.`} />
                   ) : (
                     <div className="driver-load-list">{relevantLoads.map(renderRelevantLoad)}</div>
                   )}
