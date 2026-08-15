@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
@@ -16,11 +16,6 @@ export default function DriverChangePasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    if (user.role !== 'driver') router.replace('/forbidden');
-  }, [router, user]);
 
   const guidance = useMemo(() => {
     if (user?.mustChangePassword) return 'You must set a new password before continuing to the Driver Workspace.';
