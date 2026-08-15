@@ -30,9 +30,13 @@ export type MobileJobRow = {
   company_id: string | null;
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
+  pickup_postcode: string | null;
   delivery_location: string | null;
+  delivery_postcode: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  distance_miles: number | string | null;
+  job_distance_miles: number | string | null;
   vehicle_type: string | null;
   requested_vehicle_type: string | null;
   requested_vehicle_label: string | null;
@@ -52,9 +56,11 @@ export type MobileJobRow = {
   access_restrictions: string | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
+  collection_photo_url: string | null;
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
   delivery_signature_data: unknown;
+  client_signature_name: string | null;
   status_history: unknown;
   updated_at: string | null;
   created_at: string | null;
@@ -154,9 +160,13 @@ export const jobSelect = [
   'company_id',
   'awarded_carrier_company_id',
   'pickup_location',
+  'pickup_postcode',
   'delivery_location',
+  'delivery_postcode',
   'pickup_datetime',
   'delivery_datetime',
+  'distance_miles',
+  'job_distance_miles',
   'vehicle_type',
   'requested_vehicle_type',
   'requested_vehicle_label',
@@ -176,9 +186,11 @@ export const jobSelect = [
   'access_restrictions',
   'pod_required',
   'pod_generated',
+  'collection_photo_url',
   'delivery_photos',
   'pod_photos',
   'delivery_signature_data',
+  'client_signature_name',
   'status_history',
   'updated_at',
   'created_at',
@@ -216,24 +228,39 @@ export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'
 export function mapJob(row: MobileJobRow) {
   const contactName = row.delivery_contact_name || row.collection_contact_name || row.client_name || undefined;
   const contactPhone = row.delivery_contact_phone || row.collection_contact_phone || row.client_phone || undefined;
+  const distance = Number(row.distance_miles ?? row.job_distance_miles ?? 0);
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     status: mobileStatus(row),
     lifecycleStatus: row.status,
+    currentStatus: row.current_status,
     pickupLocation: row.pickup_location || 'Pickup TBC',
+    pickupPostcode: row.pickup_postcode || '',
     deliveryLocation: row.delivery_location || 'Delivery TBC',
+    deliveryPostcode: row.delivery_postcode || '',
     pickupTime: row.pickup_datetime || 'Pickup time TBC',
     deliveryTime: row.delivery_datetime || 'Delivery time TBC',
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo TBC',
     vehicleRequirement: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || 'Vehicle TBC',
+    vehicleType: row.vehicle_type,
     price: toMoney(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount),
+    budgetAmount: Number(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount ?? 0) || null,
+    distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
     podGenerated: hasPod(row),
+    deliveryPhotos: safeArray(row.delivery_photos).filter((value): value is string => typeof value === 'string'),
+    podPhotos: safeArray(row.pod_photos).filter((value): value is string => typeof value === 'string'),
+    collectionPhotoUrl: row.collection_photo_url,
+    deliverySignatureData: row.delivery_signature_data,
+    clientSignatureName: row.client_signature_name || '',
     contactAllowed: Boolean(contactPhone),
     contactName,
     contactPhone,
+    clientName: row.client_name || '',
+    clientPhone: row.client_phone || contactPhone || '',
+    loadDetails: row.load_details || '',
     requirements: [row.load_details, row.special_requirements, row.access_restrictions].filter(Boolean).join('\n'),
     updatedAt: row.updated_at,
   };
