@@ -153,7 +153,7 @@ export function MemberDirectoryPage({
         <aside className="workspace-filter-rail" aria-label="Directory filters">
           <div className="workspace-filter-rail__header">Search Directory</div>
           <div className="workspace-filter-rail__body">
-            <label>MEMBER NAME / ID<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or member ID" /></label>
+            <label>MEMBER / COMPANY NUMBER<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or company number" /></label>
             <label>LOCATION<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town / postcode / country" /></label>
             {tab === 'companies' ? (
               <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label>
@@ -182,7 +182,7 @@ export function MemberDirectoryPage({
               {visibleCompanies.map((company) => (
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ?? 'Member ID not supplied'}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Company no. ${company.memberId}` : 'Company number not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">Business phone {company.businessPhone ?? 'not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton></div>
@@ -196,7 +196,7 @@ export function MemberDirectoryPage({
               {visibleDrivers.map((driver) => (
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · ${driver.memberId}` : ''}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Company no. ${driver.memberId}` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">No live coordinates exposed</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></div>
