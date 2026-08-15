@@ -70,6 +70,30 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
   return 'unknown';
 }
 
+/**
+ * Canonical status text for workspace presentation.
+ *
+ * Legacy/test rows can contain a stale raw status such as `posted` even after
+ * award/allocation identifiers have been persisted. The classifier already
+ * treats those authoritative identifiers as stronger lifecycle facts. This
+ * helper keeps UI badges truthful without mutating historical data or
+ * inventing a backend lifecycle transition.
+ *
+ * Execution/completion states keep their specific raw status because labels
+ * such as `loaded`, `on_site_delivery` and `delivered` remain operationally
+ * useful. Only stale pre-execution labels are normalised to awarded/allocated.
+ */
+export function workspaceJobPresentationStatus(job: WorkspaceStageJob) {
+  const raw = normalizedJobStatus(job);
+  const stage = classifyWorkspaceJobStage(job);
+
+  if (stage === 'allocated' && !IN_PROGRESS_JOB_STATUSES.has(raw) && !COMPLETED_JOB_STATUSES.has(raw)) {
+    return 'allocated';
+  }
+  if (stage === 'awarded') return 'awarded';
+  return raw || stage;
+}
+
 export function isExecutionStage(job: WorkspaceStageJob) {
   const stage = classifyWorkspaceJobStage(job);
   return stage === 'allocated' || stage === 'in_progress';
