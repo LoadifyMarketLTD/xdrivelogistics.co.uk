@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  resolveDriverOperationalEligibility,
+  type DriverOperationalEligibility,
+} from './operationalEligibility';
 
 const activeBidStatuses = ['submitted', 'accepted'];
 
@@ -30,6 +34,7 @@ type BidEligibilityJob = {
 export type DriverBidEligibility = {
   jobId: string;
   eligible: boolean;
+  operational: DriverOperationalEligibility;
   driver: {
     status: string;
     active: boolean;
@@ -38,6 +43,7 @@ export type DriverBidEligibility = {
     companyId: string | null;
     companyActive: boolean;
     companyStatus: string | null;
+    canonicalVehicleId: string | null;
   };
   job: {
     found: boolean;
@@ -64,19 +70,22 @@ export async function resolveDriverBidEligibility(
   driver: DriverBidContext,
   jobId: string
 ): Promise<{ eligibility: DriverBidEligibility; job: BidEligibilityJob | null }> {
-  const { data: jobData, error: jobError } = await supabaseAdmin
-    .from('jobs')
-    .select('id,company_id,status,exchange_visibility,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
-    .eq('id', jobId)
-    .maybeSingle();
+  const [operational, jobResult] = await Promise.all([
+    resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId),
+    supabaseAdmin
+      .from('jobs')
+      .select('id,company_id,status,exchange_visibility,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
+      .eq('id', jobId)
+      .maybeSingle(),
+  ]);
 
-  if (jobError) {
-    throw new Error(jobError.message);
+  if (jobResult.error) {
+    throw new Error(jobResult.error.message);
   }
 
-  const job = (jobData ?? null) as BidEligibilityJob | null;
-  const driverActive = driver.driverStatus === 'active';
-  const companyActive = driver.companyId ? driver.companyStatus === 'active' : true;
+  const job = (jobResult.data ?? null) as BidEligibilityJob | null;
+  const driverActive = operational.checks.accountActive;
+  const companyActive = operational.checks.companyActive;
 
   const visibleToDriver = !!job && (
     job.exchange_visibility === 'exchange'
@@ -97,8 +106,8 @@ export async function resolveDriverBidEligibility(
       .limit(1);
 
     const { data: existing, error: existingError } = driver.companyId
-      ? await query.eq('company_id', driver.companyId)
-      : await query.is('company_id', null).eq('bidder_user_id', driver.userId);
+      ? await query.eq('company_id', driver.companyId).eq('bidder_driver_id', driver.driverId)
+      : await query.eq('bidder_driver_id', driver.driverId);
 
     if (existingError) {
       throw new Error(existingError.message);
@@ -107,13 +116,9 @@ export async function resolveDriverBidEligibility(
     hasActiveBid = (existing ?? []).length > 0;
   }
 
-  const denialReasons: string[] = [];
-  if (!driverActive) denialReasons.push('driver_inactive');
-  if (!driver.appAccess) denialReasons.push('driver_app_access_disabled');
-  if (!driver.canCommercialBid) denialReasons.push('commercial_bidding_not_permitted');
-  if (!companyActive) denialReasons.push('company_inactive');
+  const denialReasons = [...operational.blockers];
   if (!job) denialReasons.push('job_not_found');
-  if (job && job.status !== 'posted') denialReasons.push('job_not_posted');
+  if (job && !['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase())) denialReasons.push('job_not_posted');
   if (job && !visibleToDriver) denialReasons.push('job_not_visible_to_driver');
   if (ownCompanyJob) denialReasons.push('own_company_job');
   if (assigned) denialReasons.push('job_already_assigned');
@@ -127,14 +132,16 @@ export async function resolveDriverBidEligibility(
     eligibility: {
       jobId,
       eligible: denialReasons.length === 0,
+      operational,
       driver: {
         status: driver.driverStatus,
         active: driverActive,
-        appAccess: driver.appAccess,
-        canCommercialBid: driver.canCommercialBid,
-        companyId: driver.companyId,
+        appAccess: operational.checks.appAccess,
+        canCommercialBid: operational.checks.commercialBidEnabled,
+        companyId: operational.companyId,
         companyActive,
         companyStatus: driver.companyStatus,
+        canonicalVehicleId: operational.canonicalVehicleId,
       },
       job: {
         found: Boolean(job),
@@ -148,7 +155,7 @@ export async function resolveDriverBidEligibility(
         proposedPriceGbp,
       },
       hasActiveBid,
-      denialReasons,
+      denialReasons: [...new Set(denialReasons)],
     },
   };
 }
