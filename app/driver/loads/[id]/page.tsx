@@ -4,7 +4,6 @@ import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
-import { useAuth } from '../../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { ActionButton, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
@@ -92,7 +91,6 @@ function dimensions(load: MarketplaceLoad) {
 export default function LoadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useAuth();
   const [load, setLoad] = useState<MarketplaceLoad | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -101,20 +99,10 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   const [bidMessage, setBidMessage] = useState('');
   const [bidLoading, setBidLoading] = useState(false);
 
-  const userId = user?.id ?? null;
-  const companyId = user?.companyId ?? null;
-  const driverId = user?.driverId ?? null;
-  const canCommercialBid = user?.canCommercialBid === true;
-  const driverStatus = String(user?.driverStatus ?? '').trim().toLowerCase();
-  const appAccess = user?.appAccess;
-  const driverSuspended = ['suspended', 'inactive', 'blocked', 'rejected'].includes(driverStatus);
-  const bidBlockedMessage = driverSuspended
-    ? 'Your driver account is suspended. Contact support to restore bidding access.'
-    : appAccess === false
-      ? 'Your compliance documents are missing or expired. Update them before submitting commercial bids.'
-      : !canCommercialBid
-        ? 'Commercial bidding is not enabled for your account. Contact support to activate marketplace access.'
-        : null;
+  const getAccessToken = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.access_token ?? null;
+  }, []);
 
   const fetchLoad = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -126,8 +114,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     setLoading(true);
     setError('');
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const token = await getAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch(`/api/driver/marketplace/loads?id=${encodeURIComponent(id)}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -144,26 +131,42 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [getAccessToken, id]);
 
   useEffect(() => { void fetchLoad(); }, [fetchLoad]);
 
   const handleBidSubmit = async (overrideAmount?: number) => {
-    if (!userId || bidLoading) return;
-    if (bidBlockedMessage) { setError(bidBlockedMessage); return; }
+    if (bidLoading) return;
     const amount = overrideAmount ?? Number.parseFloat(bidAmount);
-    if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a valid quote amount greater than £0.'); return; }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a valid quote amount greater than £0.');
+      return;
+    }
 
-    setBidLoading(true); setError('');
-    const { error: bidError } = await supabase.from('job_bids').insert({
-      job_id: id, company_id: companyId ?? null, bidder_user_id: userId, bidder_driver_id: driverId ?? null,
-      bid_price_gbp: amount, amount, currency: 'GBP', message: bidMessage.trim() || null, status: 'submitted',
-    });
-    setBidLoading(false);
-    if (bidError) { setError(`Failed to submit quote: ${bidError.message}`); return; }
-    setSuccess('Quote submitted successfully. The posting member will review it.');
-    setBidMessage('');
-    await fetchLoad();
+    setBidLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/driver/bids', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: id, amount, message: bidMessage.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
+      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      setSuccess('Quote submitted successfully. The posting member will review it.');
+      setBidMessage('');
+      await fetchLoad();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
+    } finally {
+      setBidLoading(false);
+    }
   };
 
   const hasProposedPrice = Boolean(load?.budget_amount != null && load.budget_amount > 0);
@@ -204,7 +207,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 {load.public_quote_notes && <div style={{ padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Public quote notes: </strong>{load.public_quote_notes}</div>}
                 <div style={{ padding: '8px 9px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Execution privacy boundary:</strong> exact street addresses, collection/delivery contacts, customer reference, PO number, booking reference, access instructions and private execution notes are intentionally not delivered to this pre-award page. After an authorised award/allocation, use Won Work / Jobs / Diary for the full job sheet.</div>
 
-                {load.myBid ? <div style={{ padding: 8, border: '1px solid #bae6fd', borderRadius: 4, background: '#f0f9ff', color: '#0369a1', fontSize: 12 }}><strong>Quote already submitted</strong><div style={{ marginTop: 3 }}>Amount: {money(load.myBid.amount)} · Status: {load.myBid.status ?? 'submitted'}</div>{load.myBid.message && <div style={{ marginTop: 3 }}>Message: {load.myBid.message}</div>}</div> : bidBlockedMessage ? <div style={{ padding: 8, border: '1px solid #fcd34d', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontSize: 12, fontWeight: 600 }}>{bidBlockedMessage}</div> : (
+                {load.myBid ? <div style={{ padding: 8, border: '1px solid #bae6fd', borderRadius: 4, background: '#f0f9ff', color: '#0369a1', fontSize: 12 }}><strong>Quote already submitted</strong><div style={{ marginTop: 3 }}>Amount: {money(load.myBid.amount)} · Status: {load.myBid.status ?? 'submitted'}</div>{load.myBid.message && <div style={{ marginTop: 3 }}>Message: {load.myBid.message}</div>}</div> : (
                   <div className="driver-inline-quote"><div className="driver-filter-field"><label htmlFor="marketplace-quote-amount">Your quote (£)</label><input id="marketplace-quote-amount" type="number" min="0" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="e.g. 250.00" /></div><div className="driver-filter-field"><label htmlFor="marketplace-quote-message">Message</label><textarea id="marketplace-quote-message" rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div>{hasProposedPrice && <ActionButton tone="success" disabled={bidLoading} onClick={() => void handleBidSubmit(load.budget_amount ?? undefined)}>{bidLoading ? 'Accepting…' : `Accept proposed price (${money(load.budget_amount, load.currency)})`}</ActionButton>}<ActionButton tone="primary" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit()}>{bidLoading ? 'Submitting…' : hasProposedPrice ? 'Submit counter-offer' : 'Submit quote'}</ActionButton><ActionButton tone="secondary" onClick={() => router.back()}>Cancel</ActionButton></div>
                 )}
               </div>
