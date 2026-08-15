@@ -19,7 +19,9 @@ import {
 type Mode = 'customer' | 'broker-customer' | 'broker-carrier';
 
 const money = (value: number | null | undefined) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value ?? 0));
+  value == null
+    ? 'Not supplied'
+    : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const date = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString('en-GB') : 'Not set';
 const xdriveReference = (jobId: string | null | undefined) => jobId ? `XDL-${jobId.slice(0, 8).toUpperCase()}` : '—';
