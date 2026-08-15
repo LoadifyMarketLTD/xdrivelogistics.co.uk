@@ -16,6 +16,17 @@ type JobSheet = {
   ownerCompany: { companyId: string; name: string; memberId: string | null; phone: string | null; type: string | null };
   carrier: { companyId: string; name: string; memberId: string | null; phone: string | null; type: string | null } | null;
   driver: { id: string; name: string | null; status: string | null } | null;
+  vehicle: {
+    id: string;
+    registration: string | null;
+    type: string | null;
+    make: string | null;
+    model: string | null;
+    bodyType: string | null;
+    payloadKg: number | null;
+    palletsCapacity: number | null;
+    hasTailLift: boolean | null;
+  } | null;
   customer: { name: string | null; email: string | null; phone: string | null };
   references: { booking: string | null; customer: string | null; purchaseOrder: string | null; xdrive: string };
   route: {
@@ -111,6 +122,18 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
       : { label: 'Pending', tone: 'orange' as const, detail: 'No generated POD or delivery evidence recorded' };
   const carrierMode = mode === 'carrier';
+  const allocatedVehicleLabel = sheet.vehicle
+    ? [sheet.vehicle.registration, sheet.vehicle.make, sheet.vehicle.model].filter(Boolean).join(' · ') || human(sheet.vehicle.type)
+    : 'Not assigned';
+  const allocatedVehicleDetail = sheet.vehicle
+    ? [
+        sheet.vehicle.type ? human(sheet.vehicle.type) : null,
+        sheet.vehicle.bodyType ? human(sheet.vehicle.bodyType) : null,
+        sheet.vehicle.payloadKg != null ? `${sheet.vehicle.payloadKg} kg payload` : null,
+        sheet.vehicle.palletsCapacity != null ? `${sheet.vehicle.palletsCapacity} pallet capacity` : null,
+        sheet.vehicle.hasTailLift === true ? 'Tail lift' : null,
+      ].filter(Boolean).join(' · ') || undefined
+    : undefined;
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
@@ -127,8 +150,9 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
             <Detail label="Posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={[sheet.ownerCompany.memberId, sheet.ownerCompany.phone].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Awarded carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? [sheet.carrier.memberId, sheet.carrier.phone].filter(Boolean).join(' · ') : undefined} />
             <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} detail={sheet.driver?.status ? `Account ${human(sheet.driver.status)}` : undefined} />
+            <Detail label="Allocated vehicle" value={allocatedVehicleLabel} detail={allocatedVehicleDetail} />
             <Detail label="Requested vehicle" value={human(sheet.load.requestedVehicle)} />
-            <Detail label="Body type" value="Not supplied" detail={sheet.unavailable.bodyType} />
+            <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? sheet.unavailable.bodyType : undefined} />
             <Detail label="Cargo" value={human(sheet.load.cargoType)} detail={[sheet.load.weightKg != null ? `${sheet.load.weightKg} kg` : null, sheet.load.pallets != null ? `${sheet.load.pallets} pallet(s)` : null].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Dimensions" value={dimensions} />
             <Detail label="Cargo value" value={money(sheet.load.cargoValueGbp)} />
