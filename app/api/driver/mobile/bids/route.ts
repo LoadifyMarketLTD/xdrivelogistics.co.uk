@@ -17,11 +17,13 @@ export async function GET(request: NextRequest) {
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
+  // Driver mobile is the named driver's personal quote history. Company-wide
+  // commercial bid history belongs to Fleet/Company workspace permissions and
+  // must not be pulled into a driver's feed merely because company_id matches.
   const identityFilters = [
     `bidder_user_id.eq.${driver.userId}`,
     `bidder_driver_id.eq.${driver.driverId}`,
-    driver.companyId ? `company_id.eq.${driver.companyId}` : null,
-  ].filter((value): value is string => Boolean(value));
+  ];
 
   const { data: bids, error: bidsError } = await supabaseAdmin
     .from('job_bids')
