@@ -13,13 +13,19 @@ import { isActionCentreRoleAllowed } from '../app/components/workspace/actionCen
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 describe('Action Centre shared-module adoption', () => {
-  it('uses the shared ActionCentrePage module for all thin routes', () => {
-    ['app/admin/action-centre/page.tsx', 'app/broker/action-centre/page.tsx', 'app/customer/action-centre/page.tsx', 'app/driver/action-centre/page.tsx']
+  it('uses shared ActionCentrePage for company workspaces while preserving the Driver-specific CX shell', () => {
+    ['app/admin/action-centre/page.tsx', 'app/broker/action-centre/page.tsx', 'app/customer/action-centre/page.tsx']
       .forEach((filePath) => {
         const source = read(filePath);
         expect(source).toMatch(/import ActionCentrePage from ['"][^'"]*components\/workspace\/ActionCentrePage['"];?/);
         expect(source).not.toContain('AdminWorkspaceModules');
       });
+
+    const driverSource = read('app/driver/action-centre/page.tsx');
+    expect(driverSource).toContain('DriverWorkspaceShell');
+    expect(driverSource).toContain("/api/workspace/action-centre?role=driver");
+    expect(driverSource).toContain('driver-filter-rail');
+    expect(driverSource).not.toContain('AdminWorkspaceModules');
   });
 
   it('maps workspace roles to role-scoped action-centre audiences', () => {
