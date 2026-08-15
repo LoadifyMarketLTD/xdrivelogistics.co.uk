@@ -163,7 +163,8 @@ BEGIN
       FROM public.vehicle_documents vd
       WHERE vd.vehicle_id = v_vehicle_id
         AND vd.status::text = 'approved'
-        AND (vd.expiry_date IS NULL OR vd.expiry_date >= CURRENT_DATE)
+        AND vd.expiry_date IS NOT NULL
+        AND vd.expiry_date >= CURRENT_DATE
         AND regexp_replace(lower(COALESCE(vd.doc_type, '')), '[^a-z0-9]+', '', 'g')
             IN ('mot', 'vehiclemot', 'goodsvehicletest')
     ) INTO v_has_mot;
@@ -173,7 +174,8 @@ BEGIN
       FROM public.vehicle_documents vd
       WHERE vd.vehicle_id = v_vehicle_id
         AND vd.status::text = 'approved'
-        AND (vd.expiry_date IS NULL OR vd.expiry_date >= CURRENT_DATE)
+        AND vd.expiry_date IS NOT NULL
+        AND vd.expiry_date >= CURRENT_DATE
         AND regexp_replace(lower(COALESCE(vd.doc_type, '')), '[^a-z0-9]+', '', 'g')
             IN ('insurance', 'vehicleinsurance', 'motorfleetinsurance', 'insurancecertificate')
     ) INTO v_has_insurance;
@@ -201,7 +203,7 @@ REVOKE ALL ON FUNCTION public.driver_operational_eligibility(uuid) FROM authenti
 GRANT EXECUTE ON FUNCTION public.driver_operational_eligibility(uuid) TO service_role;
 
 COMMENT ON FUNCTION public.driver_operational_eligibility(uuid) IS
-  'Canonical fail-closed owner/company driver readiness: active account, current verified onboarding identity bound to the same company, active company membership, exactly one active assigned vehicle, current MOT and vehicle insurance. Direct execution is service-bound; authorised operational RPCs may compose it internally.';
+  'Canonical fail-closed owner/company driver readiness: active account, current verified onboarding identity bound to the same company, active company membership, exactly one active assigned vehicle, current MOT and vehicle insurance with explicit current expiry. Direct execution is service-bound; authorised operational RPCs may compose it internally.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
