@@ -54,6 +54,17 @@ describe('workspace job lifecycle stage', () => {
     }))).toBe('awarded');
   });
 
+  it('keeps a reduced legacy open projection conservative when vehicle truth is not loaded', () => {
+    expect(workspaceJobPresentationStatus(job('posted', {
+      awarded_carrier_company_id: 'carrier-1',
+      assigned_driver_id: 'driver-1',
+    }))).toBe('awarded');
+    expect(workspaceJobPresentationStatus(job('allocated', {
+      awarded_carrier_company_id: 'carrier-1',
+      assigned_driver_id: 'driver-1',
+    }))).toBe('allocated');
+  });
+
   it('preserves specific execution and completion labels', () => {
     expect(workspaceJobPresentationStatus(job('loaded', { assigned_driver_id: 'driver-1', vehicle_id: 'vehicle-1' }))).toBe('loaded');
     expect(workspaceJobPresentationStatus(job('delivered', { assigned_driver_id: 'driver-1', vehicle_id: 'vehicle-1' }))).toBe('delivered');
