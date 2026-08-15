@@ -61,7 +61,7 @@ function SectionMessage({ section }: { section: SectionState }) {
     <div style={{ minHeight: 116, display: 'grid', alignContent: 'center' }}>
       <EmptyState
         compact
-        title={section.state === 'restricted' ? 'Restricted member data' : section.state === 'unavailable' ? 'Verified dataset not available' : 'No records'}
+        title={section.state === 'restricted' ? 'Restricted' : section.state === 'unavailable' ? 'Not available' : 'No records'}
         description={section.message}
       />
     </div>
@@ -170,9 +170,10 @@ export function MemberProfileOverlay({
     return profile.sections.businessDocuments;
   }, [profile, tab]);
 
+  const companyNumberLabel = profile?.member.companyId ? 'Company number' : 'Member ID';
   const detailRows = profile ? [
     ['Member', profile.member.name],
-    ['Member ID', profile.member.memberId ?? 'Not supplied'],
+    [companyNumberLabel, profile.member.memberId ?? 'Not supplied'],
     ['Type', profile.member.memberType],
     ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
     ['Member since', memberSince(profile.member.memberSince)],
@@ -203,10 +204,10 @@ export function MemberProfileOverlay({
           <div style={{ minWidth: 0 }}>
             <strong style={{ display: 'block', color: workspaceTheme.text, fontSize: 13, lineHeight: '18px' }}>
               {profile?.member.name ?? (loading ? 'Loading member…' : 'Member profile')}
-              {profile?.member.memberId ? ` — ${profile.member.memberId}` : ''}
+              {profile?.member.memberId && profile.member.companyId ? ` — Company no. ${profile.member.memberId}` : ''}
             </strong>
             <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11, lineHeight: '14px' }}>
-              {profile ? `${profile.member.memberType} · Member since ${memberSince(profile.member.memberSince)}` : 'Verified XDrive member information'}
+              {profile ? `${profile.member.memberType} · Member since ${memberSince(profile.member.memberSince)}` : 'XDrive member information'}
             </span>
           </div>
           <button type="button" onClick={onClose} aria-label="Close member profile" style={{ width: 28, height: 28, border: 0, borderRadius: 4, background: 'transparent', color: workspaceTheme.muted, cursor: 'pointer', fontSize: 18, lineHeight: '28px' }}>×</button>
@@ -248,7 +249,7 @@ export function MemberProfileOverlay({
                 ))}
               </div>
               <div style={{ padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#f8fafc', color: workspaceTheme.muted, fontSize: 11, lineHeight: '15px' }}>
-                This member profile intentionally exposes business-facing identity only. Private addresses, personal contact details and internal compliance evidence are not published through this surface.
+                This profile shows business-facing member information only. Private addresses, personal contact details and internal compliance evidence are not published here.
               </div>
             </div>
           ) : profile && activeSection ? (
@@ -257,7 +258,7 @@ export function MemberProfileOverlay({
         </div>
 
         <footer style={{ minHeight: 42, padding: '5px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderTop: `1px solid ${workspaceTheme.border}`, background: '#f4f6f8' }}>
-          <span style={{ color: workspaceTheme.muted, fontSize: 10 }}>Only verified or explicitly unavailable data is shown.</span>
+          <span style={{ color: workspaceTheme.muted, fontSize: 10 }}>Business-facing member information only.</span>
           <span style={{ display: 'flex', gap: 6 }}>
             {profile?.member.businessPhone && <ActionButton tone="secondary" onClick={() => { window.location.href = `tel:${profile.member.businessPhone}`; }}>Call member</ActionButton>}
             <ActionButton tone="secondary" onClick={onClose}>Close</ActionButton>
