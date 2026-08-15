@@ -37,7 +37,7 @@ DECLARE
   v_driver_vehicle_id uuid;
   v_driver_blockers text[] := ARRAY[]::text[];
   v_next_status text;
-  v_note text;
+  v_message text;
 BEGIN
   SELECT *
   INTO v_job
@@ -115,12 +115,12 @@ BEGIN
       updated_at = now()
   WHERE id = p_job_id;
 
-  v_note := CASE
+  v_message := CASE
     WHEN p_driver_id IS NULL THEN 'Driver and vehicle assignment cleared.'
     ELSE format('Driver and canonical vehicle assigned (%s).', v_driver_vehicle_id)
   END;
 
-  INSERT INTO public.job_tracking_events (job_id, event_type, created_by, note)
+  INSERT INTO public.job_tracking_events (job_id, event_type, created_by, message, meta)
   VALUES (
     p_job_id,
     CASE
@@ -128,7 +128,12 @@ BEGIN
       ELSE 'allocated'::public.tracking_event_type
     END,
     p_actor_user_id,
-    v_note
+    v_message,
+    jsonb_build_object(
+      'assigned_driver_id', p_driver_id,
+      'vehicle_id', CASE WHEN p_driver_id IS NULL THEN NULL ELSE v_driver_vehicle_id END,
+      'assignment_cleared', p_driver_id IS NULL
+    )
   );
 
   RETURN QUERY
