@@ -214,9 +214,9 @@ export default function CustomerCompanySettingsPage() {
             { id: 'team', label: 'Team', detail: 'Customer workspace members', onClick: () => router.push('/customer/team') },
             { id: 'invoices', label: 'Invoices', detail: 'Customer billing records', onClick: () => router.push('/customer/invoices') },
             { id: 'notifications', label: 'Notifications', detail: 'Workspace notifications', onClick: () => router.push('/customer/notifications') },
-            { id: 'settings', label: 'Settings route', detail: 'Legacy-compatible account entry', onClick: () => router.push('/customer/settings') },
+            { id: 'settings', label: 'Settings', detail: 'Workspace preferences', onClick: () => router.push('/customer/settings') },
           ]}
-          footer={<span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>Only settings backed by the current verified schema are editable.</span>}
+          footer={<span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>Only preferences available for this account can be edited here.</span>}
         />
 
         <main style={{ minWidth: 0, display: 'grid', gap: 8 }}>
@@ -226,7 +226,7 @@ export default function CustomerCompanySettingsPage() {
             <Panel><EmptyState title="Customer company profile not found" description="The current account is not linked to a readable company record." /></Panel>
           ) : (
             <>
-              <Panel title="Company profile" description={canEdit ? 'These fields are written only to the active customer company record and remain protected by company RLS.' : 'This company record is read-only for the current membership role.'}>
+              <Panel title="Company profile" description={canEdit ? 'Update the company identity and contact details used by this customer workspace.' : 'This company profile is read-only for your current role.'}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
                   <label style={labelStyle}>Company name<input disabled={!canEdit} style={inputStyle} value={form.name} onChange={(event) => updateField('name', event.target.value)} /></label>
                   <label style={labelStyle}>Email<input disabled={!canEdit} type="email" style={inputStyle} value={form.email} onChange={(event) => updateField('email', event.target.value)} /></label>
@@ -249,9 +249,9 @@ export default function CustomerCompanySettingsPage() {
                 ]} />
               </Panel>
 
-              <Panel title="Configuration boundary" description="Unsupported preferences are not presented as if they were saved.">
+              <Panel title="Account preferences" description="Only settings currently available for this customer account are shown.">
                 <p style={{ margin: 0, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>
-                  Job-specific collection contacts, delivery contacts, payment terms and execution instructions belong to the transport record. Additional account preferences require a verified persistent source and remain unavailable until that contract exists.
+                  Collection contacts, delivery contacts, payment terms and execution instructions are managed on each transport booking. Additional account preferences will appear here when they are available for this workspace.
                 </p>
               </Panel>
             </>
