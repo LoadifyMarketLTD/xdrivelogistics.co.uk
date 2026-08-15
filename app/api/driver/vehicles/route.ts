@@ -80,25 +80,57 @@ const resolveDriver = async (request: NextRequest) => {
     };
   }
 
-  if (!driver || driver.status !== 'active') {
-    return { error: json(403, { error: 'Active driver profile required.' }) };
+  if (!driver || driver.status !== 'active' || !driver.company_id) {
+    return { error: json(403, { error: 'Active company-linked driver profile required.' }) };
   }
 
-  return { user: authData.user, driverId: driver.id, companyId: driver.company_id as string };
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('role_in_company')
+    .eq('user_id', authData.user.id)
+    .eq('company_id', driver.company_id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (membershipError) {
+    return {
+      error: operationalError({
+        status: 500,
+        message: 'We could not verify your vehicle permissions. Please try again.',
+        context: `driver.vehicles.membership.user:${authData.user.id}`,
+        cause: membershipError,
+        retryable: true,
+      }),
+    };
+  }
+
+  const canManageCompanyVehicles = ['owner', 'admin'].includes(String(membership?.role_in_company ?? '').toLowerCase());
+  return {
+    user: authData.user,
+    driverId: driver.id,
+    companyId: driver.company_id as string,
+    canManageCompanyVehicles,
+  };
 };
 
 export async function GET(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { driverId, companyId } = resolved;
+  const { driverId, companyId, canManageCompanyVehicles } = resolved;
   const admin = supabaseAdmin!;
 
-  const { data: vehicles, error } = await admin
+  let query = admin
     .from('vehicles')
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, created_at')
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(100);
+
+  // Company drivers see only the vehicle operationally assigned to them. Fleet
+  // inventory belongs to Fleet/Company administration, not to the Driver workspace.
+  if (!canManageCompanyVehicles) query = query.eq('assigned_driver_id', driverId);
+
+  const { data: vehicles, error } = await query;
 
   if (error) {
     return operationalError({
@@ -113,13 +145,17 @@ export async function GET(request: NextRequest) {
   return json(200, {
     vehicles: vehicles ?? [],
     assignedVehicleId: (vehicles ?? []).find((v) => v.assigned_driver_id === driverId)?.id ?? null,
+    canManageVehicles: canManageCompanyVehicles,
   });
 }
 
 export async function POST(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId } = resolved;
+  const { companyId, canManageCompanyVehicles } = resolved;
+  if (!canManageCompanyVehicles) {
+    return json(403, { error: 'Only an owner/admin driver can add company vehicles. Fleet changes are managed by your company.' });
+  }
   const admin = supabaseAdmin!;
 
   let body: unknown;
@@ -156,7 +192,10 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId, driverId } = resolved;
+  const { companyId, driverId, canManageCompanyVehicles } = resolved;
+  if (!canManageCompanyVehicles) {
+    return json(403, { error: 'Only an owner/admin driver can change company vehicle records. Contact your fleet manager for assignment changes.' });
+  }
   const admin = supabaseAdmin!;
 
   let body: unknown;
@@ -188,7 +227,7 @@ export async function PATCH(request: NextRequest) {
       return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
     }
     if (vehicle.assigned_driver_id !== driverId) {
-      return json(403, { error: 'Forbidden — this vehicle is not assigned to you.' });
+      return json(403, { error: 'Forbidden — this vehicle is not assigned to your driver profile.' });
     }
 
     const { data: updated, error: updateError } = await admin
