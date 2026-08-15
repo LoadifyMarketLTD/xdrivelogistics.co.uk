@@ -17,7 +17,7 @@ describe('Action Centre shared-module adoption', () => {
     ['app/admin/action-centre/page.tsx', 'app/broker/action-centre/page.tsx', 'app/customer/action-centre/page.tsx', 'app/driver/action-centre/page.tsx']
       .forEach((filePath) => {
         const source = read(filePath);
-        expect(source).toContain("import ActionCentrePage from '../../components/workspace/ActionCentrePage';");
+        expect(source).toMatch(/import ActionCentrePage from ['"][^'"]*components\/workspace\/ActionCentrePage['"];?/);
         expect(source).not.toContain('AdminWorkspaceModules');
       });
   });
