@@ -66,6 +66,17 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   }, [user?.companyId, user?.id]);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const setVehicle = (value: string) => setForm((current) => ({
+    ...current,
+    vehicle: value,
+    // A vehicle option whose name explicitly includes the capability must not
+    // be persisted alongside a contradictory "not required" flag.
+    tailLift: value === 'Luton Tail Lift' ? true : current.tailLift,
+    adr: value === 'ADR Vehicle' ? true : current.adr,
+    temperatureControlled: value === 'Refrigerated Vehicle' || value === 'Artic 44T Refrigerated'
+      ? true
+      : current.temperatureControlled,
+  }));
   const dateTime = (date: string, time: string) => date ? `${date}T${time === 'ASAP' ? '23:59' : time}:00` : null;
   const dimensions = [form.length, form.width, form.height].map(numberOrNull);
   const hasDimensionValues = dimensions.some((value) => value != null);
@@ -203,7 +214,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
 
       <Panel title="Cargo and vehicle" description="Vehicle capability and load dimensions used by carriers when pricing.">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '8px' }}>
-          <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => set('vehicle', event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
+          <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
           {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => (
             <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" value={form[key]} placeholder={key === 'length' ? 'e.g. 400' : key === 'width' ? 'e.g. 185' : key === 'height' ? 'e.g. 200' : undefined} onChange={(event) => set(key, event.target.value)} /></label>
@@ -213,7 +224,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           {dimensionSummary}. {hasSuspiciousSmallDimension ? 'Values are stored in centimetres: 4 means 4 cm; for 4 m enter 400.' : 'Example: 400 × 185 × 200 cm = 4.00 × 1.85 × 2.00 m.'}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
-          {([['tailLift', 'Tail lift'], ['forklift', 'Forklift'], ['handball', 'Handball'], ['adr', 'ADR'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile']] as const).map(([key, label]) => (
+          {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
             <label key={key} style={{ display: 'flex', gap: '5px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
               <input type="checkbox" checked={form[key]} onChange={(event) => set(key, event.target.checked)} />{label}
             </label>
