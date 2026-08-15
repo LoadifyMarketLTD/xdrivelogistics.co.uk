@@ -1,6 +1,8 @@
 -- Canonical award semantics approved for PR #357.
 -- Named driver bid => same eligible driver + canonical vehicle auto-allocated.
 -- Company-level bid without named driver => awarded/unallocated.
+-- Award authorization remains the existing active owner/admin/dispatcher
+-- membership contract of the job-owning company.
 
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -21,7 +23,6 @@ DECLARE
   v_actor uuid := COALESCE(auth.uid(), p_actor_user_id);
   v_job_id uuid;
   v_owner_company_id uuid;
-  v_job_created_by uuid;
   v_job_status text;
   v_exchange_visibility text;
   v_existing_awarded_company uuid;
@@ -51,7 +52,6 @@ BEGIN
   SELECT
     jb.job_id,
     j.company_id,
-    j.created_by,
     j.status,
     j.exchange_visibility,
     j.awarded_carrier_company_id,
@@ -64,7 +64,6 @@ BEGIN
   INTO
     v_job_id,
     v_owner_company_id,
-    v_job_created_by,
     v_job_status,
     v_exchange_visibility,
     v_existing_awarded_company,
@@ -83,16 +82,16 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'http_status', 404, 'error_code', 'NOT_FOUND', 'error_message', 'Bid not found.');
   END IF;
 
-  IF v_actor IS DISTINCT FROM v_job_created_by
-     AND NOT EXISTS (
-       SELECT 1
-       FROM public.company_memberships cm
-       WHERE cm.company_id = v_owner_company_id
-         AND cm.user_id = v_actor
-         AND COALESCE(cm.status::text, '') = 'active'
-         AND COALESCE(cm.role_in_company::text, '') IN ('owner', 'admin', 'dispatcher')
-     )
-  THEN
+  -- Preserve the pre-existing canonical authorization contract. Being the
+  -- original creator alone is not enough after company membership is lost.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.company_memberships cm
+    WHERE cm.company_id = v_owner_company_id
+      AND cm.user_id = v_actor
+      AND COALESCE(cm.status::text, '') = 'active'
+      AND COALESCE(cm.role_in_company::text, '') IN ('owner', 'admin', 'dispatcher')
+  ) THEN
     RETURN jsonb_build_object('success', false, 'http_status', 403, 'error_code', 'FORBIDDEN', 'error_message', 'Not authorized to accept bids for this job.');
   END IF;
 
@@ -284,7 +283,7 @@ REVOKE ALL ON FUNCTION public.accept_job_bid_atomic(uuid, uuid) FROM authenticat
 GRANT EXECUTE ON FUNCTION public.accept_job_bid_atomic(uuid, uuid) TO service_role;
 
 COMMENT ON FUNCTION public.accept_job_bid_atomic(uuid, uuid) IS
-  'Canonical award: named bidder auto-allocates that same eligible driver + canonical vehicle; company-level bid without named driver remains awarded/unallocated.';
+  'Canonical award: named bidder auto-allocates that same eligible driver + canonical vehicle; company-level bid without named driver remains awarded/unallocated; only an active owner/admin/dispatcher of the job-owning company may award.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
