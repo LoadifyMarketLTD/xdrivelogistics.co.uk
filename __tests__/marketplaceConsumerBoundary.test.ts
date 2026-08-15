@@ -24,7 +24,7 @@ describe('Marketplace consumer boundary', () => {
       'utf8',
     );
     expect(sql).toContain('as restrictive');
-    expect(sql).toContain("lower(coalesce(status::text, '')) = 'posted'");
+    expect(sql).toContain("lower(coalesce(status::text, '')) in ('posted', 'quoted')");
     expect(sql).toContain('awarded_carrier_company_id is null');
     expect(sql).toContain('cm.user_id = auth.uid()');
     expect(sql).toContain('p.user_id = auth.uid()');
