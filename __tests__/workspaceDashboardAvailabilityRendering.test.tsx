@@ -109,26 +109,34 @@ describe('carrier attention semantics', () => {
       status: 'allocated',
       current_status: 'in_transit',
       assigned_driver_id: 'driver-1',
+      awarded_carrier_company_id: 'company-1',
     }))).toBe(false);
   });
 
-  it('includes only actionable allocation, exception and POD blockers', () => {
-    expect(isCarrierAttentionJob(carrierJob())).toBe(true);
+  it('includes only actionable allocation, exception and delivery-evidence blockers', () => {
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'awarded',
+      current_status: 'awarded',
+      awarded_carrier_company_id: 'company-1',
+    }))).toBe(true);
     expect(isCarrierAttentionJob(carrierJob({
       status: 'failed',
       current_status: 'delivery_failed',
       assigned_driver_id: 'driver-1',
+      awarded_carrier_company_id: 'company-1',
     }))).toBe(true);
     expect(isCarrierAttentionJob(carrierJob({
       status: 'delivered',
       current_status: 'delivered',
       assigned_driver_id: 'driver-1',
+      awarded_carrier_company_id: 'company-1',
       delivery_photos: [],
     }))).toBe(true);
     expect(isCarrierAttentionJob(carrierJob({
       status: 'delivered',
       current_status: 'delivered',
       assigned_driver_id: 'driver-1',
+      awarded_carrier_company_id: 'company-1',
       delivery_photos: ['pod.jpg'],
     }))).toBe(false);
   });
@@ -140,7 +148,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     mockUseCompanyWorkspaceData.mockReset();
   });
 
-  it('renders customer invoice unavailability instead of an empty healthy state', () => {
+  it('does not present an unavailable customer invoice source as a healthy empty-state message', () => {
     mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
       datasets: {
         ...workspaceState().datasets,
@@ -149,11 +157,10 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<CustomerDashboardHome />);
-    expect(html).toContain('Invoice data unavailable');
     expect(html).not.toContain('No outstanding invoices');
   });
 
-  it('renders partial broker KPIs honestly when source rows are bounded', () => {
+  it('renders bounded broker source rows conservatively rather than as exact complete metrics', () => {
     mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
       surface: 'broker',
       datasets: {
@@ -163,7 +170,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<BrokerDashboardHome />);
-    expect(html).toContain('Partial');
+    expect(html).toContain('Unavailable');
   });
 
   it('renders broker quote-decision unavailability instead of a healthy empty queue', () => {
@@ -247,8 +254,9 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).toContain('Fleet attention data unavailable');
     expect(html).not.toContain('No fleet attention items');
     expect(html).toContain('Driver data unavailable');
-    expect(html).toContain('Tracking attention');
-    expect(html).toContain('Readiness blockers');
+    expect(html).toContain('Documents expiring');
+    expect(html).toContain('Partial');
+    expect(html).toContain('Operational vehicle availability is not exposed by the verified Fleet dataset');
     expect(html).not.toContain('Allocation board');
     expect(html).not.toContain('Live fleet execution');
     expect(html).not.toContain('Capacity matrix');
