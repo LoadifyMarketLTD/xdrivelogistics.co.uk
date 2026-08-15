@@ -29,12 +29,12 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const driverLabel = (driver: { display_name: string | null; email?: string | null } | undefined) =>
   driver?.display_name ?? driver?.email ?? 'Driver';
 
-// Mirror assign_job_driver_atomic exactly: NULL/blank status is not eligible,
-// and suspended/inactive/rejected are rejected server-side.
-const isDriverAccountEligible = (driver: { status: string | null } | undefined) => {
-  const status = normalise(driver?.status);
-  return Boolean(driver) && Boolean(status) && !['suspended', 'inactive', 'rejected'].includes(status);
-};
+// This is intentionally only an account-state presentation check. Full
+// operational eligibility (identity/onboarding/current documents/canonical
+// vehicle) is revalidated by assign_job_driver_atomic and must not be inferred
+// optimistically in the browser.
+const isDriverAccountActive = (driver: { status: string | null } | undefined) =>
+  normalise(driver?.status) === 'active';
 
 const vehicleLabel = (vehicle: { reg_plate: string | null; type: string | null; make?: string | null; model?: string | null } | undefined) => {
   if (!vehicle) return 'Vehicle';
@@ -55,7 +55,6 @@ export default function FleetAssignmentsPage() {
   const deepJobId = searchParams.get('job');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(deepJobId);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -69,7 +68,6 @@ export default function FleetAssignmentsPage() {
   );
 
   const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
-  const vehicleById = useMemo(() => new Map(data.vehicles.map((vehicle) => [vehicle.id, vehicle])), [data.vehicles]);
 
   const latestLocationByDriver = useMemo(() => {
     const map = new Map<string, (typeof data.locations)[number]>();
@@ -108,31 +106,35 @@ export default function FleetAssignmentsPage() {
     ? acceptedBid.bidder_driver_id
     : null;
   const quotedDriver = quotedDriverId ? driverById.get(quotedDriverId) : undefined;
-  const recommendedDriverId = quotedDriverId && isDriverAccountEligible(quotedDriver)
+  const recommendedDriverId = quotedDriverId && isDriverAccountActive(quotedDriver)
     ? quotedDriverId
     : null;
 
   useEffect(() => {
     if (!selectedJob) {
       setSelectedDriverId('');
-      setSelectedVehicleId('');
       return;
     }
     setSelectedDriverId(recommendedDriverId ?? '');
   }, [recommendedDriverId, selectedJob?.id]);
 
-  useEffect(() => {
-    if (!selectedDriverId) {
-      setSelectedVehicleId('');
-      return;
-    }
-    const assigned = data.vehicles.find((vehicle) => vehicle.assigned_driver_id === selectedDriverId);
-    setSelectedVehicleId(assigned?.id ?? '');
-  }, [data.vehicles, selectedDriverId]);
-
   const selectedDriver = selectedDriverId ? driverById.get(selectedDriverId) : undefined;
-  const selectedVehicle = selectedVehicleId ? vehicleById.get(selectedVehicleId) : undefined;
   const selectedLocation = selectedDriverId ? latestLocationByDriver.get(selectedDriverId) : undefined;
+
+  const canonicalVehicles = selectedDriverId
+    ? data.vehicles.filter((vehicle) =>
+        vehicle.assigned_driver_id === selectedDriverId
+        && normalise(vehicle.status) === 'active'
+      )
+    : [];
+  const canonicalVehicle = canonicalVehicles.length === 1 ? canonicalVehicles[0] : undefined;
+  const canonicalVehicleState = !selectedDriverId
+    ? 'No driver selected'
+    : canonicalVehicles.length === 0
+      ? 'No active assigned vehicle'
+      : canonicalVehicles.length > 1
+        ? 'Multiple active assigned vehicles — resolve before allocation'
+        : vehicleLabel(canonicalVehicle);
 
   const driverDocuments = selectedDriverId
     ? data.driverDocuments.filter((document) => document.driver_id === selectedDriverId)
@@ -141,18 +143,18 @@ export default function FleetAssignmentsPage() {
     ['rejected', 'expired'].includes(normalise(document.status)) || expiryAttention(document.expiry_date)
   );
 
-  const vehicleDocuments = selectedVehicleId
-    ? data.vehicleDocuments.filter((document) => document.vehicle_id === selectedVehicleId)
+  const vehicleDocuments = canonicalVehicle
+    ? data.vehicleDocuments.filter((document) => document.vehicle_id === canonicalVehicle.id)
     : [];
-  const vehicleComplianceAttention = Boolean(selectedVehicleId) && (
+  const vehicleComplianceAttention = Boolean(canonicalVehicle) && (
     vehicleDocuments.length === 0 || vehicleDocuments.some((document) =>
       ['rejected', 'expired'].includes(normalise(document.status)) || expiryAttention(document.expiry_date)
     )
   );
 
-  const vehicleTypeMatch = !selectedJob || !selectedVehicle
+  const vehicleTypeMatch = !selectedJob || !canonicalVehicle
     ? null
-    : normalise(selectedJob.vehicle_type) === normalise(selectedVehicle.type);
+    : normalise(selectedJob.vehicle_type) === normalise(canonicalVehicle.type);
 
   const overlappingJobs = selectedJob && selectedDriverId
     ? data.jobs.filter((job) => {
@@ -169,11 +171,12 @@ export default function FleetAssignmentsPage() {
     })
     : [];
 
-  const driverAccountEligible = isDriverAccountEligible(selectedDriver);
+  const driverAccountActive = isDriverAccountActive(selectedDriver);
+  const vehicleBindingUnambiguous = canonicalVehicles.length === 1;
 
   const allocate = async () => {
-    if (!selectedJob || !selectedDriverId || !driverAccountEligible) {
-      setError('Select an eligible driver before allocation.');
+    if (!selectedJob || !selectedDriverId || !driverAccountActive || !vehicleBindingUnambiguous) {
+      setError('Select an active driver with exactly one active assigned vehicle before allocation. Full onboarding and compliance are revalidated by the server.');
       return;
     }
     setWorking(true);
@@ -189,11 +192,11 @@ export default function FleetAssignmentsPage() {
         body: JSON.stringify({ driverId: selectedDriverId, expectedDriverId: null }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'Driver allocation failed.');
-      setNotice(`Job allocated to ${driverLabel(selectedDriver)}.`);
+      if (!response.ok) throw new Error(payload.error || 'Driver and vehicle allocation failed.');
+      setNotice(`Job allocated to ${driverLabel(selectedDriver)} with ${vehicleLabel(canonicalVehicle)}.`);
       await data.refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Driver allocation failed.');
+      setError(reason instanceof Error ? reason.message : 'Driver and vehicle allocation failed.');
     } finally {
       setWorking(false);
     }
@@ -204,7 +207,7 @@ export default function FleetAssignmentsPage() {
       <PageHeader
         eyebrow="Fleet allocation"
         title="Won / Received — Unallocated"
-        description="Carrier-awarded work stays with the company until an authorised fleet operator selects the executing driver. The quoting driver is recommended only while that driver remains allocation-eligible."
+        description="Company-level awards remain unallocated until an authorised fleet operator selects the executing driver. Allocation then revalidates that driver and atomically persists the driver's canonical active vehicle."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
 
@@ -225,27 +228,26 @@ export default function FleetAssignmentsPage() {
               when(job.pickup_datetime),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               bidderDriver
-                ? `${driverLabel(bidderDriver)}${isDriverAccountEligible(bidderDriver) ? '' : ' · not currently eligible'}`
-                : bid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Driver not recorded on accepted quote',
+                ? `${driverLabel(bidderDriver)}${isDriverAccountActive(bidderDriver) ? '' : ' · account not active'}`
+                : bid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Company-level quote',
               quote && quote > 0 ? money(quote, bid?.currency ?? 'GBP') : 'Not supplied',
               <ActionButton key="action" tone="success" onClick={() => setSelectedJobId(job.id)}>Allocate</ActionButton>,
             ];
           })}
-          empty={<EmptyState title="No won jobs awaiting allocation" description="A multi-driver carrier award will appear here before driver allocation." />}
+          empty={<EmptyState title="No won jobs awaiting allocation" description="A company-level carrier award will appear here before driver allocation." />}
         />
       </Panel>
 
       {selectedJob && (
         <Panel
           title={`Allocate ${selectedJob.pickup_postcode ?? selectedJob.pickup_location ?? 'Collection'} → ${selectedJob.delivery_postcode ?? selectedJob.delivery_location ?? 'Delivery'}`}
-          description="Readiness checks below are advisory UI signals from existing XDrive data. The canonical allocation endpoint currently persists the driver only; it does not validate or persist a job vehicle."
+          description="Select the executing driver. XDrive derives the vehicle from that driver's single active assignment and the canonical allocation endpoint revalidates onboarding, personal compliance and vehicle compliance before persisting both driver and vehicle."
         >
           <div className="workspace-detail-grid">
             <div className="workspace-detail-item"><strong>Carrier award</strong><div>{acceptedBid?.companies?.name ?? 'This carrier company'}</div></div>
-            <div className="workspace-detail-item"><strong>Quoted by</strong><div>{quotedDriver ? `${driverLabel(quotedDriver)}${recommendedDriverId ? ' · recommended' : ' · not currently eligible'}` : acceptedBid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Driver not recorded on accepted quote'}</div></div>
+            <div className="workspace-detail-item"><strong>Quoted by</strong><div>{quotedDriver ? `${driverLabel(quotedDriver)}${recommendedDriverId ? ' · historical bidder' : ' · account not active'}` : acceptedBid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Company-level quote'}</div></div>
             <div className="workspace-detail-item"><strong>Accepted quote</strong><div>{acceptedBid ? money(Number(acceptedBid.bid_price_gbp ?? acceptedBid.amount ?? 0), acceptedBid.currency ?? 'GBP') : 'Not supplied'}</div></div>
             <div className="workspace-detail-item"><strong>Required vehicle</strong><div>{(selectedJob.vehicle_type ?? 'Not specified').replace(/_/g, ' ')}</div></div>
-            <div className="workspace-detail-item"><strong>Body type</strong><div>Not exposed by current Fleet dataset</div></div>
             <div className="workspace-detail-item"><strong>Pickup</strong><div>{when(selectedJob.pickup_datetime)}</div></div>
           </div>
 
@@ -256,32 +258,27 @@ export default function FleetAssignmentsPage() {
                 <select value={selectedDriverId} onChange={(event) => setSelectedDriverId(event.target.value)} style={{ minHeight: 32 }}>
                   <option value="">Select driver</option>
                   {data.drivers.map((driver) => {
-                    const invalid = !isDriverAccountEligible(driver);
-                    const recommended = driver.id === recommendedDriverId;
-                    const quoted = driver.id === quotedDriverId;
-                    return <option key={driver.id} value={driver.id} disabled={invalid}>{driverLabel(driver)}{recommended ? ' — quoted this job · recommended' : quoted ? ' — quoted this job · ineligible' : ''} · {driver.availability_status ?? 'offline'}{invalid ? ' · ineligible account' : ''}</option>;
+                    const accountActive = isDriverAccountActive(driver);
+                    const historicalBidder = driver.id === quotedDriverId;
+                    return <option key={driver.id} value={driver.id} disabled={!accountActive}>{driverLabel(driver)}{historicalBidder ? ' — quoted this job' : ''} · {driver.availability_status ?? 'offline'}{accountActive ? '' : ' · account not active'}</option>;
                   })}
                 </select>
               </label>
 
-              <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700 }}>
-                PLANNED VEHICLE — READINESS ONLY
-                <select value={selectedVehicleId} onChange={(event) => setSelectedVehicleId(event.target.value)} style={{ minHeight: 32 }}>
-                  <option value="">No planned vehicle selected</option>
-                  {data.vehicles.map((vehicle) => {
-                    const exact = normalise(vehicle.type) === normalise(selectedJob.vehicle_type);
-                    const assigned = vehicle.assigned_driver_id === selectedDriverId;
-                    return <option key={vehicle.id} value={vehicle.id}>{vehicleLabel(vehicle)} · {(vehicle.type ?? 'type unknown').replace(/_/g, ' ')}{exact ? ' · type match' : ''}{assigned ? ' · assigned to driver' : ''}</option>;
-                  })}
-                </select>
-              </label>
+              <div className="workspace-detail-item">
+                <strong>Canonical vehicle</strong>
+                <div>{canonicalVehicleState}</div>
+                {canonicalVehicle && <small>{(canonicalVehicle.type ?? 'type unknown').replace(/_/g, ' ')} · automatically persisted with this driver</small>}
+              </div>
 
-              <AlertBanner tone="warning">
-                Vehicle choice is advisory in this screen. The existing allocation API assigns the driver only; it does not currently persist a job vehicle or validate type/body/payload/location/schedule automatically.
+              <AlertBanner tone={vehicleBindingUnambiguous ? 'info' : 'warning'}>
+                {vehicleBindingUnambiguous
+                  ? 'The vehicle is not manually selectable. The server revalidates the driver and this canonical vehicle, then persists both atomically.'
+                  : 'Allocation is blocked until the selected driver has exactly one active vehicle assigned. No arbitrary Fleet vehicle will be substituted.'}
               </AlertBanner>
 
-              <ActionButton tone="success" disabled={working || !selectedDriverId || !driverAccountEligible} onClick={() => void allocate()}>
-                {working ? 'Allocating…' : 'Allocate driver'}
+              <ActionButton tone="success" disabled={working || !selectedDriverId || !driverAccountActive || !vehicleBindingUnambiguous} onClick={() => void allocate()}>
+                {working ? 'Allocating…' : 'Allocate driver + vehicle'}
               </ActionButton>
             </div>
 
@@ -292,31 +289,34 @@ export default function FleetAssignmentsPage() {
               </div>
               <div className="workspace-detail-item">
                 <strong>Driver account</strong>
-                <div><StatusBadge value={selectedDriver ? (driverAccountEligible ? 'eligible account' : 'ineligible account') : 'No driver selected'} tone={selectedDriver ? (driverAccountEligible ? 'green' : 'red') : 'grey'} /></div>
+                <div><StatusBadge value={selectedDriver ? (driverAccountActive ? 'active account' : 'account not active') : 'No driver selected'} tone={selectedDriver ? (driverAccountActive ? 'blue' : 'red') : 'grey'} /></div>
+                {selectedDriver && driverAccountActive && <small>Full operational eligibility is verified server-side at allocation time.</small>}
               </div>
               <div className="workspace-detail-item">
                 <strong>Latest location</strong>
                 <div>{selectedLocation ? `${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)} · ${when(selectedLocation.recorded_at ?? selectedLocation.updated_at)}` : 'No current location supplied'}</div>
               </div>
               <div className="workspace-detail-item">
-                <strong>Driver compliance</strong>
-                <div><StatusBadge value={!selectedDriver ? 'No driver selected' : driverComplianceAttention ? 'attention required' : 'no current alert'} tone={!selectedDriver ? 'grey' : driverComplianceAttention ? 'orange' : 'green'} /></div>
+                <strong>Driver documents</strong>
+                <div><StatusBadge value={!selectedDriver ? 'No driver selected' : driverComplianceAttention ? 'attention signal' : 'no local alert'} tone={!selectedDriver ? 'grey' : driverComplianceAttention ? 'orange' : 'green'} /></div>
+                <small>Presentation signal only; canonical onboarding/document validation is server-side.</small>
               </div>
               <div className="workspace-detail-item">
                 <strong>Schedule</strong>
                 <div><StatusBadge value={!selectedDriver ? 'No driver selected' : overlappingJobs.length ? `${overlappingJobs.length} overlapping job(s)` : 'No overlap detected'} tone={!selectedDriver ? 'grey' : overlappingJobs.length ? 'orange' : 'green'} /></div>
               </div>
               <div className="workspace-detail-item">
+                <strong>Vehicle binding</strong>
+                <div><StatusBadge value={canonicalVehicles.length === 1 ? 'single active vehicle' : canonicalVehicles.length === 0 ? 'vehicle missing' : 'vehicle assignment ambiguous'} tone={canonicalVehicles.length === 1 ? 'green' : 'red'} /></div>
+              </div>
+              <div className="workspace-detail-item">
                 <strong>Vehicle type</strong>
-                <div><StatusBadge value={!selectedVehicle ? 'No vehicle selected' : vehicleTypeMatch ? 'type match' : 'type mismatch'} tone={!selectedVehicle ? 'grey' : vehicleTypeMatch ? 'green' : 'orange'} /></div>
+                <div><StatusBadge value={!canonicalVehicle ? 'No canonical vehicle' : vehicleTypeMatch ? 'type match' : 'type mismatch'} tone={!canonicalVehicle ? 'grey' : vehicleTypeMatch ? 'green' : 'orange'} /></div>
               </div>
               <div className="workspace-detail-item">
-                <strong>Vehicle compliance</strong>
-                <div><StatusBadge value={!selectedVehicle ? 'No vehicle selected' : vehicleComplianceAttention ? 'attention required' : 'no current alert'} tone={!selectedVehicle ? 'grey' : vehicleComplianceAttention ? 'orange' : 'green'} /></div>
-              </div>
-              <div className="workspace-detail-item">
-                <strong>Vehicle assignment</strong>
-                <div>{!selectedVehicle ? 'No vehicle selected' : selectedVehicle.assigned_driver_id === selectedDriverId ? 'Already assigned to selected driver' : selectedVehicle.assigned_driver_id ? 'Assigned to another driver' : 'Currently unassigned vehicle'}</div>
+                <strong>Vehicle documents</strong>
+                <div><StatusBadge value={!canonicalVehicle ? 'No canonical vehicle' : vehicleComplianceAttention ? 'attention signal' : 'no local alert'} tone={!canonicalVehicle ? 'grey' : vehicleComplianceAttention ? 'orange' : 'green'} /></div>
+                <small>Final MOT/insurance validity is rechecked by the canonical server resolver.</small>
               </div>
             </div>
           </div>
