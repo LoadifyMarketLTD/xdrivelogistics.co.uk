@@ -212,7 +212,7 @@ export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' 
 export function toMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return 'Price TBC';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
 }
 
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
