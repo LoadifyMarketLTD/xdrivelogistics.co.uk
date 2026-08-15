@@ -18,15 +18,19 @@ describe('Marketplace consumer boundary', () => {
     expect(source).not.toMatch(/\.from\(['"]jobs['"]\)/);
   });
 
-  it('keeps the database privacy guard in the forward migration set', () => {
-    const sql = fs.readFileSync(
-      path.join(root, 'supabase/migrations/20260815003000_marketplace_preaward_privacy_guard.sql'),
-      'utf8',
-    );
-    expect(sql).toContain('as restrictive');
-    expect(sql).toContain("lower(coalesce(status::text, '')) in ('posted', 'quoted')");
-    expect(sql).toContain('awarded_carrier_company_id is null');
-    expect(sql).toContain('cm.user_id = auth.uid()');
-    expect(sql).toContain('p.user_id = auth.uid()');
+  it('keeps pre-award Marketplace reads behind sanitising server routes', () => {
+    const driverApi = fs.readFileSync(path.join(root, 'app/api/driver/marketplace/loads/route.ts'), 'utf8');
+    const companyApi = fs.readFileSync(path.join(root, 'app/api/marketplace/company/route.ts'), 'utf8');
+    const searchApi = fs.readFileSync(path.join(root, 'app/api/driver/search-loads/route.ts'), 'utf8');
+
+    for (const source of [driverApi, companyApi, searchApi]) {
+      expect(source).toContain('publicOutcode');
+      expect(source).not.toMatch(/return\s+(?:NextResponse\.json|respond)\([^\n]*\brows\b[^\n]*\)/);
+    }
+  });
+
+  it('does not introduce a restrictive jobs SELECT migration before all native/direct consumers are migrated', () => {
+    const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
+    expect(migrations.filter((name) => name.includes('marketplace_preaward_privacy_guard'))).toEqual([]);
   });
 });
