@@ -119,7 +119,7 @@ export async function resolveDriverOperationalEligibility(
   }
 
   const driverStatus = normalise(driver.status);
-  const accountActive = driverStatus === 'active' && driver.is_active !== false;
+  const accountActive = driverStatus === 'active' && driver.is_active === true;
   const appAccess = driver.app_access === true;
   const commercialBidEnabled = driver.can_commercial_bid === true;
   if (!accountActive) blockers.push('driver_account_not_active');
@@ -214,7 +214,6 @@ export async function resolveDriverOperationalEligibility(
     onboarding
     && normalise(onboarding.status) === 'approved'
     && normalise(onboarding.risk_status) === 'clear'
-    && Boolean(onboarding.reviewed_at)
     && onboarding.company_id === companyId
     && expectedOnboardingTypes.includes(normalise(onboarding.account_type))
   );
