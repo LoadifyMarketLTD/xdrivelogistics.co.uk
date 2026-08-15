@@ -61,18 +61,29 @@ function invoiceVisibleToCompany(
 
   // The customer/job-owner projection must not bypass the verified customer
   // invoice readiness contract merely because this endpoint uses service-role
-  // reads for enrichment. Draft/pending/cancelled, zero-value or unsent unpaid
-  // invoice records are internal records, not customer-facing invoice truth.
+  // reads for enrichment. Match the existing job-owner SELECT contract: a
+  // customer-facing invoice is only ready when its commercial values are real
+  // and it is either paid or has a complete sent-delivery audit trail.
   if (viewerCompanyId === ownerCompanyId) {
     const status = String(invoice.status ?? '').trim().toLowerCase();
     const paymentStatus = String(invoice.payment_status ?? '').trim().toLowerCase();
     const deliveryState = String(invoice.delivery_state ?? '').trim().toLowerCase();
     const amount = numberValue(invoice.amount) ?? numberValue(invoice.total) ?? 0;
+    const netAmount = numberValue(invoice.net_amount) ?? 0;
     const clientName = text(invoice.client_name)?.trim() ?? '';
+    const deliveryProvider = text(invoice.delivery_provider)?.trim() ?? '';
+    const deliveryMessageId = text(invoice.delivery_message_id)?.trim() ?? '';
+    const deliveryRecipientEmail = text(invoice.delivery_recipient_email)?.trim() ?? '';
+    const paid = status === 'paid' || paymentStatus === 'paid';
+    const sentWithAuditTrail = deliveryState === 'sent'
+      && deliveryProvider.length > 0
+      && deliveryMessageId.length > 0
+      && deliveryRecipientEmail.length > 0;
     return !['pending', 'draft', 'cancelled'].includes(status)
       && amount > 0
+      && netAmount > 0
       && clientName.length > 0
-      && (deliveryState === 'sent' || status === 'paid' || paymentStatus === 'paid');
+      && (paid || sentWithAuditTrail);
   }
 
   // Awarded-carrier invoice visibility stays party-scoped. Do not invent a
