@@ -36,12 +36,15 @@ AS $$
           AND cm.user_id = auth.uid()
           AND COALESCE(cm.status::text, '') = 'active'
       )
+      -- profiles.role is stored canonically. Platform-owner aliases are mapped
+      -- to the canonical `owner` role before persistence; do not duplicate an
+      -- alias list inside RLS.
       OR EXISTS (
         SELECT 1
         FROM public.profiles p
         WHERE p.user_id = auth.uid()
           AND COALESCE(p.status::text, '') = 'active'
-          AND COALESCE(p.role::text, '') IN ('owner', 'super_admin', 'platform_admin', 'platform_owner')
+          AND COALESCE(p.role::text, '') = 'owner'
       )
     FROM public.jobs j
     WHERE j.id = p_job_id
@@ -59,10 +62,11 @@ CREATE POLICY jobs_preaward_marketplace_privacy_guard
   TO authenticated
   USING (public.can_read_marketplace_execution_job(id));
 
--- Direct job_bids inserts historically validate Marketplace availability with
--- a SELECT from jobs. The restrictive policy above intentionally makes that
--- row invisible to competitors, so preserve the existing quote workflow with
--- a narrowly-scoped SECURITY DEFINER predicate that returns only eligibility.
+-- The restrictive SELECT policy intentionally hides the full jobs row from
+-- competing members. Quote submission still needs an eligibility answer without
+-- exposing execution columns, so provide only this boolean predicate. The actual
+-- job_bids INSERT authorization is owned by the later canonical driver-quote gate
+-- migration and is deliberately not duplicated here.
 CREATE OR REPLACE FUNCTION public.can_quote_marketplace_job(
   p_job_id uuid,
   p_bidder_company_id uuid
@@ -93,55 +97,6 @@ $$;
 
 REVOKE ALL ON FUNCTION public.can_quote_marketplace_job(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.can_quote_marketplace_job(uuid, uuid) TO authenticated;
-
-DROP POLICY IF EXISTS job_bids_exchange_insert ON public.job_bids;
-CREATE POLICY job_bids_exchange_insert
-  ON public.job_bids
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    bidder_user_id = auth.uid()
-    AND (
-      (
-        job_bids.company_id IS NOT NULL
-        AND EXISTS (
-          SELECT 1
-          FROM public.company_memberships cm
-          WHERE cm.company_id = job_bids.company_id
-            AND cm.user_id = auth.uid()
-            AND COALESCE(cm.status::text, '') = 'active'
-        )
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM public.drivers d
-        WHERE d.user_id = auth.uid()
-          AND d.app_access = true
-          AND COALESCE(d.status::text, '') = 'active'
-          AND d.can_commercial_bid = true
-          AND (
-            d.company_id = job_bids.company_id
-            OR (d.company_id IS NULL AND job_bids.company_id IS NULL)
-          )
-      )
-      OR (
-        job_bids.company_id IS NULL
-        AND NOT EXISTS (
-          SELECT 1
-          FROM public.drivers d
-          WHERE d.user_id = auth.uid()
-        )
-        AND EXISTS (
-          SELECT 1
-          FROM public.profiles p
-          WHERE p.user_id = auth.uid()
-            AND COALESCE(p.role::text, '') = 'driver'
-            AND COALESCE(p.status::text, '') = 'active'
-        )
-      )
-    )
-    AND public.can_quote_marketplace_job(job_bids.job_id, job_bids.company_id)
-  );
 
 COMMENT ON POLICY jobs_preaward_marketplace_privacy_guard ON public.jobs IS
   'Restrictive guard: competing authenticated members cannot SELECT full posted/quoted Marketplace job rows before award; use quote-safe server projections.';
