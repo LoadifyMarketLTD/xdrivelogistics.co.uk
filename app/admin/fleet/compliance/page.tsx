@@ -30,7 +30,7 @@ export default function FleetCompliancePage() {
       const vehicle = document.vehicle_id ? vehicleById.get(document.vehicle_id) : undefined;
       return {
         id: document.id,
-        entity: vehicle ? (vehicle.reg_plate ?? [vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle') : 'Vehicle',
+        entity: vehicle ? (vehicle.reg_plate ?? ([vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle')) : 'Vehicle',
         document: (document.doc_type ?? 'Vehicle document').replace(/_/g, ' '),
         expiry: document.expiry_date,
         status: document.status ?? 'recorded',
