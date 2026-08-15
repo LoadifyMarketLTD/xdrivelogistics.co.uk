@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import {
   ActionButton,
   AlertBanner,
@@ -26,6 +28,7 @@ const when = (value: string | null | undefined) => value
   : 'Not set';
 
 export default function BrokerCarrierNetworkPage() {
+  const router = useRouter();
   const [invitations, setInvitations] = useState<CarrierInvitation[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -51,7 +54,7 @@ export default function BrokerCarrierNetworkPage() {
     if (!auth) { setError('Session expired.'); setLoading(false); return; }
     const response = await fetch('/api/broker/carrier-invitations', { headers: { Authorization: auth } });
     const payload = await response.json().catch(() => ({})) as { invitations?: CarrierInvitation[]; canManage?: boolean; error?: string };
-    if (!response.ok) setError(payload.error ?? 'Failed to load carrier network.');
+    if (!response.ok) setError(payload.error ?? 'Failed to load carrier relationships.');
     else {
       setInvitations(payload.invitations ?? []);
       setCanManage(Boolean(payload.canManage));
@@ -63,9 +66,7 @@ export default function BrokerCarrierNetworkPage() {
 
   const invite = async () => {
     if (!carrierEmail.trim()) { setError('Carrier email is required.'); return; }
-    setWorking('invite');
-    setError('');
-    setNotice('');
+    setWorking('invite'); setError(''); setNotice('');
     const auth = await getAuthHeader();
     if (!auth) { setError('Session expired.'); setWorking(null); return; }
     const response = await fetch('/api/broker/carrier-invitations', {
@@ -76,17 +77,13 @@ export default function BrokerCarrierNetworkPage() {
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);
     if (!response.ok) { setError(payload.error ?? 'Invitation failed.'); return; }
-    setCarrierEmail('');
-    setInviteMessage('');
-    setNotice('Carrier invitation sent.');
+    setCarrierEmail(''); setInviteMessage(''); setNotice('Carrier invitation sent.');
     await load();
   };
 
   const revoke = async (invitationId: string) => {
     if (!window.confirm('Revoke this carrier invitation?')) return;
-    setWorking(invitationId);
-    setError('');
-    setNotice('');
+    setWorking(invitationId); setError(''); setNotice('');
     const auth = await getAuthHeader();
     if (!auth) { setError('Session expired.'); setWorking(null); return; }
     const response = await fetch('/api/broker/carrier-invitations', {
@@ -113,10 +110,10 @@ export default function BrokerCarrierNetworkPage() {
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Carrier network"
+        eyebrow="Carrier relationships"
         title="Carriers"
-        description="Search and manage the broker preferred carrier network from one operational directory."
-        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        description="Manage broker carrier relationships and invitations here. Use Directory to search the wider XDrive member network."
+        actions={<><ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Open Directory</ActionButton><ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
@@ -140,37 +137,39 @@ export default function BrokerCarrierNetworkPage() {
         </aside>
 
         <main className="workspace-board-main">
-          <div className="workspace-record-meta"><span><strong>{rows.length}</strong> carrier record(s)</span><span>Network data source: broker carrier invitations</span></div>
+          <div className="workspace-record-meta"><span><strong>{rows.length}</strong> carrier relationship record(s)</span><span>Relationship source: broker carrier invitations · global discovery lives in Directory</span></div>
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading carriers…" /></div>
           ) : rows.length === 0 ? (
-            <div className="workspace-panel"><EmptyState compact title="No matching carriers" description="Adjust the filters or invite a carrier company." /></div>
+            <div className="workspace-panel"><EmptyState compact title="No matching carrier relationships" description="Adjust the filters, search Directory or invite a carrier company." action={<ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Search Directory</ActionButton>} /></div>
           ) : (
             <div className="workspace-record-list">
               {rows.map((row) => {
                 const open = expanded === row.id;
+                const memberName = row.carrierCompanyName ?? (row.carrier_company_id ? 'Carrier company' : 'Invitation pending');
                 return (
                   <article key={row.id} className="workspace-operational-row" data-state={row.status}>
                     <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">Company</span><strong>{row.carrierCompanyName ?? 'Company unavailable'}</strong><div>{row.invited_email ?? 'No email'}</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">Availability</span><strong>Unavailable</strong><div>Not exposed by carrier invitation data</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">Vehicles</span><strong>Unavailable</strong><div>Not exposed by carrier invitation data</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">Company</span><strong>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>{memberName}</MemberIdentityLink> : memberName}</strong><div>{row.invited_email ?? 'No email'}</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">Availability</span><strong>Unavailable</strong><div>Relationship dataset does not expose live availability</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">Vehicles</span><strong>Unavailable</strong><div>Use Member Profile / Directory where verified</div></div>
                       <div className="workspace-operational-cell"><span className="driver-cell-label">Status / Actions</span><StatusBadge value={row.status} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close' : 'Details'}</ActionButton></div></div>
                     </div>
-                    <div className="workspace-record-meta"><span>Carrier #{(row.carrier_company_id ?? row.id).slice(0, 8).toUpperCase()}</span><span>Invited {when(row.created_at)}</span></div>
+                    <div className="workspace-record-meta"><span>Carrier #{(row.carrier_company_id ?? row.id).slice(0, 8).toUpperCase()}</span><span>Invited {when(row.created_at)}</span>{row.carrier_company_id && <span>Linked XDrive member</span>}</div>
                     {open && (
                       <div className="workspace-record-details">
                         <div className="workspace-detail-grid">
-                          <div className="workspace-detail-item"><strong>Company</strong><div>{row.carrierCompanyName ?? 'Unavailable'}</div></div>
-                          <div className="workspace-detail-item"><strong>Availability</strong><div>Unavailable from current carrier-network dataset.</div></div>
-                          <div className="workspace-detail-item"><strong>Vehicles</strong><div>Unavailable from current carrier-network dataset.</div></div>
-                          <div className="workspace-detail-item"><strong>Documents</strong><div>Unavailable from current carrier-network dataset.</div></div>
-                          <div className="workspace-detail-item"><strong>Ratings</strong><div>Unavailable from current carrier-network dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Company</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>{memberName}</MemberIdentityLink> : memberName}</div></div>
+                          <div className="workspace-detail-item"><strong>Availability</strong><div>Unavailable from current relationship dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Vehicles</strong><div>Unavailable from current relationship dataset.</div></div>
+                          <div className="workspace-detail-item"><strong>Documents</strong><div>Open Member Profile / Directory when verified member data is available.</div></div>
+                          <div className="workspace-detail-item"><strong>Ratings</strong><div>Verified member-performance dataset not exposed here.</div></div>
                           <div className="workspace-detail-item"><strong>Invitation status</strong><div>{row.status}</div></div>
                           <div className="workspace-detail-item"><strong>Email</strong><div>{row.invited_email ?? 'Unavailable'}</div></div>
                           <div className="workspace-detail-item"><strong>Message</strong><div>{row.message ?? 'No message supplied'}</div></div>
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+                          {row.carrier_company_id && <ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Find in Directory</ActionButton>}
                           {row.invited_email && <ActionButton tone="secondary" onClick={() => { window.location.href = `mailto:${row.invited_email}`; }}>Email carrier</ActionButton>}
                           {canManage && row.status === 'pending' && <ActionButton tone="danger" disabled={working === row.id} onClick={() => void revoke(row.id)}>{working === row.id ? 'Revoking…' : 'Revoke invitation'}</ActionButton>}
                         </div>
