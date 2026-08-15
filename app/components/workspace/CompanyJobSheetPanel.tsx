@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
@@ -122,6 +123,11 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
       : { label: 'Pending', tone: 'orange' as const, detail: 'No generated POD or delivery evidence recorded' };
   const carrierMode = mode === 'carrier';
+  const presentationStatus = workspaceJobPresentationStatus({
+    status: sheet.status,
+    awarded_carrier_company_id: sheet.carrier?.companyId ?? null,
+    assigned_driver_id: sheet.driver?.id ?? null,
+  });
   const allocatedVehicleLabel = sheet.vehicle
     ? [sheet.vehicle.registration, sheet.vehicle.make, sheet.vehicle.model].filter(Boolean).join(' · ') || human(sheet.vehicle.type)
     : 'Not assigned';
@@ -145,8 +151,8 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
       {tab === 'order' && (
         <div style={{ display: 'grid', gap: 8 }}>
           <div className="workspace-detail-grid">
-            <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Booking ${sheet.references.booking}` : undefined} />
-            <Detail label="Status" value={<StatusBadge value={sheet.status} />} detail={sheet.acceptedAt ? `Awarded ${when(sheet.acceptedAt)}` : undefined} />
+            <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Customer booking ref ${sheet.references.booking}` : undefined} />
+            <Detail label="Status" value={<StatusBadge value={presentationStatus} />} detail={sheet.acceptedAt ? `Awarded ${when(sheet.acceptedAt)}` : undefined} />
             <Detail label="Posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={[sheet.ownerCompany.memberId, sheet.ownerCompany.phone].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Awarded carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? [sheet.carrier.memberId, sheet.carrier.phone].filter(Boolean).join(' · ') : undefined} />
             <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} detail={sheet.driver?.status ? `Account ${human(sheet.driver.status)}` : undefined} />
