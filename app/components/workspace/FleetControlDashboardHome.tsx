@@ -93,6 +93,29 @@ function documentEntity(
   return 'Fleet document';
 }
 
+function documentAttentionState(document: WorkspaceDocument): { priority: FleetPriority; state: string } | null {
+  const status = normalise(document.status);
+  const days = daysUntil(document.expiry_date);
+  if (status === 'rejected') return { priority: 'critical', state: 'Rejected' };
+  if (status === 'expired' || (days !== null && days < 0)) {
+    return { priority: 'critical', state: days !== null && days < 0 ? `Expired ${Math.abs(days)}d` : 'Expired' };
+  }
+  if (['pending', 'under_review'].includes(status)) return { priority: 'high', state: 'Pending review' };
+  if (days === 0) return { priority: 'high', state: 'Due today' };
+  if (days !== null && days <= 7) return { priority: 'high', state: `Due in ${days}d` };
+  if (days !== null && days <= 30) return { priority: 'medium', state: `Due in ${days}d` };
+  return null;
+}
+
+function vehicleDocumentReadiness(documents: WorkspaceDocument[]) {
+  if (documents.length === 0) return { label: 'Documents missing', tone: 'red' as const };
+  const states = documents.map(documentAttentionState).filter(Boolean) as Array<{ priority: FleetPriority; state: string }>;
+  if (states.some((state) => state.priority === 'critical')) return { label: 'Document attention', tone: 'red' as const };
+  if (states.some((state) => state.priority === 'high')) return { label: 'Review required', tone: 'orange' as const };
+  if (states.some((state) => state.priority === 'medium')) return { label: 'Evidence due soon', tone: 'orange' as const };
+  return { label: 'Evidence current', tone: 'green' as const };
+}
+
 export default function FleetControlDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
@@ -130,6 +153,11 @@ export default function FleetControlDashboardHome() {
     return map;
   }, [data.vehicles]);
 
+  const activeDrivers = useMemo(
+    () => data.drivers.filter((driver) => normalise(driver.status) === 'active'),
+    [data.drivers],
+  );
+
   const carrierWonJobs = useMemo(
     () => data.jobs.filter((job) => job.awarded_carrier_company_id === data.companyId),
     [data.companyId, data.jobs],
@@ -159,27 +187,29 @@ export default function FleetControlDashboardHome() {
     [activeJobs, allocatedJobs, wonUnallocatedJobs],
   );
 
-  const missingLocationDrivers = data.drivers.filter((driver) => !latestLocationByDriver.get(driver.id));
-  const staleLocationDrivers = data.drivers.filter((driver) => {
+  const missingLocationDrivers = activeDrivers.filter((driver) => !latestLocationByDriver.get(driver.id));
+  const staleLocationDrivers = activeDrivers.filter((driver) => {
     const location = latestLocationByDriver.get(driver.id);
     const timestamp = locationTimestamp(location);
     return Boolean(timestamp) && Date.now() - new Date(timestamp as string).getTime() > 20 * 60_000;
   });
 
   const documents = data.driverDocuments.concat(data.vehicleDocuments);
-  const vehicleDocumentCount = new Map<string, number>();
+  const vehicleDocumentsByVehicle = new Map<string, WorkspaceDocument[]>();
   for (const document of data.vehicleDocuments) {
-    if (document.vehicle_id) {
-      vehicleDocumentCount.set(document.vehicle_id, (vehicleDocumentCount.get(document.vehicle_id) ?? 0) + 1);
-    }
+    if (!document.vehicle_id) continue;
+    const current = vehicleDocumentsByVehicle.get(document.vehicle_id) ?? [];
+    current.push(document);
+    vehicleDocumentsByVehicle.set(document.vehicle_id, current);
   }
   const vehiclesMissingDocuments = data.vehicles.filter(
-    (vehicle) => (vehicleDocumentCount.get(vehicle.id) ?? 0) === 0,
+    (vehicle) => (vehicleDocumentsByVehicle.get(vehicle.id)?.length ?? 0) === 0,
   );
   const expiring = documents.filter((document) => {
     const days = daysUntil(document.expiry_date);
-    return days !== null && days <= 30;
+    return days !== null && days >= 0 && days <= 30;
   });
+  const documentAttention = documents.filter((document) => documentAttentionState(document) !== null);
 
   const attentionItems = useMemo<FleetAttentionItem[]>(() => {
     const items: FleetAttentionItem[] = [];
@@ -224,30 +254,23 @@ export default function FleetControlDashboardHome() {
       });
     }
 
-    for (const document of expiring) {
-      const days = daysUntil(document.expiry_date);
-      const priority: FleetPriority = days !== null && days < 0 ? 'critical' : days !== null && days <= 7 ? 'high' : 'medium';
-      const state = days === null
-        ? 'Expiry unknown'
-        : days < 0
-          ? `Expired ${Math.abs(days)}d`
-          : days === 0
-            ? 'Due today'
-            : `Due in ${days}d`;
+    for (const document of documentAttention) {
+      const attention = documentAttentionState(document);
+      if (!attention) continue;
       items.push({
         id: `document-${document.id}`,
-        priority,
+        priority: attention.priority,
         area: 'Compliance',
         entity: documentEntity(document, driverById, vehicleById),
         detail: `${(document.doc_type ?? 'Document').replace(/_/g, ' ')} · ${document.expiry_date ?? 'No expiry date'}`,
-        state,
+        state: attention.state,
         href: '/admin/fleet/compliance',
         actionLabel: 'Review',
       });
     }
 
     return items.sort((left, right) => PRIORITY_RANK[left.priority] - PRIORITY_RANK[right.priority]);
-  }, [driverById, expiring, latestLocationByDriver, missingLocationDrivers, staleLocationDrivers, vehicleById, vehiclesMissingDocuments]);
+  }, [documentAttention, driverById, latestLocationByDriver, missingLocationDrivers, staleLocationDrivers, vehicleById, vehiclesMissingDocuments]);
 
   const visibleAttention = attentionItems.filter((item) => {
     const focusMatch = focus === 'all' || normalise(item.area) === focus;
@@ -319,8 +342,8 @@ export default function FleetControlDashboardHome() {
         />
         <KpiCard
           label="Available drivers"
-          value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.availability_status) === 'available').length)}
-          detail={metricDetail(data, ['drivers'], 'Ready for allocation review')}
+          value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available').length)}
+          detail={metricDetail(data, ['drivers'], 'Active and ready for allocation review')}
           tone={metricTone(data, ['drivers'], 'green')}
           onClick={() => router.push('/admin/fleet/availability')}
         />
@@ -334,7 +357,7 @@ export default function FleetControlDashboardHome() {
         <KpiCard
           label="Documents expiring"
           value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expiring.length)}
-          detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Driver and vehicle evidence due within 30 days')}
+          detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Driver and vehicle evidence due within the next 30 days')}
           tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], expiring.length ? 'orange' : 'green')}
           onClick={() => router.push('/admin/fleet/compliance')}
         />
@@ -414,7 +437,7 @@ export default function FleetControlDashboardHome() {
 
         <OperationalCard
           title="Fleet attention queue"
-          subtitle="Missing tracking and compliance risks that block safe resource deployment."
+          subtitle="Active-driver tracking and compliance risks that block safe resource deployment."
           actions={
             <span style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 700 }}>
               {visibleAttention.length} visible · {attentionItems.length} total
@@ -456,16 +479,17 @@ export default function FleetControlDashboardHome() {
               rows={data.drivers.slice(0, 10).map((driver) => {
                 const vehicle = vehicleByDriver.get(driver.id);
                 const timestamp = locationTimestamp(latestLocationByDriver.get(driver.id));
-                const hasVehicleDocuments = vehicle ? (vehicleDocumentCount.get(vehicle.id) ?? 0) > 0 : false;
+                const activeDriver = normalise(driver.status) === 'active';
+                const readiness = vehicle ? vehicleDocumentReadiness(vehicleDocumentsByVehicle.get(vehicle.id) ?? []) : { label: 'No vehicle', tone: 'red' as const };
                 return [
                   <span key="driver">
                     <strong style={{ display: 'block' }}>{driverName(driver)}</strong>
-                    <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', marginTop: '1px' }}>{driver.phone ?? driver.email ?? 'No contact recorded'}</span>
+                    <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', marginTop: '1px' }}>{normalise(driver.status) || 'status unavailable'} · {driver.phone ?? driver.email ?? 'No contact recorded'}</span>
                   </span>,
                   vehicleName(vehicle),
-                  <StatusBadge key="tracking" value={trackingDataUnavailable ? 'Unavailable' : timestamp ? compactTimeAgo(timestamp) : 'Position missing'} tone={!timestamp ? 'orange' : undefined} />,
-                  <StatusBadge key="readiness" value={!vehicle ? 'No vehicle' : hasVehicleDocuments ? 'Evidence recorded' : 'Documents missing'} tone={!vehicle || !hasVehicleDocuments ? 'red' : 'green'} />,
-                  <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
+                  <StatusBadge key="tracking" value={trackingDataUnavailable ? 'Unavailable' : !activeDriver ? 'Not monitored' : timestamp ? compactTimeAgo(timestamp) : 'Position missing'} tone={activeDriver && !timestamp ? 'orange' : undefined} />,
+                  <StatusBadge key="readiness" value={readiness.label} tone={readiness.tone} />,
+                  <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={activeDriver && normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
                   <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/fleet/drivers?driver=${driver.id}`)}>View</ActionButton>,
                 ];
               })}
