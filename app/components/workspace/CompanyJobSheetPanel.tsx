@@ -7,6 +7,8 @@ import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceU
 
 type JobSheet = {
   jobId: string;
+  viewerWorkspace?: 'broker' | 'customer' | 'carrier';
+  viewerCompanyId?: string | null;
   status: string;
   createdAt: string | null;
   updatedAt: string | null;
@@ -41,6 +43,7 @@ type JobSheet = {
 };
 
 type Tab = 'order' | 'notes' | 'history' | 'documents' | 'pod' | 'invoice';
+type SheetMode = 'broker' | 'customer' | 'carrier';
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History' },
   { id: 'documents', label: 'Documents' }, { id: 'pod', label: 'POD' }, { id: 'invoice', label: 'Invoice' },
@@ -54,7 +57,7 @@ function Detail({ label, value, detail }: { label: string; value: ReactNode; det
   return <div className="workspace-detail-item"><strong>{label}</strong><div>{value}</div>{detail ? <small>{detail}</small> : null}</div>;
 }
 
-export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: 'broker' | 'customer' }) {
+export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: SheetMode }) {
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,6 +110,7 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: 'br
     : sheet.pod.photoCount > 0
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
       : { label: 'Pending', tone: 'orange' as const, detail: 'No generated POD or delivery evidence recorded' };
+  const carrierMode = mode === 'carrier';
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
@@ -132,8 +136,8 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: 'br
             <Detail label="Customer" value={sheet.customer.name ?? 'Not supplied'} detail={mode === 'broker' ? [sheet.customer.email, sheet.customer.phone].filter(Boolean).join(' · ') || undefined : undefined} />
             <Detail label="Customer ref" value={sheet.references.customer ?? 'Not supplied'} />
             <Detail label="PO number" value={sheet.references.purchaseOrder ?? 'Not supplied'} />
-            <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />
-            <Detail label="Carrier cost" value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Immutable commercial snapshot available' : 'No immutable snapshot returned'} />
+            {!carrierMode && <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />}
+            <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Immutable commercial snapshot available' : 'No immutable snapshot returned'} />
             {mode === 'broker' && <Detail label="Margin" value={money(sheet.commercial.margin, sheet.commercial.currency)} detail={sheet.commercial.targetCarrierCost != null ? `Target carrier cost ${money(sheet.commercial.targetCarrierCost, sheet.commercial.currency)}` : undefined} />}
             <Detail label="Payment terms" value={sheet.commercial.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.commercial.paymentDueDays != null ? `${sheet.commercial.paymentDueDays} day(s)` : undefined} />
             <Detail label="Extras" value="Not supplied" detail={sheet.unavailable.extras} />
