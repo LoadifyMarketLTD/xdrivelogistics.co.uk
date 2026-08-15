@@ -38,7 +38,7 @@ function requirementFlags(job: Record<string, unknown>, vehicle: Record<string, 
   const rows: string[] = [];
   const push = (condition: boolean, label: string) => { if (condition && !rows.includes(label)) rows.push(label); };
   push(job.collection_tail_lift_required === true || job.delivery_tail_lift_required === true, 'Tail lift required');
-  push(job.collection_forklift_available === true || job.delivery_forklift_available === true, 'Forklift available / required');
+  push(job.collection_forklift_available === true || job.delivery_forklift_available === true, 'Forklift available');
   push(job.collection_handball_required === true || job.delivery_handball_required === true, 'Handball required');
   push(job.direct_delivery_required === true, 'Direct delivery');
   push(vehicle.has_tail_lift === true, 'Vehicle has tail lift');
@@ -84,9 +84,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const acceptedBidPromise = driver.companyId
     ? supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle()
     : supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('bidder_driver_id', driver.driverId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle();
-  const invoicePromise = driver.companyId
-    ? supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).order('created_at', { ascending: false }).limit(5)
-    : Promise.resolve({ data: [], error: null });
+
+  // Driver assignment is not, by itself, an invoice visibility grant. Driver
+  // finance remains governed by its canonical invoice access contract rather
+  // than being bypassed through this service-role enrichment endpoint.
+  const invoicePromise = Promise.resolve({ data: [], error: null });
 
   const [companyResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     vehicleId
       ? supabaseAdmin.from('vehicles').select('*').eq('id', vehicleId).maybeSingle()
-      : supabaseAdmin.from('vehicles').select('*').eq('assigned_driver_id', driver.driverId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('drivers').select('*').eq('id', driver.driverId).maybeSingle(),
   ]);
 
@@ -119,8 +121,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? text(job.payment_terms)
     ?? null;
   const podRequired = boolValue(agreement.pod_required)
-    ?? boolValue(job.pod_required)
-    ?? true;
+    ?? boolValue(job.pod_required);
   const acceptedAt = text(agreement.accepted_at)
     ?? text(agreement.agreed_at)
     ?? text(acceptedBid.updated_at)
@@ -151,15 +152,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     dueDate: text(entry.due_date),
   }));
 
-  const allocatedVehicleRef = text(vehicle.reg_plate) ?? text(job.vehicle_ref);
-  const allocatedVehicleType = text(vehicle.type) ?? (vehicleId ? text(job.vehicle_type) : null);
+  const allocatedVehicleRef = vehicleId ? (text(vehicle.reg_plate) ?? text(job.vehicle_ref)) : null;
+  const allocatedVehicleType = vehicleId ? (text(vehicle.type) ?? text(job.vehicle_type)) : null;
   const requestedVehicle = text(job.requested_vehicle_label)
     ?? text(job.requested_vehicle_type)
     ?? text(job.vehicle_type);
   const requestedCargo = text(job.requested_cargo_label) ?? text(job.cargo_type);
   const requirements = requirementFlags(job, vehicle);
   const hardCopyPod = text(job.hard_copy_pod)
-    ?? (podRequired ? 'POD required; hard-copy requirement not separately supplied' : 'Not required');
+    ?? (podRequired === true
+      ? 'POD required; hard-copy requirement not separately supplied'
+      : podRequired === false
+        ? 'Not required'
+        : 'Not supplied');
   const deliveryPhotos = Array.isArray(job.delivery_photos) ? job.delivery_photos : [];
   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : [];
 
@@ -191,16 +196,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       distanceMiles: numberValue(job.job_distance_miles) ?? numberValue(job.distance_miles),
       requestedVehicle,
       allocatedVehicle: {
-        id: text(vehicle.id),
+        id: vehicleId ? text(vehicle.id) : null,
         ref: allocatedVehicleRef,
         type: allocatedVehicleType,
-        bodyType: text(vehicle.body_type),
-        make: text(vehicle.make),
-        model: text(vehicle.model),
-        payloadKg: numberValue(vehicle.payload_kg),
-        palletsCapacity: numberValue(vehicle.pallets_capacity),
-        hasTailLift: boolValue(vehicle.has_tail_lift),
-        source: vehicleId ? 'job' : vehicleResult.data ? 'driver_current' : 'none',
+        bodyType: vehicleId ? text(vehicle.body_type) : null,
+        make: vehicleId ? text(vehicle.make) : null,
+        model: vehicleId ? text(vehicle.model) : null,
+        payloadKg: vehicleId ? numberValue(vehicle.payload_kg) : null,
+        palletsCapacity: vehicleId ? numberValue(vehicle.pallets_capacity) : null,
+        hasTailLift: vehicleId ? boolValue(vehicle.has_tail_lift) : null,
+        source: vehicleId ? 'job' : 'none',
       },
       cargo: {
         type: requestedCargo,
@@ -262,7 +267,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || driverResult.error
       ),
       unavailable: {
-        bodyType: text(vehicle.body_type) ? null : 'No verified body-type value is available for this allocated/current vehicle.',
+        bodyType: vehicleId && text(vehicle.body_type) ? null : 'No verified job-level allocated vehicle body-type value is available for this job.',
         extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
         bookingFooter: 'No historical booking-footer snapshot is exposed by the current verified data contract.',
       },
