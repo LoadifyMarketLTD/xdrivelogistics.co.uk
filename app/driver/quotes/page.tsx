@@ -319,7 +319,7 @@ export default function MyQuotesPage() {
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
   const toggleExpandAll = () => setExpandedIds((previous) => {
     const next = new Set(previous);
-    visibleBids.forEach((bid) => allVisibleExpanded ? next.delete(bid.id) : next.add(bid.id));
+    visibleBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
     return next;
   });
   const clearFilters = () => { setFilters(EMPTY_FILTERS); setAppliedFilters(EMPTY_FILTERS); };
@@ -346,7 +346,7 @@ export default function MyQuotesPage() {
             <div className="driver-tab-strip" role="tablist" aria-label="Quote states">
               {TABS.map((tab) => <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>{tab.label} <span>{counts[tab.id]}</span></button>)}
             </div>
-            <div className="driver-board-summary"><span>{visibleBids.length} {activeTab} quote{visibleBids.length === 1 ? '' : 's'}</span><button type="button" onClick={toggleExpandAll} disabled={!visibleBids.length} style={{ border: 0, background: 'transparent', color: visibleBids.length ? '#1d57d8' : '#94a3b8', fontWeight: 700 }}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
+            <div className="driver-board-summary"><span>{visibleBids.length} {activeTab} quote{visibleBids.length === 1 ? '' : 's'}</span>{visibleBids.length > 0 && <button type="button" onClick={toggleExpandAll} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontWeight: 700 }}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>}</div>
             {error && <div role="alert" className="driver-board-alert driver-board-alert--error">{error}</div>}
             {loading ? <div className="driver-load-row"><EmptyState compact title="Loading quotes…" /></div>
               : visibleBids.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No quotes here" description={`No ${activeTab} quotes found.`} /></div>
