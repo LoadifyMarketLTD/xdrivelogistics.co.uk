@@ -234,7 +234,7 @@
 }
 
 .customer-dash-table td {
-  min-height: 42px;
+  height: 42px;
   padding: 8px 10px;
   border-bottom: 1px solid #e5e7eb;
   color: #1a1f2b;
