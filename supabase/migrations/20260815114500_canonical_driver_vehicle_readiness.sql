@@ -193,12 +193,15 @@ BEGIN
 END;
 $$;
 
+-- The resolver exposes readiness blockers and the canonical vehicle id. Keep it
+-- behind authorised server/RPC boundaries rather than granting arbitrary
+-- authenticated callers direct cross-driver introspection.
 REVOKE ALL ON FUNCTION public.driver_operational_eligibility(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.driver_operational_eligibility(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.driver_operational_eligibility(uuid) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.driver_operational_eligibility(uuid) TO service_role;
 
 COMMENT ON FUNCTION public.driver_operational_eligibility(uuid) IS
-  'Canonical fail-closed owner/company driver readiness: active account, current verified onboarding identity bound to the same company, active company membership, exactly one active assigned vehicle, current MOT and vehicle insurance.';
+  'Canonical fail-closed owner/company driver readiness: active account, current verified onboarding identity bound to the same company, active company membership, exactly one active assigned vehicle, current MOT and vehicle insurance. Direct execution is service-bound; authorised operational RPCs may compose it internally.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
