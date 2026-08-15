@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
@@ -13,12 +13,15 @@ const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Ret
 const fieldStyle = { width: '100%', minHeight: '32px', border: '1px solid #cfd7e3', borderRadius: '4px', padding: '0 8px', fontSize: '12px', boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
 const textareaStyle = { ...fieldStyle, minHeight: '72px', padding: '7px 8px', resize: 'vertical' as const };
 const labelStyle = { display: 'grid', gap: '4px', color: '#334155', fontSize: '11px', lineHeight: '14px', fontWeight: 700 };
+const readOnlyStyle = { ...fieldStyle, display: 'flex', alignItems: 'center', background: '#f8fafc', color: '#334155' };
 
 const numberOrNull = (value: string) => {
   if (!value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 };
+
+const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 
 export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' }) {
   const { user } = useAuth();
@@ -27,6 +30,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
   const [form, setForm] = useState({
     clientName: '', clientEmail: '', clientPhone: '',
     pickupDate: '', pickupTime: '08:00', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
@@ -38,8 +42,37 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     executionInstructions: '',
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    const resolvePostingIdentity = async () => {
+      if (!user?.id || !isSupabaseConfigured) return;
+      const companyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null });
+      if (!companyId || cancelled) return;
+      const { data } = await supabase
+        .from('companies')
+        .select('id, name, company_number')
+        .eq('id', companyId)
+        .maybeSingle();
+      if (!cancelled) {
+        setPostingCompany({
+          id: companyId,
+          name: typeof data?.name === 'string' ? data.name : null,
+          memberId: typeof data?.company_number === 'string' ? data.company_number : null,
+        });
+      }
+    };
+    void resolvePostingIdentity();
+    return () => { cancelled = true; };
+  }, [user?.companyId, user?.id]);
+
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
   const dateTime = (date: string, time: string) => date ? `${date}T${time === 'ASAP' ? '23:59' : time}:00` : null;
+  const dimensions = [form.length, form.width, form.height].map(numberOrNull);
+  const hasDimensionValues = dimensions.some((value) => value != null);
+  const hasSuspiciousSmallDimension = dimensions.some((value) => value != null && value > 0 && value <= 10);
+  const dimensionSummary = hasDimensionValues
+    ? `${dimensions.map((value) => value == null ? '—' : value).join(' × ')} cm`
+    : 'Enter dimensions in centimetres';
 
   const save = async (publish: boolean) => {
     setError('');
@@ -115,19 +148,22 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        referenceId?: string;
         job?: { id: string };
         replayed?: boolean;
       } | null;
       if (!response.ok || !payload?.job?.id) {
-        throw new Error(payload?.error ?? 'The load could not be saved.');
+        const baseMessage = payload?.error ?? 'The load could not be saved.';
+        throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
       }
 
-      setSuccess(publish ? 'Load published to the carrier marketplace.' : 'Draft load saved.');
+      const reference = xdriveReference(payload.job.id);
+      setSuccess(publish ? `Load ${reference} published to the carrier marketplace.` : `Draft load ${reference} saved.`);
       const destination = mode === 'broker'
         ? `/broker/loads?created=${payload.job.id}`
         : `/customer/loads?created=${payload.job.id}`;
       idempotencyKeyRef.current = null;
-      window.setTimeout(() => router.push(destination), 350);
+      window.setTimeout(() => router.push(destination), 650);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The load could not be saved.');
     } finally {
@@ -139,6 +175,14 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     <div style={{ display: 'grid', gap: '12px' }}>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
+
+      <Panel title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
+        <div style={gridStyle}>
+          <label style={labelStyle}>Posting member<div style={readOnlyStyle}>{postingCompany?.name ?? 'Signed-in company'}</div></label>
+          <label style={labelStyle}>Member ID<div style={readOnlyStyle}>{postingCompany?.memberId ?? 'Resolved automatically from company record'}</div></label>
+          <label style={labelStyle}>XDrive load reference<div style={readOnlyStyle}>Generated automatically after save / publish</div></label>
+        </div>
+      </Panel>
 
       {mode === 'broker' && (
         <Panel title="Customer" description="The customer whose transport request is being managed by the broker.">
@@ -162,8 +206,11 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => set('vehicle', event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
           {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => (
-            <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" value={form[key]} onChange={(event) => set(key, event.target.value)} /></label>
+            <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" value={form[key]} placeholder={key === 'length' ? 'e.g. 400' : key === 'width' ? 'e.g. 185' : key === 'height' ? 'e.g. 200' : undefined} onChange={(event) => set(key, event.target.value)} /></label>
           ))}
+        </div>
+        <div style={{ marginTop: '6px', fontSize: '11px', color: hasSuspiciousSmallDimension ? '#b45309' : '#64748b', fontWeight: hasSuspiciousSmallDimension ? 700 : 500 }}>
+          {dimensionSummary}. {hasSuspiciousSmallDimension ? 'Values are stored in centimetres: 4 means 4 cm; for 4 m enter 400.' : 'Example: 400 × 185 × 200 cm = 4.00 × 1.85 × 2.00 m.'}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
           {([['tailLift', 'Tail lift'], ['forklift', 'Forklift'], ['handball', 'Handball'], ['adr', 'ADR'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile']] as const).map(([key, label]) => (
@@ -174,11 +221,11 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         </div>
       </Panel>
 
-      <Panel title="Commercial references" description={mode === 'broker' ? 'Customer revenue and carrier target cost remain internal commercial fields; references remain hidden from the pre-award Marketplace.' : 'References and customer budget remain part of the job record; private references are not exposed pre-award.'}>
+      <Panel title="Commercial references" description={mode === 'broker' ? 'Customer revenue and carrier target cost remain internal commercial fields; customer-owned references remain hidden from the pre-award Marketplace.' : 'Customer-owned references and budget remain part of the job record; private references are not exposed pre-award.'}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Customer reference<input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} /></label>
           <label style={labelStyle}>PO number<input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} /></label>
-          <label style={labelStyle}>Booking reference<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /></label>
+          <label style={labelStyle}>Customer booking reference (optional)<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /><span style={{ color: '#64748b', fontWeight: 500 }}>External/customer reference only. XDrive generates its own load reference automatically.</span></label>
           <label style={labelStyle}>{mode === 'broker' ? 'Customer price (£)' : 'Budget (£)'}<input style={fieldStyle} type="number" min="0" value={form.customerPrice} onChange={(event) => set('customerPrice', event.target.value)} /></label>
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
