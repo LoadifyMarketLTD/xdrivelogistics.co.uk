@@ -125,7 +125,11 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
     ? { label: 'POD generated', tone: 'green' as const, detail: sheet.pod.photoCount > 0 ? `${sheet.pod.photoCount} evidence file(s)` : 'Generated POD record' }
     : sheet.pod.photoCount > 0
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
-      : { label: 'Pending', tone: 'orange' as const, detail: 'No generated POD or delivery evidence recorded' };
+      : sheet.pod.required === false
+        ? { label: 'Not required', tone: 'grey' as const, detail: 'This booking does not require POD evidence.' }
+        : sheet.pod.required === true
+          ? { label: 'Pending', tone: 'orange' as const, detail: 'POD is required and no generated POD or delivery evidence is recorded.' }
+          : { label: 'Requirement not supplied', tone: 'grey' as const, detail: 'The booking does not state whether POD is required; no evidence is inferred.' };
   const carrierMode = mode === 'carrier';
   const presentationStatus = workspaceJobPresentationStatus({
     status: sheet.status,
