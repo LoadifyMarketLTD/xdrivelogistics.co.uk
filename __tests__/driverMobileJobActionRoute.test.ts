@@ -10,12 +10,18 @@ const mocks = vi.hoisted(() => ({
   mapJob: vi.fn((job: unknown) => job),
   autoGenerateMarketplaceInvoice: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
   storageList: vi.fn(),
   existingJob: null as Record<string, unknown> | null,
   updatedJob: null as Record<string, unknown> | null,
 }));
 
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({ rpc: mocks.rpc }),
+}));
+
 vi.mock('../app/api/_lib/supabaseAdmin', () => ({
+  getBearerToken: () => 'driver-access-token',
   isSupabaseAdminConfigured: true,
   supabaseAdmin: {
     from: mocks.from,
@@ -52,6 +58,7 @@ const makeJobTable = () => ({
     eq: () => ({
       eq: () => ({
         maybeSingle: async () => ({ data: mocks.existingJob, error: null }),
+        single: async () => ({ data: mocks.updatedJob, error: null }),
       }),
     }),
   }),
@@ -69,6 +76,8 @@ const makeJobTable = () => ({
 describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
   beforeEach(() => {
     vi.resetModules();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-test-key';
     mocks.getFeatureFlag.mockReset();
     mocks.requireDriver.mockReset();
     mocks.insertTrackingEvent.mockReset();
@@ -77,12 +86,14 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     mocks.mapJob.mockReset();
     mocks.autoGenerateMarketplaceInvoice.mockReset();
     mocks.from.mockReset();
+    mocks.rpc.mockReset();
     mocks.storageList.mockReset();
 
     mocks.appendStatusHistory.mockReturnValue([]);
     mocks.hasPod.mockReturnValue(true);
     mocks.mapJob.mockImplementation((job: unknown) => job);
     mocks.requireDriver.mockResolvedValue({ userId: 'user-1', driverId: 'driver-1' });
+    mocks.rpc.mockResolvedValue({ error: null });
     mocks.autoGenerateMarketplaceInvoice.mockResolvedValue({
       created: false,
       invoiceId: null,
@@ -96,6 +107,8 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
       pod_required: false,
       awarded_carrier_company_id: 'carrier-1',
       assigned_driver_id: 'driver-1',
+      delivery_signature_data: null,
+      client_signature_name: null,
     };
     mocks.updatedJob = {
       ...mocks.existingJob,
@@ -156,11 +169,16 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     const { POST } = await import('../app/api/driver/mobile/jobs/[id]/[action]/route');
 
     const res = await POST(
-      new NextRequest('http://localhost/api/driver/mobile/jobs/job-1/delivered', { method: 'POST' }),
+      new NextRequest('http://localhost/api/driver/mobile/jobs/job-1/delivered', { method: 'POST', body: '{}' }),
       { params: Promise.resolve({ id: 'job-1', action: 'delivered' }) }
     );
 
     expect(res.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith('driver_update_job_status_atomic', expect.objectContaining({
+      p_driver_id: 'driver-1',
+      p_job_id: 'job-1',
+      p_next_status: 'delivered',
+    }));
     expect(mocks.autoGenerateMarketplaceInvoice).toHaveBeenCalledWith({
       supabase: expect.anything(),
       jobId: 'job-1',
