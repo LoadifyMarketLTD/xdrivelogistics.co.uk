@@ -59,7 +59,11 @@ export default function CustomerDiaryPage() {
       .filter((job) => !refNeedle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle))
       .filter((job) => !pickupNeedle || `${job.pickup_postcode ?? ''} ${job.pickup_location ?? ''}`.toLowerCase().includes(pickupNeedle))
       .filter((job) => !deliveryNeedle || `${job.delivery_postcode ?? ''} ${job.delivery_location ?? ''}`.toLowerCase().includes(deliveryNeedle))
-      .filter((job) => !carrierNeedle || (quoteInfoByJob.get(job.id)?.acceptedCompanyName ?? '').toLowerCase().includes(carrierNeedle))
+      .filter((job) => {
+        if (!carrierNeedle) return true;
+        const info = quoteInfoByJob.get(job.id);
+        return `${info?.acceptedCompanyName ?? ''} ${info?.acceptedCompanyId ?? ''} ${job.awarded_carrier_company_id ?? ''}`.toLowerCase().includes(carrierNeedle);
+      })
       .filter((job) => !date || String(job.pickup_datetime ?? '').slice(0, 10) === date)
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
   }, [carrier, data.jobs, date, delivery, pickup, quoteInfoByJob, reference, tab]);
@@ -113,7 +117,7 @@ export default function CustomerDiaryPage() {
             <label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
             <label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
             <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
-            <label>AWARDED CARRIER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company" /></label>
+            <label>AWARDED CARRIER / MEMBER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company / ID" /></label>
             <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><ActionButton tone="secondary" onClick={clear}>Clear</ActionButton></div>
           </div>
         </aside>
@@ -137,17 +141,18 @@ export default function CustomerDiaryPage() {
               {visibleRows.map((job) => {
                 const quoteInfo = quoteInfoByJob.get(job.id);
                 const open = expanded === job.id;
-                const podReady = (job.delivery_photos?.length ?? 0) > 0;
-                const carrierName = quoteInfo?.acceptedCompanyName ?? (job.awarded_carrier_company_id ? 'Awarded carrier' : 'Not awarded');
+                const deliveryPhotoAvailable = (job.delivery_photos?.length ?? 0) > 0;
+                const carrierCompanyId = quoteInfo?.acceptedCompanyId ?? job.awarded_carrier_company_id ?? null;
+                const carrierName = quoteInfo?.acceptedCompanyName ?? (carrierCompanyId ? 'Awarded carrier' : 'Not awarded');
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / QUOTES</div><strong>{quoteInfo?.acceptedCompanyId ? <MemberIdentityLink companyId={quoteInfo.acceptedCompanyId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'} awaiting decision</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / QUOTES</div><strong>{carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={job.current_status ?? job.status} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</ActionButton></div></div>
                     </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>POD: {podReady ? 'Captured' : 'Pending'}</span><span>Updated {when(job.updated_at)}</span></div>
+                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="customer" />}
                   </article>
                 );
