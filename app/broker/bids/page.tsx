@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
@@ -42,18 +42,24 @@ function matchesTab(bid: WorkspaceBid, tab: QuoteTab) {
 
 export default function BrokerQuotesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const data = useCompanyWorkspaceData();
+  const deepJob = searchParams.get('job');
   const [tab, setTab] = useState<QuoteTab>('received');
   const [customer, setCustomer] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [carrier, setCarrier] = useState('');
-  const [reference, setReference] = useState('');
+  const [reference, setReference] = useState(deepJob || '');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [working, setWorking] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [identities, setIdentities] = useState<Record<string, BidderIdentity>>({});
   const [identityWarning, setIdentityWarning] = useState('');
+
+  useEffect(() => {
+    if (deepJob) setReference(deepJob);
+  }, [deepJob]);
 
   useEffect(() => {
     let active = true;
@@ -123,7 +129,10 @@ export default function BrokerQuotesPage() {
     await data.refresh();
   };
 
-  const clearFilters = () => { setCustomer(''); setFrom(''); setTo(''); setCarrier(''); setReference(''); };
+  const clearFilters = () => {
+    setCustomer(''); setFrom(''); setTo(''); setCarrier(''); setReference('');
+    if (deepJob) router.push('/broker/bids');
+  };
   const tabs: Array<{ id: QuoteTab; label: string; count: number }> = [
     { id: 'received', label: 'Received', count: counts.received },
     { id: 'accepted', label: 'Accepted', count: counts.accepted },
@@ -135,7 +144,12 @@ export default function BrokerQuotesPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Carrier sourcing" title="Quotes" description="Compare carrier and owner-driver responses, inspect the member profile and award without leaving the broker board." actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>Compare view</ActionButton>} />
+      <PageHeader
+        eyebrow="Carrier sourcing"
+        title="Quotes"
+        description={deepJob ? `Compare and award quotes for load ${deepJob.slice(0, 8).toUpperCase()} from the canonical Broker Quotes board.` : 'Compare carrier and owner-driver responses, inspect the member profile and award without leaving the broker board.'}
+        actions={deepJob ? <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Show all quotes</ActionButton> : undefined}
+      />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       {identityWarning && <AlertBanner tone="warning">{identityWarning}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
@@ -197,7 +211,7 @@ export default function BrokerQuotesPage() {
                         <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid var(--ws-border-soft, #e2e7ed)', background: '#fff' }}><strong>Carrier message</strong><div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{bid.message || 'No message supplied'}</div></div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                           {bid.status === 'submitted' && <ActionButton tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</ActionButton>}
-                          <ActionButton tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Compare all quotes</ActionButton>
+                          <ActionButton tone="secondary" onClick={() => router.push(`/broker/bids?job=${job.id}`)}>Compare all quotes</ActionButton>
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open load</ActionButton>
                         </div>
                       </div>
