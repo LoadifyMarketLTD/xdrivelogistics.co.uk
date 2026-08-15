@@ -21,15 +21,11 @@ export async function GET(request: NextRequest) {
   }
 
   const token = getBearerToken(request);
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
+  if (!token) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   const validatorClient = supabaseValidator ?? supabaseAdmin;
   const { data: { user }, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
@@ -46,28 +42,20 @@ export async function GET(request: NextRequest) {
     .filter((membership) => ['owner', 'admin', 'dispatcher', 'viewer'].includes(String(membership.role_in_company)))
     .map((membership) => String(membership.company_id));
 
-  if (ownerCompanyIds.length === 0) {
-    return NextResponse.json({ identities: [] });
-  }
+  if (ownerCompanyIds.length === 0) return NextResponse.json({ identities: [] });
 
   const { data: bidData, error: bidError } = await supabaseAdmin
     .from('job_bids')
     .select('id, company_id, bidder_driver_id, bidder_user_id, bidder_id, jobs!inner(company_id)')
     .in('jobs.company_id', ownerCompanyIds);
 
-  if (bidError) {
-    return NextResponse.json({ error: 'Unable to load bidder identities.' }, { status: 500 });
-  }
+  if (bidError) return NextResponse.json({ error: 'Unable to load bidder identities.' }, { status: 500 });
 
   const bids = (bidData ?? []) as unknown as BidIdentityRow[];
-  const companyIds = [...new Set(bids.map((bid) => bid.company_id).filter((id): id is string => Boolean(id)))];
   const driverIds = [...new Set(bids.map((bid) => bid.bidder_driver_id).filter((id): id is string => Boolean(id)))];
   const userIds = [...new Set(bids.map((bid) => bid.bidder_user_id ?? bid.bidder_id).filter((id): id is string => Boolean(id)))];
 
-  const [companiesResult, driversResult, profilesResult] = await Promise.all([
-    companyIds.length
-      ? supabaseAdmin.from('companies').select('id, name, company_type').in('id', companyIds)
-      : Promise.resolve({ data: [], error: null }),
+  const [driversResult, profilesResult] = await Promise.all([
     driverIds.length
       ? supabaseAdmin.from('drivers').select('id, display_name, company_id').in('id', driverIds)
       : Promise.resolve({ data: [], error: null }),
@@ -76,14 +64,27 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (companiesResult.error || driversResult.error || profilesResult.error) {
+  if (driversResult.error || profilesResult.error) {
     return NextResponse.json({ error: 'Unable to resolve bidder profiles.' }, { status: 500 });
   }
 
-  const companies = new Map((companiesResult.data ?? []).map((row) => [row.id, row]));
   const drivers = new Map((driversResult.data ?? []).map((row) => [row.id, row]));
   const profiles = new Map((profilesResult.data ?? []).map((row) => [row.user_id, row]));
+  const resolvedCompanyIds = [...new Set(bids.map((bid) => {
+    const driver = bid.bidder_driver_id ? drivers.get(bid.bidder_driver_id) : null;
+    const profile = profiles.get(bid.bidder_user_id ?? bid.bidder_id ?? '') ?? null;
+    return bid.company_id ?? driver?.company_id ?? profile?.company_id ?? null;
+  }).filter((id): id is string => Boolean(id)))];
 
+  const companiesResult = resolvedCompanyIds.length
+    ? await supabaseAdmin.from('companies').select('id, name, company_type').in('id', resolvedCompanyIds)
+    : { data: [], error: null };
+
+  if (companiesResult.error) {
+    return NextResponse.json({ error: 'Unable to resolve bidder company profiles.' }, { status: 500 });
+  }
+
+  const companies = new Map((companiesResult.data ?? []).map((row) => [row.id, row]));
   const identities = bids.map((bid) => {
     const driver = bid.bidder_driver_id ? drivers.get(bid.bidder_driver_id) : null;
     const profile = profiles.get(bid.bidder_user_id ?? bid.bidder_id ?? '') ?? null;
@@ -94,8 +95,10 @@ export async function GET(request: NextRequest) {
 
     return {
       bidId: bid.id,
+      companyId,
+      driverId: bid.bidder_driver_id ?? null,
       companyName,
-      companyType: company?.company_type?.trim() || null,
+      companyType: company?.company_type?.trim() || (companyId ? null : 'owner_driver'),
       personName,
       displayName: companyName || personName || 'Carrier profile incomplete',
     };
