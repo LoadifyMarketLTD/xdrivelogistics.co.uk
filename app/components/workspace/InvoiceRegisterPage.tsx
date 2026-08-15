@@ -22,6 +22,7 @@ const money = (value: number | null | undefined) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value ?? 0));
 const date = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString('en-GB') : 'Not set';
+const xdriveReference = (jobId: string | null | undefined) => jobId ? `XDL-${jobId.slice(0, 8).toUpperCase()}` : '—';
 
 const config: Record<Mode, { eyebrow: string; title: string; description: string; detailBase: string }> = {
   customer: {
@@ -95,7 +96,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
 
       <Panel
         title="Invoice register"
-        description="Open a row to view commercial detail, documents, status history, payments and disputes."
+        description="Open a row to view commercial detail, documents, status history, payments and disputes. Job references use the same XDrive identifier shown in Loads and Bookings."
         actions={
           <select value={status} onChange={(event) => setStatus(event.target.value)} style={{ border: '1px solid #d7e0ea', borderRadius: 8, padding: '0.5rem 0.65rem', background: '#fff', fontSize: '0.76rem' }}>
             <option value="all">All statuses</option>
@@ -109,10 +110,10 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
         }
       >
         <DataTable
-          columns={['Invoice', 'Job', 'Counterparty', 'Amount', 'Due', 'Status', 'Action']}
+          columns={['Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Status', 'Action']}
           rows={invoices.map((invoice) => [
             <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
-            invoice.job_id?.slice(0, 8).toUpperCase() ?? '—',
+            xdriveReference(invoice.job_id),
             invoice.client_name ?? (mode === 'broker-carrier' ? 'Carrier' : 'Customer'),
             money(invoice.amount),
             date(invoice.due_date),
