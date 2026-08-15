@@ -46,20 +46,24 @@ function requirements(job: Record<string, unknown>) {
   return rows;
 }
 
-function invoiceVisibleToCompany(invoice: Record<string, unknown>, companyId: string) {
+function invoiceVisibleToCompany(
+  invoice: Record<string, unknown>,
+  viewerCompanyId: string,
+  ownerCompanyId: string,
+) {
   const ids = [invoice.company_id, invoice.customer_company_id, invoice.bill_to_company_id, invoice.buyer_company_id, invoice.supplier_company_id]
     .map(text)
-    .filter(Boolean);
-  // Legacy job-linked invoices without party columns remain visible to the job
-  // owner. Explicitly attributed invoices must include the viewer company.
-  return ids.length === 0 || ids.includes(companyId);
+    .filter((value): value is string => Boolean(value));
+  // Legacy job-linked invoices without explicit party columns remain visible to
+  // the job owner only. Awarded carriers must have an explicit invoice party.
+  return ids.length === 0 ? viewerCompanyId === ownerCompanyId : ids.includes(viewerCompanyId);
 }
 
 function workspaceKind(companyType: unknown) {
   const type = String(companyType ?? '').trim().toLowerCase();
   if (type === 'broker') return 'broker' as const;
   if (['customer', 'shipper'].includes(type)) return 'customer' as const;
-  return 'company' as const;
+  return 'carrier' as const;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -92,16 +96,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!rawJob) return respond(404, { error: 'Job not found.' });
 
   const job = rawJob as Record<string, unknown>;
-  const companyId = text(job.company_id);
-  if (!companyId) return respond(404, { error: 'Job company is unavailable.' });
+  const ownerCompanyId = text(job.company_id);
+  if (!ownerCompanyId) return respond(404, { error: 'Job company is unavailable.' });
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
+  const awardedCompanyId = text(job.awarded_carrier_company_id) ?? text(job.assigned_company_id);
+  const allowedCompanyIds = [...new Set([ownerCompanyId, awardedCompanyId].filter((value): value is string => Boolean(value)))];
+
+  const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', companyId)
+    .select('company_id, role_in_company')
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
-    .maybeSingle();
+    .in('company_id', allowedCompanyIds);
+
   if (membershipError) {
     return operationalError({
       status: 500,
@@ -111,13 +118,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       retryable: true,
     });
   }
-  if (!membership) return respond(403, { error: 'You do not have access to this company job.' });
+  if (!memberships?.length) return respond(403, { error: 'You do not have access to this job sheet.' });
 
-  const awardedCompanyId = text(job.awarded_carrier_company_id) ?? text(job.assigned_company_id);
+  // Prefer the job-owner context when a user genuinely belongs to both sides;
+  // otherwise use the awarded carrier membership. This prevents a carrier-only
+  // viewer from receiving owner/broker commercial fields.
+  const ownerMembership = memberships.find((membership) => String(membership.company_id) === ownerCompanyId);
+  const viewerCompanyId = ownerMembership
+    ? ownerCompanyId
+    : String(memberships[0]?.company_id ?? '');
+  if (!viewerCompanyId) return respond(403, { error: 'You do not have access to this job sheet.' });
+
   const assignedDriverId = text(job.assigned_driver_id);
-  const [ownerCompanyResult, carrierCompanyResult, bidResult, agreementResult, driverResult, trackingResult, documentsResult, invoicesResult] = await Promise.all([
-    supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', companyId).maybeSingle(),
+  const [ownerCompanyResult, carrierCompanyResult, viewerCompanyResult, bidResult, agreementResult, driverResult, trackingResult, documentsResult, invoicesResult] = await Promise.all([
+    supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', ownerCompanyId).maybeSingle(),
     awardedCompanyId ? supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', awardedCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', viewerCompanyId).maybeSingle(),
     supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     assignedDriverId ? supabaseAdmin.from('drivers').select('id, display_name').eq('id', assignedDriverId).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -128,19 +144,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const ownerCompany = (ownerCompanyResult.data ?? {}) as Record<string, unknown>;
   const carrierCompany = (carrierCompanyResult.data ?? {}) as Record<string, unknown>;
+  const viewerCompany = (viewerCompanyResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
   const driver = (driverResult.data ?? {}) as Record<string, unknown>;
   const details = parseLoadDetails(job.load_details);
-  const viewerWorkspace = workspaceKind(ownerCompany.company_type);
+  const viewerWorkspace = workspaceKind(viewerCompany.company_type);
+  const viewerIsAwardedCarrier = Boolean(awardedCompanyId && viewerCompanyId === awardedCompanyId && viewerCompanyId !== ownerCompanyId);
 
   const carrierCost = numberValue(agreement.agreed_amount)
     ?? numberValue(job.agreed_rate_gbp)
     ?? numberValue(job.agreed_rate)
     ?? numberValue(acceptedBid.bid_price_gbp)
     ?? numberValue(acceptedBid.amount);
-  const customerPrice = numberValue(job.budget_amount);
-  const brokerMargin = customerPrice != null && carrierCost != null ? customerPrice - carrierCost : null;
+  const rawCustomerPrice = numberValue(job.budget_amount);
+  const customerPrice = viewerIsAwardedCarrier ? null : rawCustomerPrice;
+  const brokerMargin = rawCustomerPrice != null && carrierCost != null ? rawCustomerPrice - carrierCost : null;
   const paymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
   const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required) ?? true;
 
@@ -159,7 +178,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
   const invoices = invoicesResult.error ? [] : ((invoicesResult.data ?? []) as Record<string, unknown>[])
-    .filter((invoice) => invoiceVisibleToCompany(invoice, companyId))
+    .filter((invoice) => invoiceVisibleToCompany(invoice, viewerCompanyId, ownerCompanyId))
     .map((invoice) => ({
       id: text(invoice.id),
       number: text(invoice.invoice_number),
@@ -174,12 +193,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     sheet: {
       jobId,
       viewerWorkspace,
+      viewerCompanyId,
       status: text(job.current_status) ?? text(job.status) ?? 'unknown',
       createdAt: text(job.created_at),
       updatedAt: text(job.updated_at),
       acceptedAt: text(agreement.accepted_at) ?? text(agreement.agreed_at) ?? text(acceptedBid.updated_at) ?? text(acceptedBid.created_at),
       ownerCompany: {
-        companyId,
+        companyId: ownerCompanyId,
         name: text(ownerCompany.name) ?? 'Job owner',
         memberId: text(ownerCompany.company_number),
         phone: text(ownerCompany.phone),
@@ -192,8 +212,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         phone: text(carrierCompany.phone),
         type: text(carrierCompany.company_type),
       } : null,
-      // Driver operational identity may be useful to the booking owner; internal
-      // driver account/compliance status is deliberately not exposed here.
       driver: assignedDriverId ? { id: assignedDriverId, name: text(driver.display_name), status: null } : null,
       customer: { name: text(job.client_name), email: text(job.client_email), phone: text(job.client_phone) },
       references: {
@@ -231,9 +249,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       commercial: {
         customerPrice,
         carrierCost,
-        // Broker margin/target values are an internal broker workspace concept.
-        // Customer/company job sheets do not receive them in the browser payload.
-        margin: viewerWorkspace === 'broker' ? brokerMargin : null,
+        margin: viewerWorkspace === 'broker' && viewerCompanyId === ownerCompanyId ? brokerMargin : null,
         currency: text(agreement.currency) ?? text(job.currency) ?? text(acceptedBid.currency) ?? 'GBP',
         paymentTerms,
         paymentDueDays: numberValue(agreement.payment_due_days),
@@ -241,7 +257,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         vatAmount: numberValue(agreement.vat_amount),
         agreedGross: numberValue(agreement.agreed_gross_amount),
         snapshotAvailable: Boolean(agreementResult.data && !agreementResult.error),
-        targetCarrierCost: viewerWorkspace === 'broker' ? details.targetCarrierCost : null,
+        targetCarrierCost: viewerWorkspace === 'broker' && viewerCompanyId === ownerCompanyId ? details.targetCarrierCost : null,
       },
       pod: {
         required: podRequired,
@@ -266,6 +282,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       partial: Boolean(
         ownerCompanyResult.error
         || carrierCompanyResult.error
+        || viewerCompanyResult.error
         || bidResult.error
         || agreementResult.error
         || driverResult.error
