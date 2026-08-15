@@ -65,6 +65,35 @@ const when = (value: string | null) => value ? new Date(value).toLocaleString('e
 const money = (value: number | null, currency = 'GBP') => value == null ? 'Not supplied' : new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const human = (value: string | null | undefined) => value ? value.replace(/_/g, ' ') : 'Not supplied';
 
+function normalizeComparable(value: string | null | undefined) {
+  return (value ?? '').trim().replace(/[,.]+$/g, '').replace(/\s+/g, ' ').toUpperCase();
+}
+
+function formatExecutionAddress(address: string | null, postcode: string | null) {
+  const cleanAddress = address?.trim() || '';
+  const cleanPostcode = postcode?.trim() || '';
+  if (!cleanAddress) return cleanPostcode || 'Not supplied';
+  if (!cleanPostcode) return cleanAddress;
+  const addressComparable = normalizeComparable(cleanAddress);
+  const postcodeComparable = normalizeComparable(cleanPostcode);
+  return addressComparable.includes(postcodeComparable) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
+}
+
+function formatScheduleDetail(dateTime: string | null, slot: string | null) {
+  const exact = when(dateTime);
+  const cleanSlot = slot?.trim();
+  if (!cleanSlot) return exact;
+  if (normalizeComparable(cleanSlot) === normalizeComparable(exact)) return exact;
+  return `${exact} · Slot ${cleanSlot}`;
+}
+
+function availabilityCopy(value: string | null | undefined, fallback: string) {
+  if (!value) return fallback;
+  const normalized = value.toLowerCase();
+  if (normalized.includes('immutable') || normalized.includes('snapshot') || normalized.includes('verified data contract')) return fallback;
+  return value;
+}
+
 function Detail({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
   return <div className="workspace-detail-item"><strong>{label}</strong><div>{value}</div>{detail ? <small>{detail}</small> : null}</div>;
 }
@@ -152,7 +181,7 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
-      {sheet.partial && <AlertBanner tone="warning">Part of this job sheet could not be enriched. Verified values are shown; missing values are not fabricated.</AlertBanner>}
+      {sheet.partial && <AlertBanner tone="warning">Some booking details are unavailable. Verified values are shown and missing values are left unfilled.</AlertBanner>}
       <div className="workspace-tab-strip" role="tablist" aria-label="Job sheet sections" style={{ display: 'flex', overflowX: 'auto', marginBottom: 6 }}>
         {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}{item.id === 'documents' && sheet.documents.length ? ` ${sheet.documents.length}` : ''}</button>)}
       </div>
@@ -167,7 +196,7 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
             <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} detail={sheet.driver?.status ? `Account ${human(sheet.driver.status)}` : undefined} />
             <Detail label="Allocated vehicle" value={allocatedVehicleLabel} detail={allocatedVehicleDetail} />
             <Detail label="Requested vehicle" value={human(sheet.load.requestedVehicle)} />
-            <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? sheet.unavailable.bodyType : undefined} />
+            <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? availabilityCopy(sheet.unavailable.bodyType, 'Not available for this booking.') : undefined} />
             <Detail label="Cargo" value={human(sheet.load.cargoType)} detail={[sheet.load.weightKg != null ? `${sheet.load.weightKg} kg` : null, sheet.load.pallets != null ? `${sheet.load.pallets} pallet(s)` : null].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Dimensions" value={dimensions} />
             <Detail label="Cargo value" value={money(sheet.load.cargoValueGbp)} />
@@ -176,17 +205,17 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
             <Detail label="Customer ref" value={sheet.references.customer ?? 'Not supplied'} />
             <Detail label="PO number" value={sheet.references.purchaseOrder ?? 'Not supplied'} />
             {!carrierMode && <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />}
-            <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Immutable commercial snapshot available' : 'No immutable snapshot returned'} />
+            <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'} />
             {mode === 'broker' && <Detail label="Margin" value={money(sheet.commercial.margin, sheet.commercial.currency)} detail={sheet.commercial.targetCarrierCost != null ? `Target carrier cost ${money(sheet.commercial.targetCarrierCost, sheet.commercial.currency)}` : undefined} />}
             <Detail label="Payment terms" value={sheet.commercial.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.commercial.paymentDueDays != null ? `${sheet.commercial.paymentDueDays} day(s)` : undefined} />
-            <Detail label="Extras" value="Not supplied" detail={sheet.unavailable.extras} />
+            <Detail label="Extras" value="Not supplied" detail={availabilityCopy(sheet.unavailable.extras, 'No historical extras record is available for this booking.')} />
             <Detail label="Hard-copy POD" value={hardCopyPod} />
           </div>
 
           <div className="workspace-detail-grid">
-            <Detail label="Pickup" value={[sheet.route.pickup.address, sheet.route.pickup.postcode].filter(Boolean).join(', ') || 'Not supplied'} detail={`${when(sheet.route.pickup.dateTime)}${sheet.route.pickup.slot ? ` · ${sheet.route.pickup.slot}` : ''}`} />
+            <Detail label="Pickup" value={formatExecutionAddress(sheet.route.pickup.address, sheet.route.pickup.postcode)} detail={formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot)} />
             <Detail label="Pickup contact" value={sheet.route.pickup.contactName ?? 'Not supplied'} detail={sheet.route.pickup.contactPhone ?? undefined} />
-            <Detail label="Delivery" value={[sheet.route.delivery.address, sheet.route.delivery.postcode].filter(Boolean).join(', ') || 'Not supplied'} detail={`${when(sheet.route.delivery.dateTime)}${sheet.route.delivery.slot ? ` · ${sheet.route.delivery.slot}` : ''}`} />
+            <Detail label="Delivery" value={formatExecutionAddress(sheet.route.delivery.address, sheet.route.delivery.postcode)} detail={formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot)} />
             <Detail label="Delivery contact" value={sheet.route.delivery.contactName ?? 'Not supplied'} detail={sheet.route.delivery.contactPhone ?? undefined} />
           </div>
 
@@ -198,7 +227,7 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
           )}
           {sheet.load.requirements.length > 0 && <div className="workspace-record-meta"><span><strong>Requirements:</strong> {sheet.load.requirements.join(' · ')}</span></div>}
           {sheet.notes.documentChecklist.length > 0 && <div className="workspace-record-meta"><span><strong>Paperwork:</strong> {sheet.notes.documentChecklist.join(' · ')}</span></div>}
-          <div className="workspace-detail-item"><strong>Booking footer / working instructions</strong><div>Unavailable</div><small>{sheet.unavailable.bookingFooter}</small></div>
+          <div className="workspace-detail-item"><strong>Booking footer / working instructions</strong><div>Unavailable</div><small>{availabilityCopy(sheet.unavailable.bookingFooter, 'Not available for this historical booking.')}</small></div>
         </div>
       )}
 
@@ -206,11 +235,11 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
 
       {tab === 'history' && (sheet.timeline.length ? <div style={{ display: 'grid' }}>{[...sheet.timeline].reverse().map((event, index) => <div key={event.id ?? `${event.eventType}-${index}`} className="workspace-record-meta"><span><strong>{human(event.eventType)}</strong></span><span>{when(event.createdAt)}</span><span>{event.message ?? event.userName ?? 'Operational update'}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
 
-      {tab === 'documents' && (sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{document.type}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" />)}
+      {tab === 'documents' && (sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{human(document.type)}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" />)}
 
       {tab === 'pod' && <div className="workspace-detail-grid"><Detail label="POD required" value={sheet.pod.required == null ? 'Not supplied' : sheet.pod.required ? 'Yes' : 'No'} /><Detail label="Hard-copy POD" value={hardCopyPod} /><Detail label="POD status" value={<StatusBadge value={podState.label} tone={podState.tone} />} detail={podState.detail} /><Detail label="Evidence files" value={sheet.pod.photoCount} /><Detail label="Generated" value={sheet.pod.generated ? when(sheet.pod.generatedAt) : 'Not confirmed'} /><Detail label="Review" value={human(sheet.pod.reviewStatus)} detail={sheet.pod.reviewNote ?? undefined} /></div>}
 
-      {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{invoice.paymentStatus ?? invoice.status ?? 'Not supplied'}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No authorised invoice linked to this job" />)}
+      {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{human(invoice.paymentStatus ?? invoice.status)}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No authorised invoice linked to this job" />)}
     </div>
   );
 }
