@@ -212,7 +212,7 @@ export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' 
 export function toMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return 'Price TBC';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value);
 }
 
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
@@ -266,12 +266,15 @@ export function mapJob(row: MobileJobRow) {
   };
 }
 
-export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, note: string) {
+export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string) {
   if (!supabaseAdmin) return;
   await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
     created_by: userId,
+    user_id: userId,
     event_type: eventType,
-    note,
+    event_time: new Date().toISOString(),
+    message,
+    meta: { source: 'driver_mobile' },
   });
 }
