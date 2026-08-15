@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { ActionButton, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
@@ -154,10 +153,7 @@ function dimensions(load: MarketplaceLoad) {
 }
 
 export default function AvailableLoadsPage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const companyId = user?.companyId ?? null;
-  const userId = user?.id ?? null;
   const [loads, setLoads] = useState<MarketplaceLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -266,14 +262,27 @@ export default function AvailableLoadsPage() {
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   const handleBidSubmit = async (loadId: string) => {
-    if (!userId || !bidAmount || bidLoading) return;
+    if (!bidAmount || bidLoading) return;
     const amount = Number.parseFloat(bidAmount);
     if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a valid quote amount greater than £0.'); return; }
     setBidLoading(true); setError('');
-    const { error: bidError } = await supabase.from('job_bids').insert({ job_id: loadId, company_id: companyId, bidder_user_id: userId, bidder_driver_id: user?.driverId ?? null, bid_price_gbp: amount, amount, currency: 'GBP', message: bidMessage.trim() || null, status: 'submitted' });
-    if (bidError) { setError('Your quote could not be submitted. Check the amount and try again.'); setBidLoading(false); return; }
-    setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
-    await fetchLoads({ background: true }); setBidLoading(false);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/driver/bids', {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: loadId, amount, message: bidMessage.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
+      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
+      await fetchLoads({ background: true });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
+    } finally {
+      setBidLoading(false);
+    }
   };
 
   const visibleLoads = filteredLoads.slice(0, visibleCount); const canLoadMore = visibleCount < filteredLoads.length;
