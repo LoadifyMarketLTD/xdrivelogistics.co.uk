@@ -64,7 +64,7 @@ describe('super-admin live table view', () => {
     ]);
   });
 
-  it('renders diagnostic notices for degraded-schema fallback responses', () => {
+  it('renders diagnostic notice content for degraded-schema fallback responses', () => {
     const html = render(
       <SuperAdminLiveTableView
         icon="🔔"
@@ -86,8 +86,8 @@ describe('super-admin live table view', () => {
       />,
     );
 
-    expect(html).toContain('Diagnostic:');
     expect(html).toContain('error detail unavailable');
+    expect(html).toContain('durability columns have not been applied');
   });
 
   it('renders an error state without empty or healthy summary cards', () => {
@@ -113,7 +113,7 @@ describe('super-admin live table view', () => {
     );
 
     expect(html).toContain('Failed to load notification events.');
-    expect(html).toContain('Source unavailable.');
+    expect(html).toContain('Service temporarily unavailable');
     expect(html).not.toContain('No notifications found.');
     expect(html).not.toContain('healthy');
   });
@@ -201,13 +201,13 @@ describe('notifications page contract', () => {
     expect(feedback).toEqual({ tone: 'success', message: 'Retry queued.' });
   });
 
-  it('surfaces retry failures with the server error message', async () => {
+  it('returns a safe generic retry failure without exposing server diagnostics', async () => {
     const feedback = await performNotificationRetry({
       notificationId: 'evt-1',
       getAuthHeaderImpl: async () => '******',
       fetchImpl: async () => new Response(JSON.stringify({ error: 'Retry denied.' }), { status: 409 }),
     });
 
-    expect(feedback).toEqual({ tone: 'error', message: 'Retry denied.' });
+    expect(feedback).toEqual({ tone: 'error', message: 'Notification retry is currently unavailable.' });
   });
 });
