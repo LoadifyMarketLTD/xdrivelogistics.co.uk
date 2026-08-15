@@ -320,10 +320,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       ? `Your carrier company · ${sheet.executingCompanyId.slice(0, 8).toUpperCase()}`
       : `Carrier company · ${sheet.executingCompanyId.slice(0, 8).toUpperCase()}`
     : 'Not supplied';
-  const bookingNotes = [
-    sheet?.executionInstructions ? ['Private execution instructions', sheet.executionInstructions] as const : null,
-    sheet?.publicQuoteNotes ? ['Public quote notes retained on booking', sheet.publicQuoteNotes] as const : null,
-  ].filter((entry): entry is readonly [string, string] => Boolean(entry));
+  const bookingNotes: Array<readonly [string, string]> = [];
+  if (sheet?.executionInstructions) bookingNotes.push(['Private execution instructions', sheet.executionInstructions]);
+  if (sheet?.publicQuoteNotes) bookingNotes.push(['Public quote notes retained on booking', sheet.publicQuoteNotes]);
   const stopInstructions = [sheet?.pickup.notes, sheet?.delivery.notes].filter((value): value is string => Boolean(value?.trim()));
   const paperworkInstructions = sheet?.documentChecklist ?? [];
 
