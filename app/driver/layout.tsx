@@ -11,7 +11,6 @@ import './driver-top-shell.css';
 import './driver-account.css';
 import './driver-loads-visual-standard.css';
 import './driver-exchange-structural-v2.css';
-import '../components/workspace/workspace-exchange-standard.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import './driver-dashboard-reference.css';
 
@@ -24,7 +23,7 @@ export const metadata: Metadata = {
 
 export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-driver-workspace">
+    <div className="xdrive-workspace-measured xdrive-driver-workspace">
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
         <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>
       </ProtectedRoute>
