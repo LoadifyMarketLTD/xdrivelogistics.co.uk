@@ -32,10 +32,18 @@ type DirectoryDriver = {
   vehicleType: string | null;
 };
 
+type DirectoryTruncation = {
+  companies?: boolean;
+  drivers?: boolean;
+  vehicleEnrichment?: boolean;
+  limits?: { companies?: number; drivers?: number; vehicles?: number };
+};
+
 type DirectoryResponse = {
   companies?: DirectoryCompany[];
   drivers?: DirectoryDriver[];
   partial?: boolean;
+  truncation?: DirectoryTruncation;
   privacy?: string;
   error?: string;
 };
@@ -60,6 +68,7 @@ export function MemberDirectoryPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [partial, setPartial] = useState(false);
+  const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
 
   const load = useCallback(async () => {
@@ -75,10 +84,13 @@ export function MemberDirectoryPage({
       setCompanies(payload.companies ?? []);
       setDrivers(payload.drivers ?? []);
       setPartial(payload.partial === true);
+      setTruncation(payload.truncation ?? {});
       setPrivacy(payload.privacy ?? '');
     } catch (reason) {
       setCompanies([]);
       setDrivers([]);
+      setPartial(false);
+      setTruncation({});
       setError(reason instanceof Error ? reason.message : 'Directory could not be loaded.');
     } finally {
       setLoading(false);
@@ -123,6 +135,11 @@ export function MemberDirectoryPage({
     setAvailability('');
   };
 
+  const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment);
+  const capMessage = capped
+    ? `Directory results may be incomplete because the current endpoint is capped at ${truncation.limits?.companies ?? 500} companies and ${truncation.limits?.drivers ?? 500} drivers${truncation.vehicleEnrichment ? `, with vehicle enrichment capped at ${truncation.limits?.vehicles ?? 1000} records` : ''}. Do not treat the visible list as the complete XDrive network.`
+    : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
+
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
@@ -130,7 +147,7 @@ export function MemberDirectoryPage({
         <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
       </div>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-      {partial && <AlertBanner tone="warning">Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.</AlertBanner>}
+      {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
 
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Directory filters">
@@ -156,7 +173,7 @@ export function MemberDirectoryPage({
             <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
             <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
           </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching member record(s)</span><span>Click a company identity for Member Profile</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><span>Click a company identity for Member Profile</span></div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
@@ -172,7 +189,7 @@ export function MemberDirectoryPage({
                   </div>
                 </article>
               ))}
-              {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState title="No companies match these filters" /></div>}
+              {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState title="No companies match these loaded records" /></div>}
             </div>
           ) : (
             <div className="workspace-record-list">
@@ -186,7 +203,7 @@ export function MemberDirectoryPage({
                   </div>
                 </article>
               ))}
-              {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState title="No drivers match these filters" /></div>}
+              {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState title="No drivers match these loaded records" /></div>}
             </div>
           )}
         </main>
