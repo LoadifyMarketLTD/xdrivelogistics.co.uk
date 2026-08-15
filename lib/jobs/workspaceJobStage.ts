@@ -15,6 +15,7 @@ export type WorkspaceStageJob = {
   awarded_carrier_company_id?: string | null;
   assigned_company_id?: string | null;
   assigned_driver_id?: string | null;
+  vehicle_id?: string | null;
 };
 
 export const IN_PROGRESS_JOB_STATUSES = new Set([
@@ -79,6 +80,11 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
  * helper keeps UI badges truthful without mutating historical data or
  * inventing a backend lifecycle transition.
  *
+ * When a surface actually has authoritative `vehicle_id` data, a driver-only
+ * assignment is not presented as a complete allocation: approved allocation
+ * requires the driver and canonical vehicle together. We fall back to the
+ * carrier-awarded presentation instead of inventing a new lifecycle status.
+ *
  * Execution/completion states keep their specific raw status because labels
  * such as `loaded`, `on_site_delivery` and `delivered` remain operationally
  * useful. Only stale pre-execution labels are normalised to awarded/allocated.
@@ -86,8 +92,19 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
 export function workspaceJobPresentationStatus(job: WorkspaceStageJob) {
   const raw = normalizedJobStatus(job);
   const stage = classifyWorkspaceJobStage(job);
+  const vehicleFactAvailable = Object.prototype.hasOwnProperty.call(job, 'vehicle_id');
+  const incompleteKnownAllocation = vehicleFactAvailable
+    && Boolean(job.assigned_driver_id)
+    && !job.vehicle_id;
 
-  if (stage === 'allocated' && !IN_PROGRESS_JOB_STATUSES.has(raw) && !COMPLETED_JOB_STATUSES.has(raw)) {
+  if (
+    stage === 'allocated'
+    && !IN_PROGRESS_JOB_STATUSES.has(raw)
+    && !COMPLETED_JOB_STATUSES.has(raw)
+  ) {
+    if (incompleteKnownAllocation && (job.awarded_carrier_company_id || job.assigned_company_id)) {
+      return 'awarded';
+    }
     return 'allocated';
   }
   if (stage === 'awarded') return 'awarded';
