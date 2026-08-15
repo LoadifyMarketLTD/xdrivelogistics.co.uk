@@ -11,13 +11,16 @@ type SectionState = {
 
 type MemberProfileResponse = {
   member: {
-    companyId: string;
+    companyId: string | null;
+    driverId?: string | null;
     name: string;
     memberId: string | null;
     businessPhone: string | null;
     memberType: string;
     memberSince: string | null;
     status: string;
+    availability?: string | null;
+    vehicleType?: string | null;
   };
   sections: {
     feedback: SectionState;
@@ -49,6 +52,10 @@ function memberSince(value: string | null) {
     : date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function human(value: string | null | undefined) {
+  return value ? value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Not supplied';
+}
+
 function SectionMessage({ section }: { section: SectionState }) {
   return (
     <div style={{ minHeight: 116, display: 'grid', alignContent: 'center' }}>
@@ -63,15 +70,17 @@ function SectionMessage({ section }: { section: SectionState }) {
 
 export function MemberIdentityLink({
   companyId,
+  driverId,
   children,
   title,
 }: {
-  companyId: string | null | undefined;
+  companyId?: string | null;
+  driverId?: string | null;
   children: ReactNode;
   title?: string;
 }) {
   const [open, setOpen] = useState(false);
-  if (!companyId) return <>{children}</>;
+  if (!companyId && !driverId) return <>{children}</>;
   return (
     <>
       <button
@@ -95,12 +104,20 @@ export function MemberIdentityLink({
       >
         {children}
       </button>
-      {open && <MemberProfileOverlay companyId={companyId} onClose={() => setOpen(false)} />}
+      {open && <MemberProfileOverlay companyId={companyId} driverId={driverId} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export function MemberProfileOverlay({ companyId, onClose }: { companyId: string; onClose: () => void }) {
+export function MemberProfileOverlay({
+  companyId,
+  driverId,
+  onClose,
+}: {
+  companyId?: string | null;
+  driverId?: string | null;
+  onClose: () => void;
+}) {
   const [profile, setProfile] = useState<MemberProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -113,7 +130,13 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error('Your session has expired. Sign in again.');
-      const response = await fetch(`/api/member-profile/${encodeURIComponent(companyId)}`, {
+      const endpoint = companyId
+        ? `/api/member-profile/${encodeURIComponent(companyId)}`
+        : driverId
+          ? `/api/member-profile/driver/${encodeURIComponent(driverId)}`
+          : null;
+      if (!endpoint) throw new Error('Member identity is unavailable.');
+      const response = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -126,7 +149,7 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, driverId]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -147,17 +170,22 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
     return profile.sections.businessDocuments;
   }, [profile, tab]);
 
+  const detailRows = profile ? [
+    ['Member', profile.member.name],
+    ['Member ID', profile.member.memberId ?? 'Not supplied'],
+    ['Type', profile.member.memberType],
+    ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
+    ['Member since', memberSince(profile.member.memberSince)],
+    ['Account status', human(profile.member.status)],
+    ...(profile.member.driverId ? [['Availability', human(profile.member.availability)], ['Vehicle', human(profile.member.vehicleType)]] : []),
+  ] : [];
+
   return (
     <div
       role="presentation"
       onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1200,
-        display: 'grid',
-        placeItems: 'center',
-        padding: 16,
+        position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', padding: 16,
         background: 'rgba(15, 23, 42, 0.48)',
       }}
     >
@@ -166,15 +194,9 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
         aria-modal="true"
         aria-label="Member profile"
         style={{
-          width: 'min(960px, calc(100vw - 32px))',
-          maxHeight: 'min(690px, calc(100vh - 32px))',
-          display: 'grid',
-          gridTemplateRows: 'auto auto minmax(0, 1fr) auto',
-          overflow: 'hidden',
-          border: `1px solid ${workspaceTheme.borderStrong}`,
-          borderRadius: 4,
-          background: workspaceTheme.surface,
-          boxShadow: '0 16px 48px rgba(15, 23, 42, 0.22)',
+          width: 'min(960px, calc(100vw - 32px))', maxHeight: 'min(690px, calc(100vh - 32px))', display: 'grid',
+          gridTemplateRows: 'auto auto minmax(0, 1fr) auto', overflow: 'hidden', border: `1px solid ${workspaceTheme.borderStrong}`,
+          borderRadius: 4, background: workspaceTheme.surface, boxShadow: '0 16px 48px rgba(15, 23, 42, 0.22)',
         }}
       >
         <header style={{ minHeight: 42, padding: '7px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderBottom: `1px solid ${workspaceTheme.border}`, background: '#f4f6f8' }}>
@@ -199,17 +221,10 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
               aria-selected={tab === item.id}
               onClick={() => setTab(item.id)}
               style={{
-                minHeight: 30,
-                padding: '0 10px',
-                flex: '0 0 auto',
-                border: 0,
-                borderRight: `1px solid ${workspaceTheme.border}`,
+                minHeight: 30, padding: '0 10px', flex: '0 0 auto', border: 0, borderRight: `1px solid ${workspaceTheme.border}`,
                 borderBottom: tab === item.id ? `2px solid ${workspaceTheme.blue}` : '2px solid transparent',
-                background: tab === item.id ? '#eff6ff' : '#fff',
-                color: tab === item.id ? workspaceTheme.navy : workspaceTheme.text,
-                fontSize: 11,
-                fontWeight: tab === item.id ? 700 : 600,
-                cursor: 'pointer',
+                background: tab === item.id ? '#eff6ff' : '#fff', color: tab === item.id ? workspaceTheme.navy : workspaceTheme.text,
+                fontSize: 11, fontWeight: tab === item.id ? 700 : 600, cursor: 'pointer',
               }}
             >
               {item.label}
@@ -225,14 +240,7 @@ export function MemberProfileOverlay({ companyId, onClose }: { companyId: string
           ) : profile && tab === 'details' ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, overflow: 'hidden' }}>
-                {[
-                  ['Member', profile.member.name],
-                  ['Member ID', profile.member.memberId ?? 'Not supplied'],
-                  ['Type', profile.member.memberType],
-                  ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
-                  ['Member since', memberSince(profile.member.memberSince)],
-                  ['Account status', profile.member.status],
-                ].map(([label, value]) => (
+                {detailRows.map(([label, value]) => (
                   <div key={label} style={{ minHeight: 50, padding: '7px 9px', borderRight: `1px solid ${workspaceTheme.divider}`, borderBottom: `1px solid ${workspaceTheme.divider}` }}>
                     <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10, lineHeight: '13px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
                     <strong style={{ display: 'block', marginTop: 2, color: workspaceTheme.text, fontSize: 12, lineHeight: '16px', fontWeight: 650 }}>{value}</strong>
