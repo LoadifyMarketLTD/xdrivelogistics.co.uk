@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { canonicalJobStatus, filterJobsForDriver, recentCompletedJobs } from '../../lib/driverDashboard';
+import { jobLifecyclePresentationGroup } from '../../lib/jobs/jobLifecyclePresentation';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
@@ -78,24 +79,11 @@ type DashboardContextWarnings = {
   feedback?: string;
 };
 
-const ACTIVE_STATUSES = new Set([
-  'awarded',
-  'allocated',
-  'accepted',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
-  'delivered',
-]);
-
-const UPCOMING_STATUSES = new Set(['awarded', 'allocated', 'accepted']);
 const DOCUMENT_ATTENTION_STATUSES = new Set(['pending', 'rejected', 'expired']);
 
+// Presentation-only action copy. Lifecycle grouping itself is owned by
+// jobLifecyclePresentationGroup and mutations remain authoritative in
+// driver_update_job_status_atomic.
 const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   awarded: {
     kind: 'transition',
@@ -242,7 +230,9 @@ export default function DriverDashboard() {
     [data.jobs, ownerDriver, user?.driverId],
   );
 
-  const currentJob = myJobs.find((job) => ACTIVE_STATUSES.has(canonicalJobStatus(job.current_status, job.status)));
+  const currentJob = myJobs.find((job) =>
+    jobLifecyclePresentationGroup(canonicalJobStatus(job.current_status, job.status)) === 'active'
+  );
   const currentStatus = currentJob ? canonicalJobStatus(currentJob.current_status, currentJob.status).toLowerCase() : null;
   const currentAction = currentStatus
     ? NEXT_DRIVER_ACTIONS[currentStatus] ?? {
@@ -257,12 +247,11 @@ export default function DriverDashboard() {
     .sort((a, b) => String(a.pickup_datetime ?? '').localeCompare(String(b.pickup_datetime ?? '')));
 
   const upcomingJobs = myJobs
-    .filter((job) => {
-      const status = canonicalJobStatus(job.current_status, job.status);
-      return UPCOMING_STATUSES.has(status)
-        && Boolean(job.pickup_datetime)
-        && new Date(job.pickup_datetime as string).getTime() > Date.now();
-    })
+    .filter((job) =>
+      jobLifecyclePresentationGroup(canonicalJobStatus(job.current_status, job.status)) === 'upcoming'
+      && Boolean(job.pickup_datetime)
+      && new Date(job.pickup_datetime as string).getTime() > Date.now()
+    )
     .sort((a, b) => String(a.pickup_datetime ?? '').localeCompare(String(b.pickup_datetime ?? '')));
 
   const recentBookings = [...myJobs]
@@ -622,7 +611,7 @@ export default function DriverDashboard() {
               <div className="driver-dashboard-section__body">
                 {!currentJob || !currentAction ? (
                   <div className="driver-load-row">
-                    <EmptyState compact title="No active job" description="Allocated work will appear here as the primary execution record." />
+                    <EmptyState compact title="No active job" description="Allocated work is shown as upcoming; execution appears here once the job enters an active lifecycle stage." />
                   </div>
                 ) : (
                   <>
