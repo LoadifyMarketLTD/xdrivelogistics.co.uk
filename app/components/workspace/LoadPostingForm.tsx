@@ -21,6 +21,17 @@ const numberOrNull = (value: string) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 };
 
+const metresToCm = (value: string) => {
+  const metres = numberOrNull(value);
+  return metres == null ? null : Math.round(metres * 100);
+};
+
+const normalizePostcode = (value: string) => {
+  const compact = value.toUpperCase().replace(/\s+/g, ' ').trim().replace(/\s/g, '');
+  return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
+};
+
+const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizePostcode(value));
 const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 
 export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' }) {
@@ -69,8 +80,6 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   const setVehicle = (value: string) => setForm((current) => ({
     ...current,
     vehicle: value,
-    // A vehicle option whose name explicitly includes the capability must not
-    // be persisted alongside a contradictory "not required" flag.
     tailLift: value === 'Luton Tail Lift' ? true : current.tailLift,
     adr: value === 'ADR Vehicle' ? true : current.adr,
     temperatureControlled: value === 'Refrigerated Vehicle' || value === 'Artic 44T Refrigerated'
@@ -78,18 +87,28 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
       : current.temperatureControlled,
   }));
   const dateTime = (date: string, time: string) => date ? `${date}T${time === 'ASAP' ? '23:59' : time}:00` : null;
-  const dimensions = [form.length, form.width, form.height].map(numberOrNull);
-  const hasDimensionValues = dimensions.some((value) => value != null);
-  const hasSuspiciousSmallDimension = dimensions.some((value) => value != null && value > 0 && value <= 10);
+  const dimensionsMetres = [form.length, form.width, form.height].map(numberOrNull);
+  const hasDimensionValues = dimensionsMetres.some((value) => value != null);
+  const hasImplausibleDimension = dimensionsMetres.some((value) => value != null && value > 20);
   const dimensionSummary = hasDimensionValues
-    ? `${dimensions.map((value) => value == null ? '—' : value).join(' × ')} cm`
-    : 'Enter dimensions in centimetres';
+    ? `${dimensionsMetres.map((value) => value == null ? '—' : value.toFixed(2)).join(' × ')} m`
+    : 'Enter dimensions in metres';
 
   const save = async (publish: boolean) => {
     setError('');
     setSuccess('');
     if (!form.pickupDate || !form.pickupAddress.trim() || !form.pickupPostcode.trim() || !form.deliveryAddress.trim() || !form.deliveryPostcode.trim()) {
       setError('Collection date, collection address, delivery address and both postcodes are required.');
+      return;
+    }
+    const pickupPostcode = normalizePostcode(form.pickupPostcode);
+    const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
+    if (!isFullUkPostcode(pickupPostcode) || !isFullUkPostcode(deliveryPostcode)) {
+      setError('Enter full UK postcodes for collection and delivery, for example BB1 1AA and DA8 1AA.');
+      return;
+    }
+    if (hasImplausibleDimension) {
+      setError('Check the cargo dimensions. Length, width and height are entered in metres.');
       return;
     }
     if (!user?.id || !isSupabaseConfigured) {
@@ -123,23 +142,23 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           clientPhone: form.clientPhone || null,
           pickupDateTime: dateTime(form.pickupDate, form.pickupTime),
           pickupTimeSlot: form.pickupTime,
-          pickupAddress: form.pickupAddress,
-          pickupPostcode: form.pickupPostcode,
+          pickupAddress: form.pickupAddress.trim(),
+          pickupPostcode,
           collectionContact: form.collectionContact || null,
           collectionPhone: form.collectionPhone || null,
           deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime),
           deliveryTimeSlot: form.deliveryTime,
-          deliveryAddress: form.deliveryAddress,
-          deliveryPostcode: form.deliveryPostcode,
+          deliveryAddress: form.deliveryAddress.trim(),
+          deliveryPostcode,
           deliveryContact: form.deliveryContact || null,
           deliveryPhone: form.deliveryPhone || null,
           vehicleLabel: form.vehicle,
           cargoLabel: form.cargo,
           weightKg: numberOrNull(form.weight),
           pallets: numberOrNull(form.pallets),
-          lengthCm: numberOrNull(form.length),
-          widthCm: numberOrNull(form.width),
-          heightCm: numberOrNull(form.height),
+          lengthCm: metresToCm(form.length),
+          widthCm: metresToCm(form.width),
+          heightCm: metresToCm(form.height),
           cargoValueGbp: numberOrNull(form.cargoValue),
           customerReference: form.customerReference || null,
           purchaseOrder: form.purchaseOrder || null,
@@ -207,8 +226,8 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
 
       <Panel title="Collection and delivery" description="Full execution addresses and site contacts are stored for the awarded job; Marketplace shows only broad route areas before award.">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: '12px' }}>
-          <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(value) => set('pickupDate', value)} onTime={(value) => set('pickupTime', value)} onPostcode={(value) => set('pickupPostcode', value)} onAddress={(value) => set('pickupAddress', value)} onContact={(value) => set('collectionContact', value)} onPhone={(value) => set('collectionPhone', value)} requiredDate />
-          <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(value) => set('deliveryDate', value)} onTime={(value) => set('deliveryTime', value || 'ASAP')} onPostcode={(value) => set('deliveryPostcode', value)} onAddress={(value) => set('deliveryAddress', value)} onContact={(value) => set('deliveryContact', value)} onPhone={(value) => set('deliveryPhone', value)} />
+          <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(value) => set('pickupDate', value)} onTime={(value) => set('pickupTime', value)} onPostcode={(value) => set('pickupPostcode', value.toUpperCase())} onAddress={(value) => set('pickupAddress', value)} onContact={(value) => set('collectionContact', value)} onPhone={(value) => set('collectionPhone', value)} requiredDate />
+          <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(value) => set('deliveryDate', value)} onTime={(value) => set('deliveryTime', value || 'ASAP')} onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())} onAddress={(value) => set('deliveryAddress', value)} onContact={(value) => set('deliveryContact', value)} onPhone={(value) => set('deliveryPhone', value)} />
         </div>
       </Panel>
 
@@ -216,12 +235,12 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
-          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => (
-            <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" value={form[key]} placeholder={key === 'length' ? 'e.g. 400' : key === 'width' ? 'e.g. 185' : key === 'height' ? 'e.g. 200' : undefined} onChange={(event) => set(key, event.target.value)} /></label>
+          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (m)'], ['width', 'Width (m)'], ['height', 'Height (m)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => (
+            <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" step={key === 'length' || key === 'width' || key === 'height' ? '0.01' : undefined} value={form[key]} placeholder={key === 'length' ? 'e.g. 4.00' : key === 'width' ? 'e.g. 1.85' : key === 'height' ? 'e.g. 2.00' : undefined} onChange={(event) => set(key, event.target.value)} /></label>
           ))}
         </div>
-        <div style={{ marginTop: '6px', fontSize: '11px', color: hasSuspiciousSmallDimension ? '#b45309' : '#64748b', fontWeight: hasSuspiciousSmallDimension ? 700 : 500 }}>
-          {dimensionSummary}. {hasSuspiciousSmallDimension ? 'Values are stored in centimetres: 4 means 4 cm; for 4 m enter 400.' : 'Example: 400 × 185 × 200 cm = 4.00 × 1.85 × 2.00 m.'}
+        <div style={{ marginTop: '6px', fontSize: '11px', color: hasImplausibleDimension ? '#b45309' : '#64748b', fontWeight: hasImplausibleDimension ? 700 : 500 }}>
+          {dimensionSummary}. {hasImplausibleDimension ? 'One or more dimensions exceed 20 m; check the values before saving.' : 'Stored internally in centimetres; enter operational dimensions in metres.'}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
           {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
@@ -287,7 +306,7 @@ function StopFields({ title, date, time, postcode, address, contact, phone, onDa
         <label style={labelStyle}>Date{requiredDate ? ' *' : ''}<input style={fieldStyle} type="date" value={date} onChange={(event) => onDate(event.target.value)} /></label>
         <label style={labelStyle}>Time<input style={fieldStyle} type="time" value={time} onChange={(event) => onTime(event.target.value)} /></label>
       </div>
-      <label style={labelStyle}>Postcode *<input style={fieldStyle} value={postcode} onChange={(event) => onPostcode(event.target.value)} /></label>
+      <label style={labelStyle}>Postcode *<input style={fieldStyle} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} /></label>
       <label style={labelStyle}>Address *<textarea style={textareaStyle} value={address} onChange={(event) => onAddress(event.target.value)} /></label>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
