@@ -8,6 +8,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
+import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
@@ -444,7 +445,7 @@ export default function ReturnJourneysPage() {
                           <div className="driver-load-cell"><span className="driver-cell-label">Departs</span><strong className="driver-cell-primary">{fmtDate(journey.availableFrom)}</strong></div>
                           <div className="driver-load-cell"><span className="driver-cell-label">ETA</span><strong className="driver-cell-primary driver-return-eta-unavailable">ETA unavailable</strong></div>
                           <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(journey.vehicleType)}</strong><span className="driver-cell-secondary">{journey.bodyType || 'Body not specified'}{journey.journeyDistanceMiles != null ? ` · ${journey.journeyDistanceMiles} miles` : ''}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary">{journey.member.name}</strong><span className="driver-cell-secondary">{journey.member.code ? `ID ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary"><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong><span className="driver-cell-secondary">{journey.member.code ? `ID ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
                           <div className="driver-load-cell driver-return-actions-cell"><span className="driver-cell-label">Actions</span><ActionButton tone="secondary" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Collapse' : 'Details'}</ActionButton></div>
                         </div>
                         <div className="driver-load-row__meta">
@@ -459,7 +460,7 @@ export default function ReturnJourneysPage() {
                               <div className="driver-detail-item"><span>Weight</span><strong>{journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'}</strong></div>
                               <div className="driver-detail-item"><span>Space</span><strong>{journey.spaceUnits != null ? journey.spaceUnits : 'Not supplied'}</strong></div>
                               <div className="driver-detail-item"><span>Posted</span><strong>{fmtDate(journey.createdAt)}</strong></div>
-                              <div className="driver-detail-item"><span>Member</span><strong>{journey.member.name}</strong></div>
+                              <div className="driver-detail-item"><span>Member</span><strong><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong></div>
                               <div className="driver-detail-item"><span>Driver</span><strong>{journey.driverName ?? '—'}</strong></div>
                             </div>
                             {journey.notes && <div className="driver-returns-notes"><strong>Notes</strong><span>{journey.notes}</span></div>}
