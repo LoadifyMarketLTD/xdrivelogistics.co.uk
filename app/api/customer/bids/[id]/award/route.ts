@@ -27,7 +27,6 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (authError || !user) return json(401, { error: 'Unauthorized - invalid token.' });
 
-  // Feature flag gate: bid acceptance workflow must be enabled.
   const bidAcceptanceEnabled = await getFeatureFlag(supabaseAdmin, 'bid_acceptance_workflow');
   if (!bidAcceptanceEnabled) {
     return json(503, { error: 'Bid acceptance workflow is currently disabled.' });
@@ -36,11 +35,6 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { id: bidId } = await params;
   if (!bidId) return json(400, { error: 'Bad request - missing bid id.' });
 
-  // Pre-flight: verify the caller is authorised to award this bid.
-  // The canonical accept_job_bid_atomic function authorises actors who are
-  // either (a) the job's created_by user or (b) a company member with an
-  // owner/admin/dispatcher role.  We do a lightweight ownership check here
-  // so we can return a clear 403 before calling the DB function.
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
     .select('id, job_id, status')
@@ -51,29 +45,31 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, created_by, exchange_visibility')
+    .select('id, company_id')
     .eq('id', bid.job_id as string)
     .maybeSingle();
 
   if (jobError || !job) return json(404, { error: 'Job not found.' });
 
-  // Caller must be the job creator OR an active member of the owning company.
-  const isCreator = job.created_by === user.id;
-  if (!isCreator) {
-    const { data: membership } = await supabaseAdmin
-      .from('company_memberships')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('company_id', job.company_id as string)
-      .eq('status', 'active')
-      .maybeSingle();
+  // Mirror accept_job_bid_atomic exactly: only an active owner/admin/dispatcher
+  // of the company that owns the job may make the commercial award. Job
+  // creator identity alone is not an authorisation contract.
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('id, role_in_company')
+    .eq('user_id', user.id)
+    .eq('company_id', job.company_id as string)
+    .eq('status', 'active')
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .maybeSingle();
 
-    if (!membership) {
-      return json(403, { error: 'Forbidden - only the job owner can award bids.' });
-    }
+  if (membershipError) {
+    return json(500, { error: 'Award permission could not be verified.' });
+  }
+  if (!membership) {
+    return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to award bids.' });
   }
 
-  // Delegate to the canonical atomic award function.
   const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
     'accept_job_bid_atomic',
     {
@@ -83,7 +79,8 @@ export async function POST(request: NextRequest, { params }: Params) {
   );
 
   if (rpcError) {
-    return json(500, { error: `Failed to award bid: ${rpcError.message}` });
+    const status = rpcError.code === '42501' ? 403 : rpcError.code === '23514' ? 409 : 500;
+    return json(status, { error: `Failed to award bid: ${rpcError.message}` });
   }
 
   const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
