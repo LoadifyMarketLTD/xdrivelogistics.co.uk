@@ -56,7 +56,28 @@ function invoiceVisibleToCompany(
     .filter((value): value is string => Boolean(value));
   // Legacy job-linked invoices without explicit party columns remain visible to
   // the job owner only. Awarded carriers must have an explicit invoice party.
-  return ids.length === 0 ? viewerCompanyId === ownerCompanyId : ids.includes(viewerCompanyId);
+  const partyVisible = ids.length === 0 ? viewerCompanyId === ownerCompanyId : ids.includes(viewerCompanyId);
+  if (!partyVisible) return false;
+
+  // The customer/job-owner projection must not bypass the verified customer
+  // invoice readiness contract merely because this endpoint uses service-role
+  // reads for enrichment. Draft/pending/cancelled, zero-value or unsent unpaid
+  // invoice records are internal records, not customer-facing invoice truth.
+  if (viewerCompanyId === ownerCompanyId) {
+    const status = String(invoice.status ?? '').trim().toLowerCase();
+    const paymentStatus = String(invoice.payment_status ?? '').trim().toLowerCase();
+    const deliveryState = String(invoice.delivery_state ?? '').trim().toLowerCase();
+    const amount = numberValue(invoice.amount) ?? numberValue(invoice.total) ?? 0;
+    const clientName = text(invoice.client_name)?.trim() ?? '';
+    return !['pending', 'draft', 'cancelled'].includes(status)
+      && amount > 0
+      && clientName.length > 0
+      && (deliveryState === 'sent' || status === 'paid' || paymentStatus === 'paid');
+  }
+
+  // Awarded-carrier invoice visibility stays party-scoped. Do not invent a
+  // customer delivery-state rule for supplier-side invoice records.
+  return true;
 }
 
 function workspaceKind(companyType: unknown) {
