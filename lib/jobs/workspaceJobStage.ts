@@ -80,14 +80,16 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
  * helper keeps UI badges truthful without mutating historical data or
  * inventing a backend lifecycle transition.
  *
- * When a surface actually has authoritative `vehicle_id` data, a driver-only
- * assignment is not presented as a complete allocation: approved allocation
- * requires the driver and canonical vehicle together. We fall back to the
- * carrier-awarded presentation instead of inventing a new lifecycle status.
+ * A complete allocation requires driver + canonical vehicle. When `vehicle_id`
+ * is available, a driver-only assignment is therefore presented as carrier
+ * awarded, not allocated. When a lightweight dataset does not expose
+ * `vehicle_id`, a stale open raw status plus an awarded carrier is also kept at
+ * the conservative `awarded` presentation; only a canonical allocated/accepted
+ * raw status may claim allocation on that reduced projection.
  *
  * Execution/completion states keep their specific raw status because labels
  * such as `loaded`, `on_site_delivery` and `delivered` remain operationally
- * useful. Only stale pre-execution labels are normalised to awarded/allocated.
+ * useful.
  */
 export function workspaceJobPresentationStatus(job: WorkspaceStageJob) {
   const raw = normalizedJobStatus(job);
@@ -96,15 +98,15 @@ export function workspaceJobPresentationStatus(job: WorkspaceStageJob) {
   const incompleteKnownAllocation = vehicleFactAvailable
     && Boolean(job.assigned_driver_id)
     && !job.vehicle_id;
+  const awardedFact = Boolean(job.awarded_carrier_company_id || job.assigned_company_id);
 
   if (
     stage === 'allocated'
     && !IN_PROGRESS_JOB_STATUSES.has(raw)
     && !COMPLETED_JOB_STATUSES.has(raw)
   ) {
-    if (incompleteKnownAllocation && (job.awarded_carrier_company_id || job.assigned_company_id)) {
-      return 'awarded';
-    }
+    if (incompleteKnownAllocation && awardedFact) return 'awarded';
+    if (!vehicleFactAvailable && OPEN_JOB_STATUSES.has(raw) && awardedFact) return 'awarded';
     return 'allocated';
   }
   if (stage === 'awarded') return 'awarded';
