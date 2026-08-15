@@ -15,6 +15,12 @@ describe('workspace job sheet POD truth', () => {
   it('presents unknown POD requirements as not supplied', () => {
     expect(panel).toContain('required: boolean | null');
     expect(panel).toContain("sheet.pod.required == null ? 'Not supplied'");
-    expect(panel).toContain(": 'Not supplied');");
+    expect(panel).toContain("label: 'Requirement not supplied'");
+  });
+
+  it('does not label a no-evidence booking as pending when POD is explicitly not required', () => {
+    expect(panel).toContain("sheet.pod.required === false");
+    expect(panel).toContain("label: 'Not required'");
+    expect(panel).toContain('This booking does not require POD evidence.');
   });
 });
