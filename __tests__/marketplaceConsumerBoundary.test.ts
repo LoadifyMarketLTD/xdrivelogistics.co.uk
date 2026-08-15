@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 
 const preAwardClientSurfaces = [
-  'app/driver/DriverDashboardHome.tsx',
+  'app/driver/page.tsx',
   'app/driver/loads/page.tsx',
   'app/driver/loads/[id]/page.tsx',
   'app/driver/loads/search/page.tsx',
