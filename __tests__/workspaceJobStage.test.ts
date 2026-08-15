@@ -39,11 +39,23 @@ describe('workspace job lifecycle stage', () => {
 
   it('presents stale legacy pre-award statuses from stronger persisted facts', () => {
     expect(workspaceJobPresentationStatus(job('posted', { awarded_carrier_company_id: 'carrier-1' }))).toBe('awarded');
-    expect(workspaceJobPresentationStatus(job('posted', { awarded_carrier_company_id: 'carrier-1', assigned_driver_id: 'driver-1' }))).toBe('allocated');
+    expect(workspaceJobPresentationStatus(job('posted', {
+      awarded_carrier_company_id: 'carrier-1',
+      assigned_driver_id: 'driver-1',
+      vehicle_id: 'vehicle-1',
+    }))).toBe('allocated');
+  });
+
+  it('does not present a known driver-only assignment as a complete allocation', () => {
+    expect(workspaceJobPresentationStatus(job('posted', {
+      awarded_carrier_company_id: 'carrier-1',
+      assigned_driver_id: 'driver-1',
+      vehicle_id: null,
+    }))).toBe('awarded');
   });
 
   it('preserves specific execution and completion labels', () => {
-    expect(workspaceJobPresentationStatus(job('loaded', { assigned_driver_id: 'driver-1' }))).toBe('loaded');
-    expect(workspaceJobPresentationStatus(job('delivered', { assigned_driver_id: 'driver-1' }))).toBe('delivered');
+    expect(workspaceJobPresentationStatus(job('loaded', { assigned_driver_id: 'driver-1', vehicle_id: 'vehicle-1' }))).toBe('loaded');
+    expect(workspaceJobPresentationStatus(job('delivered', { assigned_driver_id: 'driver-1', vehicle_id: 'vehicle-1' }))).toBe('delivered');
   });
 });
