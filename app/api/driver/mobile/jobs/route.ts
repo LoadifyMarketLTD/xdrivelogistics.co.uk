@@ -4,15 +4,14 @@ import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
 
 const scopes: Record<string, string[]> = {
-  active: ['awarded', 'allocated', 'collected', 'in_transit'],
-  upcoming: ['awarded', 'allocated'],
-  completed: ['delivered', 'invoiced', 'paid'],
+  active: ['awarded', 'allocated', 'accepted', 'on_my_way', 'on_site_pickup', 'loaded', 'in_transit', 'on_site_delivery', 'in_progress'],
+  upcoming: ['awarded', 'allocated', 'accepted'],
+  completed: ['delivered', 'completed', 'invoiced', 'paid'],
 };
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
-  // PR-0.2: Gate driver mobile job access behind the driver_mobile_app feature flag.
   const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
   if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
 
@@ -30,8 +29,12 @@ export async function GET(request: NextRequest) {
     .order(scope === 'completed' ? 'updated_at' : 'pickup_datetime', { ascending: scope !== 'completed' })
     .limit(limit);
 
-  const statusList = scopes[scope] ?? scopes.active;
-  query = query.in('status', statusList);
+  // `all` is intentionally assignment-gated rather than Marketplace-gated. It
+  // exists for native clients that need the full authorised execution register.
+  if (scope !== 'all') {
+    const statusList = scopes[scope] ?? scopes.active;
+    query = query.in('status', statusList);
+  }
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
