@@ -36,13 +36,24 @@ export default function CustomerDiaryPage() {
   const [pageSize, setPageSize] = useState(25);
 
   const quoteInfoByJob = useMemo(() => {
-    const map = new Map<string, { submitted: number; acceptedCompanyId: string | null; acceptedCompanyName: string | null }>();
+    const map = new Map<string, {
+      submitted: number;
+      acceptedCompanyId: string | null;
+      acceptedCompanyName: string | null;
+      acceptedDriverId: string | null;
+    }>();
     for (const bid of data.bids) {
-      const row = map.get(bid.job_id) ?? { submitted: 0, acceptedCompanyId: null, acceptedCompanyName: null };
+      const row = map.get(bid.job_id) ?? {
+        submitted: 0,
+        acceptedCompanyId: null,
+        acceptedCompanyName: null,
+        acceptedDriverId: null,
+      };
       if (bid.status === 'submitted') row.submitted += 1;
       if (bid.status === 'accepted') {
         row.acceptedCompanyId = bid.company_id ?? null;
         row.acceptedCompanyName = bid.companies?.name ?? null;
+        row.acceptedDriverId = bid.bidder_driver_id ?? null;
       }
       map.set(bid.job_id, row);
     }
@@ -62,7 +73,7 @@ export default function CustomerDiaryPage() {
       .filter((job) => {
         if (!carrierNeedle) return true;
         const info = quoteInfoByJob.get(job.id);
-        return `${info?.acceptedCompanyName ?? ''} ${info?.acceptedCompanyId ?? ''} ${job.awarded_carrier_company_id ?? ''}`.toLowerCase().includes(carrierNeedle);
+        return `${info?.acceptedCompanyName ?? ''} ${info?.acceptedCompanyId ?? ''} ${info?.acceptedDriverId ?? ''} ${info?.acceptedDriverId ? 'owner driver' : ''} ${job.awarded_carrier_company_id ?? ''} ${job.assigned_driver_id ?? ''}`.toLowerCase().includes(carrierNeedle);
       })
       .filter((job) => !date || String(job.pickup_datetime ?? '').slice(0, 10) === date)
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
@@ -117,7 +128,7 @@ export default function CustomerDiaryPage() {
             <label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
             <label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
             <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
-            <label>AWARDED CARRIER / MEMBER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company / ID" /></label>
+            <label>AWARDED CARRIER / MEMBER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company / owner driver / ID" /></label>
             <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><ActionButton tone="secondary" onClick={clear}>Clear</ActionButton></div>
           </div>
         </aside>
@@ -143,13 +154,14 @@ export default function CustomerDiaryPage() {
                 const open = expanded === job.id;
                 const deliveryPhotoAvailable = (job.delivery_photos?.length ?? 0) > 0;
                 const carrierCompanyId = quoteInfo?.acceptedCompanyId ?? job.awarded_carrier_company_id ?? null;
-                const carrierName = quoteInfo?.acceptedCompanyName ?? (carrierCompanyId ? 'Awarded carrier' : 'Not awarded');
+                const carrierDriverId = quoteInfo?.acceptedDriverId ?? (!carrierCompanyId ? job.assigned_driver_id ?? null : null);
+                const carrierName = quoteInfo?.acceptedCompanyName ?? (carrierCompanyId ? 'Awarded carrier' : carrierDriverId ? 'Owner Driver' : 'Not awarded');
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / QUOTES</div><strong>{carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / QUOTES</div><strong>{carrierCompanyId || carrierDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={job.current_status ?? job.status} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
