@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../../lib/supabaseClient';
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
@@ -63,16 +64,18 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
     }
   };
 
+  const presentationStatus = job ? workspaceJobPresentationStatus(job) : null;
+
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Customer booking"
-        title={job ? `Load ${job.id.slice(0, 8).toUpperCase()}` : 'Booking detail'}
+        title={job ? `XDrive XDL-${job.id.slice(0, 8).toUpperCase()}` : 'Booking detail'}
         description="The authoritative customer-side transport record: Order, exact route, carrier, contacts, POD, history, documents and authorised invoice information."
         actions={
           <>
             <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton>
-            {quotes.length > 0 && <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>All quotes ({quotes.length})</ActionButton>}
+            {quotes.length > 0 && <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>Quotes awaiting decision ({quotes.length})</ActionButton>}
             {invoice && <ActionButton tone="primary" onClick={() => router.push(`/customer/invoices/${invoice.id}`)}>Open invoice</ActionButton>}
           </>
         }
@@ -89,7 +92,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
         <div style={{ display: 'grid', gap: 8 }}>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
             <span><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong> → <strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong></span>
-            <span>Pickup {when(job.pickup_datetime)} · <StatusBadge value={job.current_status ?? job.status} /></span>
+            <span>Pickup {when(job.pickup_datetime)} · <StatusBadge value={presentationStatus ?? 'unknown'} /></span>
           </div>
 
           {!job.awarded_carrier_company_id && quotes.length > 0 && (
