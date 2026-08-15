@@ -56,7 +56,7 @@ export default function DriverNotificationRegister({
   const [error, setError] = useState('');
 
   const loadMessages = useCallback(async () => {
-    if (!isSupabaseConfigured || !user?.companyId) {
+    if (!isSupabaseConfigured || !user?.companyId || !user.id) {
       setMessages([]);
       setLoading(false);
       return;
@@ -67,6 +67,7 @@ export default function DriverNotificationRegister({
       .from('notification_events')
       .select('id, event_type, entity_type, entity_id, payload, status, created_at, recipient_user_id')
       .eq('company_id', user.companyId)
+      .or(`recipient_user_id.is.null,recipient_user_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -74,7 +75,7 @@ export default function DriverNotificationRegister({
       setError('Notifications are temporarily unavailable.');
       setMessages([]);
     } else {
-      setMessages(((data ?? []) as NotificationRow[]).filter((row) => !row.recipient_user_id || row.recipient_user_id === user.id));
+      setMessages((data ?? []) as NotificationRow[]);
     }
     setLoading(false);
   }, [user?.companyId, user?.id]);
