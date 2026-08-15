@@ -201,7 +201,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const customerPrice = viewerIsAwardedCarrier ? null : rawCustomerPrice;
   const brokerMargin = rawCustomerPrice != null && carrierCost != null ? rawCustomerPrice - carrierCost : null;
   const paymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
-  const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required) ?? true;
+  const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required);
 
   const timeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
