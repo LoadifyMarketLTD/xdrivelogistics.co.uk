@@ -59,10 +59,11 @@ describe('Marketplace consumer boundary', () => {
     expect(secureApi).not.toContain('/rest/v1/job_bids');
   });
 
-  it('keeps full assigned execution jobs assignment-gated on the server', () => {
+  it('keeps full assigned execution jobs assignment-gated on the server for every scope', () => {
     const mobileJobs = fs.readFileSync(path.join(root, 'app/api/driver/mobile/jobs/route.ts'), 'utf8');
     expect(mobileJobs).toContain(".eq('assigned_driver_id', driver.driverId)");
-    expect(mobileJobs).toContain("scope !== 'all'");
+    expect(mobileJobs).toContain("const scope = searchParams.get('scope') || 'active'");
+    expect(mobileJobs).toContain('driverJobStatusesForScope(scope)');
   });
 
   it('stages a restrictive DB guard for posted and quoted pre-award Marketplace rows', () => {
