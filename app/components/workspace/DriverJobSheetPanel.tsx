@@ -41,7 +41,7 @@ type DriverSheet = {
     payloadKg: number | null;
     palletsCapacity: number | null;
     hasTailLift: boolean | null;
-    source: 'job' | 'driver_current' | 'none';
+    source: 'job' | 'none';
   };
   cargo: {
     type: string | null;
@@ -56,7 +56,7 @@ type DriverSheet = {
   };
   requirements: string[];
   hardCopyPod: string;
-  podRequired: boolean;
+  podRequired: boolean | null;
   pickup: {
     address: string | null;
     postcode: string | null;
@@ -175,7 +175,7 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
 
   const allocatedVehicleName = [sheet.allocatedVehicle.make, sheet.allocatedVehicle.model, sheet.allocatedVehicle.ref].filter(Boolean).join(' · ');
   const allocatedVehicle = sheet.allocatedVehicle.source === 'none'
-    ? 'Not supplied'
+    ? 'Not assigned on this job'
     : allocatedVehicleName || human(sheet.allocatedVehicle.type);
   const notes = [
     ['Public quote notes', sheet.publicQuoteNotes],
@@ -208,7 +208,7 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
             <Detail label="Customer ref" value={sheet.customerReference ?? 'Not supplied'} />
             <Detail label="PO number" value={sheet.purchaseOrderNumber ?? 'Not supplied'} />
             <Detail label="Requested vehicle" value={human(sheet.requestedVehicle)} />
-            <Detail label="Allocated vehicle" value={allocatedVehicle} detail={sheet.allocatedVehicle.source === 'driver_current' ? 'Current driver vehicle; no job-specific vehicle snapshot is stored.' : undefined} />
+            <Detail label="Allocated vehicle" value={allocatedVehicle} detail={sheet.allocatedVehicle.source === 'none' ? 'No persistent job-level execution vehicle is recorded.' : 'Persistent job-level execution vehicle.'} />
             <Detail label="Body type" value={sheet.allocatedVehicle.bodyType ?? 'Not supplied'} detail={sheet.unavailable.bodyType ?? undefined} />
             <Detail label="Cargo" value={human(sheet.cargo.type)} detail={[sheet.cargo.weightKg != null ? `${sheet.cargo.weightKg} kg` : null, sheet.cargo.pallets != null ? `${sheet.cargo.pallets} pallet(s)` : null].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Dimensions" value={dimensions} />
@@ -234,13 +234,13 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
 
       {tab === 'pod' && (
         <div className="workspace-detail-grid">
-          <Detail label="POD required" value={sheet.podRequired ? 'Yes' : 'No'} />
+          <Detail label="POD required" value={sheet.podRequired == null ? 'Not supplied' : sheet.podRequired ? 'Yes' : 'No'} />
           <Detail label="Hard-copy POD" value={sheet.hardCopyPod} />
           <Detail label="Collection photo" value={sheet.pod.collectionPhotoRecorded ? 'Recorded' : 'Not recorded'} />
           <Detail label="Delivery photos" value={sheet.pod.photoCount} />
           <Detail label="Receiver" value={sheet.pod.receiverName ?? 'Not supplied'} />
           <Detail label="Signature" value={sheet.pod.signatureRecorded ? 'Recorded' : 'Not recorded'} />
-          <Detail label="POD generated" value={sheet.pod.generated ? 'Yes' : 'No'} detail={sheet.pod.generatedAt ? when(sheet.pod.generatedAt) : undefined} />
+          <Detail label="POD generated" value={sheet.pod.generated == null ? 'Not confirmed' : sheet.pod.generated ? 'Yes' : 'No'} detail={sheet.pod.generatedAt ? when(sheet.pod.generatedAt) : undefined} />
         </div>
       )}
 
@@ -250,7 +250,7 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
 
       {tab === 'documents' && (sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{document.type}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" />)}
 
-      {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{invoice.paymentStatus ?? invoice.status ?? 'Not supplied'}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No carrier invoice linked to this driver/company" />)}
+      {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{invoice.paymentStatus ?? invoice.status ?? 'Not supplied'}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="Invoice data not authorised on this Driver job sheet" description="Driver assignment does not grant company invoice visibility." />)}
 
       {tab === 'feedback' && (reviews.length ? <div style={{ display: 'grid', gap: 6 }}>{reviews.map((review) => <div key={review.id} className="workspace-detail-item"><strong>{review.rating != null ? `${review.rating}/5` : 'Feedback'}</strong><div>{review.comment ?? 'No comment supplied'}</div><small>{when(review.created_at)}</small></div>)}</div> : <EmptyState compact title="No feedback recorded" description="No verified write workflow is invented here; existing authorised feedback will appear when present." />)}
     </div>
