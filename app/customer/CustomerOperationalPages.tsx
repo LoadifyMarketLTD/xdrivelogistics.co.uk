@@ -44,6 +44,16 @@ function quoteCounts(data: ReturnType<typeof useCompanyWorkspaceData>) {
   return map;
 }
 
+type BidderIdentity = {
+  bidId: string;
+  companyId: string | null;
+  driverId: string | null;
+  companyName: string | null;
+  personName: string | null;
+  companyType: string | null;
+  displayName: string;
+};
+
 function CustomerOperationalRow({
   job,
   middleLabel,
@@ -160,9 +170,29 @@ export function CustomerQuotesOperationalPage() {
   const router = useRouter();
   const [working, setWorking] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [identityError, setIdentityError] = useState('');
+  const [identities, setIdentities] = useState<Map<string, BidderIdentity>>(new Map());
   const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'accepted' | 'rejected'>('all');
   const [reference, setReference] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadIdentities = async () => {
+      if (!data.bids.length) { setIdentities(new Map()); setIdentityError(''); return; }
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) { setIdentityError('Member profiles are unavailable until the session is refreshed.'); return; }
+      const response = await fetch('/api/workspace/bids/identities', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+      const payload = await response.json().catch(() => ({})) as { identities?: BidderIdentity[]; error?: string };
+      if (cancelled) return;
+      if (!response.ok) { setIdentityError(payload.error ?? 'Bidder member profiles could not be resolved.'); return; }
+      setIdentities(new Map((payload.identities ?? []).map((identity) => [identity.bidId, identity])));
+      setIdentityError('');
+    };
+    void loadIdentities();
+    return () => { cancelled = true; };
+  }, [data.bids]);
 
   const allQuotes = useMemo(() => data.bids.filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status)), [data.bids]);
   const grouped = useMemo(() => {
@@ -172,11 +202,15 @@ export function CustomerQuotesOperationalPage() {
       job,
       quotes: allQuotes
         .filter((bid) => bid.job_id === job.id && (statusFilter === 'all' || bid.status === statusFilter))
-        .filter((bid) => !carrierNeedle || `${bid.companies?.name ?? ''} ${bid.company_id ?? ''}`.toLowerCase().includes(carrierNeedle))
+        .filter((bid) => {
+          if (!carrierNeedle) return true;
+          const identity = identities.get(bid.id);
+          return `${identity?.displayName ?? ''} ${identity?.companyName ?? ''} ${identity?.personName ?? ''} ${identity?.companyId ?? ''} ${identity?.driverId ?? ''} ${bid.companies?.name ?? ''} ${bid.company_id ?? ''}`.toLowerCase().includes(carrierNeedle);
+        })
         .sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)),
     })).filter((group) => group.quotes.length > 0)
       .filter(({ job }) => !refNeedle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle));
-  }, [allQuotes, carrierSearch, data.jobs, reference, statusFilter]);
+  }, [allQuotes, carrierSearch, data.jobs, identities, reference, statusFilter]);
 
   const award = async (id: string) => {
     setWorking(id); setMessage('');
@@ -204,14 +238,14 @@ export function CustomerQuotesOperationalPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Customer commercial" title="Quotes" description="Compare carrier responses by load, inspect the member profile, then award or reject from the same operational board." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
-      {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}{message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') ? 'success' : 'danger'}>{message}</AlertBanner>}
+      <PageHeader eyebrow="Customer commercial" title="Quotes" description="Compare carrier responses by load, inspect Fleet or Owner Driver member profiles, then award or reject from the same operational board." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
+      {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}{message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') ? 'success' : 'danger'}>{message}</AlertBanner>}{identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
       <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load or reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company name or member" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
+        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load or reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'accepted', 'rejected'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span><span>Lowest visible price shown first per load</span></div>
-          {grouped.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading quotes…' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." /></div> : grouped.map(({ job, quotes }) => <section key={job.id} className="workspace-panel" style={{ marginBottom: 8 }}><div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{routeLabel(job)}</strong> · Pickup {when(job.pickup_datetime)} · Load {job.id.slice(0, 8).toUpperCase()}</span><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton></div><DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => [<strong key="carrier"><MemberIdentityLink companyId={bid.company_id}>{bid.companies?.name ?? 'Carrier'}</MemberIdentityLink></strong>, <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>, index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`, bid.message ?? 'No message', when(bid.created_at), <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><ActionButton tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Working…' : 'Award'}</ActionButton><ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton></span> : '—'])} /></section>)}
+          {grouped.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading quotes…' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." /></div> : grouped.map(({ job, quotes }) => <section key={job.id} className="workspace-panel" style={{ marginBottom: 8 }}><div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{routeLabel(job)}</strong> · Pickup {when(job.pickup_datetime)} · Load {job.id.slice(0, 8).toUpperCase()}</span><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton></div><DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => { const identity = identities.get(bid.id); const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId); const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier'); return [<strong key="carrier"><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong>, <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>, index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`, bid.message ?? 'No message', when(bid.created_at), <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><ActionButton tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Working…' : 'Award'}</ActionButton><ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton></span> : '—']; })} /></section>)}
         </main>
       </div>
     </PageFrame>
