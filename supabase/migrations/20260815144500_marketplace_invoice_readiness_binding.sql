@@ -17,7 +17,9 @@ DECLARE
   v_agreement public.job_commercial_agreements%ROWTYPE;
   v_status text;
   v_delivery_photos jsonb;
+  v_pod_documents jsonb;
   v_signature text;
+  v_evidence_count integer := 0;
 BEGIN
   IF NEW.job_id IS NULL THEN
     RETURN NEW;
@@ -68,12 +70,21 @@ BEGIN
 
   IF coalesce(v_agreement.pod_required, v_job.pod_required, true) THEN
     v_delivery_photos := coalesce(v_job.delivery_photos, '[]'::jsonb);
-    v_signature := nullif(btrim(coalesce(v_job.delivery_signature_data #>> '{}', '')), '');
+    v_pod_documents := coalesce(v_job.pod_photos, '[]'::jsonb);
+    v_evidence_count :=
+      CASE WHEN jsonb_typeof(v_delivery_photos) = 'array' THEN jsonb_array_length(v_delivery_photos) ELSE 0 END
+      + CASE WHEN jsonb_typeof(v_pod_documents) = 'array' THEN jsonb_array_length(v_pod_documents) ELSE 0 END;
 
-    IF coalesce(v_job.pod_generated, false) <> true
-       OR v_job.pod_generated_at IS NULL
-       OR jsonb_typeof(v_delivery_photos) <> 'array'
-       OR jsonb_array_length(v_delivery_photos) = 0
+    v_signature := CASE jsonb_typeof(v_job.delivery_signature_data)
+      WHEN 'string' THEN nullif(btrim(v_job.delivery_signature_data #>> '{}'), '')
+      WHEN 'object' THEN nullif(btrim(v_job.delivery_signature_data ->> 'value'), '')
+      ELSE NULL
+    END;
+
+    -- Readiness is evidence-based. pod_generated/pod_generated_at remain useful
+    -- presentation/audit fields, but older valid POD rows are not rejected just
+    -- because those derived flags pre-date the canonical driver lifecycle.
+    IF v_evidence_count = 0
        OR v_signature IS NULL
        OR nullif(btrim(coalesce(v_job.client_signature_name, '')), '') IS NULL THEN
       RAISE EXCEPTION 'Marketplace invoice is not ready: required POD evidence is incomplete.'
@@ -110,7 +121,7 @@ REVOKE ALL ON FUNCTION public.fn_bind_marketplace_invoice_and_require_readiness(
 GRANT EXECUTE ON FUNCTION public.fn_bind_marketplace_invoice_and_require_readiness() TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.fn_bind_marketplace_invoice_and_require_readiness() IS
-  'Binds job-backed supplier invoices to the immutable marketplace agreement and blocks invoicing until delivered/POD-ready.';
+  'Binds job-backed supplier invoices to the immutable marketplace agreement and blocks invoicing until delivered with complete required POD evidence.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
