@@ -79,12 +79,22 @@ function formatExecutionAddress(address: string | null, postcode: string | null)
   return addressComparable.includes(postcodeComparable) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
 }
 
+function rawDateLabel(value: string | null) {
+  const raw = value?.trim();
+  if (!raw) return 'Date not supplied';
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return when(value);
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  return date.toLocaleDateString('en-GB', { dateStyle: 'medium' });
+}
+
 function formatScheduleDetail(dateTime: string | null, slot: string | null) {
-  const exact = when(dateTime);
   const cleanSlot = slot?.trim();
-  if (!cleanSlot) return exact;
-  if (normalizeComparable(cleanSlot) === normalizeComparable(exact)) return exact;
-  return `${exact} · Slot ${cleanSlot}`;
+  if (!cleanSlot) return when(dateTime);
+  const isClockOrWindow = /^\d{1,2}:\d{2}(?:\s*[-–]\s*\d{1,2}:\d{2})?$/.test(cleanSlot);
+  if (isClockOrWindow || cleanSlot.toUpperCase() === 'ASAP') return `${rawDateLabel(dateTime)} · ${cleanSlot}`;
+  return `${when(dateTime)} · ${cleanSlot}`;
 }
 
 function availabilityCopy(value: string | null | undefined, fallback: string) {
@@ -92,6 +102,10 @@ function availabilityCopy(value: string | null | undefined, fallback: string) {
   const normalized = value.toLowerCase();
   if (normalized.includes('immutable') || normalized.includes('snapshot') || normalized.includes('verified data contract')) return fallback;
   return value;
+}
+
+function companyDetail(companyNumber: string | null, phone: string | null) {
+  return [companyNumber ? `Company no. ${companyNumber}` : null, phone].filter(Boolean).join(' · ') || undefined;
 }
 
 function Detail({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
@@ -191,8 +205,8 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
           <div className="workspace-detail-grid">
             <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Customer booking ref ${sheet.references.booking}` : undefined} />
             <Detail label="Status" value={<StatusBadge value={presentationStatus} />} detail={sheet.acceptedAt ? `Awarded ${when(sheet.acceptedAt)}` : undefined} />
-            <Detail label="Posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={[sheet.ownerCompany.memberId, sheet.ownerCompany.phone].filter(Boolean).join(' · ') || undefined} />
-            <Detail label="Awarded carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? [sheet.carrier.memberId, sheet.carrier.phone].filter(Boolean).join(' · ') : undefined} />
+            <Detail label="Posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={companyDetail(sheet.ownerCompany.memberId, sheet.ownerCompany.phone)} />
+            <Detail label="Awarded carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? companyDetail(sheet.carrier.memberId, sheet.carrier.phone) : undefined} />
             <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} detail={sheet.driver?.status ? `Account ${human(sheet.driver.status)}` : undefined} />
             <Detail label="Allocated vehicle" value={allocatedVehicleLabel} detail={allocatedVehicleDetail} />
             <Detail label="Requested vehicle" value={human(sheet.load.requestedVehicle)} />
