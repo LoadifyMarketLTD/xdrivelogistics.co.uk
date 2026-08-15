@@ -34,12 +34,15 @@ BEGIN
   FROM public.drivers d
   WHERE d.id = NEW.bidder_driver_id;
 
-  IF NOT FOUND THEN
+  IF NOT FOUND OR v_driver.user_id IS NULL OR v_driver.company_id IS NULL THEN
     RAISE EXCEPTION 'Driver quote attribution is invalid.' USING ERRCODE = '23514';
   END IF;
 
-  IF NEW.bidder_user_id IS DISTINCT FROM v_driver.user_id
-     OR NEW.company_id IS DISTINCT FROM v_driver.company_id THEN
+  -- Reject explicit conflicting attribution, but allow legacy callers that did
+  -- not project company/user context to be normalized from the canonical
+  -- driver identity below.
+  IF (NEW.bidder_user_id IS NOT NULL AND NEW.bidder_user_id IS DISTINCT FROM v_driver.user_id)
+     OR (NEW.company_id IS NOT NULL AND NEW.company_id IS DISTINCT FROM v_driver.company_id) THEN
     RAISE EXCEPTION 'Driver quote attribution does not match the canonical driver identity.' USING ERRCODE = '23514';
   END IF;
 
@@ -49,6 +52,12 @@ BEGIN
   IF v_actor IS NOT NULL AND v_actor IS DISTINCT FROM v_driver.user_id THEN
     RAISE EXCEPTION 'A driver may only submit a quote for their own identity.' USING ERRCODE = '42501';
   END IF;
+
+  -- Normalize identity before readiness / Marketplace checks. RLS WITH CHECK
+  -- observes this final row, so old Web/Mobile transports cannot create a
+  -- different quote representation.
+  NEW.bidder_user_id := v_driver.user_id;
+  NEW.company_id := v_driver.company_id;
 
   SELECT readiness.eligible, readiness.vehicle_id, readiness.blockers
   INTO v_ready, v_vehicle_id, v_blockers
@@ -72,10 +81,6 @@ BEGIN
     RAISE EXCEPTION 'Quote message is too long.' USING ERRCODE = '23514';
   END IF;
 
-  -- Normalize driver-originated quote fields so every transport persists the
-  -- same canonical representation.
-  NEW.bidder_user_id := v_driver.user_id;
-  NEW.company_id := v_driver.company_id;
   NEW.amount := COALESCE(NEW.amount, NEW.bid_price_gbp);
   NEW.bid_price_gbp := COALESCE(NEW.bid_price_gbp, NEW.amount);
   NEW.currency := COALESCE(NULLIF(NEW.currency, ''), 'GBP');
@@ -141,7 +146,7 @@ REVOKE ALL ON FUNCTION public.fn_guard_driver_quote_mutation() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.fn_guard_driver_quote_mutation() TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.fn_guard_driver_quote_mutation() IS
-  'Authoritative driver quote mutation contract: named-driver attribution, operational readiness, marketplace visibility, duplicate protection and global bid-rate limits.';
+  'Authoritative driver quote mutation contract: canonical named-driver attribution, operational readiness, marketplace visibility, duplicate protection and global bid-rate limits.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
