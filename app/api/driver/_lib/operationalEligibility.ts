@@ -64,7 +64,7 @@ const canonicalVehicleDocType = (value: unknown) => {
 };
 
 const dateIsCurrent = (value: string | null | undefined) => {
-  if (!value) return true;
+  if (!value) return false;
   const expiry = new Date(`${value.slice(0, 10)}T23:59:59.999Z`).getTime();
   return Number.isFinite(expiry) && expiry >= Date.now();
 };
