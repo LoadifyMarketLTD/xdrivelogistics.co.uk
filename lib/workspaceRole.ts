@@ -148,6 +148,7 @@ const CARRIER_COMMERCIAL: WorkspaceCapability[] = [
   'documents.company.manage',
   'invoices.carrier.manage',
   'incidents.manage',
+  'settings.manage',
 ];
 
 export const DRIVER_WORKSPACE_CAPABILITIES: readonly WorkspaceCapability[] = [
