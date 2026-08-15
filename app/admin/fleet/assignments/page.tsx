@@ -105,17 +105,14 @@ export default function FleetAssignmentsPage() {
     ? acceptedBid.bidder_driver_id
     : null;
   const quotedDriver = quotedDriverId ? driverById.get(quotedDriverId) : undefined;
-  const recommendedDriverId = quotedDriverId && isDriverAccountActive(quotedDriver)
-    ? quotedDriverId
-    : null;
 
+  // A quoted driver is historical commercial context, not a current allocation
+  // recommendation. This client dataset cannot prove canonical operational
+  // eligibility, so changing jobs always clears the selection and requires the
+  // Fleet operator to choose deliberately. The server remains authoritative.
   useEffect(() => {
-    if (!selectedJob) {
-      setSelectedDriverId('');
-      return;
-    }
-    setSelectedDriverId(recommendedDriverId ?? '');
-  }, [recommendedDriverId, selectedJob?.id]);
+    setSelectedDriverId('');
+  }, [selectedJob?.id]);
 
   const selectedDriver = selectedDriverId ? driverById.get(selectedDriverId) : undefined;
   const selectedLocation = selectedDriverId ? latestLocationByDriver.get(selectedDriverId) : undefined;
@@ -227,7 +224,7 @@ export default function FleetAssignmentsPage() {
               when(job.pickup_datetime),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               bidderDriver
-                ? `${driverLabel(bidderDriver)}${isDriverAccountActive(bidderDriver) ? '' : ' · account not active'}`
+                ? `${driverLabel(bidderDriver)} · historical bidder${isDriverAccountActive(bidderDriver) ? '' : ' · account not active'}`
                 : bid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Company-level quote',
               quote && quote > 0 ? money(quote, bid?.currency ?? 'GBP') : 'Not supplied',
               <ActionButton key="action" tone="success" onClick={() => setSelectedJobId(job.id)}>Allocate</ActionButton>,
@@ -244,7 +241,7 @@ export default function FleetAssignmentsPage() {
         >
           <div className="workspace-detail-grid">
             <div className="workspace-detail-item"><strong>Carrier award</strong><div>{acceptedBid?.companies?.name ?? 'This carrier company'}</div></div>
-            <div className="workspace-detail-item"><strong>Quoted by</strong><div>{quotedDriver ? `${driverLabel(quotedDriver)}${recommendedDriverId ? ' · historical bidder' : ' · account not active'}` : acceptedBid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Company-level quote'}</div></div>
+            <div className="workspace-detail-item"><strong>Quoted by</strong><div>{quotedDriver ? `${driverLabel(quotedDriver)} · historical bidder only${isDriverAccountActive(quotedDriver) ? '' : ' · account not active'}` : acceptedBid?.bidder_driver_id ? 'Quoted driver not in current roster' : 'Company-level quote'}</div></div>
             <div className="workspace-detail-item"><strong>Accepted quote</strong><div>{acceptedBid ? money(Number(acceptedBid.bid_price_gbp ?? acceptedBid.amount ?? 0), acceptedBid.currency ?? 'GBP') : 'Not supplied'}</div></div>
             <div className="workspace-detail-item"><strong>Required vehicle</strong><div>{(selectedJob.vehicle_type ?? 'Not specified').replace(/_/g, ' ')}</div></div>
             <div className="workspace-detail-item"><strong>Pickup</strong><div>{when(selectedJob.pickup_datetime)}</div></div>
@@ -259,10 +256,14 @@ export default function FleetAssignmentsPage() {
                   {data.drivers.map((driver) => {
                     const accountActive = isDriverAccountActive(driver);
                     const historicalBidder = driver.id === quotedDriverId;
-                    return <option key={driver.id} value={driver.id} disabled={!accountActive}>{driverLabel(driver)}{historicalBidder ? ' — quoted this job' : ''} · {driver.availability_status ?? 'offline'}{accountActive ? '' : ' · account not active'}</option>;
+                    return <option key={driver.id} value={driver.id} disabled={!accountActive}>{driverLabel(driver)}{historicalBidder ? ' — quoted this job (historical)' : ''} · {driver.availability_status ?? 'offline'}{accountActive ? '' : ' · account not active'}</option>;
                   })}
                 </select>
               </label>
+
+              <AlertBanner tone="info">
+                No driver is preselected from quote history. Choose the intended execution driver deliberately; XDrive then verifies full current eligibility and binds that driver's canonical vehicle server-side.
+              </AlertBanner>
 
               <div className="workspace-detail-item">
                 <strong>Vehicle binding signal</strong>
