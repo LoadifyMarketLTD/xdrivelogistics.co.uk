@@ -1,13 +1,8 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
+import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
-
-const scopes: Record<string, string[]> = {
-  active: ['awarded', 'allocated', 'accepted', 'on_my_way', 'on_site_pickup', 'loaded', 'in_transit', 'on_site_delivery', 'in_progress'],
-  upcoming: ['awarded', 'allocated', 'accepted'],
-  completed: ['delivered', 'completed', 'invoiced', 'paid'],
-};
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -21,6 +16,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') || 'active';
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 250);
+  const statusList = driverJobStatusesForScope(scope);
 
   let query = supabaseAdmin
     .from('jobs')
@@ -30,10 +26,9 @@ export async function GET(request: NextRequest) {
     .limit(limit);
 
   // `all` is intentionally assignment-gated rather than Marketplace-gated. It
-  // exists for native clients that need the full authorised execution register.
-  if (scope !== 'all') {
-    const statusList = scopes[scope] ?? scopes.active;
-    query = query.in('status', statusList);
+  // exists for authorised execution history and does not change job lifecycle.
+  if (statusList) {
+    query = query.in('status', [...statusList]);
   }
 
   const { data, error } = await query;
