@@ -42,6 +42,7 @@ export type DriverOperationalEligibility = {
     commercialBidEnabled: boolean;
     identityVerified: boolean;
     onboardingApproved: boolean;
+    personalComplianceValid: boolean;
     companyActive: boolean;
     membershipActive: boolean;
     canonicalVehiclePresent: boolean;
@@ -71,14 +72,9 @@ const dateIsCurrent = (value: string | null | undefined) => {
  * Canonical operational readiness for both owner_driver and company_driver.
  *
  * This deliberately fails closed. Account status, verified onboarding identity,
- * company relationship, one explicit driver↔vehicle assignment and current
- * vehicle compliance must all be present before a driver-originated Marketplace
- * quote is considered eligible.
- *
- * Driver identity/personal documents are not reinterpreted here: the canonical
- * onboarding approval trigger already blocks approval unless required identity
- * documents are verified/current and risk_status is clear. We verify that the
- * approved onboarding + active platform_identity_registry still exist.
+ * current personal compliance, company relationship, one explicit driver↔vehicle
+ * assignment and current vehicle compliance must all be present before a
+ * driver-originated Marketplace quote is considered eligible.
  */
 export async function resolveDriverOperationalEligibility(
   supabaseAdmin: AdminClient,
@@ -110,6 +106,7 @@ export async function resolveDriverOperationalEligibility(
         commercialBidEnabled: false,
         identityVerified: false,
         onboardingApproved: false,
+        personalComplianceValid: false,
         companyActive: false,
         membershipActive: false,
         canonicalVehiclePresent: false,
@@ -199,6 +196,7 @@ export async function resolveDriverOperationalEligibility(
   if (!identityVerified) blockers.push('verified_driver_identity_missing');
 
   const onboarding = onboardingResult.data as {
+    id?: string | null;
     company_id?: string | null;
     account_type?: string | null;
     status?: string | null;
@@ -219,6 +217,17 @@ export async function resolveDriverOperationalEligibility(
     && expectedOnboardingTypes.includes(normalise(onboarding.account_type))
   );
   if (!onboardingApproved) blockers.push('driver_onboarding_not_approved');
+
+  let personalComplianceValid = false;
+  if (onboardingApproved && onboarding?.id) {
+    const { data: missingDocs, error: missingDocsError } = await supabaseAdmin.rpc(
+      'get_missing_onboarding_documents',
+      { p_application_id: onboarding.id },
+    );
+    if (missingDocsError) throw new Error(missingDocsError.message);
+    personalComplianceValid = Array.isArray(missingDocs) && missingDocs.length === 0;
+  }
+  if (!personalComplianceValid) blockers.push('driver_personal_compliance_not_current');
 
   const companyStatus = normalise((companyResult.data as { status?: string | null } | null)?.status);
   const companyActive = Boolean(companyId) && ['active', 'approved'].includes(companyStatus);
@@ -280,6 +289,7 @@ export async function resolveDriverOperationalEligibility(
       commercialBidEnabled,
       identityVerified,
       onboardingApproved,
+      personalComplianceValid,
       companyActive,
       membershipActive,
       canonicalVehiclePresent,
