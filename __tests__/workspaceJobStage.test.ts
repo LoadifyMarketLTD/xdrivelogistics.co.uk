@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { nextDriverExecutionStatus } from '../lib/jobs/jobLifecyclePresentation';
 import {
   brokerDiaryStage,
+  canonicalWorkspaceJobStatus,
   classifyWorkspaceJobStage,
   fleetQueueStage,
   workspaceJobPresentationStatus,
@@ -13,6 +15,15 @@ describe('workspace job lifecycle stage', () => {
   it('keeps accepted work allocated until execution actually starts', () => {
     expect(classifyWorkspaceJobStage(job('accepted', { assigned_driver_id: 'driver-1' }))).toBe('allocated');
     expect(classifyWorkspaceJobStage(job('on_my_way_to_pickup', { assigned_driver_id: 'driver-1' }))).toBe('in_progress');
+  });
+
+  it('normalizes the historical pickup-journey alias to the canonical execution state', () => {
+    expect(canonicalWorkspaceJobStatus('on_my_way_to_pickup')).toBe('on_my_way');
+    expect(workspaceJobPresentationStatus(job('on_my_way_to_pickup', {
+      assigned_driver_id: 'driver-1',
+      vehicle_id: 'vehicle-1',
+    }))).toBe('on_my_way');
+    expect(nextDriverExecutionStatus('on_my_way_to_pickup')).toBe('on_site_pickup');
   });
 
   it('separates carrier award from driver allocation', () => {
