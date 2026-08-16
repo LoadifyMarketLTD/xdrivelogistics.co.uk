@@ -186,6 +186,7 @@ export default function CarrierOperationsDashboardHome() {
 
   const metrics = useMemo(() => {
     const companyBids = data.bids.filter((bid) => bid.company_id === data.companyId);
+    const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));
     const carrierInvoices = data.invoices.filter((invoice) => invoice.company_id === data.companyId);
     const unallocatedJobs = carrierExecutionJobs.filter(isUnallocatedJob);
     const liveJobs = carrierExecutionJobs.filter(isLiveJob);
@@ -194,7 +195,9 @@ export default function CarrierOperationsDashboardHome() {
     const attentionJobs = carrierExecutionJobs.filter(isCarrierAttentionJob).sort((a, b) => attentionScore(a) - attentionScore(b));
     const overdueInvoices = carrierInvoices.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status));
     const overdueExposure = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
-    const wonValue = companyBids.filter((bid) => normalise(bid.status) === 'accepted').reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const wonValue = companyBids
+      .filter((bid) => normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id))
+      .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
     const expiringDocuments = data.driverDocuments.concat(data.vehicleDocuments).filter((document) => {
       const days = daysUntil(document.expiry_date);
       return days !== null && days >= 0 && days <= 30;
@@ -254,6 +257,11 @@ export default function CarrierOperationsDashboardHome() {
   ];
 
   const activeViewLabel = CONTROL_VIEWS.find((item) => item.value === view)?.label ?? 'Work';
+  const jobFeedLabel = data.datasets.jobs.availability === 'unavailable'
+    ? 'Job data unavailable'
+    : data.datasets.jobs.partialData
+      ? 'Job data partial'
+      : `${filteredJobs.length} visible`;
 
   return (
     <div style={{ width: '100%', padding: '12px 12px 16px' }}>
@@ -269,7 +277,7 @@ export default function CarrierOperationsDashboardHome() {
 
       <OperationalToolbar>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery evidence · exception recovery</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/quotes')}>Quotes</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace')}>My Quotes</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
       </OperationalToolbar>
 
       <CarrierControlSignals signals={signals} />
@@ -301,7 +309,7 @@ export default function CarrierOperationsDashboardHome() {
         <section aria-label="Carrier operational workboard" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{ minHeight: '40px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, flexWrap: 'wrap' }}>
             <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
-            <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{data.datasets.jobs.availability === 'unavailable' ? 'Job data unavailable' : `${filteredJobs.length} visible`}</div>
+            <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{jobFeedLabel}</div>
           </div>
 
           <div role="tablist" aria-label="Carrier work views" style={{ display: 'flex', alignItems: 'stretch', minHeight: '28px', overflowX: 'auto', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface }}>
@@ -313,7 +321,7 @@ export default function CarrierOperationsDashboardHome() {
 
           <div style={{ margin: '-1px' }}>
             <DataTable
-              columns={['Ref', 'Priority', 'Route', 'Pickup', 'Vehicle', 'Driver', 'Status', 'Action']}
+              columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}
               rows={filteredJobs.slice(0, 10).map((job) => {
                 const priority = priorityStyle(job);
                 const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) ?? 'Assigned' : 'Unassigned';
@@ -333,20 +341,20 @@ export default function CarrierOperationsDashboardHome() {
             />
           </div>
 
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>Showing {Math.min(filteredJobs.length, 10)} of {filteredJobs.length} matching jobs</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
+          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of a partial job dataset` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
         </section>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '12px', marginTop: '12px' }}>
           <OperationalCard title="Commercial position" subtitle="Commercial hand-off without displacing the live workboard.">
-            <CommercialRow label="Won work value" detail="Accepted carrier quotes" value={metricValue(data, ['bids'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/quotes')} />
+            <CommercialRow label="Won work value" detail="Accepted quotes backed by a carrier award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/marketplace')} />
             <CommercialRow label="Overdue invoices" detail="Past-due carrier receivables" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
             <CommercialRow label="Delivery evidence review" detail="Completed carrier work with no delivery-photo evidence in the dashboard feed; open the job sheet for full POD state" value={unavailable(data, ['jobs']) ? '—' : metrics.evidenceReview.length} onClick={() => setView('pod')} />
-            <CommercialRow label="Quotes awaiting decision" detail="Submitted pricing still open" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/quotes')} />
+            <CommercialRow label="Quotes awaiting decision" detail="Submitted marketplace pricing still open" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/marketplace')} />
           </OperationalCard>
 
           <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the carrier operating sequence.">
             <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
-            <WorkflowLink label="2. Price and review quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/quotes')} />
+            <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/marketplace')} />
             <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible executing driver; XDrive persists that driver's canonical active vehicle with the allocation" onClick={() => router.push('/admin/fleet/assignments')} />
             <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
             <WorkflowLink label="5. Close evidence and exceptions" detail="Resolve delivery proof and operational exceptions" onClick={() => setView('attention')} />
