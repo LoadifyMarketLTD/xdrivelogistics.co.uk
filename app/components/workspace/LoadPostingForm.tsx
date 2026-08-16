@@ -209,7 +209,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
       <Panel title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
         <div style={gridStyle}>
           <label style={labelStyle}>Posting member<div style={readOnlyStyle}>{postingCompany?.name ?? 'Signed-in company'}</div></label>
-          <label style={labelStyle}>Member ID<div style={readOnlyStyle}>{postingCompany?.memberId ?? 'Resolved automatically from company record'}</div></label>
+          <label style={labelStyle}>Company number<div style={readOnlyStyle}>{postingCompany?.memberId ?? 'Resolved automatically from company record'}</div></label>
           <label style={labelStyle}>XDrive load reference<div style={readOnlyStyle}>Generated automatically after save / publish</div></label>
         </div>
       </Panel>
