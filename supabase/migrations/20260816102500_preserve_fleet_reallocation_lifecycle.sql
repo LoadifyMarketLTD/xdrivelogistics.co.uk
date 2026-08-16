@@ -100,8 +100,7 @@ BEGIN
   -- and workspace presentation; do not define any new lifecycle state here.
   v_effective_status := lower(COALESCE(
     NULLIF(btrim(v_job.current_status::text), ''),
-    NULLIF(btrim(v_job.status::text), ''),
-    ''
+    NULLIF(btrim(v_job.status::text), '')
   ));
   v_effective_status := CASE v_effective_status
     WHEN 'assigned' THEN 'allocated'
