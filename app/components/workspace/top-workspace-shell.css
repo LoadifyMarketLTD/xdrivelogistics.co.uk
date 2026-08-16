@@ -194,6 +194,33 @@
   font-size: 12px !important;
 }
 
+.top-workspace-context__menu [role="listbox"] {
+  border-radius: 4px !important;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12) !important;
+}
+
+.top-workspace-context__menu [role="listbox"] button {
+  min-height: 40px !important;
+  border-radius: 0 !important;
+  font-size: 12px !important;
+}
+
+.top-workspace-context__menu [role="listbox"] button > div:first-child {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.top-workspace-context__menu [role="listbox"] button > div:last-child {
+  font-size: 10px !important;
+  line-height: 13px !important;
+}
+
+.top-workspace-context__menu [role="status"],
+.top-workspace-context__menu [role="alert"] {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
 /* TopWorkspaceShell renders nav inline inside the 50px header. */
 .xdrive-operational-top-workspace .top-workspace-nav--inline {
   position: relative !important;
@@ -380,6 +407,11 @@
   letter-spacing: .02em !important;
 }
 
+/* Filter rails inside this sticky 50px shell must never slide underneath it. */
+.xdrive-operational-top-workspace aside[aria-label="Search and filters"] {
+  top: 62px !important;
+}
+
 .xdrive-operational-top-workspace .top-workspace-shell__content section {
   border-radius: 4px !important;
   box-shadow: none !important;
@@ -509,6 +541,10 @@
     width: auto !important;
     max-height: calc(100vh - 60px);
     overflow-y: auto;
+  }
+
+  .xdrive-operational-top-workspace aside[aria-label="Search and filters"] {
+    top: auto !important;
   }
 
   .xdrive-operational-top-workspace .top-workspace-shell__content {
