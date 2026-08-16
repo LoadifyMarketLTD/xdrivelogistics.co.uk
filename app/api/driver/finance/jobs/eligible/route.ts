@@ -128,9 +128,10 @@ export async function GET(request: NextRequest) {
       if (
         !agreedAmount
         || !agreedGross
+        || agreedVat === null
         || !Number.isFinite(agreedVat)
-        || Number(agreedVat) < 0
-        || Math.abs(agreedGross - (agreedAmount + Number(agreedVat))) > 0.01
+        || agreedVat < 0
+        || Math.abs(agreedGross - (agreedAmount + agreedVat)) > 0.01
         || !agreedCurrency
         || !agreedTerms
       ) return [];
