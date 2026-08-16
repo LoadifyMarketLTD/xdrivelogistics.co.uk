@@ -18,10 +18,10 @@ const respond = (status: number, error: string) => NextResponse.json({ error }, 
 /**
  * Authentication boundary for Driver Web workspace reads/actions.
  *
- * `drivers.app_access` is intentionally NOT checked here. That flag belongs to
- * the native/mobile app gate and to the approved commercial quote eligibility
- * contract. Web workspace access is authenticated independently and individual
- * mutations still enforce their own business/eligibility rules.
+ * Driver Web follows the same account-level workspace gate resolved by
+ * `sharedUiContext`: the driver record must be active and `app_access=true`.
+ * Full operational eligibility remains a stricter, separate contract for
+ * quoting/allocation and is enforced at those authoritative boundaries.
  */
 export async function requireActiveWebDriver(
   request: NextRequest,
@@ -41,13 +41,16 @@ export async function requireActiveWebDriver(
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, status')
+    .select('id, company_id, status, app_access')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
   if (driverError) return respond(500, 'We could not load your driver profile.');
   if (!driver || String(driver.status ?? '').trim().toLowerCase() !== 'active') {
     return respond(403, 'Active driver profile required.');
+  }
+  if (driver.app_access !== true) {
+    return respond(403, 'Driver workspace access has not been approved.');
   }
 
   return {
