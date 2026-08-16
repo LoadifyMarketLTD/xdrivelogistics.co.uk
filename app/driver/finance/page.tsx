@@ -8,11 +8,14 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import {
   toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
+  type CanonicalPaymentStatus,
 } from '../../../lib/invoiceStatus';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type InvoiceStatus = CanonicalInvoiceStatus;
+type PaymentStatus = CanonicalPaymentStatus;
 
 type InvoiceRow = {
   id: string;
@@ -22,6 +25,7 @@ type InvoiceRow = {
   invoice_date: string;
   due_date: string;
   status: InvoiceStatus;
+  payment_status: PaymentStatus;
   client_name: string;
   amount: number;
   currency: string;
@@ -60,6 +64,16 @@ type FinanceSummary = {
   cancelled: number;
 };
 
+type PaymentSummary = {
+  total: number;
+  unpaid: number;
+  partially_paid: number;
+  paid: number;
+  overdue: number;
+  disputed: number;
+  refunded: number;
+};
+
 const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'All', label: 'All' },
   { id: 'Draft', label: 'Draft' },
@@ -68,6 +82,16 @@ const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'Paid', label: 'Paid' },
   { id: 'Disputed', label: 'Disputed' },
   { id: 'Cancelled', label: 'Cancelled' },
+];
+
+const PAYMENT_TABS: Array<{ id: PaymentStatus | 'All'; label: string }> = [
+  { id: 'All', label: 'All payments' },
+  { id: 'unpaid', label: 'Unpaid' },
+  { id: 'partially_paid', label: 'Part paid' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'overdue', label: 'Overdue' },
+  { id: 'disputed', label: 'Disputed' },
+  { id: 'refunded', label: 'Refunded' },
 ];
 
 const money = (amount: number, currency = 'GBP') =>
@@ -92,13 +116,24 @@ function statusTone(status: InvoiceStatus): 'green' | 'blue' | 'orange' | 'red' 
   return 'orange';
 }
 
+function paymentTone(status: PaymentStatus): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
+  if (status === 'paid') return 'green';
+  if (status === 'partially_paid') return 'blue';
+  if (status === 'overdue') return 'red';
+  if (status === 'disputed') return 'purple';
+  if (status === 'refunded') return 'grey';
+  return 'orange';
+}
+
 export default function DriverFinancePage() {
   const router = useRouter();
   const { user } = useAuth();
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [activeTab, setActiveTab] = useState<InvoiceStatus | 'All'>('All');
+  const [paymentTab, setPaymentTab] = useState<PaymentStatus | 'All'>('All');
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [payments, setPayments] = useState<PaymentSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showJobPicker, setShowJobPicker] = useState(false);
@@ -124,13 +159,15 @@ export default function DriverFinancePage() {
 
     try {
       const params = new URLSearchParams();
-      if (activeTab !== 'All') params.set('status', activeTab);
+      if (activeTab !== 'All') params.set('invoice_status', activeTab);
+      if (paymentTab !== 'All') params.set('payment_status', paymentTab);
       const response = await fetch(`/api/driver/finance/invoices?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const payload = (await response.json().catch(() => null)) as {
         rows?: InvoiceRow[];
-        summary?: FinanceSummary;
+        invoiceSummary?: FinanceSummary;
+        paymentSummary?: PaymentSummary;
         error?: string;
       } | null;
       if (!response.ok) throw new Error(payload?.error ?? 'Failed to load invoices.');
@@ -138,14 +175,16 @@ export default function DriverFinancePage() {
       setInvoices((payload?.rows ?? []).map((row) => ({
         ...row,
         status: toCanonicalInvoiceStatusWithDueDate(row.status, row.due_date),
+        payment_status: toCanonicalPaymentStatus(row.payment_status),
       })));
-      setSummary(payload?.summary ?? null);
+      setSummary(payload?.invoiceSummary ?? null);
+      setPayments(payload?.paymentSummary ?? null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load invoices.');
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, paymentTab]);
 
   useEffect(() => { void loadInvoices(); }, [loadInvoices]);
 
@@ -218,10 +257,21 @@ export default function DriverFinancePage() {
     Cancelled: summary?.cancelled ?? 0,
   }), [summary]);
 
+  const paymentCounts = useMemo(() => ({
+    All: payments?.total ?? 0,
+    unpaid: payments?.unpaid ?? 0,
+    partially_paid: payments?.partially_paid ?? 0,
+    paid: payments?.paid ?? 0,
+    overdue: payments?.overdue ?? 0,
+    disputed: payments?.disputed ?? 0,
+    refunded: payments?.refunded ?? 0,
+  }), [payments]);
+
   const financeRail = (
     <aside className="driver-filter-rail" aria-label="Finance summary">
-      <div className="driver-filter-rail__header">Payment Report</div>
+      <div className="driver-filter-rail__header">Invoice & Payment</div>
       <div className="driver-filter-rail__body">
+        <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Invoice state</div>
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -234,6 +284,19 @@ export default function DriverFinancePage() {
             <span>{counts[tab.id]}</span>
           </button>
         ))}
+        <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Payment state</div>
+        {PAYMENT_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className="driver-account-link"
+            data-active={paymentTab === tab.id ? 'true' : 'false'}
+            onClick={() => setPaymentTab(tab.id)}
+          >
+            <span><strong>{tab.label}</strong><small>{paymentCounts[tab.id]} record{paymentCounts[tab.id] === 1 ? '' : 's'}</small></span>
+            <span>{paymentCounts[tab.id]}</span>
+          </button>
+        ))}
         {canGenerateInvoices && <ActionButton tone="primary" onClick={openJobPicker}>{showJobPicker ? 'Close generator' : 'Generate Invoice'}</ActionButton>}
       </div>
     </aside>
@@ -242,7 +305,7 @@ export default function DriverFinancePage() {
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
-        subtitle="Track invoice delivery and payment status. Company owners and admins can generate invoices from completed jobs."
+        subtitle="Track invoice lifecycle and payment state separately. Company owners and admins can generate invoices from completed jobs."
         headerActions={canGenerateInvoices ? <ActionButton tone="primary" onClick={openJobPicker}>+ Generate Invoice</ActionButton> : undefined}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -255,6 +318,13 @@ export default function DriverFinancePage() {
               {STATUS_TABS.map((tab) => (
                 <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>
                   {tab.label} <span>{counts[tab.id]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="driver-tab-strip" role="tablist" aria-label="Payment states">
+              {PAYMENT_TABS.map((tab) => (
+                <button key={tab.id} type="button" data-active={paymentTab === tab.id ? 'true' : 'false'} onClick={() => setPaymentTab(tab.id)}>
+                  {tab.label} <span>{paymentCounts[tab.id]}</span>
                 </button>
               ))}
             </div>
@@ -307,7 +377,7 @@ export default function DriverFinancePage() {
             {loading ? (
               <div className="driver-load-row"><EmptyState compact title="Loading invoices…" /></div>
             ) : invoices.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another status.' : 'Choose another status or refresh the payment report.'} /></div>
+              <div className="driver-load-row"><EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another invoice/payment filter.' : 'Choose another invoice/payment filter or refresh the register.'} /></div>
             ) : (
               <div className="driver-load-list">
                 {invoices.map((invoice) => (
@@ -315,12 +385,13 @@ export default function DriverFinancePage() {
                     <div className="driver-load-row__top">
                       <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{invoice.invoice_number}</strong><span className="driver-cell-secondary">{date(invoice.invoice_date)}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{invoice.client_name}</strong><span className="driver-cell-secondary">Job {invoice.job_ref}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Due</span><strong className="driver-cell-primary">{date(invoice.due_date)}</strong><span className="driver-cell-secondary">Payment status</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Total</span><strong className="driver-cell-primary">{money(invoice.amount, invoice.currency)}</strong><span className="driver-cell-secondary"><StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Due</span><strong className="driver-cell-primary">{date(invoice.due_date)}</strong><span className="driver-cell-secondary">Invoice due date</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Total</span><strong className="driver-cell-primary">{money(invoice.amount, invoice.currency)}</strong><span className="driver-cell-secondary">Commercial invoice total</span></div>
                     </div>
                     <div className="driver-load-row__meta">
                       <span>{invoice.job_id ? `Job #${invoice.job_id.slice(0, 8).toUpperCase()}` : invoice.job_ref}</span>
-                      <StatusBadge value={invoice.status} tone={statusTone(invoice.status)} />
+                      <span>Invoice: <StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></span>
+                      <span>Payment: <StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></span>
                       <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>Open invoice</ActionButton></div>
                     </div>
                   </article>
