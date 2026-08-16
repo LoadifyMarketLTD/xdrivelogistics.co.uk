@@ -109,6 +109,50 @@
   align-items: start !important;
 }
 
+/* Preserve legacy component structure without reintroducing legacy type/control
+ * dimensions. All readable scale continues to come from the measured baseline. */
+.driver-dash-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--driver-border);
+  border-radius: var(--ws-radius, 4px);
+  background: var(--driver-surface);
+  overflow: hidden;
+}
+
+.driver-dash-metric {
+  min-width: 0;
+  min-height: var(--ws-operational-row-min-h, 52px);
+  padding: 8px 10px;
+  border-right: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+}
+
+.driver-dash-metric:last-child {
+  border-right: 0;
+}
+
+.driver-dash-metric span {
+  color: var(--driver-muted);
+  font-size: var(--ws-font-label, 11px);
+  line-height: 15px;
+  font-weight: 650;
+}
+
+.driver-dash-metric strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--driver-navy);
+  font-size: var(--ws-font-section-title, 14px);
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.driver-dash-actions {
+  display: grid;
+  gap: var(--ws-gap-internal, 8px);
+}
+
 .driver-dash-box,
 .driver-operational-page section,
 .driver-filter-rail,
@@ -193,13 +237,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .driver-dash-metric:nth-child(2n) {
+    border-right: 0;
+  }
+
   .driver-booking-row {
     grid-template-columns: 1fr !important;
   }
 }
 
 @media (max-width: 768px) {
-  .driver-dash-metrics,
   .driver-dash-actions {
     grid-template-columns: 1fr 1fr;
   }
@@ -209,5 +256,14 @@
   .driver-dash-metrics,
   .driver-dash-actions {
     grid-template-columns: 1fr;
+  }
+
+  .driver-dash-metric {
+    border-right: 0;
+    border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  }
+
+  .driver-dash-metric:last-child {
+    border-bottom: 0;
   }
 }
