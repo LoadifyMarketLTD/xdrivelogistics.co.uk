@@ -64,6 +64,12 @@ describe('carrier dashboard convergence contract', () => {
       current_status: 'awarded',
       assigned_driver_id: null,
     }))).toBe(true);
+
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'posted',
+      current_status: 'posted',
+      assigned_driver_id: 'driver-1',
+    }))).toBe(true);
   });
 
   it('backs every carrier dashboard action with a real route', () => {
@@ -77,6 +83,7 @@ describe('carrier dashboard convergence contract', () => {
       '/admin/fleet/compliance',
       '/admin/fleet/assignments',
       '/admin/fleet/active-jobs',
+      '/admin/freight-vision',
       '/admin/invoices',
     ]) {
       expect(existsSync(page(href)), `${href} has no page.tsx`).toBe(true);
@@ -96,7 +103,9 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).toContain("normalise(bid.status) === 'submitted'");
     expect(carrier).toContain("XDrive persists that driver's canonical active vehicle with the allocation");
     expect(carrier).toContain("'Required vehicle'");
+    expect(carrier).toContain('workspaceJobPresentationStatus(job)');
     expect(carrier).toContain("jobStatus(job) === 'cancelled' ? 'grey'");
+    expect(carrier).toContain("'Partial job data'");
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 
