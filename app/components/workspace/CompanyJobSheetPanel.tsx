@@ -16,6 +16,9 @@ type JobSheet = {
   acceptedAt: string | null;
   ownerCompany: { companyId: string; name: string; memberId: string | null; phone: string | null; type: string | null };
   carrier: { companyId: string; name: string; memberId: string | null; phone: string | null; type: string | null } | null;
+  executionCompany: { companyId: string; name: string; memberId: string | null; phone: string | null; type: string | null } | null;
+  acceptedBidRecorded: boolean;
+  acceptedBidderDriver: { id: string; name: string | null; status: string | null } | null;
   driver: { id: string; name: string | null; status: string | null } | null;
   vehicle: {
     id: string;
@@ -192,6 +195,16 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
         sheet.vehicle.hasTailLift === true ? 'Tail lift' : null,
       ].filter(Boolean).join(' · ') || undefined
     : undefined;
+  const acceptedBidderDriverLabel = sheet.acceptedBidderDriver
+    ? sheet.acceptedBidderDriver.name ?? `Driver ${sheet.acceptedBidderDriver.id.slice(0, 8).toUpperCase()}`
+    : sheet.acceptedBidRecorded
+      ? 'Company-level accepted bid'
+      : 'Not recorded';
+  const acceptedBidderDriverDetail = sheet.acceptedBidderDriver
+    ? `Accepted bid driver ${sheet.acceptedBidderDriver.id.slice(0, 8).toUpperCase()}${sheet.acceptedBidderDriver.status ? ` · Account ${human(sheet.acceptedBidderDriver.status)}` : ''}`
+    : sheet.acceptedBidRecorded
+      ? 'No named bidder driver is recorded on the accepted bid.'
+      : undefined;
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
@@ -207,6 +220,8 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
             <Detail label="Status" value={<StatusBadge value={presentationStatus} />} detail={sheet.acceptedAt ? `Awarded ${when(sheet.acceptedAt)}` : undefined} />
             <Detail label="Posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={companyDetail(sheet.ownerCompany.memberId, sheet.ownerCompany.phone)} />
             <Detail label="Awarded carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? companyDetail(sheet.carrier.memberId, sheet.carrier.phone) : undefined} />
+            <Detail label="Accepted bidder driver" value={acceptedBidderDriverLabel} detail={acceptedBidderDriverDetail} />
+            <Detail label="Execution company" value={sheet.executionCompany ? <MemberIdentityLink companyId={sheet.executionCompany.companyId}>{sheet.executionCompany.name}</MemberIdentityLink> : 'Not assigned'} detail={sheet.executionCompany ? companyDetail(sheet.executionCompany.memberId, sheet.executionCompany.phone) : undefined} />
             <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} detail={sheet.driver?.status ? `Account ${human(sheet.driver.status)}` : undefined} />
             <Detail label="Allocated vehicle" value={allocatedVehicleLabel} detail={allocatedVehicleDetail} />
             <Detail label="Requested vehicle" value={human(sheet.load.requestedVehicle)} />
