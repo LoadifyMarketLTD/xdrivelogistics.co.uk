@@ -1,22 +1,27 @@
-﻿/*
- * XDrive Driver Workspace — Master Pattern / Phase 1A
- * Driver-only final visual contract. Imported last.
+/*
+ * XDrive Driver Workspace — convergence compatibility layer.
+ *
+ * Canonical geometry, typography and control sizing are owned by
+ * workspace-measured-cx-baseline.css and route-specific composition files.
+ * This file intentionally keeps only driver colour/surface compatibility and
+ * legacy structural selectors that are still referenced by older Driver views.
+ * Do not add a second sizing system here.
  */
 
 .xdrive-driver-workspace {
-  --driver-page: #f5f7fa;
-  --driver-surface: #ffffff;
-  --driver-surface-soft: #f8fafc;
-  --driver-border: #dfe5ec;
-  --driver-border-strong: #cbd5e1;
-  --driver-ink: #172033;
-  --driver-muted: #64748b;
-  --driver-navy: #0b2f6b;
-  --driver-blue: #1d57d8;
-  --driver-orange: #f5a300;
-  --driver-red: #b91c1c;
-  --driver-radius: 6px;
-  --driver-gap: 12px;
+  --driver-page: var(--ws-bg, #f4f6f8);
+  --driver-surface: var(--ws-panel, #ffffff);
+  --driver-surface-soft: var(--ws-panel-head, #f2f4f7);
+  --driver-border: var(--ws-border, #cfd7e3);
+  --driver-border-strong: var(--ws-border, #cfd7e3);
+  --driver-ink: var(--ws-text, #172033);
+  --driver-muted: var(--ws-muted, #64748b);
+  --driver-navy: var(--ws-navy, #0b2f6b);
+  --driver-blue: var(--ws-blue, #1d57d8);
+  --driver-orange: var(--ws-orange, #f5a300);
+  --driver-red: var(--ws-red, #c62828);
+  --driver-radius: var(--ws-radius, 4px);
+  --driver-gap: var(--ws-gap-grid, 12px);
 }
 
 .driver-top-shell {
@@ -24,60 +29,23 @@
   color: var(--driver-ink);
 }
 
-.driver-top-shell__header {
-  height: 52px;
-  min-height: 52px;
-  grid-template-columns: minmax(250px, auto) minmax(280px, 1fr) auto;
-  gap: 12px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--driver-border);
-  background: #ffffff;
+.driver-top-shell__header,
+.driver-top-nav {
+  border-bottom-color: var(--driver-border);
+  background: #fff;
 }
 
-.driver-top-shell__brand {
-  gap: 14px;
-}
-
-.driver-top-shell__logo-button {
-  width: 144px;
-  height: 42px;
-  flex: 0 0 144px;
-}
-
-.driver-top-shell__logo {
-  width: 144px;
-  height: 40px;
-}
-
+.driver-top-shell__brand,
 .driver-top-shell__identity {
-  gap: 2px;
+  min-width: 0;
 }
 
 .driver-top-shell__identity span {
   color: var(--driver-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .025em;
-  text-transform: uppercase;
 }
 
 .driver-top-shell__identity strong {
-  max-width: 230px;
   color: var(--driver-ink);
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.driver-top-shell__context input,
-.driver-top-shell__context select,
-.driver-top-shell__context button,
-.driver-top-shell__context [aria-label="Active organisation"],
-.driver-shell-action,
-.driver-shell-notification {
-  height: 32px !important;
-  min-height: 32px !important;
-  border-radius: 5px !important;
-  font-size: 11px !important;
 }
 
 .driver-shell-action,
@@ -98,30 +66,12 @@
   color: var(--driver-red);
 }
 
-.driver-top-nav {
-  top: 52px;
-  height: 40px;
-  min-height: 40px;
-  border-bottom: 1px solid var(--driver-border);
-  background: #fff;
-}
-
-.driver-top-nav__track {
-  height: 39px;
-  padding: 0 16px;
-}
-
 .driver-top-nav__group {
-  border-left-color: #edf1f5;
+  border-left-color: var(--ws-border-soft, #e2e7ed);
 }
 
 .driver-top-nav__item {
-  height: 39px;
-  min-height: 39px;
-  padding: 0 12px;
-  color: #526173;
-  font-size: 11px;
-  font-weight: 650;
+  color: #526176;
 }
 
 .driver-top-nav__item:hover {
@@ -132,115 +82,31 @@
 .driver-top-nav__item[data-active="true"] {
   color: var(--driver-navy);
   background: #fff;
-  font-weight: 800;
-  box-shadow: inset 0 -3px 0 var(--driver-blue);
+  box-shadow: inset 0 -2px 0 var(--driver-blue);
 }
 
 .driver-top-shell__content {
-  min-height: calc(100vh - 92px);
   background: var(--driver-page) !important;
 }
 
-.xdrive-driver-workspace .xdrive-page-frame {
-  width: 100% !important;
-  max-width: none !important;
-  padding: 14px 16px 22px !important;
-  box-sizing: border-box !important;
-}
-
-.driver-operational-page {
-  gap: var(--driver-gap) !important;
-  align-content: start !important;
-  font-size: 12px;
-}
-
-.xdrive-driver-workspace .xdrive-page-header {
-  min-height: 54px !important;
-  margin: 0 0 2px !important;
-  padding: 0 !important;
-  gap: 16px !important;
-  align-items: center !important;
-}
-
-.xdrive-driver-workspace .xdrive-page-header > div:first-child > div:first-child {
-  margin: 0 0 4px !important;
-  color: var(--driver-blue) !important;
-  font-size: 9px !important;
-  line-height: 11px !important;
-  font-weight: 800 !important;
-  letter-spacing: .08em !important;
-  text-transform: uppercase !important;
-}
-
-.xdrive-driver-workspace .xdrive-page-header h1 {
-  margin: 0 !important;
-  color: var(--driver-ink) !important;
-  font-size: 21px !important;
-  line-height: 25px !important;
-  font-weight: 800 !important;
-  letter-spacing: -.015em;
-}
-
-.xdrive-driver-workspace .xdrive-page-header p {
-  max-width: 760px;
-  margin: 3px 0 0 !important;
-  color: var(--driver-muted) !important;
-  font-size: 11px !important;
-  line-height: 15px !important;
-}
-
-.driver-dash-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  border: 1px solid var(--driver-border);
-  border-radius: var(--driver-radius) !important;
-  background: var(--driver-surface);
-  overflow: hidden;
-}
-
-.driver-dash-metric {
-  min-width: 0;
-  min-height: 58px;
-  padding: 10px 12px;
-  border-right: 1px solid #e8edf3;
-  background: #fff;
-}
-
-.driver-dash-metric:last-child {
-  border-right: 0;
-}
-
-.driver-dash-metric span {
-  color: var(--driver-muted);
-  font-size: 9px;
-  line-height: 11px;
-  font-weight: 750;
-  letter-spacing: .045em;
-  text-transform: uppercase;
-}
-
-.driver-dash-metric strong {
-  margin-top: 5px;
-  color: var(--driver-navy);
-  font-size: 20px;
-  line-height: 22px;
-  font-weight: 800;
-}
-
-.driver-exchange-dashboard {
-  grid-template-columns: 318px minmax(0, 1fr) !important;
-  gap: var(--driver-gap) !important;
-  align-items: start !important;
-}
-
+.driver-operational-page,
 .driver-exchange-left,
 .driver-exchange-main,
 .driver-ops-grid-2,
 .driver-ops-grid-3,
 .driver-profile-summary {
-  gap: var(--driver-gap) !important;
+  gap: var(--ws-gap-grid, 12px) !important;
   align-items: start !important;
   align-content: start !important;
+}
+
+/* Legacy Driver dashboard selectors keep the measured 300–315px operational
+ * column instead of the old 285/318px breakpoint drift. New Dashboard code uses
+ * driver-dashboard-reference.css directly. */
+.driver-exchange-dashboard {
+  grid-template-columns: minmax(300px, 312px) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid, 12px) !important;
+  align-items: start !important;
 }
 
 .driver-dash-box,
@@ -250,7 +116,7 @@
 .driver-job-row,
 .driver-tab-strip,
 .driver-status-tabs {
-  border-radius: var(--driver-radius) !important;
+  border-radius: var(--ws-radius, 4px) !important;
   box-shadow: none !important;
 }
 
@@ -262,61 +128,14 @@
 
 .driver-dash-box__head,
 .driver-operational-page section > div:first-child {
-  min-height: 38px !important;
-  padding: 8px 11px !important;
   border-bottom-color: var(--driver-border) !important;
   background: var(--driver-surface-soft) !important;
 }
 
-.driver-dash-box__head strong,
-.driver-operational-page section > div:first-child h2 {
-  color: var(--driver-ink) !important;
-  font-size: 11.5px !important;
-  line-height: 15px !important;
-  font-weight: 800 !important;
-}
-
-.driver-operational-page section > div:first-child p {
-  margin-top: 2px !important;
+.driver-dash-note,
+.driver-booking-route span,
+.driver-booking-time span {
   color: var(--driver-muted) !important;
-  font-size: 9.5px !important;
-  line-height: 13px !important;
-}
-
-.driver-dash-box__body {
-  padding: 10px 11px !important;
-}
-
-.driver-dash-note {
-  color: var(--driver-muted) !important;
-  font-size: 10px !important;
-  line-height: 14px !important;
-}
-
-.driver-dash-actions {
-  gap: 6px !important;
-  margin-top: 9px !important;
-}
-
-.driver-operational-page button,
-.driver-operational-page input,
-.driver-operational-page select {
-  min-height: 31px !important;
-  height: 31px !important;
-  border-radius: 5px !important;
-  font-size: 10.5px !important;
-}
-
-.driver-operational-page button {
-  padding-left: 10px !important;
-  padding-right: 10px !important;
-  font-weight: 700;
-}
-
-.driver-operational-page textarea {
-  min-height: 68px !important;
-  border-radius: 5px !important;
-  font-size: 10.5px !important;
 }
 
 .driver-ops-table,
@@ -327,24 +146,15 @@
 
 .driver-ops-table th,
 .driver-dash-table th {
-  height: 32px !important;
-  padding: 0 9px !important;
-  background: #f4f7fb !important;
-  border-bottom: 1px solid var(--driver-border) !important;
+  background: #edf2f8 !important;
+  border-bottom-color: var(--driver-border) !important;
   color: var(--driver-navy) !important;
-  font-size: 8.5px !important;
-  line-height: 11px !important;
-  font-weight: 800 !important;
-  letter-spacing: .04em;
 }
 
 .driver-ops-table td,
 .driver-dash-table td {
-  padding: 7px 9px !important;
-  border-bottom: 1px solid #edf1f5 !important;
-  color: #273244;
-  font-size: 10px !important;
-  line-height: 14px !important;
+  border-bottom-color: var(--ws-border-soft, #e2e7ed) !important;
+  color: var(--driver-ink);
 }
 
 .driver-ops-table tbody tr:hover,
@@ -353,81 +163,25 @@
 }
 
 .driver-booking-list {
-  gap: 6px !important;
+  gap: var(--ws-gap-internal, 8px) !important;
 }
 
 .driver-booking-row {
   grid-template-columns: minmax(0, 1.5fr) minmax(190px, .8fr) minmax(120px, .45fr) !important;
   border: 1px solid var(--driver-border) !important;
   border-left: 3px solid #8dbb3f !important;
-  border-radius: 5px !important;
+  border-radius: var(--ws-radius, 4px) !important;
   background: #fff !important;
   overflow: hidden;
 }
 
 .driver-booking-row > div {
-  padding: 8px 10px !important;
-  border-right-color: #edf1f5 !important;
+  border-right-color: var(--ws-border-soft, #e2e7ed) !important;
 }
 
-.driver-booking-route strong {
-  color: var(--driver-ink);
-  font-size: 11px !important;
-  line-height: 14px !important;
-}
-
-.driver-booking-route span,
-.driver-booking-time span {
-  color: var(--driver-muted);
-  font-size: 8.5px !important;
-  line-height: 11px !important;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .035em;
-}
-
+.driver-booking-route strong,
 .driver-booking-time strong {
-  color: #334155;
-  font-size: 10px !important;
-  line-height: 14px !important;
-}
-
-.driver-cell-label {
-  color: var(--driver-muted) !important;
-  font-size: 8.5px !important;
-  line-height: 11px !important;
-  font-weight: 750;
-  text-transform: uppercase;
-  letter-spacing: .035em;
-}
-
-.driver-cell-primary {
-  color: var(--driver-ink) !important;
-  font-size: 11px !important;
-  line-height: 15px !important;
-}
-
-.driver-cell-secondary {
-  margin-top: 2px !important;
-  color: var(--driver-muted) !important;
-  font-size: 9.5px !important;
-  line-height: 13px !important;
-}
-
-@media (max-width: 1280px) {
-  .driver-top-shell__header {
-    grid-template-columns: minmax(190px, auto) minmax(220px, 1fr) auto;
-    gap: 8px;
-    padding: 0 10px;
-  }
-
-  .driver-exchange-dashboard {
-    grid-template-columns: 285px minmax(0, 1fr) !important;
-  }
-
-  .driver-top-nav__item {
-    padding: 0 9px;
-  }
+  color: var(--driver-ink);
 }
 
 @media (max-width: 1024px) {
@@ -439,40 +193,21 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .driver-dash-metric:nth-child(2) {
-    border-right: 0;
-  }
-
-  .driver-dash-metric:nth-child(-n+2) {
-    border-bottom: 1px solid #e8edf3;
+  .driver-booking-row {
+    grid-template-columns: 1fr !important;
   }
 }
 
 @media (max-width: 768px) {
-  .driver-top-shell__header {
-    height: 50px;
-    min-height: 50px;
-  }
-
-  .driver-top-nav {
-    top: 50px;
-  }
-
-  .xdrive-driver-workspace .xdrive-page-frame {
-    padding: 10px 8px 16px !important;
-  }
-
-  .xdrive-driver-workspace .xdrive-page-header h1 {
-    font-size: 19px !important;
-    line-height: 23px !important;
-  }
-
   .driver-dash-metrics,
   .driver-dash-actions {
     grid-template-columns: 1fr 1fr;
   }
+}
 
-  .driver-booking-row {
-    grid-template-columns: 1fr !important;
+@media (max-width: 430px) {
+  .driver-dash-metrics,
+  .driver-dash-actions {
+    grid-template-columns: 1fr;
   }
 }
