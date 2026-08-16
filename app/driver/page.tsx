@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { canonicalJobStatus, filterJobsForDriver, recentCompletedJobs } from '../../lib/driverDashboard';
-import { jobLifecyclePresentationGroup } from '../../lib/jobs/jobLifecyclePresentation';
+import { jobLifecyclePresentationGroup, nextDriverExecutionStatus } from '../../lib/jobs/jobLifecyclePresentation';
 import { workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
@@ -19,7 +19,7 @@ import {
 } from '../components/workspace/WorkspaceUI';
 
 type DriverNextAction =
-  | { kind: 'transition'; nextStatus: string; label: string; description: string; resultLabel: string }
+  | { kind: 'transition'; label: string; description: string; resultLabel: string }
   | { kind: 'open'; label: string; description: string };
 
 type DashboardDriverProfile = {
@@ -82,27 +82,23 @@ type DashboardContextWarnings = {
 
 const DOCUMENT_ATTENTION_STATUSES = new Set(['pending', 'rejected', 'expired']);
 
-// Presentation-only action copy. Lifecycle grouping itself is owned by
-// jobLifecyclePresentationGroup and mutations remain authoritative in
-// driver_update_job_status_atomic.
+// Presentation-only action copy. Lifecycle normalization and next-step resolution
+// are shared; mutations remain authoritative in driver_update_job_status_atomic.
 const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   awarded: {
     kind: 'transition',
-    nextStatus: 'on_my_way',
     label: 'On my way to pickup',
     description: 'Confirm departure for the collection point.',
     resultLabel: 'On my way to pickup',
   },
   allocated: {
     kind: 'transition',
-    nextStatus: 'on_my_way',
     label: 'On my way to pickup',
     description: 'Confirm departure for the collection point.',
     resultLabel: 'On my way to pickup',
   },
   on_my_way: {
     kind: 'transition',
-    nextStatus: 'on_site_pickup',
     label: 'On site at pickup',
     description: 'Confirm arrival at the collection point.',
     resultLabel: 'On site at pickup',
@@ -114,14 +110,12 @@ const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   },
   loaded: {
     kind: 'transition',
-    nextStatus: 'in_transit',
     label: 'On my way to delivery',
     description: 'Confirm departure from collection with the load on board.',
     resultLabel: 'On my way to delivery',
   },
   in_transit: {
     kind: 'transition',
-    nextStatus: 'on_site_delivery',
     label: 'On site at delivery',
     description: 'Confirm arrival at the delivery point.',
     resultLabel: 'On site at delivery',
@@ -133,30 +127,9 @@ const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
   },
   delivered: {
     kind: 'transition',
-    nextStatus: 'completed',
     label: 'Complete job',
     description: 'Close the delivered job after POD has been captured.',
     resultLabel: 'Completed',
-  },
-  accepted: {
-    kind: 'open',
-    label: 'Open job',
-    description: 'Continue this accepted job from the full execution screen.',
-  },
-  on_my_way_to_pickup: {
-    kind: 'open',
-    label: 'Open pickup',
-    description: 'Continue this pickup state from the full execution screen.',
-  },
-  collected: {
-    kind: 'open',
-    label: 'Open delivery',
-    description: 'Continue this delivery state from the full execution screen.',
-  },
-  on_my_way_to_delivery: {
-    kind: 'open',
-    label: 'Open delivery',
-    description: 'Continue this delivery state from the full execution screen.',
   },
 };
 
@@ -254,7 +227,9 @@ export default function DriverDashboard() {
   const currentJob = myJobs.find((job) =>
     jobLifecyclePresentationGroup(workspaceJobPresentationStatus(job)) === 'active'
   );
-  const currentStatus = currentJob ? workspaceJobPresentationStatus(currentJob).toLowerCase() : null;
+  const currentStatus = currentJob
+    ? canonicalJobStatus(currentJob.current_status, currentJob.status)
+    : null;
   const currentAction = currentStatus
     ? NEXT_DRIVER_ACTIONS[currentStatus] ?? {
         kind: 'open' as const,
@@ -372,17 +347,21 @@ export default function DriverDashboard() {
         const response = await fetch('/api/driver/vehicles', { headers: { Authorization: `Bearer ${token}` } });
         const payload = (await response.json().catch(() => ({}))) as {
           vehicles?: DashboardVehicle[];
-          assignedVehicleId?: string | null;
+          canonicalVehicleId?: string | null;
+          canonicalVehicleSignalAvailable?: boolean;
           error?: string;
         };
-        if (!response.ok) return { vehicle: null as DashboardVehicle | null, error: payload.error || 'Assigned vehicle could not be loaded.' };
+        if (!response.ok) return { vehicle: null as DashboardVehicle | null, error: payload.error || 'Canonical active vehicle could not be loaded.' };
+        if (payload.canonicalVehicleSignalAvailable === false) {
+          return { vehicle: null as DashboardVehicle | null, error: 'Canonical active-vehicle signal is temporarily unavailable.' };
+        }
         const vehicles = payload.vehicles ?? [];
-        const vehicle = vehicles.find((row) => row.id === payload.assignedVehicleId)
-          ?? vehicles.find((row) => row.assigned_driver_id === driverId)
-          ?? null;
+        const vehicle = payload.canonicalVehicleId
+          ? vehicles.find((row) => row.id === payload.canonicalVehicleId) ?? null
+          : null;
         return { vehicle, error: null as string | null };
       } catch {
-        return { vehicle: null as DashboardVehicle | null, error: 'Assigned vehicle could not be loaded.' };
+        return { vehicle: null as DashboardVehicle | null, error: 'Canonical active vehicle could not be loaded.' };
       }
     })();
 
@@ -428,7 +407,7 @@ export default function DriverDashboard() {
   }, [loadDashboardContext]);
 
   const runCurrentAction = async () => {
-    if (!currentJob || !currentAction) return;
+    if (!currentJob || !currentAction || !currentStatus) return;
     if (currentAction.kind === 'open') {
       router.push(`/driver/jobs/${currentJob.id}`);
       return;
@@ -440,6 +419,12 @@ export default function DriverDashboard() {
       return;
     }
 
+    const nextStatus = nextDriverExecutionStatus(currentStatus);
+    if (!nextStatus) {
+      setTransitionError('This lifecycle step must be continued from the full execution screen.');
+      return;
+    }
+
     setTransitioningJobId(currentJob.id);
     setTransitionError('');
     setTransitionMessage('');
@@ -447,7 +432,7 @@ export default function DriverDashboard() {
     const { error } = await supabase.rpc('driver_update_job_status_atomic', {
       p_driver_id: driverId,
       p_job_id: currentJob.id,
-      p_next_status: currentAction.nextStatus,
+      p_next_status: nextStatus,
       p_driver_notes: null,
     });
 
@@ -526,7 +511,7 @@ export default function DriverDashboard() {
         </div>
       </div>
       <div className="driver-load-row__meta">
-        <StatusBadge value="Vehicle match" tone="blue" />
+        <StatusBadge value="Vehicle type match" tone="blue" />
         <span>{load.member?.name ?? 'Marketplace member'}{load.member?.phone ? ` · ${load.member.phone}` : ''}</span>
         <span>XDrive XDL-{load.id.slice(0, 8).toUpperCase()}</span>
         <div className="driver-row-actions">
@@ -549,14 +534,14 @@ export default function DriverDashboard() {
   const driverStatusValue = driverProfile?.status ? humanize(driverProfile.status) : 'Unavailable';
   const assignedVehicleName = assignedVehicle
     ? [vehicleLabel(assignedVehicle.type), assignedVehicle.reg_plate].filter(Boolean).join(' · ')
-    : 'Not assigned';
+    : 'Not available';
 
   return (
     <div className="driver-reference-dashboard">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Driver Dashboard"
-        subtitle="Current execution, bookings, marketplace matching, feedback and compliance readiness."
+        subtitle="Current execution, bookings, marketplace matching, feedback and compliance signals."
         availabilityLabel={driverProfile?.availability_status ? availabilityValue : undefined}
         headerActions={<ActionButton tone="primary" onClick={() => void refreshDashboard()} disabled={data.loading || contextLoading}>Refresh</ActionButton>}
       >
@@ -592,7 +577,7 @@ export default function DriverDashboard() {
 
             <section className="driver-dashboard-section">
               <div className="driver-dashboard-section__header">
-                <span>Assigned vehicle</span>
+                <span>Canonical active vehicle</span>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Vehicle</ActionButton>
               </div>
               <div className="driver-dashboard-section__body">
@@ -600,6 +585,7 @@ export default function DriverDashboard() {
                   <div><dt>Vehicle</dt><dd>{assignedVehicleName}</dd></div>
                   <div><dt>Type</dt><dd>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : '—'}</dd></div>
                 </dl>
+                <span style={{ fontSize: 11, color: '#64748b' }}>Vehicle identity only; full operational eligibility is revalidated server-side for quoting and allocation.</span>
                 {contextWarnings.vehicle && <div className="driver-dashboard-inline-warning">{contextWarnings.vehicle}</div>}
               </div>
             </section>
@@ -678,7 +664,7 @@ export default function DriverDashboard() {
                   {contextWarnings.loads ? (
                     <EmptyState compact title="Relevant loads unavailable" description={contextWarnings.loads} />
                   ) : !assignedVehicle ? (
-                    <EmptyState compact title="No vehicle-matched loads" description="An assigned canonical vehicle is required before Dashboard loads can be matched truthfully." />
+                    <EmptyState compact title="No vehicle-matched loads" description="A canonical active vehicle is required before Dashboard loads can be matched by vehicle type. Full quote eligibility is revalidated server-side." />
                   ) : relevantLoads.length === 0 ? (
                     <EmptyState compact title="No vehicle-matched loads" description={`No open exchange work currently matches ${vehicleLabel(assignedVehicle.type)}.`} />
                   ) : (
@@ -723,11 +709,11 @@ export default function DriverDashboard() {
                 {data.datasets.driverDocuments.availability === 'unavailable' ? (
                   <EmptyState compact title="Document status unavailable" description="Driver document data could not be loaded." />
                 ) : myDocuments.length === 0 ? (
-                  <EmptyState compact title="No compliance documents on record" description="Open Documents to upload and manage the records required for driver readiness." />
+                  <EmptyState compact title="No compliance documents on record" description="Open Documents to upload and manage driver document records. Full operational eligibility is evaluated separately." />
                 ) : documentAlerts.length === 0 ? (
                   <div className="driver-dashboard-compliance-ready">
-                    <StatusBadge value="Ready" tone="green" />
-                    <span>{myDocuments.length} document{myDocuments.length === 1 ? '' : 's'} on record with no current review, rejection, expiry or 30-day warning.</span>
+                    <StatusBadge value="No document alert" tone="blue" />
+                    <span>{myDocuments.length} document{myDocuments.length === 1 ? '' : 's'} on record with no current review, rejection, expiry or 30-day warning. This is not an operational-eligibility verdict.</span>
                   </div>
                 ) : (
                   <div className="driver-dashboard-alert-list">
