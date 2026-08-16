@@ -100,17 +100,26 @@ export default function DriverProfilePage() {
     setError('');
     setSuccess('');
 
-    const { error: updateError } = await supabase
-      .from('drivers')
-      .update({ display_name: displayName.trim() || null, phone: phone.trim() || null })
-      .eq('id', driverId);
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
 
-    if (updateError) setError('Your profile changes could not be saved.');
-    else {
+      const response = await fetch('/api/driver/profile', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, phone }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Your profile changes could not be saved.');
+
       setSuccess('Profile details updated.');
       await loadProfile();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your profile changes could not be saved.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const workspaceMode = getWorkspaceModeLabel(user);
