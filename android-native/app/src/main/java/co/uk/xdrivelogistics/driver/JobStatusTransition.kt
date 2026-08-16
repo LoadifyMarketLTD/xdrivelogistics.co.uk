@@ -14,6 +14,7 @@ internal fun normalizeDriverStatus(raw: String): String {
     if (raw.isBlank()) return "unknown"
     return when (raw.lowercase()) {
         "assigned", "accepted" -> "allocated"
+        "on_my_way_to_pickup" -> "on_my_way"
         "arrived_pickup" -> "on_site_pickup"
         "collected" -> "loaded"
         "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
