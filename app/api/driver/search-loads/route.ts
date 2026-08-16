@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin
     .from('jobs')
     .select(SEARCH_SELECT)
-    .eq('status', 'posted')
+    .in('status', ['posted', 'quoted'])
     .not('exchange_posted_at', 'is', null)
     .is('awarded_carrier_company_id', null)
     .order('exchange_posted_at', { ascending: false })

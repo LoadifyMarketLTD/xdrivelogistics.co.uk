@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 
   query = requestedId
     ? query.eq('id', requestedId).in('status', ['posted', 'quoted']).limit(1)
-    : query.eq('status', 'posted').limit(LIST_LIMIT);
+    : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
 
   const { data: rawJobs, error: jobsError } = await query;
   if (jobsError) {

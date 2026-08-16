@@ -387,7 +387,7 @@ async function searchLoads(request: NextRequest, companyId: string) {
   let query = supabaseAdmin!
     .from('jobs')
     .select(SEARCH_SELECT)
-    .eq('status', 'posted')
+    .in('status', ['posted', 'quoted'])
     .not('exchange_posted_at', 'is', null)
     .is('awarded_carrier_company_id', null)
     .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${companyId})`)
@@ -700,7 +700,7 @@ export async function POST(request: NextRequest) {
   const visible = job.exchange_visibility === 'exchange'
     || (job.exchange_visibility === 'direct' && job.direct_invite_company_id === input.companyId);
   if (!visible) return respond(404, { error: 'Load not found.' });
-  if (job.status !== 'posted' || job.awarded_carrier_company_id) {
+  if (!['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase()) || job.awarded_carrier_company_id) {
     return respond(409, { error: 'This load is no longer open for quotes.' });
   }
 

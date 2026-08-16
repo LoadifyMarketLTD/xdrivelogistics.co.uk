@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
     .from('jobs')
     .select(nearbySelect)
     .or(driver.companyId ? `exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})` : 'exchange_visibility.eq.exchange')
-    .eq('status', 'posted')
+    .in('status', ['posted', 'quoted'])
     .is('awarded_carrier_company_id', null)
     .order('exchange_posted_at', { ascending: false })
     .limit(Math.max(limit, 100));
