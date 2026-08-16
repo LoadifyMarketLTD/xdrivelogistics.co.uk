@@ -46,7 +46,6 @@ data class DriverJob(
 
     fun driverStatusKey(): String = when (statusKey()) {
         "assigned", "accepted" -> "allocated"
-        "on_my_way_to_pickup" -> "on_my_way"
         "arrived_pickup" -> "on_site_pickup"
         "collected" -> "loaded"
         "on_route_delivery", "on_my_way_to_delivery" -> "in_transit"
