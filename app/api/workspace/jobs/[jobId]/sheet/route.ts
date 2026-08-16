@@ -55,7 +55,8 @@ function invoiceVisibleToCompany(
     .map(text)
     .filter((value): value is string => Boolean(value));
   // Legacy job-linked invoices without explicit party columns remain visible to
-  // the job owner only. Awarded carriers must have an explicit invoice party.
+  // the job owner only. External execution companies must have an explicit
+  // invoice party relationship.
   const partyVisible = ids.length === 0 ? viewerCompanyId === ownerCompanyId : ids.includes(viewerCompanyId);
   if (!partyVisible) return false;
 
@@ -86,8 +87,8 @@ function invoiceVisibleToCompany(
       && (paid || sentWithAuditTrail);
   }
 
-  // Awarded-carrier invoice visibility stays party-scoped. Do not invent a
-  // customer delivery-state rule for supplier-side invoice records.
+  // External execution-company invoice visibility stays party-scoped. Do not
+  // invent a customer delivery-state rule for supplier-side invoice records.
   return true;
 }
 
@@ -131,8 +132,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const ownerCompanyId = text(job.company_id);
   if (!ownerCompanyId) return respond(404, { error: 'Job company is unavailable.' });
 
-  const awardedCompanyId = text(job.awarded_carrier_company_id) ?? text(job.assigned_company_id);
-  const allowedCompanyIds = [...new Set([ownerCompanyId, awardedCompanyId].filter((value): value is string => Boolean(value)))];
+  // Commercial award and execution assignment are separate identities. Never
+  // infer an awarded supplier from assigned_company_id.
+  const awardedCompanyId = text(job.awarded_carrier_company_id);
+  const executionCompanyId = text(job.assigned_company_id);
+  const allowedCompanyIds = [...new Set([ownerCompanyId, awardedCompanyId, executionCompanyId].filter((value): value is string => Boolean(value)))];
 
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
@@ -152,22 +156,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   if (!memberships?.length) return respond(403, { error: 'You do not have access to this job sheet.' });
 
-  // Prefer the job-owner context when a user genuinely belongs to both sides;
-  // otherwise use the awarded carrier membership. This prevents a carrier-only
-  // viewer from receiving owner/broker commercial fields.
+  // Prefer owner context, then the proven awarded supplier, then the explicit
+  // execution-company assignment. This keeps operational access without
+  // promoting execution identity into commercial-award identity.
   const ownerMembership = memberships.find((membership) => String(membership.company_id) === ownerCompanyId);
+  const awardedMembership = awardedCompanyId
+    ? memberships.find((membership) => String(membership.company_id) === awardedCompanyId)
+    : undefined;
+  const executionMembership = executionCompanyId
+    ? memberships.find((membership) => String(membership.company_id) === executionCompanyId)
+    : undefined;
   const viewerCompanyId = ownerMembership
     ? ownerCompanyId
-    : String(memberships[0]?.company_id ?? '');
+    : awardedMembership
+      ? awardedCompanyId ?? ''
+      : executionMembership
+        ? executionCompanyId ?? ''
+        : '';
   if (!viewerCompanyId) return respond(403, { error: 'You do not have access to this job sheet.' });
 
-  const viewerIsAwardedCarrier = Boolean(awardedCompanyId && viewerCompanyId === awardedCompanyId && viewerCompanyId !== ownerCompanyId);
+  const viewerIsOwnerCompany = viewerCompanyId === ownerCompanyId;
+  const viewerIsAwardedCarrier = Boolean(awardedCompanyId && viewerCompanyId === awardedCompanyId && !viewerIsOwnerCompany);
+  const viewerIsExternalExecutor = !viewerIsOwnerCompany;
   const assignedDriverId = text(job.assigned_driver_id);
   const assignedVehicleId = text(job.vehicle_id);
 
   const [
     ownerCompanyResult,
     carrierCompanyResult,
+    executionCompanyResult,
     viewerCompanyResult,
     bidResult,
     agreementResult,
@@ -176,10 +193,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     trackingResult,
     documentsResult,
     invoicesResult,
-    carrierMembersResult,
+    viewerMembersResult,
   ] = await Promise.all([
     supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', ownerCompanyId).maybeSingle(),
     awardedCompanyId ? supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', awardedCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    executionCompanyId ? supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', executionCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type').eq('id', viewerCompanyId).maybeSingle(),
     supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -188,13 +206,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(20),
-    viewerIsAwardedCarrier
+    viewerIsExternalExecutor
       ? supabaseAdmin.from('company_memberships').select('user_id').eq('company_id', viewerCompanyId).eq('status', 'active')
       : Promise.resolve({ data: [], error: null }),
   ]);
 
   const ownerCompany = (ownerCompanyResult.data ?? {}) as Record<string, unknown>;
   const carrierCompany = (carrierCompanyResult.data ?? {}) as Record<string, unknown>;
+  const executionCompany = (executionCompanyResult.data ?? {}) as Record<string, unknown>;
   const viewerCompany = (viewerCompanyResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
@@ -203,15 +222,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const details = parseLoadDetails(job.load_details);
   const viewerWorkspace = workspaceKind(viewerCompany.company_type);
 
-  const carrierCost = numberValue(agreement.agreed_amount)
+  const acceptedBidderDriverId = text(acceptedBid.bidder_driver_id);
+  const acceptedBidderDriverResult = acceptedBidderDriverId
+    ? await supabaseAdmin.from('drivers').select('id, display_name, status').eq('id', acceptedBidderDriverId).maybeSingle()
+    : { data: null, error: null };
+  const acceptedBidderDriver = (acceptedBidderDriverResult.data ?? {}) as Record<string, unknown>;
+
+  const rawCarrierCost = numberValue(agreement.agreed_amount)
     ?? numberValue(job.agreed_rate_gbp)
     ?? numberValue(job.agreed_rate)
     ?? numberValue(acceptedBid.bid_price_gbp)
     ?? numberValue(acceptedBid.amount);
   const rawCustomerPrice = numberValue(job.budget_amount);
-  const customerPrice = viewerIsAwardedCarrier ? null : rawCustomerPrice;
-  const brokerMargin = rawCustomerPrice != null && carrierCost != null ? rawCustomerPrice - carrierCost : null;
-  const paymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
+  const commercialAwardVisible = viewerIsOwnerCompany || viewerIsAwardedCarrier;
+  const carrierCost = commercialAwardVisible ? rawCarrierCost : null;
+  const customerPrice = viewerIsOwnerCompany ? rawCustomerPrice : null;
+  const brokerMargin = rawCustomerPrice != null && rawCarrierCost != null ? rawCustomerPrice - rawCarrierCost : null;
+  const rawPaymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
+  const paymentTerms = commercialAwardVisible ? rawPaymentTerms : null;
   const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required);
 
   const timeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
@@ -222,19 +250,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     userName: text(entry.user_name),
   }));
 
-  const carrierMemberUserIds = new Set(
-    ((carrierMembersResult.data ?? []) as Array<Record<string, unknown>>)
+  const viewerMemberUserIds = new Set(
+    ((viewerMembersResult.data ?? []) as Array<Record<string, unknown>>)
       .map((entry) => text(entry.user_id))
       .filter((value): value is string => Boolean(value)),
   );
   const assignedDriverUserId = text(driver.user_id);
-  if (assignedDriverUserId) carrierMemberUserIds.add(assignedDriverUserId);
+  const assignedDriverBelongsToViewerExecution = Boolean(
+    assignedDriverUserId
+    && (
+      executionCompanyId === viewerCompanyId
+      || (!executionCompanyId && awardedCompanyId === viewerCompanyId)
+    )
+  );
+  if (assignedDriverUserId && assignedDriverBelongsToViewerExecution) viewerMemberUserIds.add(assignedDriverUserId);
 
   const rawDocuments = documentsResult.error ? [] : ((documentsResult.data ?? []) as Record<string, unknown>[]);
-  const visibleDocuments = viewerIsAwardedCarrier
+  const visibleDocuments = viewerIsExternalExecutor
     ? rawDocuments.filter((entry) => {
         const uploader = text(entry.uploaded_by);
-        return Boolean(uploader && carrierMemberUserIds.has(uploader));
+        return Boolean(uploader && viewerMemberUserIds.has(uploader));
       })
     : rawDocuments;
   const documents = visibleDocuments.map((entry) => ({
@@ -279,6 +314,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         memberId: text(carrierCompany.company_number),
         phone: text(carrierCompany.phone),
         type: text(carrierCompany.company_type),
+      } : null,
+      executionCompany: executionCompanyId ? {
+        companyId: executionCompanyId,
+        name: text(executionCompany.name) ?? 'Execution company',
+        memberId: text(executionCompany.company_number),
+        phone: text(executionCompany.phone),
+        type: text(executionCompany.company_type),
+      } : null,
+      acceptedBidRecorded: Boolean(bidResult.data && !bidResult.error),
+      acceptedBidderDriver: acceptedBidderDriverId ? {
+        id: acceptedBidderDriverId,
+        name: text(acceptedBidderDriver.display_name),
+        status: text(acceptedBidderDriver.status),
       } : null,
       driver: assignedDriverId ? { id: assignedDriverId, name: text(driver.display_name), status: null } : null,
       vehicle: assignedVehicleId ? {
@@ -328,15 +376,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       commercial: {
         customerPrice,
         carrierCost,
-        margin: viewerWorkspace === 'broker' && viewerCompanyId === ownerCompanyId ? brokerMargin : null,
+        margin: viewerWorkspace === 'broker' && viewerIsOwnerCompany ? brokerMargin : null,
         currency: text(agreement.currency) ?? text(job.currency) ?? text(acceptedBid.currency) ?? 'GBP',
         paymentTerms,
-        paymentDueDays: numberValue(agreement.payment_due_days),
-        vatRate: numberValue(agreement.vat_rate),
-        vatAmount: numberValue(agreement.vat_amount),
-        agreedGross: numberValue(agreement.agreed_gross_amount),
-        snapshotAvailable: Boolean(agreementResult.data && !agreementResult.error),
-        targetCarrierCost: viewerWorkspace === 'broker' && viewerCompanyId === ownerCompanyId ? details.targetCarrierCost : null,
+        paymentDueDays: commercialAwardVisible ? numberValue(agreement.payment_due_days) : null,
+        vatRate: commercialAwardVisible ? numberValue(agreement.vat_rate) : null,
+        vatAmount: commercialAwardVisible ? numberValue(agreement.vat_amount) : null,
+        agreedGross: commercialAwardVisible ? numberValue(agreement.agreed_gross_amount) : null,
+        snapshotAvailable: commercialAwardVisible && Boolean(agreementResult.data && !agreementResult.error),
+        targetCarrierCost: viewerWorkspace === 'broker' && viewerIsOwnerCompany ? details.targetCarrierCost : null,
       },
       pod: {
         required: podRequired,
@@ -361,22 +409,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       partial: Boolean(
         ownerCompanyResult.error
         || carrierCompanyResult.error
+        || executionCompanyResult.error
         || viewerCompanyResult.error
         || bidResult.error
         || agreementResult.error
         || driverResult.error
         || vehicleResult.error
+        || acceptedBidderDriverResult.error
         || trackingResult.error
         || documentsResult.error
         || invoicesResult.error
-        || carrierMembersResult.error
+        || viewerMembersResult.error
       ),
       unavailable: {
         bodyType: assignedVehicleId && text(vehicle.body_type) ? null : 'No verified allocated vehicle body-type value is available for this job.',
         bookingFooter: 'No immutable historical booking-footer snapshot is exposed by the current verified data contract.',
         extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
-        documents: viewerIsAwardedCarrier
-          ? 'Carrier view exposes only job documents uploaded by the awarded carrier membership or assigned driver; owner-only uploads remain restricted.'
+        documents: viewerIsExternalExecutor
+          ? 'External execution view exposes only job documents uploaded by that company membership or its assigned driver; owner-only uploads remain restricted.'
           : null,
       },
     },
