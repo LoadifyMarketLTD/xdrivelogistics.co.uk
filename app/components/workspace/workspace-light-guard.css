@@ -153,11 +153,11 @@
   border-radius: 4px;
 }
 
-/* Compact CX controls. Do not allow inherited legacy sizing to create giant bars. */
+/* Measured CX fallback: never regress legacy controls below the 32px standard. */
 .xdrive-workspace-visual button,
 .xdrive-workspace-visual input,
 .xdrive-workspace-visual select {
-  min-height: 30px;
+  min-height: 32px;
 }
 
 .xdrive-workspace-visual ::selection {
