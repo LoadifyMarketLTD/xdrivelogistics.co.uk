@@ -72,19 +72,23 @@ describe('carrier dashboard convergence contract', () => {
     }))).toBe(true);
   });
 
-  it('backs every carrier dashboard action with a real route', () => {
+  it('backs every carrier dashboard and shell action with a real route', () => {
     for (const href of [
       '/admin/marketplace',
       '/admin/diary',
       '/admin/jobs',
+      '/admin/fleet',
       '/admin/fleet/positions',
       '/admin/live-availability',
+      '/admin/fleet/resources',
       '/admin/fleet/vehicles',
       '/admin/fleet/compliance',
       '/admin/fleet/assignments',
       '/admin/fleet/active-jobs',
       '/admin/freight-vision',
       '/admin/invoices',
+      '/admin/action-centre',
+      '/admin/notifications',
     ]) {
       expect(existsSync(page(href)), `${href} has no page.tsx`).toBe(true);
     }
