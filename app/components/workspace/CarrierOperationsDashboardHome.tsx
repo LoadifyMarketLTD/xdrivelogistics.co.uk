@@ -35,6 +35,7 @@ import {
 import {
   classifyWorkspaceJobStage,
   fleetQueueStage,
+  workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
 
 type ControlView = 'attention' | 'unallocated' | 'live' | 'pod' | 'exceptions' | 'all';
@@ -66,7 +67,8 @@ const isActiveBusyDriver = (driver: { status: string | null; availability_status
 
 // These predicates are lifecycle predicates only. Carrier company scoping is
 // applied first at `carrierExecutionJobs` and never delegated to the predicate.
-const isUnallocatedJob = (job: WorkspaceJob) => fleetQueueStage(job) === 'unallocated';
+const isUnallocatedJob = (job: WorkspaceJob) =>
+  workspaceJobPresentationStatus(job) === 'awarded' || fleetQueueStage(job) === 'unallocated';
 const isLiveJob = (job: WorkspaceJob) => classifyWorkspaceJobStage(job) === 'in_progress';
 // The shared dashboard feed exposes delivery_photos but not the full POD
 // signature/recipient/document contract. This predicate therefore means only
@@ -265,6 +267,16 @@ export default function CarrierOperationsDashboardHome() {
     : data.datasets.jobs.partialData
       ? 'Job data partial'
       : `${filteredJobs.length} visible`;
+  const jobEmptyTitle = data.datasets.jobs.availability === 'unavailable'
+    ? 'Job data unavailable'
+    : data.datasets.jobs.partialData
+      ? 'Partial job data'
+      : 'No carrier-awarded work matches this view';
+  const jobEmptyDescription = data.datasets.jobs.availability === 'unavailable'
+    ? 'Operational job records cannot be confirmed right now.'
+    : data.datasets.jobs.partialData
+      ? 'The bounded job feed cannot prove this view is empty. Open the full jobs register or refresh the dataset.'
+      : 'Change the control view or clear the filters.';
 
   return (
     <div style={{ width: '100%', padding: '12px 12px 16px' }}>
@@ -272,15 +284,15 @@ export default function CarrierOperationsDashboardHome() {
         eyebrow="Carrier operations"
         title="Carrier Control Desk"
         badge="Live operations"
-        description="A working desk for carrier-awarded freight, allocation, live delivery, delivery evidence and exceptions. Customer-role jobs owned by this company stay outside carrier execution signals."
-        actions={<><ActionButton tone="warning" onClick={() => router.push('/admin/marketplace')}>Find Loads</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton></>}
+        description="Awarded carrier work, allocation, live delivery, evidence and exceptions in one operational desk."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton>}
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <OperationalToolbar>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery evidence · exception recovery</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace')}>My Quotes</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace')}>Marketplace</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
       </OperationalToolbar>
 
       <CarrierControlSignals signals={signals} />
@@ -336,11 +348,11 @@ export default function CarrierOperationsDashboardHome() {
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
-                  <StatusBadge key="status" value={job.current_status ?? job.status} tone={jobStatus(job) === 'cancelled' ? 'grey' : isExceptionJob(job) ? 'red' : undefined} />,
+                  <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} tone={jobStatus(job) === 'cancelled' ? 'grey' : isExceptionJob(job) ? 'red' : undefined} />,
                   <button key="action" type="button" onClick={() => router.push(actionPath)} style={{ height: '28px', padding: '0 9px', border: `1px solid ${isUnallocatedJob(job) ? workspaceTheme.green : workspaceTheme.border}`, borderRadius: '4px', background: isUnallocatedJob(job) ? workspaceTheme.green : '#fff', color: isUnallocatedJob(job) ? '#fff' : workspaceTheme.blue, fontSize: '11px', fontWeight: 750, cursor: 'pointer' }}>{isUnallocatedJob(job) ? 'Allocate' : 'Open'}</button>,
                 ];
               })}
-              empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No carrier-awarded work matches this view'} description={unavailable(data, ['jobs']) ? 'Operational job records cannot be confirmed right now.' : 'Change the control view or clear the filters.'} />}
+              empty={<EmptyState compact title={jobEmptyTitle} description={jobEmptyDescription} />}
             />
           </div>
 
