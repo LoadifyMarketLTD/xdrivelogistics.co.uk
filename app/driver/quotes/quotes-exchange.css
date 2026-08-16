@@ -1,5 +1,6 @@
 /* Driver Quotes route: thin route-specific layer over the shared XDrive workspace matrix.
- * Business logic remains in page.tsx; visual geometry comes from workspace-exchange-standard.css.
+ * Business logic remains in page.tsx; canonical geometry comes from
+ * workspace-measured-cx-baseline.css.
  * Keep this file intentionally small and avoid nth-child / DOM-position selectors.
  */
 
@@ -21,8 +22,8 @@
 }
 
 .driver-quotes-exchange .driver-board-summary {
-  min-height: 24px !important;
-  padding: 2px 3px !important;
+  min-height: 32px !important;
+  padding: 4px 6px !important;
 }
 
 .driver-quotes-exchange .driver-load-row[data-state="accepted"] {
