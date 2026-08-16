@@ -122,6 +122,13 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain('data.invoices.filter((invoice) => invoice.company_id === data.companyId);');
   });
 
+  it('keeps expired documents visible in carrier readiness alerts', () => {
+    const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
+
+    expect(carrier).toContain('return days !== null && days <= 30;');
+    expect(carrier).not.toContain('days >= 0 && days <= 30');
+  });
+
   it('keeps one carrier Fleet group, scopes workspace context to carrier roles, and resolves nested nav specifically', () => {
     const shell = source('app/components/workspace/TopWorkspaceShell.tsx');
 
