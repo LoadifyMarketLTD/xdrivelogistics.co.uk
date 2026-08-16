@@ -27,8 +27,11 @@ export async function GET(request: NextRequest) {
 
   // `all` is intentionally assignment-gated rather than Marketplace-gated. It
   // exists for authorised execution history and does not change job lifecycle.
+  // For scoped reads, current_status is authoritative when present; raw status
+  // is only the fallback for legacy rows where current_status is NULL.
   if (statusList) {
-    query = query.in('status', [...statusList]);
+    const statuses = statusList.join(',');
+    query = query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
   }
 
   const { data, error } = await query;
