@@ -89,7 +89,7 @@ export default function FleetAvailabilityPage() {
               location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : 'Location unavailable',
               work ? <span key="work"><strong style={{ display: 'block' }}>{work.job.pickup_postcode ?? work.job.pickup_location ?? 'Collection'} → {work.job.delivery_postcode ?? work.job.delivery_location ?? 'Delivery'}</strong><span>{work.stage === 'in_progress' ? 'Execution in progress' : work.stage === 'allocated' ? 'Allocated / awaiting execution' : 'Allocation incomplete — driver + canonical vehicle required'}</span></span> : 'No current or allocated Fleet job',
               docs.length ? `${docs.length} document(s)` : 'No documents recorded',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Review</ActionButton>,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>,
             ];
           })}
           empty={<EmptyState title="No drivers available for Fleet planning" />}
