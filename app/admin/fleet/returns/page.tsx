@@ -157,7 +157,7 @@ export default function CompanyReturnJourneysPage() {
                       <span>Company-owned return capacity</span>
                       <div style={{ marginLeft: 'auto' }}>
                         {journey.driver_id
-                          ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${journey.driver_id}`)}>Open driver</ActionButton>
+                          ? <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage drivers</ActionButton>
                           : <span>Driver action unavailable</span>}
                       </div>
                     </div>
