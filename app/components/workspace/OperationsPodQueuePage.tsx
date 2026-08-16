@@ -13,10 +13,10 @@ import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspac
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalTable,
   PageFrame,
   PageHeader,
   Panel,
@@ -92,65 +92,95 @@ export default function OperationsPodQueuePage() {
       <PageHeader
         eyebrow="Daily operations"
         title="POD Queue"
-        description="Delivery-stage jobs requiring proof-of-delivery attention. Delivery photos are evidence signals; the Job Sheet remains the source for the complete POD contract."
+        description="Delivery-stage and completed jobs available for proof-of-delivery inspection. Delivery photos are evidence signals; the Job Sheet remains the source for the complete POD contract."
       />
 
       {workspace.error && <AlertBanner>{workspace.error}</AlertBanner>}
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="POD queue" value={jobs.length} tone="navy" />
+        <KpiCard label="POD inspection queue" value={jobs.length} tone="navy" />
         <KpiCard label="Delivery photos available" value={availableCount} tone="green" />
         <KpiCard label="Delivery photos missing" value={missingCount} tone={missingCount > 0 ? 'orange' : 'green'} />
       </KpiGrid>
 
       <Panel
-        title="Proof-of-delivery attention queue"
+        title="Proof-of-delivery inspection"
         description="This queue does not mark POD approved or complete. Open the Job Sheet to inspect the full recipient, signature, photo and generated-document state."
       >
-        <DataTable
-          columns={['Job', 'Route', 'Delivery', 'Job status', 'Evidence', 'Actions']}
-          rows={jobs.map((job) => {
-            const paths = photoPaths(job);
-            return [
-              job.id.slice(0, 8).toUpperCase(),
-              <strong key="route">
-                {job.pickup_postcode ?? job.pickup_location ?? 'Pickup'} →{' '}
-                {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
-              </strong>,
-              when(job.delivery_datetime),
-              <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
-              paths.length > 0 ? (
-                <StatusBadge key="evidence" value="delivery photos available" tone="green" />
-              ) : (
-                <StatusBadge key="evidence" value="delivery photos missing" tone="orange" />
+        <OperationalTable<WorkspaceJob>
+          columns={[
+            {
+              id: 'job',
+              header: 'Job',
+              cell: (job) => job.id.slice(0, 8).toUpperCase(),
+            },
+            {
+              id: 'route',
+              header: 'Route',
+              cell: (job) => (
+                <strong>
+                  {job.pickup_postcode ?? job.pickup_location ?? 'Pickup'} →{' '}
+                  {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
+                </strong>
               ),
-              <div key="actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                {paths.map((path, index) => {
-                  const key = `${job.id}:${index}`;
-                  return (
+            },
+            {
+              id: 'delivery',
+              header: 'Delivery',
+              cell: (job) => when(job.delivery_datetime),
+            },
+            {
+              id: 'status',
+              header: 'Job status',
+              cell: (job) => <StatusBadge value={workspaceJobPresentationStatus(job)} />,
+            },
+            {
+              id: 'evidence',
+              header: 'Evidence',
+              cell: (job) => photoPaths(job).length > 0 ? (
+                <StatusBadge value="delivery photos available" tone="green" />
+              ) : (
+                <StatusBadge value="delivery photos missing" tone="orange" />
+              ),
+            },
+            {
+              id: 'actions',
+              header: 'Actions',
+              isAction: true,
+              cell: (job) => {
+                const paths = photoPaths(job);
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    {paths.map((path, index) => {
+                      const key = `${job.id}:${index}`;
+                      return (
+                        <ActionButton
+                          key={key}
+                          tone="secondary"
+                          disabled={openingKey === key}
+                          onClick={() => void openEvidence(job.id, path, index)}
+                        >
+                          {openingKey === key ? 'Opening…' : `Evidence ${index + 1}`}
+                        </ActionButton>
+                      );
+                    })}
                     <ActionButton
-                      key={key}
                       tone="secondary"
-                      disabled={openingKey === key}
-                      onClick={() => void openEvidence(job.id, path, index)}
+                      onClick={() => router.push(`/admin/jobs/${job.id}`)}
                     >
-                      {openingKey === key ? 'Opening…' : `Evidence ${index + 1}`}
+                      Open Job Sheet
                     </ActionButton>
-                  );
-                })}
-                <ActionButton
-                  tone="secondary"
-                  onClick={() => router.push(`/admin/jobs/${job.id}`)}
-                >
-                  Open Job Sheet
-                </ActionButton>
-              </div>,
-            ];
-          })}
+                  </div>
+                );
+              },
+            },
+          ]}
+          rows={jobs}
+          getRowKey={(job) => job.id}
           empty={
             <EmptyState
-              title={workspace.loading ? 'Loading POD attention queue…' : 'No delivery-stage jobs need POD attention'}
+              title={workspace.loading ? 'Loading POD inspection queue…' : 'No delivery-stage or completed jobs to inspect'}
             />
           }
         />
