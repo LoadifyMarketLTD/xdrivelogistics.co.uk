@@ -2,6 +2,12 @@
 // This module does NOT define or mutate the database state machine. The authoritative
 // transition contract remains `driver_update_job_status_atomic`.
 
+import {
+  ALLOCATED_JOB_STATUSES,
+  COMPLETED_JOB_STATUSES,
+  IN_PROGRESS_JOB_STATUSES,
+} from './workspaceJobStage';
+
 const normalise = (value: unknown) => String(value ?? '').trim().toLowerCase();
 
 export type JobLifecyclePresentationGroup = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'other';
@@ -30,10 +36,10 @@ export function canonicalExecutionStatus(value: unknown): string {
 export function jobLifecyclePresentationGroup(value: unknown): JobLifecyclePresentationGroup {
   const status = canonicalExecutionStatus(value);
 
-  if (['awarded', 'allocated'].includes(status)) return 'upcoming';
-  if (['on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery'].includes(status)) return 'active';
-  if (['delivered', 'completed', 'invoiced', 'paid'].includes(status)) return 'completed';
-  if (['cancelled', 'expired'].includes(status)) return 'cancelled';
+  if (status === 'awarded' || ALLOCATED_JOB_STATUSES.has(status)) return 'upcoming';
+  if (IN_PROGRESS_JOB_STATUSES.has(status)) return 'active';
+  if (COMPLETED_JOB_STATUSES.has(status)) return 'completed';
+  if (status === 'cancelled' || status === 'expired') return 'cancelled';
   return 'other';
 }
 
@@ -45,30 +51,16 @@ export function matchesDriverJobView(value: unknown, view: DriverJobView): boole
   if (view === 'active') return group === 'active';
   if (view === 'allocated') return group === 'upcoming';
   if (view === 'loaded') return status === 'loaded';
-  if (view === 'in_transit') return ['in_transit', 'on_my_way_to_delivery', 'on_site_delivery'].includes(status);
+  if (view === 'in_transit') return status === 'in_transit' || status === 'on_my_way_to_delivery' || status === 'on_site_delivery';
   return group === 'completed';
 }
 
+const legacyScopeAliases = ['assigned', 'arrived_pickup', 'collected', 'on_route_delivery', 'arrived_delivery'] as const;
+
 export const DRIVER_JOB_SCOPE_STATUSES = {
-  upcoming: ['awarded', 'allocated', 'assigned', 'accepted'],
-  active: [
-    'awarded',
-    'allocated',
-    'assigned',
-    'accepted',
-    'on_my_way',
-    'on_my_way_to_pickup',
-    'on_site_pickup',
-    'arrived_pickup',
-    'loaded',
-    'collected',
-    'in_transit',
-    'on_route_delivery',
-    'on_my_way_to_delivery',
-    'on_site_delivery',
-    'arrived_delivery',
-  ],
-  completed: ['delivered', 'completed', 'invoiced', 'paid'],
+  upcoming: ['awarded', ...ALLOCATED_JOB_STATUSES, 'assigned'],
+  active: ['awarded', ...ALLOCATED_JOB_STATUSES, ...IN_PROGRESS_JOB_STATUSES, ...legacyScopeAliases],
+  completed: [...COMPLETED_JOB_STATUSES],
 } as const;
 
 export function driverJobStatusesForScope(scope: string | null | undefined): readonly string[] | null {
