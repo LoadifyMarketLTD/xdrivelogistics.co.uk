@@ -164,10 +164,25 @@ export async function POST(request: NextRequest) {
     return json(409, { error: 'Reply is unavailable because this conversation has inconsistent company context.' });
   }
 
+  const companyId = companyIds[0] ?? null;
+  if (companyId) {
+    // Reproduce the existing messages_insert_sender RLS contract even though
+    // this route uses service role after bearer authentication.
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('user_id', driver.userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (membershipError) return json(500, { error: 'Conversation company access could not be verified.' });
+    if (!membership) return json(403, { error: 'Active company membership is required to reply in this conversation.' });
+  }
+
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('messages')
     .insert({
-      company_id: companyIds[0] ?? null,
+      company_id: companyId,
       conversation_id: conversationId,
       sender_user_id: driver.userId,
       recipient_user_id: counterparts[0],
