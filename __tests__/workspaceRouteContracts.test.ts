@@ -2,15 +2,30 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getProtectedRouteRequirement } from '../lib/roleCapabilities';
-import { getWorkspaceDefinition } from '../lib/workspaceRole';
+import { getWorkspaceDefinition, type WorkspaceRole } from '../lib/workspaceRole';
 
 const hrefs = (role: Parameters<typeof getWorkspaceDefinition>[0]) =>
   getWorkspaceDefinition(role).nav.flatMap((group) => group.items.map((item) => item.href));
 
-const canonicalWorkspaceRoles = ['customer', 'fleet_manager', 'carrier_admin', 'broker'] as const;
+const operationalWorkspaceRoles: WorkspaceRole[] = [
+  'company_owner',
+  'company_admin',
+  'carrier_admin',
+  'broker',
+  'customer',
+  'fleet_manager',
+  'dispatcher',
+  'driver',
+  'owner_driver',
+  'finance',
+  'compliance',
+  'viewer',
+];
 
-const routePagePath = (href: string) =>
-  resolve(process.cwd(), 'app', href.replace(/^\//, ''), 'page.tsx');
+const routePagePath = (href: string) => {
+  const pathname = href.split('?')[0]?.split('#')[0] ?? href;
+  return resolve(process.cwd(), 'app', pathname.replace(/^\//, ''), 'page.tsx');
+};
 
 describe('workspace route contracts', () => {
   it('keeps the canonical Customer navigation matrix', () => {
@@ -71,7 +86,7 @@ describe('workspace route contracts', () => {
     ]);
   });
 
-  it.each(canonicalWorkspaceRoles)('backs every canonical %s navigation entry with a real page', (role) => {
+  it.each(operationalWorkspaceRoles)('backs every canonical %s navigation entry with a real page', (role) => {
     for (const href of hrefs(role)) {
       expect(existsSync(routePagePath(href)), `${href} has no page.tsx`).toBe(true);
     }
