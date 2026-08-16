@@ -20,8 +20,6 @@ export function canonicalExecutionStatus(value: unknown): string {
     case 'assigned':
     case 'accepted':
       return 'allocated';
-    case 'on_my_way_to_pickup':
-      return 'on_my_way';
     case 'arrived_pickup':
       return 'on_site_pickup';
     case 'collected':
