@@ -33,10 +33,13 @@ type EligibleJob = {
   delivery_location: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
-  budget_amount: number | null;
   client_name: string | null;
   customer_reference: string | null;
   status: string;
+  commercial_mode: 'marketplace' | 'direct';
+  agreed_amount: number | null;
+  direct_invoice_amount: number | null;
+  currency: string;
   invoice: {
     id: string;
     invoice_number: string | null;
@@ -265,24 +268,32 @@ export default function DriverFinancePage() {
                   <EmptyState compact title="No eligible jobs" description="No delivered or completed jobs are currently available for invoice generation." />
                 ) : (
                   <div className="driver-load-list">
-                    {eligibleJobs.map((job) => (
-                      <article key={job.id} className="driver-load-row">
-                        <div className="driver-load-row__top">
-                          <div className="driver-load-cell"><span className="driver-cell-label">Route</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong><span className="driver-cell-secondary">{date(job.pickup_datetime)}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{job.client_name ?? 'Marketplace customer'}</strong><span className="driver-cell-secondary">{job.customer_reference ?? `JOB-${job.id.slice(0, 8).toUpperCase()}`}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Agreed amount</span><strong className="driver-cell-primary">{money(Number(job.invoice?.amount ?? job.budget_amount ?? 0))}</strong><span className="driver-cell-secondary">{job.status}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{job.invoice?.invoice_number ?? 'Not generated'}</strong><span className="driver-cell-secondary">{job.invoice?.status ?? 'Ready for draft'}</span></div>
-                        </div>
-                        <div className="driver-load-row__meta">
-                          <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
-                          <div className="driver-row-actions">
-                            <ActionButton tone="primary" disabled={generatingJobId === job.id} onClick={() => void generateInvoice(job.id)}>
-                              {generatingJobId === job.id ? 'Preparing…' : job.invoice ? 'Open / refresh invoice' : 'Create draft invoice'}
-                            </ActionButton>
+                    {eligibleJobs.map((job) => {
+                      const commercialAmount = job.invoice?.amount ?? job.agreed_amount ?? job.direct_invoice_amount;
+                      const commercialLabel = job.invoice
+                        ? 'Invoice total'
+                        : job.commercial_mode === 'marketplace'
+                          ? 'Agreed carrier rate'
+                          : 'Invoice amount';
+                      return (
+                        <article key={job.id} className="driver-load-row">
+                          <div className="driver-load-row__top">
+                            <div className="driver-load-cell"><span className="driver-cell-label">Route</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong><span className="driver-cell-secondary">{date(job.pickup_datetime)}</span></div>
+                            <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{job.client_name ?? 'Marketplace customer'}</strong><span className="driver-cell-secondary">{job.customer_reference ?? `JOB-${job.id.slice(0, 8).toUpperCase()}`}</span></div>
+                            <div className="driver-load-cell"><span className="driver-cell-label">{commercialLabel}</span><strong className="driver-cell-primary">{commercialAmount == null ? 'TBC' : money(commercialAmount, job.currency)}</strong><span className="driver-cell-secondary">{job.status}</span></div>
+                            <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{job.invoice?.invoice_number ?? 'Not generated'}</strong><span className="driver-cell-secondary">{job.invoice?.status ?? 'Ready for draft'}</span></div>
                           </div>
-                        </div>
-                      </article>
-                    ))}
+                          <div className="driver-load-row__meta">
+                            <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
+                            <div className="driver-row-actions">
+                              <ActionButton tone="primary" disabled={generatingJobId === job.id} onClick={() => void generateInvoice(job.id)}>
+                                {generatingJobId === job.id ? 'Preparing…' : job.invoice ? 'Open / refresh invoice' : 'Create draft invoice'}
+                              </ActionButton>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </section>
