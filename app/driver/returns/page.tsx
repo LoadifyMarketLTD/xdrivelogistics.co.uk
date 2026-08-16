@@ -337,7 +337,7 @@ export default function ReturnJourneysPage() {
         {advancedOpen && (
           <>
             <div className="driver-filter-field"><label>Member / Company number</label><input value={search.member} onChange={(event) => setSearch((current) => ({ ...current, member: event.target.value }))} /></div>
-            <div className="driver-filter-field"><label>Journey type</label><select value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'])}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
+            <div className="driver-filter-field"><label>Journey type</label><select value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'] }))}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
           </>
         )}
         <div className="driver-filter-actions"><ActionButton type="submit" tone="success">Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
