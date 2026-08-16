@@ -44,7 +44,7 @@ type WeeklyScheduleResult = { rows: WeeklySlotRow[]; error: string | null; unava
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SLOTS: SlotName[] = ['AM', 'PM', 'EVENING'];
 const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityStatus; label: string; description: string }> = [
-  { value: 'available', label: 'Available', description: 'Ready to accept work' },
+  { value: 'available', label: 'Available', description: 'Marked available for work' },
   { value: 'busy', label: 'On a job', description: 'Executing assigned work' },
   { value: 'offline', label: 'Offline', description: 'Not accepting work' },
 ];
@@ -91,24 +91,30 @@ export default function AvailabilityPage() {
     return token ? `Bearer ${token}` : null;
   }, []);
 
-  const loadAssignedVehicle = useCallback(async (): Promise<{ vehicle: VehicleRow | null; error: string | null }> => {
+  const loadCanonicalVehicle = useCallback(async (): Promise<{ vehicle: VehicleRow | null; error: string | null }> => {
     const auth = await getAuthHeader();
-    if (!auth) return { vehicle: null, error: 'Assigned vehicle session could not be verified.' };
+    if (!auth) return { vehicle: null, error: 'Canonical active-vehicle session could not be verified.' };
     try {
       const response = await fetch('/api/driver/vehicles', { headers: { Authorization: auth } });
-      const payload = (await response.json().catch(() => ({}))) as { vehicles?: VehicleRow[]; assignedVehicleId?: string | null; error?: string };
-      if (!response.ok) return { vehicle: null, error: payload.error || 'Assigned vehicle data could not be loaded.' };
+      const payload = (await response.json().catch(() => ({}))) as {
+        vehicles?: VehicleRow[];
+        canonicalVehicleId?: string | null;
+        canonicalVehicleSignalAvailable?: boolean;
+        error?: string;
+      };
+      if (!response.ok) return { vehicle: null, error: payload.error || 'Canonical active-vehicle signal could not be loaded.' };
+      if (payload.canonicalVehicleSignalAvailable === false) return { vehicle: null, error: 'Canonical active-vehicle signal is temporarily unavailable.' };
       const vehicles = payload.vehicles ?? [];
       return {
-        vehicle: vehicles.find((item) => item.id === payload.assignedVehicleId)
-          ?? vehicles.find((item) => item.assigned_driver_id === driverId)
-          ?? null,
+        vehicle: payload.canonicalVehicleId
+          ? vehicles.find((item) => item.id === payload.canonicalVehicleId) ?? null
+          : null,
         error: null,
       };
     } catch {
-      return { vehicle: null, error: 'Assigned vehicle data could not be loaded.' };
+      return { vehicle: null, error: 'Canonical active-vehicle signal could not be loaded.' };
     }
-  }, [driverId, getAuthHeader]);
+  }, [getAuthHeader]);
 
   const loadWeeklySchedule = useCallback(async (): Promise<WeeklyScheduleResult> => {
     const auth = await getAuthHeader();
@@ -135,7 +141,7 @@ export default function AvailabilityPage() {
       supabase.from('drivers')
         .select('id, display_name, phone, availability_status, status, future_position, future_position_date, destination_priority_enabled, destination_radius_miles, international_work_approved, driver_type, can_commercial_bid')
         .eq('id', driverId).maybeSingle(),
-      loadAssignedVehicle(),
+      loadCanonicalVehicle(),
       supabase.from('driver_locations').select('lat, lng, recorded_at').eq('driver_id', driverId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
       loadWeeklySchedule(),
     ]);
@@ -172,7 +178,7 @@ export default function AvailabilityPage() {
 
     setError(issues.join(' '));
     setLoading(false);
-  }, [driverId, loadAssignedVehicle, loadWeeklySchedule]);
+  }, [driverId, loadCanonicalVehicle, loadWeeklySchedule]);
 
   useEffect(() => { void loadAllData(); }, [loadAllData]);
 
@@ -243,20 +249,20 @@ export default function AvailabilityPage() {
   const availabilityOption = AVAILABILITY_OPTIONS.find((option) => option.value === availability) ?? AVAILABILITY_OPTIONS[2];
   const availabilityLabel = availabilityOption.label;
   const hasSavedSchedule = Object.keys(weeklySlots).length > 0;
-  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'Not assigned';
+  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No canonical active vehicle';
   const locationLabel = currentLocation ? `${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}` : 'Not recorded';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Keep current status, matching profile, vehicle readiness and weekly availability current."
+        subtitle="Keep current status, matching profile, canonical active-vehicle identity and weekly availability current."
         availabilityLabel={availabilityLabel}
         driverName={driverRow?.display_name ?? user?.email ?? 'Driver'}
         headerActions={<ActionButton tone="primary" onClick={() => void loadAllData()} disabled={loading}>Refresh</ActionButton>}
       >
         {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-        {scheduleUnavailable && <AlertBanner tone="warning">Weekly schedule storage is unavailable. Live status, destination matching and vehicle readiness still work.</AlertBanner>}
+        {scheduleUnavailable && <AlertBanner tone="warning">Weekly schedule storage is unavailable. Live status, destination matching and vehicle identity signals remain available.</AlertBanner>}
 
         <div className="driver-availability-board">
           <aside className="driver-availability-rail" aria-label="Availability context">
@@ -270,7 +276,7 @@ export default function AvailabilityPage() {
                 ))}
               </div>
               <dl className="driver-availability-facts">
-                <div><dt>Vehicle</dt><dd>{vehicleLabel}</dd></div>
+                <div><dt>Canonical vehicle</dt><dd>{vehicleLabel}</dd></div>
                 <div><dt>Location</dt><dd>{locationLabel}</dd></div>
                 <div><dt>Updated</dt><dd>{fmtDate(currentLocation?.recorded_at ?? null)}</dd></div>
                 <div><dt>Message</dt><dd>{availabilityOption.description}</dd></div>
@@ -278,10 +284,11 @@ export default function AvailabilityPage() {
             </div>
 
             <div className="driver-availability-section">
-              <div className="driver-availability-section__head"><strong>Assigned vehicle</strong></div>
+              <div className="driver-availability-section__head"><strong>Canonical active vehicle</strong></div>
               <dl className="driver-availability-facts">
                 <div><dt>Vehicle</dt><dd>{vehicleLabel}</dd></div><div><dt>Registration</dt><dd>{vehicle?.reg_plate ?? '—'}</dd></div><div><dt>Payload</dt><dd>{vehicle?.payload_kg ? `${vehicle.payload_kg} kg` : '—'}</dd></div><div><dt>Tail lift</dt><dd>{vehicle ? (vehicle.has_tail_lift ? 'Yes' : 'No') : '—'}</dd></div>
               </dl>
+              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Vehicle identity only; full operational eligibility is revalidated by the server when quoting or allocating work.</div>
             </div>
 
             <div className="driver-availability-section">
@@ -300,7 +307,7 @@ export default function AvailabilityPage() {
               </div>
               <div className="driver-availability-readiness-strip">
                 <div><span>Driver type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>
-                <div><span>Commercial bidding</span><StatusBadge value={driverRow?.can_commercial_bid ? 'Enabled' : 'Restricted'} tone={driverRow?.can_commercial_bid ? 'green' : 'orange'} /></div>
+                <div><span>Commercial bid flag</span><StatusBadge value={driverRow?.can_commercial_bid ? 'Enabled' : 'Restricted'} tone={driverRow?.can_commercial_bid ? 'green' : 'orange'} /></div>
                 <div><span>International work</span><StatusBadge value={driverRow?.international_work_approved ? 'Approved' : 'UK only'} tone={driverRow?.international_work_approved ? 'green' : 'grey'} /></div>
                 <div><span>Driver record</span><StatusBadge value={humanize(driverRow?.status)} tone={String(driverRow?.status ?? '').toLowerCase() === 'active' ? 'green' : 'grey'} /></div>
               </div>
