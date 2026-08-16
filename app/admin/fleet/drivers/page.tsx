@@ -19,10 +19,10 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not supplied';
 
-const isDriverAccountEligible = (status: string | null | undefined) => {
-  const value = normalise(status);
-  return Boolean(value) && !['suspended', 'inactive', 'rejected'].includes(value);
-};
+// Presentation-only account-state signal. Full operational eligibility remains
+// authoritative on the server and also requires current onboarding/compliance
+// plus exactly one compliant canonical vehicle.
+const isDriverAccountActive = (status: string | null | undefined) => normalise(status) === 'active';
 
 export default function FleetDriversPage() {
   const router = useRouter();
@@ -82,13 +82,13 @@ export default function FleetDriversPage() {
             const location = latestLocationByDriver.get(driver.id);
             const job = jobByDriver.get(driver.id);
             const documents = documentCountByDriver.get(driver.id) ?? 0;
-            const accountEligible = isDriverAccountEligible(driver.status);
-            const operationallyAvailable = accountEligible && normalise(driver.availability_status) === 'available';
+            const accountActive = isDriverAccountActive(driver.status);
+            const operationallyAvailable = accountActive && normalise(driver.availability_status) === 'available';
             return [
               <span key="driver"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span>{driver.phone ?? driver.email ?? 'No contact supplied'}</span></span>,
               vehicle ? `${vehicle.reg_plate ?? 'No registration'} · ${(vehicle.type ?? 'type unknown').replace(/_/g, ' ')}` : 'No assigned vehicle',
               location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} · ${when(location.recorded_at ?? location.updated_at)}` : 'Location unavailable',
-              <span key="status" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountEligible ? 'eligible account' : (driver.status ? `account ${driver.status}` : 'account status unavailable')} tone={accountEligible ? 'green' : 'red'} /></span>,
+              <span key="status" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountActive ? 'active account' : (driver.status ? `account ${driver.status}` : 'account status unavailable')} tone={accountActive ? 'blue' : 'red'} /></span>,
               job ? `${job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → ${job.delivery_postcode ?? job.delivery_location ?? 'Delivery'} · ${(job.current_status ?? job.status).replace(/_/g, ' ')}` : 'No job currently in execution',
               documents > 0 ? `${documents} document(s)` : 'No documents recorded',
               <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Manage</ActionButton>,
