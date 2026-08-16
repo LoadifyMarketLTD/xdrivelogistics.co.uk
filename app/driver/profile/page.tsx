@@ -122,7 +122,7 @@ export default function DriverProfilePage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Manage driver identity, readiness and account tools from one compact account workspace."
+        subtitle="Manage driver identity, account status and operational records from one compact account workspace."
         driverName={driver?.display_name ?? user?.email ?? 'Driver'}
         availabilityLabel={availabilityLabel}
       >
@@ -161,16 +161,16 @@ export default function DriverProfilePage() {
           </section>
 
           <section className="driver-account-column driver-account-readiness-column">
-            <div className="driver-account-column__head">Operational Readiness</div>
+            <div className="driver-account-column__head">Operational records</div>
             <div className="driver-account-column__body">
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/availability')}>
                 <span><strong>Availability & matching</strong><small>Current state: {availabilityLabel}</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/vehicles')}>
-                <span><strong>Vehicle readiness</strong><small>Capacity and equipment profile</small></span><span aria-hidden="true">→</span>
+                <span><strong>Vehicle</strong><small>Assigned and canonical active-vehicle identity signals</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/documents')}>
-                <span><strong>Documents & compliance</strong><small>Maintain ready-to-work evidence</small></span><span aria-hidden="true">→</span>
+                <span><strong>Documents & compliance</strong><small>Maintain driver document records</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/finance')}>
                 <span><strong>Finance</strong><small>Invoices, earnings and payment records</small></span><span aria-hidden="true">→</span>
