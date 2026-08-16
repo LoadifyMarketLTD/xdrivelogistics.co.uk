@@ -54,7 +54,7 @@ export default function DriverAvailabilityPage() {
         <PageHeader
           eyebrow="Fleet resources"
           title="Availability"
-          description="Scan current driver capacity and account readiness from one compact fleet register."
+          description="Scan current driver availability flags and recorded account status from one compact fleet register. Full operational eligibility is verified only by the canonical server contract when required."
           actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
         />
 
