@@ -118,4 +118,15 @@ describe('carrier dashboard convergence contract', () => {
     expect(shell).toContain('<SharedContextControls navigation={navigationTargets} />');
     expect(shell).toContain('.sort((a, b) => b.length - a.length)');
   });
+
+  it('keeps the carrier dashboard on the measured CX geometry instead of the miniaturized legacy scale', () => {
+    const shellCss = source('app/components/workspace/top-workspace-shell.css');
+
+    expect(shellCss).toContain('height: 50px !important;');
+    expect(shellCss).toContain('[aria-label="Carrier control signals"] button');
+    expect(shellCss).toContain('min-height: 72px !important;');
+    expect(shellCss).toContain('aside[aria-label="Search and filters"]');
+    expect(shellCss).toContain('top: 62px !important;');
+    expect(shellCss).toContain('font-size: 13px !important;');
+  });
 });
