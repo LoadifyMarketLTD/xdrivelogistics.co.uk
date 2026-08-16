@@ -106,6 +106,7 @@ BEGIN
   v_effective_status := CASE v_effective_status
     WHEN 'assigned' THEN 'allocated'
     WHEN 'accepted' THEN 'allocated'
+    WHEN 'on_my_way_to_pickup' THEN 'on_my_way'
     WHEN 'arrived_pickup' THEN 'on_site_pickup'
     WHEN 'collected' THEN 'loaded'
     WHEN 'on_route_delivery' THEN 'in_transit'
@@ -120,7 +121,6 @@ BEGIN
   IF p_driver_id IS NULL
      AND v_effective_status IN (
        'on_my_way',
-       'on_my_way_to_pickup',
        'on_site_pickup',
        'loaded',
        'in_transit',
