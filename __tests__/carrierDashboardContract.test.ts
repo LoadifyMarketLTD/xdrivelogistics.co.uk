@@ -2,9 +2,31 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { getWorkspaceJobSelect } from '../app/components/workspace/useCompanyWorkspaceData';
+import { isCarrierAttentionJob } from '../app/components/workspace/CarrierOperationsDashboardHome';
+import {
+  getWorkspaceJobSelect,
+  type WorkspaceJob,
+} from '../app/components/workspace/useCompanyWorkspaceData';
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
+
+const carrierJob = (overrides: Partial<WorkspaceJob> = {}): WorkspaceJob => ({
+  id: 'job-1',
+  company_id: 'customer-company',
+  status: 'posted',
+  current_status: 'posted',
+  pickup_location: 'Blackburn',
+  delivery_location: 'Manchester',
+  pickup_datetime: '2026-08-16T09:00:00.000Z',
+  delivery_datetime: '2026-08-16T11:00:00.000Z',
+  vehicle_type: 'luton_van',
+  assigned_driver_id: null,
+  awarded_carrier_company_id: 'carrier-company',
+  delivery_photos: [],
+  created_at: '2026-08-15T09:00:00.000Z',
+  updated_at: '2026-08-15T09:00:00.000Z',
+  ...overrides,
+});
 
 describe('carrier dashboard convergence contract', () => {
   it('keeps the carrier control desk independent of execution-only schema columns', () => {
@@ -24,6 +46,25 @@ describe('carrier dashboard convergence contract', () => {
     expect(getWorkspaceJobSelect('driver')).toContain('vehicle_id');
   });
 
+  it('keeps cancelled work out of actionable attention while preserving real blockers', () => {
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'cancelled',
+      current_status: 'cancelled',
+    }))).toBe(false);
+
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'failed',
+      current_status: 'delivery_failed',
+      assigned_driver_id: 'driver-1',
+    }))).toBe(true);
+
+    expect(isCarrierAttentionJob(carrierJob({
+      status: 'awarded',
+      current_status: 'awarded',
+      assigned_driver_id: null,
+    }))).toBe(true);
+  });
+
   it('keeps carrier commercial links, award truth, and lifecycle labels canonical', () => {
     const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
@@ -31,10 +72,12 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).toContain("normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id)");
     expect(carrier).toContain("metricValue(data, ['bids', 'jobs']");
     expect(carrier).toContain("router.push('/admin/marketplace')");
+    expect(carrier).toContain("router.push('/admin/live-availability')");
     expect(carrier).not.toContain("['submitted', 'pending']");
     expect(carrier).toContain("normalise(bid.status) === 'submitted'");
     expect(carrier).toContain("XDrive persists that driver's canonical active vehicle with the allocation");
     expect(carrier).toContain("'Required vehicle'");
+    expect(carrier).toContain("jobStatus(job) === 'cancelled' ? 'grey'");
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 
