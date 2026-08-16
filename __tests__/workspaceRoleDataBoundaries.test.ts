@@ -65,13 +65,14 @@ describe('workspace role and admin dashboard resolution', () => {
 });
 
 describe('workspace data query plans', () => {
-  it('keeps the full carrier company-operations plan on /admin for company owner', () => {
+  it('keeps the carrier company-operations plan on /admin limited to datasets consumed by the dashboard', () => {
     const plan = resolveWorkspaceDataQueryPlan({ pathname: '/admin', workspaceRole: 'company_owner' });
     expect(plan).toEqual({
       surface: 'carrier_operations',
-      datasets: ['jobs', 'bids', 'invoices', 'drivers', 'vehicles', 'driverDocuments', 'vehicleDocuments', 'locations'],
+      datasets: ['jobs', 'bids', 'invoices', 'drivers', 'vehicles', 'driverDocuments', 'vehicleDocuments'],
       blocker: null,
     });
+    expect(plan.datasets).not.toContain('locations');
   });
 
   it('keeps customer data plans away from fleet datasets', () => {
