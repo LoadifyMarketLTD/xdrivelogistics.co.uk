@@ -6,10 +6,10 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import {
-  canonicalExecutionStatus,
   driverJobStatusesForScope,
   jobLifecyclePresentationGroup,
 } from '../../../../lib/jobs/jobLifecyclePresentation';
+import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { loadDriverAgreedRates } from '../_lib/commercialRate';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
@@ -19,6 +19,8 @@ type DriverJobRow = {
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
+  assigned_company_id: string | null;
+  vehicle_id: string | null;
   company_id: string | null;
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
@@ -72,6 +74,8 @@ export async function GET(request: NextRequest) {
       'status',
       'current_status',
       'assigned_driver_id',
+      'assigned_company_id',
+      'vehicle_id',
       'company_id',
       'awarded_carrier_company_id',
       'pickup_location',
@@ -118,7 +122,7 @@ export async function GET(request: NextRequest) {
   return json(200, {
     scope,
     jobs: rows.map((row) => {
-      const sourceStatus = row.current_status ?? row.status;
+      const canonicalStatus = workspaceJobPresentationStatus(row);
       return {
         id: row.id,
         reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
@@ -127,8 +131,8 @@ export async function GET(request: NextRequest) {
         pickupTime: row.pickup_datetime,
         vehicleType: row.requested_vehicle_label ?? row.requested_vehicle_type ?? row.vehicle_type,
         cargoType: row.requested_cargo_label ?? row.cargo_type,
-        canonicalStatus: canonicalExecutionStatus(sourceStatus),
-        lifecycleGroup: jobLifecyclePresentationGroup(sourceStatus),
+        canonicalStatus,
+        lifecycleGroup: jobLifecyclePresentationGroup(canonicalStatus),
         agreedRateAmount: commercial.rates.get(row.id) ?? null,
         currency: row.currency ?? 'GBP',
         postingCompanyName: row.company_id ? companyNames.get(row.company_id) ?? null : null,
