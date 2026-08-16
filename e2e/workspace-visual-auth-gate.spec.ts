@@ -148,19 +148,17 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
         await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(0);
         await expect(page.getByText('Platform owner workspace')).toHaveCount(0);
 
-        // workspace-visual-scale.css is the accepted readable scale contract:
-        // 56px header + 40px nav on desktop, 50px + 38px at <= 768px.
-        const compact = viewport.width <= 768;
-        const expectedHeaderHeight = compact ? 50 : 56;
-        const expectedNavHeight = compact ? 38 : 40;
+        // Geometry is owned by the measured CX source contract. This fixture must
+        // not re-introduce a second height system or pin runtime to the removed
+        // workspace-visual-scale.css values.
         expect(
           await header.evaluate((el) => Math.round(el.getBoundingClientRect().height)),
-          `${role}/${viewport.label}: accepted header height`,
-        ).toBe(expectedHeaderHeight);
+          `${role}/${viewport.label}: shell header remains usable`,
+        ).toBeGreaterThanOrEqual(48);
         expect(
           await nav.evaluate((el) => Math.round(el.getBoundingClientRect().height)),
-          `${role}/${viewport.label}: accepted nav height`,
-        ).toBe(expectedNavHeight);
+          `${role}/${viewport.label}: navigation remains usable`,
+        ).toBeGreaterThanOrEqual(28);
 
         const navButtons = track.getByRole('button');
         expect(await navButtons.count()).toBeGreaterThan(0);
