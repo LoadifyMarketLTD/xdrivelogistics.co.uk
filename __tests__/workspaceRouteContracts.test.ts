@@ -1,9 +1,16 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getProtectedRouteRequirement } from '../lib/roleCapabilities';
 import { getWorkspaceDefinition } from '../lib/workspaceRole';
 
 const hrefs = (role: Parameters<typeof getWorkspaceDefinition>[0]) =>
   getWorkspaceDefinition(role).nav.flatMap((group) => group.items.map((item) => item.href));
+
+const canonicalWorkspaceRoles = ['customer', 'fleet_manager', 'carrier_admin', 'broker'] as const;
+
+const routePagePath = (href: string) =>
+  resolve(process.cwd(), 'app', href.replace(/^\//, ''), 'page.tsx');
 
 describe('workspace route contracts', () => {
   it('keeps the canonical Customer navigation matrix', () => {
@@ -62,6 +69,12 @@ describe('workspace route contracts', () => {
       '/broker/finance',
       '/broker/account',
     ]);
+  });
+
+  it.each(canonicalWorkspaceRoles)('backs every canonical %s navigation entry with a real page', (role) => {
+    for (const href of hrefs(role)) {
+      expect(existsSync(routePagePath(href)), `${href} has no page.tsx`).toBe(true);
+    }
   });
 
   it('authorizes the nested Directory entries through existing protected prefixes', () => {
