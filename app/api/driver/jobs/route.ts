@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import {
   driverJobStatusesForScope,
   jobLifecyclePresentationGroup,
 } from '../../../../lib/jobs/jobLifecyclePresentation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { loadDriverAgreedRates } from '../_lib/commercialRate';
+import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -43,24 +39,8 @@ export async function GET(request: NextRequest) {
     return json(503, { error: 'Driver jobs are temporarily unavailable.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return json(401, { error: 'Unauthorized — missing bearer token.' });
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) {
-    return json(401, { error: 'Unauthorized — invalid or expired token.' });
-  }
-
-  const { data: driver, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (driverError) return json(500, { error: 'We could not load your driver profile.' });
-  if (!driver || String(driver.status ?? '').toLowerCase() !== 'active') {
-    return json(403, { error: 'Active driver profile required.' });
-  }
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') || 'all';
@@ -92,7 +72,7 @@ export async function GET(request: NextRequest) {
       'created_at',
       'updated_at',
     ].join(','))
-    .eq('assigned_driver_id', driver.id)
+    .eq('assigned_driver_id', driver.driverId)
     .order(scope === 'completed' ? 'updated_at' : 'pickup_datetime', { ascending: scope !== 'completed' })
     .limit(limit);
 
