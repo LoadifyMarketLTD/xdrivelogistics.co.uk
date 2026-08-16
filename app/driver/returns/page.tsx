@@ -293,17 +293,25 @@ export default function ReturnJourneysPage() {
   const saveFuturePosition = async (event: FormEvent) => {
     event.preventDefault();
     if (!driverId || !isSupabaseConfigured) return;
+    const auth = await getAuthHeader();
+    if (!auth) return setError('Your session has expired. Sign in again to save your future position.');
     setSaving(true);
     setError('');
-    const { error: saveError } = await supabase.from('drivers').update({
-      future_position: futurePosition.trim() || null,
-      future_position_date: futureDate || null,
-    }).eq('id', driverId);
-    if (saveError) setError(getMissingColumnFromError(saveError, 'drivers') ? 'Future-position publishing is not enabled in this database build yet.' : 'Future position could not be saved.');
-    else {
-      setSuccessMsg('Future position saved.');
-      await loadDriver();
-      window.setTimeout(() => setSuccessMsg(''), 2600);
+    try {
+      const response = await fetch('/api/driver/future-position', {
+        method: 'PUT',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ futurePosition, futureDate: futureDate || null }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) setError(payload.error || 'Future position could not be saved.');
+      else {
+        setSuccessMsg('Future position saved.');
+        await loadDriver();
+        window.setTimeout(() => setSuccessMsg(''), 2600);
+      }
+    } catch {
+      setError('Future position could not be saved.');
     }
     setSaving(false);
   };
