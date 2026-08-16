@@ -221,7 +221,7 @@ type PartialDatasetInput<T> = {
   limitedData?: boolean;
 };
 
-const ALL_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
+const CARRIER_DASHBOARD_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
   'jobs',
   'bids',
   'invoices',
@@ -229,7 +229,6 @@ const ALL_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
   'vehicles',
   'driverDocuments',
   'vehicleDocuments',
-  'locations',
 ];
 
 const normalizePathname = (pathname: string) => pathname.split('?')[0]?.split('#')[0] || '/';
@@ -466,7 +465,7 @@ export function resolveWorkspaceDataQueryPlan(input: {
       case 'carrier_admin':
         return {
           surface: 'carrier_operations',
-          datasets: ALL_DATASET_KEYS,
+          datasets: CARRIER_DASHBOARD_DATASET_KEYS,
           blocker: null,
         };
       case 'fleet_manager':
