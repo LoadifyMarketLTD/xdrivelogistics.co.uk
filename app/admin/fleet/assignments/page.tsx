@@ -185,7 +185,10 @@ export default function FleetAssignmentsPage() {
       const response = await fetch(`/api/admin/jobs/${selectedJob.id}/assign-driver`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId: selectedDriverId, expectedDriverId: null }),
+        body: JSON.stringify({
+          driverId: selectedDriverId,
+          expectedDriverId: selectedJob.assigned_driver_id ?? null,
+        }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Driver and vehicle allocation failed.');
@@ -203,7 +206,7 @@ export default function FleetAssignmentsPage() {
       <PageHeader
         eyebrow="Fleet allocation"
         title="Won / Received — Unallocated"
-        description="Company-level awards remain unallocated until an authorised fleet operator selects the executing driver. XDrive then revalidates the driver and persists that driver's canonical active vehicle atomically."
+        description="Company-level awards and incomplete driver/vehicle allocations remain here until an authorised fleet operator selects the executing driver. XDrive then revalidates the driver and persists that driver's canonical active vehicle atomically."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
 
@@ -211,7 +214,7 @@ export default function FleetAssignmentsPage() {
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <Panel title="Allocation queue" description="Only jobs awarded to this carrier company and not yet assigned to a driver are shown.">
+      <Panel title="Allocation queue" description="Only jobs awarded to this carrier company that still require canonical driver + vehicle allocation are shown.">
         <DataTable
           columns={['Won for', 'Route', 'Pickup', 'Required vehicle', 'Quoted by', 'Agreed quote', 'Action']}
           rows={jobs.map((job) => {
@@ -230,7 +233,7 @@ export default function FleetAssignmentsPage() {
               <ActionButton key="action" tone="success" onClick={() => setSelectedJobId(job.id)}>Allocate</ActionButton>,
             ];
           })}
-          empty={<EmptyState title="No won jobs awaiting allocation" description="A company-level carrier award will appear here before driver allocation." />}
+          empty={<EmptyState title="No won jobs awaiting allocation" description="Carrier awards that still require canonical driver + vehicle allocation will appear here." />}
         />
       </Panel>
 
