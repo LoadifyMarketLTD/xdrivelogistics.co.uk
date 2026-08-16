@@ -148,6 +148,52 @@
   font-weight: 800;
 }
 
+.top-workspace-context {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.xdrive-operational-top-workspace .top-workspace-action--context[aria-expanded="true"] {
+  border-color: #1d57d8;
+  background: #eff6ff;
+  color: #0b2f6b;
+}
+
+.top-workspace-context__menu {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  z-index: 110;
+  width: min(520px, calc(100vw - 24px));
+  padding: 10px;
+  border: 1px solid #cfd7e3;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.top-workspace-context__menu [aria-label="Workspace context controls"] {
+  justify-content: flex-start !important;
+  align-items: end !important;
+  gap: 8px !important;
+}
+
+.top-workspace-context__menu label > span:first-child {
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+}
+
+.top-workspace-context__menu input,
+.top-workspace-context__menu select,
+.top-workspace-context__menu [aria-label="Active organisation"] {
+  height: 32px !important;
+  min-height: 32px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+
 /* TopWorkspaceShell renders nav inline inside the 50px header. */
 .xdrive-operational-top-workspace .top-workspace-nav--inline {
   position: relative !important;
@@ -428,9 +474,24 @@
     flex-basis: 118px;
   }
 
-  .top-workspace-action:not(.top-workspace-action--primary),
+  .top-workspace-action:not(.top-workspace-action--primary):not(.top-workspace-action--context),
   .top-workspace-notification {
     display: none;
+  }
+
+  .top-workspace-context__menu {
+    position: fixed;
+    top: 48px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+  }
+
+  .top-workspace-context__menu [aria-label="Workspace context controls"] {
+    align-items: stretch !important;
+    flex-direction: column;
   }
 
   .xdrive-operational-top-workspace .top-workspace-nav--inline,
