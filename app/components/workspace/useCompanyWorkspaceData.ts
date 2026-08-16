@@ -231,6 +231,13 @@ const CARRIER_DASHBOARD_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
   'vehicleDocuments',
 ];
 
+const CARRIER_TRACKING_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
+  'jobs',
+  'drivers',
+  'vehicles',
+  'locations',
+];
+
 const normalizePathname = (pathname: string) => pathname.split('?')[0]?.split('#')[0] || '/';
 
 const matchesPrefixes = (pathname: string, prefixes: readonly string[]) =>
@@ -454,6 +461,14 @@ export function resolveWorkspaceDataQueryPlan(input: {
     return {
       surface: 'dispatcher',
       datasets: ['jobs', 'drivers', 'vehicles', 'locations'],
+      blocker: null,
+    };
+  }
+
+  if (matchesPrefixes(pathname, ['/admin/freight-vision', '/admin/live-availability'])) {
+    return {
+      surface: 'carrier_operations',
+      datasets: CARRIER_TRACKING_DATASET_KEYS,
       blocker: null,
     };
   }
