@@ -51,7 +51,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const FILTERS: Array<{ id: JobFilter; label: string }> = [
   { id: 'all', label: 'All' }, { id: 'active', label: 'Active' }, { id: 'allocated', label: 'Allocated' },
-  { id: 'loaded', label: 'Loaded' }, { id: 'in_transit', label: 'In transit' }, { id: 'completed', label: 'Completed' },
+  { id: 'loaded', label: 'Loaded' }, { id: 'in_transit', label: 'In Transit' }, { id: 'completed', label: 'Completed' },
 ];
 
 function effectiveStatus(job: JobRow) {
@@ -143,16 +143,31 @@ export default function DriverJobsPage() {
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         <div className="driver-board-layout driver-jobs-board">
-          <aside className="driver-filter-rail" aria-label="Job status filters">
-            <div className="driver-filter-rail__header">My Jobs</div>
+          <aside className="driver-filter-rail" aria-label="Job board context">
+            <div className="driver-filter-rail__header">Execution Context</div>
             <div className="driver-filter-rail__body">
-              {FILTERS.map((item) => <button key={item.id} type="button" data-active={filter === item.id ? 'true' : 'false'} className="driver-side-tab" onClick={() => setFilter(item.id)}><span>{item.label}</span><strong>{countFor(item.id)}</strong></button>)}
+              <div className="driver-detail-item"><span>Current execution</span><strong>{activeJob ? `${activeJob.pickup_postcode ?? activeJob.pickup_location ?? 'Collection'} → ${activeJob.delivery_postcode ?? activeJob.delivery_location ?? 'Delivery'}` : 'No active job'}</strong></div>
+              <div className="driver-detail-item"><span>Assigned work</span><strong>{jobs.length}</strong></div>
+              <div className="driver-detail-item"><span>Driver status</span><strong>{driverStatus.replace(/_/g, ' ')}</strong></div>
               <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Open Diary</ActionButton>
             </div>
           </aside>
 
           <main className="driver-board-main">
-            <div className="driver-tab-strip" aria-label="Job board views"><button type="button" data-active="true">Assigned Work <span>{filteredJobs.length}</span></button><button type="button" onClick={() => router.push('/driver/history')}>Diary</button></div>
+            <div className="driver-tab-strip" role="tablist" aria-label="Job status views">
+              {FILTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === item.id}
+                  data-active={filter === item.id ? 'true' : 'false'}
+                  onClick={() => { setFilter(item.id); setExpandedJobId(null); }}
+                >
+                  {item.label} <span>{countFor(item.id)}</span>
+                </button>
+              ))}
+            </div>
             <div className="driver-board-summary"><span>{loading ? 'Loading assigned work…' : `${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} · ${activeJob ? '1 active execution' : 'no active execution'}`}</span><span>Vehicle: {activeJob ? vehicleLabel(activeJob) : 'No job currently in execution'}</span></div>
 
             {loading ? <div className="driver-load-row"><EmptyState compact title="Loading jobs…" /></div>
