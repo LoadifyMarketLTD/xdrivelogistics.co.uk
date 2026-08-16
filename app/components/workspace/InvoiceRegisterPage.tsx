@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  toCanonicalInvoiceDisplayStatus,
+  toCanonicalInvoiceStatusWithDueDate,
   toCanonicalPaymentStatus,
 } from '../../../lib/invoiceStatus';
 import { isCustomerVisibleWorkspaceInvoice, useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
@@ -45,7 +45,7 @@ const date = (value: string | null | undefined) =>
 const xdriveReference = (jobId: string | null | undefined) => jobId ? `XDL-${jobId.slice(0, 8).toUpperCase()}` : '—';
 
 const invoiceState = (invoice: WorkspaceInvoice) =>
-  toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status);
+  toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date);
 
 const paymentState = (invoice: WorkspaceInvoice) => {
   const invoiceFallback = String(invoice.status ?? '').trim().toLowerCase() === 'paid' ? 'paid' : 'unpaid';
