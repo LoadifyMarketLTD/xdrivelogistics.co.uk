@@ -273,10 +273,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
         { id: 'unallocated', label: 'Unallocated Jobs', href: '/admin/fleet/assignments', icon: '⇄' },
         { id: 'active-jobs', label: 'Active Jobs', href: '/admin/fleet/active-jobs', icon: '▣' },
-        { id: 'collections', label: 'Collections', href: '/admin/jobs?view=collections', icon: '↑' },
-        { id: 'deliveries', label: 'Deliveries', href: '/admin/jobs?view=deliveries', icon: '↓' },
         { id: 'exceptions', label: 'Exceptions', href: '/admin/incidents', icon: '!' },
-        { id: 'pod', label: 'POD Queue', href: '/admin/documents?view=pod', icon: '▤' },
       ] },
       { id: 'resources', label: 'Resources', items: [
         { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉' },
@@ -311,7 +308,6 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'dashboard', label: 'Compliance Dashboard', href: '/admin/documents', icon: '⌂' },
         { id: 'driver-docs', label: 'Driver Documents', href: '/admin/documents?type=driver', icon: '▤' },
         { id: 'vehicle-docs', label: 'Vehicle Documents', href: '/admin/documents?type=vehicle', icon: '▤' },
-        { id: 'company-docs', label: 'Company Documents', href: '/admin/documents?type=company', icon: '▤' },
         { id: 'verification', label: 'Verification Queue', href: '/admin/documents?view=pending', icon: '✓' },
         { id: 'expiry', label: 'Expiry Calendar', href: '/admin/documents/expiry', icon: '◷' },
         { id: 'incidents', label: 'Incidents', href: '/admin/incidents', icon: '!' },
