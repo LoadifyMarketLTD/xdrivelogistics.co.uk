@@ -209,7 +209,7 @@ export default function CarrierOperationsDashboardHome() {
       .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
     const expiringDocuments = data.driverDocuments.concat(data.vehicleDocuments).filter((document) => {
       const days = daysUntil(document.expiry_date);
-      return days !== null && days >= 0 && days <= 30;
+      return days !== null && days <= 30;
     }).length;
 
     return { companyBids, unallocatedJobs, liveJobs, evidenceReview, exceptions, attentionJobs, overdueInvoices, overdueExposure, wonValue, expiringDocuments };
