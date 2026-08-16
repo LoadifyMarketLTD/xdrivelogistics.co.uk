@@ -37,8 +37,8 @@ function rowFor(filePath: string) {
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b|customer-action-grid/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b|customer-dash-summary/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
-    dateRangeSelector: /\bDateRangeSelector\b|\bActionCentrePage\b|dateRange/.test(source),
-    savedViewSelector: /\bSavedViewSelector\b|\bActionCentrePage\b|view/.test(source),
+    dateRangeSelector: /\bDateRangeSelector\b|\bActionCentrePage\b|\bdateRange\b/.test(source),
+    savedViewSelector: /\bSavedViewSelector\b|\bActionCentrePage\b|\bsavedView\b|\bsavedViews\b/.test(source),
   };
 }
 
