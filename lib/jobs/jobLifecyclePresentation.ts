@@ -5,6 +5,7 @@
 const normalise = (value: unknown) => String(value ?? '').trim().toLowerCase();
 
 export type JobLifecyclePresentationGroup = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'other';
+export type DriverJobView = 'all' | 'active' | 'allocated' | 'loaded' | 'in_transit' | 'completed';
 
 // Canonical aliases already accepted by the driver lifecycle RPC / historical data.
 export function canonicalExecutionStatus(value: unknown): string {
@@ -30,10 +31,22 @@ export function jobLifecyclePresentationGroup(value: unknown): JobLifecyclePrese
   const status = canonicalExecutionStatus(value);
 
   if (['awarded', 'allocated'].includes(status)) return 'upcoming';
-  if (['on_my_way', 'on_site_pickup', 'loaded', 'in_transit', 'on_site_delivery'].includes(status)) return 'active';
+  if (['on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery'].includes(status)) return 'active';
   if (['delivered', 'completed', 'invoiced', 'paid'].includes(status)) return 'completed';
   if (['cancelled', 'expired'].includes(status)) return 'cancelled';
   return 'other';
+}
+
+export function matchesDriverJobView(value: unknown, view: DriverJobView): boolean {
+  if (view === 'all') return true;
+  const status = canonicalExecutionStatus(value);
+  const group = jobLifecyclePresentationGroup(status);
+
+  if (view === 'active') return group === 'active';
+  if (view === 'allocated') return group === 'upcoming';
+  if (view === 'loaded') return status === 'loaded';
+  if (view === 'in_transit') return ['in_transit', 'on_my_way_to_delivery', 'on_site_delivery'].includes(status);
+  return group === 'completed';
 }
 
 export const DRIVER_JOB_SCOPE_STATUSES = {
@@ -44,12 +57,14 @@ export const DRIVER_JOB_SCOPE_STATUSES = {
     'assigned',
     'accepted',
     'on_my_way',
+    'on_my_way_to_pickup',
     'on_site_pickup',
     'arrived_pickup',
     'loaded',
     'collected',
     'in_transit',
     'on_route_delivery',
+    'on_my_way_to_delivery',
     'on_site_delivery',
     'arrived_delivery',
   ],
