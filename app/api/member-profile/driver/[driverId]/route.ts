@@ -107,27 +107,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     sections: {
       feedback: {
         state: 'unavailable',
-        message: 'Owner-driver member-level feedback attribution is not exposed by the current verified XDrive data contract.',
+        message: 'Member-level feedback is not available for this owner-driver profile yet.',
       },
       users: {
         state: 'restricted',
-        message: 'Private account identity is not published through the member profile contract.',
+        message: 'Private account details are not shown in Member Profile.',
       },
       specialistServices: {
         state: 'unavailable',
-        message: 'Verified specialist-service declarations are not currently exposed for this owner-driver member.',
+        message: 'Specialist services are not listed for this owner-driver profile.',
       },
       charges: {
         state: 'unavailable',
-        message: 'Owner-driver charge cards are not currently exposed as a verified member-visible dataset.',
+        message: 'Member-visible charge information is not available for this owner-driver profile.',
       },
       bookingFooter: {
         state: 'unavailable',
-        message: 'Owner-driver booking-footer terms are not currently exposed as a verified member-visible dataset.',
+        message: 'Booking terms are not available for this owner-driver profile.',
       },
       businessDocuments: {
         state: 'restricted',
-        message: 'Driver compliance and document evidence is private until a dedicated member-visible permission contract exists.',
+        message: 'Driver compliance and personal document evidence is private and is not shown in Member Profile.',
       },
     },
     partial: Boolean(vehicleError),
