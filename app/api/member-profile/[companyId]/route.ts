@@ -108,27 +108,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     sections: {
       feedback: {
         state: 'unavailable',
-        message: 'Member-level feedback attribution is not exposed by the current verified XDrive data contract.',
+        message: 'Member-level feedback is not available for this company profile yet.',
       },
       users: {
         state: 'restricted',
-        message: 'Internal company users are not published through the member profile contract.',
+        message: 'Internal company users are private and are not shown in Member Profile.',
       },
       specialistServices: {
         state: 'unavailable',
-        message: 'Verified specialist-service declarations are not currently exposed.',
+        message: 'Specialist services are not listed for this company profile.',
       },
       charges: {
         state: 'unavailable',
-        message: 'Member charge cards are not currently exposed as a verified public-to-members dataset.',
+        message: 'Member-visible charge information is not available for this company profile.',
       },
       bookingFooter: {
         state: 'unavailable',
-        message: 'Member booking-footer terms are not currently exposed as a verified public-to-members dataset.',
+        message: 'Booking terms are not available for this company profile.',
       },
       businessDocuments: {
         state: 'restricted',
-        message: 'Business document evidence is not published until a dedicated member-visible document permission contract exists.',
+        message: 'Business document evidence is private and is not shown in Member Profile.',
       },
     },
   });
