@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
+import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -15,15 +16,14 @@ const statusLabel: Record<string, string> = {
   on_site_delivery: 'On site (delivery)', delivered: 'Delivered', completed: 'Completed', cancelled: 'Cancelled',
 };
 
-const nextAction: Record<string, { status: string; label: string }> = {
-  awarded: { status: 'on_my_way', label: 'On my Way to Pickup' },
-  allocated: { status: 'on_my_way', label: 'On my Way to Pickup' },
-  on_my_way: { status: 'on_site_pickup', label: 'On Site (Pickup)' },
-  on_site_pickup: { status: 'loaded', label: 'Confirm Loaded' },
-  loaded: { status: 'in_transit', label: 'On my Way to Delivery' },
-  in_transit: { status: 'on_site_delivery', label: 'On Site (Delivery)' },
-  on_site_delivery: { status: 'delivered', label: 'Confirm Delivered' },
-  delivered: { status: 'completed', label: 'Complete Job' },
+const nextActionLabel: Record<string, string> = {
+  on_my_way: 'On my Way to Pickup',
+  on_site_pickup: 'On Site (Pickup)',
+  loaded: 'Confirm Loaded',
+  in_transit: 'On my Way to Delivery',
+  on_site_delivery: 'On Site (Delivery)',
+  delivered: 'Confirm Delivered',
+  completed: 'Complete Job',
 };
 
 type JobSheet = {
@@ -291,8 +291,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   if (loading) return <PageFrame><EmptyState title="Loading assigned job…" /></PageFrame>;
   if (!job) return <PageFrame><AlertBanner tone="danger">{error || 'Job not found.'}</AlertBanner></PageFrame>;
 
-  const currentStatus = String(job.current_status ?? job.status).toLowerCase();
-  const next = nextAction[currentStatus];
+  const currentStatus = canonicalExecutionStatus(job.current_status ?? job.status);
+  const nextStatus = nextDriverExecutionStatus(currentStatus);
+  const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
   const loadSections = getLoadDetailSections(job);
   const history = Array.isArray(job.status_history) ? job.status_history : [];
   const timelineRows = sheet?.timeline.length
@@ -409,7 +410,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
-          {next && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(next.status)}>{working ? 'Saving…' : next.label}</ActionButton>}
+          {nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
           <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route / Track</a>
           {sheet?.memberPhone && <a href={`tel:${sheet.memberPhone.replace(/\s+/g, '')}`} style={linkButtonStyle}>Call Member</a>}
           {sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
