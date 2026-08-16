@@ -423,7 +423,7 @@ export default function ReturnJourneysPage() {
                 <span className="driver-returns-summary-actions">
                   <button type="button" data-active={view === 'list' ? 'true' : 'false'} onClick={() => setView('list')}>List View</button>
                   <button type="button" data-active={view === 'map' ? 'true' : 'false'} onClick={() => setView('map')}>Map View</button>
-                  <button type="button" onClick={() => setExpanded(Object.fromEntries(journeys.map((journey) => [journey.id, false])))}>Collapse All Entries</button>
+                  {journeys.some((journey) => expanded[journey.id] === true) && <button type="button" onClick={() => setExpanded(Object.fromEntries(journeys.map((journey) => [journey.id, false])))}>Collapse All Entries</button>}
                 </span>
               </div>
 
