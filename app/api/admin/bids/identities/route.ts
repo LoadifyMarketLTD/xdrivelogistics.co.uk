@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
 
   const ownerCompanyIds = (memberships ?? [])
-    .filter((membership) => ['owner', 'admin', 'dispatcher', 'viewer'].includes(String(membership.role_in_company)))
+    .filter((membership) => ['owner', 'admin', 'dispatcher'].includes(String(membership.role_in_company)))
     .map((membership) => String(membership.company_id));
 
   if (ownerCompanyIds.length === 0) return NextResponse.json({ identities: [] });
