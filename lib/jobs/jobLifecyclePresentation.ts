@@ -4,6 +4,7 @@
 
 import {
   ALLOCATED_JOB_STATUSES,
+  canonicalWorkspaceJobStatus,
   COMPLETED_JOB_STATUSES,
   IN_PROGRESS_JOB_STATUSES,
 } from './workspaceJobStage';
@@ -13,26 +14,7 @@ const normalise = (value: unknown) => String(value ?? '').trim().toLowerCase();
 export type JobLifecyclePresentationGroup = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'other';
 export type DriverJobView = 'all' | 'active' | 'allocated' | 'loaded' | 'in_transit' | 'completed';
 
-// Canonical aliases already accepted by the driver lifecycle RPC / historical data.
-export function canonicalExecutionStatus(value: unknown): string {
-  const status = normalise(value);
-  switch (status) {
-    case 'assigned':
-    case 'accepted':
-      return 'allocated';
-    case 'arrived_pickup':
-      return 'on_site_pickup';
-    case 'collected':
-      return 'loaded';
-    case 'on_route_delivery':
-    case 'on_my_way_to_delivery':
-      return 'in_transit';
-    case 'arrived_delivery':
-      return 'on_site_delivery';
-    default:
-      return status;
-  }
-}
+export const canonicalExecutionStatus = canonicalWorkspaceJobStatus;
 
 export function jobLifecyclePresentationGroup(value: unknown): JobLifecyclePresentationGroup {
   const status = canonicalExecutionStatus(value);
