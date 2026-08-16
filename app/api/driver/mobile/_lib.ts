@@ -229,6 +229,7 @@ export function mapJob(row: MobileJobRow) {
   const contactName = row.delivery_contact_name || row.collection_contact_name || row.client_name || undefined;
   const contactPhone = row.delivery_contact_phone || row.collection_contact_phone || row.client_phone || undefined;
   const distance = Number(row.distance_miles ?? row.job_distance_miles ?? 0);
+  const agreedRateAmount = Number(row.agreed_rate_gbp ?? row.agreed_rate ?? 0) || null;
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
@@ -244,8 +245,11 @@ export function mapJob(row: MobileJobRow) {
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo TBC',
     vehicleRequirement: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || 'Vehicle TBC',
     vehicleType: row.vehicle_type,
-    price: toMoney(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount),
-    budgetAmount: Number(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount ?? 0) || null,
+    price: toMoney(agreedRateAmount),
+    agreedRateAmount,
+    // Legacy Android field name retained for assigned jobs. It intentionally
+    // mirrors the agreed carrier rate and never exposes customer budget.
+    budgetAmount: agreedRateAmount,
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
