@@ -296,8 +296,8 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     nav: [
       { id: 'finance', label: 'Finance', items: [
         { id: 'dashboard', label: 'Finance Dashboard', href: '/admin/invoices', icon: '⌂' },
-        { id: 'customer-invoices', label: 'Customer Invoices', href: '/admin/invoices?type=customer', icon: '£' },
-        { id: 'carrier-invoices', label: 'Carrier Invoices', href: '/admin/invoices?type=carrier', icon: '£' },
+        { id: 'customer-invoices', label: 'Customer Invoices', href: '/admin/finance/customer-invoices', icon: '£' },
+        { id: 'carrier-invoices', label: 'Carrier Invoices', href: '/admin/finance/carrier-invoices', icon: '£' },
         { id: 'payments', label: 'Payments', href: '/admin/finance/payments', icon: '✓' },
         { id: 'balances', label: 'Outstanding Balances', href: '/admin/finance/balances', icon: '!' },
         { id: 'reports', label: 'Reports & Exports', href: '/admin/finance/reports', icon: '▤' },
