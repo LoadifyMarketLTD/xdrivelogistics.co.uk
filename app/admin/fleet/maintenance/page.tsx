@@ -62,7 +62,7 @@ export default function FleetMaintenancePage() {
               driver?.display_name ?? driver?.email ?? (vehicle.assigned_driver_id ? 'Assigned driver not in current Fleet roster' : 'Not assigned'),
               `${documents.length} document(s)`,
               <StatusBadge key="status" value={signal.value} tone={signal.tone} />,
-              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/vehicles?vehicle=${vehicle.id}`)}>Open vehicle</ActionButton>,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicle</ActionButton>,
             ];
           })}
           empty={<EmptyState title="No vehicles in the fleet" />}
