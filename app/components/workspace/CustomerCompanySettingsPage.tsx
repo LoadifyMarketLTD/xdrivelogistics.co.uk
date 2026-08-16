@@ -206,7 +206,7 @@ export default function CustomerCompanySettingsPage() {
       {message && <AlertBanner tone="success">{message}</AlertBanner>}
       {!loading && company && !canEdit && !error && <AlertBanner tone="warning">Company profile editing is available only to an active company owner or admin. Your current account can view this record but cannot change it.</AlertBanner>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'var(--ws-shell-sidebar-w, 230px) minmax(0, 1fr)', gap: 'var(--ws-gap-grid, 12px)', alignItems: 'start' }}>
         <AccountSectionNav
           title="Account sections"
           items={[
