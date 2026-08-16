@@ -61,7 +61,7 @@ type JobSheet = {
     payloadKg: number | null;
     palletsCapacity: number | null;
     hasTailLift: boolean | null;
-    source: 'job' | 'driver_current' | 'none';
+    source: 'job' | 'none';
   };
   cargo: {
     type: string | null;
@@ -76,7 +76,7 @@ type JobSheet = {
   };
   requirements: string[];
   hardCopyPod: string;
-  podRequired: boolean;
+  podRequired: boolean | null;
   pickup: {
     address: string | null;
     postcode: string | null;
@@ -305,14 +305,10 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const allocatedVehicleName = [sheet?.allocatedVehicle.make, sheet?.allocatedVehicle.model].filter(Boolean).join(' ');
   const allocatedVehicleSummary = sheet?.allocatedVehicle.source === 'job'
     ? [allocatedVehicleName, allocatedVehicleType, sheet.allocatedVehicle.ref].filter(Boolean).join(' · ') || 'Allocated vehicle recorded'
-    : sheet?.allocatedVehicle.source === 'driver_current'
-      ? [allocatedVehicleName, allocatedVehicleType, sheet.allocatedVehicle.ref].filter(Boolean).join(' · ') || 'Current driver vehicle'
-      : 'Not supplied';
-  const allocatedVehicleDetail = sheet?.allocatedVehicle.source === 'driver_current'
-    ? 'Current driver vehicle; no job-specific allocated vehicle snapshot is stored.'
-    : sheet?.allocatedVehicle.source === 'job'
-      ? 'Job-specific allocated vehicle source.'
-      : undefined;
+    : 'Not supplied';
+  const allocatedVehicleDetail = sheet?.allocatedVehicle.source === 'job'
+    ? 'Job-specific allocated vehicle source.'
+    : undefined;
   const cargoDimensions = sheet && [sheet.cargo.lengthCm, sheet.cargo.widthCm, sheet.cargo.heightCm].some((value) => value != null)
     ? `${[sheet.cargo.lengthCm, sheet.cargo.widthCm, sheet.cargo.heightCm].map((value) => value ?? '—').join(' × ')} cm`
     : 'Not supplied';
