@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getVisibleWorkspaceNav, hasWorkspaceCapability } from '../lib/workspaceRole';
 
@@ -32,5 +34,16 @@ describe('visible workspace navigation', () => {
 
   it('keeps the Fleet Account entry visible', () => {
     expect(visibleHrefs('fleet_manager')).toContain('/admin/settings');
+  });
+
+  it('does not let a read-only viewer bypass quote capabilities through bidder identity API access', () => {
+    expect(hasWorkspaceCapability('viewer', 'quotes.receive')).toBe(false);
+    expect(hasWorkspaceCapability('viewer', 'quotes.compare')).toBe(false);
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'app/api/admin/bids/identities/route.ts'),
+      'utf8',
+    );
+    expect(source).toContain("['owner', 'admin', 'dispatcher']");
+    expect(source).not.toContain("['owner', 'admin', 'dispatcher', 'viewer']");
   });
 });
