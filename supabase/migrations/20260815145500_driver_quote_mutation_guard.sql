@@ -92,7 +92,7 @@ BEGIN
     FROM public.job_bids existing
     WHERE existing.job_id = NEW.job_id
       AND existing.bidder_driver_id = v_driver.id
-      AND lower(COALESCE(existing.status::text, '')) IN ('submitted', 'pending', 'accepted')
+      AND lower(COALESCE(existing.status::text, '')) IN ('submitted', 'accepted')
   ) THEN
     RAISE EXCEPTION 'You already have an active quote for this job.' USING ERRCODE = '23505';
   END IF;
@@ -107,7 +107,7 @@ BEGIN
     SELECT count(*) INTO v_open_bid_count
     FROM public.job_bids existing
     WHERE existing.job_id = NEW.job_id
-      AND lower(COALESCE(existing.status::text, '')) IN ('submitted', 'pending', 'accepted');
+      AND lower(COALESCE(existing.status::text, '')) IN ('submitted', 'accepted');
 
     IF v_open_bid_count >= v_max_bids THEN
       RAISE EXCEPTION 'This job has reached the maximum number of bids (%).', v_max_bids USING ERRCODE = '54000';
