@@ -180,8 +180,9 @@ export default function CompanyDocumentsPage() {
         description="Statuses and review notes are read from the existing company_documents compliance record. File access uses a short-lived company-scoped link."
       >
         <DataTable
-          columns={['Document', 'Status', 'Expiry', 'Review note', 'Added', 'File']}
+          columns={['Record', 'Document', 'Status', 'Expiry', 'Review note', 'Added', 'File']}
           rows={documents.map((document) => [
+            document.id,
             <strong key="type">{documentLabel(document.doc_type)}</strong>,
             <StatusBadge
               key="status"
