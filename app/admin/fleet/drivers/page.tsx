@@ -100,7 +100,7 @@ export default function FleetDriversPage() {
               <span key="status" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountActive ? 'active account' : (driver.status ? `account ${driver.status}` : 'account status unavailable')} tone={accountActive ? 'blue' : 'red'} /></span>,
               job ? `${job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → ${job.delivery_postcode ?? job.delivery_location ?? 'Delivery'} · ${(job.current_status ?? job.status).replace(/_/g, ' ')}` : 'No job currently in execution',
               documents > 0 ? `${documents} document(s)` : 'No documents recorded',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Manage</ActionButton>,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>,
             ];
           })}
           empty={<EmptyState title="No drivers in the Fleet roster" />}
