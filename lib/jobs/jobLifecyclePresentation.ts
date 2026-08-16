@@ -20,11 +20,14 @@ export function canonicalExecutionStatus(value: unknown): string {
     case 'assigned':
     case 'accepted':
       return 'allocated';
+    case 'on_my_way_to_pickup':
+      return 'on_my_way';
     case 'arrived_pickup':
       return 'on_site_pickup';
     case 'collected':
       return 'loaded';
     case 'on_route_delivery':
+    case 'on_my_way_to_delivery':
       return 'in_transit';
     case 'arrived_delivery':
       return 'on_site_delivery';
@@ -51,11 +54,18 @@ export function matchesDriverJobView(value: unknown, view: DriverJobView): boole
   if (view === 'active') return group === 'active';
   if (view === 'allocated') return group === 'upcoming';
   if (view === 'loaded') return status === 'loaded';
-  if (view === 'in_transit') return status === 'in_transit' || status === 'on_my_way_to_delivery' || status === 'on_site_delivery';
+  if (view === 'in_transit') return status === 'in_transit' || status === 'on_site_delivery';
   return group === 'completed';
 }
 
-const legacyExecutionAliases = ['arrived_pickup', 'collected', 'on_route_delivery', 'arrived_delivery'] as const;
+const legacyExecutionAliases = [
+  'on_my_way_to_pickup',
+  'arrived_pickup',
+  'collected',
+  'on_route_delivery',
+  'on_my_way_to_delivery',
+  'arrived_delivery',
+] as const;
 
 export const DRIVER_JOB_SCOPE_STATUSES = {
   upcoming: ['awarded', ...ALLOCATED_JOB_STATUSES, 'assigned'],
