@@ -5,20 +5,20 @@
  */
 
 .driver-quotes-exchange .driver-quotes-board {
-  grid-template-columns: var(--ws-rail-w) minmax(0, 1fr) !important;
-  gap: var(--ws-gap-2) !important;
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid) !important;
   align-items: start !important;
 }
 
 .driver-quotes-exchange .driver-board-main {
   min-width: 0 !important;
   display: grid !important;
-  gap: var(--ws-gap-2) !important;
+  gap: var(--ws-gap-internal) !important;
   align-content: start !important;
 }
 
 .driver-quotes-exchange .driver-filter-rail {
-  width: var(--ws-rail-w) !important;
+  width: var(--ws-filter-rail-w) !important;
 }
 
 .driver-quotes-exchange .driver-board-summary {
