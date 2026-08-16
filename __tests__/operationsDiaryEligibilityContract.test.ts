@@ -38,4 +38,9 @@ describe('Operations Diary driver eligibility contract', () => {
     expect(assignment).toContain('IF NOT COALESCE(v_driver_eligible, false) OR v_driver_vehicle_id IS NULL');
     expect(assignment).toContain('vehicle_id = CASE WHEN p_driver_id IS NULL THEN NULL ELSE v_driver_vehicle_id END');
   });
+
+  it('preserves the awarded carrier company when only the pre-execution driver assignment is cleared', () => {
+    expect(assignment).toContain('WHEN p_driver_id IS NULL THEN v_job.awarded_carrier_company_id');
+    expect(assignment).not.toContain('assigned_company_id = CASE WHEN p_driver_id IS NULL THEN NULL ELSE v_allowed_company_id END');
+  });
 });
