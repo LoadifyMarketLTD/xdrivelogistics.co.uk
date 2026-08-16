@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
   const driverIds = [...new Set(rows.map((row) => row.driver_id).filter((value): value is string => Boolean(value)))];
   const [companiesResult, driversResult] = await Promise.all([
     companyIds.length ? supabaseAdmin.from('companies').select('id,name,company_number,phone').in('id', companyIds) : Promise.resolve({ data: [], error: null }),
-    driverIds.length ? supabaseAdmin.from('drivers').select('id,display_name,phone').in('id', driverIds) : Promise.resolve({ data: [], error: null }),
+    driverIds.length ? supabaseAdmin.from('drivers').select('id,display_name').in('id', driverIds) : Promise.resolve({ data: [], error: null }),
   ]);
 
   const companyMap = new Map((companiesResult.data ?? []).map((company: Record<string, unknown>) => [String(company.id), company]));
@@ -251,7 +251,7 @@ export async function GET(request: NextRequest) {
       member: {
         name: cleanText(company.name, 160) || 'Exchange member',
         code: cleanText(company.company_number, 80) || null,
-        phone: cleanText(company.phone, 80) || cleanText(person.phone, 80) || null,
+        phone: cleanText(company.phone, 80) || null,
       },
       driverName: cleanText(person.display_name, 160) || null,
       fromCoordinates,
