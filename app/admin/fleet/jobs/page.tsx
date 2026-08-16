@@ -26,7 +26,8 @@ export default function FleetJobsPage() {
     const stage = classifyWorkspaceJobStage(job);
     if (stage === 'completed') return { label: 'Completed', tone: 'green' as const };
     if (stage === 'in_progress') return { label: 'Active', tone: 'green' as const };
-    if (stage === 'awarded' || stage === 'allocated') return { label: 'Allocated', tone: 'blue' as const };
+    if (stage === 'allocated') return { label: 'Allocated', tone: 'blue' as const };
+    if (stage === 'awarded') return { label: 'Won / Unallocated', tone: 'orange' as const };
     if (stage === 'cancelled' || stage === 'disputed' || stage === 'expired') return { label: stage, tone: 'red' as const };
     return { label: 'Won / Received', tone: 'orange' as const };
   };
@@ -46,6 +47,7 @@ export default function FleetJobsPage() {
             const status = job.current_status ?? job.status;
             const stage = stageOf(job);
             const canonicalStage = classifyWorkspaceJobStage(job);
+            const needsAllocation = canonicalStage === 'awarded';
             const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
             const evidenceCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;
             return [
@@ -56,7 +58,13 @@ export default function FleetJobsPage() {
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               evidenceCount > 0 ? `${evidenceCount} photo/file(s)` : canonicalStage === 'completed' ? 'No photo evidence in this feed' : 'Pending execution',
               <StatusBadge key="status" value={status} />,
-              <ActionButton key="action" tone={job.assigned_driver_id ? 'secondary' : 'success'} onClick={() => router.push(job.assigned_driver_id ? `/admin/jobs/${job.id}` : `/admin/fleet/assignments?job=${job.id}`)}>{job.assigned_driver_id ? 'Open' : 'Allocate'}</ActionButton>,
+              <ActionButton
+                key="action"
+                tone={needsAllocation ? 'success' : 'secondary'}
+                onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
+              >
+                {needsAllocation ? 'Allocate' : 'Open'}
+              </ActionButton>,
             ];
           })}
           empty={<EmptyState title="No carrier-won Fleet jobs" />}
