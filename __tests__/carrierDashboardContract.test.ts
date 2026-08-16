@@ -113,6 +113,15 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 
+  it('keeps carrier receivables supplier-scoped instead of counting buyer invoices', () => {
+    const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
+
+    expect(carrier).toContain('if (invoice.supplier_company_id) return invoice.supplier_company_id === data.companyId;');
+    expect(carrier).toContain('invoice.buyer_company_id !== data.companyId');
+    expect(carrier).toContain('invoice.company_id === data.companyId');
+    expect(carrier).not.toContain('data.invoices.filter((invoice) => invoice.company_id === data.companyId);');
+  });
+
   it('keeps one carrier Fleet group, scopes workspace context to carrier roles, and resolves nested nav specifically', () => {
     const shell = source('app/components/workspace/TopWorkspaceShell.tsx');
 
