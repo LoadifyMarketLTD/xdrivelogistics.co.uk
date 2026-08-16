@@ -22,8 +22,8 @@ describe('workspace job sheet invoice projection', () => {
   });
 
   it('keeps awarded-carrier invoice visibility explicitly party-scoped', () => {
-    expect(route).toContain('Awarded carriers must have an explicit invoice party');
+    expect(route).toContain('const partyVisible = ids.length === 0 ? viewerCompanyId === ownerCompanyId : ids.includes(viewerCompanyId);');
     expect(route).toContain('ids.includes(viewerCompanyId)');
-    expect(route).toContain('Do not invent a customer delivery-state rule for supplier-side invoice records');
+    expect(route).toContain('if (!partyVisible) return false;');
   });
 });

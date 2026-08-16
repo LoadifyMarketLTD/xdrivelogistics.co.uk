@@ -33,7 +33,7 @@ describe('load posting operational contract', () => {
 
   it('keeps platform identity automatic and customer references explicit', () => {
     expect(form).toContain('Posting identity & XDrive references');
-    expect(form).toContain('Member ID');
+    expect(form).toContain('Company number');
     expect(form).toContain('Generated automatically after save / publish');
     expect(form).toContain('Customer booking reference (optional)');
     expect(form).toContain('XDL-');
@@ -46,8 +46,8 @@ describe('load posting operational contract', () => {
   });
 
   it('makes centimetre storage explicit for load dimensions', () => {
-    expect(form).toContain('Values are stored in centimetres');
-    expect(form).toContain('for 4 m enter 400');
+    expect(form).toContain('Stored internally in centimetres; enter operational dimensions in metres.');
+    expect(form).toContain('Math.round(metres * 100)');
     expect(source).toContain('lengthCm');
     expect(source).toContain('widthCm');
     expect(source).toContain('heightCm');
