@@ -109,7 +109,7 @@ export default function DriverAvailabilityPage() {
                               tone={availability === 'available' ? 'green' : availability === 'busy' ? 'orange' : 'grey'}
                             />
                           </td>
-                          <td><ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Open</ActionButton></td>
+                          <td><ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton></td>
                         </tr>
                       );
                     })}
