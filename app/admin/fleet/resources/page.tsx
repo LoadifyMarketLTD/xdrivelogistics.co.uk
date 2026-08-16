@@ -161,7 +161,7 @@ export default function FleetResourcesPage() {
             <StatusBadge key="advertising" value={row.vehicle ? row.advertising : row.vehicles.length > 1 ? 'multiple vehicles' : 'none'} tone={row.vehicle && row.advertising === 'exchange' ? 'green' : row.vehicle && row.advertising === 'partner' ? 'blue' : 'grey'} />,
             <StatusBadge key="tracking" value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />,
             row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="clear" value="No local alert" tone="blue" />,
-            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${row.driver.id}`)}>Driver</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/vehicles?vehicle=${row.vehicle.id}`)}>Vehicle</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
+            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}
           empty={<EmptyState title="No fleet resources match the current filters" />}
         />
@@ -176,7 +176,7 @@ export default function FleetResourcesPage() {
               vehicle.type?.replaceAll('_', ' ') ?? 'Vehicle',
               <StatusBadge key="advertising" value={intelligence.advertisingByVehicle.get(vehicle.id) ?? 'none'} tone={intelligence.advertisingByVehicle.get(vehicle.id) === 'exchange' ? 'green' : intelligence.advertisingByVehicle.get(vehicle.id) === 'partner' ? 'blue' : 'grey'} />,
               <StatusBadge key="state" value="Unassigned" tone="orange" />,
-              <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/vehicles?vehicle=${vehicle.id}`)}>Open vehicle</ActionButton>,
+              <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>,
             ])}
           />
         </Panel>
