@@ -29,7 +29,6 @@ import {
   exceptionStatuses,
   metricValue,
   money,
-  unavailable,
   when,
 } from './AdminDashboardShared';
 import {
@@ -53,7 +52,7 @@ const CONTROL_VIEWS: Array<{ value: ControlView; label: string }> = [
   { value: 'attention', label: 'Needs attention' },
   { value: 'unallocated', label: 'Unallocated' },
   { value: 'live', label: 'Live jobs' },
-  { value: 'pod', label: 'Evidence review' },
+  { value: 'pod', label: 'Photo evidence' },
   { value: 'exceptions', label: 'Exceptions' },
   { value: 'all', label: 'All carrier work' },
 ];
@@ -95,7 +94,7 @@ const priorityLabel = (job: WorkspaceJob) => {
   if (isExceptionJob(job)) return 'Exception';
   if (isUnallocatedJob(job)) return 'Allocate';
   if (isLiveJob(job)) return 'Live';
-  if (isDeliveryEvidenceMissingJob(job)) return 'Evidence';
+  if (isDeliveryEvidenceMissingJob(job)) return 'Photo evidence';
   return 'Routine';
 };
 
@@ -256,7 +255,7 @@ export default function CarrierOperationsDashboardHome() {
     { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: workspaceTheme.orange, active: view === 'attention', onClick: () => setView('attention') },
     { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: workspaceTheme.orange, active: view === 'unallocated', onClick: () => setView('unallocated') },
     { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: workspaceTheme.blue, active: view === 'live', onClick: () => setView('live') },
-    { key: 'pod', label: 'Evidence review', value: viewCounts.pod, tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
+    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
     { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: workspaceTheme.green, onClick: () => router.push('/admin/live-availability') },
     { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: workspaceTheme.red, active: view === 'exceptions', onClick: () => setView('exceptions') },
   ];
@@ -284,14 +283,14 @@ export default function CarrierOperationsDashboardHome() {
         eyebrow="Carrier operations"
         title="Carrier Control Desk"
         badge="Live operations"
-        description="Awarded carrier work, allocation, live delivery, evidence and exceptions in one operational desk."
+        description="Awarded carrier work, allocation, live delivery, delivery photo evidence and exceptions in one operational desk."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton>}
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <OperationalToolbar>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery evidence · exception recovery</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery photo evidence · exception recovery</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace')}>Marketplace</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
       </OperationalToolbar>
 
@@ -317,7 +316,7 @@ export default function CarrierOperationsDashboardHome() {
             <OperationalFilterField label="Find work" htmlFor="carrier-work-search"><OperationalFilterInput id="carrier-work-search" value={searchDraft} onChange={setSearchDraft} onClear={() => { setSearchDraft(''); setSearchTerm(''); }} placeholder="Ref, route, client" /></OperationalFilterField>
             <OperationalFilterField label="Work view" htmlFor="carrier-work-view"><OperationalFilterSelect id="carrier-work-view" value={view} onChange={(value) => setView(value as ControlView)} options={CONTROL_VIEWS} /></OperationalFilterField>
             <OperationalFilterField label="Driver" htmlFor="carrier-driver-filter"><OperationalFilterSelect id="carrier-driver-filter" value={driverFilter} onChange={setDriverFilter} options={[{ value: '', label: 'All drivers' }, ...data.drivers.map((driver) => ({ value: driver.id, label: driver.display_name ?? driver.email ?? 'Driver' }))]} /></OperationalFilterField>
-            <OperationalFilterField label="Vehicle type" htmlFor="carrier-vehicle-filter"><OperationalFilterSelect id="carrier-vehicle-filter" value={vehicleFilter} onChange={setVehicleFilter} options={[{ value: '', label: 'All vehicle types' }, ...vehicleTypes.map((vehicle) => ({ value: vehicle, label: vehicle.replace(/_/g, ' ') }))]} /></OperationalFilterField>
+            <OperationalFilterField label="Required vehicle" htmlFor="carrier-vehicle-filter"><OperationalFilterSelect id="carrier-vehicle-filter" value={vehicleFilter} onChange={setVehicleFilter} options={[{ value: '', label: 'All required vehicles' }, ...vehicleTypes.map((vehicle) => ({ value: vehicle, label: vehicle.replace(/_/g, ' ') }))]} /></OperationalFilterField>
           </OperationalFilters>
         }
       >
@@ -363,7 +362,7 @@ export default function CarrierOperationsDashboardHome() {
           <OperationalCard title="Commercial position" subtitle="Commercial hand-off without displacing the live workboard.">
             <CommercialRow label="Won work value" detail="Accepted quotes backed by a carrier award" value={metricValue(data, ['bids', 'jobs'], () => money(metrics.wonValue))} onClick={() => router.push('/admin/marketplace')} />
             <CommercialRow label="Overdue invoices" detail="Past-due carrier receivables" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
-            <CommercialRow label="Delivery evidence review" detail="Completed carrier work with no delivery-photo evidence in the dashboard feed; open the job sheet for full POD state" value={metricValue(data, ['jobs'], () => metrics.evidenceReview.length)} onClick={() => setView('pod')} />
+            <CommercialRow label="Delivery photo review" detail="Completed carrier work with no delivery-photo evidence in the dashboard feed; open the job sheet for full POD state" value={metricValue(data, ['jobs'], () => metrics.evidenceReview.length)} onClick={() => setView('pod')} />
             <CommercialRow label="Quotes awaiting decision" detail="Submitted marketplace pricing still open" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/marketplace')} />
           </OperationalCard>
 
@@ -372,7 +371,7 @@ export default function CarrierOperationsDashboardHome() {
             <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/marketplace')} />
             <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible executing driver; XDrive persists that driver's canonical active vehicle with the allocation" onClick={() => router.push('/admin/fleet/assignments')} />
             <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
-            <WorkflowLink label="5. Close evidence and exceptions" detail="Resolve delivery proof and operational exceptions" onClick={() => setView('attention')} />
+            <WorkflowLink label="5. Review photo evidence and exceptions" detail="Review delivery photos and operational exceptions; use the job sheet for full POD state" onClick={() => setView('attention')} />
           </OperationalCard>
         </div>
       </OperationalPageLayout>
