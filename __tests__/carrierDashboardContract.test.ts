@@ -24,13 +24,17 @@ describe('carrier dashboard convergence contract', () => {
     expect(getWorkspaceJobSelect('driver')).toContain('vehicle_id');
   });
 
-  it('keeps carrier commercial links and lifecycle labels canonical', () => {
+  it('keeps carrier commercial links, award truth, and lifecycle labels canonical', () => {
     const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(carrier).toContain('onClick={() => router.push(\'/admin/quotes\')}');
+    expect(carrier).toContain("const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));");
+    expect(carrier).toContain("normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id)");
+    expect(carrier).toContain("metricValue(data, ['bids', 'jobs']");
+    expect(carrier).toContain("router.push('/admin/marketplace')");
     expect(carrier).not.toContain("['submitted', 'pending']");
     expect(carrier).toContain("normalise(bid.status) === 'submitted'");
     expect(carrier).toContain("XDrive persists that driver's canonical active vehicle with the allocation");
+    expect(carrier).toContain("'Required vehicle'");
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 
