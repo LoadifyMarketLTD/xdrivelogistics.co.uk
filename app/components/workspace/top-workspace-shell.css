@@ -424,8 +424,10 @@
   line-height: 26px !important;
 }
 
-/* Filter rails inside this sticky 50px shell must never slide underneath it. */
-.xdrive-operational-top-workspace aside[aria-label="Search and filters"] {
+/* Carrier filter rails inside this sticky 50px shell must never slide underneath it. */
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] aside[aria-label="Search and filters"],
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] aside[aria-label="Search and filters"],
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"] {
   top: 62px !important;
 }
 
@@ -560,7 +562,9 @@
     overflow-y: auto;
   }
 
-  .xdrive-operational-top-workspace aside[aria-label="Search and filters"] {
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] aside[aria-label="Search and filters"],
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] aside[aria-label="Search and filters"],
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"] {
     top: auto !important;
   }
 
