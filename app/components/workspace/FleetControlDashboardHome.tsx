@@ -107,13 +107,13 @@ function documentAttentionState(document: WorkspaceDocument): { priority: FleetP
   return null;
 }
 
-function vehicleDocumentReadiness(documents: WorkspaceDocument[]) {
+function vehicleDocumentSignal(documents: WorkspaceDocument[]) {
   if (documents.length === 0) return { label: 'Documents missing', tone: 'red' as const };
   const states = documents.map(documentAttentionState).filter(Boolean) as Array<{ priority: FleetPriority; state: string }>;
   if (states.some((state) => state.priority === 'critical')) return { label: 'Document attention', tone: 'red' as const };
   if (states.some((state) => state.priority === 'high')) return { label: 'Review required', tone: 'orange' as const };
   if (states.some((state) => state.priority === 'medium')) return { label: 'Evidence due soon', tone: 'orange' as const };
-  return { label: 'Evidence current', tone: 'green' as const };
+  return { label: 'Documents recorded', tone: 'blue' as const };
 }
 
 export default function FleetControlDashboardHome() {
@@ -145,10 +145,13 @@ export default function FleetControlDashboardHome() {
     [data.vehicles],
   );
 
-  const vehicleByDriver = useMemo(() => {
-    const map = new Map<string, WorkspaceVehicle>();
+  const vehiclesByDriver = useMemo(() => {
+    const map = new Map<string, WorkspaceVehicle[]>();
     for (const vehicle of data.vehicles) {
-      if (vehicle.assigned_driver_id) map.set(vehicle.assigned_driver_id, vehicle);
+      if (!vehicle.assigned_driver_id) continue;
+      const rows = map.get(vehicle.assigned_driver_id) ?? [];
+      rows.push(vehicle);
+      map.set(vehicle.assigned_driver_id, rows);
     }
     return map;
   }, [data.vehicles]);
@@ -295,7 +298,7 @@ export default function FleetControlDashboardHome() {
         eyebrow="Fleet operations"
         title="Fleet Command Centre"
         badge="Resource control"
-        description="Won carrier work, driver allocation, active execution, fleet resources, live tracking and operational readiness in one workspace."
+        description="Won carrier work, driver allocation, active execution, fleet resources, live tracking and operational signals in one workspace."
         actions={
           <>
             <ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton>
@@ -343,7 +346,7 @@ export default function FleetControlDashboardHome() {
         <KpiCard
           label="Available drivers"
           value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available').length)}
-          detail={metricDetail(data, ['drivers'], 'Active and ready for allocation review')}
+          detail={metricDetail(data, ['drivers'], 'Active account + availability flag; allocation revalidates full eligibility')}
           tone={metricTone(data, ['drivers'], 'green')}
           onClick={() => router.push('/admin/fleet/availability')}
         />
@@ -470,25 +473,35 @@ export default function FleetControlDashboardHome() {
         <div style={{ marginTop: '12px' }}>
           <OperationalCard
             title="Fleet resource status"
-            subtitle="Driver, assigned vehicle, tracking freshness and document readiness in one operational register."
+            subtitle="Driver, visible vehicle-assignment signals, tracking freshness and recorded document signals. Canonical eligibility is enforced server-side."
             actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>All drivers</ActionButton>}
             flush
           >
             <DataTable
-              columns={['Driver', 'Vehicle', 'Tracking', 'Readiness', 'Availability', 'Action']}
+              columns={['Driver', 'Vehicle signal', 'Tracking', 'Document signal', 'Availability', 'Action']}
               rows={data.drivers.slice(0, 10).map((driver) => {
-                const vehicle = vehicleByDriver.get(driver.id);
+                const vehicles = vehiclesByDriver.get(driver.id) ?? [];
+                const vehicle = vehicles.length === 1 ? vehicles[0] : undefined;
+                const vehicleSignal = vehicles.length === 0
+                  ? 'No assigned vehicle'
+                  : vehicles.length > 1
+                    ? `${vehicles.length} assigned vehicles`
+                    : vehicleName(vehicle);
                 const timestamp = locationTimestamp(latestLocationByDriver.get(driver.id));
                 const activeDriver = normalise(driver.status) === 'active';
-                const readiness = vehicle ? vehicleDocumentReadiness(vehicleDocumentsByVehicle.get(vehicle.id) ?? []) : { label: 'No vehicle', tone: 'red' as const };
+                const documentSignal = vehicles.length === 0
+                  ? { label: 'No assigned vehicle', tone: 'red' as const }
+                  : vehicles.length > 1
+                    ? { label: 'Canonical vehicle resolved server-side', tone: 'orange' as const }
+                    : vehicleDocumentSignal(vehicleDocumentsByVehicle.get(vehicle?.id ?? '') ?? []);
                 return [
                   <span key="driver">
                     <strong style={{ display: 'block' }}>{driverName(driver)}</strong>
                     <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', marginTop: '1px' }}>{normalise(driver.status) || 'status unavailable'} · {driver.phone ?? driver.email ?? 'No contact recorded'}</span>
                   </span>,
-                  vehicleName(vehicle),
+                  vehicleSignal,
                   <StatusBadge key="tracking" value={trackingDataUnavailable ? 'Unavailable' : !activeDriver ? 'Not monitored' : timestamp ? compactTimeAgo(timestamp) : 'Position missing'} tone={activeDriver && !timestamp ? 'orange' : undefined} />,
-                  <StatusBadge key="readiness" value={readiness.label} tone={readiness.tone} />,
+                  <StatusBadge key="documents" value={documentSignal.label} tone={documentSignal.tone} />,
                   <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={activeDriver && normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
                   <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/fleet/drivers?driver=${driver.id}`)}>View</ActionButton>,
                 ];
