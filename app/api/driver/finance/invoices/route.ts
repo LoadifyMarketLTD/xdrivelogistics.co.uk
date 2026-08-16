@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
-  toCanonicalInvoiceDisplayStatus,
   toCanonicalInvoiceStatus,
+  toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalPaymentStatus,
   toLegacyInvoiceStatusForDb,
   type CanonicalInvoiceStatus,
+  type CanonicalPaymentStatus,
 } from '../../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
@@ -42,7 +44,17 @@ async function resolveDriver(request: NextRequest) {
   };
 }
 
-// GET /api/driver/finance/invoices?status=Draft
+const paymentSummary = (statuses: CanonicalPaymentStatus[]) => ({
+  total: statuses.length,
+  unpaid: statuses.filter((status) => status === 'unpaid').length,
+  partially_paid: statuses.filter((status) => status === 'partially_paid').length,
+  paid: statuses.filter((status) => status === 'paid').length,
+  overdue: statuses.filter((status) => status === 'overdue').length,
+  disputed: statuses.filter((status) => status === 'disputed').length,
+  refunded: statuses.filter((status) => status === 'refunded').length,
+});
+
+// GET /api/driver/finance/invoices?invoice_status=Sent&payment_status=unpaid
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -57,7 +69,10 @@ export async function GET(request: NextRequest) {
   if (!driver) return respond(401, { error: 'Unauthorized.' });
 
   const { searchParams } = new URL(request.url);
-  const statusFilter = searchParams.get('status');
+  // `status` is retained as a compatibility alias for existing callers. It is
+  // invoice lifecycle only; payment filtering has its own explicit dimension.
+  const invoiceStatusFilter = searchParams.get('invoice_status') || searchParams.get('status');
+  const paymentStatusFilter = searchParams.get('payment_status');
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 500);
 
   let query = supabaseAdmin
@@ -75,34 +90,56 @@ export async function GET(request: NextRequest) {
     query = query.eq('created_by', driver.userId);
   }
 
-  if (statusFilter && statusFilter !== 'All') {
-    const canonicalFilter = toCanonicalInvoiceStatus(statusFilter, 'Draft');
-    if (canonicalFilter === 'Paid') {
-      query = query.eq('payment_status', 'paid');
-    } else {
-      query = query.eq('status', toLegacyInvoiceStatusForDb(canonicalFilter));
-    }
-  }
-
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
-  const rows = ((data ?? []) as Array<{
+  const allRows = ((data ?? []) as Array<{
     status: string | null;
     payment_status?: string | null;
     due_date?: string | null;
     [key: string]: unknown;
-  }>).map((row) => ({
-    ...row,
-    status: toCanonicalInvoiceDisplayStatus(
+  }>).map((row) => {
+    const invoiceState = toCanonicalInvoiceStatusWithDueDate(
       row.status,
-      typeof row.due_date === 'string' ? row.due_date : null,
-      row.payment_status
-    ),
-  }));
-  const summary = buildInvoiceStatusSummary(rows.map((row) => row.status as CanonicalInvoiceStatus));
+      typeof row.due_date === 'string' ? row.due_date : null
+    );
+    const legacyPaidFallback: CanonicalPaymentStatus = String(row.status ?? '').trim().toLowerCase() === 'paid'
+      ? 'paid'
+      : 'unpaid';
+    return {
+      ...row,
+      status: invoiceState,
+      payment_status: toCanonicalPaymentStatus(row.payment_status, legacyPaidFallback),
+    };
+  });
 
-  return respond(200, { rows, summary });
+  const invoiceSummary = buildInvoiceStatusSummary(
+    allRows.map((row) => row.status as CanonicalInvoiceStatus)
+  );
+  const payments = paymentSummary(
+    allRows.map((row) => row.payment_status as CanonicalPaymentStatus)
+  );
+
+  const rows = allRows.filter((row) => {
+    if (invoiceStatusFilter && invoiceStatusFilter !== 'All') {
+      const expected = toCanonicalInvoiceStatus(invoiceStatusFilter, 'Draft');
+      if (row.status !== expected) return false;
+    }
+    if (paymentStatusFilter && paymentStatusFilter !== 'All') {
+      const expected = toCanonicalPaymentStatus(paymentStatusFilter);
+      if (row.payment_status !== expected) return false;
+    }
+    return true;
+  });
+
+  return respond(200, {
+    rows,
+    invoiceSummary,
+    paymentSummary: payments,
+    // Compatibility alias: callers that still consume `summary` receive invoice
+    // lifecycle counts only, never a payment-derived lifecycle projection.
+    summary: invoiceSummary,
+  });
 }
 
 // POST /api/driver/finance/invoices — create a manual invoice.
