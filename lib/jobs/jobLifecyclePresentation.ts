@@ -58,14 +58,7 @@ export function matchesDriverJobView(value: unknown, view: DriverJobView): boole
   return group === 'completed';
 }
 
-const legacyExecutionAliases = [
-  'on_my_way_to_pickup',
-  'arrived_pickup',
-  'collected',
-  'on_route_delivery',
-  'on_my_way_to_delivery',
-  'arrived_delivery',
-] as const;
+const legacyExecutionAliases = ['arrived_pickup', 'collected', 'on_route_delivery', 'arrived_delivery'] as const;
 
 export const DRIVER_JOB_SCOPE_STATUSES = {
   upcoming: ['awarded', ...ALLOCATED_JOB_STATUSES, 'assigned'],
