@@ -9,6 +9,11 @@
 -- Keep the detailed readiness resolver service-bound. Authenticated RLS callers
 -- get only a boolean own-driver decision through the wrapper below, so the
 -- policy cannot become a cross-driver readiness introspection surface.
+--
+-- This INSERT policy is deliberately PERMISSIVE (the PostgreSQL default). RLS
+-- requires at least one permissive policy for a command to be reachable; the
+-- authoritative non-bypassable readiness/rate/attribution enforcement remains
+-- the BEFORE INSERT trigger in 20260815145500_driver_quote_mutation_guard.sql.
 
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -59,7 +64,7 @@ GRANT EXECUTE ON FUNCTION public.can_authenticated_driver_quote(uuid, uuid, uuid
 DROP POLICY IF EXISTS job_bids_exchange_insert ON public.job_bids;
 CREATE POLICY job_bids_exchange_insert
   ON public.job_bids
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -76,6 +81,6 @@ COMMENT ON FUNCTION public.can_authenticated_driver_quote(uuid, uuid, uuid) IS
   'Boolean RLS-safe quote gate for the authenticated user own named-driver identity; detailed readiness remains service-bound.';
 
 COMMENT ON POLICY job_bids_exchange_insert ON public.job_bids IS
-  'Restrictive direct-client gate: only the authenticated named driver may quote, and canonical driver+vehicle readiness must pass. Fleet/Company-level bidding uses the authorised server route.';
+  'Authenticated direct-client driver quote policy. Canonical own-driver readiness must pass here; the BEFORE INSERT quote mutation guard remains authoritative and non-bypassable across permissive-policy combinations.';
 
 COMMIT;
