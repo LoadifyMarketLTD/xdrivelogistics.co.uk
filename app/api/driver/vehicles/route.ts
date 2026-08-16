@@ -7,6 +7,7 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import { operationalError } from '../../_lib/operationalError';
+import { resolveDriverOperationalEligibility } from '../_lib/operationalEligibility';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -126,8 +127,8 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  // Company drivers see only the vehicle operationally assigned to them. Fleet
-  // inventory belongs to Fleet/Company administration, not to the Driver workspace.
+  // Company drivers see only vehicle records assigned to them. Fleet inventory
+  // belongs to Fleet/Company administration, not to the Driver workspace.
   if (!canManageCompanyVehicles) query = query.eq('assigned_driver_id', driverId);
 
   const { data: vehicles, error } = await query;
@@ -142,9 +143,23 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Keep the existing administrative assignment signal separate from the
+  // canonical operational vehicle. The latter is resolved by the exact same
+  // fail-closed helper used by driver-originated Marketplace quoting.
+  let canonicalVehicleId: string | null = null;
+  let canonicalVehicleSignalAvailable = true;
+  try {
+    const operational = await resolveDriverOperationalEligibility(admin, driverId);
+    canonicalVehicleId = operational.canonicalVehicleId;
+  } catch {
+    canonicalVehicleSignalAvailable = false;
+  }
+
   return json(200, {
     vehicles: vehicles ?? [],
     assignedVehicleId: (vehicles ?? []).find((v) => v.assigned_driver_id === driverId)?.id ?? null,
+    canonicalVehicleId,
+    canonicalVehicleSignalAvailable,
     canManageVehicles: canManageCompanyVehicles,
   });
 }
