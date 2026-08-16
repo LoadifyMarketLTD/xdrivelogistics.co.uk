@@ -8,9 +8,10 @@ import DriverWorkspaceShell from '../../../_components/DriverWorkspaceShell';
 import DriverInvoiceEmailPanel from './DriverInvoiceEmailPanel';
 import { supabase, isSupabaseConfigured } from '../../../../../lib/supabaseClient';
 import {
-  toCanonicalInvoiceDisplayStatus,
+  toCanonicalInvoiceStatusWithDueDate,
   toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
+  type CanonicalPaymentStatus,
 } from '../../../../../lib/invoiceStatus';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../../../components/workspace/WorkspaceUI';
 
@@ -23,7 +24,7 @@ type InvoiceDetail = {
   invoice_date: string;
   due_date: string;
   status: InvoiceStatus;
-  payment_status: string | null;
+  payment_status: CanonicalPaymentStatus;
   client_name: string;
   client_address: string | null;
   client_email: string | null;
@@ -73,6 +74,15 @@ function invoiceTone(status: InvoiceStatus): 'green' | 'blue' | 'orange' | 'red'
   if (status === 'Overdue') return 'red';
   if (status === 'Disputed') return 'purple';
   if (status === 'Cancelled') return 'grey';
+  return 'orange';
+}
+
+function paymentTone(status: CanonicalPaymentStatus): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
+  if (status === 'paid') return 'green';
+  if (status === 'partially_paid') return 'blue';
+  if (status === 'overdue') return 'red';
+  if (status === 'disputed') return 'purple';
+  if (status === 'refunded') return 'grey';
   return 'orange';
 }
 
@@ -131,7 +141,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
     try {
       const response = await fetch(`/api/driver/finance/invoices/${invoiceId}`, { headers: { Authorization: `Bearer ${token}` } });
       const payload = (await response.json().catch(() => ({}))) as {
-        invoice?: InvoiceDetail;
+        invoice?: Omit<InvoiceDetail, 'status' | 'payment_status'> & { status: string; payment_status: string | null };
         statusHistory?: StatusHistoryItem[];
         payments?: PaymentRecord[];
         disputes?: DisputeRecord[];
@@ -141,7 +151,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
       if (!response.ok || !payload.invoice) throw new Error(payload.error ?? 'Failed to load invoice.');
       setInvoice({
         ...payload.invoice,
-        status: toCanonicalInvoiceDisplayStatus(payload.invoice.status, payload.invoice.due_date, payload.invoice.payment_status),
+        status: toCanonicalInvoiceStatusWithDueDate(payload.invoice.status, payload.invoice.due_date),
         payment_status: toCanonicalPaymentStatus(payload.invoice.payment_status),
       });
       setStatusHistory(payload.statusHistory ?? []);
@@ -243,7 +253,8 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
       <div className="driver-filter-rail__header">Invoice Summary</div>
       <div className="driver-filter-rail__body">
         <div className="driver-detail-item"><span>Invoice</span><strong>{invoice.invoice_number}</strong></div>
-        <div className="driver-detail-item"><span>Status</span><strong><StatusBadge value={invoice.status} tone={invoiceTone(invoice.status)} /></strong></div>
+        <div className="driver-detail-item"><span>Invoice state</span><strong><StatusBadge value={invoice.status} tone={invoiceTone(invoice.status)} /></strong></div>
+        <div className="driver-detail-item"><span>Payment</span><strong><StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></strong></div>
         <div className="driver-detail-item"><span>Total</span><strong>{fmtCurrency(invoice.amount, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
@@ -290,7 +301,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
                 <div className="driver-detail-item"><span>Invoice total</span><strong>{fmtCurrency(invoice.amount, invoice.currency)}</strong></div>
                 <div className="driver-detail-item"><span>Total received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
                 <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
-                <div className="driver-detail-item"><span>Payment status</span><strong>{invoice.payment_status ?? 'unpaid'}</strong></div>
+                <div className="driver-detail-item"><span>Payment status</span><strong><StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></strong></div>
               </div>
               {financeOperator && invoice.payment_status !== 'paid' && (
                 <div className="driver-row-actions" style={{ marginTop: 5 }}><ActionButton tone="secondary" onClick={() => setShowPaymentForm((value) => !value)}>{showPaymentForm ? 'Cancel' : '+ Record Payment'}</ActionButton></div>
