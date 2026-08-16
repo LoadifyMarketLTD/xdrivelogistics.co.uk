@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +9,7 @@ import {
 } from '../app/components/workspace/useCompanyWorkspaceData';
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
+const page = (path: string) => resolve(process.cwd(), 'app', path.replace(/^\//, ''), 'page.tsx');
 
 const carrierJob = (overrides: Partial<WorkspaceJob> = {}): WorkspaceJob => ({
   id: 'job-1',
@@ -63,6 +64,24 @@ describe('carrier dashboard convergence contract', () => {
       current_status: 'awarded',
       assigned_driver_id: null,
     }))).toBe(true);
+  });
+
+  it('backs every carrier dashboard action with a real route', () => {
+    for (const href of [
+      '/admin/marketplace',
+      '/admin/diary',
+      '/admin/jobs',
+      '/admin/fleet/positions',
+      '/admin/live-availability',
+      '/admin/fleet/vehicles',
+      '/admin/fleet/compliance',
+      '/admin/fleet/assignments',
+      '/admin/fleet/active-jobs',
+      '/admin/invoices',
+    ]) {
+      expect(existsSync(page(href)), `${href} has no page.tsx`).toBe(true);
+    }
+    expect(existsSync(page('/admin/jobs/[id]'))).toBe(true);
   });
 
   it('keeps carrier commercial links, award truth, and lifecycle labels canonical', () => {
