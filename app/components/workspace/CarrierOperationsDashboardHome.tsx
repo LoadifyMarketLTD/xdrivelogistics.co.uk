@@ -191,7 +191,12 @@ export default function CarrierOperationsDashboardHome() {
   const metrics = useMemo(() => {
     const companyBids = data.bids.filter((bid) => bid.company_id === data.companyId);
     const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));
-    const carrierInvoices = data.invoices.filter((invoice) => invoice.company_id === data.companyId);
+    const carrierInvoices = data.invoices.filter((invoice) => {
+      if (invoice.supplier_company_id) return invoice.supplier_company_id === data.companyId;
+      return Boolean(invoice.buyer_company_id)
+        && invoice.buyer_company_id !== data.companyId
+        && invoice.company_id === data.companyId;
+    });
     const unallocatedJobs = carrierExecutionJobs.filter(isUnallocatedJob);
     const liveJobs = carrierExecutionJobs.filter(isLiveJob);
     const evidenceReview = carrierExecutionJobs.filter(isDeliveryEvidenceMissingJob);
