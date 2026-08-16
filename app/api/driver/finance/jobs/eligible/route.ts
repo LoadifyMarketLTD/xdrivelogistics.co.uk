@@ -4,6 +4,11 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const positiveAmount = (value: unknown) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+};
+
 async function resolveFinanceOwner(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
@@ -81,7 +86,7 @@ export async function GET(request: NextRequest) {
           .in('job_id', jobIds),
         supabaseAdmin
           .from('job_commercial_agreements')
-          .select('id, job_id, supplier_company_id, agreed_amount, currency')
+          .select('id, job_id, supplier_company_id, agreed_amount, currency, vat_amount, agreed_gross_amount, payment_terms')
           .eq('supplier_company_id', driver.companyId)
           .in('job_id', jobIds),
       ])
@@ -104,11 +109,34 @@ export async function GET(request: NextRequest) {
     const exchangeVisibility = String(job.exchange_visibility ?? '').toLowerCase();
     const marketplace = exchangeVisibility === 'exchange' || exchangeVisibility === 'direct';
     const agreement = agreementByJob.get(String(job.id)) ?? null;
+    const agreedAmount = positiveAmount(agreement?.agreed_amount);
+    const agreedGross = positiveAmount(agreement?.agreed_gross_amount);
+    const agreedVat = agreement?.vat_amount == null ? null : Number(agreement.vat_amount);
+    const agreedCurrency = String(agreement?.currency ?? '').trim();
+    const agreedTerms = String(agreement?.payment_terms ?? '').trim();
+    const directInvoiceAmount = positiveAmount(job.budget_amount);
 
     // A posting/buyer company must not see its own marketplace load as supplier
     // invoice work merely because jobs.company_id matches its company id.
     if (marketplace && !agreement) return [];
     if (!marketplace && job.company_id !== driver.companyId) return [];
+
+    // Keep the picker aligned with the generation mutation: marketplace invoices
+    // need a complete, internally consistent accepted commercial snapshot. Direct
+    // jobs need the positive amount that the current direct-job generator uses.
+    if (marketplace) {
+      if (
+        !agreedAmount
+        || !agreedGross
+        || !Number.isFinite(agreedVat)
+        || Number(agreedVat) < 0
+        || Math.abs(agreedGross - (agreedAmount + Number(agreedVat))) > 0.01
+        || !agreedCurrency
+        || !agreedTerms
+      ) return [];
+    } else if (!directInvoiceAmount) {
+      return [];
+    }
 
     return [{
       id: job.id,
@@ -121,9 +149,9 @@ export async function GET(request: NextRequest) {
       status: job.current_status ?? job.status,
       invoice: invoiceByJob.get(String(job.id)) ?? null,
       commercial_mode: marketplace ? 'marketplace' : 'direct',
-      agreed_amount: marketplace ? Number(agreement?.agreed_amount ?? 0) || null : null,
-      direct_invoice_amount: marketplace ? null : Number(job.budget_amount ?? 0) || null,
-      currency: marketplace ? (agreement?.currency || job.currency || 'GBP') : (job.currency || 'GBP'),
+      agreed_amount: marketplace ? agreedAmount : null,
+      direct_invoice_amount: marketplace ? null : directInvoiceAmount,
+      currency: marketplace ? agreedCurrency : (job.currency || 'GBP'),
     }];
   });
 
