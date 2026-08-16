@@ -243,7 +243,9 @@ export default function TopWorkspaceShell({
 
   const isActive = (href: string) => {
     const [baseHref] = href.split('?');
-    return baseHref === activeNavigationHref;
+    if (CARRIER_NAV_ROLES.has(role)) return baseHref === activeNavigationHref;
+    if (baseHref === definition.homeHref) return pathname === baseHref;
+    return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
   };
 
   const openRoute = (href: string) => {
