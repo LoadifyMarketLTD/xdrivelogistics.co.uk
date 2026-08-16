@@ -38,6 +38,25 @@ export function matchesDriverJobView(value: unknown, view: DriverJobView): boole
   return group === 'completed';
 }
 
+// Read-only next-step presentation of the already-approved driver execution RPC.
+// UI surfaces may use this to avoid maintaining their own transition sequence;
+// the RPC remains authoritative and revalidates the transition and evidence gates.
+const DRIVER_EXECUTION_NEXT_STATUS: Readonly<Record<string, string>> = {
+  awarded: 'on_my_way',
+  allocated: 'on_my_way',
+  on_my_way: 'on_site_pickup',
+  on_site_pickup: 'loaded',
+  loaded: 'in_transit',
+  in_transit: 'on_site_delivery',
+  on_site_delivery: 'delivered',
+  delivered: 'completed',
+};
+
+export function nextDriverExecutionStatus(value: unknown): string | null {
+  const status = canonicalExecutionStatus(value);
+  return DRIVER_EXECUTION_NEXT_STATUS[status] ?? null;
+}
+
 const legacyExecutionAliases = ['arrived_pickup', 'collected', 'on_route_delivery', 'arrived_delivery'] as const;
 
 export const DRIVER_JOB_SCOPE_STATUSES = {
