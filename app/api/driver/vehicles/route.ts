@@ -144,13 +144,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Keep the existing administrative assignment signal separate from the
-  // canonical operational vehicle. The latter is resolved by the exact same
-  // fail-closed helper used by driver-originated Marketplace quoting.
+  // canonical active vehicle identity. The same-company requirement is part of
+  // the approved canonical contract; personal/document blockers do not erase an
+  // otherwise unambiguous active vehicle identity from this management view.
   let canonicalVehicleId: string | null = null;
   let canonicalVehicleSignalAvailable = true;
   try {
     const operational = await resolveDriverOperationalEligibility(admin, driverId);
-    canonicalVehicleId = operational.canonicalVehicleId;
+    canonicalVehicleId = operational.blockers.includes('canonical_vehicle_company_mismatch')
+      ? null
+      : operational.canonicalVehicleId;
   } catch {
     canonicalVehicleSignalAvailable = false;
   }
