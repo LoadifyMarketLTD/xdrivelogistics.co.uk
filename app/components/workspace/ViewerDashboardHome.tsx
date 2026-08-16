@@ -1,7 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import {
+  classifyWorkspaceJobStage,
+  normalizedJobStatus,
+  workspaceJobPresentationStatus,
+} from '../../../lib/jobs/workspaceJobStage';
 import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -23,15 +27,13 @@ import {
   when,
 } from './AdminDashboardShared';
 
-const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
-
 export default function ViewerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
 
   const completed = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'completed');
   const exceptions = data.jobs.filter((job) =>
-    exceptionStatuses.has(normalise(job.current_status ?? job.status)),
+    exceptionStatuses.has(normalizedJobStatus(job)),
   );
 
   return (
@@ -64,7 +66,7 @@ export default function ViewerDashboardHome() {
             <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
             when(job.pickup_datetime),
             when(job.delivery_datetime),
-            <StatusBadge key="status" value={job.current_status ?? job.status} />,
+            <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
             <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
           ])}
           empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No jobs visible'} />}
