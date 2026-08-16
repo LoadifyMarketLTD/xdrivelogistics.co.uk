@@ -1,224 +1,268 @@
-﻿'use client';
+'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-//  Types
+type LifecycleGroup = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'other';
 
 type WonJob = {
   id: string;
-  pickup_location: string | null;
-  delivery_location: string | null;
-  pickup_datetime: string | null;
-  vehicle_type: string | null;
-  cargo_type: string | null;
-  status: string;
+  reference: string;
+  pickupLocation: string | null;
+  deliveryLocation: string | null;
+  pickupTime: string | null;
+  vehicleType: string | null;
+  cargoType: string | null;
+  canonicalStatus: string;
+  lifecycleGroup: LifecycleGroup;
+  agreedRateAmount: number | null;
   currency: string;
-  budget_amount: number | null;
-  company_id: string;
-  awarded_carrier_company_id: string | null;
-  created_at: string;
-  companies: { name: string } | null;
-  assigned_driver_id: string | null;
+  postingCompanyName: string | null;
 };
 
-//  Helpers
+type WonWorkResponse = {
+  jobs?: WonJob[];
+  commercialRatePartial?: boolean;
+  error?: string;
+};
 
 const STATUS_LABELS: Record<string, string> = {
-  draft:     'Received',
-  posted:    'Posted',
+  awarded: 'Awarded',
   allocated: 'Allocated',
-  in_transit:'In Transit',
+  on_my_way: 'On my way to pickup',
+  on_site_pickup: 'On site pickup',
+  loaded: 'Loaded',
+  in_transit: 'In transit',
+  on_site_delivery: 'On site delivery',
   delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  disputed:  'Disputed',
+  completed: 'Completed',
 };
 
-const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
-  draft:     { bg: '#f3f4f6', color: '#374151' },
-  posted:    { bg: '#ede9fe', color: '#6d28d9' },
-  allocated: { bg: '#dbeafe', color: '#1d4ed8' },
-  in_transit:{ bg: '#fef3c7', color: '#b45309' },
-  delivered: { bg: '#dcfce7', color: '#15803d' },
+const GROUP_STYLES: Record<LifecycleGroup, { bg: string; color: string }> = {
+  upcoming: { bg: '#dbeafe', color: '#1d4ed8' },
+  active: { bg: '#fef3c7', color: '#b45309' },
+  completed: { bg: '#dcfce7', color: '#15803d' },
   cancelled: { bg: '#fee2e2', color: '#dc2626' },
-  disputed:  { bg: '#ede9fe', color: '#7c3aed' },
+  other: { bg: '#f3f4f6', color: '#374151' },
 };
 
 const VEHICLE_LABELS: Record<string, string> = {
-  bicycle: 'Bicycle', motorbike: 'Motorbike', car: 'Car',
-  van_small: 'Small Van', van_large: 'Large Van', luton: 'Luton Van',
-  truck_7_5t: '7.5t Truck', truck_18t: '18t Truck', artic: 'Artic',
+  bicycle: 'Bicycle',
+  motorbike: 'Motorbike',
+  car: 'Car',
+  van_small: 'Small Van',
+  van_large: 'Large Van',
+  swb_van: 'SWB Van',
+  mwb_van: 'MWB Van',
+  lwb_van: 'LWB Van',
+  xlwb_van: 'XLWB Van',
+  luton: 'Luton Van',
+  luton_tail_lift: 'Luton Tail Lift',
+  truck_7_5t: '7.5t Truck',
+  truck_18t: '18t Truck',
+  artic: 'Artic',
 };
 
 function fmtDate(value: string | null) {
   if (!value) return '-';
-  try { return new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
-  catch { return value; }
+  try {
+    return new Date(value).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return value;
+  }
+}
+
+function fmtRate(value: number | null, currency: string) {
+  if (value == null || !Number.isFinite(value) || value <= 0) return 'Agreed rate TBC';
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: currency || 'GBP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `GBP ${value.toFixed(2)}`;
+  }
 }
 
 const card: CSSProperties = {
   backgroundColor: '#ffffff',
   border: '1px solid #d7e0ea',
-  borderRadius: '10px',
-  padding: '1rem',
-  boxShadow: '0 2px 8px rgba(15,23,42,0.06)',
+  borderRadius: '4px',
+  padding: '0.75rem',
 };
 
-//  Component
-
 export default function WonWorkPage() {
-  const { user } = useAuth();
-  const router = useRouter();  const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
-
+  const router = useRouter();
   const [jobs, setJobs] = useState<WonJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [commercialRatePartial, setCommercialRatePartial] = useState(false);
 
   const fetchWonWork = useCallback(async () => {
-    if (!isSupabaseConfigured || !driverId) {
+    if (!isSupabaseConfigured) {
+      setError('Driver jobs are unavailable because authentication is not configured.');
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setError('');
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
 
-    const { data, error: fetchError } = await supabase
-      .from('jobs')
-      .select('id, pickup_location, delivery_location, pickup_datetime, vehicle_type, cargo_type, status, currency, budget_amount, company_id, awarded_carrier_company_id, created_at, assigned_driver_id, companies:companies!jobs_company_id_fkey(name)')
-      .eq('assigned_driver_id', driverId)
-      .in('status', ['allocated', 'collected', 'in_transit', 'delivered'])
-      .order('pickup_datetime', { ascending: false })
-      .limit(100);
+      const response = await fetch('/api/driver/jobs?scope=all&limit=100', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as WonWorkResponse;
+      if (!response.ok) throw new Error(payload.error || 'Failed to load won work.');
 
-    if (fetchError) {
-      setError(`Failed to load jobs: ${fetchError.message}`);
-    } else {
-      const normalized = ((data ?? []) as unknown as WonJob[]).map((job) => ({
-        ...job,
-        companies: Array.isArray(job.companies)
-          ? ((job.companies as Array<{ name: string }>)[0] ?? null)
-          : (job.companies as { name: string } | null),
-      }));
-      setJobs(normalized);
+      // Won Work is the execution/history surface for successfully awarded work.
+      // Cancelled/unknown rows are not silently relabelled as active or completed.
+      setJobs((payload.jobs ?? []).filter((job) => ['upcoming', 'active', 'completed'].includes(job.lifecycleGroup)));
+      setCommercialRatePartial(payload.commercialRatePartial === true);
+    } catch (fetchError) {
+      setJobs([]);
+      setCommercialRatePartial(false);
+      setError(fetchError instanceof Error ? fetchError.message : 'Failed to load won work.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [driverId]);
+  }, []);
+
   useEffect(() => {
     void fetchWonWork();
   }, [fetchWonWork]);
 
-  // Pipeline summary counts
-  const pipelineCounts = {
-    active: jobs.filter((j) => ['allocated', 'collected', 'in_transit'].includes(j.status)).length,
-    pending: 0,
-    completed: jobs.filter((j) => j.status === 'delivered').length,
+  const pipelineCounts = useMemo(() => ({
+    upcoming: jobs.filter((job) => job.lifecycleGroup === 'upcoming').length,
+    active: jobs.filter((job) => job.lifecycleGroup === 'active').length,
+    completed: jobs.filter((job) => job.lifecycleGroup === 'completed').length,
     total: jobs.length,
-  };
+  }), [jobs]);
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle="Active and completed jobs assigned to you."
-      >
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>Jobs</h2>
+      <DriverWorkspaceShell subtitle="Work you have won and that is assigned to your driver account.">
+        <h2 style={{ margin: '0 0 0.75rem', fontSize: '20px', lineHeight: '26px', fontWeight: 700, color: '#0f172a' }}>
+          Won Work
+        </h2>
 
-        {/* Pipeline summary */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginBottom: '0.75rem' }}>
           {[
-            { label: 'Active',     value: pipelineCounts.active,    color: '#1d4ed8', bg: '#dbeafe' },
-            { label: 'Pending',    value: pipelineCounts.pending,   color: '#b45309', bg: '#fef3c7' },
-            { label: 'Completed',  value: pipelineCounts.completed, color: '#15803d', bg: '#dcfce7' },
-            { label: 'Total',  value: pipelineCounts.total,     color: '#374151', bg: '#f3f4f6' },
+            { label: 'Upcoming', value: pipelineCounts.upcoming, color: '#1d4ed8' },
+            { label: 'Active', value: pipelineCounts.active, color: '#b45309' },
+            { label: 'Completed', value: pipelineCounts.completed, color: '#15803d' },
+            { label: 'Total', value: pipelineCounts.total, color: '#374151' },
           ].map((item) => (
-            <div key={item.label} style={{ ...card, borderTop: `3px solid ${item.color}`, textAlign: 'center', padding: '0.8rem' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: item.color }}>{loading ? '...' : item.value}</div>
-              <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600, marginTop: '0.15rem' }}>{item.label}</div>
+            <div key={item.label} style={{ ...card, borderTop: `3px solid ${item.color}`, textAlign: 'center', padding: '0.6rem' }}>
+              <div style={{ fontSize: '18px', lineHeight: '22px', fontWeight: 800, color: item.color }}>{loading ? '...' : item.value}</div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>{item.label}</div>
             </div>
           ))}
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '0.7rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
+        {!error && commercialRatePartial && (
+          <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', marginBottom: '0.75rem' }}>
+            Some agreed-rate records could not be verified. Unverified amounts are shown as TBC; customer budget is never used as a substitute.
+          </div>
+        )}
+
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center' }}>Loading jobs...</div>
+          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center', fontSize: '13px' }}>Loading won work...</div>
         ) : jobs.length === 0 ? (
-          <div style={{ ...card, textAlign: 'center', padding: '2.5rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>No jobs yet</div>
-            <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
-              Assigned work will appear here when it is ready.
+          <div style={{ ...card, textAlign: 'center', padding: '2rem' }}>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '13px' }}>No won work yet</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              Jobs will appear here after your quote is accepted and the work is assigned to you.
             </div>
             <button
               onClick={() => router.push('/driver/loads')}
-              style={{ marginTop: '1rem', padding: '0.55rem 1.2rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: 'pointer' }}
+              style={{ marginTop: '12px', minHeight: '32px', padding: '0 12px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
             >
               Open Loads
             </button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: '0.7rem' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
             {jobs.map((job) => {
-              const statusStyle = STATUS_STYLES[job.status] ?? { bg: '#f3f4f6', color: '#374151' };
-              const isActive = ['allocated', 'in_transit'].includes(job.status);
+              const statusStyle = GROUP_STYLES[job.lifecycleGroup] ?? GROUP_STYLES.other;
+              const canOpenExecution = job.lifecycleGroup === 'upcoming' || job.lifecycleGroup === 'active';
               return (
                 <div key={job.id} style={{ ...card, borderLeft: `3px solid ${statusStyle.color}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.65rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                     <div>
-                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.92rem' }}>#{job.id.slice(0, 8).toUpperCase()}</span>
-                      <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '0.12rem 0.45rem', borderRadius: '999px' }}>
-                        {STATUS_LABELS[job.status] ?? job.status}
+                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{job.reference}</span>
+                      <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '2px 6px', borderRadius: '999px' }}>
+                        {STATUS_LABELS[job.canonicalStatus] ?? job.canonicalStatus.replaceAll('_', ' ')}
                       </span>
-                      {job.companies?.name && (
-                        <span style={{ marginLeft: '0.4rem', fontSize: '0.72rem', color: '#64748b' }}>- {job.companies.name}</span>
+                      {job.postingCompanyName && (
+                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#64748b' }}>· {job.postingCompanyName}</span>
                       )}
                     </div>
-                    {job.budget_amount != null && (
-                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#15803d' }}>GBP {job.budget_amount.toFixed(2)}</span>
-                    )}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: job.agreedRateAmount == null ? '11px' : '13px', fontWeight: 800, color: job.agreedRateAmount == null ? '#64748b' : '#15803d' }}>
+                        {fmtRate(job.agreedRateAmount, job.currency)}
+                      </div>
+                      {job.agreedRateAmount != null && (
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>Accepted quote / agreed carrier rate</div>
+                      )}
+                    </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.55rem', marginBottom: '0.65rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', marginBottom: '8px' }}>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Pickup</div>
-                      <div style={{ fontSize: '0.83rem', color: '#0f172a', fontWeight: 600 }}>{job.pickup_location ?? '-'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Pickup</div>
+                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{job.pickupLocation ?? '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Delivery</div>
-                      <div style={{ fontSize: '0.83rem', color: '#0f172a', fontWeight: 600 }}>{job.delivery_location ?? '-'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Delivery</div>
+                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{job.deliveryLocation ?? '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Date</div>
-                      <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>{fmtDate(job.pickup_datetime)}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Collection</div>
+                      <div style={{ fontSize: '13px', color: '#0f172a' }}>{fmtDate(job.pickupTime)}</div>
                     </div>
-                    {job.vehicle_type && (
+                    {job.vehicleType && (
                       <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.1rem' }}>Vehicle</div>
-                        <div style={{ fontSize: '0.83rem', color: '#0f172a' }}>{VEHICLE_LABELS[job.vehicle_type] ?? job.vehicle_type}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Vehicle</div>
+                        <div style={{ fontSize: '13px', color: '#0f172a' }}>{VEHICLE_LABELS[job.vehicleType] ?? job.vehicleType}</div>
                       </div>
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {isActive && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {canOpenExecution && (
                       <button
                         onClick={() => router.push(`/driver/jobs/${job.id}`)}
-                        style={{ padding: '0.45rem 0.9rem', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}
+                        style={{ minHeight: '32px', padding: '0 10px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
                       >
-                        Open Active Job
+                        Open Job
                       </button>
                     )}
                     <button
                       onClick={() => router.push('/driver/jobs')}
-                      style={{ padding: '0.45rem 0.9rem', backgroundColor: '#f1f5f9', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.82rem' }}
+                      style={{ minHeight: '32px', padding: '0 10px', backgroundColor: '#fff', color: '#374151', border: '1px solid #d7e0ea', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
                     >
-                      View Active Jobs
+                      Active Jobs
                     </button>
                   </div>
                 </div>
