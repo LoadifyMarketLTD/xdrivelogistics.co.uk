@@ -146,7 +146,10 @@ BEGIN
 
   UPDATE public.jobs
   SET assigned_driver_id = p_driver_id,
-      assigned_company_id = CASE WHEN p_driver_id IS NULL THEN NULL ELSE v_allowed_company_id END,
+      assigned_company_id = CASE
+        WHEN p_driver_id IS NULL THEN v_job.awarded_carrier_company_id
+        ELSE v_allowed_company_id
+      END,
       vehicle_id = CASE WHEN p_driver_id IS NULL THEN NULL ELSE v_driver_vehicle_id END,
       status = v_next_status,
       current_status = v_next_status,
@@ -188,7 +191,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.assign_job_driver_atomic(uuid, uuid, uuid, uuid) IS
-  'Authorised Fleet allocation/reallocation: selected driver must pass canonical operational eligibility, jobs.vehicle_id follows that driver canonical active compliant vehicle, active execution requires a replacement rather than a clear, and existing execution lifecycle is preserved from current_status.';
+  'Authorised Fleet allocation/reallocation: selected driver must pass canonical operational eligibility, jobs.vehicle_id follows that driver canonical active compliant vehicle, clearing a pre-execution driver preserves the awarded carrier company when one exists, active execution requires a replacement rather than a clear, and existing execution lifecycle is preserved from current_status.';
 
 NOTIFY pgrst, 'reload schema';
 
