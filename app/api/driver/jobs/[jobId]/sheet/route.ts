@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { operationalError } from '../../../../_lib/operationalError';
-import { isDriverContext, requireDriver, respond } from '../../../mobile/_lib';
+import { respond } from '../../../mobile/_lib';
+import { isWebDriverContext, requireActiveWebDriver } from '../../../_lib/webDriverContext';
 
 function text(value: unknown) {
   return typeof value === 'string' ? value : value == null ? null : String(value);
@@ -58,8 +59,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       retryable: true,
     });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { jobId } = await params;
   const { data: rawJob, error: jobError } = await supabaseAdmin
