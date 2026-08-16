@@ -42,7 +42,6 @@ export type MobileJobRow = {
   requested_vehicle_label: string | null;
   cargo_type: string | null;
   requested_cargo_label: string | null;
-  budget_amount: number | string | null;
   agreed_rate: number | string | null;
   agreed_rate_gbp: number | string | null;
   collection_contact_name: string | null;
@@ -172,7 +171,6 @@ export const jobSelect = [
   'requested_vehicle_label',
   'cargo_type',
   'requested_cargo_label',
-  'budget_amount',
   'agreed_rate',
   'agreed_rate_gbp',
   'collection_contact_name',
