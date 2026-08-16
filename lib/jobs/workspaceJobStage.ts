@@ -34,8 +34,33 @@ export const CANCELLED_JOB_STATUSES = new Set(['cancelled', 'driver_declined']);
 export const ALLOCATED_JOB_STATUSES = new Set(['allocated', 'accepted']);
 export const OPEN_JOB_STATUSES = new Set(['draft', 'received', 'posted', 'quoted']);
 
+/**
+ * One shared normalization boundary for historical execution aliases that are
+ * already accepted by the canonical driver lifecycle contract. This is
+ * presentation/read compatibility only; it does not create new lifecycle states.
+ */
+export function canonicalWorkspaceJobStatus(value: unknown) {
+  const status = String(value ?? '').trim().toLowerCase();
+  switch (status) {
+    case 'assigned':
+    case 'accepted':
+      return 'allocated';
+    case 'arrived_pickup':
+      return 'on_site_pickup';
+    case 'collected':
+      return 'loaded';
+    case 'on_route_delivery':
+    case 'on_my_way_to_delivery':
+      return 'in_transit';
+    case 'arrived_delivery':
+      return 'on_site_delivery';
+    default:
+      return status;
+  }
+}
+
 export function normalizedJobStatus(job: WorkspaceStageJob) {
-  return String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+  return canonicalWorkspaceJobStatus(job.current_status ?? job.status ?? '');
 }
 
 /**
