@@ -35,6 +35,18 @@ const resolveObjectPath = (rawPath: string) => {
   }
 };
 
+const isCanonicalOnboardingObjectPath = (
+  objectPath: string,
+  ownerUserId: string,
+  onboardingApplicationId: string,
+) => {
+  const segments = objectPath.split('/').filter(Boolean);
+  if (segments.some((segment) => segment === '.' || segment === '..')) return false;
+  return segments.length >= 3
+    && segments[0] === ownerUserId
+    && segments[1] === onboardingApplicationId;
+};
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Company document service is not configured.' });
@@ -54,7 +66,7 @@ export async function GET(request: NextRequest) {
 
   const { data: document, error: documentError } = await supabaseAdmin
     .from('company_documents')
-    .select('id, company_id, file_path')
+    .select('id, company_id, onboarding_application_id, file_path')
     .eq('id', documentId)
     .maybeSingle();
 
@@ -75,9 +87,43 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'Forbidden — this document is outside your company workspace.' });
   }
 
+  const onboardingApplicationId = String(document.onboarding_application_id ?? '').trim();
+  if (!onboardingApplicationId) {
+    return respond(404, { error: 'No canonical onboarding source is linked to this company document.' });
+  }
+
+  const { data: onboardingApplication, error: onboardingError } = await supabaseAdmin
+    .from('onboarding_applications')
+    .select('id, user_id, company_id')
+    .eq('id', onboardingApplicationId)
+    .maybeSingle();
+
+  if (onboardingError) return respond(500, { error: onboardingError.message });
+  if (!onboardingApplication) {
+    return respond(404, { error: 'The onboarding source for this company document was not found.' });
+  }
+
+  const { data: sourceCompany, error: sourceCompanyError } = await supabaseAdmin
+    .from('companies')
+    .select('id, created_by')
+    .eq('id', document.company_id)
+    .maybeSingle();
+
+  if (sourceCompanyError) return respond(500, { error: sourceCompanyError.message });
+  if (!sourceCompany) return respond(404, { error: 'Company workspace not found.' });
+
+  const onboardingBelongsToCompany = onboardingApplication.company_id === document.company_id
+    || sourceCompany.created_by === onboardingApplication.user_id;
+  if (!onboardingBelongsToCompany) {
+    return respond(403, { error: 'Forbidden — document onboarding source does not belong to this company.' });
+  }
+
   const objectPath = resolveObjectPath(String(document.file_path ?? ''));
   if (!objectPath) {
     return respond(404, { error: 'No valid stored file is linked to this company document.' });
+  }
+  if (!isCanonicalOnboardingObjectPath(objectPath, onboardingApplication.user_id, onboardingApplication.id)) {
+    return respond(403, { error: 'Forbidden — stored file path does not match the document onboarding source.' });
   }
 
   const { data: signed, error: signedError } = await supabaseAdmin.storage
