@@ -30,6 +30,7 @@ type JobRow = {
   delivery_postcode: string | null;
   delivery_datetime: string | null;
   vehicle_type: string | null;
+  vehicle_id: string | null;
   cargo_type: string | null;
   load_details: string | null;
   assigned_driver_id: string | null;
@@ -98,7 +99,7 @@ export default function DriverJobsPage() {
     const [driverRes, jobsRes] = await Promise.all([
       supabase.from('drivers').select('id, display_name, availability_status, status').eq('id', driverId).maybeSingle(),
       supabase.from('jobs')
-        .select('id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, cargo_type, load_details, assigned_driver_id, awarded_carrier_company_id, collection_photo_url, delivery_photos')
+        .select('id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, vehicle_id, cargo_type, load_details, assigned_driver_id, awarded_carrier_company_id, collection_photo_url, delivery_photos')
         .eq('assigned_driver_id', driverId)
         .order('pickup_datetime', { ascending: true })
         .limit(75),
