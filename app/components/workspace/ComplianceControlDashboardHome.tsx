@@ -90,7 +90,7 @@ export default function ComplianceControlDashboardHome() {
     if (state === 'due7') return { label: 'Due within 7 days', tone: 'orange' as const };
     if (state === 'due30') return { label: 'Due within 30 days', tone: 'orange' as const };
     if (state === 'pending') return { label: 'Pending review', tone: 'purple' as const };
-    return { label: document.status ?? 'Current', tone: 'green' as const };
+    return { label: document.status ?? 'No local alert', tone: 'blue' as const };
   };
 
   return (
@@ -98,8 +98,8 @@ export default function ComplianceControlDashboardHome() {
       <DashboardHomeHeader
         eyebrow="Compliance control"
         title="Compliance Dashboard"
-        badge="Readiness & verification"
-        description="Document verification, expiry, driver and vehicle readiness, and operational incidents. No commercial pricing or payment controls."
+        badge="Verification & expiry"
+        description="Document verification, expiry, driver and vehicle record signals, and operational incidents. Full operational eligibility remains enforced by the canonical server contract."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Verification Queue</ActionButton>}
       />
 
@@ -110,7 +110,7 @@ export default function ComplianceControlDashboardHome() {
         <KpiCard label="Expires in 7 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due7.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Urgent window')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], due7.length ? 'orange' : 'green')} onClick={() => router.push('/admin/documents/expiry')} />
         <KpiCard label="Expires in 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due30.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Upcoming expiry')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], 'blue')} onClick={() => router.push('/admin/documents/expiry')} />
         <KpiCard label="Pending verification" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => pending.length)} detail={metricDetail(data, ['driverDocuments', 'vehicleDocuments'], 'Review required')} tone={metricTone(data, ['driverDocuments', 'vehicleDocuments'], pending.length ? 'purple' : 'navy')} onClick={() => router.push('/admin/documents')} />
-        <KpiCard label="Drivers not ready" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) !== 'active').length)} detail={metricDetail(data, ['drivers'], 'Inactive or blocked')} tone={metricTone(data, ['drivers'], 'red')} onClick={() => router.push('/admin/drivers')} />
+        <KpiCard label="Inactive driver accounts" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) !== 'active').length)} detail={metricDetail(data, ['drivers'], 'Inactive or blocked account status')} tone={metricTone(data, ['drivers'], 'red')} onClick={() => router.push('/admin/drivers')} />
         <KpiCard label="Operational incidents" value={metricValue(data, ['jobs'], () => incidents.length)} detail={metricDetail(data, ['jobs'], 'Compliance follow-up')} tone={metricTone(data, ['jobs'], incidents.length ? 'red' : 'green')} onClick={() => router.push('/admin/incidents')} />
       </KpiGrid>
 
@@ -137,11 +137,11 @@ export default function ComplianceControlDashboardHome() {
       </Panel>
 
       <TwoColumn>
-        <Panel title="Compliance coverage" description="Document readiness across the current record set." style={{ marginTop: '12px' }}>
+        <Panel title="Compliance coverage" description="Recorded document signals across the current driver and vehicle document set." style={{ marginTop: '12px' }}>
           <ComplianceSummaryPanel
             total={documents.length}
             rows={[
-              { label: 'Current', count: current.length, color: workspaceTheme.green, background: '#F0FDF4', border: '#BBF7D0' },
+              { label: 'No local alert', count: current.length, color: workspaceTheme.blue, background: '#EFF6FF', border: '#BFDBFE' },
               { label: 'Due within 30 days', count: expiringCurrent.length, color: workspaceTheme.orange, background: '#FFF8E8', border: '#FDE68A' },
               { label: 'Expired / rejected', count: expired.length + rejected.length, color: workspaceTheme.red, background: '#FEF2F2', border: '#FECACA' },
               { label: 'Pending review', count: pending.length, color: workspaceTheme.purple, background: '#FAF5FF', border: '#E9D5FF' },
@@ -150,13 +150,13 @@ export default function ComplianceControlDashboardHome() {
         </Panel>
 
         <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-          <Panel title="Compliance actions" description="Verification and readiness workflows only.">
+          <Panel title="Compliance actions" description="Verification and document-record workflows only.">
             <QuickActionGrid
               actions={[
                 { key: 'documents', label: 'Document verification', onClick: () => router.push('/admin/documents') },
                 { key: 'expiry', label: 'Expiry register', onClick: () => router.push('/admin/documents/expiry') },
-                { key: 'drivers', label: 'Driver readiness', onClick: () => router.push('/admin/drivers') },
-                { key: 'vehicles', label: 'Vehicle readiness', onClick: () => router.push('/admin/vehicles') },
+                { key: 'drivers', label: 'Driver records', onClick: () => router.push('/admin/drivers') },
+                { key: 'vehicles', label: 'Vehicle records', onClick: () => router.push('/admin/vehicles') },
                 { key: 'incidents', label: 'Incidents', onClick: () => router.push('/admin/incidents') },
               ]}
             />
