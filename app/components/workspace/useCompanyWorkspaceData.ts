@@ -243,6 +243,15 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
   return [...byId.values()];
 };
 
+const CARRIER_DASHBOARD_JOB_SELECT =
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name';
+
+const EXECUTION_JOB_SELECT =
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name';
+
+export const getWorkspaceJobSelect = (surface: WorkspaceDataSurface) =>
+  surface === 'carrier_operations' ? CARRIER_DASHBOARD_JOB_SELECT : EXECUTION_JOB_SELECT;
+
 export const isCustomerVisibleWorkspaceInvoice = (
   invoice: WorkspaceInvoice,
   customerCompanyId: string | null,
@@ -611,7 +620,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         } else {
           const jobsRes = await supabase
             .from('jobs')
-            .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name')
+            .select(getWorkspaceJobSelect(plan.surface))
             .eq('assigned_driver_id', user.driverId)
             .order('updated_at', { ascending: false })
             .limit(500);
@@ -626,7 +635,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       } else {
         const jobsRes = await supabase
           .from('jobs')
-          .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name')
+          .select(getWorkspaceJobSelect(plan.surface))
           .or(
             plan.surface === 'customer' || plan.surface === 'broker'
               ? `company_id.eq.${companyId}`
