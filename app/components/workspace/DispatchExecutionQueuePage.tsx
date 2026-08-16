@@ -7,14 +7,14 @@ import {
   canonicalWorkspaceJobStatus,
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
-import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalTable,
   PageFrame,
   PageHeader,
   Panel,
@@ -111,30 +111,60 @@ export default function DispatchExecutionQueuePage({ mode }: DispatchExecutionQu
             : 'Loaded, in-transit and on-site-delivery work only. Completed work leaves this queue.'
         }
       >
-        <DataTable
-          columns={['Job', 'Route', collectionMode ? 'Collection' : 'Delivery', 'Driver', 'Vehicle', 'Status', 'Action']}
-          rows={jobs.map((job) => {
-            const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : null;
-            const vehicle = job.vehicle_id ? vehicleById.get(job.vehicle_id) : null;
-            return [
-              job.id,
-              <strong key="route">
-                {job.pickup_postcode ?? job.pickup_location ?? 'Pickup'} →{' '}
-                {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
-              </strong>,
-              when(collectionMode ? job.pickup_datetime : job.delivery_datetime),
-              driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Not assigned'),
-              vehicle?.reg_plate ?? (job.vehicle_id ? 'Assigned vehicle' : 'Not assigned'),
-              <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
-              <ActionButton
-                key="action"
-                tone="secondary"
-                onClick={() => router.push(`/admin/jobs/${job.id}`)}
-              >
-                Open job
-              </ActionButton>,
-            ];
-          })}
+        <OperationalTable<WorkspaceJob>
+          columns={[
+            {
+              id: 'route',
+              header: 'Route',
+              cell: (job) => (
+                <strong>
+                  {job.pickup_postcode ?? job.pickup_location ?? 'Pickup'} →{' '}
+                  {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
+                </strong>
+              ),
+            },
+            {
+              id: 'planned-time',
+              header: collectionMode ? 'Collection' : 'Delivery',
+              cell: (job) => when(collectionMode ? job.pickup_datetime : job.delivery_datetime),
+            },
+            {
+              id: 'driver',
+              header: 'Driver',
+              cell: (job) => {
+                const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : null;
+                return driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Not assigned');
+              },
+            },
+            {
+              id: 'vehicle',
+              header: 'Vehicle',
+              cell: (job) => {
+                const vehicle = job.vehicle_id ? vehicleById.get(job.vehicle_id) : null;
+                return vehicle?.reg_plate ?? (job.vehicle_id ? 'Assigned vehicle' : 'Not assigned');
+              },
+            },
+            {
+              id: 'status',
+              header: 'Status',
+              cell: (job) => <StatusBadge value={workspaceJobPresentationStatus(job)} />,
+            },
+            {
+              id: 'action',
+              header: 'Action',
+              isAction: true,
+              cell: (job) => (
+                <ActionButton
+                  tone="secondary"
+                  onClick={() => router.push(`/admin/jobs/${job.id}`)}
+                >
+                  Open job
+                </ActionButton>
+              ),
+            },
+          ]}
+          rows={jobs}
+          getRowKey={(job) => job.id}
           empty={
             <EmptyState
               title={
