@@ -407,6 +407,23 @@
   letter-spacing: .02em !important;
 }
 
+/* Carrier dashboard control signals follow the measured 72px KPI target. */
+.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button {
+  min-height: 72px !important;
+  padding: 8px 10px !important;
+}
+
+.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > span {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
+.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > strong {
+  margin-top: 4px !important;
+  font-size: 22px !important;
+  line-height: 26px !important;
+}
+
 /* Filter rails inside this sticky 50px shell must never slide underneath it. */
 .xdrive-operational-top-workspace aside[aria-label="Search and filters"] {
   top: 62px !important;
