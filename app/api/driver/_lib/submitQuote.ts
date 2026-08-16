@@ -84,7 +84,7 @@ export async function submitDriverQuote(
       .from('job_bids')
       .select('id', { count: 'exact', head: true })
       .eq('job_id', jobId)
-      .in('status', ['submitted', 'pending', 'accepted']);
+      .in('status', ['submitted', 'accepted']);
     if (countError) return { ok: false, status: 500, error: countError.message };
     if ((existingBidCount ?? 0) >= maxBidsPerJob) {
       return { ok: false, status: 429, error: `This job has reached the maximum number of bids (${maxBidsPerJob}).` };
