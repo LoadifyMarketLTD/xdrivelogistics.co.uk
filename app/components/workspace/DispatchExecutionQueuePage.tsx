@@ -30,7 +30,6 @@ type DispatchExecutionQueuePageProps = {
 const COLLECTION_STATUSES = new Set([
   'allocated',
   'on_my_way',
-  'on_my_way_to_pickup',
   'on_site_pickup',
 ]);
 
