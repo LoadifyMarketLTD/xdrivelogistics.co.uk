@@ -180,9 +180,9 @@ export default function FleetControlDashboardHome() {
 
   const fleetJobQueue = useMemo(
     () => [
-      ...wonUnallocatedJobs.map((job) => ({ job, stage: 'Won / Received', tone: 'orange' as const })),
-      ...allocatedJobs.map((job) => ({ job, stage: 'Allocated', tone: 'blue' as const })),
-      ...activeJobs.map((job) => ({ job, stage: 'Active', tone: 'green' as const })),
+      ...wonUnallocatedJobs.map((job) => ({ job, stage: 'Won / Unallocated', tone: 'orange' as const, needsAllocation: true })),
+      ...allocatedJobs.map((job) => ({ job, stage: 'Allocated', tone: 'blue' as const, needsAllocation: false })),
+      ...activeJobs.map((job) => ({ job, stage: 'Active', tone: 'green' as const, needsAllocation: false })),
     ],
     [activeJobs, allocatedJobs, wonUnallocatedJobs],
   );
@@ -372,7 +372,7 @@ export default function FleetControlDashboardHome() {
         >
           <DataTable
             columns={['Stage', 'Route', 'Pickup', 'Vehicle required', 'Driver', 'State', 'Action']}
-            rows={fleetJobQueue.slice(0, 12).map(({ job, stage, tone }) => {
+            rows={fleetJobQueue.slice(0, 12).map(({ job, stage, tone, needsAllocation }) => {
               const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
               return [
                 <StatusBadge key="stage" value={stage} tone={tone} />,
@@ -380,13 +380,13 @@ export default function FleetControlDashboardHome() {
                 when(job.pickup_datetime),
                 (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                 assignedDriver ? driverName(assignedDriver) : 'Unallocated',
-                <StatusBadge key="state" value={job.assigned_driver_id ? (job.current_status ?? job.status) : 'unallocated'} tone={job.assigned_driver_id ? undefined : 'orange'} />,
+                <StatusBadge key="state" value={needsAllocation ? 'unallocated' : (job.current_status ?? job.status)} tone={needsAllocation ? 'orange' : undefined} />,
                 <ActionButton
                   key="action"
-                  tone={!job.assigned_driver_id ? 'success' : 'secondary'}
-                  onClick={() => router.push(!job.assigned_driver_id ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
+                  tone={needsAllocation ? 'success' : 'secondary'}
+                  onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
                 >
-                  {!job.assigned_driver_id ? 'Allocate' : 'Open'}
+                  {needsAllocation ? 'Allocate' : 'Open'}
                 </ActionButton>,
               ];
             })}
