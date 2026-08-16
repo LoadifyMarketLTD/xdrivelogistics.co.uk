@@ -7,6 +7,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
+import { canonicalExecutionStatus, matchesDriverJobView, type DriverJobView } from '../../../lib/jobs/jobLifecyclePresentation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
@@ -37,11 +38,6 @@ type JobRow = {
   delivery_photos: string[] | null;
 };
 
-type JobFilter = 'all' | 'active' | 'allocated' | 'loaded' | 'in_transit' | 'completed';
-
-const LOADED_STATUSES = new Set(['loaded', 'collected']);
-const IN_TRANSIT_STATUSES = new Set(['in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
-
 const STATUS_LABELS: Record<string, string> = {
   awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted',
   on_my_way: 'On my way to pickup', on_my_way_to_pickup: 'On my way to pickup', on_site_pickup: 'On site pickup',
@@ -49,26 +45,19 @@ const STATUS_LABELS: Record<string, string> = {
   on_site_delivery: 'On site delivery', delivered: 'Delivered', completed: 'Completed', invoiced: 'Invoiced', paid: 'Paid',
 };
 
-const FILTERS: Array<{ id: JobFilter; label: string }> = [
+const FILTERS: Array<{ id: DriverJobView; label: string }> = [
   { id: 'all', label: 'All' }, { id: 'active', label: 'Active' }, { id: 'allocated', label: 'Allocated' },
   { id: 'loaded', label: 'Loaded' }, { id: 'in_transit', label: 'In Transit' }, { id: 'completed', label: 'Completed' },
 ];
 
 function effectiveStatus(job: JobRow) {
-  return String(job.current_status || job.status || '').trim().toLowerCase();
+  return canonicalExecutionStatus(job.current_status || job.status);
 }
 function driverJobStage(job: JobRow) {
   return classifyWorkspaceJobStage(job);
 }
-function matchesFilter(job: JobRow, filter: JobFilter) {
-  if (filter === 'all') return true;
-  const status = effectiveStatus(job);
-  const stage = driverJobStage(job);
-  if (filter === 'active') return stage === 'in_progress';
-  if (filter === 'allocated') return stage === 'awarded' || stage === 'allocated';
-  if (filter === 'loaded') return LOADED_STATUSES.has(status);
-  if (filter === 'in_transit') return IN_TRANSIT_STATUSES.has(status);
-  return stage === 'completed';
+function matchesFilter(job: JobRow, filter: DriverJobView) {
+  return matchesDriverJobView(job.current_status || job.status, filter);
 }
 function fmtTime(value: string | null) {
   if (!value) return 'TBC';
@@ -100,7 +89,7 @@ export default function DriverJobsPage() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<JobFilter>('all');
+  const [filter, setFilter] = useState<DriverJobView>('all');
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   const loadJobs = useCallback(async () => {
@@ -130,7 +119,7 @@ export default function DriverJobsPage() {
   useDriverLocationPublisher(activeJob ? effectiveStatus(activeJob) : undefined, Boolean(activeJob));
 
   const filteredJobs = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)), [filter, jobs]);
-  const countFor = (target: JobFilter) => jobs.filter((job) => matchesFilter(job, target)).length;
+  const countFor = (target: DriverJobView) => jobs.filter((job) => matchesFilter(job, target)).length;
   const driverStatus = driver?.availability_status ?? driver?.status ?? 'active';
 
   return (
@@ -187,7 +176,7 @@ export default function DriverJobsPage() {
                       <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{STATUS_LABELS[status] ?? status.replace(/_/g, ' ')}</strong><span className="driver-cell-secondary">{hasPod ? 'Delivery photo evidence captured' : inExecution ? 'Execution in progress' : complete ? 'Execution complete' : stage === 'allocated' || stage === 'awarded' ? 'Assigned / awaiting execution' : 'Job record'}</span></div>
                     </div>
                     <div className="driver-load-row__meta"><span>Job #{job.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={STATUS_LABELS[status] ?? status} tone={stageTone(job)} />{hasPod && <StatusBadge value="Delivery evidence" tone="green" />}<div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setExpandedJobId(expanded ? null : job.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue job' : 'Open job'}</ActionButton></div></div>
-                    {expanded && <div className="driver-row-details"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Pickup</span><strong>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</strong></div><div className="driver-detail-item"><span>Delivery</span><strong>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</strong></div><div className="driver-detail-item"><span>Vehicle</span><strong>{vehicleLabel(job)}</strong></div><div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'Delivery photos captured' : complete ? 'Open job / Diary for full POD state' : 'Pending execution'}</strong></div></div><div className="driver-inline-quote driver-job-actions"><span style={{ color: '#64748b', fontSize: '10px', lineHeight: '14px', flex: '1 1 260px' }}>Journey status, loading evidence and POD are updated only from the full execution screen so every transition follows the canonical driver state machine.</span><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue execution' : 'Open details'}</ActionButton></div></div>}
+                    {expanded && <div className="driver-row-details"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Pickup</span><strong>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</strong></div><div className="driver-detail-item"><span>Delivery</span><strong>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</strong></div><div className="driver-detail-item"><span>Vehicle</span><strong>{vehicleLabel(job)}</strong></div><div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'Delivery photos captured' : complete ? 'Open job / Diary for full POD state' : 'Pending execution'}</strong></div></div><div className="driver-inline-quote driver-job-actions"><span style={{ color: '#64748b', fontSize: '11px', lineHeight: '15px', flex: '1 1 260px' }}>Journey status, loading evidence and POD are updated only from the full execution screen so every transition follows the canonical driver state machine.</span><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue execution' : 'Open details'}</ActionButton></div></div>}
                   </article>;
                 })}</div>}
           </main>
