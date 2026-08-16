@@ -164,6 +164,7 @@ export default function TopWorkspaceShell({
       hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
+  const showWorkspaceContext = CARRIER_NAV_ROLES.has(role);
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -252,7 +253,7 @@ export default function TopWorkspaceShell({
   };
 
   return (
-    <div className="top-workspace-shell">
+    <div className="top-workspace-shell" data-workspace-role={role}>
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">
           <button
@@ -358,25 +359,27 @@ export default function TopWorkspaceShell({
         </nav>
 
         <div className="top-workspace-shell__actions">
-          <div ref={contextRef} className="top-workspace-context">
-            <button
-              type="button"
-              className="top-workspace-action top-workspace-action--context"
-              aria-expanded={contextOpen}
-              aria-haspopup="dialog"
-              onClick={() => {
-                setOpenGroupId(null);
-                setContextOpen((open) => !open);
-              }}
-            >
-              Workspace
-            </button>
-            {contextOpen && (
-              <div className="top-workspace-context__menu" role="dialog" aria-label="Workspace context and navigation">
-                <SharedContextControls navigation={navigationTargets} />
-              </div>
-            )}
-          </div>
+          {showWorkspaceContext && (
+            <div ref={contextRef} className="top-workspace-context">
+              <button
+                type="button"
+                className="top-workspace-action top-workspace-action--context"
+                aria-expanded={contextOpen}
+                aria-haspopup="dialog"
+                onClick={() => {
+                  setOpenGroupId(null);
+                  setContextOpen((open) => !open);
+                }}
+              >
+                Workspace
+              </button>
+              {contextOpen && (
+                <div className="top-workspace-context__menu" role="dialog" aria-label="Workspace context and navigation">
+                  <SharedContextControls navigation={navigationTargets} />
+                </div>
+              )}
+            </div>
+          )}
           {primaryAction && (
             <button
               type="button"
