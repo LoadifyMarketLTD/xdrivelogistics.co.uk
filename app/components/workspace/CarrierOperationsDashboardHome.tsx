@@ -36,6 +36,7 @@ import {
   fleetQueueStage,
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
+import { toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
 
 type ControlView = 'attention' | 'unallocated' | 'live' | 'pod' | 'exceptions' | 'all';
 
@@ -202,7 +203,8 @@ export default function CarrierOperationsDashboardHome() {
     const evidenceReview = carrierExecutionJobs.filter(isDeliveryEvidenceMissingJob);
     const exceptions = carrierExecutionJobs.filter(isExceptionJob);
     const attentionJobs = carrierExecutionJobs.filter(isCarrierAttentionJob).sort((a, b) => attentionScore(a) - attentionScore(b));
-    const overdueInvoices = carrierInvoices.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && normalise(invoice.payment_status) !== 'paid' && normalise(invoice.status) !== 'paid');
+    const overdueInvoices = carrierInvoices.filter((invoice) =>
+      toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) === 'Overdue');
     const overdueExposure = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
     const wonValue = companyBids
       .filter((bid) => normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id))
