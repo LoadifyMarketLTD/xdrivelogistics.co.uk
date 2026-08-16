@@ -91,7 +91,6 @@ export default function DriverDocumentsPage() {
       .from('drivers')
       .select('id, company_id')
       .eq('user_id', user.id)
-      .eq('app_access', true)
       .maybeSingle();
 
     if (error || !data) {
@@ -183,11 +182,11 @@ export default function DriverDocumentsPage() {
   };
 
   const complianceRail = (
-    <aside className="driver-filter-rail" aria-label="Compliance readiness">
-      <div className="driver-filter-rail__header">Compliance</div>
+    <aside className="driver-filter-rail" aria-label="Compliance document summary">
+      <div className="driver-filter-rail__header">Compliance Documents</div>
       <div className="driver-filter-rail__body">
         <div className="driver-detail-item"><span>Documents</span><strong>{docs.length}</strong></div>
-        <div className="driver-detail-item"><span>Approved</span><strong>{approved}</strong></div>
+        <div className="driver-detail-item"><span>Approved records</span><strong>{approved}</strong></div>
         <div className="driver-detail-item"><span>Pending review</span><strong>{pending}</strong></div>
         <div className="driver-detail-item"><span>Expiring ≤30d</span><strong>{expiringSoon}</strong></div>
         <div className="driver-detail-item"><span>Rejected</span><strong>{rejected}</strong></div>
@@ -200,7 +199,7 @@ export default function DriverDocumentsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Compliance readiness, expiry attention and document upload in one operational register."
+        subtitle="Driver compliance document review, expiry attention and upload. Operational eligibility is resolved separately by the canonical eligibility contract."
         headerActions={<ActionButton tone="primary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
@@ -234,20 +233,27 @@ export default function DriverDocumentsPage() {
             {loading ? (
               <div className="driver-load-row"><EmptyState compact title="Loading documents…" /></div>
             ) : docs.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No compliance documents uploaded" description="Upload the documents required for your driver profile and vehicle operations." /></div>
+              <div className="driver-load-row"><EmptyState compact title="No compliance documents uploaded" description="Upload the documents required for your driver record. Eligibility is assessed separately from this document register." /></div>
             ) : (
               <div className="driver-load-list">
                 {docs.map((doc) => {
                   const days = daysUntil(doc.expiry_date);
-                  const expiryLabel = days == null ? 'No expiry' : days < 0 ? 'Expired' : days <= 30 ? `${days} days` : 'Valid';
+                  const expiryLabel = days == null ? 'No expiry recorded' : days < 0 ? 'Past expiry date' : days <= 30 ? `${days} days to expiry` : 'In date';
                   const expiryTone: 'green' | 'orange' | 'red' | 'grey' = days == null ? 'grey' : days < 0 ? 'red' : days <= 30 ? 'orange' : 'green';
+                  const recordSignal = doc.status === 'approved'
+                    ? (days != null && days < 0 ? 'Approved record · expiry attention' : 'Approved record')
+                    : doc.status === 'pending'
+                      ? 'Pending review'
+                      : doc.status === 'rejected'
+                        ? 'Rejected record'
+                        : 'Expired record';
                   return (
                     <article key={doc.id} className="driver-load-row" data-state={doc.status}>
                       <div className="driver-load-row__top">
                         <div className="driver-load-cell"><span className="driver-cell-label">Document</span><strong className="driver-cell-primary">{doc.doc_type}</strong><span className="driver-cell-secondary">Uploaded {fmtDate(doc.created_at)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Validity</span><strong className="driver-cell-primary">{fmtDate(doc.issued_date)} → {fmtDate(doc.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={expiryLabel} tone={expiryTone} /></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Dates</span><strong className="driver-cell-primary">{fmtDate(doc.issued_date)} → {fmtDate(doc.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={expiryLabel} tone={expiryTone} /></span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{doc.status}</strong><span className="driver-cell-secondary">{doc.rejection_reason ?? 'No review note'}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Readiness</span><strong className="driver-cell-primary">{doc.status === 'approved' && expiryTone !== 'red' ? 'Ready' : 'Attention'}</strong><span className="driver-cell-secondary"><StatusBadge value={doc.status} tone={STATUS_TONES[doc.status]} /></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Record signal</span><strong className="driver-cell-primary">{recordSignal}</strong><span className="driver-cell-secondary">Document status only · not full eligibility</span></div>
                       </div>
                       <div className="driver-load-row__meta">
                         <span>Document #{doc.id.slice(0, 8).toUpperCase()}</span>
