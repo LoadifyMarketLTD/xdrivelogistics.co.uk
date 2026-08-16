@@ -77,10 +77,9 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
 
-const isEligibleDriver = (driver: DriverRow) => {
-  const status = normalise(driver.status);
-  return Boolean(status) && !['suspended', 'inactive', 'rejected'].includes(status);
-};
+// Client-side account-state filter only. Full driver + canonical vehicle
+// operational eligibility is revalidated by the authorised allocation endpoint.
+const isActiveDriverAccount = (driver: DriverRow) => normalise(driver.status) === 'active';
 
 function effectiveStatus(job: JobRow) {
   return workspaceJobPresentationStatus(job);
@@ -174,7 +173,7 @@ export default function OperationsDiaryPage() {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (deepJob) setExpanded(deepJob); }, [deepJob]);
 
-  const eligibleDrivers = useMemo(() => drivers.filter(isEligibleDriver), [drivers]);
+  const activeAccountDrivers = useMemo(() => drivers.filter(isActiveDriverAccount), [drivers]);
   const driverById = useMemo(() => new Map(drivers.map((driver) => [driver.id, driver])), [drivers]);
 
   const filtered = useMemo(() => {
@@ -211,7 +210,7 @@ export default function OperationsDiaryPage() {
 
   const assignDriver = async (job: JobRow) => {
     const driverId = driverSelections[job.id];
-    if (!driverId) { setError('Choose an eligible driver before allocation.'); return; }
+    if (!driverId) { setError('Choose an active driver account before allocation. Full operational eligibility is verified by the server.'); return; }
     setAssigning(job.id); setError(''); setNotice('');
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -291,7 +290,7 @@ export default function OperationsDiaryPage() {
                       {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
                       {job.pod_generated && <StatusBadge value="POD generated" tone="green" />}
                       {!job.pod_generated && evidenceCount > 0 && <StatusBadge value={`${evidenceCount} evidence file(s)`} tone="blue" />}
-                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose driver</option>{eligibleDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
+                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
                     </div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" />}
                   </article>
