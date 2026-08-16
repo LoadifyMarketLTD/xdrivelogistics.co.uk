@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
-import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
+import { loadDriverAgreedRates } from '../../_lib/commercialRate';
+import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../_lib';
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -37,8 +38,22 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
+  const rows = (data ?? []) as unknown as MobileJobRow[];
+  const commercial = await loadDriverAgreedRates(supabaseAdmin, rows);
+
   return respond(200, {
     scope,
-    jobs: ((data ?? []) as unknown as MobileJobRow[]).map(mapJob),
+    jobs: rows.map((row) => {
+      const agreedRate = commercial.rates.get(row.id) ?? null;
+      return {
+        ...mapJob(row),
+        price: toMoney(agreedRate),
+        agreedRateAmount: agreedRate,
+        // Android keeps this legacy field name for assigned jobs. Its value is
+        // now the accepted/agreed carrier rate only — never customer budget.
+        budgetAmount: agreedRate,
+      };
+    }),
+    commercialRatePartial: commercial.partial,
   });
 }
