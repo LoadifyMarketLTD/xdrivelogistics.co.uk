@@ -135,6 +135,13 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain('data.invoices.filter((invoice) => invoice.company_id === data.companyId);');
   });
 
+  it('uses canonical invoice lifecycle rules for carrier overdue receivables', () => {
+    const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
+
+    expect(carrier).toContain("toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) === 'Overdue'");
+    expect(carrier).not.toContain('new Date(invoice.due_date).getTime() < Date.now()');
+  });
+
   it('keeps expired documents visible in carrier readiness alerts', () => {
     const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
