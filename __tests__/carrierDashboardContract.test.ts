@@ -109,12 +109,15 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 
-  it('keeps one carrier Fleet group, restores workspace context, and resolves nested nav specifically', () => {
+  it('keeps one carrier Fleet group, scopes workspace context to carrier roles, and resolves nested nav specifically', () => {
     const shell = source('app/components/workspace/TopWorkspaceShell.tsx');
 
     expect(shell).toContain("base.find((group) => group.id === 'carrier-fleet')");
     expect(shell).toContain("id: 'carrier-freight-vision'");
     expect(shell).toContain("import SharedContextControls from './SharedContextControls';");
+    expect(shell).toContain('const showWorkspaceContext = CARRIER_NAV_ROLES.has(role);');
+    expect(shell).toContain('data-workspace-role={role}');
+    expect(shell).toContain('{showWorkspaceContext && (');
     expect(shell).toContain('<SharedContextControls navigation={navigationTargets} />');
     expect(shell).toContain('.sort((a, b) => b.length - a.length)');
   });
@@ -123,9 +126,9 @@ describe('carrier dashboard convergence contract', () => {
     const shellCss = source('app/components/workspace/top-workspace-shell.css');
 
     expect(shellCss).toContain('height: 50px !important;');
-    expect(shellCss).toContain('[aria-label="Carrier control signals"] button');
+    expect(shellCss).toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
     expect(shellCss).toContain('min-height: 72px !important;');
-    expect(shellCss).toContain('aside[aria-label="Search and filters"]');
+    expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
     expect(shellCss).toContain('top: 62px !important;');
     expect(shellCss).toContain('font-size: 13px !important;');
   });
