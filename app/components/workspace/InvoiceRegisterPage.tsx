@@ -20,7 +20,7 @@ import {
   StatusBadge,
 } from './WorkspaceUI';
 
-type Mode = 'customer' | 'broker-customer' | 'broker-carrier';
+type Mode = 'customer' | 'broker-customer' | 'broker-carrier' | 'finance-customer' | 'finance-carrier';
 type InvoiceRegisterFilter =
   | 'all'
   | 'invoice:draft'
@@ -52,6 +52,9 @@ const paymentState = (invoice: WorkspaceInvoice) => {
   return toCanonicalPaymentStatus(invoice.payment_status, invoiceFallback);
 };
 
+const isOutgoingMode = (mode: Mode) => mode === 'broker-customer' || mode === 'finance-customer';
+const isIncomingCarrierMode = (mode: Mode) => mode === 'broker-carrier' || mode === 'finance-carrier';
+
 const config: Record<Mode, { eyebrow: string; title: string; description: string; detailBase: string }> = {
   customer: {
     eyebrow: 'Customer finance',
@@ -71,6 +74,18 @@ const config: Record<Mode, { eyebrow: string; title: string; description: string
     description: 'Carrier invoices and agreed transport costs payable by the broker company.',
     detailBase: '/broker/carrier-costs',
   },
+  'finance-customer': {
+    eyebrow: 'Finance workspace',
+    title: 'Customer Invoices',
+    description: 'Invoices issued by this company to customer or buyer companies.',
+    detailBase: '/admin/invoices',
+  },
+  'finance-carrier': {
+    eyebrow: 'Finance workspace',
+    title: 'Carrier Invoices',
+    description: 'Carrier or supplier invoices payable by this company.',
+    detailBase: '/admin/invoices',
+  },
 };
 
 export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
@@ -84,7 +99,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
       if (mode === 'customer') {
         return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
       }
-      if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
+      if (isOutgoingMode(mode)) return invoice.company_id === workspace.companyId;
       return invoice.buyer_company_id === workspace.companyId;
     });
     if (filter === 'all') return scoped;
@@ -100,7 +115,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
     if (mode === 'customer') {
       return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
     }
-    if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
+    if (isOutgoingMode(mode)) return invoice.company_id === workspace.companyId;
     return invoice.buyer_company_id === workspace.companyId;
   }), [mode, workspace.companyId, workspace.invoices]);
 
@@ -157,7 +172,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
           rows={invoices.map((invoice) => [
             <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
             xdriveReference(invoice.job_id),
-            invoice.client_name ?? (mode === 'broker-carrier' ? 'Carrier' : 'Customer'),
+            invoice.client_name ?? (isIncomingCarrierMode(mode) ? 'Carrier' : 'Customer'),
             money(invoice.amount),
             date(invoice.due_date),
             <StatusBadge key="invoice-state" value={invoiceState(invoice)} />,
