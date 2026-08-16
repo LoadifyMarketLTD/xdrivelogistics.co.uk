@@ -39,11 +39,20 @@ describe('visible workspace navigation', () => {
   it('does not let a read-only viewer bypass quote capabilities through bidder identity API access', () => {
     expect(hasWorkspaceCapability('viewer', 'quotes.receive')).toBe(false);
     expect(hasWorkspaceCapability('viewer', 'quotes.compare')).toBe(false);
-    const source = fs.readFileSync(
+
+    const adminSource = fs.readFileSync(
       path.join(process.cwd(), 'app/api/admin/bids/identities/route.ts'),
       'utf8',
     );
-    expect(source).toContain("['owner', 'admin', 'dispatcher']");
-    expect(source).not.toContain("['owner', 'admin', 'dispatcher', 'viewer']");
+    expect(adminSource).toContain("['owner', 'admin', 'dispatcher']");
+    expect(adminSource).not.toContain("['owner', 'admin', 'dispatcher', 'viewer']");
+
+    const sharedSource = fs.readFileSync(
+      path.join(process.cwd(), 'app/api/workspace/bids/identities/route.ts'),
+      'utf8',
+    );
+    expect(sharedSource).toContain("BID_DECISION_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher'])");
+    expect(sharedSource).toContain("BID_DECISION_APP_ROLES = new Set(['broker', 'customer'])");
+    expect(sharedSource).toContain('appRoleCanReviewBids || BID_DECISION_MEMBERSHIP_ROLES.has');
   });
 });
