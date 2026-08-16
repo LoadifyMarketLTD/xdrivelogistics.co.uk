@@ -1,10 +1,13 @@
+import { ALLOCATED_JOB_STATUSES, IN_PROGRESS_JOB_STATUSES } from '../../../lib/jobs/workspaceJobStage';
 import { getWorkspaceMetricPresentationStatus, type WorkspaceDataState } from './useCompanyWorkspaceData';
 import type { WorkspaceCardTone } from './WorkspaceUI';
 
+// Compatibility export for dashboard code that still consumes a raw-status Set.
+// Membership is derived from the canonical workspace lifecycle definitions so
+// this module cannot independently redefine which statuses are active.
 export const activeStatuses = new Set([
-  'awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup',
-  'on_site_pickup', 'loaded', 'collected', 'in_transit',
-  'on_my_way_to_delivery', 'on_site_delivery',
+  ...ALLOCATED_JOB_STATUSES,
+  ...IN_PROGRESS_JOB_STATUSES,
 ]);
 
 export const terminalStatuses = new Set(['delivered', 'completed', 'cancelled', 'paid']);
