@@ -122,7 +122,7 @@ function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
             aria-pressed={signal.active}
             style={{ minHeight: '54px', padding: '6px 9px', border: 0, borderTop: `3px solid ${signal.tone}`, background: signal.active ? '#F1F6FF' : workspaceTheme.surface, color: workspaceTheme.text, cursor: 'pointer', textAlign: 'left' }}
           >
-            <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', lineHeight: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{signal.label}</span>
+            <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{signal.label}</span>
             <strong style={{ display: 'block', marginTop: '2px', color: signal.active ? workspaceTheme.blue : workspaceTheme.navy, fontSize: '20px', lineHeight: '24px', fontWeight: 800 }}>{signal.value}</strong>
           </button>
         ))}
@@ -142,7 +142,7 @@ function RailMetric({ label, value, onClick }: { label: string; value: ReactNode
 function WorkflowLink({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: '38px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
-      <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', lineHeight: '13px' }}>{detail}</span></span>
+      <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
       <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
     </button>
   );
@@ -151,7 +151,7 @@ function WorkflowLink({ label, detail, onClick }: { label: string; detail: strin
 function CommercialRow({ label, detail, value, onClick }: { label: string; detail: string; value: ReactNode; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '10px', minHeight: '42px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
-      <span><strong style={{ display: 'block', color: workspaceTheme.text, fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', lineHeight: '13px' }}>{detail}</span></span>
+      <span><strong style={{ display: 'block', color: workspaceTheme.text, fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
       <strong style={{ color: workspaceTheme.navy, fontSize: '13px', whiteSpace: 'nowrap' }}>{value}</strong>
     </button>
   );
@@ -194,7 +194,7 @@ export default function CarrierOperationsDashboardHome() {
     const attentionJobs = carrierExecutionJobs.filter(isCarrierAttentionJob).sort((a, b) => attentionScore(a) - attentionScore(b));
     const overdueInvoices = carrierInvoices.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now() && invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status));
     const overdueExposure = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
-    const wonValue = companyBids.filter((bid) => bid.status === 'accepted').reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const wonValue = companyBids.filter((bid) => normalise(bid.status) === 'accepted').reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
     const expiringDocuments = data.driverDocuments.concat(data.vehicleDocuments).filter((document) => {
       const days = daysUntil(document.expiry_date);
       return days !== null && days >= 0 && days <= 30;
@@ -283,7 +283,7 @@ export default function CarrierOperationsDashboardHome() {
             onClear={() => { setSearchDraft(''); setSearchTerm(''); setView('attention'); setDriverFilter(''); setVehicleFilter(''); }}
             footer={
               <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px solid ${workspaceTheme.border}` }}>
-                <div style={{ marginBottom: '3px', color: workspaceTheme.navy, fontSize: '10px', lineHeight: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Resource readiness</div>
+                <div style={{ marginBottom: '3px', color: workspaceTheme.navy, fontSize: '11px', lineHeight: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Resource readiness</div>
                 <RailMetric label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length)} onClick={() => router.push('/admin/fleet/drivers')} />
                 <RailMetric label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveBusyDriver).length)} onClick={() => router.push('/admin/fleet/drivers')} />
                 <RailMetric label="Unassigned vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} onClick={() => router.push('/admin/fleet/vehicles')} />
@@ -300,7 +300,7 @@ export default function CarrierOperationsDashboardHome() {
       >
         <section aria-label="Carrier operational workboard" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{ minHeight: '40px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, flexWrap: 'wrap' }}>
-            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '10px', lineHeight: '13px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
+            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
             <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{data.datasets.jobs.availability === 'unavailable' ? 'Job data unavailable' : `${filteredJobs.length} visible`}</div>
           </div>
 
@@ -321,7 +321,7 @@ export default function CarrierOperationsDashboardHome() {
                 return [
                   job.id.slice(0, 8).toUpperCase(),
                   <span key="priority" style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 6px', border: `1px solid ${priority.border}`, borderRadius: '4px', background: priority.background, color: priority.color, fontSize: '10px', fontWeight: 800 }}>{priorityLabel(job)}</span>,
-                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', lineHeight: '13px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
+                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
@@ -333,21 +333,21 @@ export default function CarrierOperationsDashboardHome() {
             />
           </div>
 
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '10px', flexWrap: 'wrap' }}><span>Showing {Math.min(filteredJobs.length, 10)} of {filteredJobs.length} matching jobs</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
+          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>Showing {Math.min(filteredJobs.length, 10)} of {filteredJobs.length} matching jobs</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
         </section>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '12px', marginTop: '12px' }}>
           <OperationalCard title="Commercial position" subtitle="Commercial hand-off without displacing the live workboard.">
-            <CommercialRow label="Won work value" detail="Accepted carrier quotes" value={metricValue(data, ['bids'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/bids')} />
+            <CommercialRow label="Won work value" detail="Accepted carrier quotes" value={metricValue(data, ['bids'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/quotes')} />
             <CommercialRow label="Overdue invoices" detail="Past-due carrier receivables" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
             <CommercialRow label="Delivery evidence review" detail="Completed carrier work with no delivery-photo evidence in the dashboard feed; open the job sheet for full POD state" value={unavailable(data, ['jobs']) ? '—' : metrics.evidenceReview.length} onClick={() => setView('pod')} />
-            <CommercialRow label="Quotes awaiting decision" detail="Submitted pricing still open" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && ['submitted', 'pending'].includes(normalise(bid.status))).length)} onClick={() => router.push('/admin/quotes')} />
+            <CommercialRow label="Quotes awaiting decision" detail="Submitted pricing still open" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/quotes')} />
           </OperationalCard>
 
           <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the carrier operating sequence.">
             <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
             <WorkflowLink label="2. Price and review quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/quotes')} />
-            <WorkflowLink label="3. Allocate awarded work" detail="Assign the executing driver; vehicle planning remains advisory" onClick={() => router.push('/admin/fleet/assignments')} />
+            <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible executing driver; XDrive persists that driver's canonical active vehicle with the allocation" onClick={() => router.push('/admin/fleet/assignments')} />
             <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
             <WorkflowLink label="5. Close evidence and exceptions" detail="Resolve delivery proof and operational exceptions" onClick={() => setView('attention')} />
           </OperationalCard>
