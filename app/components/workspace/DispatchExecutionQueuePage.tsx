@@ -112,11 +112,12 @@ export default function DispatchExecutionQueuePage({ mode }: DispatchExecutionQu
         }
       >
         <DataTable
-          columns={['Route', collectionMode ? 'Collection' : 'Delivery', 'Driver', 'Vehicle', 'Status', 'Action']}
+          columns={['Job', 'Route', collectionMode ? 'Collection' : 'Delivery', 'Driver', 'Vehicle', 'Status', 'Action']}
           rows={jobs.map((job) => {
             const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : null;
             const vehicle = job.vehicle_id ? vehicleById.get(job.vehicle_id) : null;
             return [
+              job.id,
               <strong key="route">
                 {job.pickup_postcode ?? job.pickup_location ?? 'Pickup'} →{' '}
                 {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
