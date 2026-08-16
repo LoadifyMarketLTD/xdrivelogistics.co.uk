@@ -31,7 +31,7 @@ export function AccountSectionNav({
         overflow: 'hidden',
       }}
     >
-      <div style={{ minHeight: 36, padding: '0 10px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.navy, fontSize: 12, fontWeight: 800 }}>{title}</div>
+      <div style={{ minHeight: 36, padding: '0 10px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.navy, fontSize: 13, lineHeight: '18px', fontWeight: 700 }}>{title}</div>
       <nav style={{ display: 'grid' }}>
         {items.map((item) => (
           <button
@@ -54,7 +54,7 @@ export function AccountSectionNav({
               textAlign: 'left',
             }}
           >
-            <strong style={{ fontSize: 11, lineHeight: '15px', fontWeight: 750 }}>{item.label}</strong>
+            <strong style={{ fontSize: 12, lineHeight: '16px', fontWeight: 700 }}>{item.label}</strong>
             {item.detail ? <span style={{ color: workspaceTheme.muted, fontSize: 10, lineHeight: '13px' }}>{item.detail}</span> : null}
           </button>
         ))}
