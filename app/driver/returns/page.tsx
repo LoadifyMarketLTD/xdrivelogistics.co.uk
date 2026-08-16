@@ -336,8 +336,8 @@ export default function ReturnJourneysPage() {
         <div className="driver-filter-field"><label>Date</label><select value={search.date} onChange={(event) => setSearch((current) => ({ ...current, date: event.target.value }))}><option value="today10">Today + 10 Days</option><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option></select></div>
         {advancedOpen && (
           <>
-            <div className="driver-filter-field"><label>Member Name / ID</label><input value={search.member} onChange={(event) => setSearch((current) => ({ ...current, member: event.target.value }))} /></div>
-            <div className="driver-filter-field"><label>Journey type</label><select value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'] }))}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
+            <div className="driver-filter-field"><label>Member / Company number</label><input value={search.member} onChange={(event) => setSearch((current) => ({ ...current, member: event.target.value }))} /></div>
+            <div className="driver-filter-field"><label>Journey type</label><select value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'])}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
           </>
         )}
         <div className="driver-filter-actions"><ActionButton type="submit" tone="success">Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
@@ -445,7 +445,7 @@ export default function ReturnJourneysPage() {
                           <div className="driver-load-cell"><span className="driver-cell-label">Departs</span><strong className="driver-cell-primary">{fmtDate(journey.availableFrom)}</strong></div>
                           <div className="driver-load-cell"><span className="driver-cell-label">ETA</span><strong className="driver-cell-primary driver-return-eta-unavailable">ETA unavailable</strong></div>
                           <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(journey.vehicleType)}</strong><span className="driver-cell-secondary">{journey.bodyType || 'Body not specified'}{journey.journeyDistanceMiles != null ? ` · ${journey.journeyDistanceMiles} miles` : ''}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary"><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong><span className="driver-cell-secondary">{journey.member.code ? `ID ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary"><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong><span className="driver-cell-secondary">{journey.member.code ? `Company no. ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
                           <div className="driver-load-cell driver-return-actions-cell"><span className="driver-cell-label">Actions</span><ActionButton tone="secondary" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Collapse' : 'Details'}</ActionButton></div>
                         </div>
                         <div className="driver-load-row__meta">
