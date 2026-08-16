@@ -9,7 +9,6 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const daysUntil = (value: string | null | undefined) => value
   ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000)
   : null;
-const VERIFIED_DOCUMENT_STATUSES = new Set(['approved', 'valid', 'verified', 'current']);
 
 export default function FleetVehiclesPage() {
   const router = useRouter();
@@ -30,21 +29,18 @@ export default function FleetVehiclesPage() {
   const documentOfType = (vehicleId: string, needle: string) =>
     (documentsByVehicle.get(vehicleId) ?? []).find((document) => normalise(document.doc_type).includes(needle));
 
-  const readiness = (documents: (typeof data.vehicleDocuments)) => {
+  const documentSignal = (documents: (typeof data.vehicleDocuments)) => {
     if (!documents.length) return { label: 'documents missing', tone: 'red' as const };
     if (documents.some((document) => {
       const days = daysUntil(document.expiry_date);
       return ['rejected', 'expired'].includes(normalise(document.status)) || (days !== null && days < 0);
-    })) return { label: 'blocked / expired', tone: 'red' as const };
+    })) return { label: 'document attention', tone: 'red' as const };
     if (documents.some((document) => {
       const status = normalise(document.status);
       const days = daysUntil(document.expiry_date);
       return ['pending', 'under_review'].includes(status) || (days !== null && days <= 30);
-    })) return { label: 'attention required', tone: 'orange' as const };
-    if (documents.every((document) => VERIFIED_DOCUMENT_STATUSES.has(normalise(document.status)))) {
-      return { label: 'evidence current', tone: 'green' as const };
-    }
-    return { label: 'verification unclear', tone: 'orange' as const };
+    })) return { label: 'review required', tone: 'orange' as const };
+    return { label: 'documents recorded', tone: 'blue' as const };
   };
 
   return (
@@ -52,18 +48,18 @@ export default function FleetVehiclesPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Vehicles"
-        description="Vehicle identity, driver assignment and document readiness in one dense Fleet register. Operational vehicle availability is shown only when a verified source exists."
+        description="Vehicle identity, driver assignment and recorded document signals in one dense Fleet register. Canonical operational eligibility is enforced server-side."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
       />
-      <Panel title="Vehicle operations register" description="Unassigned does not mean available. The current verified Fleet dataset does not expose an operational vehicle-availability state, so no availability is inferred from driver assignment.">
+      <Panel title="Vehicle operations register" description="Unassigned does not mean available. Document rows below are presentation signals only; the canonical server resolver separately requires the approved current operational evidence defined by the driver + vehicle contract.">
         <DataTable
-          columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Document readiness', 'MOT', 'Insurance', 'Operational availability']}
+          columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Document signal', 'MOT', 'Insurance', 'Operational availability']}
           rows={data.vehicles.map((vehicle) => {
             const documents = documentsByVehicle.get(vehicle.id) ?? [];
             const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
             const mot = documentOfType(vehicle.id, 'mot');
             const insurance = documentOfType(vehicle.id, 'insurance');
-            const documentReadiness = readiness(documents);
+            const signal = documentSignal(documents);
             const docValue = (document: (typeof data.vehicleDocuments)[number] | undefined) => {
               if (!document) return 'Not recorded';
               const days = daysUntil(document.expiry_date);
@@ -74,7 +70,7 @@ export default function FleetVehiclesPage() {
               (vehicle.type ?? 'Not specified').replace(/_/g, ' '),
               vehicle.reg_plate ?? 'Not recorded',
               driver?.display_name ?? driver?.email ?? 'Unassigned',
-              <StatusBadge key="status" value={documentReadiness.label} tone={documentReadiness.tone} />,
+              <StatusBadge key="status" value={signal.label} tone={signal.tone} />,
               docValue(mot),
               docValue(insurance),
               <StatusBadge key="availability" value="Not exposed" tone="grey" />,
