@@ -34,6 +34,19 @@ describe('Marketplace consumer boundary', () => {
     expect(searchApi).toContain('publicAreaLabel');
   });
 
+  it('keeps posted and quoted jobs discoverable across every canonical pre-award server surface', () => {
+    const driverApi = fs.readFileSync(path.join(root, 'app/api/driver/marketplace/loads/route.ts'), 'utf8');
+    const searchApi = fs.readFileSync(path.join(root, 'app/api/driver/search-loads/route.ts'), 'utf8');
+    const nearbyApi = fs.readFileSync(path.join(root, 'app/api/driver/mobile/nearby-jobs/route.ts'), 'utf8');
+    const companyApi = fs.readFileSync(path.join(root, 'app/api/marketplace/company/route.ts'), 'utf8');
+
+    for (const source of [driverApi, searchApi, nearbyApi, companyApi]) {
+      expect(source).toContain(".in('status', ['posted', 'quoted'])");
+    }
+    expect(companyApi).toContain("!['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase())");
+    expect(companyApi).not.toContain("job.status !== 'posted'");
+  });
+
   it('converges Driver Web quote writes on the canonical server mutation', () => {
     const loads = fs.readFileSync(path.join(root, 'app/driver/loads/page.tsx'), 'utf8');
     const detail = fs.readFileSync(path.join(root, 'app/driver/loads/[id]/page.tsx'), 'utf8');
