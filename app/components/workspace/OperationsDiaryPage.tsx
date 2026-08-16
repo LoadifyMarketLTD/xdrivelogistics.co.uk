@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
-import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { CompanyJobSheetPanel } from './CompanyJobSheetPanel';
 import {
@@ -83,7 +83,7 @@ const isEligibleDriver = (driver: DriverRow) => {
 };
 
 function effectiveStatus(job: JobRow) {
-  return normalise(job.current_status || job.status);
+  return workspaceJobPresentationStatus(job);
 }
 
 function isOperatingCompanyJob(job: JobRow, companyId: string) {
@@ -107,23 +107,6 @@ function matchesTab(job: JobRow, tab: DiaryTab) {
   if (tab === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
   if (tab === 'expired') return stage === 'expired';
   return stage === 'completed' && (job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0);
-}
-
-function nextTransition(job: JobRow) {
-  const status = effectiveStatus(job);
-  const transitions: Record<string, { next: string; label: string }> = {
-    awarded: { next: 'accepted', label: 'Accept allocation' },
-    allocated: { next: 'accepted', label: 'Accept allocation' },
-    accepted: { next: 'on_my_way_to_pickup', label: 'Start journey' },
-    on_my_way: { next: 'on_site_pickup', label: 'Arrived pickup' },
-    on_my_way_to_pickup: { next: 'on_site_pickup', label: 'Arrived pickup' },
-    on_site_pickup: { next: 'loaded', label: 'Mark loaded' },
-    loaded: { next: 'on_my_way_to_delivery', label: 'Depart delivery' },
-    collected: { next: 'on_my_way_to_delivery', label: 'Depart delivery' },
-    in_transit: { next: 'on_site_delivery', label: 'Arrived delivery' },
-    on_my_way_to_delivery: { next: 'on_site_delivery', label: 'Arrived delivery' },
-  };
-  return transitions[status] ?? null;
 }
 
 function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
@@ -151,7 +134,6 @@ export default function OperationsDiaryPage() {
   const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [expanded, setExpanded] = useState<string | null>(deepJob);
   const [assigning, setAssigning] = useState<string | null>(null);
-  const [transitioning, setTransitioning] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -249,28 +231,6 @@ export default function OperationsDiaryPage() {
     } finally { setAssigning(null); }
   };
 
-  const transitionJob = async (job: JobRow) => {
-    const transition = nextTransition(job);
-    if (!transition) return;
-    setTransitioning(job.id); setError(''); setNotice('');
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      if (!token) throw new Error('Session expired.');
-      const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}/transition`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nextStatus: transition.next }),
-      });
-      const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'Job status could not be updated.');
-      setNotice(`Job updated to ${transition.next.replace(/_/g, ' ')}.`);
-      await load();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Job status could not be updated.');
-    } finally { setTransitioning(null); }
-  };
-
   const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
 
   return (
@@ -278,7 +238,7 @@ export default function OperationsDiaryPage() {
       <PageHeader
         eyebrow="Operations"
         title="Diary"
-        description="Post-award operating-company register: scan, expand, act and inspect the complete authorised job sheet without leaving the board."
+        description="Post-award operating-company register: scan, expand, allocate where authorised and inspect the complete authorised job sheet without leaving the board. Driver execution lifecycle remains in the driver-authorised execution workflow."
         actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -316,7 +276,6 @@ export default function OperationsDiaryPage() {
                 const stage = classifyWorkspaceJobStage(job);
                 const status = effectiveStatus(job);
                 const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
-                const transition = nextTransition(job);
                 const evidenceCount = job.delivery_photos?.length ?? 0;
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={status}>
@@ -333,7 +292,6 @@ export default function OperationsDiaryPage() {
                       {job.pod_generated && <StatusBadge value="POD generated" tone="green" />}
                       {!job.pod_generated && evidenceCount > 0 && <StatusBadge value={`${evidenceCount} evidence file(s)`} tone="blue" />}
                       {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose driver</option>{eligibleDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
-                      {job.assigned_driver_id && transition && <ActionButton tone="secondary" disabled={transitioning === job.id} onClick={() => void transitionJob(job)}>{transitioning === job.id ? 'Updating…' : transition.label}</ActionButton>}
                     </div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" />}
                   </article>
