@@ -2,10 +2,11 @@
 -- allocation/reallocation.
 --
 -- This is a narrow repair of the existing assign_job_driver_atomic RPC. It does
--- not add lifecycle states, roles, grants, schema or permissions. The only
--- behavioural correction is that assignment changes derive their effective
--- lifecycle from current_status first (with status as fallback), using the same
--- already-approved historical aliases as the canonical driver lifecycle.
+-- not add lifecycle states, roles, grants, schema or permissions. Assignment
+-- changes derive their effective lifecycle from current_status first (with
+-- status as fallback), using the same already-approved historical aliases as
+-- the canonical driver lifecycle. Active execution reallocation also requires
+-- an eligible replacement rather than clearing the execution identity.
 
 BEGIN;
 
@@ -113,6 +114,22 @@ BEGIN
     ELSE v_effective_status
   END;
 
+  -- The approved reallocation contract requires an eligible replacement driver
+  -- and that driver's canonical vehicle while execution is active. Clearing the
+  -- binding is still allowed by the existing pre-execution allocated flow only.
+  IF p_driver_id IS NULL
+     AND v_effective_status IN (
+       'on_my_way',
+       'on_my_way_to_pickup',
+       'on_site_pickup',
+       'loaded',
+       'in_transit',
+       'on_site_delivery'
+     ) THEN
+    RAISE EXCEPTION 'Active execution requires an eligible replacement driver and canonical vehicle.'
+      USING ERRCODE = '23514';
+  END IF;
+
   -- Preserve execution/completion state during reallocation. Only the existing
   -- pre-execution allocation/clear transitions may change lifecycle state.
   v_next_status := v_effective_status;
@@ -171,7 +188,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.assign_job_driver_atomic(uuid, uuid, uuid, uuid) IS
-  'Authorised Fleet allocation/reallocation: selected driver must pass canonical operational eligibility, jobs.vehicle_id follows that driver canonical active compliant vehicle, and existing execution lifecycle is preserved from current_status.';
+  'Authorised Fleet allocation/reallocation: selected driver must pass canonical operational eligibility, jobs.vehicle_id follows that driver canonical active compliant vehicle, active execution requires a replacement rather than a clear, and existing execution lifecycle is preserved from current_status.';
 
 NOTIFY pgrst, 'reload schema';
 
