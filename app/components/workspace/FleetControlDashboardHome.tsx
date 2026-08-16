@@ -503,7 +503,7 @@ export default function FleetControlDashboardHome() {
                   <StatusBadge key="tracking" value={trackingDataUnavailable ? 'Unavailable' : !activeDriver ? 'Not monitored' : timestamp ? compactTimeAgo(timestamp) : 'Position missing'} tone={activeDriver && !timestamp ? 'orange' : undefined} />,
                   <StatusBadge key="documents" value={documentSignal.label} tone={documentSignal.tone} />,
                   <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={activeDriver && normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
-                  <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/fleet/drivers?driver=${driver.id}`)}>View</ActionButton>,
+                  <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage</ActionButton>,
                 ];
               })}
               empty={<EmptyState compact title={driverDataUnavailable ? 'Driver data unavailable' : 'No fleet resources recorded'} />}
