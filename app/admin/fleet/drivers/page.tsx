@@ -28,10 +28,13 @@ export default function FleetDriversPage() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
 
-  const vehicleByDriver = useMemo(() => {
-    const map = new Map<string, (typeof data.vehicles)[number]>();
+  const vehiclesByDriver = useMemo(() => {
+    const map = new Map<string, (typeof data.vehicles)>();
     for (const vehicle of data.vehicles) {
-      if (vehicle.assigned_driver_id && !map.has(vehicle.assigned_driver_id)) map.set(vehicle.assigned_driver_id, vehicle);
+      if (!vehicle.assigned_driver_id) continue;
+      const rows = map.get(vehicle.assigned_driver_id) ?? [];
+      rows.push(vehicle);
+      map.set(vehicle.assigned_driver_id, rows);
     }
     return map;
   }, [data.vehicles]);
@@ -70,15 +73,21 @@ export default function FleetDriversPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Drivers"
-        description="Driver, vehicle, position, live work and document readiness in one dense Fleet register."
+        description="Driver, vehicle assignment signals, position, live work and document readiness in one dense Fleet register."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage drivers</ActionButton>}
       />
 
-      <Panel title="Driver operations register" description="Operational status only; create, edit, suspend and access-management actions remain in the existing Drivers administration page.">
+      <Panel title="Driver operations register" description="Operational status only; create, edit, suspend and access-management actions remain in the existing Drivers administration page. Canonical active vehicle eligibility is resolved server-side.">
         <DataTable
           columns={['Driver', 'Vehicle', 'Location', 'Status', 'Current job', 'Documents', 'Action']}
           rows={data.drivers.map((driver) => {
-            const vehicle = vehicleByDriver.get(driver.id);
+            const vehicles = vehiclesByDriver.get(driver.id) ?? [];
+            const vehicle = vehicles.length === 1 ? vehicles[0] : undefined;
+            const vehicleSignal = vehicles.length === 0
+              ? 'No assigned vehicle'
+              : vehicles.length > 1
+                ? `${vehicles.length} assigned vehicles · canonical active vehicle resolved server-side`
+                : `${vehicle?.reg_plate ?? 'No registration'} · ${(vehicle?.type ?? 'type unknown').replace(/_/g, ' ')}`;
             const location = latestLocationByDriver.get(driver.id);
             const job = jobByDriver.get(driver.id);
             const documents = documentCountByDriver.get(driver.id) ?? 0;
@@ -86,7 +95,7 @@ export default function FleetDriversPage() {
             const operationallyAvailable = accountActive && normalise(driver.availability_status) === 'available';
             return [
               <span key="driver"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span>{driver.phone ?? driver.email ?? 'No contact supplied'}</span></span>,
-              vehicle ? `${vehicle.reg_plate ?? 'No registration'} · ${(vehicle.type ?? 'type unknown').replace(/_/g, ' ')}` : 'No assigned vehicle',
+              vehicleSignal,
               location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} · ${when(location.recorded_at ?? location.updated_at)}` : 'Location unavailable',
               <span key="status" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountActive ? 'active account' : (driver.status ? `account ${driver.status}` : 'account status unavailable')} tone={accountActive ? 'blue' : 'red'} /></span>,
               job ? `${job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → ${job.delivery_postcode ?? job.delivery_location ?? 'Delivery'} · ${(job.current_status ?? job.status).replace(/_/g, ' ')}` : 'No job currently in execution',
