@@ -7,10 +7,9 @@ import { useCompanyWorkspaceData } from '../../../components/workspace/useCompan
 import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
-const isDriverAccountEligible = (status: string | null | undefined) => {
-  const value = normalise(status);
-  return Boolean(value) && !['suspended', 'inactive', 'rejected'].includes(value);
-};
+// Presentation-only account-state signal. Full operational eligibility is
+// revalidated by the canonical server contract before quoting/allocation.
+const isDriverAccountActive = (status: string | null | undefined) => normalise(status) === 'active';
 
 export default function FleetAvailabilityPage() {
   const router = useRouter();
@@ -64,11 +63,11 @@ export default function FleetAvailabilityPage() {
             const location = latestLocationByDriver.get(driver.id);
             const work = workByDriver.get(driver.id);
             const docs = data.driverDocuments.filter((document) => document.driver_id === driver.id);
-            const accountEligible = isDriverAccountEligible(driver.status);
-            const operationallyAvailable = accountEligible && normalise(driver.availability_status) === 'available';
+            const accountActive = isDriverAccountActive(driver.status);
+            const operationallyAvailable = accountActive && normalise(driver.availability_status) === 'available';
             return [
               <strong key="driver">{driver.display_name ?? driver.email ?? 'Driver'}</strong>,
-              <span key="availability" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountEligible ? 'eligible' : driver.status ? `account ${driver.status}` : 'account status unavailable'} tone={accountEligible ? 'blue' : 'red'} /></span>,
+              <span key="availability" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountActive ? 'active account' : driver.status ? `account ${driver.status}` : 'account status unavailable'} tone={accountActive ? 'blue' : 'red'} /></span>,
               vehicle ? `${vehicle.reg_plate ?? 'No registration'} · ${(vehicle.type ?? 'type unknown').replace(/_/g, ' ')}` : 'No assigned vehicle',
               location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : 'Location unavailable',
               work ? <span key="work"><strong style={{ display: 'block' }}>{work.job.pickup_postcode ?? work.job.pickup_location ?? 'Collection'} → {work.job.delivery_postcode ?? work.job.delivery_location ?? 'Delivery'}</strong><span>{work.stage === 'active' ? 'Execution in progress' : 'Allocated / awaiting execution'}</span></span> : 'No current or allocated Fleet job',
