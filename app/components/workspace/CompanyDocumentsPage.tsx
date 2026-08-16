@@ -8,10 +8,10 @@ import { useAuth } from '../AuthContext';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   KpiCard,
   KpiGrid,
+  OperationalTable,
   PageFrame,
   PageHeader,
   Panel,
@@ -179,38 +179,63 @@ export default function CompanyDocumentsPage() {
         title="Company compliance register"
         description="Statuses and review notes are read from the existing company_documents compliance record. File access uses a short-lived company-scoped link."
       >
-        <DataTable
-          columns={['Record', 'Document', 'Status', 'Expiry', 'Review note', 'Added', 'File']}
-          rows={documents.map((document) => [
-            document.id,
-            <strong key="type">{documentLabel(document.doc_type)}</strong>,
-            <StatusBadge
-              key="status"
-              value={isExpired(document.expiry_date) && document.status === 'approved' ? 'expired by date' : document.status}
-              tone={
-                document.status === 'approved' && !isExpired(document.expiry_date)
-                  ? 'green'
-                  : document.status === 'rejected' || document.status === 'expired' || isExpired(document.expiry_date)
-                    ? 'red'
-                    : 'orange'
-              }
-            />,
-            dateOnly(document.expiry_date),
-            document.review_notes?.trim() || '—',
-            dateOnly(document.created_at),
-            document.file_path ? (
-              <ActionButton
-                key="file"
-                tone="secondary"
-                disabled={openingId === document.id}
-                onClick={() => void openDocument(document.id)}
-              >
-                {openingId === document.id ? 'Opening…' : 'Open'}
-              </ActionButton>
-            ) : (
-              'No file recorded'
-            ),
-          ])}
+        <OperationalTable<CompanyDocumentRow>
+          columns={[
+            {
+              id: 'document',
+              header: 'Document',
+              cell: (document) => <strong>{documentLabel(document.doc_type)}</strong>,
+            },
+            {
+              id: 'status',
+              header: 'Status',
+              cell: (document) => (
+                <StatusBadge
+                  value={isExpired(document.expiry_date) && document.status === 'approved' ? 'expired by date' : document.status}
+                  tone={
+                    document.status === 'approved' && !isExpired(document.expiry_date)
+                      ? 'green'
+                      : document.status === 'rejected' || document.status === 'expired' || isExpired(document.expiry_date)
+                        ? 'red'
+                        : 'orange'
+                  }
+                />
+              ),
+            },
+            {
+              id: 'expiry',
+              header: 'Expiry',
+              cell: (document) => dateOnly(document.expiry_date),
+            },
+            {
+              id: 'review-note',
+              header: 'Review note',
+              cell: (document) => document.review_notes?.trim() || '—',
+            },
+            {
+              id: 'added',
+              header: 'Added',
+              cell: (document) => dateOnly(document.created_at),
+            },
+            {
+              id: 'file',
+              header: 'File',
+              isAction: true,
+              cell: (document) => document.file_path ? (
+                <ActionButton
+                  tone="secondary"
+                  disabled={openingId === document.id}
+                  onClick={() => void openDocument(document.id)}
+                >
+                  {openingId === document.id ? 'Opening…' : 'Open'}
+                </ActionButton>
+              ) : (
+                'No file recorded'
+              ),
+            },
+          ]}
+          rows={documents}
+          getRowKey={(document) => document.id}
           empty={
             <EmptyState
               title={loading ? 'Loading company documents…' : 'No company documents recorded'}
