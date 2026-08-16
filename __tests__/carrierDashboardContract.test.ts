@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { isCarrierAttentionJob } from '../app/components/workspace/CarrierOperationsDashboardHome';
 import {
   getWorkspaceJobSelect,
+  resolveWorkspaceDataQueryPlan,
   type WorkspaceJob,
 } from '../app/components/workspace/useCompanyWorkspaceData';
 
@@ -45,6 +46,18 @@ describe('carrier dashboard convergence contract', () => {
     expect(getWorkspaceJobSelect('fleet')).toContain('vehicle_id');
     expect(getWorkspaceJobSelect('dispatcher')).toContain('vehicle_id');
     expect(getWorkspaceJobSelect('driver')).toContain('vehicle_id');
+  });
+
+  it('keeps carrier tracking surfaces location-aware without widening the carrier home query', () => {
+    for (const pathname of ['/admin/freight-vision', '/admin/live-availability']) {
+      const plan = resolveWorkspaceDataQueryPlan({ pathname, workspaceRole: 'company_admin' });
+      expect(plan.surface).toBe('carrier_operations');
+      expect(plan.datasets).toEqual(expect.arrayContaining(['jobs', 'drivers', 'vehicles', 'locations']));
+      expect(getWorkspaceJobSelect(plan.surface)).not.toContain('vehicle_id');
+    }
+
+    const homePlan = resolveWorkspaceDataQueryPlan({ pathname: '/admin', workspaceRole: 'company_admin' });
+    expect(homePlan.datasets).not.toContain('locations');
   });
 
   it('keeps cancelled work out of actionable attention while preserving real blockers', () => {
