@@ -301,7 +301,7 @@ export default function ReturnJourneysPage() {
       const response = await fetch('/api/driver/future-position', {
         method: 'PUT',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ futurePosition, futureDate: futureDate || null }),
+        body: JSON.stringify({ futurePosition, futureDate: futureDate ? new Date(futureDate).toISOString() : null }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) setError(payload.error || 'Future position could not be saved.');
