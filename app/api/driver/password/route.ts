@@ -31,12 +31,13 @@ export async function POST(request: NextRequest) {
     .from('drivers')
     .select('id')
     .eq('user_id', authData.user.id)
+    .eq('status', 'active')
     .eq('app_access', true)
     .limit(1)
     .maybeSingle();
 
   if (driverError || !driverRow) {
-    return NextResponse.json({ error: 'Only active driver accounts can update this password flow.' }, { status: 403 });
+    return NextResponse.json({ error: 'Only active Driver workspace accounts can update this password flow.' }, { status: 403 });
   }
 
   const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
