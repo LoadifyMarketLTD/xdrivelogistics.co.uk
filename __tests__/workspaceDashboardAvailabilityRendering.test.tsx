@@ -148,7 +148,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     mockUseCompanyWorkspaceData.mockReset();
   });
 
-  it('does not present an unavailable customer invoice source as a healthy empty-state message', () => {
+  it('renders unavailable customer invoice data explicitly instead of exact zeroes', () => {
     mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
       datasets: {
         ...workspaceState().datasets,
@@ -157,7 +157,24 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<CustomerDashboardHome />);
+    expect(html).toContain('Invoice data unavailable');
+    expect(html).toContain('Unavailable');
     expect(html).not.toContain('No outstanding invoices');
+    expect(html).not.toContain('£0.00');
+  });
+
+  it('renders partial customer invoice data explicitly instead of exact totals', () => {
+    mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({
+      datasets: {
+        ...workspaceState().datasets,
+        invoices: dataset({ partialData: true, limitedData: true, successfulEmpty: false }),
+      },
+    }));
+
+    const html = render(<CustomerDashboardHome />);
+    expect(html).toContain('Invoice data is partial');
+    expect(html).toContain('Partial');
+    expect(html).not.toContain('£0.00');
   });
 
   it('renders bounded broker source rows conservatively rather than as exact complete metrics', () => {
