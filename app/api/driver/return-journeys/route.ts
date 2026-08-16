@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { operationalError } from '../../_lib/operationalError';
-import { isDriverContext, requireDriver, respond } from '../mobile/_lib';
+import { respond } from '../mobile/_lib';
+import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
 
 type JourneyRow = {
   id: string;
@@ -169,8 +170,8 @@ export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') === 'mine' ? 'mine' : 'marketplace';
@@ -309,8 +310,8 @@ export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
   if (!driver.companyId) return respond(400, { error: 'A company context is required to publish exchange journeys.' });
 
   let body: Record<string, unknown>;
@@ -360,8 +361,8 @@ export async function DELETE(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
   const id = cleanText(new URL(request.url).searchParams.get('id'), 80);
   if (!id) return respond(400, { error: 'Journey id is required.' });
   const { data, error } = await supabaseAdmin
