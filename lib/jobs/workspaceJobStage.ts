@@ -57,7 +57,22 @@ export function classifyWorkspaceJobStage(job: WorkspaceStageJob): WorkspaceJobS
   if (COMPLETED_JOB_STATUSES.has(status)) return 'completed';
   if (IN_PROGRESS_JOB_STATUSES.has(status)) return 'in_progress';
 
-  if (ALLOCATED_JOB_STATUSES.has(status) || Boolean(job.assigned_driver_id)) return 'allocated';
+  const vehicleFactAvailable = Object.prototype.hasOwnProperty.call(job, 'vehicle_id');
+  const hasDriver = Boolean(job.assigned_driver_id);
+  const hasVehicle = Boolean(job.vehicle_id);
+  const completeKnownAllocation = hasDriver && (!vehicleFactAvailable || hasVehicle);
+
+  if (completeKnownAllocation) return 'allocated';
+
+  // When a projection explicitly exposes vehicle_id, driver-only allocation is
+  // incomplete under the approved driver + canonical vehicle execution unit.
+  // Treat stale allocated/accepted rows conservatively as awarded rather than
+  // claiming an allocation that the known facts do not support. Lightweight
+  // projections that omit vehicle_id may continue to trust the canonical raw
+  // allocated/accepted status.
+  if (ALLOCATED_JOB_STATUSES.has(status)) {
+    return vehicleFactAvailable ? 'awarded' : 'allocated';
+  }
 
   if (
     status === 'awarded'
@@ -95,9 +110,6 @@ export function workspaceJobPresentationStatus(job: WorkspaceStageJob) {
   const raw = normalizedJobStatus(job);
   const stage = classifyWorkspaceJobStage(job);
   const vehicleFactAvailable = Object.prototype.hasOwnProperty.call(job, 'vehicle_id');
-  const incompleteKnownAllocation = vehicleFactAvailable
-    && Boolean(job.assigned_driver_id)
-    && !job.vehicle_id;
   const awardedFact = Boolean(job.awarded_carrier_company_id || job.assigned_company_id);
 
   if (
@@ -105,7 +117,6 @@ export function workspaceJobPresentationStatus(job: WorkspaceStageJob) {
     && !IN_PROGRESS_JOB_STATUSES.has(raw)
     && !COMPLETED_JOB_STATUSES.has(raw)
   ) {
-    if (incompleteKnownAllocation && awardedFact) return 'awarded';
     if (!vehicleFactAvailable && OPEN_JOB_STATUSES.has(raw) && awardedFact) return 'awarded';
     return 'allocated';
   }
