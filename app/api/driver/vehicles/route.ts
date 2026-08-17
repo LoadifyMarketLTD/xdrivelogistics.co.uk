@@ -65,7 +65,7 @@ const resolveDriver = async (request: NextRequest) => {
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, status')
+    .select('id, company_id, status, app_access')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -81,8 +81,8 @@ const resolveDriver = async (request: NextRequest) => {
     };
   }
 
-  if (!driver || driver.status !== 'active' || !driver.company_id) {
-    return { error: json(403, { error: 'Active company-linked driver profile required.' }) };
+  if (!driver || driver.status !== 'active' || driver.app_access !== true || !driver.company_id) {
+    return { error: json(403, { error: 'Active company-linked driver app access required.' }) };
   }
 
   const { data: membership, error: membershipError } = await supabaseAdmin
