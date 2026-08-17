@@ -65,7 +65,10 @@ export type MobileJobRow = {
   created_at: string | null;
 };
 
-export async function requireDriver(request: NextRequest): Promise<DriverContext | NextResponse> {
+export async function requireDriver(
+  request: NextRequest,
+  options: { requireOperationallyActive?: boolean } = {},
+): Promise<DriverContext | NextResponse> {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
@@ -105,20 +108,20 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   if (driverError) return respond(500, { error: driverError.message });
   if (profileError) return respond(500, { error: profileError.message });
   if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
-
-  const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
-  if (profileStatus !== 'active') {
-    return respond(403, { error: 'Driver profile is not active.' });
-  }
-
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
   if (driverRow.app_access !== true) {
     return respond(403, { error: 'Driver app access has not been approved.' });
   }
 
+  const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
   const driverStatus = String(driverRow.status ?? '').trim().toLowerCase();
-  if (driverStatus !== 'active') {
-    return respond(403, { error: 'Driver account is not active.' });
+  if (options.requireOperationallyActive !== false) {
+    if (profileStatus !== 'active') {
+      return respond(403, { error: 'Driver profile is not active.' });
+    }
+    if (driverStatus !== 'active') {
+      return respond(403, { error: 'Driver account is not active.' });
+    }
   }
 
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
