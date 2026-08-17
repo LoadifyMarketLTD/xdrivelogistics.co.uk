@@ -34,7 +34,7 @@ async function resolveDriver(request: NextRequest) {
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, status')
+    .select('id, status, app_access')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -43,8 +43,8 @@ async function resolveDriver(request: NextRequest) {
   }
 
   const status = String(driver.status ?? '').trim().toLowerCase();
-  if (['suspended', 'inactive', 'blocked', 'rejected'].includes(status)) {
-    return { error: json(403, { error: 'Active driver profile required.' }) } as const;
+  if (status !== 'active' || driver.app_access !== true) {
+    return { error: json(403, { error: 'Active driver app access required.' }) } as const;
   }
 
   return { driverId: driver.id as string } as const;
