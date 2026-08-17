@@ -279,6 +279,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
 
   // owner_operator (/driver)
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
+  { prefix: '/driver/account', workspace: 'owner_operator' },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
   { prefix: '/driver/won-work', workspace: 'owner_operator', anyOf: ['jobs.view'] },
