@@ -641,7 +641,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
           setDataset<WorkspaceJob>(
             'jobs',
-            (jobsRes.data ?? []) as WorkspaceJob[],
+            (jobsRes.data ?? []) as unknown as WorkspaceJob[],
             jobsError ? [jobsError] : [],
             queryReachedLimit(jobsRes.data, 500, jobsError),
           );
@@ -660,7 +660,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
         setDataset<WorkspaceJob>(
           'jobs',
-          (jobsRes.data ?? []) as WorkspaceJob[],
+          (jobsRes.data ?? []) as unknown as WorkspaceJob[],
           jobsError ? [jobsError] : [],
           queryReachedLimit(jobsRes.data, 500, jobsError),
         );
