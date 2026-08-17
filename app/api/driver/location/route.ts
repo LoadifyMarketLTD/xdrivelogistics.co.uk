@@ -27,12 +27,17 @@ export async function POST(request: NextRequest) {
   // company_id is intentionally nullable — individual drivers without a company are permitted.
   const { data: driverRow, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id')
+    .select('id, company_id, status, app_access')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
-  if (driverError || !driverRow) {
-    return NextResponse.json({ error: 'Driver record not found.' }, { status: 403 });
+  if (
+    driverError ||
+    !driverRow ||
+    String(driverRow.status ?? '').trim().toLowerCase() !== 'active' ||
+    driverRow.app_access !== true
+  ) {
+    return NextResponse.json({ error: 'Active driver app access required.' }, { status: 403 });
   }
 
   let body: LocationPayload;
