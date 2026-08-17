@@ -207,7 +207,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(20),
     viewerIsExternalExecutor
-      ? supabaseAdmin.from('company_memberships').select('user_id').eq('company_id', viewerCompanyId).eq('status', 'active')
+      ? supabaseAdmin.from('company_memberships').select('user_id').eq('company_id', viewerCompanyId)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -250,6 +250,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     userName: text(entry.user_name),
   }));
 
+  // Historical uploader attribution must survive membership status changes.
+  // Job-sheet access itself is still authorised above by the viewer's current
+  // active membership; this set only determines which company historically
+  // owned an external uploader identity for document projection.
   const viewerMemberUserIds = new Set(
     ((viewerMembersResult.data ?? []) as Array<Record<string, unknown>>)
       .map((entry) => text(entry.user_id))
@@ -426,7 +430,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         bookingFooter: 'No immutable historical booking-footer snapshot is exposed by the current verified data contract.',
         extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
         documents: viewerIsExternalExecutor
-          ? 'External execution view exposes only job documents uploaded by that company membership or its assigned driver; owner-only uploads remain restricted.'
+          ? 'External execution view exposes only job documents historically attributable to that company membership or its assigned driver; owner-only uploads remain restricted.'
           : null,
       },
     },
