@@ -17,7 +17,6 @@ type BidIdentityRow = {
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 const BID_DECISION_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher']);
-const BID_DECISION_APP_ROLES = new Set(['broker', 'customer']);
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -31,34 +30,25 @@ export async function GET(request: NextRequest) {
   const { data: authData, error: authError } = await validator.auth.getUser(token);
   if (authError || !authData.user) return json(401, { error: 'Unauthorized.' });
 
-  const [membershipResult, profileResult] = await Promise.all([
-    supabaseAdmin
-      .from('company_memberships')
-      .select('company_id, role_in_company')
-      .eq('user_id', authData.user.id)
-      .eq('status', 'active'),
-    supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('user_id', authData.user.id)
-      .maybeSingle(),
-  ]);
+  const { data: memberships, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('company_id, role_in_company')
+    .eq('user_id', authData.user.id)
+    .eq('status', 'active');
 
-  if (membershipResult.error || profileResult.error) {
+  if (membershipError) {
     return json(500, { error: 'Unable to verify company access.' });
   }
 
-  const appRole = String(profileResult.data?.role ?? '').trim().toLowerCase();
-  const appRoleCanReviewBids = BID_DECISION_APP_ROLES.has(appRole);
-  const companyIds = [...new Set((membershipResult.data ?? [])
-    .filter((row) => appRoleCanReviewBids || BID_DECISION_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').trim().toLowerCase()))
+  const companyIds = [...new Set((memberships ?? [])
+    .filter((row) => BID_DECISION_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').trim().toLowerCase()))
     .map((row) => String(row.company_id))
     .filter(Boolean))];
   if (!companyIds.length) return json(200, { identities: [] });
 
   // Only bidder identities attached to jobs owned by a company where the caller
-  // has an approved quote-decision capability are visible. Read-only company
-  // membership alone is not a bidder-identity visibility grant.
+  // has an approved quote-decision membership role are visible. Read-only
+  // company membership alone is not a bidder-identity visibility grant.
   const { data: bidData, error: bidError } = await supabaseAdmin
     .from('job_bids')
     .select('id, company_id, bidder_driver_id, bidder_user_id, bidder_id, jobs!inner(company_id)')
