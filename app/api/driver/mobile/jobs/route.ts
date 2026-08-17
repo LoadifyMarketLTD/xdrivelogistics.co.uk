@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
   if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
 
-  const driver = await requireDriver(request);
+  const driver = await requireDriver(request, { requireOperationallyActive: false });
   if (!isDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
