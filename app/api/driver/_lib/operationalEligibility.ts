@@ -139,11 +139,12 @@ export async function resolveDriverOperationalEligibility(
           .eq('user_id', userId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    userId
+    userId && companyId
       ? supabaseAdmin
           .from('onboarding_applications')
           .select('id,company_id,account_type,status,risk_status,reviewed_at')
           .eq('user_id', userId)
+          .eq('company_id', companyId)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
