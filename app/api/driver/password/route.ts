@@ -31,13 +31,14 @@ export async function POST(request: NextRequest) {
     .from('drivers')
     .select('id')
     .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .eq('app_access', true)
     .limit(1)
     .maybeSingle();
 
-  if (driverError || !driverRow) {
-    return NextResponse.json({ error: 'Only active Driver workspace accounts can update this password flow.' }, { status: 403 });
+  if (driverError) {
+    return NextResponse.json({ error: 'We could not verify your Driver account.' }, { status: 500 });
+  }
+  if (!driverRow) {
+    return NextResponse.json({ error: 'Driver account required.' }, { status: 403 });
   }
 
   const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
