@@ -52,7 +52,8 @@ describe('visible workspace navigation', () => {
       'utf8',
     );
     expect(sharedSource).toContain("BID_DECISION_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher'])");
-    expect(sharedSource).toContain("BID_DECISION_APP_ROLES = new Set(['broker', 'customer'])");
-    expect(sharedSource).toContain('appRoleCanReviewBids || BID_DECISION_MEMBERSHIP_ROLES.has');
+    expect(sharedSource).not.toContain('BID_DECISION_APP_ROLES');
+    expect(sharedSource).not.toContain('appRoleCanReviewBids ||');
+    expect(sharedSource).toContain('.filter((row) => BID_DECISION_MEMBERSHIP_ROLES.has');
   });
 });
