@@ -92,6 +92,7 @@ BEGIN
   INTO v_onboarding_id, v_onboarding_status, v_onboarding_risk_status, v_onboarding_account_type, v_onboarding_company_id
   FROM public.onboarding_applications oa
   WHERE oa.user_id = v_driver.user_id
+    AND oa.company_id = v_driver.company_id
   ORDER BY oa.created_at DESC
   LIMIT 1;
 
