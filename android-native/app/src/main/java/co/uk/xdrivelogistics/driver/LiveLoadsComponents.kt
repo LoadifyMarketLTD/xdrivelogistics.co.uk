@@ -141,8 +141,8 @@ internal enum class QuoteValidationResult {
 
 /** Maps a validation failure to the user-facing error string shown in the quote form. */
 internal fun QuoteValidationResult.toUserMessage(): String = when (this) {
-    QuoteValidationResult.NO_JOB_SELECTED -> "Select an open Marketplace job first."
-    QuoteValidationResult.JOB_NOT_POSTED -> "Only posted or quoted Marketplace jobs can be quoted."
+    QuoteValidationResult.NO_JOB_SELECTED -> "Select a posted job first."
+    QuoteValidationResult.JOB_NOT_POSTED -> "Only posted jobs can be quoted."
     QuoteValidationResult.INVALID_AMOUNT -> "Enter a valid quote amount."
     QuoteValidationResult.OK -> ""
 }
@@ -168,7 +168,7 @@ internal fun validateQuoteSubmission(
 ): QuoteValidationResult {
     val job = jobs.firstOrNull { it.id == quoteJobId }
         ?: return QuoteValidationResult.NO_JOB_SELECTED
-    if (job.status.lowercase() !in setOf("posted", "quoted")) return QuoteValidationResult.JOB_NOT_POSTED
+    if (job.status.lowercase() != "posted") return QuoteValidationResult.JOB_NOT_POSTED
     if (parseFinitePositiveAmount(amountText) == null) return QuoteValidationResult.INVALID_AMOUNT
     return QuoteValidationResult.OK
 }
@@ -219,149 +219,181 @@ internal fun DriverJob.toLiveLoadCardData(): LiveLoadCardData {
         reference = ref,
         vehicleType = vehicleType.takeIf { it.isNotBlank() }
             ?: details.string("vehicle_type")
+            ?: details.string("vehicle")
             ?: "Vehicle TBC",
-        pickupLine = pickupLocation.takeIf { it.isNotBlank() }
-            ?: pickupPostcode.takeIf { it.isNotBlank() }
-            ?: "Collection TBC",
-        pickupTime = pickupDatetime.formatLiveLoadsTime(),
-        deliveryLine = deliveryLocation.takeIf { it.isNotBlank() }
-            ?: deliveryPostcode.takeIf { it.isNotBlank() }
-            ?: "Delivery TBC",
-        deliveryTime = deliveryDatetime.formatLiveLoadsTime(),
+        pickupLine = pickupLocation.ifBlank { "Pickup location TBC" },
+        pickupTime = pickupDatetime.liveLoadsDateTime(),
+        deliveryLine = deliveryLocation.ifBlank { "Delivery location TBC" },
+        deliveryTime = deliveryDatetime.liveLoadsDateTime(),
         freightSummary = summary,
     )
 }
 
-private fun String?.formatLiveLoadsTime(): String {
-    if (this.isNullOrBlank()) return "TBC"
-    return runCatching {
-        OffsetDateTime.parse(this).atZoneSameInstant(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("dd MMM HH:mm", Locale.UK))
-    }.getOrElse { this }
-}
-
-private fun String.toJsonObjectOrNull(): JsonObject {
-    if (isBlank()) return JsonObject()
-    return runCatching { JsonParser.parseString(this).asJsonObject }.getOrDefault(JsonObject())
-}
-
-private fun JsonObject.string(name: String): String? {
-    val value: JsonElement = get(name) ?: return null
-    if (value.isJsonNull) return null
-    return runCatching { value.asString }.getOrNull()
-}
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LiveLoadCard(
     job: DriverJob,
-    preferenceState: String?,
-    activeDeliveryPostcode: String?,
-    onOpenDetails: () -> Unit,
+    selected: Boolean,
+    onOpen: () -> Unit,
     onQuote: () -> Unit,
-    onPreferenceAction: (LiveLoadPreferenceAction) -> Unit,
+    onSave: (() -> Unit)? = null,
+    onHide: (() -> Unit)? = null,
+    onRestore: (() -> Unit)? = null,
+    preferenceState: String? = null,
 ) {
-    val card = job.toLiveLoadCardData()
-    val currentBox = when (preferenceState) {
-        "saved" -> LiveLoadsBox.PINNED
-        "deleted" -> LiveLoadsBox.HIDDEN
-        else -> LiveLoadsBox.LIVE
-    }
+    val data = job.toLiveLoadCardData()
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpenDetails),
-        border = BorderStroke(1.dp, LiveLoadsCardBorder),
         colors = CardDefaults.cardColors(containerColor = LiveLoadsCardBackground),
-        shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, if (selected) LiveLoadsYellow else LiveLoadsCardBorder),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LiveLoadsChip)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = card.companyName,
-                    color = LiveLoadsPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = card.reference,
-                    color = LiveLoadsSecondary,
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                )
-            }
-
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                LiveLoadFact(
-                    label = "From",
-                    primary = card.pickupLine,
-                    secondary = card.pickupTime,
-                    modifier = Modifier.weight(1.55f),
-                )
-                LiveLoadFact(
-                    label = "To",
-                    primary = card.deliveryLine,
-                    secondary = card.deliveryTime,
-                    modifier = Modifier.weight(1.55f),
-                )
-                LiveLoadFact(
-                    label = "Vehicle",
-                    primary = card.vehicleType,
-                    secondary = card.freightSummary,
-                    modifier = Modifier.weight(.75f),
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LiveLoadsChip)
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (activeDeliveryPostcode?.isNotBlank() == true) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(34.dp)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(LiveLoadsYellow),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("X", color = Color(0xFF05070C), fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            data.companyName,
+                            color = LiveLoadsPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            data.reference,
+                            color = LiveLoadsSecondary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 130.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(LiveLoadsChip)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
                     Text(
-                        text = "Near $activeDeliveryPostcode",
-                        color = LiveLoadsSecondary,
-                        fontSize = 10.sp,
-                        modifier = Modifier.weight(1f),
+                        data.vehicleType,
+                        color = if (data.vehicleType.contains("TBC", ignoreCase = true)) LiveLoadsSecondary else LiveLoadsPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                } else {
-                    Box(modifier = Modifier.weight(1f))
                 }
+            }
 
-                when (currentBox) {
-                    LiveLoadsBox.LIVE -> {
-                        CompactLiveLoadsButton("Pin") { onPreferenceAction(LiveLoadPreferenceAction.PIN) }
-                        CompactLiveLoadsButton("Hide") { onPreferenceAction(LiveLoadPreferenceAction.HIDE) }
-                    }
-                    LiveLoadsBox.PINNED,
-                    LiveLoadsBox.HIDDEN -> CompactLiveLoadsButton("Restore") { onPreferenceAction(LiveLoadPreferenceAction.RESTORE) }
-                }
-                CompactLiveLoadsButton("Details", onOpenDetails)
+            LiveLoadRouteSection(data.pickupLine, data.pickupTime, data.deliveryLine, data.deliveryTime)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    data.freightSummary,
+                    color = if (data.freightSummary.contains("pending", ignoreCase = true)) LiveLoadsSecondary.copy(alpha = 0.82f) else LiveLoadsSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 Button(
                     onClick = onQuote,
-                    modifier = Modifier.height(28.dp),
-                    shape = RoundedCornerShape(4.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LiveLoadsSuccess),
+                    colors = ButtonDefaults.buttonColors(containerColor = LiveLoadsYellow, contentColor = Color(0xFF05070C)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.height(48.dp),
                 ) {
-                    Text("Quote", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Quote", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+            }
+
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                when (preferenceState) {
+                    "deleted" -> {
+                        OutlinedButton(
+                            onClick = { onRestore?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Restore", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Text(
+                            "Hidden",
+                            color = LiveLoadsDanger,
+                            fontSize = 12.sp,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
+                    }
+                    "saved" -> {
+                        OutlinedButton(
+                            onClick = { onRestore?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Unpin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = { onHide?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Text(
+                            "Pinned",
+                            color = LiveLoadsSuccess,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
+                    }
+                    else -> {
+                        OutlinedButton(
+                            onClick = { onSave?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Pin", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = { onHide?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Hide", color = LiveLoadsPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }
@@ -369,61 +401,144 @@ internal fun LiveLoadCard(
 }
 
 @Composable
-private fun LiveLoadFact(
-    label: String,
-    primary: String,
-    secondary: String,
-    modifier: Modifier = Modifier,
+private fun LiveLoadRouteSection(
+    pickupLocation: String,
+    pickupTime: String,
+    deliveryLocation: String,
+    deliveryTime: String,
 ) {
-    Column(
-        modifier = modifier
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF101A31), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(label, color = LiveLoadsSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-        Text(primary, color = LiveLoadsPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(secondary, color = LiveLoadsSecondary, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            StopMarker(color = LiveLoadsSuccess)
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(22.dp)
+                    .background(LiveLoadsSecondary.copy(alpha = 0.45f)),
+            )
+            StopMarker(color = LiveLoadsDanger)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+            LiveLoadRouteLine(
+                location = pickupLocation,
+                dateTime = pickupTime,
+                isPickup = true,
+            )
+            LiveLoadRouteLine(
+                location = deliveryLocation,
+                dateTime = deliveryTime,
+                isPickup = false,
+            )
+        }
     }
 }
 
 @Composable
-private fun CompactLiveLoadsButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.height(28.dp),
-        shape = RoundedCornerShape(4.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-        border = BorderStroke(1.dp, LiveLoadsCardBorder),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = LiveLoadsPrimary),
+private fun StopMarker(color: Color) {
+    Box(
+        modifier = Modifier
+            .width(14.dp)
+            .height(14.dp)
+            .semantics { contentDescription = if (color == LiveLoadsSuccess) "Pickup marker" else "Delivery marker" }
+            .clip(RoundedCornerShape(999.dp))
+            .background(color.copy(alpha = 0.18f))
+            .padding(3.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 11.sp)
+        Box(
+            modifier = Modifier
+                .width(8.dp)
+                .height(8.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(color),
+        )
     }
 }
 
-@Preview(showBackground = true, widthDp = 900)
+@Composable
+private fun LiveLoadRouteLine(
+    location: String,
+    dateTime: String,
+    isPickup: Boolean,
+) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            location,
+            color = LiveLoadsPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            dateTime,
+            color = if (dateTime.contains("TBC", ignoreCase = true)) LiveLoadsSecondary.copy(alpha = 0.82f) else LiveLoadsSecondary,
+            fontSize = 13.sp,
+            fontWeight = if (isPickup) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
+}
+
+private fun String?.liveLoadsDateTime(): String {
+    val date = runCatching { this?.takeIf { it.isNotBlank() }?.let { OffsetDateTime.parse(it) } }.getOrNull() ?: return "Time TBC"
+    val local = date.atZoneSameInstant(ZoneId.of("Europe/London"))
+    return local.format(DateTimeFormatter.ofPattern("dd MMM • HH:mm", Locale.UK))
+}
+
+private fun String.toJsonObjectOrNull(): JsonObject? {
+    if (isBlank()) return null
+    val parsed = runCatching { JsonParser.parseString(this) }.getOrNull() ?: return null
+    return parsed.takeIf { it.isJsonObject }?.asJsonObject
+}
+
+private fun JsonObject?.string(key: String): String? {
+    val value = this?.get(key) ?: return null
+    return value.asStringOrNull()?.takeIf { it.isNotBlank() }
+}
+
+private fun JsonElement?.asStringOrNull(): String? = when {
+    this == null || isJsonNull -> null
+    isJsonPrimitive -> asJsonPrimitive.asString
+    else -> null
+}
+
+private fun String.formatWeightLabel(): String {
+    val value = trim()
+    if (value.isBlank()) return value
+    return if (value.any { it.isLetter() }) value else "$value kg"
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF070B14)
 @Composable
 private fun LiveLoadCardPreview() {
     LiveLoadCard(
         job = DriverJob(
-            id = "job-preview-12345678",
+            id = "xdl-c059b7a3",
             status = "posted",
             currentStatus = "posted",
-            pickupLocation = "Blackburn BB1",
-            deliveryLocation = "Birmingham B1",
-            pickupDatetime = "2026-08-17T08:00:00Z",
-            deliveryDatetime = "2026-08-17T11:00:00Z",
-            clientName = "XDrive Logistics",
+            pickupLocation = "APPROX. AREA • BB1",
+            deliveryLocation = "APPROX. AREA • DA8",
+            pickupDatetime = "2026-07-13T15:30:00Z",
+            deliveryDatetime = "2026-07-14T06:30:00Z",
+            clientName = "Loadify Market",
             clientPhone = "",
-            vehicleType = "Luton Tail Lift",
-            cargoType = "Palletised freight",
-            budgetAmount = 450.0,
-            loadDetails = "{}",
+            vehicleType = "LWB Van",
+            cargoType = "Pallets",
+            budgetAmount = null,
+            loadDetails = """{"pallets":"1"}""",
         ),
-        preferenceState = null,
-        activeDeliveryPostcode = "BB1",
-        onOpenDetails = {},
+        selected = false,
+        onOpen = {},
         onQuote = {},
-        onPreferenceAction = {},
+        onSave = {},
+        onHide = {},
+        onRestore = {},
     )
 }
