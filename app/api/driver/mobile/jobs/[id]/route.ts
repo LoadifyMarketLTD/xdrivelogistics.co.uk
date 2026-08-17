@@ -5,7 +5,7 @@ import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respon
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-  const driver = await requireDriver(request);
+  const driver = await requireDriver(request, { requireOperationallyActive: false });
   if (!isDriverContext(driver)) return driver;
 
   const { id } = await params;
