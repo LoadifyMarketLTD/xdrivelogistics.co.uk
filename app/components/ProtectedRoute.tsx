@@ -26,18 +26,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
     if (!listedRoleAllowed) return false;
 
-    // Middleware already treats a membership-less Driver with an explicitly
-    // validated active driver row as a standalone Driver portal identity.
-    // Mirror that server-side normalization here so client hydration cannot
-    // turn the same valid session into a false /forbidden redirect.
-    const companyStatusForAccess =
-      user.role === 'driver' && user.membershipId == null && user.companyStatus == null
-        ? 'active'
-        : user.companyStatus ?? null;
-
     return isRoleAllowedForPath(pathname, role, {
       canAccessDriverMode: user.canAccessDriverMode === true,
-      membershipId: user.membershipId ?? null,
       membershipRole: user.membershipRole ?? null,
       financeAccess: user.financeAccess ?? null,
       ownerDriverWorkspace: user.ownerDriverWorkspace === true,
@@ -49,7 +39,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       driverStatus: user.driverStatus ?? null,
       appAccess: user.appAccess,
       accountStatus: user.accountStatus ?? null,
-      companyStatus: companyStatusForAccess,
+      companyStatus: user.companyStatus ?? null,
     });
   }, [allowedRoles, pathname, user]);
 
