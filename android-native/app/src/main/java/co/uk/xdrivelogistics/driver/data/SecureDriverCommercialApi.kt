@@ -139,6 +139,7 @@ class SecureDriverCommercialApi(
         val price = row.getAsJsonObject("publicPrice")
         val poster = row.getAsJsonObject("poster")
         val proposed = row.doubleOrNull("proposedPriceGbp") ?: price?.doubleOrNull("amount")
+        val marketplaceStatus = row.string("status").ifBlank { "posted" }
         val safeDetails = buildList {
             row.doubleOrNull("weightKg")?.let { add("Weight: ${it.toInt()} kg") }
             row.doubleOrNull("pallets")?.let { add("Pallets: ${it.toInt()}") }
@@ -147,8 +148,8 @@ class SecureDriverCommercialApi(
         }.joinToString(" · ")
         return DriverJob(
             id = row.string("id"),
-            status = "posted",
-            currentStatus = "posted",
+            status = marketplaceStatus,
+            currentStatus = marketplaceStatus,
             pickupLocation = pickup?.string("addressSummary").orEmpty().ifBlank { "Collection area" },
             deliveryLocation = delivery?.string("addressSummary").orEmpty().ifBlank { "Delivery area" },
             pickupDatetime = pickup?.nullableString("collectionFrom"),
