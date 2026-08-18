@@ -1,6 +1,6 @@
 create table if not exists public.company_membership_workspace_access (
   company_membership_id uuid not null references public.company_memberships(id) on delete cascade,
-  workspace_key text not null references public.workspaces(key) on delete cascade,
+  workspace_key text not null,
   granted_at timestamptz not null default now(),
   granted_by uuid null references auth.users(id),
   reason text null,
