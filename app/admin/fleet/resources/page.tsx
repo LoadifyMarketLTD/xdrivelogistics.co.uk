@@ -26,6 +26,13 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
 
+const hasValidCoordinates = (location: WorkspaceLocation | null | undefined) =>
+  Boolean(location)
+  && typeof location?.lat === 'number'
+  && Number.isFinite(location.lat)
+  && typeof location?.lng === 'number'
+  && Number.isFinite(location.lng);
+
 export default function FleetResourcesPage() {
   const data = useCompanyWorkspaceData();
   const intelligence = useOperationsIntelligence(data.companyId);
@@ -53,9 +60,14 @@ export default function FleetResourcesPage() {
   const resources = useMemo(() => data.drivers.map((driver) => {
     const vehicle = data.vehicles.find((item) => item.assigned_driver_id === driver.id) ?? null;
     const location = latestLocations.get(driver.id) ?? null;
+    const locationHasCoordinates = hasValidCoordinates(location);
     const timestamp = location?.recorded_at ?? location?.updated_at ?? null;
     const timestampMs = timestamp ? new Date(timestamp).getTime() : Number.NaN;
-    const trackingState: 'live' | 'stale' | 'missing' = !location ? 'missing' : !Number.isFinite(timestampMs) || Date.now() - timestampMs > 20 * 60_000 ? 'stale' : 'live';
+    const trackingState: 'live' | 'stale' | 'missing' = !locationHasCoordinates
+      ? 'missing'
+      : !Number.isFinite(timestampMs) || Date.now() - timestampMs > 20 * 60_000
+        ? 'stale'
+        : 'live';
     const jobs = data.jobs.filter((job) => job.assigned_driver_id === driver.id && !['completed', 'cancelled'].includes(String(job.current_status ?? job.status ?? '').toLowerCase()));
     const currentJob = jobs.find((job) => {
       const status = String(job.current_status ?? job.status ?? '').toLowerCase();
@@ -78,6 +90,7 @@ export default function FleetResourcesPage() {
       driver,
       vehicle,
       location,
+      locationHasCoordinates,
       timestamp,
       trackingState,
       currentJob,
@@ -148,7 +161,7 @@ export default function FleetResourcesPage() {
           rows={filtered.map((row) => [
             <div key="resource"><strong style={{ display: 'block' }}>{row.driver.display_name ?? row.driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{row.vehicle ? `${row.vehicle.reg_plate ?? 'No reg'} · ${row.vehicle.type?.replaceAll('_', ' ') ?? 'vehicle'}` : 'No assigned vehicle'}</span></div>,
             <div key="state"><StatusBadge value={row.driver.availability_status ?? 'offline'} tone={row.driver.availability_status === 'available' ? 'green' : row.driver.availability_status === 'busy' ? 'purple' : 'grey'} />{row.currentJob ? <span style={{ display: 'block', marginTop: 4, color: '#64748b' }}>Current #{row.currentJob.id.slice(0, 8).toUpperCase()}</span> : null}</div>,
-            row.location ? <div key="location"><span style={{ display: 'block' }}>{row.location.lat.toFixed(4)}, {row.location.lng.toFixed(4)}</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : 'No location',
+            row.locationHasCoordinates ? <div key="location"><span style={{ display: 'block' }}>{row.location!.lat.toFixed(4)}, {row.location!.lng.toFixed(4)}</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : row.location ? <div key="location-missing"><span style={{ display: 'block' }}>No valid coordinates</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : 'No location',
             row.future?.futurePosition ? <div key="future"><span style={{ display: 'block' }}>{row.future.futurePosition}</span><span style={{ color: '#64748b' }}>{when(row.future.futurePositionDate)}</span></div> : 'Not published',
             <div key="journey"><span style={{ display: 'block' }}>{row.returnJourney ? `${row.returnJourney.fromPostcode ?? 'From TBC'} → ${row.returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey'}</span><span style={{ color: '#64748b' }}>{row.nextJob ? `Next ${when(row.nextJob.pickup_datetime)} · ${row.nextJob.pickup_location ?? 'Pickup'}` : row.returnJourney ? when(row.returnJourney.availableFrom) : 'No future job allocated'}</span></div>,
             <StatusBadge key="advertising" value={row.advertising} tone={row.advertising === 'exchange' ? 'green' : row.advertising === 'partner' ? 'blue' : 'grey'} />,
