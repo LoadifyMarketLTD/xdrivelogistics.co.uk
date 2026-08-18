@@ -210,14 +210,14 @@ END;
 $$;
 
 -- The live CHECK recognises only the execution UI labels and rejects legitimate
--- allocation/award/audit events. Keep event_type as text, but align the CHECK to
--- the complete established XDrive vocabulary used by the current functions.
+-- allocation/award/audit events. Preserve the existing column type and compare
+-- through text so the constraint works for both legacy enum and live text schemas.
 ALTER TABLE public.job_tracking_events
   DROP CONSTRAINT IF EXISTS job_tracking_events_event_type_check;
 
 ALTER TABLE public.job_tracking_events
   ADD CONSTRAINT job_tracking_events_event_type_check
-  CHECK (event_type = ANY (ARRAY[
+  CHECK (event_type::text = ANY (ARRAY[
     'created',
     'awarded',
     'allocated',
@@ -236,7 +236,7 @@ ALTER TABLE public.job_tracking_events
     'failed',
     'cancelled',
     'note'
-  ]));
+  ]::text[]));
 
 COMMENT ON COLUMN public.job_bids.bidder_id IS
   'Legacy named-driver FK. NULL for Fleet Company bids without a named driver; canonical identity is bidder_user_id/company_id/bidder_driver_id.';
