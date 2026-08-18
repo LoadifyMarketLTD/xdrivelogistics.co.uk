@@ -8,6 +8,15 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import { operationalError } from '../../_lib/operationalError';
+import {
+  marketplaceNumber,
+  marketplaceText,
+  proposedPriceAmount,
+  publicAreaLabel,
+  publicOutcode,
+  publicQuoteNotes,
+  quoteSafeRequirementFlags,
+} from '../../driver/_lib/marketplacePublic';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -18,11 +27,23 @@ const PAGE_SIZES = new Set([10, 25, 50]);
 
 type Coordinates = { lat: number; lng: number };
 type CompanyRef =
-  | { name?: string | null; company_number?: string | null }
-  | Array<{ name?: string | null; company_number?: string | null }>
+  | {
+      name?: string | null;
+      company_number?: string | null;
+      phone?: string | null;
+      company_type?: string | null;
+      created_at?: string | null;
+    }
+  | Array<{
+      name?: string | null;
+      company_number?: string | null;
+      phone?: string | null;
+      company_type?: string | null;
+      created_at?: string | null;
+    }>
   | null;
 
-type SearchLoadRow = {
+type SearchLoadRow = Record<string, unknown> & {
   id: string;
   company_id: string | null;
   status: string | null;
@@ -39,6 +60,8 @@ type SearchLoadRow = {
   delivery_lng: number | string | null;
   delivery_datetime: string | null;
   delivery_time_slot: string | null;
+  pickup_country_code: string | null;
+  delivery_country_code: string | null;
   vehicle_type: string | null;
   requested_vehicle_type: string | null;
   requested_vehicle_label: string | null;
@@ -49,11 +72,8 @@ type SearchLoadRow = {
   budget_amount: number | string | null;
   currency: string | null;
   is_fixed_price: boolean | null;
-  customer_reference: string | null;
-  booking_reference: string | null;
   load_details: string | null;
   special_requirements: string | null;
-  access_restrictions: string | null;
   service_mode: string | null;
   direct_delivery_required: boolean | null;
   distance_miles: number | string | null;
@@ -61,6 +81,7 @@ type SearchLoadRow = {
   exchange_posted_at: string | null;
   exchange_visibility: string | null;
   direct_invite_company_id: string | null;
+  awarded_carrier_company_id?: string | null;
   companies: CompanyRef;
 };
 
@@ -80,13 +101,16 @@ const SEARCH_SELECT = [
   'id', 'company_id', 'status', 'current_status',
   'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
   'delivery_location', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
+  'pickup_country_code', 'delivery_country_code',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label',
   'cargo_type', 'requested_cargo_label', 'pallets', 'weight_kg',
   'budget_amount', 'currency', 'is_fixed_price',
-  'customer_reference', 'booking_reference', 'load_details', 'special_requirements', 'access_restrictions',
+  'load_details', 'special_requirements',
+  'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
+  'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
   'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles',
   'exchange_posted_at', 'exchange_visibility', 'direct_invite_company_id',
-  'companies!jobs_company_id_fkey(name,company_number)',
+  'companies!jobs_company_id_fkey(name,company_number,phone,company_type,created_at)',
 ].join(',');
 
 const bidActionSchema = z.discriminatedUnion('action', [
@@ -104,15 +128,12 @@ const bidActionSchema = z.discriminatedUnion('action', [
   }),
 ]);
 
-function numberOrNull(value: unknown) {
-  const parsed = Number(value);
-  return value !== null && value !== undefined && value !== '' && Number.isFinite(parsed) ? parsed : null;
-}
-
 function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
   const parsedLat = Number(lat);
   const parsedLng = Number(lng);
-  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+    ? { lat: parsedLat, lng: parsedLng }
+    : null;
 }
 
 function postcodeKey(value: unknown) {
@@ -137,6 +158,7 @@ async function postcodeCoordinates(postcodes: unknown[]) {
   const unique = [...new Set(postcodes.map(postcodeKey).filter(Boolean))];
   const result = new Map<string, Coordinates>();
   if (unique.length === 0) return result;
+
   try {
     const response = await fetch('https://api.postcodes.io/postcodes', {
       method: 'POST',
@@ -153,8 +175,9 @@ async function postcodeCoordinates(postcodes: unknown[]) {
       if (coordinates) result.set(postcodeKey(item.query), coordinates);
     }
   } catch {
-    // Best-effort enrichment only; text filtering remains available.
+    // Private coordinates are used only server-side for radius matching.
   }
+
   return result;
 }
 
@@ -203,8 +226,7 @@ function timed(row: SearchLoadRow) {
 function jobDescription(row: SearchLoadRow) {
   if (row.direct_delivery_required) return 'deliver_direct';
   const service = String(row.service_mode ?? '').toLowerCase();
-  const notes = `${row.load_details ?? ''} ${row.special_requirements ?? ''}`.toLowerCase();
-  if (service.includes('multi') || notes.includes('multi-drop') || notes.includes('multi drop')) return 'multi_drop';
+  if (service.includes('multi')) return 'multi_drop';
   const dateRelation = relation(row);
   if (dateRelation === 'same_day') return timed(row) ? 'same_day_timed' : 'same_day_non_timed';
   if (dateRelation === 'next_day') return timed(row) ? 'next_day_timed' : 'next_day_non_timed';
@@ -241,7 +263,11 @@ async function resolveCompanyOperator(request: NextRequest, companyId: string) {
   }
 
   const role = String(membership?.role_in_company ?? '');
-  const companyJoin = membership?.companies as unknown as { status?: string | null } | Array<{ status?: string | null }> | null | undefined;
+  const companyJoin = membership?.companies as unknown as
+    | { status?: string | null }
+    | Array<{ status?: string | null }>
+    | null
+    | undefined;
   const company = Array.isArray(companyJoin) ? companyJoin[0] : companyJoin;
   if (!membership || company?.status !== 'active' || !OPERATOR_ROLES.has(role)) {
     return { kind: 'forbidden' as const, userId: authData.user.id };
@@ -261,14 +287,81 @@ async function resolveCompanyOperator(request: NextRequest, companyId: string) {
 
 function authResponse(result: Awaited<ReturnType<typeof resolveCompanyOperator>>, context: string) {
   if (result.kind === 'config') {
-    return operationalError({ status: 503, message: 'Marketplace services are temporarily unavailable.', context: `${context}.config`, retryable: true });
+    return operationalError({
+      status: 503,
+      message: 'Marketplace services are temporarily unavailable.',
+      context: `${context}.config`,
+      retryable: true,
+    });
   }
   if (result.kind === 'unauthorized') return respond(401, { error: 'Your session has expired. Sign in again.' });
   if (result.kind === 'forbidden') return respond(403, { error: 'You do not have access to this company marketplace.' });
   if (result.kind === 'error') {
-    return operationalError({ status: 500, message: 'We could not verify your company access. Please try again.', context: `${context}.membership`, cause: result.cause, retryable: true });
+    return operationalError({
+      status: 500,
+      message: 'We could not verify your company access. Please try again.',
+      context: `${context}.membership`,
+      cause: result.cause,
+      retryable: true,
+    });
   }
   return null;
+}
+
+function publicSearchProjection(
+  row: SearchLoadRow,
+  distanceFromSearchOriginMiles: number | null,
+  distanceToSearchDestinationMiles: number | null,
+) {
+  const company = companyInfo(row.companies);
+  const requirements = quoteSafeRequirementFlags(row);
+  return {
+    id: row.id,
+    company_id: row.company_id,
+    status: row.status,
+    current_status: row.current_status,
+    pickup_location: publicAreaLabel(row.pickup_postcode, row.pickup_country_code, 'Collection area TBC'),
+    pickup_postcode: publicOutcode(row.pickup_postcode),
+    pickup_datetime: row.pickup_datetime,
+    pickup_time_slot: row.pickup_time_slot,
+    delivery_location: publicAreaLabel(row.delivery_postcode, row.delivery_country_code, 'Delivery area TBC'),
+    delivery_postcode: publicOutcode(row.delivery_postcode),
+    delivery_datetime: row.delivery_datetime,
+    delivery_time_slot: row.delivery_time_slot,
+    vehicle_type: row.vehicle_type,
+    requested_vehicle_type: row.requested_vehicle_type,
+    requested_vehicle_label: row.requested_vehicle_label,
+    cargo_type: row.cargo_type,
+    requested_cargo_label: row.requested_cargo_label,
+    pallets: marketplaceNumber(row.pallets),
+    weight_kg: marketplaceNumber(row.weight_kg),
+    budget_amount: proposedPriceAmount(row.budget_amount),
+    currency: marketplaceText(row.currency) ?? 'GBP',
+    is_fixed_price: row.is_fixed_price === true,
+    customer_reference: null,
+    booking_reference: null,
+    load_details: publicQuoteNotes(row.load_details),
+    special_requirements: requirements.join(', ') || null,
+    access_restrictions: null,
+    exchange_posted_at: row.exchange_posted_at,
+    exchange_visibility: row.exchange_visibility,
+    direct_invite_company_id: row.direct_invite_company_id,
+    posterName: company?.name ?? 'Marketplace member',
+    posterMemberCode: company?.company_number ?? null,
+    posterPhone: company?.phone ?? null,
+    posterMemberType: company?.company_type ?? null,
+    posterMemberSince: company?.created_at ?? null,
+    // Exact job coordinates are never returned pre-award. A future map may use
+    // an independently derived broad-area centroid, but must not reuse site coords.
+    pickupCoordinates: null,
+    deliveryCoordinates: null,
+    distanceFromSearchOriginMiles,
+    distanceToSearchDestinationMiles,
+    journeyDistanceMiles: marketplaceNumber(row.job_distance_miles) ?? marketplaceNumber(row.distance_miles),
+    jobDescription: jobDescription(row),
+    loadType: loadType(row),
+    direct_delivery_required: row.direct_delivery_required === true,
+  };
 }
 
 async function searchLoads(request: NextRequest, companyId: string) {
@@ -283,18 +376,18 @@ async function searchLoads(request: NextRequest, companyId: string) {
   const member = searchParams.get('member')?.trim().toLowerCase() ?? '';
   const description = searchParams.get('description')?.trim().toLowerCase() ?? '';
   const requestedLoadType = searchParams.get('loadType')?.trim().toLowerCase() ?? 'all';
-  const postedWithinHours = numberOrNull(searchParams.get('postedWithinHours'));
+  const postedWithinHours = marketplaceNumber(searchParams.get('postedWithinHours'));
   const dateFrom = searchParams.get('dateFrom')?.trim() ?? '';
   const dateTo = searchParams.get('dateTo')?.trim() ?? '';
-  const minBudget = numberOrNull(searchParams.get('minBudget'));
-  const maxBudget = numberOrNull(searchParams.get('maxBudget'));
+  const minBudget = marketplaceNumber(searchParams.get('minBudget'));
+  const maxBudget = marketplaceNumber(searchParams.get('maxBudget'));
   const pageSize = PAGE_SIZES.has(Number(searchParams.get('pageSize'))) ? Number(searchParams.get('pageSize')) : 25;
   const page = Math.max(1, Number(searchParams.get('page') ?? 1) || 1);
 
   let query = supabaseAdmin!
     .from('jobs')
     .select(SEARCH_SELECT)
-    .eq('status', 'posted')
+    .in('status', ['posted', 'quoted'])
     .not('exchange_posted_at', 'is', null)
     .is('awarded_carrier_company_id', null)
     .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${companyId})`)
@@ -302,7 +395,9 @@ async function searchLoads(request: NextRequest, companyId: string) {
     .order('exchange_posted_at', { ascending: false })
     .limit(250);
 
-  if (vehicle) query = query.or(`vehicle_type.ilike.%${vehicle}%,requested_vehicle_type.ilike.%${vehicle}%,requested_vehicle_label.ilike.%${vehicle}%`);
+  if (vehicle) {
+    query = query.or(`vehicle_type.ilike.%${vehicle}%,requested_vehicle_type.ilike.%${vehicle}%,requested_vehicle_label.ilike.%${vehicle}%`);
+  }
   if (freight) query = query.or(`cargo_type.ilike.%${freight}%,requested_cargo_label.ilike.%${freight}%`);
   if (minBudget !== null) query = query.gte('budget_amount', minBudget);
   if (maxBudget !== null) query = query.lte('budget_amount', maxBudget);
@@ -335,31 +430,26 @@ async function searchLoads(request: NextRequest, companyId: string) {
   const toNeedle = to.toLowerCase();
 
   const enriched = rows.map((row) => {
-    const pickupCoordinates = validCoordinates(row.pickup_lat, row.pickup_lng) ?? geocoded.get(postcodeKey(row.pickup_postcode)) ?? null;
-    const deliveryCoordinates = validCoordinates(row.delivery_lat, row.delivery_lng) ?? geocoded.get(postcodeKey(row.delivery_postcode)) ?? null;
+    const pickupCoordinates = validCoordinates(row.pickup_lat, row.pickup_lng)
+      ?? geocoded.get(postcodeKey(row.pickup_postcode))
+      ?? null;
+    const deliveryCoordinates = validCoordinates(row.delivery_lat, row.delivery_lng)
+      ?? geocoded.get(postcodeKey(row.delivery_postcode))
+      ?? null;
     const fromMiles = fromCoordinates && pickupCoordinates ? distanceMiles(fromCoordinates, pickupCoordinates) : null;
     const toMiles = toCoordinates && deliveryCoordinates ? distanceMiles(toCoordinates, deliveryCoordinates) : null;
-    const company = companyInfo(row.companies);
-    return {
-      ...row,
-      companies: undefined,
-      posterName: company?.name ?? 'Marketplace member',
-      posterMemberCode: company?.company_number ?? null,
-      pickupCoordinates,
-      deliveryCoordinates,
-      distanceFromSearchOriginMiles: fromMiles == null ? null : Number(fromMiles.toFixed(1)),
-      distanceToSearchDestinationMiles: toMiles == null ? null : Number(toMiles.toFixed(1)),
-      jobDescription: jobDescription(row),
-      loadType: loadType(row),
-      journeyDistanceMiles: numberOrNull(row.job_distance_miles) ?? numberOrNull(row.distance_miles),
-    };
+    return publicSearchProjection(
+      row,
+      fromMiles == null ? null : Number(fromMiles.toFixed(1)),
+      toMiles == null ? null : Number(toMiles.toFixed(1)),
+    );
   });
 
   const filtered = enriched.filter((row) => {
     const pickupText = `${row.pickup_location ?? ''} ${row.pickup_postcode ?? ''}`.toLowerCase();
     const deliveryText = `${row.delivery_location ?? ''} ${row.delivery_postcode ?? ''}`.toLowerCase();
-    const bodyText = `${row.vehicle_type ?? ''} ${row.requested_vehicle_type ?? ''} ${row.requested_vehicle_label ?? ''} ${row.load_details ?? ''}`.toLowerCase();
-    const memberText = `${row.posterName} ${row.posterMemberCode ?? ''} ${row.company_id ?? ''} ${row.id} ${row.customer_reference ?? ''} ${row.booking_reference ?? ''}`.toLowerCase();
+    const bodyText = `${row.vehicle_type ?? ''} ${row.requested_vehicle_type ?? ''} ${row.requested_vehicle_label ?? ''} ${row.special_requirements ?? ''}`.toLowerCase();
+    const memberText = `${row.posterName} ${row.posterMemberCode ?? ''} ${row.company_id ?? ''} ${row.id}`.toLowerCase();
 
     if (fromNeedle) {
       if (fromCoordinates) {
@@ -418,6 +508,31 @@ async function searchLoads(request: NextRequest, companyId: string) {
   });
 }
 
+function bidJobProjection(row: Record<string, unknown>, companyId: string) {
+  const company = companyInfo((row.companies ?? null) as CompanyRef);
+  const awardedToViewer = marketplaceText(row.awarded_carrier_company_id) === companyId;
+  return {
+    id: marketplaceText(row.id),
+    pickup_location: awardedToViewer
+      ? marketplaceText(row.pickup_location)
+      : publicAreaLabel(row.pickup_postcode, row.pickup_country_code, 'Collection area TBC'),
+    pickup_postcode: awardedToViewer ? marketplaceText(row.pickup_postcode) : publicOutcode(row.pickup_postcode),
+    delivery_location: awardedToViewer
+      ? marketplaceText(row.delivery_location)
+      : publicAreaLabel(row.delivery_postcode, row.delivery_country_code, 'Delivery area TBC'),
+    delivery_postcode: awardedToViewer ? marketplaceText(row.delivery_postcode) : publicOutcode(row.delivery_postcode),
+    pickup_datetime: marketplaceText(row.pickup_datetime),
+    vehicle_type: marketplaceText(row.vehicle_type),
+    requested_vehicle_label: marketplaceText(row.requested_vehicle_label),
+    status: marketplaceText(row.status),
+    current_status: marketplaceText(row.current_status),
+    budget_amount: proposedPriceAmount(row.budget_amount),
+    currency: marketplaceText(row.currency) ?? 'GBP',
+    posterName: company?.name ?? 'Marketplace member',
+    posterMemberCode: company?.company_number ?? null,
+  };
+}
+
 async function loadBids(companyId: string) {
   const { data: bidsData, error: bidsError } = await supabaseAdmin!
     .from('job_bids')
@@ -437,11 +552,11 @@ async function loadBids(companyId: string) {
 
   const bids = (bidsData ?? []) as unknown as BidRow[];
   const jobIds = [...new Set(bids.map((bid) => bid.job_id))];
-  const jobsById = new Map<string, Record<string, unknown>>();
+  const jobsById = new Map<string, ReturnType<typeof bidJobProjection>>();
   if (jobIds.length > 0) {
     const { data: jobsData, error: jobsError } = await supabaseAdmin!
       .from('jobs')
-      .select('id, company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,company_number)')
+      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,company_number)')
       .in('id', jobIds);
     if (jobsError) {
       return operationalError({
@@ -452,14 +567,8 @@ async function loadBids(companyId: string) {
       });
     }
     for (const raw of jobsData ?? []) {
-      const row = raw as unknown as Record<string, unknown> & { companies?: CompanyRef };
-      const company = companyInfo(row.companies ?? null);
-      jobsById.set(String(row.id), {
-        ...row,
-        companies: undefined,
-        posterName: company?.name ?? 'Marketplace member',
-        posterMemberCode: company?.company_number ?? null,
-      });
+      const row = raw as unknown as Record<string, unknown>;
+      jobsById.set(String(row.id), bidJobProjection(row, companyId));
     }
   }
 
@@ -520,7 +629,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return operationalError({ status: 503, message: 'Marketplace services are temporarily unavailable.', context: 'marketplace.company.post.config', retryable: true });
+    return operationalError({
+      status: 503,
+      message: 'Marketplace services are temporarily unavailable.',
+      context: 'marketplace.company.post.config',
+      retryable: true,
+    });
   }
 
   const raw = await request.json().catch(() => null);
@@ -541,7 +655,12 @@ export async function POST(request: NextRequest) {
       .eq('company_id', input.companyId)
       .maybeSingle();
     if (bidError) {
-      return operationalError({ message: 'We could not verify this quote. Please retry.', context: `marketplace.company.withdraw.lookup:${input.bidId}`, cause: bidError, retryable: true });
+      return operationalError({
+        message: 'We could not verify this quote. Please retry.',
+        context: `marketplace.company.withdraw.lookup:${input.bidId}`,
+        cause: bidError,
+        retryable: true,
+      });
     }
     if (!bid) return respond(404, { error: 'Quote not found.' });
     if (bid.status !== 'submitted') return respond(409, { error: 'Only a submitted quote can be withdrawn.' });
@@ -553,7 +672,12 @@ export async function POST(request: NextRequest) {
       .eq('company_id', input.companyId)
       .eq('status', 'submitted');
     if (updateError) {
-      return operationalError({ message: 'We could not withdraw this quote. Please retry.', context: `marketplace.company.withdraw.update:${input.bidId}`, cause: updateError, retryable: true });
+      return operationalError({
+        message: 'We could not withdraw this quote. Please retry.',
+        context: `marketplace.company.withdraw.update:${input.bidId}`,
+        cause: updateError,
+        retryable: true,
+      });
     }
     return respond(200, { ok: true, status: 'withdrawn' });
   }
@@ -564,14 +688,19 @@ export async function POST(request: NextRequest) {
     .eq('id', input.jobId)
     .maybeSingle();
   if (jobError) {
-    return operationalError({ message: 'We could not verify this load. Please retry.', context: `marketplace.company.bid.job:${input.jobId}`, cause: jobError, retryable: true });
+    return operationalError({
+      message: 'We could not verify this load. Please retry.',
+      context: `marketplace.company.bid.job:${input.jobId}`,
+      cause: jobError,
+      retryable: true,
+    });
   }
   if (!job) return respond(404, { error: 'Load not found.' });
   if (job.company_id === input.companyId) return respond(403, { error: 'You cannot quote on your own company load.' });
   const visible = job.exchange_visibility === 'exchange'
     || (job.exchange_visibility === 'direct' && job.direct_invite_company_id === input.companyId);
   if (!visible) return respond(404, { error: 'Load not found.' });
-  if (job.status !== 'posted' || job.awarded_carrier_company_id) {
+  if (!['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase()) || job.awarded_carrier_company_id) {
     return respond(409, { error: 'This load is no longer open for quotes.' });
   }
 
@@ -584,7 +713,12 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle();
   if (existingError) {
-    return operationalError({ message: 'We could not check your existing quote. Please retry.', context: `marketplace.company.bid.existing:${input.jobId}`, cause: existingError, retryable: true });
+    return operationalError({
+      message: 'We could not check your existing quote. Please retry.',
+      context: `marketplace.company.bid.existing:${input.jobId}`,
+      cause: existingError,
+      retryable: true,
+    });
   }
   if (existing) return respond(409, { error: 'Your company already has an active quote on this load.' });
 
@@ -604,7 +738,12 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (insertError) {
-    return operationalError({ message: 'We could not submit this quote. Please retry.', context: `marketplace.company.bid.insert:${input.jobId}`, cause: insertError, retryable: true });
+    return operationalError({
+      message: 'We could not submit this quote. Please retry.',
+      context: `marketplace.company.bid.insert:${input.jobId}`,
+      cause: insertError,
+      retryable: true,
+    });
   }
 
   return respond(201, { ok: true, bid: inserted });
