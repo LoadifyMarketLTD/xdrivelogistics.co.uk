@@ -8,17 +8,17 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b|customer-dash-table/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-dash-table/.test(source);
 }
 
 function hasPageHeader(filePath: string): boolean {
   const source = read(filePath);
-  return /\bPageHeader\b|\bDashboardHomeHeader\b/.test(source);
+  return /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source);
 }
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dash-metrics/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -30,10 +30,10 @@ function hasActionCentreRoute(filePath: string): boolean {
 function rowFor(filePath: string) {
   const source = readFileSync(resolve(process.cwd(), filePath), 'utf8');
   return {
-    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b/.test(source),
+    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dash-metrics/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-dash-table/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
