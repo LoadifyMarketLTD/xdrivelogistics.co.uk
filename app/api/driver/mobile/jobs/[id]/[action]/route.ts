@@ -1,10 +1,9 @@
+import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { autoGenerateMarketplaceInvoice } from '../../../../../_lib/autoGenerateMarketplaceInvoice';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import {
-  appendStatusHistory,
-  hasPod,
   insertTrackingEvent,
   isDriverContext,
   jobSelect,
@@ -15,64 +14,32 @@ import {
   safeArray,
 } from '../../../_lib';
 
-type ActionConfig = {
-  currentStatus: string;
-  lifecycleStatus?: string;
-  timestampField?: string;
-  eventType: string;
-  label: string;
-  allowedLifecycle: string[];
-  requiresPod?: boolean;
+const actionToCanonicalStatus: Record<string, string> = {
+  'on-my-way-pickup': 'on_my_way',
+  'arrived-pickup': 'on_site_pickup',
+  loaded: 'loaded',
+  'on-my-way-delivery': 'in_transit',
+  'arrived-delivery': 'on_site_delivery',
+  delivered: 'delivered',
 };
 
-const actions: Record<string, ActionConfig> = {
-  'on-my-way-pickup': {
-    currentStatus: 'on_my_way',
-    lifecycleStatus: 'allocated',
-    timestampField: 'on_my_way_at',
-    eventType: 'driver_en_route',
-    label: 'On my way to pickup',
-    allowedLifecycle: ['awarded', 'allocated'],
-  },
-  'arrived-pickup': {
-    currentStatus: 'on_site_pickup',
-    lifecycleStatus: 'allocated',
-    timestampField: 'on_site_pickup_at',
-    eventType: 'arrived_pickup',
-    label: 'Arrived at pickup',
-    allowedLifecycle: ['awarded', 'allocated'],
-  },
-  loaded: {
-    currentStatus: 'loaded',
-    lifecycleStatus: 'collected',
-    timestampField: 'loaded_at',
-    eventType: 'collected',
-    label: 'Loaded / collected',
-    allowedLifecycle: ['allocated'],
-  },
-  'on-my-way-delivery': {
-    currentStatus: 'in_transit',
-    lifecycleStatus: 'in_transit',
-    eventType: 'in_transit',
-    label: 'On my way to delivery',
-    allowedLifecycle: ['collected'],
-  },
-  'arrived-delivery': {
-    currentStatus: 'on_site_delivery',
-    timestampField: 'on_site_delivery_at',
-    eventType: 'arrived_delivery',
-    label: 'Arrived at delivery',
-    allowedLifecycle: ['in_transit'],
-  },
-  delivered: {
-    currentStatus: 'delivered',
-    lifecycleStatus: 'delivered',
-    timestampField: 'delivered_at',
-    eventType: 'delivered',
-    label: 'Delivered',
-    allowedLifecycle: ['in_transit'],
-    requiresPod: true,
-  },
+const userScopedSupabase = (token: string) => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
+  if (!url || !anonKey) return null;
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+};
+
+const storedSignatureText = (value: unknown) => {
+  if (typeof value === 'string') return value.trim() || null;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const candidate = (value as Record<string, unknown>).value;
+    return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
+  }
+  return null;
 };
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
@@ -90,8 +57,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return savePod(request, id, driver.userId, driver.driverId);
   }
 
-  const config = actions[action];
-  if (!config) return respond(404, { error: 'Unsupported driver action.' });
+  const nextStatus = actionToCanonicalStatus[action];
+  if (!nextStatus) return respond(404, { error: 'Unsupported driver action.' });
 
   const { data: existing, error: loadError } = await supabaseAdmin
     .from('jobs')
@@ -102,45 +69,51 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
-
   const job = existing as unknown as MobileJobRow;
-  const lifecycle = String(job.status ?? '').toLowerCase();
-  if (!config.allowedLifecycle.includes(lifecycle)) {
-    return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
-  }
-  if (config.requiresPod && job.pod_required !== false && !hasPod(job)) {
-    return respond(409, { error: 'POD is required before marking this job delivered.' });
+
+  const token = getBearerToken(request);
+  if (!token) return respond(401, { error: 'Missing bearer token.' });
+  const scoped = userScopedSupabase(token);
+  if (!scoped) return respond(503, { error: 'Authenticated lifecycle client is not configured.' });
+
+  const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
+  const collectionPhotoUrl = typeof body.collectionPhotoUrl === 'string' ? body.collectionPhotoUrl.trim() || null : null;
+  const driverNotes = typeof body.driverNotes === 'string' ? body.driverNotes.trim().slice(0, 5000) || null : null;
+  const signature = typeof body.deliverySignatureData === 'string' && body.deliverySignatureData.trim()
+    ? body.deliverySignatureData.trim()
+    : storedSignatureText(job.delivery_signature_data);
+  const recipient = typeof body.clientSignatureName === 'string' && body.clientSignatureName.trim()
+    ? body.clientSignatureName.trim()
+    : job.client_signature_name;
+  const deliveryPhotos = Array.isArray(body.deliveryPhotos)
+    ? body.deliveryPhotos.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    : null;
+
+  const { error: lifecycleError } = await scoped.rpc('driver_update_job_status_atomic', {
+    p_driver_id: driver.driverId,
+    p_job_id: id,
+    p_next_status: nextStatus,
+    p_collection_photo_url: collectionPhotoUrl,
+    p_driver_notes: driverNotes,
+    p_delivery_photos: deliveryPhotos,
+    p_delivery_signature_data: signature,
+    p_client_signature_name: recipient,
+  });
+
+  if (lifecycleError) {
+    const status = lifecycleError.code === '42501' ? 403 : lifecycleError.code === '23514' ? 409 : lifecycleError.code === 'P0002' ? 404 : 500;
+    return respond(status, { error: lifecycleError.message });
   }
 
-  const now = new Date().toISOString();
-  const updatePayload: Record<string, unknown> = {
-    current_status: config.currentStatus,
-    status_updated_at: now,
-    updated_at: now,
-    status_history: appendStatusHistory(job.status_history, {
-      status: config.currentStatus,
-      lifecycle_status: config.lifecycleStatus ?? job.status,
-      label: config.label,
-      timestamp: now,
-      actor_user_id: driver.userId,
-      source: 'driver_mobile',
-    }),
-  };
-  if (config.lifecycleStatus) updatePayload.status = config.lifecycleStatus;
-  if (config.timestampField) updatePayload[config.timestampField] = now;
-
-  const { data: updated, error: updateError } = await supabaseAdmin
+  const { data: updated, error: refreshError } = await supabaseAdmin
     .from('jobs')
-    .update(updatePayload)
+    .select(jobSelect)
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
-    .select(jobSelect)
     .single();
+  if (refreshError) return respond(500, { error: refreshError.message });
 
-  if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(id, driver.userId, config.eventType, config.label);
-  const updatedJob = updated as unknown as MobileJobRow & { awarded_carrier_company_id?: string | null };
-
+  const updatedJob = updated as unknown as MobileJobRow;
   if (action === 'delivered') {
     const carrierCompanyId = typeof updatedJob.awarded_carrier_company_id === 'string'
       ? updatedJob.awarded_carrier_company_id
@@ -148,7 +121,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (carrierCompanyId) {
       try {
         await autoGenerateMarketplaceInvoice({
-          supabase: supabaseAdmin!,
+          supabase: supabaseAdmin,
           jobId: id,
           supplierCompanyId: carrierCompanyId,
           actorUserId: driver.userId,
@@ -156,7 +129,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
       } catch (reason) {
         console.error(
-          'Driver status update succeeded but auto invoice generation failed:',
+          'Driver lifecycle update succeeded but auto invoice generation failed:',
           reason instanceof Error ? reason.message : reason
         );
       }
@@ -260,14 +233,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   const now = new Date().toISOString();
   const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const signatureData = rawSignature
-    ? {
-        type: 'driver_mobile_signature',
-        value: rawSignature,
-        captured_at: now,
-        captured_by: userId,
-      }
-    : job.delivery_signature_data ?? null;
+  const signatureData = rawSignature || job.delivery_signature_data || null;
 
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
