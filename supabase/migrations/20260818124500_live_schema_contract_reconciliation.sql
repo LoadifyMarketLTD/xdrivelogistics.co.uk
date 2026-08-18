@@ -31,6 +31,39 @@ ALTER TABLE public.jobs
 ALTER TABLE public.job_bids
   ADD COLUMN IF NOT EXISTS bidder_company_id uuid;
 
+-- Legacy fresh bootstrap linked bidder_id to auth.users. Live XDrive and the
+-- canonical quote boundary use bidder_id exclusively as the optional named
+-- driver FK, while bidder_user_id carries the user identity. Repair only that
+-- FK meaning; validation fails closed if a non-driver legacy value is present.
+DO $$
+DECLARE
+  v_constraint_name text;
+BEGIN
+  FOR v_constraint_name IN
+    SELECT DISTINCT c.conname
+    FROM pg_constraint c
+    JOIN pg_attribute a
+      ON a.attrelid = c.conrelid
+     AND a.attnum = ANY (c.conkey)
+    WHERE c.conrelid = 'public.job_bids'::regclass
+      AND c.contype = 'f'
+      AND a.attname = 'bidder_id'
+  LOOP
+    EXECUTE format('ALTER TABLE public.job_bids DROP CONSTRAINT %I', v_constraint_name);
+  END LOOP;
+
+  ALTER TABLE public.job_bids
+    ADD CONSTRAINT job_bids_bidder_id_fkey
+    FOREIGN KEY (bidder_id)
+    REFERENCES public.drivers(id)
+    ON DELETE SET NULL
+    NOT VALID;
+END
+$$;
+
+ALTER TABLE public.job_bids
+  VALIDATE CONSTRAINT job_bids_bidder_id_fkey;
+
 -- Canonical driver tracking writes both the historical created_* fields and the
 -- runtime event_time/user_id fields. Fresh bootstrap tables only had the former.
 ALTER TABLE public.job_tracking_events
@@ -148,6 +181,43 @@ BEGIN
           AND e.enumlabel = v_label
       ) THEN
         EXECUTE format('ALTER TYPE public.job_status ADD VALUE %L', v_label);
+      END IF;
+    END LOOP;
+  END IF;
+END
+$$;
+
+-- The fresh tracking enum predates the native execution UI labels. The CHECK
+-- below cannot admit a value that the enum itself rejects, so reconcile both
+-- layers before the canonical driver RPC emits tracking events.
+DO $$
+DECLARE
+  v_label text;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'tracking_event_type'
+  ) THEN
+    FOREACH v_label IN ARRAY ARRAY[
+      'awarded',
+      'on_my_way_to_pickup',
+      'on_site_pickup',
+      'loaded',
+      'on_my_way_to_delivery',
+      'on_site_delivery',
+      'completed'
+    ]
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_enum e
+        WHERE e.enumtypid = 'public.tracking_event_type'::regtype
+          AND e.enumlabel = v_label
+      ) THEN
+        EXECUTE format('ALTER TYPE public.tracking_event_type ADD VALUE %L', v_label);
       END IF;
     END LOOP;
   END IF;
