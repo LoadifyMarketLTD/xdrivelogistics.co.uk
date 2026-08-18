@@ -4,9 +4,9 @@ import { operationalError } from '../../_lib/operationalError';
 import {
   marketplaceNumber,
   marketplaceText,
-  proposedPriceAmount,
   publicAreaLabel,
   publicOutcode,
+  publicProposedPrice,
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../_lib/marketplacePublic';
@@ -255,8 +255,6 @@ export async function GET(request: NextRequest) {
     query = query.or(`vehicle_type.ilike.%${vehicle}%,requested_vehicle_type.ilike.%${vehicle}%,requested_vehicle_label.ilike.%${vehicle}%`);
   }
   if (freight) query = query.or(`cargo_type.ilike.%${freight}%,requested_cargo_label.ilike.%${freight}%`);
-  if (minBudget !== null) query = query.gte('budget_amount', minBudget);
-  if (maxBudget !== null) query = query.lte('budget_amount', maxBudget);
   if (dateFrom) query = query.gte('pickup_datetime', `${dateFrom}T00:00:00`);
   if (dateTo) query = query.lte('pickup_datetime', `${dateTo}T23:59:59`);
   if (postedWithinHours !== null && postedWithinHours > 0) {
@@ -296,7 +294,7 @@ export async function GET(request: NextRequest) {
     const company = companyInfo(row.companies);
     const publicNotes = publicQuoteNotes(row.load_details);
     const requirementFlags = quoteSafeRequirementFlags(row);
-    const proposedPrice = proposedPriceAmount(row.budget_amount);
+    const proposedPrice = publicProposedPrice(row);
 
     return {
       id: row.id,
@@ -364,6 +362,8 @@ export async function GET(request: NextRequest) {
     if (member && !memberText.includes(member)) return false;
     if (description && description !== 'any' && row.jobDescription !== description) return false;
     if (requestedLoadType !== 'all' && row.loadType !== requestedLoadType) return false;
+    if (minBudget !== null && (row.budget_amount === null || row.budget_amount < minBudget)) return false;
+    if (maxBudget !== null && (row.budget_amount === null || row.budget_amount > maxBudget)) return false;
     return true;
   });
 
