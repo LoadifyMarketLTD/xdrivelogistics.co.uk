@@ -29,6 +29,12 @@ type OwnerBid = {
   }[] | null;
 };
 
+type DriverFinanceInvoice = {
+  status: string;
+  payment_status?: string | null;
+  amount: number | null;
+};
+
 type DriverNextAction =
   | { kind: 'transition'; nextStatus: string; label: string; description: string; resultLabel: string }
   | { kind: 'open'; label: string; description: string };
@@ -150,6 +156,8 @@ export default function DriverDashboard() {
   const ownerDriver = workspaceRole === 'owner_driver';
   const data = useCompanyWorkspaceData();
   const [ownerBids, setOwnerBids] = useState<OwnerBid[]>([]);
+  const [financeInvoices, setFinanceInvoices] = useState<DriverFinanceInvoice[]>([]);
+  const [financeAvailable, setFinanceAvailable] = useState(false);
   const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
@@ -167,9 +175,49 @@ export default function DriverDashboard() {
     setOwnerBids((rows ?? []) as OwnerBid[]);
   }, [ownerDriver, user?.id]);
 
+  const fetchDriverFinance = useCallback(async () => {
+    if (!user?.id || !isSupabaseConfigured) {
+      setFinanceInvoices([]);
+      setFinanceAvailable(false);
+      return;
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setFinanceInvoices([]);
+      setFinanceAvailable(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/driver/finance/invoices?limit=100', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        rows?: DriverFinanceInvoice[];
+      };
+      if (!response.ok) {
+        setFinanceInvoices([]);
+        setFinanceAvailable(false);
+        return;
+      }
+      setFinanceInvoices(payload.rows ?? []);
+      setFinanceAvailable(true);
+    } catch {
+      setFinanceInvoices([]);
+      setFinanceAvailable(false);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     void fetchOwnerBids();
   }, [fetchOwnerBids]);
+
+  useEffect(() => {
+    void fetchDriverFinance();
+  }, [fetchDriverFinance]);
 
   const myJobs = useMemo(
     () => filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver }),
@@ -205,12 +253,15 @@ export default function DriverDashboard() {
   const completedJobs = myJobs.filter((job) => completedStatuses.has(canonicalJobStatus(job.current_status, job.status))).length;
   const submittedQuotes = myQuotes.filter((quote) => quote.status === 'submitted').length;
   const wonWork = myQuotes.filter((quote) => quote.status === 'accepted').length;
-  const pendingInvoices = data.invoices.filter(
-    (invoice) => !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid',
-  ).length;
-  const pendingInvoiceValue = data.invoices
-    .filter((invoice) => !['paid', 'Paid'].includes(invoice.status) && invoice.payment_status !== 'paid')
-    .reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
+  const pendingInvoiceRows = financeInvoices.filter((invoice) => {
+    const status = String(invoice.status ?? '').toLowerCase();
+    const paymentStatus = String(invoice.payment_status ?? '').toLowerCase();
+    return !['paid', 'cancelled'].includes(status) && paymentStatus !== 'paid';
+  });
+  const pendingInvoices = financeAvailable ? pendingInvoiceRows.length : null;
+  const pendingInvoiceValue = financeAvailable
+    ? pendingInvoiceRows.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0)
+    : null;
 
   const runCurrentAction = async () => {
     if (!currentJob || !currentAction) return;
@@ -302,8 +353,8 @@ export default function DriverDashboard() {
               <table className="driver-dash-table">
                 <tbody>
                   <tr><td>Quotes awaiting decision</td><td><strong>{submittedQuotes}</strong></td></tr>
-                  <tr><td>Pending invoices</td><td><strong>{pendingInvoices}</strong></td></tr>
-                  <tr><td>Invoice value</td><td><strong>{money(pendingInvoiceValue)}</strong></td></tr>
+                  <tr><td>Pending invoices</td><td><strong>{pendingInvoices ?? '—'}</strong></td></tr>
+                  <tr><td>Invoice value</td><td><strong>{pendingInvoiceValue == null ? '—' : money(pendingInvoiceValue)}</strong></td></tr>
                   <tr><td>Documents expiring</td><td><strong>{expiringDocuments.length}</strong></td></tr>
                 </tbody>
               </table>
@@ -321,7 +372,7 @@ export default function DriverDashboard() {
                 {ownerDriver && <ActionButton tone="success" onClick={() => router.push('/driver/loads')}>Available loads</ActionButton>}
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>My jobs</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>History</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/profile')}>Account</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/account')}>Account</ActionButton>
               </div>
             </div>
           </section>
@@ -352,7 +403,7 @@ export default function DriverDashboard() {
                       </div>
                       <div>
                         <StatusBadge value={job.current_status ?? job.status} />
-                        <span className="driver-dash-note" style={{ display: 'block', marginTop: '3px' }}>Open job â†’</span>
+                        <span className="driver-dash-note" style={{ display: 'block', marginTop: '3px' }}>Open job →</span>
                       </div>
                     </button>
                   ))}
@@ -371,7 +422,7 @@ export default function DriverDashboard() {
                     <strong className="driver-cell-primary">{currentJob.pickup_location ?? 'Collection'}</strong>
                     <span className="driver-cell-secondary">{formatDateTime(currentJob.pickup_datetime)}</span>
                   </div>
-                  <span className="driver-route-arrow">â†’</span>
+                  <span className="driver-route-arrow">→</span>
                   <div className="driver-route-stop">
                     <span className="driver-cell-label">Delivery</span>
                     <strong className="driver-cell-primary">{currentJob.delivery_location ?? 'Delivery'}</strong>
@@ -380,7 +431,7 @@ export default function DriverDashboard() {
                 </div>
                 <div className="driver-dash-note" style={{ marginTop: '7px' }}><strong>Next action:</strong> {currentAction.description}</div>
                 <div className="driver-dash-actions" style={{ marginTop: '7px' }}>
-                  <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>{transitioningJobId === currentJob.id ? 'Savingâ€¦' : currentAction.label}</ActionButton>
+                  <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>{transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}</ActionButton>
                   <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${currentJob.id}`)}>Open full job</ActionButton>
                 </div>
               </div>
@@ -401,7 +452,7 @@ export default function DriverDashboard() {
                         const job = Array.isArray(bid.jobs) ? bid.jobs[0] : bid.jobs;
                         return (
                           <tr key={bid.id}>
-                            <td><strong>{job?.pickup_location ?? 'Collection'} â†’ {job?.delivery_location ?? 'Delivery'}</strong></td>
+                            <td><strong>{job?.pickup_location ?? 'Collection'} → {job?.delivery_location ?? 'Delivery'}</strong></td>
                             <td>{money(Number(bid.bid_price_gbp ?? 0))}</td>
                             <td><StatusBadge value={bid.status} tone={BID_STATUS_TONE[bid.status]} /></td>
                           </tr>
@@ -439,7 +490,7 @@ export default function DriverDashboard() {
                   <tbody>
                     {recentCompleted.slice(0, 6).map((job) => (
                       <tr key={job.id}>
-                        <td><strong>{job.pickup_location ?? 'Collection'} â†’ {job.delivery_location ?? 'Delivery'}</strong></td>
+                        <td><strong>{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong></td>
                         <td>{formatDateTime(job.delivery_datetime)}</td>
                         <td><StatusBadge value={job.current_status ?? job.status} /></td>
                         <td><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open</ActionButton></td>
