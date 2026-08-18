@@ -117,7 +117,6 @@ export default function MyQuotesPage() {
     const { error: withdrawError } = await supabase.from('job_bids').update({ status: 'withdrawn' }).eq('id', bidId).eq('bidder_user_id', userId);
     if (!withdrawError) void fetchBids(); else setError('The quote could not be withdrawn. Please try again.');
   };
-
   const filteredBids = useMemo(() => bids.filter((bid) => {
     const job = bid.jobs;
     if (!withinWindow(job?.pickup_datetime ?? null, appliedFilters.pickupWithin)) return false;
@@ -191,7 +190,12 @@ export default function MyQuotesPage() {
                       {job?.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
                       <StatusBadge value={bid.status.charAt(0).toUpperCase() + bid.status.slice(1)} tone={quoteTone(bid.status)} />
                       <div className="driver-row-actions">
-                        <ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); next.has(bid.id) ? next.delete(bid.id) : next.add(bid.id); return next; })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
+                        <ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => {
+                          const next = new Set(previous);
+                          if (next.has(bid.id)) next.delete(bid.id);
+                          else next.add(bid.id);
+                          return next;
+                        })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
                         {bid.direction === 'outgoing' && bid.status === 'submitted' && <ActionButton tone="secondary" onClick={() => void handleWithdrawBid(bid.id)}>Withdraw</ActionButton>}
                       </div>
                     </div>
