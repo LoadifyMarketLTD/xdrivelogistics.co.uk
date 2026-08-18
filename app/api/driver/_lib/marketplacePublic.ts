@@ -29,6 +29,32 @@ export function publicAreaLabel(postcode: unknown, countryCode: unknown, fallbac
   return area ?? country ?? fallback;
 }
 
+function loadDetailsObject(value: unknown): Record<string, unknown> | null {
+  const raw = marketplaceText(value);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isBrokerCommercialJob(job: MarketplaceSource) {
+  const details = loadDetailsObject(job.load_details);
+  if (!details) return false;
+
+  const source = marketplaceText(details.source)?.toLowerCase() ?? '';
+  if (source.includes('broker')) return true;
+
+  // Compatibility for broker-created rows that pre-date the explicit source
+  // marker but already carried a private carrier-cost target in load_details.
+  return marketplaceNumber(details.targetCarrierCost) !== null;
+}
+
 /**
  * Only explicitly separated v2 Public Quote Notes are allowed to cross the
  * pre-award Marketplace boundary. Legacy free-text load_details is private by
@@ -36,26 +62,23 @@ export function publicAreaLabel(postcode: unknown, countryCode: unknown, fallbac
  * execution-only instructions.
  */
 export function publicQuoteNotes(value: unknown) {
-  const raw = marketplaceText(value);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    return marketplaceText((parsed as Record<string, unknown>).publicQuoteNotes);
-  } catch {
-    return null;
-  }
+  const parsed = loadDetailsObject(value);
+  return parsed ? marketplaceText(parsed.publicQuoteNotes) : null;
 }
 
 /**
- * XDrive's established marketplace contract treats a positive budget_amount
- * as the poster's proposed price. is_fixed_price is legacy metadata and must
- * not suppress a genuine proposed price.
+ * Legacy/customer Marketplace jobs may use a positive budget_amount as the
+ * poster's proposed carrier price. Broker customer revenue is deliberately
+ * private: broker load_details marks its source/target carrier cost, so that
+ * value must never become a carrier/driver proposed price.
  */
 export function proposedPriceAmount(value: unknown) {
   const amount = marketplaceNumber(value);
   return amount !== null && amount > 0 ? amount : null;
+}
+
+export function publicProposedPrice(job: MarketplaceSource) {
+  return isBrokerCommercialJob(job) ? null : proposedPriceAmount(job.budget_amount);
 }
 
 /**
