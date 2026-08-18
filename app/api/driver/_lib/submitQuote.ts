@@ -105,17 +105,15 @@ export async function submitDriverQuote(
     }
   }
 
-  // Preserve both canonical and legacy bidder identity fields. bidder_user_id
-  // and legacy bidder_id identify the authenticated user; bidder_driver_id is
-  // the named execution driver. This keeps old XDrive schemas compatible while
-  // all new consumers use the explicit canonical fields.
+  // Driver-originated bids are always attributable to the named driver. The
+  // company id carries commercial supplier context for company_driver; the
+  // accepted bidder_driver_id remains the execution identity for allocation.
   const { data: bid, error: insertError } = await supabaseAdmin
     .from('job_bids')
     .insert({
       job_id: jobId,
       company_id: driver.companyId,
       bidder_user_id: driver.userId,
-      bidder_id: driver.userId,
       bidder_driver_id: driver.driverId,
       bid_price_gbp: amount,
       amount,
