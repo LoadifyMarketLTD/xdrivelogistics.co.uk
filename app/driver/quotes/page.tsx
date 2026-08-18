@@ -56,10 +56,10 @@ function quoteBucket(bid: BidRow): TabId {
   if (bid.status === 'accepted') return 'archived';
   return ['rejected', 'withdrawn'].includes(bid.status) ? 'unsuccessful' : 'archived';
 }
-function quoteTone(status: string): 'green' | 'red' | 'purple' | 'orange' | 'neutral' {
+function quoteTone(status: string): 'green' | 'red' | 'purple' | 'orange' | 'grey' {
   if (status === 'accepted') return 'green';
   if (status === 'rejected') return 'red';
-  if (status === 'withdrawn') return 'neutral';
+  if (status === 'withdrawn') return 'grey';
   if (status === 'submitted') return 'orange';
   return 'purple';
 }
