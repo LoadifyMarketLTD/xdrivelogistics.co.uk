@@ -42,7 +42,7 @@ export default function DriverChangePasswordPage() {
 
   const guidance = useMemo(() => {
     if (user?.mustChangePassword) {
-      return 'You must set a new password before you can continue to the operations workspace.';
+      return 'You must set a new password before you can continue to the Driver Workspace.';
     }
     return 'Update your password whenever you want extra account protection or need to replace a shared temporary password.';
   }, [user?.mustChangePassword]);
@@ -89,12 +89,12 @@ export default function DriverChangePasswordPage() {
       setConfirmPassword('');
       setSuccess(
         user?.mustChangePassword
-          ? 'Password updated. Redirecting you to the operations workspace...'
-          : 'Password updated successfully. Redirecting you to the operations workspace.'
+          ? 'Password updated. Redirecting you to the Driver Workspace...'
+          : 'Password updated successfully. Redirecting you to the Driver Workspace.'
       );
 
       window.setTimeout(() => {
-        window.location.assign('/admin/marketplace');
+        window.location.assign('/driver');
       }, user?.mustChangePassword ? 1200 : 1600);
     } catch {
       setError('Failed to update password. Please try again in a moment.');
@@ -195,7 +195,7 @@ export default function DriverChangePasswordPage() {
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
               {!user?.mustChangePassword && (
                 <button
-                  onClick={() => router.push('/admin/marketplace')}
+                  onClick={() => router.push('/driver')}
                   style={{
                     flex: 1,
                     minWidth: '180px',
