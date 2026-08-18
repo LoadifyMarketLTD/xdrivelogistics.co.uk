@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
+  getWorkspaceMetricPresentation,
+  getWorkspaceMetricPresentationStatus,
   isCustomerVisibleWorkspaceInvoice,
   useCompanyWorkspaceData,
 } from '../components/workspace/useCompanyWorkspaceData';
@@ -121,6 +123,46 @@ export default function CustomerDashboardHome() {
     ? metrics.awaitingAward
     : metrics.openLoads.slice(0, 8);
 
+  const invoiceDatasets = [data.datasets.invoices] as const;
+  const invoicePresentationStatus = getWorkspaceMetricPresentationStatus(invoiceDatasets);
+  const invoiceDataUnavailable = invoicePresentationStatus === 'unavailable' || invoicePresentationStatus === 'omitted';
+  const totalInvoicesValue = getWorkspaceMetricPresentation({
+    datasets: invoiceDatasets,
+    completeValue: metrics.customerInvoices.length,
+    completeDetail: 'Customer-visible invoices',
+    completeTone: 'navy',
+    partialDetail: 'Partial invoice data',
+    unavailableDetail: 'Invoice data unavailable',
+    omittedDetail: 'Invoice data unavailable',
+  }).value;
+  const outstandingInvoicesValue = getWorkspaceMetricPresentation({
+    datasets: invoiceDatasets,
+    completeValue: metrics.unpaidInvoices.length,
+    completeDetail: 'Outstanding invoices',
+    completeTone: 'navy',
+    partialDetail: 'Partial invoice data',
+    unavailableDetail: 'Invoice data unavailable',
+    omittedDetail: 'Invoice data unavailable',
+  }).value;
+  const outstandingValue = getWorkspaceMetricPresentation({
+    datasets: invoiceDatasets,
+    completeValue: () => money(metrics.unpaidValue),
+    completeDetail: 'Outstanding invoice value',
+    completeTone: 'navy',
+    partialDetail: 'Partial invoice data',
+    unavailableDetail: 'Invoice data unavailable',
+    omittedDetail: 'Invoice data unavailable',
+  }).value;
+  const dueSoonInvoicesValue = getWorkspaceMetricPresentation({
+    datasets: invoiceDatasets,
+    completeValue: metrics.dueSoonInvoices.length,
+    completeDetail: 'Invoices due within 7 days',
+    completeTone: 'navy',
+    partialDetail: 'Partial invoice data',
+    unavailableDetail: 'Invoice data unavailable',
+    omittedDetail: 'Invoice data unavailable',
+  }).value;
+
   return (
     <PageFrame>
       <div className="customer-operational-page">
@@ -210,7 +252,7 @@ export default function CustomerDashboardHome() {
                       <strong>Invoices due soon</strong>
                       <span>Due within the next 7 days</span>
                     </span>
-                    <span className="customer-attention-row__count">{metrics.dueSoonInvoices.length}</span>
+                    <span className="customer-attention-row__count">{dueSoonInvoicesValue}</span>
                   </button>
                 </div>
               </div>
@@ -234,8 +276,8 @@ export default function CustomerDashboardHome() {
                 <div className="customer-dash-summary">
                   <div className="customer-dash-summary__row"><span>Draft loads</span><strong>{metrics.draftLoads.length}</strong></div>
                   <div className="customer-dash-summary__row"><span>Carrier awards made</span><strong>{metrics.awardedLoads.length}</strong></div>
-                  <div className="customer-dash-summary__row"><span>Outstanding invoices</span><strong>{metrics.unpaidInvoices.length}</strong></div>
-                  <div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{money(metrics.unpaidValue)}</strong></div>
+                  <div className="customer-dash-summary__row"><span>Outstanding invoices</span><strong>{outstandingInvoicesValue}</strong></div>
+                  <div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{outstandingValue}</strong></div>
                 </div>
                 <div className="customer-action-grid" style={{ marginTop: '8px' }}>
                   <ActionButton tone="secondary" onClick={() => router.push('/customer/documents')}>POD & Documents</ActionButton>
@@ -397,14 +439,24 @@ export default function CustomerDashboardHome() {
                   <strong>Invoice position</strong>
                   <ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>Invoice register</ActionButton>
                 </div>
-                <div className="customer-dash-box__body">
-                  <div className="customer-dash-summary">
-                    <div className="customer-dash-summary__row"><span>Total invoices</span><strong>{metrics.customerInvoices.length}</strong></div>
-                    <div className="customer-dash-summary__row"><span>Outstanding</span><strong>{metrics.unpaidInvoices.length}</strong></div>
-                    <div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{money(metrics.unpaidValue)}</strong></div>
-                    <div className="customer-dash-summary__row"><span>Due within 7 days</span><strong>{metrics.dueSoonInvoices.length}</strong></div>
+                {invoiceDataUnavailable ? (
+                  <div className="customer-empty">
+                    <EmptyState
+                      compact
+                      title="Invoice data unavailable"
+                      description="Financial totals cannot be shown until the invoice source is available."
+                    />
                   </div>
-                </div>
+                ) : (
+                  <div className="customer-dash-box__body">
+                    <div className="customer-dash-summary">
+                      <div className="customer-dash-summary__row"><span>Total invoices</span><strong>{totalInvoicesValue}</strong></div>
+                      <div className="customer-dash-summary__row"><span>Outstanding</span><strong>{outstandingInvoicesValue}</strong></div>
+                      <div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{outstandingValue}</strong></div>
+                      <div className="customer-dash-summary__row"><span>Due within 7 days</span><strong>{dueSoonInvoicesValue}</strong></div>
+                    </div>
+                  </div>
+                )}
               </section>
             </div>
           </main>
