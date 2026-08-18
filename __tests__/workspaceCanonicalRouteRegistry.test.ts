@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getProtectedRouteRequirement } from '../lib/roleCapabilities';
 import { getWorkspaceDefinition, type WorkspaceRole } from '../lib/workspaceRole';
@@ -17,6 +19,11 @@ const operationalRoles: WorkspaceRole[] = [
   'viewer',
 ];
 
+const pagePath = (href: string) => {
+  const pathname = href.split('?')[0]?.split('#')[0] ?? href;
+  return resolve(process.cwd(), 'app', pathname.replace(/^\//, ''), 'page.tsx');
+};
+
 describe('canonical operational workspace route registry', () => {
   it.each(operationalRoles)('registers every canonical %s navigation target', (role) => {
     const definition = getWorkspaceDefinition(role);
@@ -24,6 +31,15 @@ describe('canonical operational workspace route registry', () => {
 
     for (const href of hrefs) {
       expect(getProtectedRouteRequirement(href), `${role}: ${href} is not registered`).not.toBeNull();
+    }
+  });
+
+  it.each(operationalRoles)('backs every canonical %s navigation target with a page', (role) => {
+    const definition = getWorkspaceDefinition(role);
+    const hrefs = definition.nav.flatMap((group) => group.items.map((item) => item.href));
+
+    for (const href of hrefs) {
+      expect(existsSync(pagePath(href)), `${role}: ${href} has no page.tsx`).toBe(true);
     }
   });
 });
