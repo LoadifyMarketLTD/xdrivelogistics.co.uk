@@ -111,6 +111,7 @@ export default function TopWorkspaceShell({
   const actionRole = resolveActionCentreRole(role);
   const actionCentreHref = getActionCentreRoute(actionRole);
   const notificationsHref = getNotificationsRoute(actionRole);
+  const showActionCentre = role !== 'viewer';
   const primaryAction =
     definition.primaryAction &&
     (!definition.primaryAction.capability ||
@@ -239,13 +240,15 @@ export default function TopWorkspaceShell({
               + {primaryAction.label}
             </button>
           )}
-          <button
-            type="button"
-            className="top-workspace-action"
-            onClick={() => router.push(actionCentreHref)}
-          >
-            Action Centre
-          </button>
+          {showActionCentre && (
+            <button
+              type="button"
+              className="top-workspace-action"
+              onClick={() => router.push(actionCentreHref)}
+            >
+              Action Centre
+            </button>
+          )}
           <button
             type="button"
             className="top-workspace-notification"
