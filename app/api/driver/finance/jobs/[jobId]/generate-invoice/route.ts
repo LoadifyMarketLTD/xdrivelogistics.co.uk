@@ -118,7 +118,7 @@ export async function POST(
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference')
     .eq('id', jobId)
     .or(`company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
     .maybeSingle();
@@ -126,7 +126,7 @@ export async function POST(
   if (jobError) return respond(500, { error: jobError.message });
   if (!job) return respond(404, { error: 'Job not found in this company workspace.' });
 
-  const jobStatus = String(job.status ?? '').toLowerCase();
+  const jobStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
   if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
     return respond(409, {
       error: `Invoice can only be generated after delivery. Current job status: "${jobStatus || 'unknown'}".`,

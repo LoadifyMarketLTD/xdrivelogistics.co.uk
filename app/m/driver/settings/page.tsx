@@ -1,5 +1,5 @@
-import DriverMobileAppVariant from '../../_components/DriverMobileAppVariant';
+import { redirect } from 'next/navigation';
 
 export default function MobileDriverSettingsPage() {
-  return <DriverMobileAppVariant initialTab="me" />;
+  redirect('/driver/account');
 }

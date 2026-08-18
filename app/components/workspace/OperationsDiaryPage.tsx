@@ -1,295 +1,307 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
+import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
+import { CompanyJobSheetPanel } from './CompanyJobSheetPanel';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
-  KpiCard,
-  KpiGrid,
   PageFrame,
   PageHeader,
-  Panel,
   StatusBadge,
 } from './WorkspaceUI';
 
-type DiaryJob = {
+type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'evidence';
+type JobRow = {
   id: string;
-  company_id: string;
-  awarded_carrier_company_id: string | null;
+  company_id: string | null;
   assigned_company_id: string | null;
+  awarded_carrier_company_id: string | null;
   assigned_driver_id: string | null;
-  client_name: string | null;
-  pickup_location: string | null;
-  delivery_location: string | null;
-  pickup_datetime: string | null;
-  delivery_datetime: string | null;
-  vehicle_type: string | null;
   status: string;
   current_status: string | null;
-  pod_required: boolean;
-  pod_generated: boolean;
+  pickup_location: string | null;
+  pickup_postcode: string | null;
+  pickup_datetime: string | null;
+  delivery_location: string | null;
+  delivery_postcode: string | null;
+  delivery_datetime: string | null;
+  vehicle_type: string | null;
+  client_name: string | null;
+  customer_reference: string | null;
+  booking_reference: string | null;
+  pod_generated: boolean | null;
+  pod_generated_at: string | null;
   delivery_photos: string[] | null;
-  updated_at: string;
-  budget_amount?: number | null;
-  agreed_rate?: number | null;
+  updated_at: string | null;
+  created_at: string | null;
 };
 
-type Driver = {
+type DriverRow = {
   id: string;
   display_name: string | null;
+  email: string | null;
   status: string | null;
   availability_status: string | null;
-  app_access: boolean | null;
 };
 
-const nextTransition: Record<string, { status: string; label: string; tone: 'primary' | 'success' | 'warning' }> = {
-  awarded: { status: 'on_my_way', label: 'Start journey to pickup', tone: 'primary' },
-  allocated: { status: 'on_my_way', label: 'Start journey to pickup', tone: 'primary' },
-  on_my_way: { status: 'on_site_pickup', label: 'Arrived at pickup', tone: 'warning' },
-  on_site_pickup: { status: 'loaded', label: 'Mark loaded', tone: 'success' },
-  loaded: { status: 'in_transit', label: 'Start transit to delivery', tone: 'primary' },
-  collected: { status: 'in_transit', label: 'Start transit to delivery', tone: 'primary' },
-  in_transit: { status: 'on_site_delivery', label: 'Arrived at delivery', tone: 'warning' },
-  on_site_delivery: { status: 'delivered', label: 'Mark delivered', tone: 'success' },
-  delivered: { status: 'completed', label: 'Complete job', tone: 'success' },
+type SearchState = {
+  from: string;
+  to: string;
+  reference: string;
+  customer: string;
+  driver: string;
+  dateFrom: string;
+  dateTo: string;
 };
 
-const activeStatuses = new Set(['awarded', 'allocated', 'on_my_way', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_site_delivery']);
-const finalStatuses = new Set(['delivered', 'completed', 'invoiced', 'paid']);
+const EMPTY_SEARCH: SearchState = { from: '', to: '', reference: '', customer: '', driver: '', dateFrom: '', dateTo: '' };
+const TABS: Array<{ id: DiaryTab; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'unallocated', label: 'Unallocated' },
+  { id: 'allocated', label: 'Allocated' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'cancelled', label: 'Cancelled' },
+  { id: 'expired', label: 'Expired' },
+  { id: 'evidence', label: 'POD / Evidence' },
+];
 
-const formatDateTime = (value: string | null | undefined) =>
-  value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
+const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
+const when = (value: string | null | undefined) => value
+  ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+  : 'Not set';
+
+// Client-side account-state filter only. Full driver + canonical vehicle
+// operational eligibility is revalidated by the authorised allocation endpoint.
+const isActiveDriverAccount = (driver: DriverRow) => normalise(driver.status) === 'active';
+
+function effectiveStatus(job: JobRow) {
+  return workspaceJobPresentationStatus(job);
+}
+
+function isOperatingCompanyJob(job: JobRow, companyId: string) {
+  if (job.awarded_carrier_company_id) return job.awarded_carrier_company_id === companyId;
+  if (job.assigned_company_id) return job.assigned_company_id === companyId;
+  if (job.company_id !== companyId) return false;
+  const stage = classifyWorkspaceJobStage(job);
+  // A company can execute its own transport when no separate carrier is
+  // awarded, but draft/posted/quoted customer-marketplace records are not an
+  // operational Diary merely because company_id matches.
+  return Boolean(job.assigned_driver_id) || !['open', 'draft'].includes(stage);
+}
+
+function matchesTab(job: JobRow, tab: DiaryTab) {
+  if (tab === 'all') return true;
+  const stage = classifyWorkspaceJobStage(job);
+  if (tab === 'unallocated') return (stage === 'awarded' || stage === 'allocated') && !job.assigned_driver_id;
+  if (tab === 'allocated') return (stage === 'awarded' || stage === 'allocated') && Boolean(job.assigned_driver_id);
+  if (tab === 'in_progress') return stage === 'in_progress';
+  if (tab === 'completed') return stage === 'completed';
+  if (tab === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
+  if (tab === 'expired') return stage === 'expired';
+  return stage === 'completed' && (job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0);
+}
+
+function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'completed') return 'green';
+  if (stage === 'in_progress') return 'orange';
+  if (stage === 'awarded' || stage === 'allocated') return 'blue';
+  if (stage === 'disputed') return 'purple';
+  if (stage === 'cancelled' || stage === 'expired') return 'red';
+  return 'grey';
+}
 
 export default function OperationsDiaryPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
-  const [companyId, setCompanyId] = useState<string | null>(user?.companyId ?? null);
-  const [jobs, setJobs] = useState<DiaryJob[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const searchParams = useSearchParams();
+  const companyId = resolveActiveCompanyId(user);
+  const deepJob = searchParams.get('job');
+  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
-  const [driverFilter, setDriverFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [customerFilter, setCustomerFilter] = useState('');
-  const [pickupWithin, setPickupWithin] = useState('all');
-  const [deliveryWithin, setDeliveryWithin] = useState('all');
-  const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({});
-  const [workingJobId, setWorkingJobId] = useState<string | null>(null);
-
-  // Pre-populate search from ?job= query param so navigating from another page
-  // with a specific job ID lands the diary pre-filtered to that booking.
-  useEffect(() => {
-    const jobId = searchParams.get('job');
-    if (jobId) setSearch(jobId);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    void resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null })
-      .then((resolved) => { if (!cancelled) setCompanyId(resolved); });
-    return () => { cancelled = true; };
-  }, [user?.companyId, user?.id]);
+  const [notice, setNotice] = useState('');
+  const [tab, setTab] = useState<DiaryTab>('all');
+  const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
+  const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
+  const [expanded, setExpanded] = useState<string | null>(deepJob);
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const load = useCallback(async () => {
-    if (!companyId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError('');
+    if (!companyId) { setJobs([]); setDrivers([]); setLoading(false); return; }
+    setLoading(true); setError('');
     const [jobsResult, driversResult] = await Promise.all([
       supabase
         .from('jobs')
-        .select('id, company_id, awarded_carrier_company_id, assigned_company_id, assigned_driver_id, client_name, pickup_location, delivery_location, pickup_datetime, delivery_datetime, vehicle_type, status, current_status, pod_required, pod_generated, delivery_photos, updated_at, budget_amount, agreed_rate')
+        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, client_name, customer_reference, booking_reference, pod_generated, pod_generated_at, delivery_photos, updated_at, created_at')
         .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
         .order('pickup_datetime', { ascending: true })
-        .limit(500),
+        .limit(300),
       supabase
         .from('drivers')
-        .select('id, display_name, status, availability_status, app_access')
+        .select('id, display_name, email, status, availability_status')
         .eq('company_id', companyId)
-        .eq('status', 'active')
-        .eq('app_access', true)
         .order('display_name', { ascending: true }),
     ]);
 
-    if (jobsResult.error || driversResult.error) {
-      setError(jobsResult.error?.message ?? driversResult.error?.message ?? 'Operations data could not be loaded.');
+    if (jobsResult.error) {
+      setError('Diary jobs could not be loaded.');
+      setJobs([]);
+    } else {
+      const scoped = ((jobsResult.data ?? []) as JobRow[]).filter((job) => isOperatingCompanyJob(job, companyId));
+      setJobs(scoped);
     }
-    setJobs((jobsResult.data ?? []) as DiaryJob[]);
-    setDrivers((driversResult.data ?? []) as Driver[]);
+    if (driversResult.error) {
+      setError((current) => current || 'Driver roster could not be loaded.');
+      setDrivers([]);
+    } else {
+      setDrivers((driversResult.data ?? []) as DriverRow[]);
+    }
     setLoading(false);
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (deepJob) setExpanded(deepJob); }, [deepJob]);
 
-  const token = async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
-  };
+  const activeAccountDrivers = useMemo(() => drivers.filter(isActiveDriverAccount), [drivers]);
+  const driverById = useMemo(() => new Map(drivers.map((driver) => [driver.id, driver])), [drivers]);
 
-  const assignDriver = async (job: DiaryJob) => {
-    const driverId = assignmentDrafts[job.id] ?? job.assigned_driver_id ?? '';
-    if (!driverId) return;
-    setWorkingJobId(job.id);
-    setError('');
-    setMessage('');
-    try {
-      const accessToken = await token();
-      if (!accessToken) throw new Error('Your session has expired.');
-      const response = await fetch(`/api/admin/jobs/${job.id}/assign-driver`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId, expectedDriverId: job.assigned_driver_id }),
+  const filtered = useMemo(() => {
+    const from = appliedSearch.from.trim().toLowerCase();
+    const to = appliedSearch.to.trim().toLowerCase();
+    const reference = appliedSearch.reference.trim().toLowerCase();
+    const customer = appliedSearch.customer.trim().toLowerCase();
+    const fromDate = appliedSearch.dateFrom ? new Date(`${appliedSearch.dateFrom}T00:00:00`).getTime() : null;
+    const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
+
+    return jobs
+      .filter((job) => matchesTab(job, tab))
+      .filter((job) => !from || `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase().includes(from))
+      .filter((job) => !to || `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase().includes(to))
+      .filter((job) => !reference || `${job.id} ${job.customer_reference ?? ''} ${job.booking_reference ?? ''}`.toLowerCase().includes(reference))
+      .filter((job) => !customer || String(job.client_name ?? '').toLowerCase().includes(customer))
+      .filter((job) => !appliedSearch.driver || job.assigned_driver_id === appliedSearch.driver)
+      .filter((job) => {
+        if (!fromDate && !toDate) return true;
+        if (!job.pickup_datetime) return false;
+        const timestamp = new Date(job.pickup_datetime).getTime();
+        if (Number.isNaN(timestamp)) return false;
+        if (fromDate && timestamp < fromDate) return false;
+        if (toDate && timestamp > toDate) return false;
+        return true;
       });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error ?? 'Driver could not be assigned.');
-      setMessage('Approved driver assigned successfully.');
+  }, [appliedSearch, jobs, tab]);
+
+  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id)).length])) as Record<DiaryTab, number>, [jobs]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  useEffect(() => { setPage(1); }, [tab, appliedSearch, pageSize]);
+
+  const assignDriver = async (job: JobRow) => {
+    const driverId = driverSelections[job.id];
+    if (!driverId) { setError('Choose an active driver account before allocation. Full operational eligibility is verified by the server.'); return; }
+    setAssigning(job.id); setError(''); setNotice('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/admin/jobs/${encodeURIComponent(job.id)}/assign-driver`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverId, expectedDriverId: job.assigned_driver_id ?? null }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Driver allocation failed.');
+      setNotice('Driver allocated successfully.');
       await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Driver could not be assigned.');
-    } finally {
-      setWorkingJobId(null);
-    }
+      setError(reason instanceof Error ? reason.message : 'Driver allocation failed.');
+    } finally { setAssigning(null); }
   };
 
-  const transition = async (job: DiaryJob, nextStatus: string) => {
-    setWorkingJobId(job.id);
-    setError('');
-    setMessage('');
-    try {
-      const accessToken = await token();
-      if (!accessToken) throw new Error('Your session has expired.');
-      const currentStatus = String(job.current_status ?? job.status).toLowerCase();
-      const response = await fetch(`/api/admin/jobs/${job.id}/transition`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nextStatus, expectedStatus: currentStatus }),
-      });
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error ?? 'Job status could not be updated.');
-      setMessage(`Job updated to ${nextStatus.replaceAll('_', ' ')}.`);
-      await load();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Job status could not be updated.');
-    } finally {
-      setWorkingJobId(null);
-    }
-  };
-
-  const filteredJobs = useMemo(() => jobs.filter((job) => {
-    const status = String(job.current_status ?? job.status).toLowerCase();
-    if (statusFilter === 'active' && !activeStatuses.has(status)) return false;
-    if (statusFilter === 'unallocated' && (job.assigned_driver_id || !['draft', 'received', 'posted', 'open', 'awarded'].includes(status))) return false;
-    if (statusFilter === 'completed' && !finalStatuses.has(status)) return false;
-    if (statusFilter === 'cancelled' && status !== 'cancelled') return false;
-    if (driverFilter !== 'all' && job.assigned_driver_id !== driverFilter) return false;
-    if (customerFilter.trim() && !String(job.client_name ?? '').toLowerCase().includes(customerFilter.trim().toLowerCase())) return false;
-    if (dateFilter !== 'all') {
-      if (!job.pickup_datetime) return false;
-      const pickup = new Date(job.pickup_datetime);
-      const now = new Date();
-      if (dateFilter === 'today' && pickup.toDateString() !== now.toDateString()) return false;
-      if (dateFilter === 'week' && Math.abs(pickup.getTime() - now.getTime()) > 7 * 86_400_000) return false;
-    }
-    if (pickupWithin !== 'all' && job.pickup_datetime) {
-      const hoursUntil = (new Date(job.pickup_datetime).getTime() - Date.now()) / 3_600_000;
-      const window = Number(pickupWithin);
-      if (hoursUntil < 0 || hoursUntil > window) return false;
-    }
-    if (deliveryWithin !== 'all' && job.delivery_datetime) {
-      const hoursUntil = (new Date(job.delivery_datetime).getTime() - Date.now()) / 3_600_000;
-      const window = Number(deliveryWithin);
-      if (hoursUntil < 0 || hoursUntil > window) return false;
-    }
-    const term = search.trim().toLowerCase();
-    if (term && ![job.id, job.client_name, job.pickup_location, job.delivery_location].some((value) => String(value ?? '').toLowerCase().includes(term))) return false;
-    return true;
-  }), [customerFilter, dateFilter, deliveryWithin, driverFilter, jobs, pickupWithin, search, statusFilter]);
-
-  const driverName = (id: string | null) => drivers.find((driver) => driver.id === id)?.display_name ?? 'Unassigned';
+  const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
 
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Company operations"
-        title="Operations Diary"
-        description="Allocate approved drivers, filter real bookings and progress each job through one canonical status chain."
-        actions={
-          <>
-            <ActionButton tone="primary" onClick={() => router.push('/admin/jobs')}>Post load</ActionButton>
-            <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
-          </>
-        }
+        eyebrow="Operations"
+        title="Diary"
+        description="Post-award operating-company register: scan, expand, allocate where authorised and inspect the complete authorised job sheet without leaving the board. Driver execution lifecycle remains in the driver-authorised execution workflow."
+        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-      {message && <AlertBanner tone="success">{message}</AlertBanner>}
+      {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <KpiGrid>
-        <KpiCard label="Bookings" value={jobs.length} tone="navy" />
-        <KpiCard label="Unallocated" value={jobs.filter((job) => !job.assigned_driver_id && !finalStatuses.has(String(job.current_status ?? job.status))).length} tone="orange" />
-        <KpiCard label="Active" value={jobs.filter((job) => activeStatuses.has(String(job.current_status ?? job.status))).length} tone="blue" />
-        <KpiCard label="POD ready" value={jobs.filter((job) => job.pod_generated || (job.delivery_photos?.length ?? 0) > 0).length} tone="green" />
-        <KpiCard label="Completed" value={jobs.filter((job) => finalStatuses.has(String(job.current_status ?? job.status))).length} tone="green" />
-      </KpiGrid>
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Diary search filters">
+          <div className="workspace-filter-rail__header">Search Diary</div>
+          <div className="workspace-filter-rail__body">
+            <label>FROM<input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Pickup town / postcode" /></label>
+            <label>TO<input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Delivery town / postcode" /></label>
+            <label>JOB / REF<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
+            <label>CUSTOMER<input value={search.customer} onChange={(event) => setSearch((current) => ({ ...current, customer: event.target.value }))} placeholder="Customer name" /></label>
+            <label>DRIVER<select value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))}><option value="">All drivers</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
+            <label>DATE FROM<input type="date" value={search.dateFrom} onChange={(event) => setSearch((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
+            <label>DATE TO<input type="date" value={search.dateTo} onChange={(event) => setSearch((current) => ({ ...current, dateTo: event.target.value }))} /></label>
+            <div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
+          </div>
+        </aside>
 
-      <Panel title="Search and filters" description="Every filter below changes the booking register immediately." style={{ marginBottom: '0.9rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.4fr) repeat(3, minmax(140px, 0.6fr)) auto', gap: '0.65rem', alignItems: 'end', marginBottom: '0.55rem' }} className="xdrive-diary-filters">
-          <label style={labelStyle}>Load ID / reference or route<input value={search} onChange={(event) => setSearch(event.target.value)} style={inputStyle} placeholder="Search bookings" /></label>
-          <label style={labelStyle}>View<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={inputStyle}><option value="active">Active</option><option value="all">All</option><option value="unallocated">Unallocated</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
-          <label style={labelStyle}>Pickup date<select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} style={inputStyle}><option value="all">Any date</option><option value="today">Today</option><option value="week">Within 7 days</option></select></label>
-          <label style={labelStyle}>Member / Driver<select value={driverFilter} onChange={(event) => setDriverFilter(event.target.value)} style={inputStyle}><option value="all">Any approved driver</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.id.slice(0, 8)}</option>)}</select></label>
-          <ActionButton tone="secondary" onClick={() => { setSearch(''); setStatusFilter('active'); setDateFilter('all'); setDriverFilter('all'); setCustomerFilter(''); setPickupWithin('all'); setDeliveryWithin('all'); }}>Clear</ActionButton>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1.4fr) minmax(140px, 0.6fr) minmax(140px, 0.6fr)', gap: '0.65rem', alignItems: 'end' }} className="xdrive-diary-filters-row2">
-          <label style={labelStyle}>Customer name<input value={customerFilter} onChange={(event) => setCustomerFilter(event.target.value)} style={inputStyle} placeholder="Filter by customer" /></label>
-          <label style={labelStyle}>Pickup time within<select value={pickupWithin} onChange={(event) => setPickupWithin(event.target.value)} style={inputStyle}><option value="all">Any time</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></label>
-          <label style={labelStyle}>Delivery time within<select value={deliveryWithin} onChange={(event) => setDeliveryWithin(event.target.value)} style={inputStyle}><option value="all">Any time</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></label>
-        </div>
-      </Panel>
+        <main className="workspace-board-main" style={{ minWidth: 0 }}>
+          <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
+            {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
+          </div>
+          <div className="workspace-record-meta"><span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span><span>Operating-company scope only · post-award execution data</span></div>
 
-      <Panel title="Booking register" description={`${filteredJobs.length} booking(s) match the current filters.`}>
-        <DataTable
-          columns={['Reference', 'Customer / route', 'Pickup', 'Rate agreed', 'Driver allocation', 'Status', 'POD', 'Next action', 'Open']}
-          rows={filteredJobs.map((job) => {
-            const currentStatus = String(job.current_status ?? job.status).toLowerCase();
-            const next = nextTransition[currentStatus];
-            const selectedDriver = assignmentDrafts[job.id] ?? job.assigned_driver_id ?? '';
-            const rate = job.agreed_rate ?? job.budget_amount;
-            return [
-              job.id.slice(0, 8).toUpperCase(),
-              <div key="route"><strong style={{ display: 'block' }}>{job.client_name ?? 'Customer'}</strong><span style={{ color: '#64748b' }}>{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</span></div>,
-              <div key="time">{formatDateTime(job.pickup_datetime)}<div style={{ color: '#64748b', marginTop: '0.2rem' }}>{job.vehicle_type?.replaceAll('_', ' ') ?? 'Vehicle not set'}</div></div>,
-              rate != null ? <span key="rate" style={{ fontWeight: 700, color: '#15803d' }}>{new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(rate))}</span> : <span key="rate" style={{ color: '#94a3b8' }}>—</span>,
-              <div key="driver" style={{ display: 'grid', gap: '0.35rem', minWidth: 190 }}><select value={selectedDriver} onChange={(event) => setAssignmentDrafts((current) => ({ ...current, [job.id]: event.target.value }))} style={inputStyle}><option value="">{driverName(job.assigned_driver_id)}</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.id.slice(0, 8)} · {driver.availability_status ?? 'unknown'}</option>)}</select>{selectedDriver && selectedDriver !== job.assigned_driver_id && <ActionButton tone="secondary" disabled={workingJobId === job.id} onClick={() => void assignDriver(job)}>Save driver</ActionButton>}</div>,
-              <StatusBadge key="status" value={currentStatus} />,
-              job.pod_generated || (job.delivery_photos?.length ?? 0) > 0 ? <StatusBadge key="pod" value="ready" tone="green" /> : <StatusBadge key="pod" value={job.pod_required ? 'required' : 'not required'} tone={job.pod_required ? 'orange' : 'grey'} />,
-              next ? <ActionButton key="next" tone={next.tone} disabled={workingJobId === job.id || !job.assigned_driver_id} onClick={() => void transition(job, next.status)}>{workingJobId === job.id ? 'Saving…' : next.label}</ActionButton> : '—',
-              <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
-            ];
-          })}
-          empty={<EmptyState title={loading ? 'Loading bookings…' : 'No bookings match these filters'} />}
-        />
-      </Panel>
+          {loading ? (
+            <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
+          ) : visible.length === 0 ? (
+            <div className="workspace-panel"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
+          ) : (
+            <div className="workspace-record-list">
+              {visible.map((job) => {
+                const open = expanded === job.id;
+                const stage = classifyWorkspaceJobStage(job);
+                const status = effectiveStatus(job);
+                const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
+                const evidenceCount = job.delivery_photos?.length ?? 0;
+                return (
+                  <article key={job.id} className="workspace-operational-row" data-state={status}>
+                    <div className="workspace-operational-row__top">
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">FROM</span><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong><div>{job.pickup_postcode ?? 'Postcode not supplied'} · {when(job.pickup_datetime)}</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">TO</span><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong><div>{job.delivery_postcode ?? 'Postcode not supplied'} · {when(job.delivery_datetime)}</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">JOB / DRIVER</span><strong>{(job.vehicle_type ?? 'Vehicle not supplied').replace(/_/g, ' ')}</strong><div>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')} · {job.client_name ?? 'Customer not supplied'}</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">STATUS</span><StatusBadge value={status || stage} tone={stageTone(job)} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton></div></div>
+                    </div>
+                    <div className="workspace-record-meta">
+                      <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
+                      {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
+                      {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
+                      {job.pod_generated && <StatusBadge value="POD generated" tone="green" />}
+                      {!job.pod_generated && evidenceCount > 0 && <StatusBadge value={`${evidenceCount} evidence file(s)`} tone="blue" />}
+                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
+                    </div>
+                    {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" />}
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
-      <style jsx global>{`
-        @media (max-width: 1000px){.xdrive-diary-filters{grid-template-columns:1fr 1fr!important}.xdrive-diary-filters-row2{grid-template-columns:1fr 1fr!important}}
-        @media (max-width: 620px){.xdrive-diary-filters{grid-template-columns:1fr!important}.xdrive-diary-filters-row2{grid-template-columns:1fr!important}}
-      `}</style>
+          {filtered.length > pageSize && <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span>Page {safePage} / {totalPages}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 28 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></span></div>}
+        </main>
+      </div>
     </PageFrame>
   );
 }
-
-const inputStyle = { width: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '0.55rem 0.65rem', background: '#fff', color: '#0f172a', fontSize: '0.76rem', boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: '0.3rem', color: '#475569', fontSize: '0.68rem', fontWeight: 800 } as const;

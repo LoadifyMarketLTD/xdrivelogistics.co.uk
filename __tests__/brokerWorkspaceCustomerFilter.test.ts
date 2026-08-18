@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getBrokerCustomerFilter } from '../app/broker/BrokerWorkspaceModules';
+import { getBrokerCustomerFilter } from '../lib/brokerCustomerFilter';
 
 describe('broker customer filter decoding', () => {
   it.each([

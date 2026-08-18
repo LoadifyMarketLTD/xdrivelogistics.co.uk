@@ -1,5 +1,6 @@
 /* Shared operational workspace shell for Customer, Broker and Carrier/Admin surfaces.
  * Driver keeps its dedicated shell. Super Admin is deliberately excluded.
+ * Measured baseline: 50px header, 32px controls, 12–13px operational text.
  */
 
 .xdrive-operational-top-workspace {
@@ -11,36 +12,39 @@
   min-height: 100vh;
   min-width: 0;
   background: #f4f6f8;
-  color: #1a1f2b;
+  color: #172033;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
-.top-workspace-shell__header {
+.xdrive-operational-top-workspace .top-workspace-shell__header {
   position: sticky;
   top: 0;
   z-index: 80;
-  height: 50px;
-  min-height: 50px;
-  display: grid;
-  grid-template-columns: minmax(270px, auto) minmax(260px, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border-bottom: 1px solid #d8dee8;
-  background: #fff;
+  height: 50px !important;
+  min-height: 50px !important;
+  display: grid !important;
+  grid-template-columns: minmax(250px, auto) minmax(0, 1fr) auto !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  padding: 0 12px !important;
+  border-bottom: 1px solid #d8dee8 !important;
+  background: #fff !important;
   box-sizing: border-box;
+  box-shadow: none !important;
 }
 
 .top-workspace-shell__brand {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .top-workspace-shell__logo-button {
-  width: 150px;
+  width: 138px;
   height: 42px;
-  flex: 0 0 150px;
+  flex: 0 0 138px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -51,8 +55,8 @@
 }
 
 .top-workspace-shell__logo {
-  width: 150px;
-  height: 41px;
+  width: 138px;
+  height: 38px;
   object-fit: contain;
   object-position: left center;
 }
@@ -64,43 +68,23 @@
   line-height: 1.1;
 }
 
-.top-workspace-shell__identity span {
-  color: #64748b;
-  font-size: 10px;
-  font-weight: 600;
+.xdrive-operational-top-workspace .top-workspace-shell__identity span {
+  color: #64748b !important;
+  font-size: 10px !important;
+  line-height: 13px !important;
+  font-weight: 700 !important;
   white-space: nowrap;
 }
 
-.top-workspace-shell__identity strong {
-  max-width: 220px;
+.xdrive-operational-top-workspace .top-workspace-shell__identity strong {
+  max-width: 190px !important;
   overflow: hidden;
-  color: #172033;
-  font-size: 12px;
-  font-weight: 700;
+  color: #172033 !important;
+  font-size: 12px !important;
+  line-height: 15px !important;
+  font-weight: 700 !important;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.top-workspace-shell__context {
-  min-width: 0;
-  display: flex;
-  justify-content: flex-end;
-  overflow: hidden;
-}
-
-.top-workspace-shell__context [aria-label="Workspace context controls"] {
-  flex-wrap: nowrap !important;
-  gap: 6px !important;
-}
-
-.top-workspace-shell__context input,
-.top-workspace-shell__context select,
-.top-workspace-shell__context button,
-.top-workspace-shell__context [aria-label="Active organisation"] {
-  height: 32px !important;
-  min-height: 32px !important;
-  border-radius: 3px !important;
-  font-size: 11px !important;
 }
 
 .top-workspace-shell__actions {
@@ -110,18 +94,19 @@
   flex-shrink: 0;
 }
 
-.top-workspace-action,
-.top-workspace-notification {
-  height: 32px;
-  min-height: 32px;
+.xdrive-operational-top-workspace .top-workspace-action,
+.xdrive-operational-top-workspace .top-workspace-notification {
+  height: 32px !important;
+  min-height: 32px !important;
   border: 1px solid #d8dee8;
-  border-radius: 3px;
+  border-radius: 4px !important;
   background: #fff;
   color: #172033;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px !important;
+  font-weight: 650 !important;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow: none !important;
 }
 
 .top-workspace-action {
@@ -159,69 +144,148 @@
   border-radius: 999px;
   background: #dc2626;
   color: #fff;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
 }
 
-.top-workspace-nav {
-  position: sticky;
-  top: 50px;
-  z-index: 70;
-  height: 36px;
-  min-height: 36px;
-  border-bottom: 1px solid #cfd7e3;
-  background: #fff;
-  overflow: visible;
+.top-workspace-context {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.top-workspace-nav__track {
+.xdrive-operational-top-workspace .top-workspace-action--context[aria-expanded="true"] {
+  border-color: #1d57d8;
+  background: #eff6ff;
+  color: #0b2f6b;
+}
+
+.top-workspace-context__menu {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  z-index: 110;
+  width: min(520px, calc(100vw - 24px));
+  padding: 10px;
+  border: 1px solid #cfd7e3;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.top-workspace-context__menu [aria-label="Workspace context controls"] {
+  justify-content: flex-start !important;
+  align-items: end !important;
+  gap: 8px !important;
+}
+
+.top-workspace-context__menu label > span:first-child {
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 650 !important;
+}
+
+.top-workspace-context__menu input,
+.top-workspace-context__menu select,
+.top-workspace-context__menu [aria-label="Active organisation"] {
+  height: 32px !important;
+  min-height: 32px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+
+.top-workspace-context__menu [role="listbox"] {
+  border-radius: 4px !important;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12) !important;
+}
+
+.top-workspace-context__menu [role="listbox"] button {
+  min-height: 40px !important;
+  border-radius: 0 !important;
+  font-size: 12px !important;
+}
+
+.top-workspace-context__menu [role="listbox"] button > div:first-child {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.top-workspace-context__menu [role="listbox"] button > div:last-child {
+  font-size: 10px !important;
+  line-height: 13px !important;
+}
+
+.top-workspace-context__menu [role="status"],
+.top-workspace-context__menu [role="alert"] {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
+/* TopWorkspaceShell renders nav inline inside the 50px header. */
+.xdrive-operational-top-workspace .top-workspace-nav--inline {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 84 !important;
+  min-width: 0 !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  border: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+.xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track {
   width: 100%;
   min-width: 0;
-  height: 35px;
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
-  padding: 0 10px;
+  height: 50px !important;
+  min-height: 50px !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
   box-sizing: border-box;
+}
+
+.xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track::-webkit-scrollbar {
+  display: none;
 }
 
 .top-workspace-nav__group {
   position: relative;
   display: flex;
   align-items: stretch;
-  border-left: 1px solid #e8edf3;
-}
-
-.top-workspace-nav__group[data-first="true"] {
   border-left: 0;
 }
 
-.top-workspace-nav__item {
+.xdrive-operational-top-workspace .top-workspace-nav__item {
   position: relative;
-  height: 35px;
-  min-height: 35px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 0;
-  background: #fff;
-  color: #4b5563;
-  font-size: 10.5px;
-  font-weight: 650;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  font-weight: 600 !important;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .top-workspace-nav__item:hover,
 .top-workspace-nav__item[data-open="true"] {
-  background: #f8fafc;
-  color: #0b2f6b;
+  background: #f8fafc !important;
+  color: #0b2f6b !important;
 }
 
 .top-workspace-nav__item[data-active="true"] {
-  color: #0b2f6b;
-  font-weight: 800;
-  background: #fff;
-  box-shadow: inset 0 -2px 0 #1d57d8;
+  color: #0b2f6b !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 -2px 0 #1d57d8 !important;
 }
 
 .top-workspace-nav__trigger {
@@ -232,21 +296,21 @@
 
 .top-workspace-nav__caret {
   color: #94a3b8;
-  font-size: 9px;
+  font-size: 10px;
   transform: translateY(-1px);
 }
 
-.top-workspace-nav__menu {
+.xdrive-operational-top-workspace .top-workspace-nav__menu {
   position: absolute;
-  top: 35px;
+  top: 45px !important;
   left: 0;
   z-index: 95;
-  width: 230px;
-  padding: 4px;
-  border: 1px solid #cfd7e3;
-  border-radius: 2px;
-  background: #fff;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  width: 230px !important;
+  padding: 4px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
 }
 
 .top-workspace-nav__group:last-child .top-workspace-nav__menu {
@@ -254,20 +318,20 @@
   left: auto;
 }
 
-.top-workspace-nav__menu-item {
+.xdrive-operational-top-workspace .top-workspace-nav__menu-item {
   width: 100%;
-  min-height: 31px;
+  min-height: 32px !important;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
-  padding: 0 8px;
+  padding: 0 8px !important;
   border: 0;
   border-left: 3px solid transparent;
-  border-radius: 2px;
+  border-radius: 3px !important;
   background: #fff;
   color: #1a1f2b;
-  font-size: 11px;
+  font-size: 12px !important;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -281,7 +345,7 @@
   border-left-color: #1d57d8;
   background: #eff6ff;
   color: #0b2f6b;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .top-workspace-nav__menu-icon {
@@ -289,11 +353,11 @@
   height: 18px;
   display: grid;
   place-items: center;
-  border-radius: 2px;
+  border-radius: 3px;
   background: #eef2f6;
   color: #475569;
-  font-size: 9px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .top-workspace-nav__menu-item[data-active="true"] .top-workspace-nav__menu-icon {
@@ -301,85 +365,115 @@
   color: #1d57d8;
 }
 
-.top-workspace-shell__content {
+.xdrive-operational-top-workspace .top-workspace-shell__content {
   min-width: 0;
-  min-height: calc(100vh - 86px);
+  min-height: calc(100vh - 50px) !important;
   background: #f4f6f8;
 }
 
-/* Shared CX-style spacing. This is intentionally scoped so Super Admin is untouched. */
+/* Shared measured page rhythm. */
 .xdrive-operational-top-workspace .top-workspace-shell__content > div,
 .xdrive-operational-top-workspace .xdrive-page-frame {
   width: 100% !important;
   max-width: none !important;
-  padding: 7px 10px 12px !important;
+  padding: 12px 12px 16px !important;
   box-sizing: border-box !important;
 }
 
 .xdrive-operational-top-workspace .xdrive-page-header {
-  min-height: 34px !important;
-  margin-bottom: 5px !important;
-  gap: 8px !important;
+  min-height: 44px !important;
+  margin-bottom: 8px !important;
+  gap: 12px !important;
   align-items: center !important;
 }
 
 .xdrive-operational-top-workspace .xdrive-page-header h1 {
   margin: 0 !important;
-  font-size: 16px !important;
-  line-height: 19px !important;
-  font-weight: 750 !important;
+  font-size: 20px !important;
+  line-height: 26px !important;
+  font-weight: 650 !important;
 }
 
 .xdrive-operational-top-workspace .xdrive-page-header p {
-  margin: 1px 0 0 !important;
-  font-size: 10px !important;
-  line-height: 13px !important;
+  margin: 2px 0 0 !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
 }
 
 .xdrive-operational-top-workspace .xdrive-page-header > div:first-child > div:first-child {
-  margin: 0 0 1px !important;
-  font-size: 9px !important;
-  line-height: 11px !important;
-  letter-spacing: .04em !important;
+  margin: 0 0 2px !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
+  letter-spacing: .02em !important;
+}
+
+/* Carrier dashboard control signals follow the measured 72px KPI target. */
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button {
+  min-height: 72px !important;
+  padding: 8px 10px !important;
+}
+
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > span {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > strong {
+  margin-top: 4px !important;
+  font-size: 22px !important;
+  line-height: 26px !important;
+}
+
+/* Carrier filter rails inside this sticky 50px shell must never slide underneath it. */
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] aside[aria-label="Search and filters"],
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] aside[aria-label="Search and filters"],
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"] {
+  top: 62px !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content section {
-  border-radius: 2px !important;
+  border-radius: 4px !important;
   box-shadow: none !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 13px !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content th {
-  height: 28px !important;
-  padding: 4px 7px !important;
-  font-size: 9px !important;
-  line-height: 11px !important;
+  height: 40px !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content td {
-  padding: 5px 7px !important;
-  font-size: 10px !important;
-  line-height: 13px !important;
+  min-height: 42px !important;
+  padding: 7px 8px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content input,
 .xdrive-operational-top-workspace .top-workspace-shell__content select {
-  border-radius: 2px !important;
+  min-height: 32px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content textarea {
-  border-radius: 2px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
 }
 
 @media (max-width: 1280px) {
-  .top-workspace-shell__header {
-    grid-template-columns: minmax(200px, auto) minmax(220px, 1fr) auto;
-    gap: 6px;
-    padding: 0 8px;
+  .xdrive-operational-top-workspace .top-workspace-shell__header {
+    grid-template-columns: minmax(190px, auto) minmax(0, 1fr) auto !important;
+    gap: 6px !important;
+    padding: 0 8px !important;
   }
 
   .top-workspace-shell__identity {
@@ -394,37 +488,32 @@
     padding: 0 8px;
   }
 
-  .top-workspace-nav__item {
-    padding: 0 7px;
-    font-size: 10px;
+  .xdrive-operational-top-workspace .top-workspace-nav__item {
+    padding: 0 8px !important;
+    font-size: 12px !important;
   }
 }
 
 @media (max-width: 1024px) {
-  .top-workspace-shell__header {
-    grid-template-columns: auto 1fr auto;
-  }
-
-  .top-workspace-shell__context {
-    justify-content: flex-start;
+  .xdrive-operational-top-workspace .top-workspace-shell__header {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
   }
 
   .top-workspace-action--signout {
     display: none;
   }
 
-  .top-workspace-nav__track {
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: thin;
+  .xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track {
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
   }
 }
 
 @media (max-width: 768px) {
-  .top-workspace-shell__header {
-    grid-template-columns: auto 1fr auto;
-    height: 48px;
-    min-height: 48px;
+  .xdrive-operational-top-workspace .top-workspace-shell__header {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    height: 48px !important;
+    min-height: 48px !important;
   }
 
   .top-workspace-shell__logo-button,
@@ -436,34 +525,55 @@
     flex-basis: 118px;
   }
 
-  .top-workspace-shell__context {
+  .top-workspace-action:not(.top-workspace-action--primary):not(.top-workspace-action--context),
+  .top-workspace-notification {
     display: none;
   }
 
-  .top-workspace-action:not(.top-workspace-action--primary) {
-    display: none;
-  }
-
-  .top-workspace-nav {
-    top: 48px;
-  }
-
-  .top-workspace-nav__menu {
+  .top-workspace-context__menu {
     position: fixed;
-    top: 84px;
-    right: 8px !important;
-    left: 8px !important;
+    top: 48px;
+    right: 8px;
+    left: 8px;
     width: auto;
-    max-height: calc(100vh - 96px);
+    max-height: calc(100vh - 60px);
     overflow-y: auto;
   }
 
-  .top-workspace-shell__content {
-    min-height: calc(100vh - 84px);
+  .top-workspace-context__menu [aria-label="Workspace context controls"] {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-nav--inline,
+  .xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track,
+  .xdrive-operational-top-workspace .top-workspace-nav__item {
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-nav__menu {
+    position: fixed;
+    top: 48px !important;
+    right: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] aside[aria-label="Search and filters"],
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] aside[aria-label="Search and filters"],
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"] {
+    top: auto !important;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-shell__content {
+    min-height: calc(100vh - 48px) !important;
   }
 
   .xdrive-operational-top-workspace .top-workspace-shell__content > div,
   .xdrive-operational-top-workspace .xdrive-page-frame {
-    padding: 6px !important;
+    padding: 8px !important;
   }
 }

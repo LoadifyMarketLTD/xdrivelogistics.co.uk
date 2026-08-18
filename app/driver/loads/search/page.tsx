@@ -5,19 +5,8 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
-import { getLoadDetailSummary } from '../../../../lib/loadPostingDetails';
-import {
-  ActionButton,
-  AlertBanner,
-  DataTable,
-  EmptyState,
-  KpiCard,
-  KpiGrid,
-  PageFrame,
-  PageHeader,
-  Panel,
-  StatusBadge,
-} from '../../../components/workspace/WorkspaceUI';
+import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
 type SearchLoad = {
   id: string;
@@ -36,18 +25,21 @@ type SearchLoad = {
   cargo_type: string | null;
   requested_cargo_label: string | null;
   pallets: number | null;
-  weight_kg: number | string | null;
-  budget_amount: number | string | null;
+  weight_kg: number | null;
+  budget_amount: number | null;
   currency: string | null;
   is_fixed_price: boolean | null;
   load_details: string | null;
   special_requirements: string | null;
-  access_restrictions: string | null;
+  access_restrictions: null;
   service_mode: string | null;
   direct_delivery_required: boolean | null;
   exchange_posted_at: string | null;
   posterName: string;
   posterMemberCode: string | null;
+  posterPhone: string | null;
+  posterMemberType: string | null;
+  posterMemberSince: string | null;
   distanceFromSearchOriginMiles: number | null;
   distanceToSearchDestinationMiles: number | null;
   journeyDistanceMiles: number | null;
@@ -99,12 +91,10 @@ const VEHICLE_LABELS: Record<string, string> = {
   hiab: 'Hiab', moffett: 'Moffett', adr_vehicle: 'ADR Vehicle', refrigerated_vehicle: 'Refrigerated Vehicle',
   temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
-
 const CARGO_TYPES = ['documents', 'parcels', 'pallets', 'machinery', 'furniture', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'other'];
 const RADIUS_OPTIONS = [10, 20, 30, 50, 100, 200, 300];
 const SEARCH_STORAGE_KEY = 'xdrive.driver.loads.advanced-search.v2';
 const RECENT_STORAGE_KEY = 'xdrive.driver.loads.recent-searches.v2';
-
 const DEFAULT_FILTERS: SearchFilters = {
   pickupSearch: '', pickupRadius: '30', deliverySearch: '', deliveryRadius: '100', vehicleType: '', bodyType: '', cargoType: '',
   member: '', jobDescription: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '',
@@ -113,32 +103,35 @@ const DEFAULT_FILTERS: SearchFilters = {
 const formatDateTime = (value: string | null) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
-
-const money = (value: number | string | null, code = 'GBP') => {
-  const parsed = Number(value);
-  return value == null || !Number.isFinite(parsed) || parsed <= 0
+const formatDate = (value: string | null) => value
+  ? new Date(value).toLocaleDateString('en-GB', { dateStyle: 'medium' })
+  : 'Not supplied';
+const money = (value: number | null, code = 'GBP') =>
+  value == null || !Number.isFinite(value) || value <= 0
     ? 'Quote required'
-    : new Intl.NumberFormat('en-GB', { style: 'currency', currency: code }).format(parsed);
-};
+    : new Intl.NumberFormat('en-GB', { style: 'currency', currency: code }).format(value);
 
 function describeJob(value: string) {
   const labels: Record<string, string> = {
-    same_day_timed: 'Same Day - Timed',
-    same_day_non_timed: 'Same Day - Non Timed',
-    next_day_timed: 'Next Day - Timed',
-    next_day_non_timed: 'Next Day - Non Timed',
-    '3_5_days': '3 - 5 Days',
-    multi_drop: 'Multi-Drop',
-    deliver_direct: 'Deliver Direct',
-    other: 'Other / notes',
+    same_day_timed: 'Same Day - Timed', same_day_non_timed: 'Same Day - Non Timed',
+    next_day_timed: 'Next Day - Timed', next_day_non_timed: 'Next Day - Non Timed',
+    '3_5_days': '3 - 5 Days', multi_drop: 'Multi-Drop', deliver_direct: 'Deliver Direct', other: 'Other / notes',
   };
   return labels[value] ?? value.replaceAll('_', ' ');
 }
-
 function describeLoadType(value: string) {
   if (value === 'daily_hire') return 'Daily Hire';
   if (value === 'regular_load') return 'Regular Load';
   return 'On Demand';
+}
+function vehicleLabel(load: SearchLoad) {
+  return load.requested_vehicle_label
+    ?? (load.requested_vehicle_type ? VEHICLE_LABELS[load.requested_vehicle_type] ?? load.requested_vehicle_type.replaceAll('_', ' ') : null)
+    ?? (load.vehicle_type ? VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replaceAll('_', ' ') : null)
+    ?? 'Vehicle not specified';
+}
+function cargoLabel(load: SearchLoad) {
+  return load.requested_cargo_label ?? load.cargo_type?.replaceAll('_', ' ') ?? 'Freight not specified';
 }
 
 export default function SearchLoadsPage() {
@@ -157,6 +150,7 @@ export default function SearchLoadsPage() {
   const [generatedAt, setGeneratedAt] = useState('');
   const [radiusStatus, setRadiusStatus] = useState<SearchResponse['radiusSearch'] | null>(null);
   const [recentSearches, setRecentSearches] = useState<SearchFilters[]>([]);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     try {
@@ -173,7 +167,7 @@ export default function SearchLoadsPage() {
     }
   }, []);
 
-  const proposedPriceCount = useMemo(() => loads.filter((load) => Number(load.budget_amount) > 0).length, [loads]);
+  const proposedPriceCount = useMemo(() => loads.filter((load) => (load.budget_amount ?? 0) > 0).length, [loads]);
 
   const getAuthHeader = async () => {
     const { data } = await supabase.auth.getSession();
@@ -189,62 +183,32 @@ export default function SearchLoadsPage() {
   };
 
   const runSearch = async (activeFilters: SearchFilters, requestedPage = 1) => {
-    if (!isSupabaseConfigured) {
-      setError('Marketplace search is temporarily unavailable.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setReferenceId('');
-
+    if (!isSupabaseConfigured) { setError('Marketplace search is temporarily unavailable.'); return; }
+    setLoading(true); setError(''); setReferenceId('');
     const auth = await getAuthHeader();
-    if (!auth) {
-      setError('Your session has expired. Sign in again to search marketplace work.');
-      setLoading(false);
-      return;
-    }
+    if (!auth) { setError('Your session has expired. Sign in again to search marketplace work.'); setLoading(false); return; }
 
     const params = new URLSearchParams({
-      from: activeFilters.pickupSearch,
-      fromRadius: activeFilters.pickupRadius,
-      to: activeFilters.deliverySearch,
-      toRadius: activeFilters.deliveryRadius,
-      vehicle: activeFilters.vehicleType,
-      body: activeFilters.bodyType,
-      freight: activeFilters.cargoType,
-      member: activeFilters.member,
-      description: activeFilters.jobDescription,
-      loadType: activeFilters.loadType,
-      postedWithinHours: activeFilters.postedWithinHours,
-      dateFrom: activeFilters.dateFrom,
-      dateTo: activeFilters.dateTo,
-      minBudget: activeFilters.minBudget,
-      maxBudget: activeFilters.maxBudget,
-      page: String(requestedPage),
-      pageSize: String(pageSize),
+      from: activeFilters.pickupSearch, fromRadius: activeFilters.pickupRadius,
+      to: activeFilters.deliverySearch, toRadius: activeFilters.deliveryRadius,
+      vehicle: activeFilters.vehicleType, body: activeFilters.bodyType, freight: activeFilters.cargoType,
+      member: activeFilters.member, description: activeFilters.jobDescription, loadType: activeFilters.loadType,
+      postedWithinHours: activeFilters.postedWithinHours, dateFrom: activeFilters.dateFrom, dateTo: activeFilters.dateTo,
+      minBudget: activeFilters.minBudget, maxBudget: activeFilters.maxBudget,
+      page: String(requestedPage), pageSize: String(pageSize),
     });
 
     try {
-      const response = await fetch(`/api/driver/search-loads?${params.toString()}`, { headers: { Authorization: auth } });
+      const response = await fetch(`/api/driver/search-loads?${params.toString()}`, { headers: { Authorization: auth }, cache: 'no-store' });
       const payload = await response.json().catch(() => ({})) as SearchResponse;
       if (!response.ok) {
-        setLoads([]);
-        setTotal(0);
-        setError(payload.error || 'The marketplace search could not be completed. Please retry.');
-        setReferenceId(payload.referenceId || '');
+        setLoads([]); setTotal(0); setError(payload.error || 'The marketplace search could not be completed. Please retry.'); setReferenceId(payload.referenceId || '');
       } else {
-        setLoads(payload.rows ?? []);
-        setTotal(payload.total ?? 0);
-        setPage(payload.page ?? requestedPage);
-        setTotalPages(payload.totalPages ?? 1);
-        setGeneratedAt(payload.generatedAt ?? '');
-        setRadiusStatus(payload.radiusSearch ?? null);
+        setLoads(payload.rows ?? []); setTotal(payload.total ?? 0); setPage(payload.page ?? requestedPage); setTotalPages(payload.totalPages ?? 1);
+        setGeneratedAt(payload.generatedAt ?? ''); setRadiusStatus(payload.radiusSearch ?? null); setExpandedIds(new Set());
       }
     } catch {
-      setLoads([]);
-      setTotal(0);
-      setError('The marketplace search could not be reached. Check your connection and retry.');
+      setLoads([]); setTotal(0); setError('The marketplace search could not be reached. Check your connection and retry.');
     }
     setLoading(false);
   };
@@ -255,132 +219,132 @@ export default function SearchLoadsPage() {
     if (requestedPage === 1) rememberSearch(next);
     await runSearch(next, requestedPage);
   };
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    await applySearch(1);
-  };
-
+  const handleSubmit = async (event: FormEvent) => { event.preventDefault(); await applySearch(1); };
   const reset = () => {
-    setFilters(DEFAULT_FILTERS);
-    setAppliedFilters(null);
-    setLoads([]);
-    setTotal(0);
-    setPage(1);
-    setTotalPages(1);
-    setError('');
-    setReferenceId('');
-    setRadiusStatus(null);
-    setSaveAsDefault(false);
+    setFilters(DEFAULT_FILTERS); setAppliedFilters(null); setLoads([]); setTotal(0); setPage(1); setTotalPages(1);
+    setError(''); setReferenceId(''); setRadiusStatus(null); setSaveAsDefault(false); setExpandedIds(new Set());
     window.localStorage.removeItem(SEARCH_STORAGE_KEY);
   };
+  const toggleExpanded = (id: string) => setExpandedIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const filterRail = (
+    <aside className="driver-filter-rail" aria-label="Advanced load search filters">
+      <div className="driver-filter-rail__header">Search Loads</div>
+      <form className="driver-filter-rail__body" onSubmit={handleSubmit}>
+        <div className="driver-filter-field"><label>From</label><input value={filters.pickupSearch} onChange={(e) => setFilters((c) => ({ ...c, pickupSearch: e.target.value }))} placeholder="Location / postcode" /></div>
+        <div className="driver-filter-field"><label>From radius</label><select value={filters.pickupRadius} onChange={(e) => setFilters((c) => ({ ...c, pickupRadius: e.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
+        <div className="driver-filter-field"><label>To</label><input value={filters.deliverySearch} onChange={(e) => setFilters((c) => ({ ...c, deliverySearch: e.target.value }))} placeholder="Location / postcode" /></div>
+        <div className="driver-filter-field"><label>To radius</label><select value={filters.deliveryRadius} onChange={(e) => setFilters((c) => ({ ...c, deliveryRadius: e.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
+        <div className="driver-filter-field"><label>Vehicle</label><select value={filters.vehicleType} onChange={(e) => setFilters((c) => ({ ...c, vehicleType: e.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Body type</label><input value={filters.bodyType} onChange={(e) => setFilters((c) => ({ ...c, bodyType: e.target.value }))} placeholder="Panel, box, curtain side…" /></div>
+        <div className="driver-filter-field"><label>Freight</label><select value={filters.cargoType} onChange={(e) => setFilters((c) => ({ ...c, cargoType: e.target.value }))}><option value="">Any freight</option>{CARGO_TYPES.map((type) => <option key={type} value={type}>{type.replaceAll('_', ' ')}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Member Name / ID</label><input value={filters.member} onChange={(e) => setFilters((c) => ({ ...c, member: e.target.value }))} placeholder="Company / member / load" /></div>
+        <div className="driver-filter-field"><label>Job description</label><select value={filters.jobDescription} onChange={(e) => setFilters((c) => ({ ...c, jobDescription: e.target.value }))}><option value="any">Any</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option><option value="3_5_days">3 - 5 Days</option><option value="multi_drop">Multi-Drop</option><option value="other">Other</option><option value="deliver_direct">Deliver Direct</option></select></div>
+        <div className="driver-filter-field"><label>Load type</label><select value={filters.loadType} onChange={(e) => setFilters((c) => ({ ...c, loadType: e.target.value }))}><option value="all">All Live</option><option value="on_demand">On Demand</option><option value="regular_load">Regular Load</option><option value="daily_hire">Daily Hire</option></select></div>
+        <div className="driver-filter-field"><label>Posted within</label><select value={filters.postedWithinHours} onChange={(e) => setFilters((c) => ({ ...c, postedWithinHours: e.target.value }))}><option value="">All</option><option value="0.25">15 minutes</option><option value="0.5">30 minutes</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></div>
+        <div className="driver-filter-field"><label>Date from</label><input type="date" value={filters.dateFrom} onChange={(e) => setFilters((c) => ({ ...c, dateFrom: e.target.value }))} /></div>
+        <div className="driver-filter-field"><label>Date to</label><input type="date" value={filters.dateTo} onChange={(e) => setFilters((c) => ({ ...c, dateTo: e.target.value }))} /></div>
+        <div className="driver-filter-field"><label>Minimum budget (£)</label><input type="number" min="0" value={filters.minBudget} onChange={(e) => setFilters((c) => ({ ...c, minBudget: e.target.value }))} /></div>
+        <div className="driver-filter-field"><label>Maximum budget (£)</label><input type="number" min="0" value={filters.maxBudget} onChange={(e) => setFilters((c) => ({ ...c, maxBudget: e.target.value }))} /></div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#475569', fontSize: 11, fontWeight: 700 }}><input type="checkbox" checked={saveAsDefault} onChange={(e) => setSaveAsDefault(e.target.checked)} /> Save as Default</label>
+        <div className="driver-filter-actions"><ActionButton type="submit" tone="success" disabled={loading}>{loading ? 'Searching…' : 'Search'}</ActionButton><ActionButton tone="secondary" onClick={reset}>Clear</ActionButton></div>
+        {recentSearches.length > 0 && <div className="driver-filter-field"><label>Recent searches</label><select defaultValue="" onChange={(e) => { const selected = recentSearches[Number(e.target.value)]; if (selected) setFilters(selected); e.currentTarget.value = ''; }}><option value="">Select saved search</option>{recentSearches.map((entry, index) => <option key={`${entry.pickupSearch}-${entry.deliverySearch}-${index}`} value={index}>{entry.pickupSearch || 'Anywhere'} → {entry.deliverySearch || 'Anywhere'}</option>)}</select></div>}
+      </form>
+    </aside>
+  );
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell>
-        <PageFrame>
-          <PageHeader
-            eyebrow="Driver marketplace"
-            title="Search Loads"
-            description="Radius-aware marketplace search by route, vehicle, body type, job type, member, timing and commercial criteria."
-            actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>All live loads</ActionButton>}
-          />
+      <DriverWorkspaceShell
+        subtitle="Advanced quote-safe Marketplace search using the same operational board as Loads. Exact execution details remain protected before award."
+        headerActions={<ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>All live loads</ActionButton>}
+      >
+        {error && <AlertBanner tone="danger">{error}{referenceId ? ` Reference: ${referenceId}` : ''}</AlertBanner>}
+        <div className="driver-board-layout driver-load-search-board">
+          {filterRail}
+          <main className="driver-board-main">
+            <div className="driver-tab-strip" aria-label="Load search views">
+              <button type="button" onClick={() => router.push('/driver/loads')}>All Live</button>
+              <button type="button" data-active="true">Advanced Search <span>{total}</span></button>
+              <button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button>
+              <button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button>
+            </div>
 
-          {error && (
-            <AlertBanner tone="danger">
-              {error}{referenceId ? ` Reference: ${referenceId}` : ''}
-            </AlertBanner>
-          )}
+            <div className="driver-board-summary">
+              <span>{loading ? 'Searching marketplace…' : appliedFilters ? `${total} matching load${total === 1 ? '' : 's'} · ${loads.length} shown` : 'Set filters and search the live Marketplace'}</span>
+              <span>{proposedPriceCount} proposed price{proposedPriceCount === 1 ? '' : 's'}{generatedAt ? ` · updated ${new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+            </div>
 
-          <KpiGrid>
-            <KpiCard label="Matching loads" value={total} tone="blue" />
-            <KpiCard label="Shown" value={loads.length} tone="green" />
-            <KpiCard label="Proposed price" value={proposedPriceCount} tone="orange" />
-            <KpiCard label="Page" value={`${page}/${totalPages}`} tone="purple" />
-          </KpiGrid>
-
-          <Panel title="Search filters" description="Radius matching uses postcode coordinates when the entered route can be resolved." style={{ marginBottom: '0.9rem' }}>
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.75rem' }}>
-              <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gridAutoFlow: 'column', justifyContent: 'start' }}>
-                <input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /> Save as Default
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.7rem' }}>
-                <label style={labelStyle}>From<input style={inputStyle} value={filters.pickupSearch} onChange={(event) => setFilters((current) => ({ ...current, pickupSearch: event.target.value }))} placeholder="Blackburn, BB1 9" /></label>
-                <label style={labelStyle}>From radius<select style={inputStyle} value={filters.pickupRadius} onChange={(event) => setFilters((current) => ({ ...current, pickupRadius: event.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
-                <label style={labelStyle}>To<input style={inputStyle} value={filters.deliverySearch} onChange={(event) => setFilters((current) => ({ ...current, deliverySearch: event.target.value }))} placeholder="Location / postcode" /></label>
-                <label style={labelStyle}>To radius<select style={inputStyle} value={filters.deliveryRadius} onChange={(event) => setFilters((current) => ({ ...current, deliveryRadius: event.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
-                <label style={labelStyle}>Vehicle<select style={inputStyle} value={filters.vehicleType} onChange={(event) => setFilters((current) => ({ ...current, vehicleType: event.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                <label style={labelStyle}>Body type<input style={inputStyle} value={filters.bodyType} onChange={(event) => setFilters((current) => ({ ...current, bodyType: event.target.value }))} placeholder="Panel, Box, Curtain Side…" /></label>
-                <label style={labelStyle}>Freight<select style={inputStyle} value={filters.cargoType} onChange={(event) => setFilters((current) => ({ ...current, cargoType: event.target.value }))}><option value="">Any freight</option>{CARGO_TYPES.map((type) => <option key={type} value={type}>{type.replaceAll('_', ' ')}</option>)}</select></label>
-                <label style={labelStyle}>Member Name / ID<input style={inputStyle} value={filters.member} onChange={(event) => setFilters((current) => ({ ...current, member: event.target.value }))} placeholder="Company, member, load or ref" /></label>
-                <label style={labelStyle}>Job description<select style={inputStyle} value={filters.jobDescription} onChange={(event) => setFilters((current) => ({ ...current, jobDescription: event.target.value }))}><option value="any">Any</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option><option value="3_5_days">3 - 5 Days</option><option value="multi_drop">Multi-Drop</option><option value="other">Other - Specified in Notes</option><option value="deliver_direct">Deliver Direct</option></select></label>
-                <label style={labelStyle}>Load type<select style={inputStyle} value={filters.loadType} onChange={(event) => setFilters((current) => ({ ...current, loadType: event.target.value }))}><option value="all">All Live</option><option value="on_demand">On Demand</option><option value="regular_load">Regular Load</option><option value="daily_hire">Daily Hire</option></select></label>
-                <label style={labelStyle}>Posted within<select style={inputStyle} value={filters.postedWithinHours} onChange={(event) => setFilters((current) => ({ ...current, postedWithinHours: event.target.value }))}><option value="">All</option><option value="0.25">15 minutes</option><option value="0.5">30 minutes</option><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></label>
-                <label style={labelStyle}>Date from<input style={inputStyle} type="date" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
-                <label style={labelStyle}>Date to<input style={inputStyle} type="date" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} /></label>
-                <label style={labelStyle}>Minimum budget (£)<input style={inputStyle} type="number" min="0" value={filters.minBudget} onChange={(event) => setFilters((current) => ({ ...current, minBudget: event.target.value }))} /></label>
-                <label style={labelStyle}>Maximum budget (£)<input style={inputStyle} type="number" min="0" value={filters.maxBudget} onChange={(event) => setFilters((current) => ({ ...current, maxBudget: event.target.value }))} /></label>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <ActionButton type="submit" tone="primary" disabled={loading}>{loading ? 'Searching…' : appliedFilters ? 'Update search' : 'Search loads'}</ActionButton>
-                <ActionButton tone="secondary" onClick={reset}>Clear</ActionButton>
-                {recentSearches.length > 0 && (
-                  <select aria-label="Recent load searches" style={{ ...inputStyle, width: 230, marginLeft: 'auto' }} defaultValue="" onChange={(event) => { const selected = recentSearches[Number(event.target.value)]; if (selected) setFilters(selected); event.currentTarget.value = ''; }}>
-                    <option value="">View recent searches</option>
-                    {recentSearches.map((entry, index) => <option key={`${entry.pickupSearch}-${entry.deliverySearch}-${index}`} value={index}>{entry.pickupSearch || 'Anywhere'} → {entry.deliverySearch || 'Anywhere'}</option>)}
-                  </select>
-                )}
-              </div>
-
-              {appliedFilters && (
-                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                  {generatedAt ? `Results at ${new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. ` : ''}
-                  {appliedFilters.pickupSearch ? (radiusStatus?.fromResolved ? `FROM radius active (${appliedFilters.pickupRadius} miles). ` : 'FROM radius could not be geocoded; text matching used. ') : ''}
-                  {appliedFilters.deliverySearch ? (radiusStatus?.toResolved ? `TO radius active (${appliedFilters.deliveryRadius} miles).` : 'TO radius could not be geocoded; text matching used.') : ''}
-                </div>
-              )}
-            </form>
-          </Panel>
-
-          <Panel title="Marketplace results" description={appliedFilters ? `${total} load(s) match the search.` : 'Submit the search form to load current marketplace work.'}>
-            <DataTable
-              columns={['Route', 'Pickup / delivery', 'Vehicle / freight', 'Operational detail', 'Commercial', 'Type', 'Action']}
-              rows={loads.map((load) => {
-                const summary = getLoadDetailSummary(load);
-                const summaryText = summary.length > 0
-                  ? summary.slice(0, 3).map((item) => `${item.label}: ${item.value}`).join(' · ')
-                  : `${load.pallets ?? 0} pallet(s) · ${load.weight_kg ?? 0} kg`;
-                const hasProposedPrice = Number(load.budget_amount) > 0;
-                return [
-                  <div key="route"><strong style={{ display: 'block' }}>{load.pickup_location ?? load.pickup_postcode ?? 'Collection'} → {load.delivery_location ?? load.delivery_postcode ?? 'Delivery'}</strong><span style={{ color: '#64748b' }}>Load #{load.id.slice(0, 8).toUpperCase()} · {load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles} mi` : 'distance TBC'}</span></div>,
-                  <div key="timing"><span style={{ display: 'block' }}>{formatDateTime(load.pickup_datetime)}</span><span style={{ color: '#64748b' }}>Deliver {formatDateTime(load.delivery_datetime)}</span></div>,
-                  <div key="vehicle"><span style={{ display: 'block' }}>{load.requested_vehicle_label ?? VEHICLE_LABELS[load.vehicle_type ?? ''] ?? load.vehicle_type ?? 'Not specified'}</span><span style={{ color: '#64748b' }}>{load.requested_cargo_label ?? load.cargo_type?.replaceAll('_', ' ') ?? 'Freight not specified'}</span></div>,
-                  <div key="detail"><span style={{ display: 'block' }}>{summaryText}</span><span style={{ color: '#64748b' }}>{describeJob(load.jobDescription)}{load.direct_delivery_required ? ' · Direct' : ''}</span></div>,
-                  <div key="commercial"><strong style={{ display: 'block' }}>{money(load.budget_amount, load.currency || 'GBP')}</strong><span style={{ color: '#64748b' }}>{load.posterName}{load.posterMemberCode ? ` · ${load.posterMemberCode}` : ''} · posted {formatDateTime(load.exchange_posted_at)}</span></div>,
-                  <div key="type"><StatusBadge value={describeLoadType(load.loadType)} tone="blue" />{hasProposedPrice ? <span style={{ display: 'block', marginTop: 4 }}><StatusBadge value="Proposed price" tone="orange" /></span> : null}</div>,
-                  <ActionButton key="open" tone="primary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open / quote</ActionButton>,
-                ];
-              })}
-              empty={<EmptyState title={loading ? 'Searching marketplace…' : appliedFilters ? 'No loads match the current search' : 'Search not submitted yet'} description="Adjust radius, route, vehicle, body, freight, member or timing filters and search again." />}
-            />
-
-            {appliedFilters && total > 0 && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}</span>
-                <label style={{ ...labelStyle, marginLeft: 'auto', display: 'flex', gridAutoFlow: 'column', alignItems: 'center' }}>Items per Page<select style={{ ...inputStyle, width: 74 }} value={pageSize} onChange={(event) => { const next = Number(event.target.value); setPageSize(next); setPage(1); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                <ActionButton tone="secondary" disabled={loading || page <= 1} onClick={() => void runSearch(appliedFilters, page - 1)}>Previous</ActionButton>
-                <span style={{ fontSize: '0.72rem', fontWeight: 800 }}>Page {page} / {totalPages}</span>
-                <ActionButton tone="secondary" disabled={loading || page >= totalPages} onClick={() => void runSearch(appliedFilters, page + 1)}>Next</ActionButton>
+            {appliedFilters && (appliedFilters.pickupSearch || appliedFilters.deliverySearch) && (
+              <div className="driver-board-summary" style={{ borderTop: 0 }}>
+                <span>{appliedFilters.pickupSearch ? (radiusStatus?.fromResolved ? `FROM radius ${appliedFilters.pickupRadius} mi` : 'FROM text match') : 'FROM unrestricted'} · {appliedFilters.deliverySearch ? (radiusStatus?.toResolved ? `TO radius ${appliedFilters.deliveryRadius} mi` : 'TO text match') : 'TO unrestricted'}</span>
+                <span>Server-side radius ranking · public areas only</span>
               </div>
             )}
-          </Panel>
-        </PageFrame>
+
+            {!appliedFilters ? (
+              <div className="driver-load-row"><EmptyState compact title="Search not submitted yet" description="Use the 220px search rail to keep advanced filters beside the operational results." /></div>
+            ) : loading ? (
+              <div className="driver-load-row"><EmptyState compact title="Searching marketplace…" /></div>
+            ) : loads.length === 0 ? (
+              <div className="driver-load-row"><EmptyState compact title="No loads match the current search" description="Adjust route, radius, vehicle, freight, member, timing or commercial filters and search again." /></div>
+            ) : (
+              <div className="driver-load-list">
+                {loads.map((load) => {
+                  const expanded = expandedIds.has(load.id);
+                  const hasProposedPrice = (load.budget_amount ?? 0) > 0;
+                  const routeDistance = load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles} miles` : 'Distance TBC';
+                  return (
+                    <article key={load.id} className="driver-load-row" data-state="open">
+                      <div className="driver-load-row__top">
+                        <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{load.pickup_location ?? load.pickup_postcode ?? 'Collection area TBC'}</strong><span className="driver-cell-secondary">Area only · {formatDateTime(load.pickup_datetime)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{load.delivery_location ?? load.delivery_postcode ?? 'Delivery area TBC'}</strong><span className="driver-cell-secondary">Area only · {formatDateTime(load.delivery_datetime)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Load</span><strong className="driver-cell-primary">{vehicleLabel(load)}</strong><span className="driver-cell-secondary">{cargoLabel(load)}{load.weight_kg != null ? ` · ${load.weight_kg} kg` : ''}{load.pallets != null ? ` · ${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : ''}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{money(load.budget_amount, load.currency || 'GBP')}</strong><span className="driver-cell-secondary">{load.company_id ? <MemberIdentityLink companyId={load.company_id}>{load.posterName}</MemberIdentityLink> : load.posterName}{load.posterMemberCode ? ` · ${load.posterMemberCode}` : ''}</span></div>
+                      </div>
+                      <div className="driver-load-row__meta">
+                        <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
+                        <span>{routeDistance}</span>
+                        <StatusBadge value={describeLoadType(load.loadType)} tone="blue" />
+                        <StatusBadge value={describeJob(load.jobDescription)} tone="grey" />
+                        {load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}
+                        {hasProposedPrice && <StatusBadge value="Proposed price" tone="orange" />}
+                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => toggleExpanded(load.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="success" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open / quote</ActionButton></div>
+                      </div>
+                      {expanded && (
+                        <div className="driver-row-details">
+                          <div className="driver-detail-grid">
+                            <div className="driver-detail-item"><span>Posting member</span><strong>{load.company_id ? <MemberIdentityLink companyId={load.company_id}>{load.posterName}</MemberIdentityLink> : load.posterName}</strong><small>{[load.posterMemberType, load.posterMemberCode].filter(Boolean).join(' · ') || 'Member identity supplied'}</small></div>
+                            <div className="driver-detail-item"><span>Quote contact</span><strong>{load.posterPhone ?? 'Business phone not supplied'}</strong></div>
+                            <div className="driver-detail-item"><span>Member since</span><strong>{formatDate(load.posterMemberSince)}</strong></div>
+                            <div className="driver-detail-item"><span>Journey distance</span><strong>{routeDistance}</strong></div>
+                            <div className="driver-detail-item"><span>From search origin</span><strong>{load.distanceFromSearchOriginMiles != null ? `${load.distanceFromSearchOriginMiles} miles` : 'Not resolved'}</strong></div>
+                            <div className="driver-detail-item"><span>To search destination</span><strong>{load.distanceToSearchDestinationMiles != null ? `${load.distanceToSearchDestinationMiles} miles` : 'Not resolved'}</strong></div>
+                          </div>
+                          {load.special_requirements && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.special_requirements}</div>}
+                          {load.load_details && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Public quote notes: </strong>{load.load_details}</div>}
+                          <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Pre-award privacy:</strong> these search rows use the server's quote-safe projection. Exact addresses, site contacts, private execution instructions and booking references are not delivered here.</div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {appliedFilters && total > 0 && (
+              <div className="driver-board-summary">
+                <span>{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}</span>
+                <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><label>Items per Page: <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={loading || page <= 1} onClick={() => void runSearch(appliedFilters, page - 1)}>Previous</ActionButton><strong>Page {page} / {totalPages}</strong><ActionButton tone="secondary" disabled={loading || page >= totalPages} onClick={() => void runSearch(appliedFilters, page + 1)}>Next</ActionButton></span>
+              </div>
+            )}
+          </main>
+        </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }
-
-const inputStyle = { width: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '0.58rem 0.68rem', background: '#fff', color: '#0f172a', fontSize: '0.78rem', boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: '0.3rem', color: '#475569', fontSize: '0.7rem', fontWeight: 800 } as const;

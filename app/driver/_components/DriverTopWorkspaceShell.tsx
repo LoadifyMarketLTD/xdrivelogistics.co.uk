@@ -20,17 +20,17 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/driver' },
-  { id: 'network', label: 'Network', href: '/driver/network' },
-  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
   { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
   { id: 'diary', label: 'Diary', href: '/driver/history' },
   { id: 'availability', label: 'Availability', href: '/driver/availability' },
-  { id: 'account', label: 'Account', href: '/driver/profile' },
+  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
+  { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
 
 const ACCOUNT_PREFIXES = [
+  '/driver/account',
   '/driver/profile',
   '/driver/vehicles',
   '/driver/documents',
@@ -109,7 +109,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
   const isActive = (href: string) => {
     if (href === '/driver') return pathname === '/driver';
-    if (href === '/driver/profile') {
+    if (href === '/driver/account') {
       return ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     }
     return pathname === href || pathname.startsWith(`${href}/`);

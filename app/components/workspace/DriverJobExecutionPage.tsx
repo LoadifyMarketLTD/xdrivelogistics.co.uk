@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
+import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -15,48 +16,104 @@ const statusLabel: Record<string, string> = {
   on_site_delivery: 'On site (delivery)', delivered: 'Delivered', completed: 'Completed', cancelled: 'Cancelled',
 };
 
-const nextAction: Record<string, { status: string; label: string }> = {
-  awarded: { status: 'on_my_way', label: 'On my Way to Pickup' },
-  allocated: { status: 'on_my_way', label: 'On my Way to Pickup' },
-  on_my_way: { status: 'on_site_pickup', label: 'On Site (Pickup)' },
-  on_site_pickup: { status: 'loaded', label: 'Confirm Loaded' },
-  loaded: { status: 'in_transit', label: 'On my Way to Delivery' },
-  in_transit: { status: 'on_site_delivery', label: 'On Site (Delivery)' },
-  on_site_delivery: { status: 'delivered', label: 'Confirm Delivered' },
-  delivered: { status: 'completed', label: 'Complete Job' },
+const nextActionLabel: Record<string, string> = {
+  on_my_way: 'On my Way to Pickup',
+  on_site_pickup: 'On Site (Pickup)',
+  loaded: 'Confirm Loaded',
+  in_transit: 'On my Way to Delivery',
+  on_site_delivery: 'On Site (Delivery)',
+  delivered: 'Confirm Delivered',
+  completed: 'Complete Job',
 };
 
 type JobSheet = {
   reference: string;
   loadId: string;
   status: string;
+  bookedAt: string | null;
+  postingCompanyId: string | null;
   bookedBy: string;
   memberCode: string | null;
   memberPhone: string | null;
+  executingCompanyId: string | null;
+  driverId: string;
+  driverName: string | null;
   agreedRate: number | null;
+  agreedGross: number | null;
+  vatRate: number | null;
+  vatAmount: number | null;
   currency: string;
+  paymentTerms: string | null;
+  paymentDueDays: number | null;
+  commercialSnapshotAvailable: boolean;
+  customerName: string | null;
   customerReference: string | null;
   purchaseOrderNumber: string | null;
   bookingReference: string | null;
   distanceMiles: number | null;
-  vehicleRequested: string | null;
-  vehicleRef: string | null;
-  vehicleType: string | null;
-  paymentTerms: string;
+  requestedVehicle: string | null;
+  allocatedVehicle: {
+    id: string | null;
+    ref: string | null;
+    type: string | null;
+    make: string | null;
+    model: string | null;
+    payloadKg: number | null;
+    palletsCapacity: number | null;
+    hasTailLift: boolean | null;
+    source: 'job' | 'none';
+  };
+  cargo: {
+    type: string | null;
+    weightKg: number | null;
+    pallets: number | null;
+    lengthCm: number | null;
+    widthCm: number | null;
+    heightCm: number | null;
+    cargoValueGbp: number | null;
+    palletType: string | null;
+    stackable: boolean | null;
+  };
+  requirements: string[];
   hardCopyPod: string;
-  podRequired: boolean;
-  pickupSlot: string | null;
-  deliverySlot: string | null;
+  podRequired: boolean | null;
+  pickup: {
+    address: string | null;
+    postcode: string | null;
+    dateTime: string | null;
+    slot: string | null;
+    contactName: string | null;
+    contactPhone: string | null;
+    notes: string | null;
+  };
+  delivery: {
+    address: string | null;
+    postcode: string | null;
+    dateTime: string | null;
+    slot: string | null;
+    contactName: string | null;
+    contactPhone: string | null;
+    notes: string | null;
+  };
+  publicQuoteNotes: string | null;
+  executionInstructions: string | null;
   driverNotes: string | null;
+  documentChecklist: string[];
   timeline: Array<{ id: string | null; eventType: string; message: string | null; meta: unknown; createdAt: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
-  invoices: Array<{ id: string | null; number: string | null; status: string | null; amount: number | null; currency: string }>;
+  invoices: Array<{ id: string | null; number: string | null; status: string | null; paymentStatus: string | null; amount: number | null; currency: string; dueDate: string | null }>;
+  partial: boolean;
+  unavailable: {
+    bodyType: string;
+    extras: string;
+    bookingFooter: string;
+  };
 };
 
 const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return 'Not set';
+  if (!value) return 'Not supplied';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Not set' : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  return Number.isNaN(date.getTime()) ? 'Not supplied' : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
 const money = (amount: number | null | undefined, currency = 'GBP') => amount == null
@@ -72,6 +129,10 @@ const routeMapUrl = (job: DbJob) => {
   if (job.delivery_postcode || job.delivery_location) params.set('destination', job.delivery_postcode || job.delivery_location || '');
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 };
+
+const vehicleName = (value: string | null | undefined) => value
+  ? (VEHICLE_TYPE_LABELS[value] ?? value.replace(/_/g, ' '))
+  : 'Not supplied';
 
 export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const router = useRouter();
@@ -121,11 +182,11 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     const auth = await authHeader();
     if (auth) {
       try {
-        const response = await fetch(`/api/driver/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: auth } });
+        const response = await fetch(`/api/driver/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: auth }, cache: 'no-store' });
         const payload = await response.json().catch(() => ({})) as { sheet?: JobSheet; error?: string };
         if (response.ok) setSheet(payload.sheet ?? null);
       } catch {
-        // The execution screen remains usable even if commercial enrichment is temporarily unavailable.
+        // Execution remains usable if enrichment is temporarily unavailable.
       }
     }
     setLoading(false);
@@ -230,13 +291,37 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   if (loading) return <PageFrame><EmptyState title="Loading assigned job…" /></PageFrame>;
   if (!job) return <PageFrame><AlertBanner tone="danger">{error || 'Job not found.'}</AlertBanner></PageFrame>;
 
-  const currentStatus = String(job.current_status ?? job.status).toLowerCase();
-  const next = nextAction[currentStatus];
+  const currentStatus = canonicalExecutionStatus(job.current_status ?? job.status);
+  const nextStatus = nextDriverExecutionStatus(currentStatus);
+  const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
   const loadSections = getLoadDetailSections(job);
   const history = Array.isArray(job.status_history) ? job.status_history : [];
   const timelineRows = sheet?.timeline.length
     ? sheet.timeline.map((entry) => [statusLabel[entry.eventType] ?? entry.eventType.replace(/_/g, ' '), formatDateTime(entry.createdAt), entry.message ?? '—'])
     : history.map((entry) => [statusLabel[String(entry.status)] ?? String(entry.status ?? 'Update'), formatDateTime(entry.timestamp), entry.note ?? '—']);
+
+  const requestedVehicle = vehicleName(sheet?.requestedVehicle ?? job.requested_vehicle_label ?? job.vehicle_type);
+  const allocatedVehicleType = vehicleName(sheet?.allocatedVehicle.type);
+  const allocatedVehicleName = [sheet?.allocatedVehicle.make, sheet?.allocatedVehicle.model].filter(Boolean).join(' ');
+  const allocatedVehicleSummary = sheet?.allocatedVehicle.source === 'job'
+    ? [allocatedVehicleName, allocatedVehicleType, sheet.allocatedVehicle.ref].filter(Boolean).join(' · ') || 'Allocated vehicle recorded'
+    : 'Not supplied';
+  const allocatedVehicleDetail = sheet?.allocatedVehicle.source === 'job'
+    ? 'Job-specific allocated vehicle source.'
+    : undefined;
+  const cargoDimensions = sheet && [sheet.cargo.lengthCm, sheet.cargo.widthCm, sheet.cargo.heightCm].some((value) => value != null)
+    ? `${[sheet.cargo.lengthCm, sheet.cargo.widthCm, sheet.cargo.heightCm].map((value) => value ?? '—').join(' × ')} cm`
+    : 'Not supplied';
+  const carrierIdentity = sheet?.executingCompanyId
+    ? sheet.executingCompanyId === companyId
+      ? `Your carrier company · ${sheet.executingCompanyId.slice(0, 8).toUpperCase()}`
+      : `Carrier company · ${sheet.executingCompanyId.slice(0, 8).toUpperCase()}`
+    : 'Not supplied';
+  const bookingNotes: Array<readonly [string, string]> = [];
+  if (sheet?.executionInstructions) bookingNotes.push(['Private execution instructions', sheet.executionInstructions]);
+  if (sheet?.publicQuoteNotes) bookingNotes.push(['Public quote notes retained on booking', sheet.publicQuoteNotes]);
+  const stopInstructions = [sheet?.pickup.notes, sheet?.delivery.notes].filter((value): value is string => Boolean(value?.trim()));
+  const paperworkInstructions = sheet?.documentChecklist ?? [];
 
   return (
     <PageFrame>
@@ -249,29 +334,79 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {message && <AlertBanner tone="success">{message}</AlertBanner>}
+      {sheet?.partial && <AlertBanner tone="warning">Part of the awarded booking could not be enriched. Verified values are shown and missing values remain explicitly unavailable.</AlertBanner>}
 
-      <Panel title="Accepted job" description="Commercial booking, route and execution state in one operational sheet.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(210px,1.35fr) minmax(210px,1.35fr) minmax(155px,.8fr) minmax(155px,.8fr)', gap: 8 }}>
-          <div className="driver-detail-item"><span>Collection</span><strong>{job.pickup_location ?? 'Not set'}</strong><small>{job.pickup_postcode ?? ''} · {formatDateTime(job.pickup_datetime)}{sheet?.pickupSlot ? ` · Slot ${sheet.pickupSlot}` : ''}</small></div>
-          <div className="driver-detail-item"><span>Delivery</span><strong>{job.delivery_location ?? 'Not set'}</strong><small>{job.delivery_postcode ?? ''} · {formatDateTime(job.delivery_datetime)}{sheet?.deliverySlot ? ` · Slot ${sheet.deliverySlot}` : ''}</small></div>
-          <div className="driver-detail-item"><span>Status</span><strong>{statusLabel[currentStatus] ?? currentStatus}</strong><small>Load ID {job.id.slice(0, 8).toUpperCase()}</small></div>
-          <div className="driver-detail-item"><span>Vehicle</span><strong>{sheet?.vehicleRequested ? (VEHICLE_TYPE_LABELS[sheet.vehicleRequested] ?? sheet.vehicleRequested.replace(/_/g, ' ')) : (job.requested_vehicle_label ?? VEHICLE_TYPE_LABELS[job.vehicle_type ?? ''] ?? 'Not supplied')}</strong><small>Vehicle ref: {sheet?.vehicleRef ?? 'Not assigned'}</small></div>
-        </div>
-
-        <div className="driver-detail-grid" style={{ marginTop: 8 }}>
-          <div className="driver-detail-item"><span>Booked by</span><strong>{sheet?.bookedBy ?? job.client_name ?? 'Marketplace member'}</strong><small>{sheet?.memberCode ? `Member ${sheet.memberCode}` : ''}</small></div>
-          <div className="driver-detail-item"><span>Phone</span><strong>{sheet?.memberPhone ?? job.client_phone ?? 'Not supplied'}</strong></div>
-          <div className="driver-detail-item"><span>Agreed rate</span><strong>{money(sheet?.agreedRate, sheet?.currency ?? job.currency)}</strong></div>
-          <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Not provided'}</strong></div>
-          <div className="driver-detail-item"><span>Reference</span><strong>{sheet?.bookingReference ?? job.booking_reference ?? '—'}</strong></div>
-          <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference ?? '—'}</strong></div>
-          <div className="driver-detail-item"><span>PO number</span><strong>{sheet?.purchaseOrderNumber ?? job.purchase_order_number ?? '—'}</strong></div>
+      <Panel title="Order" description="Awarded booking confirmation and operational instructions from the driver-authorised job sheet.">
+        <div className="driver-detail-grid">
+          <div className="driver-detail-item"><span>Booking / job reference</span><strong>{sheet?.bookingReference ?? job.booking_reference ?? sheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`}</strong><small>Load ID {job.id.slice(0, 8).toUpperCase()}</small></div>
+          <div className="driver-detail-item"><span>Booked / awarded</span><strong>{formatDateTime(sheet?.bookedAt)}</strong></div>
+          <div className="driver-detail-item"><span>Requested vehicle</span><strong>{requestedVehicle}</strong></div>
+          <div className="driver-detail-item"><span>Allocated vehicle</span><strong>{allocatedVehicleSummary}</strong>{allocatedVehicleDetail && <small>{allocatedVehicleDetail}</small>}</div>
+          <div className="driver-detail-item"><span>Body type</span><strong>Unavailable</strong><small>{sheet?.unavailable.bodyType ?? 'No verified body-type field is available.'}</small></div>
+          <div className="driver-detail-item"><span>Subcontracted by</span><strong>{sheet?.bookedBy ?? 'Not supplied'}</strong><small>{[sheet?.memberCode ? `Member ${sheet.memberCode}` : null, sheet?.memberPhone].filter(Boolean).join(' · ')}</small></div>
+          <div className="driver-detail-item"><span>Subcontracted to</span><strong>{carrierIdentity}</strong><small>Company name is not separately returned by the current driver-authorised sheet.</small></div>
+          <div className="driver-detail-item"><span>Assigned driver</span><strong>{sheet?.driverName ?? 'Driver name not supplied'}</strong></div>
+          <div className="driver-detail-item"><span>Agreed rate</span><strong>{money(sheet?.agreedRate, sheet?.currency ?? job.currency)}</strong><small>{sheet?.commercialSnapshotAvailable ? 'Commercial agreement snapshot available' : 'Accepted bid / job source; no commercial agreement snapshot'}</small></div>
+          <div className="driver-detail-item"><span>Extras</span><strong>Unavailable</strong><small>{sheet?.unavailable.extras ?? 'No immutable extras snapshot is available.'}</small></div>
+          <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : sheet?.commercialSnapshotAvailable ? 'Agreement snapshot' : 'No payment-term snapshot metadata supplied'}</small></div>
+          <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? (sheet?.podRequired === false ? 'Not required' : 'Requirement not supplied')}</strong></div>
+          <div className="driver-detail-item"><span>Customer reference</span><strong>{sheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
+          <div className="driver-detail-item"><span>PO number</span><strong>{sheet?.purchaseOrderNumber ?? job.purchase_order_number ?? 'Not supplied'}</strong></div>
+          <div className="driver-detail-item"><span>Customer / load</span><strong>{sheet?.customerName ?? job.client_name ?? 'Not supplied'}</strong></div>
           <div className="driver-detail-item"><span>Distance</span><strong>{sheet?.distanceMiles != null ? `${sheet.distanceMiles} miles` : job.job_distance_miles != null ? `${job.job_distance_miles} miles` : 'Not supplied'}</strong></div>
-          <div className="driver-detail-item"><span>Hard copy POD</span><strong>{sheet?.hardCopyPod ?? 'Digital POD required'}</strong></div>
+          <div className="driver-detail-item"><span>Freight</span><strong>{vehicleName(sheet?.cargo.type ?? job.cargo_type)}</strong><small>{[sheet?.cargo.weightKg != null ? `${sheet.cargo.weightKg} kg` : null, sheet?.cargo.pallets != null ? `${sheet.cargo.pallets} pallet(s)` : null].filter(Boolean).join(' · ') || 'Weight / pallet count not supplied'}</small></div>
+          <div className="driver-detail-item"><span>Dimensions</span><strong>{cargoDimensions}</strong></div>
+          <div className="driver-detail-item"><span>Cargo value</span><strong>{money(sheet?.cargo.cargoValueGbp, sheet?.currency ?? job.currency)}</strong></div>
+          <div className="driver-detail-item"><span>Pallet / stackable</span><strong>{sheet?.cargo.palletType ?? 'Not supplied'}</strong><small>{sheet?.cargo.stackable == null ? 'Stackability not supplied' : sheet.cargo.stackable ? 'Stackable' : 'Not stackable'}</small></div>
         </div>
 
-        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
-          {next && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(next.status)}>{working ? 'Saving…' : next.label}</ActionButton>}
+        {bookingNotes.length > 0 && (
+          <div className="driver-order-block">
+            <strong>Notes &amp; Details</strong>
+            {bookingNotes.map(([label, value]) => <span key={label}><b>{label}:</b> {value}</span>)}
+          </div>
+        )}
+
+        <div className="driver-order-stops">
+          <section className="driver-order-stop">
+            <div className="driver-order-stop__head"><strong>Pickup</strong><span>{formatDateTime(sheet?.pickup.dateTime ?? job.pickup_datetime)}{sheet?.pickup.slot ? ` · ${sheet.pickup.slot}` : ''}</span></div>
+            <div className="driver-detail-grid">
+              <div className="driver-detail-item"><span>Address</span><strong>{[sheet?.pickup.address ?? job.pickup_location, sheet?.pickup.postcode ?? job.pickup_postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong></div>
+              <div className="driver-detail-item"><span>Company</span><strong>{sheet?.bookedBy ?? 'Not separately supplied'}</strong><small>Posting company shown where this is the only verified company identity on the booking.</small></div>
+              <div className="driver-detail-item"><span>Contact</span><strong>{sheet?.pickup.contactName ?? job.collection_contact_name ?? 'Not supplied'}</strong></div>
+              <div className="driver-detail-item"><span>Phone</span><strong>{sheet?.pickup.contactPhone ?? job.collection_contact_phone ?? 'Not supplied'}</strong></div>
+              {sheet?.pickup.notes && <div className="driver-detail-item"><span>Pickup notes</span><strong>{sheet.pickup.notes}</strong></div>}
+            </div>
+          </section>
+          <section className="driver-order-stop">
+            <div className="driver-order-stop__head"><strong>Delivery</strong><span>{formatDateTime(sheet?.delivery.dateTime ?? job.delivery_datetime)}{sheet?.delivery.slot ? ` · ${sheet.delivery.slot}` : ''}</span></div>
+            <div className="driver-detail-grid">
+              <div className="driver-detail-item"><span>Address</span><strong>{[sheet?.delivery.address ?? job.delivery_location, sheet?.delivery.postcode ?? job.delivery_postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong></div>
+              <div className="driver-detail-item"><span>Company</span><strong>{sheet?.customerName ?? 'Not separately supplied'}</strong><small>Customer name shown only when it is the verified delivery-side company context available on the job.</small></div>
+              <div className="driver-detail-item"><span>Contact</span><strong>{sheet?.delivery.contactName ?? job.delivery_contact_name ?? 'Not supplied'}</strong></div>
+              <div className="driver-detail-item"><span>Phone</span><strong>{sheet?.delivery.contactPhone ?? job.delivery_contact_phone ?? 'Not supplied'}</strong></div>
+              {sheet?.delivery.notes && <div className="driver-detail-item"><span>Delivery notes</span><strong>{sheet.delivery.notes}</strong></div>}
+            </div>
+          </section>
+        </div>
+
+        {(sheet?.requirements.length || stopInstructions.length || paperworkInstructions.length || sheet?.hardCopyPod) ? (
+          <div className="driver-order-block">
+            <strong>Working &amp; paperwork instructions</strong>
+            {sheet?.requirements.map((instruction) => <span key={`req-${instruction}`}>{instruction}</span>)}
+            {stopInstructions.map((instruction) => <span key={`stop-${instruction}`}>{instruction}</span>)}
+            {paperworkInstructions.map((instruction) => <span key={`paper-${instruction}`}>Paperwork: {instruction}</span>)}
+            {sheet?.hardCopyPod && <span>POD: {sheet.hardCopyPod}</span>}
+          </div>
+        ) : null}
+
+        <div className="driver-order-block">
+          <strong>Booking footer / working instructions</strong>
+          <span>{sheet?.unavailable.bookingFooter ?? 'No historical booking-footer snapshot is available.'}</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
+          {nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
           <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route / Track</a>
           {sheet?.memberPhone && <a href={`tel:${sheet.memberPhone.replace(/\s+/g, '')}`} style={linkButtonStyle}>Call Member</a>}
           {sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
@@ -282,8 +417,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         <div style={{ display: 'grid', gap: 8 }}>
           <Panel title="Route and navigation">
             <DataTable columns={['Stop', 'Address', 'Time', 'Navigation']} rows={[
-              ['Pickup', [job.pickup_location, job.pickup_postcode].filter(Boolean).join(', ') || 'Not set', formatDateTime(job.pickup_datetime), job.pickup_location ? <a key="pickup" href={mapsUrl(job.pickup_location, job.pickup_postcode)} target="_blank" rel="noopener noreferrer">Open map</a> : '—'],
-              ['Delivery', [job.delivery_location, job.delivery_postcode].filter(Boolean).join(', ') || 'Not set', formatDateTime(job.delivery_datetime), job.delivery_location ? <a key="delivery" href={mapsUrl(job.delivery_location, job.delivery_postcode)} target="_blank" rel="noopener noreferrer">Open map</a> : '—'],
+              ['Pickup', [sheet?.pickup.address ?? job.pickup_location, sheet?.pickup.postcode ?? job.pickup_postcode].filter(Boolean).join(', ') || 'Not set', formatDateTime(sheet?.pickup.dateTime ?? job.pickup_datetime), (sheet?.pickup.address ?? job.pickup_location) ? <a key="pickup" href={mapsUrl(sheet?.pickup.address ?? job.pickup_location ?? '', sheet?.pickup.postcode ?? job.pickup_postcode)} target="_blank" rel="noopener noreferrer">Open map</a> : '—'],
+              ['Delivery', [sheet?.delivery.address ?? job.delivery_location, sheet?.delivery.postcode ?? job.delivery_postcode].filter(Boolean).join(', ') || 'Not set', formatDateTime(sheet?.delivery.dateTime ?? job.delivery_datetime), (sheet?.delivery.address ?? job.delivery_location) ? <a key="delivery" href={mapsUrl(sheet?.delivery.address ?? job.delivery_location ?? '', sheet?.delivery.postcode ?? job.delivery_postcode)} target="_blank" rel="noopener noreferrer">Open map</a> : '—'],
             ]} />
           </Panel>
 
@@ -291,19 +426,19 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
           {(currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && <Panel title="Collection evidence" description="A loading image is mandatory before confirming loaded."><input ref={collectionInput} type="file" accept="image/*" capture="environment" hidden onChange={selectCollectionPhoto} /><div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><StatusBadge value={collectionPhoto ? 'Photo ready' : 'Photo required'} tone={collectionPhoto ? 'green' : 'orange'} /><ActionButton tone="secondary" disabled={working} onClick={() => collectionInput.current?.click()}>{collectionPhoto ? 'Replace loading photo' : 'Take loading photo'}</ActionButton></div></Panel>}
 
-          {currentStatus === 'on_site_delivery' && <Panel title="Delivery evidence" description="Photo, recipient name and signature are all required."><input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} /><div style={{ display: 'grid', gap: 7 }}><ActionButton tone="secondary" disabled={working} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length})</ActionButton><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 3, background: '#fff', touchAction: 'none' }} /><ActionButton tone="secondary" onClick={clearSignature}>Clear signature</ActionButton></div></Panel>}
+          {currentStatus === 'on_site_delivery' && <Panel title="Delivery evidence" description="Photo, recipient name and signature are all required."><input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} /><div style={{ display: 'grid', gap: 7 }}><ActionButton tone="secondary" disabled={working} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length})</ActionButton><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} /><ActionButton tone="secondary" onClick={clearSignature}>Clear signature</ActionButton></div></Panel>}
         </div>
 
         <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
           <Panel title="Operational timeline" description="Pickup, loading, transit, delivery and completion events."><DataTable columns={['Status', 'Time', 'Details']} rows={timelineRows} empty={<EmptyState title="No recorded history" />} /></Panel>
-          <Panel title="Notes"><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
+          <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
           <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>
-          <Panel title="POD and invoice"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Delivery photos</span><strong>{deliveryPhotos.length}</strong></div><div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div><div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.status ?? ''}</small></div></div></Panel>
+          <Panel title="POD and invoice"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Delivery photos</span><strong>{deliveryPhotos.length}</strong></div><div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div><div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? ''}</small></div></div></Panel>
         </div>
       </TwoColumn>
     </PageFrame>
   );
 }
 
-const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 3, padding: '7px 8px', background: '#fff', color: '#0f172a', fontSize: 12 };
-const linkButtonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 28, padding: '0 9px', border: '1px solid #cbd5e1', borderRadius: 3, background: '#fff', color: '#0b2f6b', fontSize: 10, fontWeight: 800, textDecoration: 'none' };
+const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontSize: 12 };
+const linkButtonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', color: '#0b2f6b', fontSize: 12, fontWeight: 700, textDecoration: 'none' };

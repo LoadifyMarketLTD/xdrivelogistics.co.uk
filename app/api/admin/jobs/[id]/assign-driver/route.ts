@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
 
   if (error) {
-    const status = error.code === '42501' ? 403 : error.code === '40001' ? 409 : error.code === 'P0002' ? 404 : 500;
+    const status = error.code === '42501' ? 403 : error.code === '40001' || error.code === '23514' ? 409 : error.code === 'P0002' ? 404 : 500;
     return respond(status, { error: error.message });
   }
 

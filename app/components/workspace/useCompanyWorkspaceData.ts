@@ -9,6 +9,7 @@ import {
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 
 export type WorkspaceJob = {
   id: string;
@@ -23,9 +24,12 @@ export type WorkspaceJob = {
   delivery_datetime: string | null;
   vehicle_type: string | null;
   assigned_driver_id?: string | null;
+  vehicle_id?: string | null;
   awarded_carrier_company_id?: string | null;
   budget_amount?: number | null;
   delivery_photos?: string[] | null;
+  booking_reference?: string | null;
+  customer_reference?: string | null;
   created_at: string;
   updated_at: string;
   client_name?: string | null;
@@ -38,6 +42,9 @@ export type WorkspaceBid = {
   status: string;
   amount: number | null;
   bid_price_gbp: number | null;
+  currency?: string | null;
+  bidder_driver_id?: string | null;
+  bidder_user_id?: string | null;
   created_at: string;
   message?: string | null;
   companies?: { name?: string | null } | null;
@@ -215,7 +222,7 @@ type PartialDatasetInput<T> = {
   limitedData?: boolean;
 };
 
-const ALL_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
+const CARRIER_DASHBOARD_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
   'jobs',
   'bids',
   'invoices',
@@ -223,6 +230,12 @@ const ALL_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
   'vehicles',
   'driverDocuments',
   'vehicleDocuments',
+];
+
+const CARRIER_TRACKING_DATASET_KEYS: readonly WorkspaceDatasetKey[] = [
+  'jobs',
+  'drivers',
+  'vehicles',
   'locations',
 ];
 
@@ -236,6 +249,21 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
   for (const row of rows) byId.set(row.id, row);
   return [...byId.values()];
 };
+
+const CARRIER_DASHBOARD_JOB_SELECT =
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name';
+
+const EXECUTION_JOB_SELECT =
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name';
+
+const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
+  .split(',')
+  .map((column) => column.trim())
+  .filter((column) => column !== 'vehicle_id')
+  .join(', ');
+
+export const getWorkspaceJobSelect = (surface: WorkspaceDataSurface) =>
+  surface === 'carrier_operations' ? CARRIER_DASHBOARD_JOB_SELECT : EXECUTION_JOB_SELECT;
 
 export const isCustomerVisibleWorkspaceInvoice = (
   invoice: WorkspaceInvoice,
@@ -423,7 +451,7 @@ export function resolveWorkspaceDataQueryPlan(input: {
   if (matchesPrefixes(pathname, ['/admin/fleet', '/admin/drivers', '/admin/vehicles', '/admin/driver-availability'])) {
     return {
       surface: 'fleet',
-      datasets: ['jobs', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
+      datasets: ['jobs', 'bids', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
       blocker: null,
     };
   }
@@ -444,6 +472,14 @@ export function resolveWorkspaceDataQueryPlan(input: {
     };
   }
 
+  if (matchesPrefixes(pathname, ['/admin/freight-vision', '/admin/live-availability'])) {
+    return {
+      surface: 'carrier_operations',
+      datasets: CARRIER_TRACKING_DATASET_KEYS,
+      blocker: null,
+    };
+  }
+
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
     switch (role) {
       case 'company_owner':
@@ -451,13 +487,13 @@ export function resolveWorkspaceDataQueryPlan(input: {
       case 'carrier_admin':
         return {
           surface: 'carrier_operations',
-          datasets: ALL_DATASET_KEYS,
+          datasets: CARRIER_DASHBOARD_DATASET_KEYS,
           blocker: null,
         };
       case 'fleet_manager':
         return {
           surface: 'fleet',
-          datasets: ['jobs', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
+          datasets: ['jobs', 'bids', 'drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments'],
           blocker: null,
         };
       case 'dispatcher':
@@ -599,41 +635,38 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setError('');
 
     if (requested.has('jobs')) {
-      if (driverSurface) {
-        if (!user?.driverId) {
-          dependencyUnavailable<WorkspaceJob>('jobs', 'driver context unavailable; assigned job query was not run.');
-        } else {
-          const jobsRes = await supabase
+      if (driverSurface && !user?.driverId) {
+        dependencyUnavailable<WorkspaceJob>('jobs', 'driver context unavailable; assigned job query was not run.');
+      } else {
+        const runJobsQuery = (selectClause: string) => {
+          const query = supabase
             .from('jobs')
-            .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
-            .eq('assigned_driver_id', user.driverId)
+            .select(selectClause);
+          const scopedQuery = driverSurface
+            ? query.eq('assigned_driver_id', user!.driverId!)
+            : query.or(
+              plan.surface === 'customer' || plan.surface === 'broker'
+                ? `company_id.eq.${companyId}`
+                : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
+            );
+          return scopedQuery
             .order('updated_at', { ascending: false })
             .limit(500);
-          const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
-          setDataset<WorkspaceJob>(
-            'jobs',
-            (jobsRes.data ?? []) as WorkspaceJob[],
-            jobsError ? [jobsError] : [],
-            queryReachedLimit(jobsRes.data, 500, jobsError),
-          );
-        }
-      } else {
-        const jobsRes = await supabase
-          .from('jobs')
-          .select('id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name')
-          .or(
-            plan.surface === 'customer' || plan.surface === 'broker'
-              ? `company_id.eq.${companyId}`
-              : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
-          )
-          .order('updated_at', { ascending: false })
-          .limit(500);
+        };
+
+        const firstJobsRes = await runJobsQuery(getWorkspaceJobSelect(plan.surface));
+        const usedVehicleIdFallback = plan.surface !== 'carrier_operations'
+          && Boolean(firstJobsRes.error)
+          && isMissingColumnError(firstJobsRes.error, 'jobs', 'vehicle_id');
+        const jobsRes = usedVehicleIdFallback
+          ? await runJobsQuery(LEGACY_EXECUTION_JOB_SELECT)
+          : firstJobsRes;
         const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
         setDataset<WorkspaceJob>(
           'jobs',
-          (jobsRes.data ?? []) as WorkspaceJob[],
+          (jobsRes.data ?? []) as unknown as WorkspaceJob[],
           jobsError ? [jobsError] : [],
-          queryReachedLimit(jobsRes.data, 500, jobsError),
+          usedVehicleIdFallback || queryReachedLimit(jobsRes.data, 500, jobsError),
         );
       }
     }
@@ -685,6 +718,35 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             (ownBidsRes.data ?? []) as WorkspaceBid[],
             ownBidsError ? [ownBidsError] : [],
             queryReachedLimit(ownBidsRes.data, 500, ownBidsError),
+          );
+          break;
+        }
+        case 'fleet': {
+          if (requested.has('jobs') && jobDataset.availability === 'unavailable') {
+            dependencyUnavailable<WorkspaceBid>('bids', 'jobs dataset unavailable; accepted Fleet bid query was not run.');
+            break;
+          }
+          const wonJobIds = jobDataset.data
+            .filter((job) => job.awarded_carrier_company_id === companyId)
+            .map((job) => job.id);
+          if (!wonJobIds.length) {
+            setDataset<WorkspaceBid>('bids', []);
+            break;
+          }
+          const acceptedFleetBidsRes = await supabase
+            .from('job_bids')
+            .select('id, job_id, company_id, status, amount, bid_price_gbp, currency, bidder_driver_id, bidder_user_id, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+            .eq('company_id', companyId)
+            .eq('status', 'accepted')
+            .in('job_id', wonJobIds)
+            .order('created_at', { ascending: false })
+            .limit(500);
+          const fleetBidError = getFirstError(acceptedFleetBidsRes as QueryResult<WorkspaceBid>);
+          setDataset<WorkspaceBid>(
+            'bids',
+            (acceptedFleetBidsRes.data ?? []) as WorkspaceBid[],
+            fleetBidError ? [fleetBidError] : [],
+            queryReachedLimit(acceptedFleetBidsRes.data, 500, fleetBidError),
           );
           break;
         }
@@ -752,12 +814,6 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
             break;
           }
-          // Verified invoices SELECT contract:
-          // - invoices_select_non_driver => public.is_company_non_driver(company_id)
-          // - invoices_job_owner_read   => authenticated job-owner company members
-          //   on sent/paid customer-ready invoices via jobs.company_id membership
-          // There is no driver/owner-driver invoice SELECT policy, and no policy
-          // authorises invoice visibility from assigned_driver_id alone.
           dependencyUnavailable<WorkspaceInvoice>('invoices', DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER);
           break;
         }

@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { operationalError } from '../../_lib/operationalError';
-import { isDriverContext, requireDriver, respond } from '../mobile/_lib';
+import { respond } from '../mobile/_lib';
+import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
 
 type JourneyRow = {
   id: string;
@@ -26,6 +27,12 @@ type JourneyMeta = {
   weightKg: number | null;
   spaceUnits: number | null;
 };
+type DatabaseErrorLike = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
 
 const BASE_SELECT = 'id,company_id,driver_id,vehicle_type,from_postcode,to_postcode,available_from,available_to,notes,status,created_at';
 const META_SOURCE = 'xdrive_return_exchange_v2';
@@ -40,6 +47,22 @@ function finiteNumber(value: unknown) {
   if (value === '' || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isReturnJourneySchemaUnavailable(error: DatabaseErrorLike | null | undefined) {
+  if (!error) return false;
+  const code = String(error.code ?? '').toUpperCase();
+  const message = [error.message, error.details, error.hint].filter(Boolean).join(' ').toLowerCase();
+  const missingSchemaCode = ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(code);
+  const mentionsReturnJourneys = message.includes('return_journeys') || message.includes('return journeys');
+  return missingSchemaCode && (mentionsReturnJourneys || code === '42P01' || code === 'PGRST205');
+}
+
+function returnJourneySchemaUnavailableResponse() {
+  return respond(503, {
+    error: 'Return Journeys is not enabled in this database build yet.',
+    code: 'RETURN_JOURNEYS_SCHEMA_UNAVAILABLE',
+  });
 }
 
 function decodeNotes(value: string | null): JourneyMeta {
@@ -147,8 +170,8 @@ export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') === 'mine' ? 'mine' : 'marketplace';
@@ -177,6 +200,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) {
+    if (isReturnJourneySchemaUnavailable(error)) return returnJourneySchemaUnavailableResponse();
     return operationalError({ message: 'Return journeys could not be loaded. Please retry.', context: `driver.return-journeys.get:${scope}`, cause: error });
   }
   const rows = (data ?? []) as JourneyRow[];
@@ -185,7 +209,7 @@ export async function GET(request: NextRequest) {
   const driverIds = [...new Set(rows.map((row) => row.driver_id).filter((value): value is string => Boolean(value)))];
   const [companiesResult, driversResult] = await Promise.all([
     companyIds.length ? supabaseAdmin.from('companies').select('id,name,company_number,phone').in('id', companyIds) : Promise.resolve({ data: [], error: null }),
-    driverIds.length ? supabaseAdmin.from('drivers').select('id,display_name,phone').in('id', driverIds) : Promise.resolve({ data: [], error: null }),
+    driverIds.length ? supabaseAdmin.from('drivers').select('id,display_name').in('id', driverIds) : Promise.resolve({ data: [], error: null }),
   ]);
 
   const companyMap = new Map((companiesResult.data ?? []).map((company: Record<string, unknown>) => [String(company.id), company]));
@@ -228,7 +252,7 @@ export async function GET(request: NextRequest) {
       member: {
         name: cleanText(company.name, 160) || 'Exchange member',
         code: cleanText(company.company_number, 80) || null,
-        phone: cleanText(company.phone, 80) || cleanText(person.phone, 80) || null,
+        phone: cleanText(company.phone, 80) || null,
       },
       driverName: cleanText(person.display_name, 160) || null,
       fromCoordinates,
@@ -286,8 +310,8 @@ export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
   if (!driver.companyId) return respond(400, { error: 'A company context is required to publish exchange journeys.' });
 
   let body: Record<string, unknown>;
@@ -327,6 +351,7 @@ export async function POST(request: NextRequest) {
   };
   const { data, error } = await supabaseAdmin.from('return_journeys').insert(insert).select(BASE_SELECT).maybeSingle();
   if (error) {
+    if (isReturnJourneySchemaUnavailable(error)) return returnJourneySchemaUnavailableResponse();
     return operationalError({ message: 'The return journey could not be published. Please retry.', context: `driver.return-journeys.post:${driver.driverId}`, cause: error });
   }
   return respond(201, { journey: data });
@@ -336,8 +361,8 @@ export async function DELETE(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({ status: 503, message: 'Return Journeys is temporarily unavailable.', context: 'driver.return-journeys.config', retryable: true });
   }
-  const driver = await requireDriver(request);
-  if (!isDriverContext(driver)) return driver;
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
   const id = cleanText(new URL(request.url).searchParams.get('id'), 80);
   if (!id) return respond(400, { error: 'Journey id is required.' });
   const { data, error } = await supabaseAdmin
@@ -348,6 +373,7 @@ export async function DELETE(request: NextRequest) {
     .select('id,status')
     .maybeSingle();
   if (error) {
+    if (isReturnJourneySchemaUnavailable(error)) return returnJourneySchemaUnavailableResponse();
     return operationalError({ message: 'The return journey could not be cancelled. Please retry.', context: `driver.return-journeys.delete:${id}`, cause: error });
   }
   if (!data) return respond(404, { error: 'Journey not found.' });

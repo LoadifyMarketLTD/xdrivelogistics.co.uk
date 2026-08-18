@@ -163,7 +163,7 @@ describe('GET /api/super-admin/companies governance history fallback', () => {
     expect(body.governanceHistoryByCompany['company-1']).toHaveLength(1);
   });
 
-  it('marks governance history unavailable when fallback rows still violate the schema contract', async () => {
+  it('preserves structurally valid company audit rows even when optional status values are absent', async () => {
     mocks.ownerAuditLegacy = {
       data: [{
         id: 'audit-2',
@@ -182,13 +182,15 @@ describe('GET /api/super-admin/companies governance history fallback', () => {
     const body = await res.json() as {
       governanceHistoryAvailable: boolean;
       governanceHistoryError: string | null;
-      governanceHistoryRecent: Array<unknown>;
-      governanceHistoryByCompany: Record<string, unknown>;
+      governanceHistoryRecent: Array<Record<string, unknown>>;
+      governanceHistoryByCompany: Record<string, Array<Record<string, unknown>>>;
     };
 
-    expect(body.governanceHistoryAvailable).toBe(false);
-    expect(body.governanceHistoryError).toBe('Governance history rows do not match the expected schema contract.');
-    expect(body.governanceHistoryRecent).toEqual([]);
-    expect(body.governanceHistoryByCompany).toEqual({});
+    expect(body.governanceHistoryAvailable).toBe(true);
+    expect(body.governanceHistoryError).toBeNull();
+    expect(body.governanceHistoryRecent).toHaveLength(1);
+    expect(body.governanceHistoryRecent[0]).toMatchObject({ old_status: 'pending_approval' });
+    expect(body.governanceHistoryRecent[0]).not.toHaveProperty('new_status');
+    expect(body.governanceHistoryByCompany['company-1']).toHaveLength(1);
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -50,12 +51,15 @@ const getDownloadFilename = (filePath: string, docId: string) => {
 
 export default function DocumentsPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const requestedType = searchParams.get('type');
+  const pendingOnly = searchParams.get('view') === 'pending';
   const isDriverWorkspace = user?.role === 'driver' || user?.ownerDriverWorkspace === true;
   const canVerifyDocuments = !isDriverWorkspace;
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [docs, setDocs] = useState<AnyDoc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'driver' | 'vehicle'>('driver');
+  const [tab, setTab] = useState<'driver' | 'vehicle'>(requestedType === 'vehicle' ? 'vehicle' : 'driver');
   const [error, setError] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [form, setForm] = useState<UploadForm>(DEFAULT_UPLOAD);
@@ -66,6 +70,10 @@ export default function DocumentsPage() {
   const DOCS_PER_PAGE = 12;
   const [docsPage, setDocsPage] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (requestedType === 'driver' || requestedType === 'vehicle') setTab(requestedType);
+  }, [requestedType]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -140,7 +148,7 @@ export default function DocumentsPage() {
   useEffect(() => { loadDocs(); }, [tab, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     setDocsPage(0);
-  }, [tab, docs.length]);
+  }, [tab, docs.length, pendingOnly]);
 
   useEffect(() => {
     if (!companyId || !isSupabaseConfigured) return;
@@ -313,9 +321,10 @@ export default function DocumentsPage() {
     padding: '0.75rem 1.5rem', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600' as const, cursor: 'pointer',
     backgroundColor: active ? '#1F7A3D' : 'white', color: active ? 'white' : '#6b7280',
   });
-  const totalDocsPages = Math.max(1, Math.ceil(docs.length / DOCS_PER_PAGE));
+  const visibleDocs = pendingOnly ? docs.filter((document) => document.status === 'pending') : docs;
+  const totalDocsPages = Math.max(1, Math.ceil(visibleDocs.length / DOCS_PER_PAGE));
   const safeDocsPage = Math.min(docsPage, totalDocsPages - 1);
-  const paginatedDocs = docs.slice(safeDocsPage * DOCS_PER_PAGE, (safeDocsPage + 1) * DOCS_PER_PAGE);
+  const paginatedDocs = visibleDocs.slice(safeDocsPage * DOCS_PER_PAGE, (safeDocsPage + 1) * DOCS_PER_PAGE);
 
   return (
     <ProtectedRoute>
@@ -323,7 +332,7 @@ export default function DocumentsPage() {
         <div style={{ width: '100%' }}>
           <div style={{ marginBottom: '1rem' }}>
             <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>{isDriverWorkspace ? 'POD / Documents' : 'Documents'}</h1>
-            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Upload and view your driver and vehicle documents.' : 'Review and verify driver & vehicle documents'}</p>
+            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Upload and view your driver and vehicle documents.' : pendingOnly ? 'Review pending driver & vehicle document records' : 'Review and verify driver & vehicle documents'}</p>
           </div>
 
           {!isSupabaseConfigured && (
@@ -420,10 +429,10 @@ export default function DocumentsPage() {
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
-            ) : docs.length === 0 ? (
+            ) : visibleDocs.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-                <p>No documents found.</p>
+                <p>{pendingOnly ? 'No pending documents found.' : 'No documents found.'}</p>
               </div>
             ) : (
               <>
@@ -471,10 +480,10 @@ export default function DocumentsPage() {
                   </tbody>
                 </table>
               </div>
-              {docs.length > DOCS_PER_PAGE && (
+              {visibleDocs.length > DOCS_PER_PAGE && (
                 <div style={{ borderTop: '1px solid #e5e7eb', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#6b7280' }}>
                   <span>
-                    Showing {safeDocsPage * DOCS_PER_PAGE + 1}–{Math.min((safeDocsPage + 1) * DOCS_PER_PAGE, docs.length)} of {docs.length}
+                    Showing {safeDocsPage * DOCS_PER_PAGE + 1}–{Math.min((safeDocsPage + 1) * DOCS_PER_PAGE, visibleDocs.length)} of {visibleDocs.length}
                   </span>
                   <div style={{ display: 'flex', gap: '0.45rem' }}>
                     <button

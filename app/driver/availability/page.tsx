@@ -1,22 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
-import { DRIVER_PERSONA_LABELS, mapDriverPersona, type DriverPersona } from '../../../lib/authRole';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
-import { ActionButton, Panel, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type AvailabilityStatus = 'available' | 'busy' | 'offline';
+type SlotName = 'AM' | 'PM' | 'EVENING';
+type SlotKey = `${number}_${SlotName}`;
 
 type VehicleRow = {
+  id?: string;
   type: string | null;
   reg_plate: string | null;
   payload_kg?: number | null;
   has_tail_lift?: boolean | null;
+  assigned_driver_id?: string | null;
 };
 
 type DriverRow = {
@@ -25,72 +28,56 @@ type DriverRow = {
   phone: string | null;
   availability_status: string | null;
   status: string | null;
-  persona?: string | null;
-  home_postcode?: string | null;
-  max_radius_km?: number | null;
+  future_position: string | null;
+  future_position_date: string | null;
+  destination_priority_enabled: boolean;
+  destination_radius_miles: number;
+  international_work_approved: boolean;
+  driver_type: string;
+  can_commercial_bid: boolean;
 };
 
-type SlotName = 'AM' | 'PM' | 'EVENING';
-type SlotKey = `${number}_${SlotName}`;
+type LocationRow = { lat: number | null; lng: number | null; recorded_at: string | null };
 type WeeklySlotRow = { day_of_week: number; slot: string; available: boolean };
-type WeeklyScheduleResult = {
-  rows: WeeklySlotRow[];
-  error: string | null;
-  unavailable: boolean;
-};
+type WeeklyScheduleResult = { rows: WeeklySlotRow[]; error: string | null; unavailable: boolean };
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SLOTS: SlotName[] = ['AM', 'PM', 'EVENING'];
-
-const AVAILABILITY_OPTIONS: Array<{
-  value: AvailabilityStatus;
-  label: string;
-  description: string;
-}> = [
-  { value: 'available', label: 'Available', description: 'Ready to accept new work' },
-  { value: 'busy', label: 'On a job', description: 'Currently executing work' },
-  { value: 'offline', label: 'Offline', description: 'Not available for new work' },
+const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityStatus; label: string; description: string }> = [
+  { value: 'available', label: 'Available', description: 'Marked available for work' },
+  { value: 'busy', label: 'On a job', description: 'Executing assigned work' },
+  { value: 'offline', label: 'Offline', description: 'Not accepting work' },
 ];
 
-const inputStyle = {
-  width: '100%',
-  height: '32px',
-  padding: '0 8px',
-  border: '1px solid #d8dee8',
-  borderRadius: '4px',
-  background: '#fff',
-  color: '#1a1f2b',
-  fontSize: '12px',
-} as const;
+function fmtDate(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
 
-const labelStyle = {
-  display: 'block',
-  marginBottom: '3px',
-  color: '#64748b',
-  fontSize: '10px',
-  lineHeight: '14px',
-  fontWeight: 700,
-  letterSpacing: '.03em',
-  textTransform: 'uppercase' as const,
-};
+function humanize(value: string | null | undefined) {
+  if (!value) return '—';
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
 
 export default function AvailabilityPage() {
   const { user } = useAuth();
-  const driverId = user?.driverId ?? null;
-
+  const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [driverRow, setDriverRow] = useState<DriverRow | null>(null);
   const [vehicle, setVehicle] = useState<VehicleRow | null>(null);
-  const [availability, setAvailability] = useState<AvailabilityStatus>('available');
+  const [currentLocation, setCurrentLocation] = useState<LocationRow | null>(null);
+  const [availability, setAvailability] = useState<AvailabilityStatus>('offline');
+  const [destinationPriority, setDestinationPriority] = useState(true);
+  const [destinationRadiusMiles, setDestinationRadiusMiles] = useState('10');
+  const [weeklySlots, setWeeklySlots] = useState<Record<SlotKey, boolean>>({} as Record<SlotKey, boolean>);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [scheduleUnavailable, setScheduleUnavailable] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [persona, setPersona] = useState<DriverPersona | ''>('');
-  const [homePostcode, setHomePostcode] = useState('');
-  const [maxRadiusKm, setMaxRadiusKm] = useState('');
-  const [weeklySlots, setWeeklySlots] = useState<Record<SlotKey, boolean>>({} as Record<SlotKey, boolean>);
+  const [matchingSaving, setMatchingSaving] = useState(false);
   const [calendarSaving, setCalendarSaving] = useState<SlotKey | null>(null);
 
   const setTimedSuccess = (message: string) => {
@@ -104,180 +91,137 @@ export default function AvailabilityPage() {
     return token ? `Bearer ${token}` : null;
   }, []);
 
+  const loadCanonicalVehicle = useCallback(async (): Promise<{ vehicle: VehicleRow | null; error: string | null }> => {
+    const auth = await getAuthHeader();
+    if (!auth) return { vehicle: null, error: 'Canonical active-vehicle session could not be verified.' };
+    try {
+      const response = await fetch('/api/driver/vehicles', { headers: { Authorization: auth } });
+      const payload = (await response.json().catch(() => ({}))) as {
+        vehicles?: VehicleRow[];
+        canonicalVehicleId?: string | null;
+        canonicalVehicleSignalAvailable?: boolean;
+        error?: string;
+      };
+      if (!response.ok) return { vehicle: null, error: payload.error || 'Canonical active-vehicle signal could not be loaded.' };
+      if (payload.canonicalVehicleSignalAvailable === false) return { vehicle: null, error: 'Canonical active-vehicle signal is temporarily unavailable.' };
+      const vehicles = payload.vehicles ?? [];
+      return {
+        vehicle: payload.canonicalVehicleId
+          ? vehicles.find((item) => item.id === payload.canonicalVehicleId) ?? null
+          : null,
+        error: null,
+      };
+    } catch {
+      return { vehicle: null, error: 'Canonical active-vehicle signal could not be loaded.' };
+    }
+  }, [getAuthHeader]);
+
   const loadWeeklySchedule = useCallback(async (): Promise<WeeklyScheduleResult> => {
     const auth = await getAuthHeader();
-    if (!auth) {
-      return { rows: [], error: 'Your session has expired. Sign in again to manage your weekly schedule.', unavailable: false };
-    }
-
+    if (!auth) return { rows: [], error: 'Your session has expired. Sign in again to manage your weekly schedule.', unavailable: false };
     try {
-      const response = await fetch('/api/driver/availability-slots', {
-        headers: { Authorization: auth },
-      });
-      const payload = (await response.json().catch(() => ({}))) as {
-        slots?: WeeklySlotRow[];
-        error?: string;
-        code?: string;
-      };
-
+      const response = await fetch('/api/driver/availability-slots', { headers: { Authorization: auth } });
+      const payload = (await response.json().catch(() => ({}))) as { slots?: WeeklySlotRow[]; error?: string; code?: string };
       if (!response.ok) {
-        if (payload.code === 'SCHEDULE_NOT_AVAILABLE') {
-          return { rows: [], error: null, unavailable: true };
-        }
+        if (payload.code === 'SCHEDULE_NOT_AVAILABLE') return { rows: [], error: null, unavailable: true };
         return { rows: [], error: payload.error || 'Weekly schedule could not be loaded.', unavailable: false };
       }
-
       return { rows: payload.slots ?? [], error: null, unavailable: false };
     } catch {
       return { rows: [], error: 'Weekly schedule could not be loaded.', unavailable: false };
     }
   }, [getAuthHeader]);
 
-  const loadDriver = useCallback(async () => {
-    const primary = await supabase
-      .from('drivers')
-      .select('id, display_name, phone, availability_status, status, persona, home_postcode, max_radius_km')
-      .eq('id', driverId)
-      .maybeSingle();
-
-    if (primary.error && getMissingColumnFromError(primary.error, 'drivers') !== null) {
-      const fallback = await supabase
-        .from('drivers')
-        .select('id, display_name, phone, availability_status, status')
-        .eq('id', driverId)
-        .maybeSingle();
-      return {
-        row: (fallback.data as DriverRow | null) ?? null,
-        error: fallback.error ? 'Driver profile could not be loaded.' : null,
-      };
-    }
-
-    return {
-      row: (primary.data as DriverRow | null) ?? null,
-      error: primary.error ? 'Driver profile could not be loaded.' : null,
-    };
-  }, [driverId]);
-
   const loadAllData = useCallback(async () => {
-    if (!driverId || !isSupabaseConfigured) {
-      setLoading(false);
-      return;
-    }
-
+    if (!driverId || !isSupabaseConfigured) { setLoading(false); return; }
     setLoading(true);
     setError('');
 
-    const [driverRes, vehicleRes, slotsRes] = await Promise.all([
-      loadDriver(),
-      supabase
-        .from('vehicles')
-        .select('type, reg_plate, payload_kg, has_tail_lift')
-        .eq('assigned_driver_id', driverId)
-        .maybeSingle(),
+    const [driverRes, vehicleRes, locationRes, slotsRes] = await Promise.all([
+      supabase.from('drivers')
+        .select('id, display_name, phone, availability_status, status, future_position, future_position_date, destination_priority_enabled, destination_radius_miles, international_work_approved, driver_type, can_commercial_bid')
+        .eq('id', driverId).maybeSingle(),
+      loadCanonicalVehicle(),
+      supabase.from('driver_locations').select('lat, lng, recorded_at').eq('driver_id', driverId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
       loadWeeklySchedule(),
     ]);
 
-    if (driverRes.row) {
-      setDriverRow(driverRes.row);
-      setPersona(driverRes.row.persona ? (mapDriverPersona(driverRes.row.persona) ?? '') : '');
-      setHomePostcode(driverRes.row.home_postcode ?? '');
-      setMaxRadiusKm(driverRes.row.max_radius_km != null ? String(driverRes.row.max_radius_km) : '');
-      const nextAvailability = driverRes.row.availability_status ?? driverRes.row.status ?? '';
-      if (nextAvailability === 'available' || nextAvailability === 'busy' || nextAvailability === 'offline') {
-        setAvailability(nextAvailability);
+    const issues: string[] = [];
+    if (driverRes.error) {
+      issues.push('Driver availability profile could not be loaded.');
+      setDriverRow(null);
+    } else {
+      const row = (driverRes.data as DriverRow | null) ?? null;
+      setDriverRow(row);
+      if (row) {
+        setAvailability(row.availability_status === 'available' || row.availability_status === 'busy' || row.availability_status === 'offline' ? row.availability_status : 'offline');
+        setDestinationPriority(row.destination_priority_enabled !== false);
+        setDestinationRadiusMiles(String(row.destination_radius_miles ?? 10));
       }
     }
 
-    setVehicle((vehicleRes.data as VehicleRow | null) ?? null);
-    setScheduleUnavailable(slotsRes.unavailable);
+    if (vehicleRes.error) issues.push(vehicleRes.error);
+    setVehicle(vehicleRes.vehicle);
+    if (locationRes.error) issues.push('Current location could not be loaded.');
+    setCurrentLocation((locationRes.data as LocationRow | null) ?? null);
 
-    if (slotsRes.unavailable) {
-      setWeeklySlots({} as Record<SlotKey, boolean>);
-    } else {
+    setScheduleUnavailable(slotsRes.unavailable);
+    if (slotsRes.error) issues.push(slotsRes.error);
+    if (slotsRes.unavailable) setWeeklySlots({} as Record<SlotKey, boolean>);
+    else {
       const nextSlots: Record<SlotKey, boolean> = {} as Record<SlotKey, boolean>;
       for (const row of slotsRes.rows) {
-        if (row.slot === 'AM' || row.slot === 'PM' || row.slot === 'EVENING') {
-          nextSlots[`${row.day_of_week}_${row.slot}` as SlotKey] = row.available;
-        }
+        if (row.slot === 'AM' || row.slot === 'PM' || row.slot === 'EVENING') nextSlots[`${row.day_of_week}_${row.slot}` as SlotKey] = row.available;
       }
       setWeeklySlots(nextSlots);
     }
 
-    const issues: string[] = [];
-    if (driverRes.error) issues.push(driverRes.error);
-    if (vehicleRes.error) issues.push('Assigned vehicle data could not be loaded.');
-    if (slotsRes.error) issues.push(slotsRes.error);
     setError(issues.join(' '));
     setLoading(false);
-  }, [driverId, loadDriver, loadWeeklySchedule]);
+  }, [driverId, loadCanonicalVehicle, loadWeeklySchedule]);
 
-  useEffect(() => {
-    void loadAllData();
-  }, [loadAllData]);
+  useEffect(() => { void loadAllData(); }, [loadAllData]);
 
   const handleAvailabilityChange = async (next: AvailabilityStatus) => {
     if (!driverId || !isSupabaseConfigured || availabilitySaving) return;
-
     const previous = availability;
     setAvailability(next);
     setAvailabilitySaving(true);
     setError('');
-
     const updateRes = await supabase.from('drivers').update({ availability_status: next }).eq('id', driverId);
-    if (updateRes.error && getMissingColumnFromError(updateRes.error, 'drivers') === 'availability_status') {
-      const fallbackRes = await supabase.from('drivers').update({ status: next }).eq('id', driverId);
-      if (fallbackRes.error) {
-        setAvailability(previous);
-        setError('Availability could not be updated.');
-      } else {
-        setTimedSuccess(`Availability updated to ${next}.`);
-      }
-    } else if (updateRes.error) {
+    if (updateRes.error) {
       setAvailability(previous);
-      setError('Availability could not be updated.');
-    } else {
-      setTimedSuccess(`Availability updated to ${next}.`);
-    }
-
+      setError(getMissingColumnFromError(updateRes.error, 'drivers') === 'availability_status' ? 'Live availability is not enabled in this database build.' : 'Availability could not be updated.');
+    } else setTimedSuccess(`Availability updated to ${AVAILABILITY_OPTIONS.find((option) => option.value === next)?.label ?? next}.`);
     setAvailabilitySaving(false);
   };
 
-  const handleSaveProfile = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!driverId || !isSupabaseConfigured) return;
-
-    setProfileSaving(true);
+  const saveMatchingProfile = async () => {
+    if (!driverId || !isSupabaseConfigured || matchingSaving) return;
+    const parsedRadius = Number.parseInt(destinationRadiusMiles, 10);
+    if (!Number.isFinite(parsedRadius) || parsedRadius < 1 || parsedRadius > 500) { setError('Destination radius must be between 1 and 500 miles.'); return; }
+    setMatchingSaving(true);
     setError('');
-
-    const update: Record<string, unknown> = {
-      home_postcode: homePostcode.trim() || null,
-      max_radius_km: maxRadiusKm ? parseInt(maxRadiusKm, 10) : null,
-    };
-    if (persona) update.persona = persona;
-
-    const { error: saveError } = await supabase.from('drivers').update(update).eq('id', driverId);
-    if (saveError) {
-      setError(getMissingColumnFromError(saveError, 'drivers')
-        ? 'Some availability profile fields are not enabled in this database build yet.'
-        : 'Availability profile could not be saved.');
-    } else {
-      setTimedSuccess('Availability profile updated.');
-      await loadAllData();
+    const { error: saveError } = await supabase.from('drivers')
+      .update({ destination_priority_enabled: destinationPriority, destination_radius_miles: parsedRadius }).eq('id', driverId);
+    if (saveError) setError('Matching profile could not be saved.');
+    else {
+      setTimedSuccess('Matching profile updated.');
+      setDriverRow((current) => current ? { ...current, destination_priority_enabled: destinationPriority, destination_radius_miles: parsedRadius } : current);
     }
-    setProfileSaving(false);
+    setMatchingSaving(false);
   };
 
   const toggleSlot = async (day: number, slot: SlotName) => {
     if (!driverId || !isSupabaseConfigured || scheduleUnavailable) return;
-
     const key: SlotKey = `${day}_${slot}`;
-    const current = weeklySlots[key] ?? true;
+    // Missing rows are not evidence of availability. The first click explicitly
+    // opts that slot in; persisted false rows remain off.
+    const current = weeklySlots[key] ?? false;
     const next = !current;
-
     setCalendarSaving(key);
     setError('');
     setWeeklySlots((previous) => ({ ...previous, [key]: next }));
-
     const auth = await getAuthHeader();
     if (!auth) {
       setWeeklySlots((previous) => ({ ...previous, [key]: current }));
@@ -285,178 +229,109 @@ export default function AvailabilityPage() {
       setCalendarSaving(null);
       return;
     }
-
     try {
       const response = await fetch('/api/driver/availability-slots', {
-        method: 'PATCH',
-        headers: {
-          Authorization: auth,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ day_of_week: day, slot, available: next }),
+        method: 'PATCH', headers: { Authorization: auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ day_of_week: day, slot, available: next }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
-
       if (!response.ok) {
         setWeeklySlots((previous) => ({ ...previous, [key]: current }));
-        if (payload.code === 'SCHEDULE_NOT_AVAILABLE') {
-          setScheduleUnavailable(true);
-        } else {
-          setError(payload.error || `The ${DAYS[day]} ${slot} slot could not be updated.`);
-        }
-      } else {
-        setTimedSuccess(`Updated ${DAYS[day]} ${slot}.`);
-      }
+        if (payload.code === 'SCHEDULE_NOT_AVAILABLE') setScheduleUnavailable(true);
+        else setError(payload.error || `The ${DAYS[day]} ${slot} slot could not be updated.`);
+      } else setTimedSuccess(`Updated ${DAYS[day]} ${slot}.`);
     } catch {
       setWeeklySlots((previous) => ({ ...previous, [key]: current }));
       setError(`The ${DAYS[day]} ${slot} slot could not be updated.`);
     }
-
     setCalendarSaving(null);
   };
 
-  const personaLabel = persona ? DRIVER_PERSONA_LABELS[persona] : undefined;
+  const availabilityOption = AVAILABILITY_OPTIONS.find((option) => option.value === availability) ?? AVAILABILITY_OPTIONS[2];
+  const availabilityLabel = availabilityOption.label;
   const hasSavedSchedule = Object.keys(weeklySlots).length > 0;
+  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No canonical active vehicle';
+  const hasValidCurrentLocation = typeof currentLocation?.lat === 'number'
+    && Number.isFinite(currentLocation.lat)
+    && typeof currentLocation?.lng === 'number'
+    && Number.isFinite(currentLocation.lng);
+  const locationLabel = hasValidCurrentLocation
+    ? `${currentLocation!.lat!.toFixed(5)}, ${currentLocation!.lng!.toFixed(5)}`
+    : 'Not recorded';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Set live availability, marketplace radius, assigned vehicle readiness and your weekly working pattern."
-        availabilityLabel={AVAILABILITY_OPTIONS.find((option) => option.value === availability)?.label ?? availability}
+        subtitle="Keep current status, matching profile, canonical active-vehicle identity and weekly availability current."
+        availabilityLabel={availabilityLabel}
         driverName={driverRow?.display_name ?? user?.email ?? 'Driver'}
-        personaLabel={personaLabel}
         headerActions={<ActionButton tone="primary" onClick={() => void loadAllData()} disabled={loading}>Refresh</ActionButton>}
       >
-        {successMsg && (
-          <div style={{ minHeight: '32px', display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #bbf7d0', borderRadius: '4px', background: '#ecfdf3', color: '#166534', fontSize: '12px', fontWeight: 700 }}>
-            {successMsg}
-          </div>
-        )}
-        {error && (
-          <div role="alert" style={{ minHeight: '32px', display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '4px', background: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
-            {error}
-          </div>
-        )}
-        {scheduleUnavailable && (
-          <div style={{ minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '6px 10px', border: '1px solid #fde68a', borderRadius: '4px', background: '#fffbeb', color: '#92400e', fontSize: '11px' }}>
-            <span><strong>Weekly schedule unavailable.</strong> Live availability, radius and vehicle information still work. This database build does not currently expose weekly schedule storage.</span>
-            <StatusBadge value="Schedule restricted" tone="orange" />
-          </div>
-        )}
+        {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
+        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {scheduleUnavailable && <AlertBanner tone="warning">Weekly schedule storage is unavailable. Live status, destination matching and vehicle identity signals remain available.</AlertBanner>}
 
-        <Panel title="Current availability" description="This status is the primary signal used by dispatch and marketplace matching.">
-          {loading ? (
-            <div style={{ color: '#64748b', fontSize: '12px' }}>Loading current status…</div>
-          ) : (
-            <div className="driver-status-choice-grid">
-              {AVAILABILITY_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className="driver-status-choice"
-                  data-active={availability === option.value}
-                  onClick={() => void handleAvailabilityChange(option.value)}
-                  disabled={availabilitySaving}
-                >
-                  <strong>{option.label}</strong>
-                  <span>{option.description}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </Panel>
-
-        <div className="driver-ops-grid-2">
-          <Panel title="Availability profile" description="Home area and working radius used to surface relevant work.">
-            {loading ? (
-              <div style={{ color: '#64748b', fontSize: '12px' }}>Loading profile…</div>
-            ) : (
-              <form onSubmit={(event) => void handleSaveProfile(event)} style={{ display: 'grid', gap: '8px' }}>
-                <div>
-                  <label style={labelStyle}>Driver persona</label>
-                  <select value={persona} onChange={(event) => setPersona(event.target.value as DriverPersona | '')} style={inputStyle}>
-                    <option value="">Select persona…</option>
-                    {(Object.entries(DRIVER_PERSONA_LABELS) as Array<[DriverPersona, string]>).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="driver-ops-grid-2" style={{ gap: '8px' }}>
-                  <div>
-                    <label style={labelStyle}>Home postcode</label>
-                    <input style={inputStyle} value={homePostcode} onChange={(event) => setHomePostcode(event.target.value)} placeholder="e.g. BB1 9QL" />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Maximum radius (km)</label>
-                    <input style={inputStyle} type="number" min="0" max="1000" value={maxRadiusKm} onChange={(event) => setMaxRadiusKm(event.target.value)} placeholder="e.g. 100" />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <ActionButton type="submit" tone="primary" disabled={profileSaving}>{profileSaving ? 'Saving…' : 'Save profile'}</ActionButton>
-                </div>
-              </form>
-            )}
-          </Panel>
-
-          <Panel title="Assigned vehicle" description="The vehicle currently linked to your live driver readiness.">
-            {loading ? (
-              <div style={{ color: '#64748b', fontSize: '12px' }}>Loading assigned vehicle…</div>
-            ) : vehicle ? (
-              <div className="driver-detail-grid">
-                <div className="driver-detail-item"><span>Registration</span><strong>{vehicle.reg_plate ?? 'Not set'}</strong></div>
-                <div className="driver-detail-item"><span>Vehicle</span><strong>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Not set'}</strong></div>
-                <div className="driver-detail-item"><span>Payload</span><strong>{vehicle.payload_kg ? `${vehicle.payload_kg} kg` : 'Not set'}</strong></div>
-                <div className="driver-detail-item"><span>Tail lift</span><strong>{vehicle.has_tail_lift ? 'Yes' : 'No'}</strong></div>
-              </div>
-            ) : (
-              <div style={{ padding: '8px 0', color: '#64748b', fontSize: '12px' }}>No vehicle is currently assigned. Availability can still be managed.</div>
-            )}
-          </Panel>
-        </div>
-
-        <Panel title="Weekly schedule" description="Toggle AM, PM and evening availability without horizontal scrolling.">
-          {scheduleUnavailable ? (
-            <div style={{ padding: '8px 0', color: '#64748b', fontSize: '12px' }}>
-              Schedule editing is temporarily unavailable in this database build.
-            </div>
-          ) : loading ? (
-            <div style={{ color: '#64748b', fontSize: '12px' }}>Loading weekly schedule…</div>
-          ) : (
-            <>
-              {!hasSavedSchedule && (
-                <div style={{ marginBottom: '8px', color: '#64748b', fontSize: '11px' }}>
-                  No saved pattern yet. Unconfigured slots currently default to available.
-                </div>
-              )}
-              <div className="driver-schedule-grid">
-                {DAYS.map((day, dayIndex) => (
-                  <div key={day} className="driver-schedule-day">
-                    <strong>{day}</strong>
-                    <div className="driver-schedule-slots">
-                      {SLOTS.map((slot) => {
-                        const key: SlotKey = `${dayIndex}_${slot}`;
-                        const isAvailable = weeklySlots[key] !== false;
-                        const isSaving = calendarSaving === key;
-                        return (
-                          <button
-                            key={slot}
-                            type="button"
-                            data-available={isAvailable}
-                            disabled={isSaving}
-                            onClick={() => void toggleSlot(dayIndex, slot)}
-                            title={isAvailable ? 'Available — click to mark unavailable' : 'Unavailable — click to mark available'}
-                          >
-                            {slot} {isSaving ? '…' : isAvailable ? '✓' : '–'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+        <div className="driver-availability-board">
+          <aside className="driver-availability-rail" aria-label="Availability context">
+            <div className="driver-availability-section">
+              <div className="driver-availability-section__head"><strong>Update Current Status</strong><StatusBadge value={availabilityLabel} tone={availability === 'available' ? 'green' : availability === 'busy' ? 'orange' : 'grey'} /></div>
+              <div className="driver-availability-status-list">
+                {AVAILABILITY_OPTIONS.map((option) => (
+                  <button key={option.value} type="button" className="driver-availability-status" data-active={availability === option.value ? 'true' : 'false'} onClick={() => void handleAvailabilityChange(option.value)} disabled={loading || availabilitySaving}>
+                    <strong>{option.label}</strong><span>{option.description}</span>
+                  </button>
                 ))}
               </div>
-            </>
-          )}
-        </Panel>
+              <dl className="driver-availability-facts">
+                <div><dt>Canonical vehicle</dt><dd>{vehicleLabel}</dd></div>
+                <div><dt>Location</dt><dd>{locationLabel}</dd></div>
+                <div><dt>Updated</dt><dd>{fmtDate(currentLocation?.recorded_at ?? null)}</dd></div>
+                <div><dt>Message</dt><dd>{availabilityOption.description}</dd></div>
+              </dl>
+            </div>
+
+            <div className="driver-availability-section">
+              <div className="driver-availability-section__head"><strong>Canonical active vehicle</strong></div>
+              <dl className="driver-availability-facts">
+                <div><dt>Vehicle</dt><dd>{vehicleLabel}</dd></div><div><dt>Registration</dt><dd>{vehicle?.reg_plate ?? '—'}</dd></div><div><dt>Payload</dt><dd>{vehicle?.payload_kg ? `${vehicle.payload_kg} kg` : '—'}</dd></div><div><dt>Tail lift</dt><dd>{vehicle ? (vehicle.has_tail_lift ? 'Yes' : 'No') : '—'}</dd></div>
+              </dl>
+              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Vehicle identity only; full operational eligibility is revalidated by the server when quoting or allocating work.</div>
+            </div>
+
+            <div className="driver-availability-section">
+              <div className="driver-availability-section__head"><strong>Future position</strong></div>
+              <dl className="driver-availability-facts"><div><dt>Position</dt><dd>{driverRow?.future_position ?? 'Not advertised'}</dd></div><div><dt>From</dt><dd>{fmtDate(driverRow?.future_position_date ?? null)}</dd></div></dl>
+              <ActionButton tone="secondary" onClick={() => { window.location.href = '/driver/returns'; }}>Manage return journey</ActionButton>
+            </div>
+          </aside>
+
+          <main className="driver-availability-main">
+            <section className="driver-availability-panel">
+              <div className="driver-availability-panel__head"><div><strong>Working radius & matching</strong><span>Control how far XDrive should surface suitable work.</span></div><ActionButton tone="primary" onClick={() => void saveMatchingProfile()} disabled={loading || matchingSaving}>{matchingSaving ? 'Saving…' : 'Save'}</ActionButton></div>
+              <div className="driver-availability-matching-row">
+                <label className="driver-availability-toggle"><input type="checkbox" checked={destinationPriority} onChange={(event) => setDestinationPriority(event.target.checked)} /><span><strong>Destination priority</strong><small>{destinationPriority ? 'Enabled' : 'Disabled'}</small></span></label>
+                <label className="driver-availability-field"><span>Radius</span><span className="driver-availability-input-suffix"><input type="number" min="1" max="500" value={destinationRadiusMiles} onChange={(event) => setDestinationRadiusMiles(event.target.value)} disabled={!destinationPriority} /><em>miles</em></span></label>
+              </div>
+              <div className="driver-availability-readiness-strip">
+                <div><span>Driver type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>
+                <div><span>Commercial bid flag</span><StatusBadge value={driverRow?.can_commercial_bid ? 'Enabled' : 'Restricted'} tone={driverRow?.can_commercial_bid ? 'green' : 'orange'} /></div>
+                <div><span>International work</span><StatusBadge value={driverRow?.international_work_approved ? 'Approved' : 'UK only'} tone={driverRow?.international_work_approved ? 'green' : 'grey'} /></div>
+                <div><span>Driver record</span><StatusBadge value={humanize(driverRow?.status)} tone={String(driverRow?.status ?? '').toLowerCase() === 'active' ? 'green' : 'grey'} /></div>
+              </div>
+            </section>
+
+            <section className="driver-availability-panel">
+              <div className="driver-availability-panel__head"><div><strong>Weekly schedule</strong><span>Only explicitly saved AM, PM and evening slots are treated as available for marketplace matching.</span></div>{!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'No saved pattern'} tone={hasSavedSchedule ? 'blue' : 'grey'} />}</div>
+              {scheduleUnavailable ? <div className="driver-availability-empty">Schedule editing is unavailable in this database build.</div> : loading ? <div className="driver-availability-empty">Loading weekly schedule…</div> : (
+                <div className="driver-availability-schedule" role="grid" aria-label="Weekly availability">
+                  {DAYS.map((day, dayIndex) => <div key={day} className="driver-availability-day" role="row"><strong>{day}</strong>{SLOTS.map((slot) => {
+                    const key: SlotKey = `${dayIndex}_${slot}`; const isAvailable = weeklySlots[key] === true; const isSaving = calendarSaving === key;
+                    return <button key={slot} type="button" data-available={isAvailable ? 'true' : 'false'} disabled={isSaving} onClick={() => void toggleSlot(dayIndex, slot)} title={isAvailable ? 'Available — click to mark unavailable' : 'Not saved as available — click to opt in'}><span>{slot}</span><strong>{isSaving ? '…' : isAvailable ? 'Available' : 'Off'}</strong></button>;
+                  })}</div>)}
+                </div>
+              )}
+            </section>
+          </main>
+        </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

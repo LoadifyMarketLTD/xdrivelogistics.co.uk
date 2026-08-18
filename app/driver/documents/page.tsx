@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import { ActionButton, AlertBanner, EmptyState, KpiCard, KpiGrid, Panel, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 interface DriverDoc {
   id: string;
@@ -29,33 +29,7 @@ const DOC_TYPES = [
 ];
 
 const STATUS_TONES: Record<DriverDoc['status'], 'orange' | 'green' | 'red' | 'grey'> = {
-  pending: 'orange',
-  approved: 'green',
-  rejected: 'red',
-  expired: 'grey',
-};
-
-const inputStyle = {
-  width: '100%',
-  height: '32px',
-  padding: '0 8px',
-  border: '1px solid #d8dee8',
-  borderRadius: '4px',
-  background: '#fff',
-  color: '#1a1f2b',
-  fontSize: '12px',
-  boxSizing: 'border-box' as const,
-};
-
-const labelStyle = {
-  display: 'block',
-  marginBottom: '3px',
-  color: '#64748b',
-  fontSize: '10px',
-  lineHeight: '14px',
-  fontWeight: 700,
-  letterSpacing: '.03em',
-  textTransform: 'uppercase' as const,
+  pending: 'orange', approved: 'green', rejected: 'red', expired: 'grey',
 };
 
 function fmtDate(value: string | null) {
@@ -113,12 +87,10 @@ export default function DriverDocumentsPage() {
 
     setLoading(true);
     setLoadError('');
-
     const { data, error } = await supabase
       .from('drivers')
       .select('id, company_id')
       .eq('user_id', user.id)
-      .eq('app_access', true)
       .maybeSingle();
 
     if (error || !data) {
@@ -153,19 +125,9 @@ export default function DriverDocumentsPage() {
   const handleUpload = async () => {
     setUploadError('');
     setUploadSuccess('');
-
-    if (!file) {
-      setUploadError('Select a PDF or image before submitting.');
-      return;
-    }
-    if (!driverId) {
-      setUploadError('Driver profile not found.');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError('File must be under 10 MB.');
-      return;
-    }
+    if (!file) return setUploadError('Select a PDF or image before submitting.');
+    if (!driverId) return setUploadError('Driver profile not found.');
+    if (file.size > 10 * 1024 * 1024) return setUploadError('File must be under 10 MB.');
 
     setUploading(true);
     const extension = file.name.split('.').pop() ?? 'bin';
@@ -173,10 +135,7 @@ export default function DriverDocumentsPage() {
     const safeType = docType.toLowerCase().replace(/\s+/g, '_');
     const storagePath = `${companyId ?? 'no-company'}/${driverId}/${safeType}_${timestamp}.${extension}`;
 
-    const { error: storageError } = await supabase.storage
-      .from('driver-docs')
-      .upload(storagePath, file, { upsert: false });
-
+    const { error: storageError } = await supabase.storage.from('driver-docs').upload(storagePath, file, { upsert: false });
     if (storageError) {
       setUploading(false);
       setUploadError('The file upload failed. Please try again.');
@@ -213,115 +172,101 @@ export default function DriverDocumentsPage() {
       window.open(signedUrls[docId], '_blank', 'noopener,noreferrer');
       return;
     }
-
     const { data, error } = await supabase.storage.from('driver-docs').createSignedUrl(filePath, 3600);
     if (error || !data?.signedUrl) {
       setLoadError('That document could not be opened.');
       return;
     }
-
     setSignedUrls((previous) => ({ ...previous, [docId]: data.signedUrl }));
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const complianceRail = (
+    <aside className="driver-filter-rail" aria-label="Compliance document summary">
+      <div className="driver-filter-rail__header">Compliance Documents</div>
+      <div className="driver-filter-rail__body">
+        <div className="driver-detail-item"><span>Documents</span><strong>{docs.length}</strong></div>
+        <div className="driver-detail-item"><span>Approved records</span><strong>{approved}</strong></div>
+        <div className="driver-detail-item"><span>Pending review</span><strong>{pending}</strong></div>
+        <div className="driver-detail-item"><span>Expiring ≤30d</span><strong>{expiringSoon}</strong></div>
+        <div className="driver-detail-item"><span>Rejected</span><strong>{rejected}</strong></div>
+        <div className="driver-detail-item"><span>Expired</span><strong>{expired}</strong></div>
+        <ActionButton tone="success" onClick={() => { setShowUpload(true); setUploadError(''); setUploadSuccess(''); }}>+ Upload document</ActionButton>
+      </div>
+    </aside>
+  );
+
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Compliance readiness, expiry attention and document upload in one operational register."
+        subtitle="Driver compliance document review, expiry attention and upload. Operational eligibility is resolved separately by the canonical eligibility contract."
         headerActions={<ActionButton tone="primary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
         {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}
         {uploadSuccess && <AlertBanner tone="success">{uploadSuccess}</AlertBanner>}
 
-        <KpiGrid>
-          <KpiCard label="Documents" value={docs.length} detail="All driver evidence" tone="blue" />
-          <KpiCard label="Approved" value={approved} detail="Ready for operations" tone="green" />
-          <KpiCard label="Pending review" value={pending} detail="Awaiting approval" tone="orange" />
-          <KpiCard label="Expiring ≤30d" value={expiringSoon} detail="Renewal attention" tone={expiringSoon ? 'orange' : 'green'} />
-          <KpiCard label="Rejected" value={rejected} detail="Action required" tone={rejected ? 'red' : 'green'} />
-          <KpiCard label="Expired" value={expired} detail="Not ready" tone={expired ? 'red' : 'green'} />
-        </KpiGrid>
+        <div className="driver-board-layout driver-documents-board">
+          {complianceRail}
+          <main className="driver-board-main">
+            {showUpload && (
+              <section className="driver-row-details">
+                <div className="driver-detail-tabs"><strong>Upload document</strong></div>
+                <div className="driver-detail-grid">
+                  <label className="driver-filter-field">Document type<select value={docType} onChange={(event) => setDocType(event.target.value)}>{DOC_TYPES.map((doc) => <option key={doc.value} value={doc.value}>{doc.label}</option>)}</select></label>
+                  <label className="driver-filter-field">Issue date<input type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} /></label>
+                  <label className="driver-filter-field">Expiry date<input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} /></label>
+                  <label className="driver-filter-field">File<input ref={fileRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
+                </div>
+                <div className="driver-row-actions" style={{ marginTop: 5 }}>
+                  <ActionButton tone="secondary" onClick={() => { setShowUpload(false); setUploadError(''); }}>Cancel</ActionButton>
+                  <ActionButton tone="success" onClick={() => void handleUpload()} disabled={uploading || !file}>{uploading ? 'Uploading…' : 'Submit document'}</ActionButton>
+                </div>
+              </section>
+            )}
 
-        {showUpload && (
-          <Panel
-            title="Upload document"
-            description="PDF, JPG, PNG or WebP up to 10 MB. New submissions start in Pending review."
-            actions={<ActionButton tone="secondary" onClick={() => { setShowUpload(false); setUploadError(''); }}>Cancel</ActionButton>}
-          >
-            <div className="driver-detail-grid" style={{ marginBottom: '8px' }}>
-              <div>
-                <label style={labelStyle}>Document type</label>
-                <select style={inputStyle} value={docType} onChange={(event) => setDocType(event.target.value)}>
-                  {DOC_TYPES.map((doc) => <option key={doc.value} value={doc.value}>{doc.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Issue date</label>
-                <input style={inputStyle} type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>Expiry date</label>
-                <input style={inputStyle} type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
-              </div>
-              <div>
-                <label style={labelStyle}>File</label>
-                <input ref={fileRef} style={{ ...inputStyle, height: 'auto', minHeight: '32px', padding: '4px' }} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
-              </div>
+            <div className="driver-board-summary">
+              <span><strong>Compliance documents</strong> · {docs.length} record{docs.length === 1 ? '' : 's'}</span>
+              {!showUpload && <ActionButton tone="success" onClick={() => { setShowUpload(true); setUploadError(''); setUploadSuccess(''); }}>+ Upload document</ActionButton>}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <ActionButton tone="success" onClick={() => void handleUpload()} disabled={uploading || !file}>{uploading ? 'Uploading…' : 'Submit document'}</ActionButton>
-            </div>
-          </Panel>
-        )}
 
-        <Panel
-          title="Compliance documents"
-          description="Status, issue/expiry dates and direct document access."
-          actions={!showUpload ? <ActionButton tone="success" onClick={() => { setShowUpload(true); setUploadError(''); setUploadSuccess(''); }}>+ Upload document</ActionButton> : undefined}
-          flush
-        >
-          {loading ? (
-            <div style={{ padding: '20px' }}><EmptyState compact title="Loading documents…" /></div>
-          ) : docs.length === 0 ? (
-            <div style={{ padding: '20px' }}><EmptyState title="No compliance documents uploaded" description="Upload the documents required for your driver profile and vehicle operations." action={<ActionButton tone="success" onClick={() => setShowUpload(true)}>Upload first document</ActionButton>} /></div>
-          ) : (
-            <div className="driver-ops-table-wrap">
-              <table className="driver-ops-table">
-                <thead>
-                  <tr>
-                    <th>Document</th>
-                    <th>Issued</th>
-                    <th>Expires</th>
-                    <th>Expiry state</th>
-                    <th>Review status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {docs.map((doc) => {
-                    const days = daysUntil(doc.expiry_date);
-                    const expiryLabel = days == null ? 'No expiry' : days < 0 ? 'Expired' : days <= 30 ? `${days} days` : 'Valid';
-                    const expiryTone: 'green' | 'orange' | 'red' | 'grey' = days == null ? 'grey' : days < 0 ? 'red' : days <= 30 ? 'orange' : 'green';
-                    return (
-                      <tr key={doc.id}>
-                        <td>
-                          <strong>{doc.doc_type}</strong>
-                          {doc.rejection_reason && <div style={{ marginTop: '2px', color: '#b91c1c', fontSize: '10px' }}>{doc.rejection_reason}</div>}
-                        </td>
-                        <td>{fmtDate(doc.issued_date)}</td>
-                        <td>{fmtDate(doc.expiry_date)}</td>
-                        <td><StatusBadge value={expiryLabel} tone={expiryTone} /></td>
-                        <td><StatusBadge value={doc.status} tone={STATUS_TONES[doc.status]} /></td>
-                        <td>{doc.file_path ? <ActionButton tone="secondary" onClick={() => void getSignedUrl(doc.file_path as string, doc.id)}>View</ActionButton> : <span style={{ color: '#64748b' }}>—</span>}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Panel>
+            {loading ? (
+              <div className="driver-load-row"><EmptyState compact title="Loading documents…" /></div>
+            ) : docs.length === 0 ? (
+              <div className="driver-load-row"><EmptyState compact title="No compliance documents uploaded" description="Upload the documents required for your driver record. Eligibility is assessed separately from this document register." /></div>
+            ) : (
+              <div className="driver-load-list">
+                {docs.map((doc) => {
+                  const days = daysUntil(doc.expiry_date);
+                  const expiryLabel = days == null ? 'No expiry recorded' : days < 0 ? 'Past expiry date' : days <= 30 ? `${days} days to expiry` : 'In date';
+                  const expiryTone: 'green' | 'orange' | 'red' | 'grey' = days == null ? 'grey' : days < 0 ? 'red' : days <= 30 ? 'orange' : 'green';
+                  const recordSignal = doc.status === 'approved'
+                    ? (days != null && days < 0 ? 'Approved record · expiry attention' : 'Approved record')
+                    : doc.status === 'pending'
+                      ? 'Pending review'
+                      : doc.status === 'rejected'
+                        ? 'Rejected record'
+                        : 'Expired record';
+                  return (
+                    <article key={doc.id} className="driver-load-row" data-state={doc.status}>
+                      <div className="driver-load-row__top">
+                        <div className="driver-load-cell"><span className="driver-cell-label">Document</span><strong className="driver-cell-primary">{doc.doc_type}</strong><span className="driver-cell-secondary">Uploaded {fmtDate(doc.created_at)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Dates</span><strong className="driver-cell-primary">{fmtDate(doc.issued_date)} → {fmtDate(doc.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={expiryLabel} tone={expiryTone} /></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{doc.status}</strong><span className="driver-cell-secondary">{doc.rejection_reason ?? 'No review note'}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Record signal</span><strong className="driver-cell-primary">{recordSignal}</strong><span className="driver-cell-secondary">Document status only · not full eligibility</span></div>
+                      </div>
+                      <div className="driver-load-row__meta">
+                        <span>Document #{doc.id.slice(0, 8).toUpperCase()}</span>
+                        <StatusBadge value={doc.status} tone={STATUS_TONES[doc.status]} />
+                        <div className="driver-row-actions">{doc.file_path ? <ActionButton tone="secondary" onClick={() => void getSignedUrl(doc.file_path as string, doc.id)}>View document</ActionButton> : <span>File unavailable</span>}</div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </main>
+        </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

@@ -57,8 +57,8 @@
 .customer-dash-metric small {
   overflow: hidden;
   color: #64748b;
-  font-size: 10.5px;
-  line-height: 13px;
+  font-size: 11px;
+  line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -99,14 +99,14 @@
 
 .customer-dash-box__head strong {
   color: #1a1f2b;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 750;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
 }
 
 .customer-dash-box__head span {
   color: #64748b;
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 14px;
 }
 
@@ -124,7 +124,7 @@
 .customer-action-row {
   width: 100%;
   min-width: 0;
-  min-height: 38px;
+  min-height: 40px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -154,8 +154,8 @@
 .customer-attention-row__copy strong,
 .customer-action-row__copy strong {
   overflow: hidden;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -165,8 +165,8 @@
 .customer-action-row__copy span {
   overflow: hidden;
   color: #64748b;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 11px;
+  line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -221,24 +221,25 @@
 }
 
 .customer-dash-table th {
-  height: 34px;
+  height: 40px;
   padding: 0 10px;
   border-bottom: 1px solid #d8dee8;
   background: #f7f8fa;
   color: #0b2f6b;
-  font-size: 10px;
-  line-height: 13px;
-  font-weight: 800;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
   text-align: left;
   text-transform: uppercase;
 }
 
 .customer-dash-table td {
-  padding: 7px 10px;
+  height: 42px;
+  padding: 8px 10px;
   border-bottom: 1px solid #e5e7eb;
   color: #1a1f2b;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 12px;
+  line-height: 17px;
   vertical-align: middle;
 }
 
@@ -261,14 +262,14 @@
 
 .customer-dash-table__route strong {
   color: #172033;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .customer-dash-table__route span {
   color: #64748b;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 11px;
+  line-height: 15px;
 }
 
 .customer-dash-table__actions {
@@ -298,15 +299,15 @@
 
 .customer-dash-summary__row span {
   color: #64748b;
-  font-size: 10.5px;
-  line-height: 14px;
+  font-size: 11px;
+  line-height: 15px;
 }
 
 .customer-dash-summary__row strong {
   color: #172033;
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 800;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
 }
 
 .customer-ops-grid-2 {
@@ -328,7 +329,7 @@
   }
 
   .customer-exchange-dashboard {
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: 300px minmax(0, 1fr);
   }
 }
 
