@@ -117,6 +117,7 @@ export default function MyQuotesPage() {
     const { error: withdrawError } = await supabase.from('job_bids').update({ status: 'withdrawn' }).eq('id', bidId).eq('bidder_user_id', userId);
     if (!withdrawError) void fetchBids(); else setError('The quote could not be withdrawn. Please try again.');
   };
+
   const filteredBids = useMemo(() => bids.filter((bid) => {
     const job = bid.jobs;
     if (!withinWindow(job?.pickup_datetime ?? null, appliedFilters.pickupWithin)) return false;
