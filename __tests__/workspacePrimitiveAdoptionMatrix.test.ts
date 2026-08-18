@@ -8,7 +8,7 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|customer-dash-table/.test(source);
 }
 
 function hasPageHeader(filePath: string): boolean {
@@ -18,7 +18,7 @@ function hasPageHeader(filePath: string): boolean {
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -32,8 +32,8 @@ function rowFor(filePath: string) {
   return {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
