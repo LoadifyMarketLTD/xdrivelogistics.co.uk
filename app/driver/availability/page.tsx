@@ -37,7 +37,7 @@ type DriverRow = {
   can_commercial_bid: boolean;
 };
 
-type LocationRow = { lat: number; lng: number; recorded_at: string | null };
+type LocationRow = { lat: number | null; lng: number | null; recorded_at: string | null };
 type WeeklySlotRow = { day_of_week: number; slot: string; available: boolean };
 type WeeklyScheduleResult = { rows: WeeklySlotRow[]; error: string | null; unavailable: boolean };
 
@@ -250,7 +250,13 @@ export default function AvailabilityPage() {
   const availabilityLabel = availabilityOption.label;
   const hasSavedSchedule = Object.keys(weeklySlots).length > 0;
   const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No canonical active vehicle';
-  const locationLabel = currentLocation ? `${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}` : 'Not recorded';
+  const hasValidCurrentLocation = typeof currentLocation?.lat === 'number'
+    && Number.isFinite(currentLocation.lat)
+    && typeof currentLocation?.lng === 'number'
+    && Number.isFinite(currentLocation.lng);
+  const locationLabel = hasValidCurrentLocation
+    ? `${currentLocation!.lat!.toFixed(5)}, ${currentLocation!.lng!.toFixed(5)}`
+    : 'Not recorded';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
