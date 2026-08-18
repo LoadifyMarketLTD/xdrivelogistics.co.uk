@@ -20,12 +20,13 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/driver' },
+  { id: 'network', label: 'Network', href: '/driver/network' },
+  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
   { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
   { id: 'diary', label: 'Diary', href: '/driver/history' },
   { id: 'availability', label: 'Availability', href: '/driver/availability' },
-  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
 

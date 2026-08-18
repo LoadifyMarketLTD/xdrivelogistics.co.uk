@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('workspace activity feed CSP-safe styling', () => {
-  it('keeps the retired ticker hidden without styled-jsx or fixed-position CSS', () => {
+  it('keeps the retired shell ticker hidden without styled-jsx or fixed positioning', () => {
     const shell = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceShell.tsx'), 'utf8');
     const css = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceShell.module.css'), 'utf8');
     const uiCss = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceUI.module.css'), 'utf8');
