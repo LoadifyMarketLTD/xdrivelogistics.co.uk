@@ -42,4 +42,12 @@ describe('canonical operational workspace route registry', () => {
       expect(existsSync(pagePath(href)), `${role}: ${href} has no page.tsx`).toBe(true);
     }
   });
+
+  it.each(operationalRoles)('registers and backs the canonical %s primary action when present', (role) => {
+    const action = getWorkspaceDefinition(role).primaryAction;
+    if (!action) return;
+
+    expect(getProtectedRouteRequirement(action.href), `${role}: ${action.href} is not registered`).not.toBeNull();
+    expect(existsSync(pagePath(action.href)), `${role}: ${action.href} has no page.tsx`).toBe(true);
+  });
 });
