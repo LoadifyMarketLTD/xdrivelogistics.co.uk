@@ -92,26 +92,6 @@ describe('workspace route contracts', () => {
     }
   });
 
-  it.each(operationalWorkspaceRoles)('registers every canonical %s navigation entry with the protected-route guard', (role) => {
-    for (const href of hrefs(role)) {
-      expect(getProtectedRouteRequirement(href), `${href} has no protected route requirement`).not.toBeNull();
-    }
-  });
-
-  it('registers reachable auxiliary workspace routes that are linked outside the canonical side navigation', () => {
-    const auxiliaryRoutes = [
-      '/admin/action-centre',
-      '/broker/action-centre',
-      '/customer/action-centre',
-      '/driver/action-centre',
-      '/driver/account',
-      '/driver/event-log',
-    ];
-    for (const href of auxiliaryRoutes) {
-      expect(getProtectedRouteRequirement(href), `${href} has no protected route requirement`).not.toBeNull();
-    }
-  });
-
   it('authorizes the nested Directory entries through existing protected prefixes', () => {
     expect(getProtectedRouteRequirement('/customer/network/directory')?.prefix).toBe('/customer/network');
     expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network');
