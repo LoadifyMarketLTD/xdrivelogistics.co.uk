@@ -6,6 +6,143 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
+-- Fresh rebuilds historically recreated the early jobs table but not every
+-- lifecycle/evidence column that already exists in live XDrive and is consumed
+-- by the canonical marketplace + driver runtime. Materialise that schema
+-- contract before replacing functions/triggers so a reset is structurally
+-- equivalent to the live contract instead of relying on deferred PL/pgSQL
+-- validation of NEW.* / %ROWTYPE fields.
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS current_status text,
+  ADD COLUMN IF NOT EXISTS assigned_company_id uuid,
+  ADD COLUMN IF NOT EXISTS accepted_bid_id uuid,
+  ADD COLUMN IF NOT EXISTS pod_photos jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS pod_generated boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS pod_generated_at timestamptz,
+  ADD COLUMN IF NOT EXISTS on_my_way_at timestamptz,
+  ADD COLUMN IF NOT EXISTS on_site_pickup_at timestamptz,
+  ADD COLUMN IF NOT EXISTS loaded_at timestamptz,
+  ADD COLUMN IF NOT EXISTS on_site_delivery_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
+  ADD COLUMN IF NOT EXISTS completed_at timestamptz;
+
+-- The original bootstrap schema stored driver evidence as text[] / text. The
+-- canonical driver RPCs and guardrails now use JSONB for both fields. Reconcile
+-- only those legacy physical types; already-canonical live databases are no-ops.
+DO $$
+DECLARE
+  v_delivery_photos_type text;
+  v_delivery_signature_type text;
+  v_pod_photos_type text;
+BEGIN
+  SELECT c.data_type
+    INTO v_delivery_photos_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'delivery_photos';
+
+  IF v_delivery_photos_type = 'ARRAY' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN delivery_photos DROP DEFAULT,
+      ALTER COLUMN delivery_photos TYPE jsonb
+        USING COALESCE(to_jsonb(delivery_photos), '[]'::jsonb);
+  ELSIF v_delivery_photos_type IS NOT NULL AND v_delivery_photos_type <> 'jsonb' THEN
+    RAISE EXCEPTION
+      'Unsupported jobs.delivery_photos type: %. Expected ARRAY or jsonb.',
+      v_delivery_photos_type
+      USING ERRCODE = '42804';
+  END IF;
+
+  SELECT c.data_type
+    INTO v_delivery_signature_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'delivery_signature_data';
+
+  IF v_delivery_signature_type = 'text' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN delivery_signature_data DROP DEFAULT,
+      ALTER COLUMN delivery_signature_data TYPE jsonb
+        USING CASE
+          WHEN delivery_signature_data IS NULL THEN NULL
+          ELSE to_jsonb(delivery_signature_data)
+        END;
+  ELSIF v_delivery_signature_type IS NOT NULL AND v_delivery_signature_type <> 'jsonb' THEN
+    RAISE EXCEPTION
+      'Unsupported jobs.delivery_signature_data type: %. Expected text or jsonb.',
+      v_delivery_signature_type
+      USING ERRCODE = '42804';
+  END IF;
+
+  SELECT c.data_type
+    INTO v_pod_photos_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'pod_photos';
+
+  IF v_pod_photos_type = 'ARRAY' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN pod_photos DROP DEFAULT,
+      ALTER COLUMN pod_photos TYPE jsonb
+        USING COALESCE(to_jsonb(pod_photos), '[]'::jsonb),
+      ALTER COLUMN pod_photos SET DEFAULT '[]'::jsonb;
+  ELSIF v_pod_photos_type = 'text' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN pod_photos DROP DEFAULT,
+      ALTER COLUMN pod_photos TYPE jsonb
+        USING CASE
+          WHEN pod_photos IS NULL OR btrim(pod_photos) = '' THEN '[]'::jsonb
+          ELSE jsonb_build_array(pod_photos)
+        END,
+      ALTER COLUMN pod_photos SET DEFAULT '[]'::jsonb;
+  ELSIF v_pod_photos_type IS NOT NULL AND v_pod_photos_type <> 'jsonb' THEN
+    RAISE EXCEPTION
+      'Unsupported jobs.pod_photos type: %. Expected ARRAY, text or jsonb.',
+      v_pod_photos_type
+      USING ERRCODE = '42804';
+  END IF;
+END
+$$;
+
+-- Fine-grained execution states are written into jobs.status by the canonical
+-- driver RPC. Fresh databases still originate from the older enum definition,
+-- so ensure that enum can represent the established execution lifecycle. This
+-- is a no-op where jobs.status is already text or the enum labels already exist.
+DO $$
+DECLARE
+  v_label text;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'job_status'
+  ) THEN
+    FOREACH v_label IN ARRAY ARRAY[
+      'on_my_way',
+      'on_site_pickup',
+      'loaded',
+      'on_site_delivery',
+      'completed'
+    ]
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_enum e
+        WHERE e.enumtypid = 'public.job_status'::regtype
+          AND e.enumlabel = v_label
+      ) THEN
+        EXECUTE format('ALTER TYPE public.job_status ADD VALUE %L', v_label);
+      END IF;
+    END LOOP;
+  END IF;
+END
+$$;
+
 -- Fleet Company quotes are commercial company bids and intentionally have no
 -- named execution driver at quote time. Legacy bidder_id is a driver FK, so it
 -- must be nullable for that valid path. Named-driver quotes still populate it.
