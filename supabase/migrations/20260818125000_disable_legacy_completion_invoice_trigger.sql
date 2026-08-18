@@ -11,7 +11,13 @@ SET LOCAL statement_timeout = '120s';
 
 DROP TRIGGER IF EXISTS trg_generate_invoice_on_job_completion ON public.jobs;
 
-COMMENT ON FUNCTION public.fn_generate_invoice_on_job_completion() IS
-  'Legacy completion invoice function retained for audit/history only. The trigger is intentionally disabled; canonical Marketplace invoice generation uses the immutable commercial agreement through the application server boundary.';
+DO $$
+BEGIN
+  IF to_regprocedure('public.fn_generate_invoice_on_job_completion()') IS NOT NULL THEN
+    COMMENT ON FUNCTION public.fn_generate_invoice_on_job_completion() IS
+      'Legacy completion invoice function retained for audit/history only. The trigger is intentionally disabled; canonical Marketplace invoice generation uses the immutable commercial agreement through the application server boundary.';
+  END IF;
+END;
+$$;
 
 COMMIT;
