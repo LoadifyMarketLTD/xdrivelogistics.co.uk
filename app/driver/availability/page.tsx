@@ -80,7 +80,7 @@ export default function AvailabilityPage() {
 
   const [driverRow, setDriverRow] = useState<DriverRow | null>(null);
   const [vehicle, setVehicle] = useState<VehicleRow | null>(null);
-  const [availability, setAvailability] = useState<AvailabilityStatus>('available');
+  const [availability, setAvailability] = useState<AvailabilityStatus>('offline');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -182,10 +182,12 @@ export default function AvailabilityPage() {
       setPersona(driverRes.row.persona ? (mapDriverPersona(driverRes.row.persona) ?? '') : '');
       setHomePostcode(driverRes.row.home_postcode ?? '');
       setMaxRadiusKm(driverRes.row.max_radius_km != null ? String(driverRes.row.max_radius_km) : '');
-      const nextAvailability = driverRes.row.availability_status ?? driverRes.row.status ?? '';
-      if (nextAvailability === 'available' || nextAvailability === 'busy' || nextAvailability === 'offline') {
-        setAvailability(nextAvailability);
-      }
+      const nextAvailability = driverRes.row.availability_status ?? '';
+      setAvailability(
+        nextAvailability === 'available' || nextAvailability === 'busy' || nextAvailability === 'offline'
+          ? nextAvailability
+          : 'offline',
+      );
     }
 
     setVehicle((vehicleRes.data as VehicleRow | null) ?? null);
@@ -224,17 +226,13 @@ export default function AvailabilityPage() {
     setError('');
 
     const updateRes = await supabase.from('drivers').update({ availability_status: next }).eq('id', driverId);
-    if (updateRes.error && getMissingColumnFromError(updateRes.error, 'drivers') === 'availability_status') {
-      const fallbackRes = await supabase.from('drivers').update({ status: next }).eq('id', driverId);
-      if (fallbackRes.error) {
-        setAvailability(previous);
-        setError('Availability could not be updated.');
-      } else {
-        setTimedSuccess(`Availability updated to ${next}.`);
-      }
-    } else if (updateRes.error) {
+    if (updateRes.error) {
       setAvailability(previous);
-      setError('Availability could not be updated.');
+      setError(
+        getMissingColumnFromError(updateRes.error, 'drivers') === 'availability_status'
+          ? 'Live availability is not enabled in this database build. Driver account status was not changed.'
+          : 'Availability could not be updated.',
+      );
     } else {
       setTimedSuccess(`Availability updated to ${next}.`);
     }
