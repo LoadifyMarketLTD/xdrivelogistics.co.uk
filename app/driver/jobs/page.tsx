@@ -6,7 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { selectWithMissingColumnFallback } from '../../../lib/supabaseSchemaCompat';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { canonicalExecutionStatus, matchesDriverJobView, type DriverJobView } from '../../../lib/jobs/jobLifecyclePresentation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
@@ -59,6 +59,7 @@ const JOB_COLUMNS = [
   'collection_photo_url',
   'delivery_photos',
 ];
+const LEGACY_JOB_COLUMNS = JOB_COLUMNS.filter((column) => column !== 'vehicle_id');
 
 const STATUS_LABELS: Record<string, string> = {
   awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted',
@@ -117,28 +118,27 @@ export default function DriverJobsPage() {
   const loadJobs = useCallback(async () => {
     if (!isSupabaseConfigured || !driverId) { setJobs([]); setLoading(false); return; }
     setLoading(true); setError('');
-    const [driverRes, jobsResult] = await Promise.all([
-      supabase.from('drivers').select('id, display_name, availability_status, status').eq('id', driverId).maybeSingle(),
-      selectWithMissingColumnFallback<JobRow>({
-        table: 'jobs',
-        columns: JOB_COLUMNS,
-        execute: async (activeColumns) => {
-          const result = await supabase.from('jobs')
-            .select(activeColumns.join(', '))
-            .eq('assigned_driver_id', driverId)
-            .order('pickup_datetime', { ascending: true })
-            .limit(75);
-          return {
-            data: (result.data ?? []) as unknown as JobRow[],
-            error: result.error,
-          };
-        },
-      }),
-    ]);
+
+    const loadAssignedJobs = async (columns: readonly string[]) => supabase.from('jobs')
+      .select(columns.join(', '))
+      .eq('assigned_driver_id', driverId)
+      .order('pickup_datetime', { ascending: true })
+      .limit(75);
+
+    const driverPromise = supabase.from('drivers')
+      .select('id, display_name, availability_status, status')
+      .eq('id', driverId)
+      .maybeSingle();
+    const firstJobsResult = await loadAssignedJobs(JOB_COLUMNS);
+    const jobsResult = firstJobsResult.error && isMissingColumnError(firstJobsResult.error, 'jobs', 'vehicle_id')
+      ? await loadAssignedJobs(LEGACY_JOB_COLUMNS)
+      : firstJobsResult;
+    const driverRes = await driverPromise;
+
     if (driverRes.error) setError('Your driver status could not be loaded.');
     else setDriver(driverRes.data as DriverRow | null);
     if (jobsResult.error) { setError('Assigned jobs could not be loaded. Refresh the page or try again shortly.'); setJobs([]); }
-    else setJobs(jobsResult.rows);
+    else setJobs((jobsResult.data ?? []) as unknown as JobRow[]);
     setLoading(false);
   }, [driverId]);
 
