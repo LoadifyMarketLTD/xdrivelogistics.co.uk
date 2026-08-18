@@ -36,16 +36,6 @@ AS $$
           AND cm.user_id = auth.uid()
           AND COALESCE(cm.status::text, '') = 'active'
       )
-      -- profiles.role is stored canonically. Platform-owner aliases are mapped
-      -- to the canonical `owner` role before persistence; do not duplicate an
-      -- alias list inside RLS.
-      OR EXISTS (
-        SELECT 1
-        FROM public.profiles p
-        WHERE p.user_id = auth.uid()
-          AND COALESCE(p.status::text, '') = 'active'
-          AND COALESCE(p.role::text, '') = 'owner'
-      )
     FROM public.jobs j
     WHERE j.id = p_job_id
   ), false);
@@ -100,6 +90,8 @@ GRANT EXECUTE ON FUNCTION public.can_quote_marketplace_job(uuid, uuid) TO authen
 
 COMMENT ON POLICY jobs_preaward_marketplace_privacy_guard ON public.jobs IS
   'Restrictive guard: competing authenticated members cannot SELECT full posted/quoted Marketplace job rows before award; use quote-safe server projections.';
+COMMENT ON FUNCTION public.can_read_marketplace_execution_job(uuid) IS
+  'Allows full execution-row visibility only outside pre-award Marketplace or to the job creator/owning-company active members; platform/service administration must use server-side privileged boundaries.';
 COMMENT ON FUNCTION public.can_quote_marketplace_job(uuid, uuid) IS
   'Returns Marketplace quote eligibility without exposing private execution columns from jobs.';
 

@@ -110,10 +110,11 @@ jobs:
         run: npx playwright test e2e/ci-public-smoke.spec.ts --project=mobile-safari
 
   detect-expo-driver-changes:
-    name: Detect Expo Driver Changes
+    name: Detect Driver Mobile Changes
     runs-on: ubuntu-latest
     outputs:
       driver_changed: ${{ steps.scope.outputs.driver_changed }}
+      android_native_changed: ${{ steps.scope.outputs.android_native_changed }}
     permissions:
       contents: read
 
@@ -129,13 +130,22 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "driver_changed=true" >> "$GITHUB_OUTPUT"
+            echo "android_native_changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          if git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" | grep -Eq '^apps/driver-mobile/'; then
+          changed_files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")"
+
+          if printf '%s\n' "$changed_files" | grep -Eq '^apps/driver-mobile/'; then
             echo "driver_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "driver_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if printf '%s\n' "$changed_files" | grep -Eq '^android-native/'; then
+            echo "android_native_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "android_native_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   expo-driver-typecheck:
@@ -207,10 +217,12 @@ jobs:
   codeql-mobile:
     name: CodeQL Security Scan (java-kotlin)
     runs-on: ubuntu-latest
-    # Android/Kotlin scanning belongs to mobile or cross-scope PRs, while main
-    # keeps the complete protected baseline.
+    needs: detect-expo-driver-changes
+    # Android/Kotlin scanning belongs to native Android or explicitly mobile/cross PRs,
+    # while main keeps the complete protected baseline.
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      needs.detect-expo-driver-changes.outputs.android_native_changed == 'true' ||
       (
         github.event_name == 'pull_request' &&
         (

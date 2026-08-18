@@ -96,9 +96,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- current_status is the canonical execution source where present. Keep the
-  -- already-approved historical aliases aligned with driver_update_job_status_atomic
-  -- and workspace presentation; do not define any new lifecycle state here.
   v_effective_status := lower(COALESCE(
     NULLIF(btrim(v_job.current_status::text), ''),
     NULLIF(btrim(v_job.status::text), '')
@@ -115,9 +112,6 @@ BEGIN
     ELSE v_effective_status
   END;
 
-  -- The approved reallocation contract requires an eligible replacement driver
-  -- and that driver's canonical vehicle while execution is active. Clearing the
-  -- binding is still allowed by the existing pre-execution allocated flow only.
   IF p_driver_id IS NULL
      AND v_effective_status IN (
        'on_my_way',
@@ -130,8 +124,6 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  -- Preserve execution/completion state during reallocation. Only the existing
-  -- pre-execution allocation/clear transitions may change lifecycle state.
   v_next_status := v_effective_status;
   IF p_driver_id IS NOT NULL
      AND v_effective_status IN ('draft', 'posted', 'received', 'awarded', 'open') THEN
@@ -161,13 +153,13 @@ BEGIN
     ELSE format('Driver and canonical vehicle assigned (%s).', v_driver_vehicle_id)
   END;
 
+  -- Live XDrive stores job_tracking_events.event_type as constrained text.
+  -- Use the canonical text vocabulary directly instead of casting through the
+  -- historical tracking_event_type enum, which is not the live column type.
   INSERT INTO public.job_tracking_events (job_id, event_type, created_by, message, meta)
   VALUES (
     p_job_id,
-    CASE
-      WHEN p_driver_id IS NULL THEN 'note'::public.tracking_event_type
-      ELSE 'allocated'::public.tracking_event_type
-    END,
+    CASE WHEN p_driver_id IS NULL THEN 'note' ELSE 'allocated' END,
     p_actor_user_id,
     v_message,
     jsonb_build_object(

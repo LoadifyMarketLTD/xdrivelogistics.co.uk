@@ -8,7 +8,7 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-load-list|driver-load-row/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-dash-table/.test(source);
 }
 
 function hasPageHeader(filePath: string): boolean {
@@ -18,27 +18,27 @@ function hasPageHeader(filePath: string): boolean {
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dashboard-status/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dash-metrics/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
   if (!existsSync(resolve(process.cwd(), filePath))) return false;
   const source = read(filePath);
-  return source.includes('ActionCentrePage') || source.includes('DriverWorkspaceShell');
+  return source.includes('ActionCentrePage');
 }
 
 function rowFor(filePath: string) {
   const source = readFileSync(resolve(process.cwd(), filePath), 'utf8');
   return {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
-    operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dashboard-status/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-load-list|driver-load-row/.test(source),
-    quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b|customer-action-grid/.test(source),
-    financialSummaryPanel: /\bFinancialSummaryPanel\b|customer-dash-summary/.test(source),
+    operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dash-metrics/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-dash-table/.test(source),
+    quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b/.test(source),
+    financialSummaryPanel: /\bFinancialSummaryPanel\b/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
-    dateRangeSelector: /\bDateRangeSelector\b|\bActionCentrePage\b|\bdateRange\b/.test(source),
-    savedViewSelector: /\bSavedViewSelector\b|\bActionCentrePage\b|\bsavedView\b|\bsavedViews\b/.test(source),
+    dateRangeSelector: /\bDateRangeSelector\b|\bActionCentrePage\b/.test(source),
+    savedViewSelector: /\bSavedViewSelector\b|\bActionCentrePage\b/.test(source),
   };
 }
 
@@ -53,22 +53,19 @@ const activeAdminDashboardFiles = [
 
 describe('workspace primitive adoption matrix', () => {
   it('ensures each active role dashboard has a principal operational table surface', () => {
-    const dashboards = [
+    for (const filePath of [
       'app/broker/BrokerDashboardHome.tsx',
       'app/customer/CustomerDashboardHome.tsx',
       'app/driver/page.tsx',
       ...activeAdminDashboardFiles,
-    ];
-    for (const filePath of dashboards) {
-      expect(hasPageHeader(filePath), `${filePath} should use the shared/specialised page-header family`).toBe(true);
-      expect(hasOperationalTablePrimitive(filePath), `${filePath} should expose an operational table/list surface`).toBe(true);
-    }
-    for (const filePath of dashboards.filter((path) => path !== 'app/broker/BrokerDashboardHome.tsx')) {
+    ]) {
+      expect(hasPageHeader(filePath), `${filePath} should use the shared page-header family`).toBe(true);
+      expect(hasOperationalTablePrimitive(filePath), `${filePath} should expose an operational table`).toBe(true);
       expect(hasCompactKpiStrip(filePath), `${filePath} should expose a compact operational signal strip`).toBe(true);
     }
   });
 
-  it('ensures action-centre routes for all operational roles use the appropriate workspace primitive', () => {
+  it('ensures action-centre routes for all operational roles use the shared primitive page', () => {
     expect(hasActionCentreRoute('app/broker/action-centre/page.tsx')).toBe(true);
     expect(hasActionCentreRoute('app/customer/action-centre/page.tsx')).toBe(true);
     expect(hasActionCentreRoute('app/driver/action-centre/page.tsx')).toBe(true);
@@ -91,7 +88,6 @@ describe('workspace primitive adoption matrix', () => {
 
     expect(matrix.broker.operationalTable).toBe(true);
     expect(matrix.customer.operationalTable).toBe(true);
-    expect(matrix.driver.operationalTable).toBe(true);
     expect(matrix.carrier.operationalTable).toBe(true);
     expect(matrix.fleet.operationalTable).toBe(true);
     expect(matrix.dispatcher.operationalTable).toBe(true);
@@ -121,8 +117,13 @@ describe('workspace primitive adoption matrix', () => {
     expect(source).not.toContain('FinancialSummaryPanel');
   });
 
-  it('keeps broker degraded metrics tied to shared dataset presentation state', () => {
+  it('keeps customer and broker KPI availability on the shared metric presentation helper', () => {
+    const customerSource = read('app/customer/CustomerDashboardHome.tsx');
     const brokerSource = read('app/broker/BrokerDashboardHome.tsx');
+
+    expect(customerSource).toContain('getWorkspaceMetricPresentation');
+    expect(brokerSource).toContain('getWorkspaceMetricPresentation');
+    expect(customerSource).toContain('getWorkspaceMetricPresentationStatus');
     expect(brokerSource).toContain('getWorkspaceMetricPresentationStatus');
   });
 
