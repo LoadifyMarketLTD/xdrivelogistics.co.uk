@@ -1,0 +1,2 @@
+alter table public.companies drop constraint if exists companies_enabled_workspaces_valid;
+alter table public.companies add constraint companies_enabled_workspaces_valid check (enabled_workspaces is null or enabled_workspaces <@ array['owner_operator','shipper','broker','carrier_fleet']::text[]);
