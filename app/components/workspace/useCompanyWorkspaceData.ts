@@ -9,6 +9,7 @@ import {
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 
 export type WorkspaceJob = {
   id: string;
@@ -254,6 +255,12 @@ const CARRIER_DASHBOARD_JOB_SELECT =
 
 const EXECUTION_JOB_SELECT =
   'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name';
+
+const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
+  .split(',')
+  .map((column) => column.trim())
+  .filter((column) => column !== 'vehicle_id')
+  .join(', ');
 
 export const getWorkspaceJobSelect = (surface: WorkspaceDataSurface) =>
   surface === 'carrier_operations' ? CARRIER_DASHBOARD_JOB_SELECT : EXECUTION_JOB_SELECT;
@@ -628,41 +635,38 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setError('');
 
     if (requested.has('jobs')) {
-      if (driverSurface) {
-        if (!user?.driverId) {
-          dependencyUnavailable<WorkspaceJob>('jobs', 'driver context unavailable; assigned job query was not run.');
-        } else {
-          const jobsRes = await supabase
+      if (driverSurface && !user?.driverId) {
+        dependencyUnavailable<WorkspaceJob>('jobs', 'driver context unavailable; assigned job query was not run.');
+      } else {
+        const runJobsQuery = (selectClause: string) => {
+          const query = supabase
             .from('jobs')
-            .select(getWorkspaceJobSelect(plan.surface))
-            .eq('assigned_driver_id', user.driverId)
+            .select(selectClause);
+          const scopedQuery = driverSurface
+            ? query.eq('assigned_driver_id', user!.driverId!)
+            : query.or(
+              plan.surface === 'customer' || plan.surface === 'broker'
+                ? `company_id.eq.${companyId}`
+                : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
+            );
+          return scopedQuery
             .order('updated_at', { ascending: false })
             .limit(500);
-          const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
-          setDataset<WorkspaceJob>(
-            'jobs',
-            (jobsRes.data ?? []) as unknown as WorkspaceJob[],
-            jobsError ? [jobsError] : [],
-            queryReachedLimit(jobsRes.data, 500, jobsError),
-          );
-        }
-      } else {
-        const jobsRes = await supabase
-          .from('jobs')
-          .select(getWorkspaceJobSelect(plan.surface))
-          .or(
-            plan.surface === 'customer' || plan.surface === 'broker'
-              ? `company_id.eq.${companyId}`
-              : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
-          )
-          .order('updated_at', { ascending: false })
-          .limit(500);
+        };
+
+        const firstJobsRes = await runJobsQuery(getWorkspaceJobSelect(plan.surface));
+        const usedVehicleIdFallback = plan.surface !== 'carrier_operations'
+          && Boolean(firstJobsRes.error)
+          && isMissingColumnError(firstJobsRes.error, 'jobs', 'vehicle_id');
+        const jobsRes = usedVehicleIdFallback
+          ? await runJobsQuery(LEGACY_EXECUTION_JOB_SELECT)
+          : firstJobsRes;
         const jobsError = getFirstError(jobsRes as QueryResult<WorkspaceJob>);
         setDataset<WorkspaceJob>(
           'jobs',
           (jobsRes.data ?? []) as unknown as WorkspaceJob[],
           jobsError ? [jobsError] : [],
-          queryReachedLimit(jobsRes.data, 500, jobsError),
+          usedVehicleIdFallback || queryReachedLimit(jobsRes.data, 500, jobsError),
         );
       }
     }
