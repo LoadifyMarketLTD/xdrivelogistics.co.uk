@@ -273,6 +273,9 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
   // owner_operator (/driver)
+  { prefix: '/driver/action-centre', workspace: 'owner_operator' },
+  { prefix: '/driver/account', workspace: 'owner_operator' },
+  { prefix: '/driver/event-log', workspace: 'owner_operator' },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
