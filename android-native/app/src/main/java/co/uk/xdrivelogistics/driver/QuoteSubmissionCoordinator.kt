@@ -37,10 +37,10 @@ internal sealed class QuoteSubmitOutcome {
  * Encapsulates quote-submission orchestration with:
  * - An atomic single-flight guard (at most one submission in progress at a time).
  * - Explicit job-ID capture at call time, never re-read inside the coroutine.
- * - Delegation to [validateQuoteSubmission] and [resolveQuoteJobId] from LiveLoadsComponents.
+ * - Quote-open lifecycle parity with the server (`posted` or `quoted`).
  *
  * The injectable [submitFn] makes this unit-testable without Robolectric or a live API.
- * Production code passes `api::submitJobQuote`; tests pass a stub lambda.
+ * Production code passes the secure XDrive server quote mutation; tests pass a stub lambda.
  */
 internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
 
@@ -73,19 +73,18 @@ internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
             val sess = session ?: return QuoteSubmitOutcome.NoSession
             val prof = profile ?: return QuoteSubmitOutcome.NoProfile
 
-            val validation = validateQuoteSubmission(quoteJobId, jobs, amountText)
-            if (validation != QuoteValidationResult.OK) {
-                return QuoteSubmitOutcome.ValidationFailure(validation)
+            val selectedJob = jobs.firstOrNull { it.id == quoteJobId }
+                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.NO_JOB_SELECTED)
+            if (selectedJob.status.lowercase() !in setOf("posted", "quoted")) {
+                return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.JOB_NOT_POSTED)
             }
+            val amount = parseFinitePositiveAmount(amountText)
+                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT)
 
-            // resolveQuoteJobId and parseFinitePositiveAmount are both non-null here because
-            // validateQuoteSubmission returned OK
-            val resolvedJobId = resolveQuoteJobId(quoteJobId, jobs)!!
-            val amount = parseFinitePositiveAmount(amountText)!!
-
-            submitFn(sess, prof, resolvedJobId, amount, note.trim())
+            // The server mutation revalidates operational eligibility and job availability.
+            submitFn(sess, prof, selectedJob.id, amount, note.trim())
                 .fold(
-                    onSuccess = { QuoteSubmitOutcome.Success(resolvedJobId) },
+                    onSuccess = { QuoteSubmitOutcome.Success(selectedJob.id) },
                     onFailure = { QuoteSubmitOutcome.ApiFailure(it) },
                 )
         } finally {
