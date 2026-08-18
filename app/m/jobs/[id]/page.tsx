@@ -6,5 +6,5 @@ export default async function MobileJobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/m/driver?job=${encodeURIComponent(id)}`);
+  redirect(`/driver/jobs/${encodeURIComponent(id)}`);
 }

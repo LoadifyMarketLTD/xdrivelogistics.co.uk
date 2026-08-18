@@ -52,6 +52,10 @@ const bodySchema = z.object({
   adr: z.boolean(),
   temperatureControlled: z.boolean(),
   fragile: z.boolean(),
+  publicQuoteNotes: optionalText,
+  executionInstructions: optionalText,
+  // Legacy input remains accepted so older clients do not break. Legacy notes
+  // are execution-private by default and are never promoted to Marketplace.
   notes: optionalText,
 });
 
@@ -181,7 +185,7 @@ export async function POST(request: NextRequest) {
 
   const specialRequirements = [
     input.tailLift && 'Tail lift required',
-    input.forklift && 'Forklift required',
+    input.forklift && 'Forklift available at collection',
     input.handball && 'Handball required',
     input.adr && 'ADR required',
     input.temperatureControlled && 'Temperature controlled',
@@ -190,7 +194,9 @@ export async function POST(request: NextRequest) {
 
   const now = new Date().toISOString();
   const status = input.publish ? 'posted' : 'draft';
+  const executionInstructions = input.executionInstructions || input.notes || null;
   const loadDetails = JSON.stringify({
+    schema: 'xdrive_load_details_v2',
     source: input.mode === 'broker' ? 'broker_workspace_v3' : 'customer_workspace_v3',
     targetCarrierCost: input.targetCarrierCost ?? null,
     dimensionsCm: {
@@ -198,7 +204,10 @@ export async function POST(request: NextRequest) {
       width: input.widthCm ?? null,
       height: input.heightCm ?? null,
     },
-    notes: input.notes || null,
+    publicQuoteNotes: input.publicQuoteNotes || null,
+    // `notes` is retained as the backwards-compatible execution-private key.
+    notes: executionInstructions,
+    executionInstructions,
   });
 
   const row: Record<string, unknown> = {

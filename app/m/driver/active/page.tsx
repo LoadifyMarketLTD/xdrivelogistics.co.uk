@@ -1,5 +1,5 @@
-import DriverMobileAppVariant from '../../_components/DriverMobileAppVariant';
+import { redirect } from 'next/navigation';
 
 export default function MobileDriverActivePage() {
-  return <DriverMobileAppVariant initialTab="today" />;
+  redirect('/driver/jobs');
 }

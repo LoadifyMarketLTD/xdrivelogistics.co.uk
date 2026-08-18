@@ -3,191 +3,234 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import {
-  ActionButton,
-  AlertBanner,
-  DataTable,
-  EmptyState,
-  KpiCard,
-  KpiGrid,
-  Panel,
-  StatusBadge,
-} from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
-type NotificationRow = {
+type MessageDirection = 'inbound' | 'outbound';
+type MessageRow = {
   id: string;
-  event_type: string;
-  entity_type: string;
-  entity_id: string;
-  payload: Record<string, unknown> | null;
-  status: 'pending' | 'sent' | 'failed' | 'skipped';
-  created_at: string;
-  recipient_user_id?: string | null;
+  body: string;
+  createdAt: string | null;
+  direction: MessageDirection;
+  senderUserId: string | null;
+  recipientUserId: string | null;
 };
 
-type TabId = 'all' | 'pending' | 'attention';
+type MessageThread = {
+  key: string;
+  conversationId: string | null;
+  counterpartUserId: string | null;
+  counterpartName: string;
+  canReply: boolean;
+  latestAt: string | null;
+  latestBody: string;
+  messages: MessageRow[];
+};
 
-const tabLabels: Array<{ id: TabId; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'pending', label: 'Pending delivery' },
-  { id: 'attention', label: 'Attention' },
-];
+type MessagesResponse = {
+  threads?: MessageThread[];
+  readStateAvailable?: boolean;
+  error?: string;
+};
 
-function formatTitle(eventType: string) {
-  return eventType
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatPreview(notification: NotificationRow) {
-  const payload = notification.payload ?? {};
-  const pickup =
-    typeof payload.pickup_location === 'string' ? payload.pickup_location : null;
-  const delivery =
-    typeof payload.delivery_location === 'string' ? payload.delivery_location : null;
-  const ref =
-    typeof payload.job_ref === 'string'
-      ? payload.job_ref
-      : notification.entity_id.slice(0, 8).toUpperCase();
-
-  if (pickup || delivery) {
-    return `${ref}: ${pickup ?? 'Pickup'} to ${delivery ?? 'Delivery'}`;
-  }
-
-  return `Operational update linked to ${notification.entity_type.replace(/_/g, ' ')}.`;
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+function fmtDateTime(value: string | null) {
+  if (!value) return 'Time unavailable';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Time unavailable';
+  return date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 export default function DriverMessagesPage() {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<NotificationRow[]>([]);
-  const [tab, setTab] = useState<TabId>('all');
+  const [threads, setThreads] = useState<MessageThread[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
-  const loadMessages = useCallback(async () => {
-    if (!isSupabaseConfigured || !user?.companyId) {
-      setMessages([]);
+  const loadMessages = useCallback(async (preferredKey?: string | null) => {
+    if (!isSupabaseConfigured) {
+      setThreads([]);
       setLoading(false);
+      setError('Messages are unavailable because authentication is not configured.');
       return;
     }
 
     setLoading(true);
     setError('');
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
 
-    const { data, error: queryError } = await supabase
-      .from('notification_events')
-      .select(
-        'id, event_type, entity_type, entity_id, payload, status, created_at, recipient_user_id'
-      )
-      .eq('company_id', user.companyId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+      const response = await fetch('/api/driver/messages', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as MessagesResponse;
+      if (!response.ok) throw new Error(payload.error || 'Messages could not be loaded.');
 
-    if (queryError) {
-      setError('Messages are temporarily unavailable.');
-      setMessages([]);
-    } else {
-      const rows = ((data ?? []) as NotificationRow[]).filter(
-        (row) => !row.recipient_user_id || row.recipient_user_id === user.id
-      );
-      setMessages(rows);
+      const nextThreads = payload.threads ?? [];
+      setThreads(nextThreads);
+      setSelectedKey((current) => {
+        const target = preferredKey ?? current;
+        if (target && nextThreads.some((thread) => thread.key === target)) return target;
+        return nextThreads[0]?.key ?? null;
+      });
+    } catch (reason) {
+      setThreads([]);
+      setSelectedKey(null);
+      setError(reason instanceof Error ? reason.message : 'Messages could not be loaded.');
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    setLoading(false);
-  }, [user?.companyId, user?.id]);
+  useEffect(() => { void loadMessages(); }, [loadMessages]);
 
-  useEffect(() => {
-    void loadMessages();
-  }, [loadMessages]);
+  const selected = useMemo(
+    () => threads.find((thread) => thread.key === selectedKey) ?? null,
+    [selectedKey, threads],
+  );
 
-  const visibleMessages = useMemo(() => {
-    if (tab === 'pending') {
-      return messages.filter((message) => message.status === 'pending');
+  const sendReply = async () => {
+    if (!selected?.conversationId || !selected.canReply || !reply.trim() || sending) return;
+    setSending(true);
+    setSendError('');
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+
+      const response = await fetch('/api/driver/messages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ conversationId: selected.conversationId, body: reply.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Message could not be sent.');
+
+      const keepKey = selected.key;
+      setReply('');
+      await loadMessages(keepKey);
+    } catch (reason) {
+      setSendError(reason instanceof Error ? reason.message : 'Message could not be sent.');
+    } finally {
+      setSending(false);
     }
-    if (tab === 'attention') {
-      return messages.filter(
-        (message) => message.status === 'failed' || message.status === 'skipped'
-      );
-    }
-    return messages;
-  }, [messages, tab]);
-
-  const pendingCount = messages.filter((message) => message.status === 'pending').length;
-  const attentionCount = messages.filter(
-    (message) => message.status === 'failed' || message.status === 'skipped'
-  ).length;
+  };
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        driverName="Messages"
-        subtitle="Operational notifications from dispatch, workflow triggers and company updates. Delivery status is shown accurately; personal read-state is not claimed because the current schema does not store it."
-        headerActions={
-          <ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </ActionButton>
-        }
+        subtitle="Participant messages are separate from operational notifications. Messages are immutable once sent; the current schema does not store read/unread state."
+        headerActions={<ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
 
-        <KpiGrid>
-          <KpiCard label="Messages" value={messages.length} tone="blue" />
-          <KpiCard label="Pending delivery" value={pendingCount} tone="orange" />
-          <KpiCard label="Needs attention" value={attentionCount} tone="red" />
-        </KpiGrid>
-
-        <Panel
-          title="Notification register"
-          description="Filters use backend delivery status, not an invented inbox read-state."
-          actions={
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              {tabLabels.map((item) => (
-                <ActionButton
-                  key={item.id}
-                  tone={tab === item.id ? 'primary' : 'secondary'}
-                  onClick={() => setTab(item.id)}
+        <div className="driver-board-layout driver-messages-board">
+          <aside className="driver-filter-rail" aria-label="Message conversations">
+            <div className="driver-filter-rail__header">Messages</div>
+            <div className="driver-filter-rail__body">
+              <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '16px' }}>
+                Existing participant conversations. New arbitrary recipients are not exposed by the verified messaging contract.
+              </div>
+              {threads.map((thread) => (
+                <button
+                  key={thread.key}
+                  type="button"
+                  className="driver-account-link"
+                  data-active={selectedKey === thread.key ? 'true' : 'false'}
+                  onClick={() => { setSelectedKey(thread.key); setReply(''); setSendError(''); }}
                 >
-                  {item.label}
-                </ActionButton>
+                  <span>
+                    <strong>{thread.counterpartName}</strong>
+                    <small>{thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}</small>
+                  </span>
+                  <span>{thread.messages.length}</span>
+                </button>
               ))}
+              <ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
             </div>
-          }
-        >
-          <DataTable
-            columns={['Event', 'Details', 'Created', 'Delivery status']}
-            rows={visibleMessages.map((message) => [
-              <strong key="event">{formatTitle(message.event_type)}</strong>,
-              formatPreview(message),
-              formatDateTime(message.created_at),
-              <StatusBadge
-                key="status"
-                value={message.status}
-                tone={
-                  message.status === 'sent'
-                    ? 'green'
-                    : message.status === 'pending'
-                      ? 'orange'
-                      : 'red'
-                }
-              />,
-            ])}
-            empty={
-              <EmptyState
-                title={loading ? 'Loading messages…' : 'No messages match this filter'}
-              />
-            }
-          />
-        </Panel>
+          </aside>
+
+          <main className="driver-board-main">
+            <div className="driver-tab-strip" role="tablist" aria-label="Messaging workspace">
+              <button type="button" data-active="true">Conversations <span>{threads.length}</span></button>
+            </div>
+            <div className="driver-board-summary">
+              <span>{threads.length} conversation{threads.length === 1 ? '' : 's'} · no fabricated read-state</span>
+              <StatusBadge value="Participant scoped" tone="green" />
+            </div>
+
+            {loading ? (
+              <div className="driver-load-row"><EmptyState compact title="Loading messages…" /></div>
+            ) : threads.length === 0 ? (
+              <div className="driver-load-row">
+                <EmptyState compact title="No messages yet" description="Existing participant conversations will appear here when real message records exist." />
+              </div>
+            ) : !selected ? (
+              <div className="driver-load-row"><EmptyState compact title="Choose a conversation" /></div>
+            ) : (
+              <section className="driver-row-details" aria-label={`Conversation with ${selected.counterpartName}`}>
+                <div className="driver-detail-tabs">
+                  <strong>{selected.counterpartName}</strong>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>
+                    {selected.conversationId ? `Conversation ${selected.conversationId.slice(0, 8).toUpperCase()}` : 'Legacy message record'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gap: '8px', padding: '10px 0' }}>
+                  {selected.messages.map((message) => (
+                    <article
+                      key={message.id}
+                      className="driver-load-row"
+                      data-state={message.direction === 'outbound' ? 'sent' : 'received'}
+                      style={{ marginLeft: message.direction === 'outbound' ? '8%' : 0, marginRight: message.direction === 'inbound' ? '8%' : 0 }}
+                    >
+                      <div className="driver-load-row__meta">
+                        <strong>{message.direction === 'outbound' ? 'You' : selected.counterpartName}</strong>
+                        <span>{fmtDateTime(message.createdAt)}</span>
+                        <StatusBadge value={message.direction === 'outbound' ? 'Sent' : 'Received'} tone={message.direction === 'outbound' ? 'blue' : 'green'} />
+                      </div>
+                      <div style={{ padding: '8px 10px', fontSize: '13px', lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                        {message.body}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {selected.canReply ? (
+                  <div className="driver-detail-grid" style={{ marginTop: '6px' }}>
+                    <label className="driver-filter-field" style={{ gridColumn: '1 / -1' }}>
+                      Reply
+                      <textarea
+                        value={reply}
+                        maxLength={4000}
+                        rows={4}
+                        onChange={(event) => setReply(event.target.value)}
+                        placeholder={`Reply to ${selected.counterpartName}`}
+                      />
+                    </label>
+                    <div className="driver-row-actions" style={{ gridColumn: '1 / -1' }}>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>{reply.length}/4000 · messages cannot be edited after sending</span>
+                      <ActionButton tone="primary" disabled={sending || !reply.trim()} onClick={() => void sendReply()}>{sending ? 'Sending…' : 'Send Reply'}</ActionButton>
+                    </div>
+                  </div>
+                ) : (
+                  <AlertBanner tone="warning">
+                    Reply is unavailable for this historical record because no single verified conversation counterpart is stored. The record remains visible and unchanged.
+                  </AlertBanner>
+                )}
+              </section>
+            )}
+          </main>
+        </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -11,8 +11,9 @@ import {
   isOverdue,
   isRevenueInvoice,
 } from '../../lib/brokerFinance';
+import { classifyWorkspaceJobStage } from '../../lib/jobs/workspaceJobStage';
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import {
-  getWorkspaceMetricPresentation,
   getWorkspaceMetricPresentationStatus,
   useCompanyWorkspaceData,
   type WorkspaceDataState,
@@ -23,30 +24,14 @@ import {
   DataTable,
   EmptyState,
   FinancialSummaryPanel,
-  KpiCard,
-  KpiGrid,
   Panel,
   QuickActionGrid,
   StatusBadge,
   TwoColumn,
   workspaceTheme,
-  type WorkspaceCardTone,
 } from '../components/workspace/WorkspaceUI';
 import { DashboardHomeHeader } from '../components/workspace/DashboardHomePrimitives';
 
-const activeStatuses = new Set([
-  'awarded',
-  'allocated',
-  'accepted',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
-]);
 const exceptionStatuses = new Set([
   'cancelled',
   'failed',
@@ -57,6 +42,13 @@ const exceptionStatuses = new Set([
   'damaged',
   'breakdown',
 ]);
+const enquiryActionStatuses = new Set(['draft', 'new', 'pending', 'received']);
+
+type EnquiryActionState = {
+  loading: boolean;
+  unavailable: boolean;
+  count: number;
+};
 
 const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
@@ -66,19 +58,7 @@ const when = (value: string | null | undefined) =>
     ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : 'Not set';
 
-const presentation = (
-  data: WorkspaceDataState,
-  keys: Array<keyof WorkspaceDataState['datasets']>,
-  value: number | string | (() => number | string),
-  detail: string | (() => string),
-  tone: WorkspaceCardTone,
-) =>
-  getWorkspaceMetricPresentation({
-    datasets: keys.map((key) => data.datasets[key]),
-    completeValue: value,
-    completeDetail: detail,
-    completeTone: tone,
-  });
+const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 
 const unavailable = (
   data: WorkspaceDataState,
@@ -91,26 +71,62 @@ const unavailable = (
 export default function BrokerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const [enquiryActions, setEnquiryActions] = useState<EnquiryActionState>({ loading: true, unavailable: false, count: 0 });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadEnquiryActions = async () => {
+      if (!isSupabaseConfigured || !data.companyId) {
+        if (active) setEnquiryActions({ loading: false, unavailable: true, count: 0 });
+        return;
+      }
+
+      const { data: rows, error } = await supabase
+        .from('quotes')
+        .select('status')
+        .eq('company_id', data.companyId)
+        .limit(250);
+
+      if (!active) return;
+      if (error) {
+        setEnquiryActions({ loading: false, unavailable: true, count: 0 });
+        return;
+      }
+
+      const count = (rows ?? []).filter((row) => enquiryActionStatuses.has(String(row.status ?? 'draft').toLowerCase())).length;
+      setEnquiryActions({ loading: false, unavailable: false, count });
+    };
+
+    void loadEnquiryActions();
+    return () => { active = false; };
+  }, [data.companyId]);
 
   const metrics = useMemo(() => {
+    const now = Date.now();
     const submittedQuotes = data.bids.filter((bid) => bid.status === 'submitted');
     const acceptedQuotes = data.bids.filter((bid) => bid.status === 'accepted');
-    const openLoads = data.jobs.filter((job) => ['posted', 'quoted'].includes(job.status));
     const awaitingAward = data.jobs.filter(
       (job) =>
+        classifyWorkspaceJobStage(job) === 'open' &&
         !job.awarded_carrier_company_id &&
         submittedQuotes.some((bid) => bid.job_id === job.id),
     );
-    const activeJobs = data.jobs.filter((job) =>
-      activeStatuses.has(job.current_status ?? job.status),
-    );
-    const podMissing = data.jobs.filter(
+    const awardedJobs = data.jobs.filter((job) => {
+      const stage = classifyWorkspaceJobStage(job);
+      return stage === 'awarded' || stage === 'allocated';
+    });
+    const activeJobs = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
+    // The dashboard workspace feed exposes delivery_photos but not the complete
+    // POD signature/recipient/document contract. Keep this signal explicitly
+    // about missing delivery-photo evidence and direct users to POD review.
+    const deliveryEvidenceMissing = data.jobs.filter(
       (job) =>
-        ['delivered', 'completed'].includes(job.current_status ?? job.status) &&
+        classifyWorkspaceJobStage(job) === 'completed' &&
         (job.delivery_photos?.length ?? 0) === 0,
     );
     const exceptions = data.jobs.filter((job) =>
-      exceptionStatuses.has(job.current_status ?? job.status),
+      exceptionStatuses.has(normalise(job.current_status ?? job.status)),
     );
 
     const revenueInvoices = data.invoices.filter((invoice) =>
@@ -129,23 +145,24 @@ export default function BrokerDashboardHome() {
     );
     const awaitingPayment = revenueInvoices.filter((invoice) => isAwaitingPayment(invoice));
     const overdue = revenueInvoices.filter((invoice) => isOverdue(invoice));
-    const dueSoon = awaitingPayment.filter(
-      (invoice) =>
-        invoice.due_date &&
-        new Date(invoice.due_date).getTime() <= Date.now() + 7 * 86_400_000,
-    );
+    const dueSoon = awaitingPayment.filter((invoice) => {
+      if (!invoice.due_date) return false;
+      const dueAt = new Date(invoice.due_date).getTime();
+      return Number.isFinite(dueAt) && dueAt >= now && dueAt <= now + 7 * 86_400_000;
+    });
+    const grossMargin = revenue - carrierCost;
 
     return {
-      draftLoads: data.jobs.filter((job) => job.status === 'draft').length,
-      openLoads,
+      draftLoads: data.jobs.filter((job) => normalise(job.status) === 'draft').length,
       submittedQuotes,
       acceptedQuotes,
       awaitingAward,
+      awardedJobs,
       activeJobs,
-      podMissing,
+      deliveryEvidenceMissing,
       exceptions,
-      grossMargin: revenue - carrierCost,
-      grossMarginPct: revenue > 0 ? ((revenue - carrierCost) / revenue) * 100 : 0,
+      grossMargin,
+      grossMarginPct: revenue > 0 ? (grossMargin / revenue) * 100 : 0,
       awaitingPayment,
       awaitingPaymentValue: awaitingPayment.reduce(
         (sum, invoice) => sum + invoiceNetAmount(invoice),
@@ -158,82 +175,85 @@ export default function BrokerDashboardHome() {
     };
   }, [data]);
 
-  const openMetric = presentation(
-    data,
-    ['jobs'],
-    metrics.openLoads.length,
-    'Published for carrier pricing',
-    'blue',
-  );
-  const quotesMetric = presentation(
-    data,
-    ['bids'],
-    metrics.submittedQuotes.length,
-    'Commercial responses received',
-    'purple',
-  );
-  const awardMetric = presentation(
-    data,
-    ['jobs', 'bids'],
-    metrics.awaitingAward.length,
-    'Decision required',
-    'orange',
-  );
-  const activeMetric = presentation(
-    data,
-    ['jobs'],
-    metrics.activeJobs.length,
-    'Collections and deliveries',
-    'green',
-  );
-  const podMetric = presentation(
-    data,
-    ['jobs'],
-    metrics.podMissing.length,
-    'Delivered without proof',
-    metrics.podMissing.length ? 'red' : 'navy',
-  );
-  const marginMetric = presentation(
-    data,
-    ['invoices'],
-    money(metrics.grossMargin),
-    `${metrics.grossMarginPct.toFixed(1)}% realised invoice margin`,
-    metrics.grossMargin >= 0 ? 'green' : 'red',
-  );
+  const jobsUnavailable = unavailable(data, ['jobs']);
+  const quotesUnavailable = unavailable(data, ['jobs', 'bids']);
+  const invoicesUnavailable = unavailable(data, ['invoices']);
+  const invoiceAlertCount = metrics.overdue.length + metrics.dueSoon.length;
+  const marginAlert = metrics.grossMargin < 0;
 
   return (
     <div style={{ width: '100%', padding: '12px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Broker commercial desk"
         title="Broker Dashboard"
-        badge="Commercial control"
-        description="Customer loads, quote decisions, carrier execution and margin exposure — with the next commercial action kept beside the record that needs it."
+        badge="Operational control"
+        description="Action-first control of customer enquiries, carrier decisions, awarded work, delivery evidence, invoices and realised margin."
         actions={
           <>
-            <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>
-              Post Load
-            </ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>
-              Compare Quotes
-            </ActionButton>
+            <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>Compare Quotes</ActionButton>
           </>
         }
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <KpiGrid>
-        <KpiCard label="Open loads" value={openMetric.value} detail={openMetric.detail} tone={openMetric.tone} onClick={() => router.push('/broker/loads')} />
-        <KpiCard label="Carrier quotes" value={quotesMetric.value} detail={quotesMetric.detail} tone={quotesMetric.tone} onClick={() => router.push('/broker/bids')} />
-        <KpiCard label="Awaiting award" value={awardMetric.value} detail={awardMetric.detail} tone={awardMetric.tone} onClick={() => router.push('/broker/compare-quotes')} />
-        <KpiCard label="Active jobs" value={activeMetric.value} detail={activeMetric.detail} tone={activeMetric.tone} onClick={() => router.push('/broker/jobs')} />
-        <KpiCard label="POD missing" value={podMetric.value} detail={podMetric.detail} tone={podMetric.tone} onClick={() => router.push('/broker/pod-review')} />
-        <KpiCard label="Gross margin" value={marginMetric.value} detail={marginMetric.detail} tone={marginMetric.tone} onClick={() => router.push('/broker/margins')} />
-      </KpiGrid>
+      <Panel
+        title="Operational action queue"
+        description="Master Plan v3 broker priorities, using live workspace data and truthful unavailable states."
+      >
+        <DataTable
+          columns={['Priority', 'Current state', 'Operational meaning', 'Action']}
+          rows={[
+            [
+              <strong key="priority">Enquiries awaiting action</strong>,
+              enquiryActions.loading ? 'Loading…' : enquiryActions.unavailable ? 'Unavailable' : enquiryActions.count,
+              enquiryActions.unavailable ? 'Customer enquiry data is not available to this dashboard.' : 'New or pending customer transport requests.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/enquiries')}>Open enquiries</ActionButton>,
+            ],
+            [
+              <strong key="priority">Quotes requiring action</strong>,
+              quotesUnavailable ? 'Unavailable' : metrics.awaitingAward.length,
+              'Loads with submitted carrier quotes awaiting a broker decision.',
+              <ActionButton key="action" tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare quotes</ActionButton>,
+            ],
+            [
+              <strong key="priority">Awarded</strong>,
+              jobsUnavailable ? 'Unavailable' : metrics.awardedJobs.length,
+              'Carrier awarded or allocated work that has not yet entered live execution.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/jobs')}>Open jobs</ActionButton>,
+            ],
+            [
+              <strong key="priority">Active</strong>,
+              jobsUnavailable ? 'Unavailable' : metrics.activeJobs.length,
+              'Awarded work currently moving through collection or delivery.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/jobs')}>Track active</ActionButton>,
+            ],
+            [
+              <strong key="priority">Delivery evidence review</strong>,
+              jobsUnavailable ? 'Unavailable' : metrics.deliveryEvidenceMissing.length,
+              'Completed work with no delivery-photo evidence in the dashboard feed. Full POD state is checked in POD review / job sheet.',
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/pod-review')}>Review evidence</ActionButton>,
+            ],
+            [
+              <strong key="priority">Invoice alerts</strong>,
+              invoicesUnavailable ? 'Unavailable' : invoiceAlertCount,
+              invoicesUnavailable ? 'Invoice data is not available.' : `${metrics.overdue.length} overdue · ${metrics.dueSoon.length} due within 7 days`,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/finance')}>Open finance</ActionButton>,
+            ],
+            [
+              <strong key="priority">Margin alerts</strong>,
+              invoicesUnavailable ? 'Unavailable' : marginAlert ? 'Attention' : 'Clear',
+              invoicesUnavailable ? 'Margin data is not available.' : `${money(metrics.grossMargin)} realised margin · ${metrics.grossMarginPct.toFixed(1)}%`,
+              <ActionButton key="action" tone={marginAlert ? 'danger' : 'secondary'} onClick={() => router.push('/broker/margins')}>Review margin</ActionButton>,
+            ],
+          ]}
+        />
+      </Panel>
 
       <Panel
         title="Quote decisions requiring action"
-        description="Loads with live carrier quotes are kept above general reporting so award decisions can be made before capacity disappears."
+        description="Loads with live carrier quotes remain directly actionable below the broker queue."
         actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
         style={{ marginTop: '12px' }}
       >
@@ -266,8 +286,8 @@ export default function BrokerDashboardHome() {
           empty={
             <EmptyState
               compact
-              title={unavailable(data, ['jobs', 'bids']) ? 'Quote decision data unavailable' : 'No award decisions waiting'}
-              description={unavailable(data, ['jobs', 'bids']) ? 'The broker load or quote feed is currently incomplete.' : 'New loads with carrier quotes will appear here.'}
+              title={quotesUnavailable ? 'Quote decision data unavailable' : 'No award decisions waiting'}
+              description={quotesUnavailable ? 'The broker load or quote feed is currently incomplete.' : 'New loads with carrier quotes will appear here.'}
             />
           }
         />
@@ -281,7 +301,7 @@ export default function BrokerDashboardHome() {
           style={{ marginTop: '12px' }}
         >
           <DataTable
-            columns={['Route', 'Customer', 'Pickup', 'Status', 'POD', 'Track']}
+            columns={['Route', 'Customer', 'Pickup', 'Status', 'Photo evidence', 'Track']}
             rows={metrics.activeJobs.slice(0, 7).map((job) => [
               <strong key="route">
                 {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
@@ -291,50 +311,50 @@ export default function BrokerDashboardHome() {
               when(job.pickup_datetime),
               <StatusBadge key="status" value={job.current_status ?? job.status} />,
               (job.delivery_photos?.length ?? 0) > 0
-                ? <StatusBadge key="pod" value="ready" tone="green" />
-                : <StatusBadge key="pod" value="pending" tone="orange" />,
+                ? <StatusBadge key="evidence" value="captured" tone="green" />
+                : <StatusBadge key="evidence" value="not captured" tone="orange" />,
               <ActionButton key="track" tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Track</ActionButton>,
             ])}
-            empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No active carrier jobs'} />}
+            empty={<EmptyState compact title={jobsUnavailable ? 'Job data unavailable' : 'No active carrier jobs'} />}
           />
         </Panel>
 
         <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-          <Panel title="Commercial exposure" description="Secondary finance metrics are kept off the primary KPI strip.">
+          <Panel title="Commercial exposure" description="Finance detail supporting invoice and margin alerts.">
             <FinancialSummaryPanel
               items={[
                 {
                   label: 'Draft loads',
                   detail: 'Not yet published',
-                  value: unavailable(data, ['jobs']) ? '—' : metrics.draftLoads,
+                  value: jobsUnavailable ? '—' : metrics.draftLoads,
                   color: workspaceTheme.blue,
                   background: '#EEF4FF',
                 },
                 {
                   label: 'Awaiting customer payment',
                   detail: money(metrics.awaitingPaymentValue),
-                  value: unavailable(data, ['invoices']) ? '—' : metrics.awaitingPayment.length,
+                  value: invoicesUnavailable ? '—' : metrics.awaitingPayment.length,
                   color: workspaceTheme.amber,
                   background: '#FFF7ED',
                 },
                 {
                   label: 'Due within 7 days',
                   detail: 'Receivables approaching due date',
-                  value: unavailable(data, ['invoices']) ? '—' : metrics.dueSoon.length,
+                  value: invoicesUnavailable ? '—' : metrics.dueSoon.length,
                   color: workspaceTheme.orange,
                   background: '#FFF8E8',
                 },
                 {
                   label: 'Overdue customer invoices',
                   detail: money(metrics.overdueValue),
-                  value: unavailable(data, ['invoices']) ? '—' : metrics.overdue.length,
+                  value: invoicesUnavailable ? '—' : metrics.overdue.length,
                   color: metrics.overdue.length ? workspaceTheme.red : workspaceTheme.green,
                   background: metrics.overdue.length ? '#FEF2F2' : '#F0FDF4',
                 },
                 {
                   label: 'Carrier cost',
                   detail: 'Realised supplier invoices',
-                  value: unavailable(data, ['invoices']) ? '—' : money(metrics.carrierSpend),
+                  value: invoicesUnavailable ? '—' : money(metrics.carrierSpend),
                   color: workspaceTheme.navy,
                   background: workspaceTheme.surfaceMuted,
                 },
@@ -342,7 +362,7 @@ export default function BrokerDashboardHome() {
             />
           </Panel>
 
-          <Panel title="Broker actions" description="Commercial and exception workflows only.">
+          <Panel title="Broker actions" description="Existing commercial and exception workflows.">
             <QuickActionGrid
               actions={[
                 { key: 'post', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
@@ -357,28 +377,28 @@ export default function BrokerDashboardHome() {
         </div>
       </TwoColumn>
 
-      {(metrics.podMissing.length > 0 || metrics.exceptions.length > 0) ? (
+      {(metrics.deliveryEvidenceMissing.length > 0 || metrics.exceptions.length > 0) ? (
         <Panel
-          title="Exceptions and POD follow-up"
-          description="Operational exceptions and missing proof are surfaced before they become customer or finance problems."
+          title="Exceptions and delivery evidence follow-up"
+          description="Operational exceptions and missing delivery-photo evidence are surfaced before they become customer or finance problems. Full POD completeness remains authoritative in the job sheet."
           actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/disputes')}>Open disputes</ActionButton>}
           style={{ marginTop: '12px' }}
         >
           <DataTable
             columns={['Route', 'Customer', 'Issue', 'Last status', 'Action']}
-            rows={[...metrics.exceptions, ...metrics.podMissing.filter((job) => !metrics.exceptions.includes(job))]
+            rows={[...metrics.exceptions, ...metrics.deliveryEvidenceMissing.filter((job) => !metrics.exceptions.includes(job))]
               .slice(0, 8)
               .map((job) => {
-                const isPod = metrics.podMissing.includes(job);
+                const isEvidence = metrics.deliveryEvidenceMissing.includes(job);
                 return [
                   <strong key="route">
                     {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
                     {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
                   </strong>,
                   job.client_name ?? 'Customer',
-                  isPod ? 'POD missing' : 'Operational exception',
-                  <StatusBadge key="status" value={job.current_status ?? job.status} tone={isPod ? 'orange' : 'red'} />,
-                  <ActionButton key="action" tone={isPod ? 'secondary' : 'danger'} onClick={() => router.push(isPod ? '/broker/pod-review' : '/broker/disputes')}>
+                  isEvidence ? 'Delivery-photo evidence missing' : 'Operational exception',
+                  <StatusBadge key="status" value={job.current_status ?? job.status} tone={isEvidence ? 'orange' : 'red'} />,
+                  <ActionButton key="action" tone={isEvidence ? 'secondary' : 'danger'} onClick={() => router.push(isEvidence ? '/broker/pod-review' : '/broker/disputes')}>
                     Review
                   </ActionButton>,
                 ];

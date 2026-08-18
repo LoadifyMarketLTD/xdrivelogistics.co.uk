@@ -1,6 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import {
+  classifyWorkspaceJobStage,
+  normalizedJobStatus,
+  workspaceJobPresentationStatus,
+} from '../../../lib/jobs/workspaceJobStage';
 import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -14,7 +19,6 @@ import {
 } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import {
-  activeStatuses,
   exceptionStatuses,
   metricDetail,
   metricTone,
@@ -27,11 +31,9 @@ export default function ViewerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
 
-  const completed = data.jobs.filter((job) =>
-    ['delivered', 'completed', 'paid'].includes(job.current_status ?? job.status),
-  );
+  const completed = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'completed');
   const exceptions = data.jobs.filter((job) =>
-    exceptionStatuses.has(job.current_status ?? job.status),
+    exceptionStatuses.has(normalizedJobStatus(job)),
   );
 
   return (
@@ -47,8 +49,8 @@ export default function ViewerDashboardHome() {
 
       <KpiGrid>
         <KpiCard label="Jobs visible" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.length)} detail={metricDetail(data, ['jobs'], 'Read-only record set')} tone="navy" onClick={() => router.push('/admin/jobs')} />
-        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => activeStatuses.has(job.current_status ?? job.status)).length)} detail={metricDetail(data, ['jobs'], 'In progress')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/jobs')} />
-        <KpiCard label="Completed" value={metricValue(data, ['jobs'], () => completed.length)} detail={metricDetail(data, ['jobs'], 'Delivered or paid')} tone={metricTone(data, ['jobs'], 'blue')} onClick={() => router.push('/admin/jobs')} />
+        <KpiCard label="Active jobs" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress').length)} detail={metricDetail(data, ['jobs'], 'In progress')} tone={metricTone(data, ['jobs'], 'green')} onClick={() => router.push('/admin/jobs')} />
+        <KpiCard label="Completed" value={metricValue(data, ['jobs'], () => completed.length)} detail={metricDetail(data, ['jobs'], 'Delivered, completed, invoiced or paid')} tone={metricTone(data, ['jobs'], 'blue')} onClick={() => router.push('/admin/jobs')} />
         <KpiCard label="Exceptions" value={metricValue(data, ['jobs'], () => exceptions.length)} detail={metricDetail(data, ['jobs'], 'Visible follow-up items')} tone={metricTone(data, ['jobs'], exceptions.length ? 'red' : 'green')} onClick={() => router.push('/admin/jobs')} />
       </KpiGrid>
 
@@ -64,7 +66,7 @@ export default function ViewerDashboardHome() {
             <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
             when(job.pickup_datetime),
             when(job.delivery_datetime),
-            <StatusBadge key="status" value={job.current_status ?? job.status} />,
+            <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
             <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
           ])}
           empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No jobs visible'} />}

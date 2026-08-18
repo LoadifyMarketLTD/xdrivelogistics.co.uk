@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspaceData';
 import {
@@ -47,15 +48,14 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
 
   const rows = useMemo(
     () =>
-      workspace.jobs.filter((job) => {
-        const status = (job.current_status ?? job.status).toLowerCase();
-        return photoPaths(job).length > 0 || ['delivered', 'completed'].includes(status);
-      }),
+      workspace.jobs.filter((job) =>
+        photoPaths(job).length > 0 || classifyWorkspaceJobStage(job) === 'completed'
+      ),
     [workspace.jobs]
   );
 
   const availableCount = rows.filter((job) => photoPaths(job).length > 0).length;
-  const awaitingCount = rows.filter((job) => photoPaths(job).length === 0).length;
+  const missingPhotoCount = rows.filter((job) => photoPaths(job).length === 0).length;
 
   const getAuthHeader = async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -85,7 +85,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
     };
 
     if (!response.ok || !payload.signedUrl) {
-      setError(payload.error ?? 'Unable to open the POD file.');
+      setError(payload.error ?? 'Unable to open the delivery evidence file.');
       setOpeningKey(null);
       return;
     }
@@ -112,13 +112,13 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     setReviewingKey(null);
     if (!response.ok) {
-      setError(payload.error ?? 'POD review action failed.');
+      setError(payload.error ?? 'Delivery evidence review action failed.');
       return;
     }
     const messages: Record<PodReviewAction, string> = {
-      approve: 'POD approved — decision recorded in job notes.',
-      reject: 'POD rejected — decision recorded in job notes.',
-      request_missing: 'Missing POD requested — recorded in job notes.',
+      approve: 'Delivery photo evidence review recorded as approved.',
+      reject: 'Delivery photo evidence review recorded as rejected.',
+      request_missing: 'Missing proof of delivery requested — review note recorded.',
     };
     setNotice(messages[action]);
     setReviewNotes((prev) => {
@@ -133,12 +133,12 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
   return (
     <PageFrame>
       <PageHeader
-        eyebrow={customerMode ? 'Delivery evidence' : 'Proof of delivery'}
+        eyebrow="Delivery evidence"
         title={customerMode ? 'POD & Documents' : 'POD Review'}
         description={
           customerMode
-            ? 'Open proof-of-delivery files for your own transport jobs through short-lived authorised links.'
-            : 'Review proof-of-delivery files for broker-managed loads. Approve, reject or request missing POD.'
+            ? 'Open delivery photo evidence for your own transport jobs through short-lived authorised links. Full POD state is shown in the booking / job sheet where the complete evidence contract is available.'
+            : 'Review delivery photo evidence for broker-managed loads. This feed does not by itself prove the full recipient, signature and generated-POD state.'
         }
       />
 
@@ -147,20 +147,20 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="POD available" value={availableCount} tone="green" />
-        <KpiCard label="Awaiting POD" value={awaitingCount} tone="orange" />
+        <KpiCard label="Photo evidence available" value={availableCount} tone="green" />
+        <KpiCard label="No delivery photos" value={missingPhotoCount} tone="orange" />
         <KpiCard label="Jobs in register" value={rows.length} tone="navy" />
       </KpiGrid>
 
       <Panel
-        title={customerMode ? 'Delivery document register' : 'POD review queue'}
-        description="Links expire automatically and are issued only after server-side job and company checks."
+        title={customerMode ? 'Delivery evidence register' : 'Delivery evidence review queue'}
+        description="Links expire automatically and are issued only after server-side job and company checks. Photo evidence is not presented here as proof that the complete POD contract is satisfied."
       >
         <DataTable
           columns={
             customerMode
-              ? ['Load', 'Route', 'Delivery', 'Job status', 'POD status', 'Files']
-              : ['Load', 'Route', 'Delivery', 'Job status', 'POD status', 'Files', 'Review decision']
+              ? ['Load', 'Route', 'Delivery', 'Job status', 'Evidence status', 'Files']
+              : ['Load', 'Route', 'Delivery', 'Job status', 'Evidence status', 'Files', 'Review decision']
           }
           rows={rows.map((job) => {
             const paths = photoPaths(job);
@@ -171,11 +171,11 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                 {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
               </strong>,
               when(job.delivery_datetime),
-              <StatusBadge key="job-status" value={job.current_status ?? job.status} />,
+              <StatusBadge key="job-status" value={workspaceJobPresentationStatus(job)} />,
               paths.length > 0 ? (
-                <StatusBadge key="pod-status" value="available" tone="green" />
+                <StatusBadge key="evidence-status" value="photo evidence available" tone="green" />
               ) : (
-                <StatusBadge key="pod-status" value="awaiting POD" tone="orange" />
+                <StatusBadge key="evidence-status" value="no delivery photos" tone="orange" />
               ),
               paths.length > 0 ? (
                 <div key="files" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
@@ -188,13 +188,13 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                         disabled={openingKey === key}
                         onClick={() => void openPod(job.id, path, index)}
                       >
-                        {openingKey === key ? 'Opening…' : `Open file ${index + 1}`}
+                        {openingKey === key ? 'Opening…' : `Open evidence ${index + 1}`}
                       </ActionButton>
                     );
                   })}
                 </div>
               ) : (
-                'No file uploaded'
+                'No photo uploaded'
               ),
             ];
 
@@ -215,7 +215,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                         disabled={reviewingKey === `${job.id}:approve`}
                         onClick={() => void reviewPod(job.id, 'approve')}
                       >
-                        {reviewingKey === `${job.id}:approve` ? 'Saving…' : 'Approve'}
+                        {reviewingKey === `${job.id}:approve` ? 'Saving…' : 'Approve evidence'}
                       </ActionButton>
                     )}
                     {paths.length > 0 && (
@@ -224,7 +224,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                         disabled={reviewingKey === `${job.id}:reject`}
                         onClick={() => void reviewPod(job.id, 'reject')}
                       >
-                        {reviewingKey === `${job.id}:reject` ? 'Saving…' : 'Reject'}
+                        {reviewingKey === `${job.id}:reject` ? 'Saving…' : 'Reject evidence'}
                       </ActionButton>
                     )}
                     {paths.length === 0 && (
@@ -245,7 +245,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
           })}
           empty={
             <EmptyState
-              title={workspace.loading ? 'Loading POD records…' : 'No POD records available'}
+              title={workspace.loading ? 'Loading delivery evidence…' : 'No delivery evidence records available'}
             />
           }
         />

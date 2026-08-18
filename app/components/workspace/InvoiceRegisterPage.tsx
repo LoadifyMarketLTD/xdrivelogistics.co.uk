@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalPaymentStatus,
+} from '../../../lib/invoiceStatus';
 import { isCustomerVisibleWorkspaceInvoice, useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -16,12 +20,40 @@ import {
   StatusBadge,
 } from './WorkspaceUI';
 
-type Mode = 'customer' | 'broker-customer' | 'broker-carrier';
+type Mode = 'customer' | 'broker-customer' | 'broker-carrier' | 'finance-customer' | 'finance-carrier';
+type InvoiceRegisterFilter =
+  | 'all'
+  | 'invoice:draft'
+  | 'invoice:sent'
+  | 'invoice:overdue'
+  | 'invoice:paid'
+  | 'invoice:disputed'
+  | 'invoice:cancelled'
+  | 'payment:unpaid'
+  | 'payment:partially_paid'
+  | 'payment:paid'
+  | 'payment:overdue'
+  | 'payment:disputed'
+  | 'payment:refunded';
 
 const money = (value: number | null | undefined) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value ?? 0));
+  value == null
+    ? 'Not supplied'
+    : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 const date = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString('en-GB') : 'Not set';
+const xdriveReference = (jobId: string | null | undefined) => jobId ? `XDL-${jobId.slice(0, 8).toUpperCase()}` : '—';
+
+const invoiceState = (invoice: WorkspaceInvoice) =>
+  toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date);
+
+const paymentState = (invoice: WorkspaceInvoice) => {
+  const invoiceFallback = String(invoice.status ?? '').trim().toLowerCase() === 'paid' ? 'paid' : 'unpaid';
+  return toCanonicalPaymentStatus(invoice.payment_status, invoiceFallback);
+};
+
+const isOutgoingMode = (mode: Mode) => mode === 'broker-customer' || mode === 'finance-customer';
+const isIncomingCarrierMode = (mode: Mode) => mode === 'broker-carrier' || mode === 'finance-carrier';
 
 const config: Record<Mode, { eyebrow: string; title: string; description: string; detailBase: string }> = {
   customer: {
@@ -42,12 +74,24 @@ const config: Record<Mode, { eyebrow: string; title: string; description: string
     description: 'Carrier invoices and agreed transport costs payable by the broker company.',
     detailBase: '/broker/carrier-costs',
   },
+  'finance-customer': {
+    eyebrow: 'Finance workspace',
+    title: 'Customer Invoices',
+    description: 'Invoices issued by this company to customer or buyer companies.',
+    detailBase: '/admin/invoices',
+  },
+  'finance-carrier': {
+    eyebrow: 'Finance workspace',
+    title: 'Carrier Invoices',
+    description: 'Carrier or supplier invoices payable by this company.',
+    detailBase: '/admin/invoices',
+  },
 };
 
 export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   const router = useRouter();
   const workspace = useCompanyWorkspaceData();
-  const [status, setStatus] = useState('all');
+  const [filter, setFilter] = useState<InvoiceRegisterFilter>('all');
   const page = config[mode];
 
   const invoices = useMemo(() => {
@@ -55,18 +99,23 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
       if (mode === 'customer') {
         return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
       }
-      if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
+      if (isOutgoingMode(mode)) return invoice.company_id === workspace.companyId;
       return invoice.buyer_company_id === workspace.companyId;
     });
-    if (status === 'all') return scoped;
-    return scoped.filter((invoice) => String(invoice.payment_status ?? invoice.status).toLowerCase() === status);
-  }, [mode, status, workspace.companyId, workspace.invoices]);
+    if (filter === 'all') return scoped;
+    const [dimension, value] = filter.split(':') as ['invoice' | 'payment', string];
+    return scoped.filter((invoice) => (
+      dimension === 'invoice'
+        ? invoiceState(invoice).toLowerCase() === value
+        : paymentState(invoice) === value
+    ));
+  }, [filter, mode, workspace.companyId, workspace.invoices]);
 
   const allScoped = useMemo(() => workspace.invoices.filter((invoice) => {
     if (mode === 'customer') {
       return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
     }
-    if (mode === 'broker-customer') return invoice.company_id === workspace.companyId;
+    if (isOutgoingMode(mode)) return invoice.company_id === workspace.companyId;
     return invoice.buyer_company_id === workspace.companyId;
   }), [mode, workspace.companyId, workspace.invoices]);
 
@@ -95,28 +144,39 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
 
       <Panel
         title="Invoice register"
-        description="Open a row to view commercial detail, documents, status history, payments and disputes."
+        description="Invoice lifecycle and payment state are shown separately. Open a row to view commercial detail, documents, status history, payments and disputes."
         actions={
-          <select value={status} onChange={(event) => setStatus(event.target.value)} style={{ border: '1px solid #d7e0ea', borderRadius: 8, padding: '0.5rem 0.65rem', background: '#fff', fontSize: '0.76rem' }}>
-            <option value="all">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="paid">Paid</option>
-            <option value="disputed">Disputed</option>
-            <option value="cancelled">Cancelled</option>
+          <select value={filter} onChange={(event) => setFilter(event.target.value as InvoiceRegisterFilter)} style={{ border: '1px solid #d7e0ea', borderRadius: 8, padding: '0.5rem 0.65rem', background: '#fff', fontSize: '0.76rem' }}>
+            <option value="all">All invoice records</option>
+            <optgroup label="Invoice state">
+              <option value="invoice:draft">Draft</option>
+              <option value="invoice:sent">Sent</option>
+              <option value="invoice:overdue">Overdue</option>
+              <option value="invoice:paid">Paid</option>
+              <option value="invoice:disputed">Disputed</option>
+              <option value="invoice:cancelled">Cancelled</option>
+            </optgroup>
+            <optgroup label="Payment state">
+              <option value="payment:unpaid">Unpaid</option>
+              <option value="payment:partially_paid">Partially paid</option>
+              <option value="payment:paid">Paid</option>
+              <option value="payment:overdue">Overdue</option>
+              <option value="payment:disputed">Disputed</option>
+              <option value="payment:refunded">Refunded</option>
+            </optgroup>
           </select>
         }
       >
         <DataTable
-          columns={['Invoice', 'Job', 'Counterparty', 'Amount', 'Due', 'Status', 'Action']}
+          columns={['Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
           rows={invoices.map((invoice) => [
             <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
-            invoice.job_id?.slice(0, 8).toUpperCase() ?? '—',
-            invoice.client_name ?? (mode === 'broker-carrier' ? 'Carrier' : 'Customer'),
+            xdriveReference(invoice.job_id),
+            invoice.client_name ?? (isIncomingCarrierMode(mode) ? 'Carrier' : 'Customer'),
             money(invoice.amount),
             date(invoice.due_date),
-            <StatusBadge key="status" value={invoice.payment_status ?? invoice.status} />,
+            <StatusBadge key="invoice-state" value={invoiceState(invoice)} />,
+            <StatusBadge key="payment-state" value={paymentState(invoice).replace(/_/g, ' ')} />,
             <ActionButton key="action" tone="secondary" onClick={() => openInvoice(invoice)}>Open</ActionButton>,
           ])}
           empty={<EmptyState title={workspace.loading ? 'Loading invoices…' : 'No invoices found'} />}

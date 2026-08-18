@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../../_lib';
+import { loadDriverAgreedRates } from '../../../_lib/commercialRate';
+import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-  const driver = await requireDriver(request);
+  const driver = await requireDriver(request, { requireOperationallyActive: false });
   if (!isDriverContext(driver)) return driver;
 
   const { id } = await params;
@@ -18,5 +19,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (error) return respond(500, { error: error.message });
   if (!data) return respond(404, { error: 'Job not found.' });
 
-  return respond(200, { job: mapJob(data as unknown as MobileJobRow) });
+  const row = data as unknown as MobileJobRow;
+  const commercial = await loadDriverAgreedRates(supabaseAdmin, [row]);
+  const agreedRate = commercial.rates.get(row.id) ?? null;
+
+  return respond(200, {
+    job: {
+      ...mapJob(row),
+      price: toMoney(agreedRate),
+      agreedRateAmount: agreedRate,
+      // Legacy Android field retained for compatibility; assigned-job value is
+      // accepted/agreed carrier rate only, never customer budget.
+      budgetAmount: agreedRate,
+    },
+    commercialRatePartial: commercial.partial,
+  });
 }

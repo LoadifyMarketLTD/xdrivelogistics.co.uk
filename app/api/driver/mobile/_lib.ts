@@ -30,15 +30,18 @@ export type MobileJobRow = {
   company_id: string | null;
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
+  pickup_postcode: string | null;
   delivery_location: string | null;
+  delivery_postcode: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  distance_miles: number | string | null;
+  job_distance_miles: number | string | null;
   vehicle_type: string | null;
   requested_vehicle_type: string | null;
   requested_vehicle_label: string | null;
   cargo_type: string | null;
   requested_cargo_label: string | null;
-  budget_amount: number | string | null;
   agreed_rate: number | string | null;
   agreed_rate_gbp: number | string | null;
   collection_contact_name: string | null;
@@ -52,15 +55,20 @@ export type MobileJobRow = {
   access_restrictions: string | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
+  collection_photo_url: string | null;
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
   delivery_signature_data: unknown;
+  client_signature_name: string | null;
   status_history: unknown;
   updated_at: string | null;
   created_at: string | null;
 };
 
-export async function requireDriver(request: NextRequest): Promise<DriverContext | NextResponse> {
+export async function requireDriver(
+  request: NextRequest,
+  options: { requireOperationallyActive?: boolean } = {},
+): Promise<DriverContext | NextResponse> {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
@@ -100,20 +108,20 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   if (driverError) return respond(500, { error: driverError.message });
   if (profileError) return respond(500, { error: profileError.message });
   if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
-
-  const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
-  if (profileStatus !== 'active') {
-    return respond(403, { error: 'Driver profile is not active.' });
-  }
-
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
   if (driverRow.app_access !== true) {
     return respond(403, { error: 'Driver app access has not been approved.' });
   }
 
+  const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
   const driverStatus = String(driverRow.status ?? '').trim().toLowerCase();
-  if (driverStatus !== 'active') {
-    return respond(403, { error: 'Driver account is not active.' });
+  if (options.requireOperationallyActive !== false) {
+    if (profileStatus !== 'active') {
+      return respond(403, { error: 'Driver profile is not active.' });
+    }
+    if (driverStatus !== 'active') {
+      return respond(403, { error: 'Driver account is not active.' });
+    }
   }
 
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
@@ -154,15 +162,18 @@ export const jobSelect = [
   'company_id',
   'awarded_carrier_company_id',
   'pickup_location',
+  'pickup_postcode',
   'delivery_location',
+  'delivery_postcode',
   'pickup_datetime',
   'delivery_datetime',
+  'distance_miles',
+  'job_distance_miles',
   'vehicle_type',
   'requested_vehicle_type',
   'requested_vehicle_label',
   'cargo_type',
   'requested_cargo_label',
-  'budget_amount',
   'agreed_rate',
   'agreed_rate_gbp',
   'collection_contact_name',
@@ -176,9 +187,11 @@ export const jobSelect = [
   'access_restrictions',
   'pod_required',
   'pod_generated',
+  'collection_photo_url',
   'delivery_photos',
   'pod_photos',
   'delivery_signature_data',
+  'client_signature_name',
   'status_history',
   'updated_at',
   'created_at',
@@ -216,35 +229,57 @@ export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'
 export function mapJob(row: MobileJobRow) {
   const contactName = row.delivery_contact_name || row.collection_contact_name || row.client_name || undefined;
   const contactPhone = row.delivery_contact_phone || row.collection_contact_phone || row.client_phone || undefined;
+  const distance = Number(row.distance_miles ?? row.job_distance_miles ?? 0);
+  const agreedRateAmount = Number(row.agreed_rate_gbp ?? row.agreed_rate ?? 0) || null;
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     status: mobileStatus(row),
     lifecycleStatus: row.status,
+    currentStatus: row.current_status,
     pickupLocation: row.pickup_location || 'Pickup TBC',
+    pickupPostcode: row.pickup_postcode || '',
     deliveryLocation: row.delivery_location || 'Delivery TBC',
+    deliveryPostcode: row.delivery_postcode || '',
     pickupTime: row.pickup_datetime || 'Pickup time TBC',
     deliveryTime: row.delivery_datetime || 'Delivery time TBC',
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo TBC',
     vehicleRequirement: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || 'Vehicle TBC',
-    price: toMoney(row.agreed_rate_gbp ?? row.agreed_rate ?? row.budget_amount),
+    vehicleType: row.vehicle_type,
+    price: toMoney(agreedRateAmount),
+    agreedRateAmount,
+    // Legacy Android field name retained for assigned jobs. It intentionally
+    // mirrors the agreed carrier rate and never exposes customer budget.
+    budgetAmount: agreedRateAmount,
+    distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
     podGenerated: hasPod(row),
+    deliveryPhotos: safeArray(row.delivery_photos).filter((value): value is string => typeof value === 'string'),
+    podPhotos: safeArray(row.pod_photos).filter((value): value is string => typeof value === 'string'),
+    collectionPhotoUrl: row.collection_photo_url,
+    deliverySignatureData: row.delivery_signature_data,
+    clientSignatureName: row.client_signature_name || '',
     contactAllowed: Boolean(contactPhone),
     contactName,
     contactPhone,
+    clientName: row.client_name || '',
+    clientPhone: row.client_phone || contactPhone || '',
+    loadDetails: row.load_details || '',
     requirements: [row.load_details, row.special_requirements, row.access_restrictions].filter(Boolean).join('\n'),
     updatedAt: row.updated_at,
   };
 }
 
-export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, note: string) {
+export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string) {
   if (!supabaseAdmin) return;
   await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
     created_by: userId,
+    user_id: userId,
     event_type: eventType,
-    note,
+    event_time: new Date().toISOString(),
+    message,
+    meta: { source: 'driver_mobile' },
   });
 }

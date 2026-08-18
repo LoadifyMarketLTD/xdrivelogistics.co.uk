@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
-import '../components/workspace/workspace-visual-scale.css';
+import '../components/workspace/workspace-measured-cx-baseline.css';
 
 export const metadata: Metadata = {
   title: 'Broker Workspace | XDrive Logistics',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-visual xdrive-operational-top-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
       <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
     </div>
   );

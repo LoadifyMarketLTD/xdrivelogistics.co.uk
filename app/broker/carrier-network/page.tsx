@@ -1,6 +1,6 @@
 'use client';
 
-import { BrokerCarrierNetworkPage } from '../BrokerWorkspaceModules';
+import BrokerCarrierNetworkPage from './BrokerCarrierNetworkPage';
 
 export default function Page() {
   return <BrokerCarrierNetworkPage />;

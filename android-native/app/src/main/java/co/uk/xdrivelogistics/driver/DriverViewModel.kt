@@ -13,6 +13,7 @@ import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
 import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
+import co.uk.xdrivelogistics.driver.data.SecureDriverCommercialApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,12 +67,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
+    private val commercialApi = SecureDriverCommercialApi(
+        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+    )
 
-    // Coordinator wired to the real API. The same coordinator class is used directly
-    // in QuoteSubmissionCoordinatorTest with a stub submitFn — so those tests prove
-    // the production submission path, not a copy of it.
-    private val quoteCoordinator = QuoteSubmissionCoordinator { session, profile, jobId, amount, note ->
-        api.submitJobQuote(session, profile, jobId, amount, note)
+    // Commercial Marketplace reads/submission go through XDrive server APIs so
+    // a native client never needs pre-award SELECT access to the jobs table.
+    private val quoteCoordinator = QuoteSubmissionCoordinator { session, _, jobId, amount, note ->
+        commercialApi.submitJobQuote(session, jobId, amount, note)
     }
 
     private val _uiState = MutableStateFlow(DriverUiState())
@@ -169,12 +172,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             .onSuccess { profile ->
                 val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
                 val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
-                val bids = api.loadDriverBids(session, profile).getOrDefault(emptyList())
+                val bids = commercialApi.loadDriverBids(session).getOrDefault(emptyList())
                 val notifications = api.loadDriverNotifications(session).getOrDefault(emptyList())
                 val returnJourney = api.loadReturnJourney(session, profile.driverId).getOrNull()
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
-                api.loadAssignedJobs(session, profile)
+                commercialApi.loadDriverJobs(session)
                     .onSuccess { jobs ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
@@ -376,11 +379,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
-        // Capture the intended job ID at invocation time — before the coroutine launches —
-        // so a concurrent state change cannot redirect the submission to a different job.
         val quoteJobId = _uiState.value.selectedJobId
-        // Set the in-flight flag synchronously on the calling thread, before the coroutine
-        // launches, so a second UI tap arriving before the coroutine starts also sees it.
         if (_uiState.value.isSubmittingQuote) return
         _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
         viewModelScope.launch {
@@ -447,10 +446,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         message = if (selectedJob.needsCollectionProof()) {
-                    "Collection proof uploaded."
-                } else {
-                    "Delivery proof uploaded."
-                },
+                            "Collection proof uploaded."
+                        } else {
+                            "Delivery proof uploaded."
+                        },
                     )
                     refreshDriverData()
                 }

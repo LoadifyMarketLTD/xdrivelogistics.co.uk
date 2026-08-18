@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  toCanonicalInvoiceStatusWithDueDate,
+  toCanonicalPaymentStatus,
+} from '../../../lib/invoiceStatus';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   ActionButton,
@@ -49,6 +53,12 @@ const date = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set';
 const dateTime = (value: string) =>
   new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+const invoiceState = (invoice: Invoice) =>
+  toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.due_date);
+const paymentState = (invoice: Invoice) => {
+  const invoiceFallback = invoice.status.trim().toLowerCase() === 'paid' ? 'paid' : 'unpaid';
+  return toCanonicalPaymentStatus(invoice.payment_status, invoiceFallback);
+};
 
 export default function InvoiceDetailPage({
   invoiceId,
@@ -149,7 +159,7 @@ export default function InvoiceDetailPage({
       <PageHeader
         eyebrow="Finance workspace"
         title={invoice ? `${titlePrefix} ${invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}` : titlePrefix}
-        description="Commercial amount, payment state, supporting documents and audit history in one authorised view."
+        description="Commercial amount, invoice lifecycle, payment state, supporting documents and audit history in one authorised view."
         actions={
           <>
             <ActionButton tone="secondary" onClick={() => router.push(backHref)}>Back to register</ActionButton>
@@ -166,8 +176,8 @@ export default function InvoiceDetailPage({
             <KpiCard label="Invoice total" value={currency(invoice.amount, code)} tone="navy" />
             <KpiCard label="Paid" value={currency(paid, code)} tone="green" />
             <KpiCard label="Outstanding" value={currency(outstanding, code)} tone={outstanding > 0 ? 'orange' : 'green'} />
-            <KpiCard label="Invoice status" value={<span style={{ fontSize: '1rem' }}>{invoice.status}</span>} tone="blue" />
-            <KpiCard label="Payment status" value={<span style={{ fontSize: '1rem' }}>{invoice.payment_status ?? 'unpaid'}</span>} tone={invoice.payment_status === 'paid' ? 'green' : 'orange'} />
+            <KpiCard label="Invoice state" value={<StatusBadge value={invoiceState(invoice)} />} tone="blue" />
+            <KpiCard label="Payment state" value={<StatusBadge value={paymentState(invoice).replace(/_/g, ' ')} />} tone={paymentState(invoice) === 'paid' ? 'green' : 'orange'} />
           </KpiGrid>
 
           <TwoColumn>

@@ -11,13 +11,13 @@ const FleetPositionMapClient = dynamic(() => import('./FleetPositionMapClient'),
         minHeight: '440px',
         display: 'grid',
         placeItems: 'center',
-        borderRadius: '9px',
+        borderRadius: '4px',
         background: '#f8fafc',
         color: '#64748b',
-        fontSize: '0.82rem',
+        fontSize: '12px',
       }}
     >
-      Loading map…
+      Loading live map…
     </div>
   ),
 });

@@ -1,36 +1,32 @@
-/* Driver workspace navigation + spacing contract.
- * Scoped to /driver only. No Super Admin or shared workspace shell styles are changed.
+/* Driver workspace shell structure.
+ * Canonical dimensions and typography are supplied by
+ * workspace-measured-cx-baseline.css, which is imported after this file.
+ * Keep this file structural only so Driver cannot regress to a second,
+ * miniaturized sizing system. Super Admin is outside this scope.
  */
 
 .driver-top-shell {
   min-height: 100vh;
   min-width: 0;
   background: #f4f6f8;
-  color: #1a1f2b;
+  color: #172033;
 }
 
-/* Single-level Driver header: brand, primary nav and actions share one row. */
 .driver-top-shell__header {
   position: sticky;
   top: 0;
   z-index: 60;
-  height: 58px;
-  min-height: 58px;
+  height: 50px;
+  min-height: 50px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: 58px;
+  grid-template-rows: 50px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 12px;
   border-bottom: 1px solid #cfd7e3;
   background: #fff;
   box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* Legacy context controls (Organisation / Search navigation) are intentionally removed. */
-.driver-top-shell__context {
-  display: none !important;
 }
 
 .driver-top-shell__brand {
@@ -38,13 +34,12 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  flex: 0 0 auto;
   white-space: nowrap;
 }
 
 .driver-top-shell__logo-button {
   width: 132px;
-  height: 46px;
+  height: 42px;
   flex: 0 0 132px;
   display: flex;
   align-items: center;
@@ -66,37 +61,36 @@
   min-width: 0;
   display: grid;
   gap: 1px;
-  line-height: 1.05;
+  line-height: 1.15;
 }
 
 .driver-top-shell__identity span {
   color: #64748b;
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .driver-top-shell__identity strong {
-  max-width: 145px;
+  max-width: 180px;
   overflow: hidden;
   color: #172033;
-  font-size: 10.5px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .driver-top-nav {
-  position: static;
   min-width: 0;
   width: 100%;
-  height: 58px;
-  border: 0;
-  background: transparent;
+  height: 50px;
   overflow-x: auto;
   overflow-y: hidden;
+  border: 0;
+  background: transparent;
   scrollbar-width: none;
 }
 
@@ -107,29 +101,26 @@
 .driver-top-nav__track {
   width: max-content;
   min-width: 100%;
-  height: 58px;
+  height: 50px;
   display: flex;
   align-items: stretch;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 0;
-  padding: 0;
-  box-sizing: border-box;
   white-space: nowrap;
 }
 
 .driver-top-nav__item {
   position: relative;
-  height: 58px;
-  min-height: 58px;
+  height: 50px;
+  min-height: 50px;
   flex: 0 0 auto;
-  padding: 0 7px;
+  padding: 0 10px;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: #4b5563;
-  font-size: 9.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -141,9 +132,9 @@
 
 .driver-top-nav__item[data-active="true"] {
   color: #0b2f6b;
-  font-weight: 800;
+  font-weight: 700;
   background: #fff;
-  box-shadow: inset 0 -3px 0 #1d57d8;
+  box-shadow: inset 0 -2px 0 #1d57d8;
 }
 
 .driver-top-shell__actions {
@@ -151,26 +142,25 @@
   align-items: center;
   flex-wrap: nowrap;
   gap: 5px;
-  flex: 0 0 auto;
   white-space: nowrap;
 }
 
 .driver-shell-action,
 .driver-shell-notification {
-  height: 30px;
-  min-height: 30px;
+  height: 32px;
+  min-height: 32px;
   border: 1px solid #d8dee8;
-  border-radius: 3px;
+  border-radius: 4px;
   background: #fff;
   color: #172033;
-  font-size: 9.5px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .driver-shell-action {
-  padding: 0 8px;
+  padding: 0 12px;
 }
 
 .driver-shell-action--primary {
@@ -186,7 +176,7 @@
 
 .driver-shell-notification {
   position: relative;
-  width: 30px;
+  width: 32px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -196,266 +186,27 @@
   position: absolute;
   top: -5px;
   right: -5px;
-  min-width: 15px;
-  height: 15px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 3px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   background: #dc2626;
   color: #fff;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .driver-top-shell__content {
   min-width: 0;
-  min-height: calc(100vh - 58px);
-}
-
-/* One spacing system for every Driver page. */
-.xdrive-driver-workspace .xdrive-page-frame {
-  max-width: none !important;
-  width: 100% !important;
-  padding: 7px 10px 12px !important;
-  box-sizing: border-box !important;
-}
-
-.xdrive-driver-workspace .xdrive-page-header {
-  min-height: 34px !important;
-  margin-bottom: 5px !important;
-  gap: 8px !important;
-  align-items: center !important;
-}
-
-.xdrive-driver-workspace .xdrive-page-header h1 {
-  margin: 0 !important;
-  font-size: 16px !important;
-  line-height: 19px !important;
-  font-weight: 750 !important;
-}
-
-.xdrive-driver-workspace .xdrive-page-header p {
-  margin: 1px 0 0 !important;
-  font-size: 10px !important;
-  line-height: 13px !important;
-}
-
-.xdrive-driver-workspace .xdrive-page-header > div:first-child > div:first-child {
-  margin: 0 0 1px !important;
-  font-size: 9px !important;
-  line-height: 11px !important;
-  letter-spacing: .04em !important;
-}
-
-.driver-operational-page {
-  gap: 5px !important;
-  align-content: start !important;
-}
-
-.driver-operational-page section,
-.driver-dash-box,
-.driver-filter-rail,
-.driver-load-row,
-.driver-job-row,
-.driver-tab-strip,
-.driver-status-tabs {
-  border-radius: 2px !important;
-  box-shadow: none !important;
-}
-
-.driver-operational-page section > div:first-child,
-.driver-dash-box__head {
-  min-height: 29px !important;
-  padding: 4px 7px !important;
-  background: #f2f4f7 !important;
-}
-
-.driver-operational-page section > div:first-child h2,
-.driver-dash-box__head strong {
-  font-size: 10.5px !important;
-  line-height: 13px !important;
-}
-
-.driver-operational-page section > div:first-child p {
-  margin-top: 0 !important;
-  font-size: 9px !important;
-  line-height: 11px !important;
-}
-
-.driver-operational-page button,
-.driver-operational-page input,
-.driver-operational-page select {
-  min-height: 27px !important;
-  height: 27px !important;
-  border-radius: 2px !important;
-  font-size: 10.5px !important;
-}
-
-.driver-operational-page button {
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-}
-
-.driver-operational-page textarea {
-  min-height: 50px !important;
-  border-radius: 2px !important;
-  font-size: 10.5px !important;
-}
-
-.driver-board-layout {
-  grid-template-columns: 198px minmax(0, 1fr) !important;
-  gap: 5px !important;
-  align-items: start !important;
-}
-
-.driver-board-main {
-  gap: 4px !important;
-  align-content: start !important;
-  grid-auto-rows: max-content !important;
-}
-
-.driver-filter-rail {
-  top: 63px !important;
-}
-
-.driver-filter-rail__header {
-  min-height: 29px !important;
-  padding: 5px 7px !important;
-}
-
-.driver-filter-rail__body {
-  gap: 4px !important;
-  padding: 6px !important;
-}
-
-.driver-filter-field {
-  gap: 1px !important;
-}
-
-.driver-filter-field label {
-  font-size: 8px !important;
-  line-height: 10px !important;
-}
-
-.driver-filter-field input,
-.driver-filter-field select {
-  height: 27px !important;
-  padding: 0 6px !important;
-}
-
-.driver-tab-strip,
-.driver-status-tabs {
-  min-height: 28px !important;
-  height: 28px !important;
-}
-
-.driver-tab-strip button,
-.driver-status-tabs button {
-  min-height: 27px !important;
-  height: 27px !important;
-  padding: 0 9px !important;
-  font-size: 9px !important;
-}
-
-.driver-board-summary {
-  min-height: 24px !important;
-  font-size: 9px !important;
-}
-
-.driver-load-list,
-.driver-job-list,
-.driver-exchange-left,
-.driver-exchange-main {
-  gap: 4px !important;
-  align-content: start !important;
-}
-
-.driver-load-row__top,
-.driver-job-row__top {
-  min-height: 52px !important;
-}
-
-.driver-load-cell,
-.driver-job-cell {
-  padding: 4px 6px !important;
-}
-
-.driver-cell-label {
-  font-size: 8px !important;
-  line-height: 9px !important;
-}
-
-.driver-cell-primary {
-  font-size: 10.5px !important;
-  line-height: 13px !important;
-}
-
-.driver-cell-secondary {
-  margin-top: 1px !important;
-  font-size: 9px !important;
-  line-height: 11px !important;
-}
-
-.driver-load-row__meta,
-.driver-job-row__meta {
-  min-height: 23px !important;
-  padding: 2px 6px !important;
-  gap: 5px !important;
-  font-size: 9px !important;
-}
-
-.driver-row-actions {
-  gap: 3px !important;
-}
-
-.driver-row-actions button {
-  min-height: 23px !important;
-  height: 23px !important;
-  padding: 0 7px !important;
-  font-size: 9px !important;
-}
-
-.driver-exchange-dashboard {
-  grid-template-columns: 315px minmax(0, 1fr) !important;
-  gap: 5px !important;
-  align-items: start !important;
-}
-
-.driver-dash-box__body {
-  padding: 5px 7px !important;
-}
-
-.driver-dash-metrics {
-  align-self: start !important;
-}
-
-.driver-ops-grid-2,
-.driver-ops-grid-3,
-.driver-profile-summary {
-  gap: 5px !important;
-  align-items: start !important;
-  align-content: start !important;
-}
-
-.driver-ops-table th,
-.driver-dash-table th {
-  height: 27px !important;
-  padding: 0 6px !important;
-  font-size: 8px !important;
-}
-
-.driver-ops-table td,
-.driver-dash-table td {
-  padding: 4px 6px !important;
-  font-size: 9.5px !important;
-  line-height: 12px !important;
+  min-height: calc(100vh - 50px);
 }
 
 @media (max-width: 1450px) {
   .driver-top-shell__header {
-    gap: 6px;
-    padding: 0 8px;
+    gap: 8px;
+    padding: 0 10px;
   }
 
   .driver-top-shell__identity {
@@ -476,46 +227,24 @@
   }
 
   .driver-top-nav__item {
-    padding: 0 5px;
-    font-size: 9px;
+    padding: 0 8px;
+    font-size: 12px;
   }
 
   .driver-shell-action {
-    padding: 0 6px;
-    font-size: 9px;
+    padding: 0 9px;
+    font-size: 11px;
   }
 }
 
 @media (max-width: 1180px) {
-  .driver-shell-action:not(.driver-shell-action--primary) {
-    display: none;
-  }
-
   .driver-top-nav__track {
     justify-content: flex-start;
-  }
-
-  .driver-exchange-dashboard {
-    grid-template-columns: 280px minmax(0, 1fr) !important;
-  }
-}
-
-@media (max-width: 1024px) {
-  .driver-board-layout,
-  .driver-exchange-dashboard {
-    grid-template-columns: 1fr !important;
-  }
-
-  .driver-filter-rail {
-    position: static !important;
   }
 }
 
 @media (max-width: 768px) {
   .driver-top-shell__header {
-    height: 50px;
-    min-height: 50px;
-    grid-template-rows: 50px;
     gap: 5px;
     padding: 0 6px;
   }
@@ -526,7 +255,6 @@
   }
 
   .driver-top-shell__logo-button {
-    height: 42px;
     flex-basis: 92px;
   }
 
@@ -534,27 +262,47 @@
     height: 32px;
   }
 
-  .driver-top-nav,
-  .driver-top-nav__track,
   .driver-top-nav__item {
-    height: 49px;
-    min-height: 49px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
+
+  .driver-shell-action {
+    padding: 0 7px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 430px) {
+  .driver-top-shell__header {
+    gap: 3px;
+    padding: 0 4px;
+  }
+
+  .driver-top-shell__logo-button,
+  .driver-top-shell__logo {
+    width: 72px;
+  }
+
+  .driver-top-shell__logo-button {
+    flex-basis: 72px;
+  }
+
+  .driver-top-shell__logo {
+    height: 28px;
+  }
+
+  .driver-top-shell__actions {
+    gap: 3px;
+  }
+
+  .driver-shell-action {
+    padding: 0 5px;
+    font-size: 11px;
   }
 
   .driver-top-nav__item {
     padding: 0 6px;
-    font-size: 9px;
-  }
-
-  .driver-shell-action--primary {
-    display: none;
-  }
-
-  .driver-top-shell__content {
-    min-height: calc(100vh - 50px);
-  }
-
-  .xdrive-driver-workspace .xdrive-page-frame {
-    padding: 6px !important;
+    font-size: 11px;
   }
 }

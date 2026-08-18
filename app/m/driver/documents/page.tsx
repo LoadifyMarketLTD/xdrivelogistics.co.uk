@@ -1,5 +1,5 @@
-import DriverMobileAppVariant from '../../_components/DriverMobileAppVariant';
+import { redirect } from 'next/navigation';
 
 export default function MobileDriverDocumentsPage() {
-  return <DriverMobileAppVariant initialTab="me" initialMoreTab="documents" />;
+  redirect('/driver/documents');
 }
