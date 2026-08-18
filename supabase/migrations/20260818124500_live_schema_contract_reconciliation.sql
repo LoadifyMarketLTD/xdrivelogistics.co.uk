@@ -26,6 +26,17 @@ ALTER TABLE public.jobs
   ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
   ADD COLUMN IF NOT EXISTS completed_at timestamptz;
 
+-- The quote autofill function uses bidder_company_id as the canonical company
+-- identity while company_id remains the legacy compatibility field.
+ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS bidder_company_id uuid;
+
+-- Canonical driver tracking writes both the historical created_* fields and the
+-- runtime event_time/user_id fields. Fresh bootstrap tables only had the former.
+ALTER TABLE public.job_tracking_events
+  ADD COLUMN IF NOT EXISTS event_time timestamptz,
+  ADD COLUMN IF NOT EXISTS user_id uuid;
+
 -- The original bootstrap schema stored driver evidence as text[] / text. The
 -- canonical driver RPCs and guardrails now use JSONB for both fields. Reconcile
 -- only those legacy physical types; already-canonical live databases are no-ops.
@@ -142,6 +153,13 @@ BEGIN
   END IF;
 END
 $$;
+
+-- Migration 079 installed a second, older lifecycle trigger whose transition
+-- matrix stops at the pre-native workflow. Keeping it on a fresh database would
+-- reject canonical allocated -> on_my_way and would also evaluate the obsolete
+-- text/text[] POD contract. The canonical guardrail below is the single safety
+-- net retained after reconciliation.
+DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs;
 
 -- Fleet Company quotes are commercial company bids and intentionally have no
 -- named execution driver at quote time. Legacy bidder_id is a driver FK, so it
