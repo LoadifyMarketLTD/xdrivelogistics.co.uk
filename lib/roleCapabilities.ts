@@ -203,6 +203,7 @@ export type RouteRequirement = {
 
 const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // carrier_fleet (/admin)
+  { prefix: '/admin/action-centre', workspace: 'carrier_fleet' },
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/fleet/future-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
@@ -237,6 +238,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
   // broker (/broker)
+  { prefix: '/broker/action-centre', workspace: 'broker' },
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
@@ -256,6 +258,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
 
   // shipper (/customer)
+  { prefix: '/customer/action-centre', workspace: 'shipper' },
   { prefix: '/customer/post-load', workspace: 'shipper', anyOf: ['loads.create'] },
   { prefix: '/customer/loads', workspace: 'shipper', anyOf: ['loads.view.own'] },
   { prefix: '/customer/quotes', workspace: 'shipper', anyOf: ['quotes.receive'] },
