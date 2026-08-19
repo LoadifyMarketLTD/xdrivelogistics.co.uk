@@ -12,15 +12,14 @@
 -- not create it. Removing the trigger makes live/fresh converge on the RPC as
 -- the single award/assignment authority without changing approved semantics.
 --
--- Clean replay also exposes historical physical/function drift that Production
--- acquired through narrow/manual repairs: drivers.is_active/name/full_name are
--- live-proven columns but absent from clean history; safe_dedup_drivers still
--- references retired first_name/last_name fields; the preserved onboarding base
--- function declares a text role for an enum column; and the governance helper
--- hard-codes the Production-only company_status enum even though clean history
--- intentionally stores companies.status as text. These repairs are forward-only,
--- fail closed on unexpected definitions, and do not alter Workspace UI, award
--- semantics, onboarding policy, RLS, or Finance behavior.
+-- Clean replay also exposes historical physical/function drift. Repairs below
+-- are deliberately adaptive: live-proven Driver fields are materialised only
+-- when missing; safe_dedup_drivers is repaired because its retired name fields
+-- do not exist in live; the onboarding base role declaration is changed ONLY
+-- when the actual membership column is the fresh company_role enum (live is
+-- text and therefore remains byte-semantic unchanged); governance status writes
+-- adapt to the physical companies.status type. No Workspace UI, award contract,
+-- onboarding policy, RLS, or Finance behavior is changed.
 
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -189,14 +188,17 @@ COMMENT ON FUNCTION public.safe_dedup_drivers(uuid) IS
 
 -- ---------------------------------------------------------------------------
 -- The public submit wrapper renamed the previous canonical submit function to
--- submit_onboarding_application_base_v1. Preserve its exact body and change only
--- the local role variable from text to the already-existing company_role enum so
--- INSERT into company_memberships.role_in_company is type-correct.
+-- submit_onboarding_application_base_v1. Clean replay currently stores
+-- company_memberships.role_in_company as company_role, while live XDrive stores
+-- it as text. Change the local declaration only for the enum-backed fresh shape;
+-- on live text the function is intentionally left unchanged.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
   v_oid oid;
   v_def text;
+  v_role_data_type text;
+  v_role_udt_name text;
 BEGIN
   v_oid := to_regprocedure('public.submit_onboarding_application_base_v1(uuid)');
   IF v_oid IS NULL THEN
@@ -204,14 +206,37 @@ BEGIN
       USING ERRCODE = '42883';
   END IF;
 
+  SELECT c.data_type, c.udt_name
+  INTO v_role_data_type, v_role_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'company_memberships'
+    AND c.column_name = 'role_in_company';
+
+  IF v_role_data_type IS NULL THEN
+    RAISE EXCEPTION 'company_memberships.role_in_company is missing.'
+      USING ERRCODE = '42703';
+  END IF;
+
   SELECT pg_get_functiondef(v_oid) INTO v_def;
 
-  IF position('v_role text;' IN v_def) > 0 THEN
-    v_def := replace(v_def, 'v_role text;', 'v_role public.company_role;');
-    EXECUTE v_def;
-  ELSIF position('v_role public.company_role;' IN v_def) = 0 THEN
-    RAISE EXCEPTION 'Unexpected submit_onboarding_application_base_v1 role declaration; refusing broad rewrite.'
-      USING ERRCODE = 'P0001';
+  IF v_role_data_type = 'USER-DEFINED' AND v_role_udt_name = 'company_role' THEN
+    IF position('v_role text;' IN v_def) > 0 THEN
+      v_def := replace(v_def, 'v_role text;', 'v_role public.company_role;');
+      EXECUTE v_def;
+    ELSIF position('v_role public.company_role;' IN v_def) = 0 THEN
+      RAISE EXCEPTION 'Unexpected enum-backed submit_onboarding_application_base_v1 role declaration; refusing broad rewrite.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  ELSIF v_role_data_type = 'text' THEN
+    IF position('v_role text;' IN v_def) = 0 THEN
+      RAISE EXCEPTION 'Unexpected live text-backed submit_onboarding_application_base_v1 role declaration; refusing rewrite.'
+        USING ERRCODE = 'P0001';
+    END IF;
+    -- Live XDrive is already type-correct: leave its function definition alone.
+  ELSE
+    RAISE EXCEPTION 'Unsupported company_memberships.role_in_company type: %/%', v_role_data_type, v_role_udt_name
+      USING ERRCODE = '42804';
   END IF;
 END
 $$;
@@ -225,7 +250,7 @@ REVOKE ALL ON FUNCTION public.submit_onboarding_application_base_v1(uuid) FROM s
 
 -- ---------------------------------------------------------------------------
 -- Governance status writes must support the physical type that actually exists.
--- Clean history intentionally has companies.status=text; Production currently has
+-- Clean history has companies.status=text; Production currently has
 -- public.company_status. Build the cast from pg_attribute at runtime instead of
 -- embedding a Production-only enum name that makes clean replay fail lint.
 -- ---------------------------------------------------------------------------
