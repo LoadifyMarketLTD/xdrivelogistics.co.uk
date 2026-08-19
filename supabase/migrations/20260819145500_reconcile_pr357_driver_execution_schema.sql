@@ -187,8 +187,96 @@ $$;
 ALTER TABLE public.job_tracking_events VALIDATE CONSTRAINT job_tracking_events_user_id_fkey;
 
 -- ---------------------------------------------------------------------------
--- 4. Extend historical enums only where the physical columns still use them.
---    The migration does not convert job status or tracking types wholesale.
+-- 4. Align the physical execution types to the proven live PR #357 contract.
+--
+-- Production stores jobs.status and job_tracking_events.event_type as text.
+-- Fresh bootstrap migrations still create historical enums. Convert only those
+-- enum-backed fresh/legacy columns; already-live text schemas are strict no-ops.
+-- Existing defaults are preserved rather than imposing a new business default.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_status_data_type text;
+  v_status_udt_name text;
+  v_status_default text;
+BEGIN
+  SELECT c.data_type, c.udt_name
+    INTO v_status_data_type, v_status_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'status';
+
+  IF v_status_data_type = 'USER-DEFINED' AND v_status_udt_name = 'job_status' THEN
+    SELECT pg_get_expr(d.adbin, d.adrelid)
+      INTO v_status_default
+    FROM pg_attrdef d
+    JOIN pg_attribute a
+      ON a.attrelid = d.adrelid
+     AND a.attnum = d.adnum
+    WHERE d.adrelid = 'public.jobs'::regclass
+      AND a.attname = 'status';
+
+    ALTER TABLE public.jobs ALTER COLUMN status DROP DEFAULT;
+    ALTER TABLE public.jobs
+      ALTER COLUMN status TYPE text USING status::text;
+
+    IF v_status_default IS NOT NULL THEN
+      EXECUTE format(
+        'ALTER TABLE public.jobs ALTER COLUMN status SET DEFAULT (%s)::text',
+        v_status_default
+      );
+    END IF;
+  ELSIF v_status_data_type IS NOT NULL AND v_status_data_type <> 'text' THEN
+    RAISE EXCEPTION 'Unsupported jobs.status type: %/%', v_status_data_type, v_status_udt_name
+      USING ERRCODE = '42804';
+  END IF;
+END
+$$;
+
+DO $$
+DECLARE
+  v_event_data_type text;
+  v_event_udt_name text;
+  v_event_default text;
+BEGIN
+  SELECT c.data_type, c.udt_name
+    INTO v_event_data_type, v_event_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'job_tracking_events'
+    AND c.column_name = 'event_type';
+
+  IF v_event_data_type = 'USER-DEFINED' AND v_event_udt_name = 'tracking_event_type' THEN
+    SELECT pg_get_expr(d.adbin, d.adrelid)
+      INTO v_event_default
+    FROM pg_attrdef d
+    JOIN pg_attribute a
+      ON a.attrelid = d.adrelid
+     AND a.attnum = d.adnum
+    WHERE d.adrelid = 'public.job_tracking_events'::regclass
+      AND a.attname = 'event_type';
+
+    ALTER TABLE public.job_tracking_events ALTER COLUMN event_type DROP DEFAULT;
+    ALTER TABLE public.job_tracking_events
+      ALTER COLUMN event_type TYPE text USING event_type::text;
+
+    IF v_event_default IS NOT NULL THEN
+      EXECUTE format(
+        'ALTER TABLE public.job_tracking_events ALTER COLUMN event_type SET DEFAULT (%s)::text',
+        v_event_default
+      );
+    END IF;
+  ELSIF v_event_data_type IS NOT NULL AND v_event_data_type <> 'text' THEN
+    RAISE EXCEPTION 'Unsupported job_tracking_events.event_type type: %/%', v_event_data_type, v_event_udt_name
+      USING ERRCODE = '42804';
+  END IF;
+END
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 5. Keep historical enums complete for old helper/function casts that may still
+--    exist in replayed schema history. The runtime columns themselves are text.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -250,7 +338,7 @@ END
 $$;
 
 -- ---------------------------------------------------------------------------
--- 5. Remove the second historical lifecycle trigger and replace the remaining
+-- 6. Remove the second historical lifecycle trigger and replace the remaining
 --    MVP guard with one DB safety net aligned to the PR #357 execution contract.
 -- ---------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs;
