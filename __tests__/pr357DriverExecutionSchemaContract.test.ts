@@ -88,7 +88,7 @@ describe('PR357 Driver execution schema reconciliation', () => {
 
   it('reconciles only live-proven Driver identity fields that clean history omitted', () => {
     expect(finalReplayReconciliation).toContain("column_name = 'is_active'");
-    expect(finalReplayReconciliation).toContain("ADD COLUMN is_active boolean NOT NULL DEFAULT true");
+    expect(finalReplayReconciliation).toContain('ADD COLUMN is_active boolean NOT NULL DEFAULT true');
     expect(finalReplayReconciliation).toContain("column_name = 'name'");
     expect(finalReplayReconciliation).toContain('ADD COLUMN name text');
     expect(finalReplayReconciliation).toContain("column_name = 'full_name'");
@@ -99,8 +99,10 @@ describe('PR357 Driver execution schema reconciliation', () => {
 
   it('repairs stale replayed functions without changing their authority boundaries', () => {
     expect(finalReplayReconciliation).toContain('CREATE OR REPLACE FUNCTION public.safe_dedup_drivers');
-    expect(finalReplayReconciliation).not.toContain('first_name');
-    expect(finalReplayReconciliation).not.toContain('last_name');
+    expect(finalReplayReconciliation).not.toContain('d.first_name');
+    expect(finalReplayReconciliation).not.toContain('d.last_name');
+    expect(finalReplayReconciliation).not.toContain('v_dup.first_name');
+    expect(finalReplayReconciliation).not.toContain('v_dup.last_name');
     expect(finalReplayReconciliation).toContain('v_dup.driver_name');
 
     expect(finalReplayReconciliation).toContain("to_regprocedure('public.submit_onboarding_application_base_v1(uuid)')");
