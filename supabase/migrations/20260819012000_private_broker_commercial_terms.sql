@@ -85,6 +85,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.xdrive_is_broker_commercial_job(
   p_company_id uuid,
+  p_created_by uuid,
   p_load_details text
 )
 RETURNS boolean
@@ -97,15 +98,24 @@ DECLARE
   v_details jsonb := public.xdrive_safe_jsonb(p_load_details);
   v_source text := lower(COALESCE(v_details->>'source', ''));
   v_company_type text;
+  v_creator_role text;
 BEGIN
   SELECT lower(COALESCE(c.company_type::text, ''))
   INTO v_company_type
   FROM public.companies c
   WHERE c.id = p_company_id;
 
+  IF p_created_by IS NOT NULL THEN
+    SELECT lower(COALESCE(p.role::text, ''))
+    INTO v_creator_role
+    FROM public.profiles p
+    WHERE p.user_id = p_created_by;
+  END IF;
+
   RETURN v_source LIKE '%broker%'
     OR COALESCE(v_details ? 'targetCarrierCost', false)
-    OR COALESCE(v_company_type LIKE '%broker%', false);
+    OR COALESCE(v_company_type LIKE '%broker%', false)
+    OR COALESCE(v_creator_role = 'broker', false);
 END;
 $$;
 
@@ -150,7 +160,8 @@ END;
 $$;
 
 -- Backfill only rows that can be positively identified as Broker commercial
--- jobs by their source marker/legacy target cost or by the owning company type.
+-- jobs by their source/legacy target marker, owning company type, or creator's
+-- verified Broker profile role.
 DO $$
 DECLARE
   r record;
@@ -159,10 +170,10 @@ DECLARE
   v_sanitized text;
 BEGIN
   FOR r IN
-    SELECT j.id, j.company_id, j.budget_amount, j.currency, j.load_details
+    SELECT j.id, j.company_id, j.created_by, j.budget_amount, j.currency, j.load_details
     FROM public.jobs j
   LOOP
-    IF NOT public.xdrive_is_broker_commercial_job(r.company_id, r.load_details::text) THEN
+    IF NOT public.xdrive_is_broker_commercial_job(r.company_id, r.created_by, r.load_details::text) THEN
       CONTINUE;
     END IF;
 
@@ -204,8 +215,8 @@ DECLARE
   v_has_private_input boolean := false;
 BEGIN
   IF NOT (
-    public.xdrive_is_broker_commercial_job(NEW.company_id, NEW.load_details::text)
-    OR public.xdrive_is_broker_commercial_job(OLD.company_id, OLD.load_details::text)
+    public.xdrive_is_broker_commercial_job(NEW.company_id, NEW.created_by, NEW.load_details::text)
+    OR public.xdrive_is_broker_commercial_job(OLD.company_id, OLD.created_by, OLD.load_details::text)
   ) THEN
     RETURN NEW;
   END IF;
@@ -236,7 +247,7 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_privateize_broker_terms_before_job_update ON public.jobs;
 CREATE TRIGGER trg_privateize_broker_terms_before_job_update
-BEFORE UPDATE OF budget_amount, load_details, company_id, currency ON public.jobs
+BEFORE UPDATE OF budget_amount, load_details, company_id, currency, created_by ON public.jobs
 FOR EACH ROW
 EXECUTE FUNCTION public.xdrive_privateize_broker_terms_before_job_update();
 
@@ -255,7 +266,7 @@ DECLARE
   v_details jsonb;
   v_target numeric;
 BEGIN
-  IF NOT public.xdrive_is_broker_commercial_job(NEW.company_id, NEW.load_details::text) THEN
+  IF NOT public.xdrive_is_broker_commercial_job(NEW.company_id, NEW.created_by, NEW.load_details::text) THEN
     RETURN NEW;
   END IF;
 
@@ -287,12 +298,12 @@ EXECUTE FUNCTION public.xdrive_privateize_broker_terms_before_job_insert();
 
 REVOKE ALL ON FUNCTION public.xdrive_safe_jsonb(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_safe_numeric(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.xdrive_is_broker_commercial_job(uuid, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.xdrive_is_broker_commercial_job(uuid, uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_upsert_private_broker_terms(uuid, uuid, numeric, numeric, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_privateize_broker_terms_before_job_update() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_privateize_broker_terms_before_job_insert() FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.xdrive_is_broker_commercial_job(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.xdrive_is_broker_commercial_job(uuid, uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.xdrive_upsert_private_broker_terms(uuid, uuid, numeric, numeric, text) TO service_role;
 
 COMMENT ON FUNCTION public.xdrive_privateize_broker_terms_before_job_insert() IS
