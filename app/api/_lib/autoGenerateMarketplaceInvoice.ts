@@ -107,11 +107,16 @@ export async function autoGenerateMarketplaceInvoice({
 
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const dueDate = addDays(invoiceDate, dueDays);
-  const fallbackNumber = `INV-${invoiceDate.slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
-  const { data: generatedNumber } = await supabase.rpc('next_invoice_number', {
+  const { data: generatedNumber, error: generatedNumberError } = await supabase.rpc('next_invoice_number', {
     p_company_id: supplierCompanyId,
   });
-  const invoiceNumber = cleanText(generatedNumber) || fallbackNumber;
+  if (generatedNumberError) {
+    throw new Error(`Canonical invoice number generation failed: ${generatedNumberError.message}`);
+  }
+  const invoiceNumber = cleanText(generatedNumber);
+  if (!invoiceNumber) {
+    throw new Error('Canonical invoice number generation returned no value.');
+  }
   const jobReference = cleanText(job.customer_reference) || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
 
   const { data: inserted, error: insertError } = await supabase
