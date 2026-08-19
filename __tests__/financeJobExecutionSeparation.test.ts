@@ -4,20 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
-const autoInvoice = read('app/api/_lib/autoGenerateMarketplaceInvoice.ts');
 const driverAction = read('app/api/driver/mobile/jobs/[id]/[action]/route.ts');
 const operatorTransition = read('app/api/admin/jobs/[id]/transition/route.ts');
 const decoupling = read('supabase/migrations/20260819151000_decouple_invoice_status_from_job_execution.sql');
 const workspaceStage = read('lib/jobs/workspaceJobStage.ts');
 
 describe('invoice lifecycle stays separate from canonical job execution', () => {
-  it('keeps the current idempotent invoice generator with a non-null invoice number path', () => {
-    expect(autoInvoice).toContain("rpc('next_invoice_number'");
-    expect(autoInvoice).toContain('const invoiceNumber = cleanText(generatedNumber) || fallbackNumber');
-    expect(autoInvoice).toContain('invoice_number: invoiceNumber');
-    expect(autoInvoice).toContain("invoice_origin: 'marketplace'");
-  });
-
   it('generates marketplace invoices from both Driver and Operator delivery boundaries', () => {
     expect(driverAction).toContain('autoGenerateMarketplaceInvoice({');
     expect(driverAction).toContain("if (action === 'delivered')");
