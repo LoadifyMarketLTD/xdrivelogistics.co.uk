@@ -21,6 +21,7 @@ const actionToCanonicalStatus: Record<string, string> = {
   'on-my-way-delivery': 'in_transit',
   'arrived-delivery': 'on_site_delivery',
   delivered: 'delivered',
+  completed: 'completed',
 };
 
 const userScopedSupabase = (token: string) => {
