@@ -15,6 +15,16 @@ describe('PR357-compatible Marketplace quote guard', () => {
     expect(source).not.toContain('ALTER TABLE public.job_bids');
   });
 
+  it('preserves live legacy bidder attribution without requiring those columns on fresh replay', () => {
+    expect(source).toContain("v_row := to_jsonb(NEW)");
+    expect(source).toContain("v_row ? 'bidder_company_id'");
+    expect(source).toContain("v_row ? 'bidder_id'");
+    expect(source).toContain('jsonb_populate_record');
+    expect(source).toContain('Company quote attribution is inconsistent.');
+    expect(source).toContain('v_legacy_company_id IS DISTINCT FROM v_driver.company_id');
+    expect(source).toContain('v_legacy_driver_id IS DISTINCT FROM v_driver.id');
+  });
+
   it('guards every insert rather than only rows that already carry a named driver', () => {
     expect(source).toContain('CREATE TRIGGER trg_guard_driver_quote_mutation');
     expect(source).toContain('BEFORE INSERT ON public.job_bids');
