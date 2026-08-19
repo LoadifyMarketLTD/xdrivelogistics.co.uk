@@ -337,8 +337,12 @@ END
 $$;
 
 -- ---------------------------------------------------------------------------
--- 6. Remove the second historical lifecycle trigger and replace the remaining
---    MVP guard with one DB safety net aligned to the PR #357 execution contract.
+-- 6. Remove the second historical lifecycle trigger and install the live-proven
+--    PR #357 DB safety net. Finance remains separate from execution: delivered
+--    progresses to completed; completed is terminal. Legacy invoiced rows remain
+--    read-compatible for invoiced -> paid, but no execution state transitions
+--    into invoiced. POD accepts either delivery_photos or pod_photos exactly as
+--    the current XDrive production guard does.
 -- ---------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs;
 
@@ -353,6 +357,7 @@ DECLARE
   v_carrier_company_id uuid;
   v_issues text[];
   v_delivery_photo_count integer := 0;
+  v_pod_photo_count integer := 0;
   v_signature_text text;
 BEGIN
   IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
@@ -375,12 +380,9 @@ BEGIN
       WHEN 'on_my_way_to_delivery' THEN ARRAY['on_site_delivery', 'cancelled', 'disputed']
       WHEN 'arrived_delivery' THEN ARRAY['delivered', 'cancelled', 'disputed']
       WHEN 'on_site_delivery' THEN ARRAY['delivered', 'cancelled', 'disputed']
-      -- Finance remains a separate subsystem, but legacy invoice coupling may
-      -- still move status to invoiced. Keep both paths compatible until the
-      -- finance trigger is reconciled in its own audited slice.
-      WHEN 'delivered' THEN ARRAY['completed', 'invoiced']
-      WHEN 'completed' THEN ARRAY['invoiced']
-      WHEN 'invoiced' THEN ARRAY['paid', 'completed']
+      WHEN 'delivered' THEN ARRAY['completed']
+      WHEN 'completed' THEN ARRAY[]::text[]
+      WHEN 'invoiced' THEN ARRAY['paid']
       WHEN 'paid' THEN ARRAY[]::text[]
       WHEN 'cancelled' THEN ARRAY[]::text[]
       WHEN 'disputed' THEN ARRAY[]::text[]
@@ -403,33 +405,36 @@ BEGIN
       IF jsonb_typeof(COALESCE(NEW.delivery_photos, '[]'::jsonb)) = 'array' THEN
         v_delivery_photo_count := jsonb_array_length(COALESCE(NEW.delivery_photos, '[]'::jsonb));
       END IF;
+      IF jsonb_typeof(COALESCE(NEW.pod_photos, '[]'::jsonb)) = 'array' THEN
+        v_pod_photo_count := jsonb_array_length(COALESCE(NEW.pod_photos, '[]'::jsonb));
+      END IF;
 
-      v_signature_text := NULLIF(btrim(COALESCE(NEW.delivery_signature_data #>> '{}', '')), '');
-
-      IF v_delivery_photo_count < 1 THEN
-        RAISE EXCEPTION 'At least one delivery photo is required before marking the job delivered.'
+      IF v_delivery_photo_count + v_pod_photo_count < 1 THEN
+        RAISE EXCEPTION 'At least one delivery photo or POD document is required before delivery.'
           USING ERRCODE = '23514';
       END IF;
-      IF v_signature_text IS NULL THEN
-        RAISE EXCEPTION 'Recipient signature is required before marking the job delivered.'
-          USING ERRCODE = '23514';
+
+      IF NEW.delivery_signature_data IS NULL OR NEW.delivery_signature_data = 'null'::jsonb THEN
+        RAISE EXCEPTION 'Recipient signature is required before delivery.' USING ERRCODE = '23514';
+      END IF;
+      IF jsonb_typeof(NEW.delivery_signature_data) = 'string' THEN
+        v_signature_text := NEW.delivery_signature_data #>> '{}';
+        IF NULLIF(btrim(COALESCE(v_signature_text, '')), '') IS NULL THEN
+          RAISE EXCEPTION 'Recipient signature is required before delivery.' USING ERRCODE = '23514';
+        END IF;
       END IF;
       IF NULLIF(btrim(COALESCE(NEW.client_signature_name, '')), '') IS NULL THEN
-        RAISE EXCEPTION 'Recipient name is required before marking the job delivered.'
-          USING ERRCODE = '23514';
+        RAISE EXCEPTION 'Recipient name is required before delivery.' USING ERRCODE = '23514';
       END IF;
     END IF;
   END IF;
 
   IF NEW.exchange_visibility = 'exchange'
-     AND (
-       TG_OP = 'INSERT'
-       OR COALESCE(OLD.exchange_visibility, '') <> 'exchange'
-     ) THEN
+     AND (TG_OP = 'INSERT' OR COALESCE(OLD.exchange_visibility, '') <> 'exchange') THEN
     v_issues := public.company_compliance_issues(NEW.company_id, 'publish');
     IF COALESCE(array_length(v_issues, 1), 0) > 0 THEN
       RAISE EXCEPTION 'Compliance blocked publish action: %', array_to_string(v_issues, ' ')
-        USING ERRCODE = '23514';
+        USING ERRCODE = '42501';
     END IF;
   END IF;
 
@@ -443,7 +448,7 @@ BEGIN
       v_issues := public.company_compliance_issues(v_carrier_company_id, 'execution');
       IF COALESCE(array_length(v_issues, 1), 0) > 0 THEN
         RAISE EXCEPTION 'Compliance blocked execution action: %', array_to_string(v_issues, ' ')
-          USING ERRCODE = '23514';
+          USING ERRCODE = '42501';
       END IF;
     END IF;
   END IF;
@@ -459,7 +464,7 @@ FOR EACH ROW
 EXECUTE FUNCTION public.fn_jobs_mvp_guardrails();
 
 COMMENT ON FUNCTION public.fn_jobs_mvp_guardrails() IS
-  'PR357-compatible DB backstop aligned to canonical Driver execution while preserving publish/execution compliance and temporary legacy finance-status compatibility.';
+  'PR357-compatible DB backstop preserving the current live XDrive execution transitions, POD evidence contract and publish/execution compliance boundaries.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
