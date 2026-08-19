@@ -103,7 +103,9 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Replace only the retired driver display-field references in the historical
 -- dedup helper. Duplicate matching, open-job protection, deactivation and delete
--- semantics stay unchanged.
+-- semantics stay unchanged. Production still has a legacy jobs.driver_id column;
+-- clean replay may not. Reading it through to_jsonb(row) preserves that extra
+-- safety check when present without creating a compile-time dependency in fresh.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.safe_dedup_drivers(p_keep_driver_id uuid)
 RETURNS TABLE (deleted_id uuid, deleted_name text)
@@ -150,7 +152,10 @@ BEGIN
     IF EXISTS (
       SELECT 1
       FROM public.jobs j
-      WHERE j.assigned_driver_id = v_dup.id
+      WHERE (
+           j.assigned_driver_id = v_dup.id
+        OR (to_jsonb(j) ->> 'driver_id') = v_dup.id::text
+      )
         AND (
              j.status IS NULL
           OR j.status::text NOT IN ('delivered', 'cancelled', 'disputed')
@@ -180,7 +185,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.safe_dedup_drivers(uuid) IS
-  'Safely removes duplicate drivers sharing company identity fields after confirming no open assigned jobs; uses canonical driver display/name fields rather than retired first_name/last_name columns.';
+  'Safely removes duplicate drivers sharing company identity fields after confirming no open assigned jobs; uses canonical driver display/name fields and preserves the live legacy jobs.driver_id safety check when that field exists.';
 
 -- ---------------------------------------------------------------------------
 -- The public submit wrapper renamed the previous canonical submit function to
