@@ -84,6 +84,30 @@ describe('Marketplace consumer boundary', () => {
     expect(secureApi).not.toContain('/rest/v1/job_bids');
   });
 
+  it('routes Android execution and POD mutations through XDrive server boundaries', () => {
+    const viewModel = fs.readFileSync(
+      path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/DriverViewModel.kt'),
+      'utf8',
+    );
+    const secureApi = fs.readFileSync(
+      path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/SecureDriverCommercialApi.kt'),
+      'utf8',
+    );
+
+    expect(viewModel).toContain('commercialApi.moveDriverJob(');
+    expect(viewModel).toContain('commercialApi.uploadPodEvidence(');
+    expect(viewModel).toContain('commercialApi.savePod(');
+    expect(viewModel).not.toContain('api.updateJobStatus(');
+    expect(viewModel).not.toContain('api.uploadPodDocument(');
+    expect(viewModel).not.toContain('api.confirmDeliveryRecipient(');
+
+    expect(secureApi).toContain('/api/driver/mobile/jobs/$jobId/$action');
+    expect(secureApi).toContain('/api/driver/mobile/jobs/$jobId/pod-upload?kind=$kind');
+    expect(secureApi).toContain('/api/driver/mobile/jobs/$jobId/pod');
+    expect(secureApi).not.toContain('/rest/v1/rpc/driver_update_job_status_atomic');
+    expect(secureApi).not.toContain('/storage/v1/object/pod-docs');
+  });
+
   it('keeps full assigned execution jobs assignment-gated on the server for every scope', () => {
     const mobileJobs = fs.readFileSync(path.join(root, 'app/api/driver/mobile/jobs/route.ts'), 'utf8');
     expect(mobileJobs).toContain(".eq('assigned_driver_id', driver.driverId)");

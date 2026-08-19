@@ -11,9 +11,9 @@ import { operationalError } from '../../_lib/operationalError';
 import {
   marketplaceNumber,
   marketplaceText,
-  proposedPriceAmount,
   publicAreaLabel,
   publicOutcode,
+  publicProposedPrice,
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../../driver/_lib/marketplacePublic';
@@ -335,7 +335,7 @@ function publicSearchProjection(
     requested_cargo_label: row.requested_cargo_label,
     pallets: marketplaceNumber(row.pallets),
     weight_kg: marketplaceNumber(row.weight_kg),
-    budget_amount: proposedPriceAmount(row.budget_amount),
+    budget_amount: publicProposedPrice(row),
     currency: marketplaceText(row.currency) ?? 'GBP',
     is_fixed_price: row.is_fixed_price === true,
     customer_reference: null,
@@ -351,8 +351,6 @@ function publicSearchProjection(
     posterPhone: company?.phone ?? null,
     posterMemberType: company?.company_type ?? null,
     posterMemberSince: company?.created_at ?? null,
-    // Exact job coordinates are never returned pre-award. A future map may use
-    // an independently derived broad-area centroid, but must not reuse site coords.
     pickupCoordinates: null,
     deliveryCoordinates: null,
     distanceFromSearchOriginMiles,
@@ -399,8 +397,6 @@ async function searchLoads(request: NextRequest, companyId: string) {
     query = query.or(`vehicle_type.ilike.%${vehicle}%,requested_vehicle_type.ilike.%${vehicle}%,requested_vehicle_label.ilike.%${vehicle}%`);
   }
   if (freight) query = query.or(`cargo_type.ilike.%${freight}%,requested_cargo_label.ilike.%${freight}%`);
-  if (minBudget !== null) query = query.gte('budget_amount', minBudget);
-  if (maxBudget !== null) query = query.lte('budget_amount', maxBudget);
   if (dateFrom) query = query.gte('pickup_datetime', `${dateFrom}T00:00:00`);
   if (dateTo) query = query.lte('pickup_datetime', `${dateTo}T23:59:59`);
   if (postedWithinHours !== null && postedWithinHours > 0) {
@@ -465,6 +461,8 @@ async function searchLoads(request: NextRequest, companyId: string) {
     if (member && !memberText.includes(member)) return false;
     if (description && description !== 'any' && row.jobDescription !== description) return false;
     if (requestedLoadType !== 'all' && row.loadType !== requestedLoadType) return false;
+    if (minBudget !== null && (row.budget_amount === null || row.budget_amount < minBudget)) return false;
+    if (maxBudget !== null && (row.budget_amount === null || row.budget_amount > maxBudget)) return false;
     return true;
   });
 
@@ -526,7 +524,7 @@ function bidJobProjection(row: Record<string, unknown>, companyId: string) {
     requested_vehicle_label: marketplaceText(row.requested_vehicle_label),
     status: marketplaceText(row.status),
     current_status: marketplaceText(row.current_status),
-    budget_amount: proposedPriceAmount(row.budget_amount),
+    budget_amount: publicProposedPrice(row),
     currency: marketplaceText(row.currency) ?? 'GBP',
     posterName: company?.name ?? 'Marketplace member',
     posterMemberCode: company?.company_number ?? null,
@@ -556,7 +554,7 @@ async function loadBids(companyId: string) {
   if (jobIds.length > 0) {
     const { data: jobsData, error: jobsError } = await supabaseAdmin!
       .from('jobs')
-      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,company_number)')
+      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, load_details, currency, companies!jobs_company_id_fkey(name,company_number)')
       .in('id', jobIds);
     if (jobsError) {
       return operationalError({
@@ -583,7 +581,7 @@ async function loadBids(companyId: string) {
 async function loadWon(companyId: string) {
   const { data, error } = await supabaseAdmin!
     .from('jobs')
-    .select('id, company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, awarded_carrier_company_id, created_at, companies!jobs_company_id_fkey(name,company_number)')
+    .select('id, company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, currency, awarded_carrier_company_id, created_at, companies!jobs_company_id_fkey(name,company_number)')
     .eq('awarded_carrier_company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -597,12 +595,41 @@ async function loadWon(companyId: string) {
     });
   }
 
-  const rows = (data ?? []).map((raw) => {
-    const row = raw as unknown as Record<string, unknown> & { companies?: CompanyRef };
+  const jobs = (data ?? []) as unknown as Array<Record<string, unknown> & { companies?: CompanyRef }>;
+  const jobIds = jobs.map((row) => String(row.id ?? '')).filter(Boolean);
+  const agreementByJobId = new Map<string, Record<string, unknown>>();
+  if (jobIds.length > 0) {
+    const { data: agreements, error: agreementsError } = await supabaseAdmin!
+      .from('job_commercial_agreements')
+      .select('job_id, supplier_company_id, agreed_amount, currency, agreement_status, accepted_at')
+      .eq('supplier_company_id', companyId)
+      .eq('agreement_status', 'accepted')
+      .in('job_id', jobIds)
+      .order('accepted_at', { ascending: false });
+    if (agreementsError) {
+      return operationalError({
+        message: 'Won work loaded, but the agreed carrier amounts are temporarily unavailable.',
+        context: `marketplace.company.won-agreements.company:${companyId}`,
+        cause: agreementsError,
+        retryable: true,
+      });
+    }
+    for (const agreement of agreements ?? []) {
+      const key = String((agreement as Record<string, unknown>).job_id ?? '');
+      if (key && !agreementByJobId.has(key)) agreementByJobId.set(key, agreement as Record<string, unknown>);
+    }
+  }
+
+  const rows = jobs.map((row) => {
     const company = companyInfo(row.companies ?? null);
+    const agreement = agreementByJobId.get(String(row.id ?? '')) ?? null;
     return {
       ...row,
       companies: undefined,
+      // Legacy response key retained for the existing UI. The value is now the
+      // awarded carrier's own agreed amount, never the posting company's budget.
+      budget_amount: marketplaceNumber(agreement?.agreed_amount),
+      currency: marketplaceText(agreement?.currency) ?? marketplaceText(row.currency) ?? 'GBP',
       posterName: company?.name ?? 'Marketplace member',
       posterMemberCode: company?.company_number ?? null,
     };
