@@ -6,6 +6,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 
 const rpc = read('supabase/migrations/20260816102000_restore_canonical_driver_execution_lifecycle.sql');
 const reconciliation = read('supabase/migrations/20260819145500_reconcile_pr357_driver_execution_schema.sql');
+const legacyStatusSync = read('supabase/migrations/20260819153000_sync_legacy_job_status_into_current_status.sql');
 
 const sequence = [
   'on_my_way',
@@ -66,6 +67,22 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(reconciliation).toContain('ALTER COLUMN event_type TYPE text USING event_type::text');
     expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS event_time timestamptz NOT NULL DEFAULT now()');
     expect(reconciliation).toContain('ALTER COLUMN event_time SET NOT NULL');
+  });
+
+  it('keeps direct legacy status writers aligned with canonical execution without importing Finance aliases', () => {
+    expect(legacyStatusSync).toContain('NEW.status IS NOT DISTINCT FROM OLD.status');
+    expect(legacyStatusSync).toContain('NEW.current_status IS DISTINCT FROM OLD.current_status');
+    expect(legacyStatusSync).toContain("WHEN 'collected' THEN 'loaded'");
+    expect(legacyStatusSync).toContain("WHEN 'delivered' THEN 'delivered'");
+    expect(legacyStatusSync).toContain("WHEN 'cancelled' THEN 'cancelled'");
+    expect(legacyStatusSync).not.toContain("WHEN 'invoiced' THEN");
+    expect(legacyStatusSync).not.toContain("WHEN 'paid' THEN");
+    expect(legacyStatusSync).toContain('NEW.current_status := v_execution_status');
+  });
+
+  it('does not rewrite historical jobs while installing the legacy-writer backstop', () => {
+    expect(legacyStatusSync).not.toContain('UPDATE public.jobs');
+    expect(legacyStatusSync).toContain('CREATE TRIGGER trg_jobs_legacy_status_current_status_sync');
   });
 
   it('does not change invoice creation or the legacy invoice sync trigger in this lifecycle slice', () => {
