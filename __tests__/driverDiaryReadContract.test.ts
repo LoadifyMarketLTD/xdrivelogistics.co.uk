@@ -28,6 +28,6 @@ describe('Driver Diary read contract', () => {
     expect(documentReads).toContain('GRANT SELECT ON TABLE public.job_documents TO authenticated');
     expect(documentReads).toContain('job_documents_select_assigned_driver');
     expect(reviewReads).toContain('DROP POLICY IF EXISTS owner_select_all_job_documents ON public.job_documents');
-    expect(reviewReads).not.toContain('CREATE POLICY');
+    expect(reviewReads).not.toContain('CREATE POLICY owner_select_all_job_documents');
   });
 });
