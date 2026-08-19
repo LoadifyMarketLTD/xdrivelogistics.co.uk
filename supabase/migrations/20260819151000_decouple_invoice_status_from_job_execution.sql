@@ -61,7 +61,16 @@ BEGIN
 END
 $$;
 
-COMMENT ON FUNCTION public.fn_sync_job_status_from_invoice() IS
-  'Legacy compatibility function retained for migration history only. Its trigger is intentionally disabled: invoice lifecycle belongs to public.invoices and must not overwrite canonical job execution state.';
+-- Some live XDrive histories have already removed the obsolete helper while a
+-- fresh historical replay still creates it. Keep the migration valid in both
+-- states: annotate it only when it is actually present.
+DO $$
+BEGIN
+  IF to_regprocedure('public.fn_sync_job_status_from_invoice()') IS NOT NULL THEN
+    COMMENT ON FUNCTION public.fn_sync_job_status_from_invoice() IS
+      'Legacy compatibility function retained for migration history only. Its trigger is intentionally disabled: invoice lifecycle belongs to public.invoices and must not overwrite canonical job execution state.';
+  END IF;
+END
+$$;
 
 COMMIT;
