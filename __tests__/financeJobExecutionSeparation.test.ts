@@ -10,6 +10,7 @@ const autoInvoice = read('app/api/_lib/autoGenerateMarketplaceInvoice.ts');
 const manualInvoice = read('app/api/driver/finance/invoices/route.ts');
 const jobInvoice = read('app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts');
 const decoupling = read('supabase/migrations/20260819151000_decouple_invoice_status_from_job_execution.sql');
+const triggerNumbering = read('supabase/migrations/20260819152500_align_legacy_invoice_number_trigger_to_canonical.sql');
 const workspaceStage = read('lib/jobs/workspaceJobStage.ts');
 
 describe('invoice lifecycle stays separate from canonical job execution', () => {
@@ -27,6 +28,14 @@ describe('invoice lifecycle stays separate from canonical job execution', () => 
       expect(source).not.toContain('fallbackNumber');
       expect(source).not.toContain('String(Date.now()).slice(-3)');
     }
+  });
+
+  it('keeps trigger-owned invoice creation on the same canonical numbering contract', () => {
+    expect(triggerNumbering).toContain('CREATE OR REPLACE FUNCTION public.generate_invoice_number()');
+    expect(triggerNumbering).toContain('NEW.invoice_number := public.next_invoice_number(NEW.company_id)');
+    expect(triggerNumbering).not.toContain('invoice_number_seq');
+    expect(triggerNumbering).not.toContain('XDR-');
+    expect(triggerNumbering).not.toContain('DROP TRIGGER IF EXISTS trg_generate_invoice_on_job_completion');
   });
 
   it('disables only the stale invoice-to-job-status coupling', () => {
