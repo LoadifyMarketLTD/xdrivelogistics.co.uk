@@ -44,11 +44,11 @@ const timestampField: Record<string, string | undefined> = {
 };
 
 const eventType: Record<string, string> = {
-  on_my_way: 'driver_en_route',
-  on_site_pickup: 'arrived_pickup',
-  loaded: 'collected',
-  in_transit: 'in_transit',
-  on_site_delivery: 'arrived_delivery',
+  on_my_way: 'on_my_way_to_pickup',
+  on_site_pickup: 'on_site_pickup',
+  loaded: 'loaded',
+  in_transit: 'on_my_way_to_delivery',
+  on_site_delivery: 'on_site_delivery',
   delivered: 'delivered',
   completed: 'note',
 };
@@ -60,9 +60,6 @@ const hasCompletePod = (job: Record<string, unknown>) => {
   const deliveryPhotos = Array.isArray(job.delivery_photos)
     ? job.delivery_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
     : [];
-  const podDocuments = Array.isArray(job.pod_photos)
-    ? job.pod_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
-    : [];
   const signature = job.delivery_signature_data;
   const hasSignature = typeof signature === 'string'
     ? signature.trim().length > 0
@@ -71,7 +68,7 @@ const hasCompletePod = (job: Record<string, unknown>) => {
     ? job.client_signature_name.trim()
     : '';
 
-  return deliveryPhotos.length + podDocuments.length > 0 && hasSignature && recipientName.length > 0;
+  return deliveryPhotos.length > 0 && hasSignature && recipientName.length > 0;
 };
 
 export async function POST(
@@ -95,7 +92,7 @@ export async function POST(
   const { id } = await params;
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, status_history, pod_required, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+    .select('id, company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, status_history, pod_required, pod_generated, collection_photo_url, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .eq('id', id)
     .maybeSingle();
   if (jobError) return respond(500, { error: jobError.message });
@@ -124,9 +121,15 @@ export async function POST(
   if (!job.assigned_driver_id) {
     return respond(409, { error: 'Assign an approved driver before starting job execution.' });
   }
+  if (
+    parsed.data.nextStatus === 'loaded'
+    && (typeof job.collection_photo_url !== 'string' || !job.collection_photo_url.trim())
+  ) {
+    return respond(409, { error: 'A loading photo is required before marking the job loaded.' });
+  }
   if (parsed.data.nextStatus === 'delivered' && job.pod_required !== false && !hasCompletePod(job as Record<string, unknown>)) {
     return respond(409, {
-      error: 'Complete POD is required before delivery: provide at least one photo or document, recipient signature and recipient name.',
+      error: 'Complete POD is required before delivery: provide at least one delivery photo, recipient signature and recipient name.',
     });
   }
 
