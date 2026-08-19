@@ -6,7 +6,8 @@
 --   bidder_driver_id before the canonical autofill/attribution path runs;
 -- - apply a DB-level guard to trusted server company/Fleet quotes as well as
 --   named-driver quotes;
--- - do not introduce bidder_company_id or reinterpret legacy bidder_id.
+-- - remain compatible with live XDrive legacy bidder_company_id/bidder_id
+--   columns without requiring those columns on clean PR #357 replay.
 --
 -- This is forward-only and intentionally replaces only the quote guard
 -- function/trigger. It does not alter tables, UI, lifecycle or award semantics.
@@ -32,12 +33,41 @@ DECLARE
   v_min_interval integer := 5;
   v_open_bid_count integer := 0;
   v_recent_bid_count integer := 0;
+  v_row jsonb;
+  v_legacy_company_id uuid;
+  v_legacy_driver_id uuid;
 BEGIN
+  v_row := to_jsonb(NEW);
+
   -- Trusted company/Fleet quote path. Server/service-role calls have no
   -- auth.uid() and intentionally do not carry a named execution driver.
   IF NEW.bidder_driver_id IS NULL AND v_actor IS NULL THEN
     IF NEW.company_id IS NULL OR NEW.bidder_user_id IS NULL THEN
       RAISE EXCEPTION 'Company quote attribution is incomplete.' USING ERRCODE = '23514';
+    END IF;
+
+    -- Live XDrive still has the historical bidder_company_id/bidder_id columns.
+    -- Clean PR #357 replay does not. Read/write them through the trigger row's
+    -- JSON representation so the same guard preserves live compatibility without
+    -- introducing a physical-column dependency into fresh history.
+    IF v_row ? 'bidder_company_id' THEN
+      v_legacy_company_id := NULLIF(v_row ->> 'bidder_company_id', '')::uuid;
+      IF v_legacy_company_id IS NOT NULL
+         AND v_legacy_company_id IS DISTINCT FROM NEW.company_id THEN
+        RAISE EXCEPTION 'Company quote attribution is inconsistent.' USING ERRCODE = '23514';
+      END IF;
+
+      NEW := jsonb_populate_record(
+        NEW,
+        jsonb_build_object('bidder_company_id', NEW.company_id)
+      );
+    END IF;
+
+    IF v_row ? 'bidder_id' THEN
+      NEW := jsonb_populate_record(
+        NEW,
+        jsonb_build_object('bidder_id', NULL)
+      );
     END IF;
 
     IF NOT public.can_quote_marketplace_job(NEW.job_id, NEW.company_id) THEN
@@ -141,8 +171,22 @@ BEGIN
     RAISE EXCEPTION 'Driver quote attribution is invalid.' USING ERRCODE = '23514';
   END IF;
 
+  -- Preserve legacy live attribution checks when those fields exist, while
+  -- keeping clean PR #357 replay free of direct references to absent columns.
+  v_row := to_jsonb(NEW);
+  v_legacy_company_id := CASE
+    WHEN v_row ? 'bidder_company_id' THEN NULLIF(v_row ->> 'bidder_company_id', '')::uuid
+    ELSE NULL
+  END;
+  v_legacy_driver_id := CASE
+    WHEN v_row ? 'bidder_id' THEN NULLIF(v_row ->> 'bidder_id', '')::uuid
+    ELSE NULL
+  END;
+
   IF (NEW.bidder_user_id IS NOT NULL AND NEW.bidder_user_id IS DISTINCT FROM v_driver.user_id)
-     OR (NEW.company_id IS NOT NULL AND NEW.company_id IS DISTINCT FROM v_driver.company_id) THEN
+     OR (NEW.company_id IS NOT NULL AND NEW.company_id IS DISTINCT FROM v_driver.company_id)
+     OR (v_legacy_company_id IS NOT NULL AND v_legacy_company_id IS DISTINCT FROM v_driver.company_id)
+     OR (v_legacy_driver_id IS NOT NULL AND v_legacy_driver_id IS DISTINCT FROM v_driver.id) THEN
     RAISE EXCEPTION 'Driver quote attribution does not match the canonical driver identity.' USING ERRCODE = '23514';
   END IF;
 
@@ -153,6 +197,20 @@ BEGIN
   NEW.bidder_user_id := v_driver.user_id;
   NEW.company_id := v_driver.company_id;
   NEW.bidder_driver_id := v_driver.id;
+
+  IF v_row ? 'bidder_company_id' THEN
+    NEW := jsonb_populate_record(
+      NEW,
+      jsonb_build_object('bidder_company_id', v_driver.company_id)
+    );
+  END IF;
+
+  IF v_row ? 'bidder_id' THEN
+    NEW := jsonb_populate_record(
+      NEW,
+      jsonb_build_object('bidder_id', v_driver.id)
+    );
+  END IF;
 
   SELECT readiness.eligible, readiness.vehicle_id, readiness.blockers
   INTO v_ready, v_vehicle_id, v_blockers
@@ -240,7 +298,7 @@ REVOKE ALL ON FUNCTION public.fn_guard_driver_quote_mutation() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.fn_guard_driver_quote_mutation() TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.fn_guard_driver_quote_mutation() IS
-  'PR357-compatible non-bypassable Marketplace quote guard: trusted server company bids and authenticated own-driver bids both enforce attribution, visibility, duplicate protection and global rate limits without changing bidder schema.';
+  'PR357-compatible non-bypassable Marketplace quote guard: trusted server company bids and authenticated own-driver bids enforce attribution, visibility, duplicate protection and global rate limits; legacy live bidder attribution fields are preserved adaptively when present.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
