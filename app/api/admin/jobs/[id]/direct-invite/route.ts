@@ -19,6 +19,8 @@ type JobRow = {
   id: string;
   company_id: string;
   created_by: string | null;
+  status: string | null;
+  current_status: string | null;
   exchange_visibility: string | null;
   awarded_carrier_company_id: string | null;
 };
@@ -53,7 +55,7 @@ export async function POST(
   const { id: jobId } = await params;
   const { data: rawJob, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, created_by, exchange_visibility, awarded_carrier_company_id')
+    .select('id, company_id, created_by, status, current_status, exchange_visibility, awarded_carrier_company_id')
     .eq('id', jobId)
     .maybeSingle();
   if (jobError) return respond(500, { error: jobError.message });
@@ -111,20 +113,36 @@ export async function POST(
     });
   }
 
+  const currentStatus = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
   const now = new Date().toISOString();
-  const { data: updated, error: updateError } = await supabaseAdmin
+  const update: Record<string, unknown> = {
+    exchange_visibility: 'direct',
+    direct_invite_company_id: parsed.data.carrierCompanyId,
+    exchange_posted_at: now,
+    awarded_carrier_company_id: null,
+    updated_at: now,
+  };
+  if (currentStatus === 'draft') {
+    update.status = 'posted';
+    update.current_status = 'posted';
+    update.status_updated_at = now;
+  }
+
+  let updateQuery = supabaseAdmin
     .from('jobs')
-    .update({
-      exchange_visibility: 'direct',
-      direct_invite_company_id: parsed.data.carrierCompanyId,
-      exchange_posted_at: now,
-      awarded_carrier_company_id: null,
-      updated_at: now,
-    })
+    .update(update)
     .eq('id', jobId)
     .eq('company_id', job.company_id)
     .is('awarded_carrier_company_id', null)
-    .or('exchange_visibility.is.null,exchange_visibility.eq.private')
+    .or('exchange_visibility.is.null,exchange_visibility.eq.private');
+  updateQuery = job.status === null
+    ? updateQuery.is('status', null)
+    : updateQuery.eq('status', job.status);
+  updateQuery = job.current_status === null
+    ? updateQuery.is('current_status', null)
+    : updateQuery.eq('current_status', job.current_status);
+
+  const { data: updated, error: updateError } = await updateQuery
     .select('id, status, current_status, exchange_visibility, direct_invite_company_id, updated_at')
     .maybeSingle();
 
