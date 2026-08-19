@@ -23,7 +23,7 @@ ALTER TABLE public.jobs
   ADD COLUMN IF NOT EXISTS current_status text,
   ADD COLUMN IF NOT EXISTS assigned_company_id uuid,
   ADD COLUMN IF NOT EXISTS accepted_bid_id uuid,
-  ADD COLUMN IF NOT EXISTS pod_photos jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS pod_photos jsonb,
   ADD COLUMN IF NOT EXISTS pod_generated boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS pod_generated_at timestamptz,
   ADD COLUMN IF NOT EXISTS on_my_way_at timestamptz,
@@ -84,7 +84,8 @@ WHERE j.assigned_company_id IS NULL
   );
 
 -- ---------------------------------------------------------------------------
--- 2. Align POD physical types with the already-approved JSONB RPC contract.
+-- 2. Align POD physical types with the already-approved JSONB RPC contract and
+--    the proven live nullable/no-default evidence columns.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -102,11 +103,9 @@ BEGIN
     ALTER TABLE public.jobs
       ALTER COLUMN delivery_photos DROP DEFAULT,
       ALTER COLUMN delivery_photos TYPE jsonb
-        USING COALESCE(to_jsonb(delivery_photos), '[]'::jsonb),
-      ALTER COLUMN delivery_photos SET DEFAULT '[]'::jsonb;
+        USING to_jsonb(delivery_photos);
   ELSIF v_delivery_photos_type IS NULL THEN
-    ALTER TABLE public.jobs
-      ADD COLUMN delivery_photos jsonb NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE public.jobs ADD COLUMN delivery_photos jsonb;
   ELSIF v_delivery_photos_type <> 'jsonb' THEN
     RAISE EXCEPTION 'Unsupported jobs.delivery_photos type: %', v_delivery_photos_type
       USING ERRCODE = '42804';
@@ -143,17 +142,15 @@ BEGIN
     ALTER TABLE public.jobs
       ALTER COLUMN pod_photos DROP DEFAULT,
       ALTER COLUMN pod_photos TYPE jsonb
-        USING COALESCE(to_jsonb(pod_photos), '[]'::jsonb),
-      ALTER COLUMN pod_photos SET DEFAULT '[]'::jsonb;
+        USING to_jsonb(pod_photos);
   ELSIF v_pod_photos_type = 'text' THEN
     ALTER TABLE public.jobs
       ALTER COLUMN pod_photos DROP DEFAULT,
       ALTER COLUMN pod_photos TYPE jsonb
         USING CASE
-          WHEN pod_photos IS NULL OR btrim(pod_photos) = '' THEN '[]'::jsonb
+          WHEN pod_photos IS NULL OR btrim(pod_photos) = '' THEN NULL
           ELSE jsonb_build_array(pod_photos)
-        END,
-      ALTER COLUMN pod_photos SET DEFAULT '[]'::jsonb;
+        END;
   ELSIF v_pod_photos_type IS NOT NULL AND v_pod_photos_type <> 'jsonb' THEN
     RAISE EXCEPTION 'Unsupported jobs.pod_photos type: %', v_pod_photos_type
       USING ERRCODE = '42804';
@@ -161,12 +158,29 @@ BEGIN
 END
 $$;
 
+ALTER TABLE public.jobs
+  ALTER COLUMN delivery_photos DROP DEFAULT,
+  ALTER COLUMN delivery_photos DROP NOT NULL,
+  ALTER COLUMN delivery_signature_data DROP DEFAULT,
+  ALTER COLUMN delivery_signature_data DROP NOT NULL,
+  ALTER COLUMN pod_photos DROP DEFAULT,
+  ALTER COLUMN pod_photos DROP NOT NULL;
+
 -- ---------------------------------------------------------------------------
--- 3. Tracking fields used by the canonical Driver RPC.
+-- 3. Tracking fields used by the canonical Driver RPC. Live event_time is
+--    mandatory and defaults to now(); user_id remains nullable.
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.job_tracking_events
-  ADD COLUMN IF NOT EXISTS event_time timestamptz,
+  ADD COLUMN IF NOT EXISTS event_time timestamptz NOT NULL DEFAULT now(),
   ADD COLUMN IF NOT EXISTS user_id uuid;
+
+UPDATE public.job_tracking_events
+SET event_time = now()
+WHERE event_time IS NULL;
+
+ALTER TABLE public.job_tracking_events
+  ALTER COLUMN event_time SET DEFAULT now(),
+  ALTER COLUMN event_time SET NOT NULL;
 
 DO $$
 BEGIN
@@ -187,18 +201,15 @@ $$;
 ALTER TABLE public.job_tracking_events VALIDATE CONSTRAINT job_tracking_events_user_id_fkey;
 
 -- ---------------------------------------------------------------------------
--- 4. Align the physical execution types to the proven live PR #357 contract.
---
--- Production stores jobs.status and job_tracking_events.event_type as text.
--- Fresh bootstrap migrations still create historical enums. Convert only those
--- enum-backed fresh/legacy columns; already-live text schemas are strict no-ops.
--- Existing defaults are preserved rather than imposing a new business default.
+-- 4. Align the physical execution types/defaults to the proven live PR #357
+--    contract. Production stores both execution vocabularies as text; fresh
+--    bootstrap still creates historical enums. Already-live text schemas are
+--    no-ops apart from restating the proven defaults/nullability.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
   v_status_data_type text;
   v_status_udt_name text;
-  v_status_default text;
 BEGIN
   SELECT c.data_type, c.udt_name
     INTO v_status_data_type, v_status_udt_name
@@ -208,25 +219,9 @@ BEGIN
     AND c.column_name = 'status';
 
   IF v_status_data_type = 'USER-DEFINED' AND v_status_udt_name = 'job_status' THEN
-    SELECT pg_get_expr(d.adbin, d.adrelid)
-      INTO v_status_default
-    FROM pg_attrdef d
-    JOIN pg_attribute a
-      ON a.attrelid = d.adrelid
-     AND a.attnum = d.adnum
-    WHERE d.adrelid = 'public.jobs'::regclass
-      AND a.attname = 'status';
-
     ALTER TABLE public.jobs ALTER COLUMN status DROP DEFAULT;
     ALTER TABLE public.jobs
       ALTER COLUMN status TYPE text USING status::text;
-
-    IF v_status_default IS NOT NULL THEN
-      EXECUTE format(
-        'ALTER TABLE public.jobs ALTER COLUMN status SET DEFAULT (%s)::text',
-        v_status_default
-      );
-    END IF;
   ELSIF v_status_data_type IS NOT NULL AND v_status_data_type <> 'text' THEN
     RAISE EXCEPTION 'Unsupported jobs.status type: %/%', v_status_data_type, v_status_udt_name
       USING ERRCODE = '42804';
@@ -234,11 +229,14 @@ BEGIN
 END
 $$;
 
+ALTER TABLE public.jobs
+  ALTER COLUMN status SET DEFAULT 'open'::text,
+  ALTER COLUMN status DROP NOT NULL;
+
 DO $$
 DECLARE
   v_event_data_type text;
   v_event_udt_name text;
-  v_event_default text;
 BEGIN
   SELECT c.data_type, c.udt_name
     INTO v_event_data_type, v_event_udt_name
@@ -248,31 +246,32 @@ BEGIN
     AND c.column_name = 'event_type';
 
   IF v_event_data_type = 'USER-DEFINED' AND v_event_udt_name = 'tracking_event_type' THEN
-    SELECT pg_get_expr(d.adbin, d.adrelid)
-      INTO v_event_default
-    FROM pg_attrdef d
-    JOIN pg_attribute a
-      ON a.attrelid = d.adrelid
-     AND a.attnum = d.adnum
-    WHERE d.adrelid = 'public.job_tracking_events'::regclass
-      AND a.attname = 'event_type';
-
     ALTER TABLE public.job_tracking_events ALTER COLUMN event_type DROP DEFAULT;
     ALTER TABLE public.job_tracking_events
       ALTER COLUMN event_type TYPE text USING event_type::text;
-
-    IF v_event_default IS NOT NULL THEN
-      EXECUTE format(
-        'ALTER TABLE public.job_tracking_events ALTER COLUMN event_type SET DEFAULT (%s)::text',
-        v_event_default
-      );
-    END IF;
   ELSIF v_event_data_type IS NOT NULL AND v_event_data_type <> 'text' THEN
     RAISE EXCEPTION 'Unsupported job_tracking_events.event_type type: %/%', v_event_data_type, v_event_udt_name
       USING ERRCODE = '42804';
   END IF;
 END
 $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.job_tracking_events
+    WHERE event_type IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Cannot align job_tracking_events.event_type: NULL legacy values exist.'
+      USING ERRCODE = '23502';
+  END IF;
+END
+$$;
+
+ALTER TABLE public.job_tracking_events
+  ALTER COLUMN event_type DROP DEFAULT,
+  ALTER COLUMN event_type SET NOT NULL;
 
 -- ---------------------------------------------------------------------------
 -- 5. Keep historical enums complete for old helper/function casts that may still
