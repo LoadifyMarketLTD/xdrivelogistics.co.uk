@@ -55,6 +55,13 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(reconciliation).toContain("NEW.delivery_signature_data #>> '{}'");
   });
 
+  it('aligns fresh enum-backed execution columns to the proven live text contract', () => {
+    expect(reconciliation).toContain("v_status_udt_name = 'job_status'");
+    expect(reconciliation).toContain('ALTER COLUMN status TYPE text USING status::text');
+    expect(reconciliation).toContain("v_event_udt_name = 'tracking_event_type'");
+    expect(reconciliation).toContain('ALTER COLUMN event_type TYPE text USING event_type::text');
+  });
+
   it('does not change invoice creation or the legacy invoice sync trigger in this lifecycle slice', () => {
     expect(reconciliation).not.toContain('CREATE TRIGGER trg_sync_job_status_from_invoice');
     expect(reconciliation).not.toContain('DROP TRIGGER IF EXISTS trg_sync_job_status_from_invoice');
