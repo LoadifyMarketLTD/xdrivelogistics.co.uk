@@ -97,6 +97,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
+// Colour aliases — single source of truth is XDriveTheme.kt
 private val Navy = XDriveTheme.Background
 private val Navy2 = XDriveTheme.Canvas
 private val Panel = XDriveTheme.Surface
@@ -477,7 +478,7 @@ private fun DriverAppShell(
     onMarkAlertRead: (String) -> Unit,
     onDeleteAlert: (String) -> Unit,
     onSaveReturnJourney: (String, String, String) -> Unit,
-    onConfirmDeliveryRecipient: (String, String) -> Unit,
+    onConfirmDeliveryRecipient: (String) -> Unit,
     onStartTracking: () -> Unit,
     onStopTracking: () -> Unit,
     onPublishLocation: () -> Unit,
@@ -492,6 +493,8 @@ private fun DriverAppShell(
             .fillMaxSize()
             .background(Navy)
             .statusBarsPadding()
+            // navigationBarsPadding is handled by BottomNav so its background
+            // extends behind the system gesture bar; do not apply it here.
     ) {
         AppHeader(
             title = state.headerTitle(),
@@ -507,15 +510,15 @@ private fun DriverAppShell(
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
                 DriverTab.SMARTPAY -> SmartPayScreen(state)
                 DriverTab.ACTION -> ActionScreen(
-                    state,
-                    onSendNote,
-                    onSubmitQuote,
-                    onPickPodFile,
-                    onCapturePodPhoto,
-                    onConfirmDeliveryRecipient,
-                    onMoveStatus,
-                    onNavigateTo,
-                )
+            state,
+            onSendNote,
+            onSubmitQuote,
+            onPickPodFile,
+            onCapturePodPhoto,
+            onConfirmDeliveryRecipient,
+            onMoveStatus,
+            onNavigateTo,
+        )
                 DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking)
             }
@@ -1085,7 +1088,7 @@ private fun ActionScreen(
     onSubmitQuote: (String, String) -> Unit,
     onPickPodFile: () -> Unit,
     onCapturePodPhoto: () -> Unit,
-    onConfirmDeliveryRecipient: (String, String) -> Unit,
+    onConfirmDeliveryRecipient: (String) -> Unit,
     onMoveStatus: (String) -> Unit,
     onNavigateTo: (String) -> Unit,
 ) {
@@ -1135,13 +1138,13 @@ private fun ActionScreen(
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
                 "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote, state.isSubmittingQuote) }
                 "POD" -> item {
-                    PodPanel(
-                        selected,
-                        onCapturePodPhoto,
-                        onPickPodFile,
-                        onConfirmDeliveryRecipient,
-                    )
-                }
+            PodPanel(
+                selected,
+                onCapturePodPhoto,
+                onPickPodFile,
+                onConfirmDeliveryRecipient,
+            )
+        }
             }
         }
         item {
@@ -1549,18 +1552,11 @@ private fun PodPanel(
     job: DriverJob,
     onCapturePodPhoto: () -> Unit,
     onPickPodFile: () -> Unit,
-    onConfirmDeliveryRecipient: (String, String) -> Unit,
+    onConfirmDeliveryRecipient: (String) -> Unit,
 ) {
     val collectionStage = job.needsCollectionProof()
     var recipientName by remember(job.id, job.clientSignatureName) {
         mutableStateOf(job.clientSignatureName)
-    }
-    var signatureData by remember(job.id, job.deliverySignatureData) {
-        mutableStateOf(
-            job.deliverySignatureData
-                ?.takeIf { it.startsWith("data:image/png;base64,") || it.startsWith("data:image/jpeg;base64,") }
-                .orEmpty()
-        )
     }
     XDriveCard {
         Text(
@@ -1617,7 +1613,7 @@ private fun PodPanel(
             Spacer(Modifier.height(14.dp))
             Text("Recipient confirmation", color = TextPrimary, fontWeight = FontWeight.Bold)
             Text(
-                "Upload POD evidence, enter the recipient name and capture the recipient signature before confirming delivery.",
+                "Enter the recipient name after the signed POD or delivery evidence has been uploaded.",
                 color = TextSecondary,
                 fontSize = 13.sp,
             )
@@ -1629,19 +1625,14 @@ private fun PodPanel(
                 leading = "Sign",
             )
             Spacer(Modifier.height(10.dp))
-            RecipientSignaturePad(
-                signatureData = signatureData,
-                onSignatureChange = { signatureData = it },
-            )
-            Spacer(Modifier.height(10.dp))
             Button(
-                onClick = { onConfirmDeliveryRecipient(recipientName, signatureData) },
-                enabled = recipientName.isNotBlank() && job.hasPod() && signatureData.isNotBlank(),
+                onClick = { onConfirmDeliveryRecipient(recipientName) },
+                enabled = recipientName.isNotBlank() && job.hasPod(),
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Navy),
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Confirm POD", fontWeight = FontWeight.Bold)
+                Text("Confirm Signed POD", fontWeight = FontWeight.Bold)
             }
             if (job.hasDeliveryConfirmation()) {
                 Text(
@@ -2115,6 +2106,9 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
         modifier = Modifier
             .fillMaxWidth()
             .background(Navy2)
+            // navigationBarsPadding here (not on the outer Column) so Navy2 background
+            // extends visually behind the system gesture indicator on Android 10+ devices
+            // while label content remains above it.
             .navigationBarsPadding()
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
