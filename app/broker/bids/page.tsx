@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-import { type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
-import { useBrokerCommercialWorkspaceData } from '../useBrokerCommercialWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import {
   ActionButton,
@@ -44,7 +43,7 @@ function matchesTab(bid: WorkspaceBid, tab: QuoteTab) {
 export default function BrokerQuotesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const data = useBrokerCommercialWorkspaceData();
+  const data = useCompanyWorkspaceData();
   const deepJob = searchParams.get('job');
   const [tab, setTab] = useState<QuoteTab>('received');
   const [customer, setCustomer] = useState('');
@@ -57,9 +56,6 @@ export default function BrokerQuotesPage() {
   const [message, setMessage] = useState('');
   const [identities, setIdentities] = useState<Record<string, BidderIdentity>>({});
   const [identityWarning, setIdentityWarning] = useState('');
-  const commercialAvailable = data.commercialTermsAvailability === 'available';
-  const commercialLoading = data.commercialTermsAvailability === 'loading';
-  const privateValueLabel = commercialLoading ? 'Loading…' : 'Unavailable';
 
   useEffect(() => {
     if (deepJob) setReference(deepJob);
@@ -151,7 +147,7 @@ export default function BrokerQuotesPage() {
       <PageHeader
         eyebrow="Carrier sourcing"
         title="Quotes"
-        description={deepJob ? `Compare and award quotes for load ${deepJob.slice(0, 8).toUpperCase()} from the canonical Broker Quotes board.` : 'Compare carrier and owner-driver responses against private customer commercial terms, inspect the member profile and award without leaving the broker board.'}
+        description={deepJob ? `Compare and award quotes for load ${deepJob.slice(0, 8).toUpperCase()} from the canonical Broker Quotes board.` : 'Compare carrier and owner-driver responses, inspect the member profile and award without leaving the broker board.'}
         actions={deepJob ? <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Show all quotes</ActionButton> : undefined}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
@@ -184,8 +180,8 @@ export default function BrokerQuotesPage() {
                 if (!job) return null;
                 const open = expanded === bid.id;
                 const quote = priceOf(bid);
-                const customerRevenue = commercialAvailable ? Number(job.budget_amount ?? 0) : null;
-                const margin = customerRevenue !== null && customerRevenue > 0 && quote > 0 ? customerRevenue - quote : null;
+                const budget = Number(job.budget_amount ?? 0);
+                const margin = budget > 0 && quote > 0 ? budget - quote : null;
                 const carrierName = identity?.displayName || bid.companies?.name || (bid.bidder_driver_id ? 'Owner Driver' : 'Carrier');
                 const carrierCompanyId = identity?.companyId ?? bid.company_id;
                 const carrierDriverId = identity?.driverId ?? bid.bidder_driver_id ?? null;
@@ -199,14 +195,14 @@ export default function BrokerQuotesPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / MEMBER</div><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierType} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={bid.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : bid.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
                     </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quote #{bid.id.slice(0, 8).toUpperCase()}</span><span>Customer revenue: {customerRevenue === null ? privateValueLabel : customerRevenue > 0 ? money(customerRevenue) : 'Not set'}</span><span>{margin !== null ? `Est. spread: ${money(margin)}` : customerRevenue === null ? `Spread: ${privateValueLabel}` : 'Spread unavailable'}</span></div>
+                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quote #{bid.id.slice(0, 8).toUpperCase()}</span><span>Customer budget: {budget > 0 ? money(budget) : 'Not set'}</span><span>{margin !== null ? `Est. spread: ${money(margin)}` : 'Spread unavailable'}</span></div>
                     {open && (
                       <div className="workspace-record-details">
                         <div className="workspace-detail-grid">
                           <div className="workspace-detail-item"><strong>Carrier / Owner Driver</strong><div><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></div><small>{carrierType}{identity?.personName && identity.personName !== carrierName ? ` · ${identity.personName}` : ''}</small></div>
                           <div className="workspace-detail-item"><strong>Quote</strong><div>{quote > 0 ? money(quote) : 'Not set'}</div></div>
-                          <div className="workspace-detail-item"><strong>Private customer revenue</strong><div>{customerRevenue === null ? privateValueLabel : customerRevenue > 0 ? money(customerRevenue) : 'Not set'}</div></div>
-                          <div className="workspace-detail-item"><strong>Estimated spread</strong><div>{margin !== null ? money(margin) : customerRevenue === null ? privateValueLabel : '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Customer budget</strong><div>{budget > 0 ? money(budget) : 'Not set'}</div></div>
+                          <div className="workspace-detail-item"><strong>Estimated spread</strong><div>{margin !== null ? money(margin) : '—'}</div></div>
                           <div className="workspace-detail-item"><strong>Submitted</strong><div>{when(bid.created_at)}</div></div>
                           <div className="workspace-detail-item"><strong>Vehicle</strong><div>{(job.vehicle_type || 'Not specified').replaceAll('_', ' ')}</div></div>
                           <div className="workspace-detail-item"><strong>Customer</strong><div>{job.client_name || 'Customer'}</div></div>

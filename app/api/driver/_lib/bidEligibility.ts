@@ -3,7 +3,6 @@ import {
   resolveDriverOperationalEligibility,
   type DriverOperationalEligibility,
 } from './operationalEligibility';
-import { publicProposedPrice } from './marketplacePublic';
 
 const activeBidStatuses = ['submitted', 'accepted'];
 
@@ -30,7 +29,6 @@ type BidEligibilityJob = {
   awarded_carrier_company_id: string | null;
   is_fixed_price: boolean | null;
   budget_amount: number | string | null;
-  load_details: string | null;
 };
 
 export type DriverBidEligibility = {
@@ -62,6 +60,11 @@ export type DriverBidEligibility = {
   denialReasons: string[];
 };
 
+const toAmount = (value: number | string | null | undefined) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
 export async function resolveDriverBidEligibility(
   supabaseAdmin: AdminClient,
   driver: DriverBidContext,
@@ -71,7 +74,7 @@ export async function resolveDriverBidEligibility(
     resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId),
     supabaseAdmin
       .from('jobs')
-      .select('id,company_id,status,exchange_visibility,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount,load_details')
+      .select('id,company_id,status,exchange_visibility,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
       .eq('id', jobId)
       .maybeSingle(),
   ]);
@@ -122,7 +125,7 @@ export async function resolveDriverBidEligibility(
   if (awarded) denialReasons.push('job_already_awarded');
   if (hasActiveBid) denialReasons.push('active_bid_exists');
 
-  const proposedPriceGbp = job ? publicProposedPrice(job) : null;
+  const proposedPriceGbp = toAmount(job?.budget_amount);
 
   return {
     job,
