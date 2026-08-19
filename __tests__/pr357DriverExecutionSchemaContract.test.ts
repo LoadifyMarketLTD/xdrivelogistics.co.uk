@@ -7,6 +7,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 const rpc = read('supabase/migrations/20260816102000_restore_canonical_driver_execution_lifecycle.sql');
 const reconciliation = read('supabase/migrations/20260819145500_reconcile_pr357_driver_execution_schema.sql');
 const legacyStatusSync = read('supabase/migrations/20260819153000_sync_legacy_job_status_into_current_status.sql');
+const finalReplayReconciliation = read('supabase/migrations/20260819154000_remove_legacy_accepted_bid_assignment_trigger.sql');
 
 const sequence = [
   'on_my_way',
@@ -85,6 +86,38 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(legacyStatusSync).toContain('CREATE TRIGGER trg_jobs_legacy_status_current_status_sync');
   });
 
+  it('reconciles only live-proven Driver identity fields that clean history omitted', () => {
+    expect(finalReplayReconciliation).toContain("column_name = 'is_active'");
+    expect(finalReplayReconciliation).toContain("ADD COLUMN is_active boolean NOT NULL DEFAULT true");
+    expect(finalReplayReconciliation).toContain("column_name = 'name'");
+    expect(finalReplayReconciliation).toContain('ADD COLUMN name text');
+    expect(finalReplayReconciliation).toContain("column_name = 'full_name'");
+    expect(finalReplayReconciliation).toContain('ADD COLUMN full_name text');
+    expect(finalReplayReconciliation).toContain('IF NOT v_had_name THEN');
+    expect(finalReplayReconciliation).toContain('IF NOT v_had_full_name THEN');
+  });
+
+  it('repairs stale replayed functions without changing their authority boundaries', () => {
+    expect(finalReplayReconciliation).toContain('CREATE OR REPLACE FUNCTION public.safe_dedup_drivers');
+    expect(finalReplayReconciliation).not.toContain('first_name');
+    expect(finalReplayReconciliation).not.toContain('last_name');
+    expect(finalReplayReconciliation).toContain('v_dup.driver_name');
+
+    expect(finalReplayReconciliation).toContain("to_regprocedure('public.submit_onboarding_application_base_v1(uuid)')");
+    expect(finalReplayReconciliation).toContain("replace(v_def, 'v_role text;', 'v_role public.company_role;')");
+    expect(finalReplayReconciliation).toContain('REVOKE ALL ON FUNCTION public.submit_onboarding_application_base_v1(uuid) FROM authenticated');
+
+    expect(finalReplayReconciliation).toContain('CREATE OR REPLACE FUNCTION public.set_company_status_governance');
+    expect(finalReplayReconciliation).toContain('SELECT format_type(a.atttypid, a.atttypmod)');
+    expect(finalReplayReconciliation).not.toContain("SET status = $1::company_status");
+    expect(finalReplayReconciliation).toContain("'UPDATE public.companies SET status = $1::%s WHERE id = $2'");
+  });
+
+  it('keeps the remote-only accepted-bid assignment bypass disabled', () => {
+    expect(finalReplayReconciliation).toContain('DROP TRIGGER IF EXISTS trg_sync_job_assignment_from_accepted_bid ON public.jobs');
+    expect(finalReplayReconciliation).not.toContain('CREATE TRIGGER trg_sync_job_assignment_from_accepted_bid');
+  });
+
   it('does not change invoice creation or the legacy invoice sync trigger in this lifecycle slice', () => {
     expect(reconciliation).not.toContain('CREATE TRIGGER trg_sync_job_status_from_invoice');
     expect(reconciliation).not.toContain('DROP TRIGGER IF EXISTS trg_sync_job_status_from_invoice');
@@ -98,5 +131,11 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(reconciliation).not.toContain('accept_job_bid_atomic');
     expect(reconciliation).not.toContain('bidder_company_id');
     expect(reconciliation).not.toContain('roleCapabilities');
+
+    expect(finalReplayReconciliation).not.toContain('CREATE POLICY');
+    expect(finalReplayReconciliation).not.toContain('DROP POLICY');
+    expect(finalReplayReconciliation).not.toContain('INSERT INTO public.invoices');
+    expect(finalReplayReconciliation).not.toContain('UPDATE public.invoices');
+    expect(finalReplayReconciliation).not.toContain('roleCapabilities');
   });
 });
