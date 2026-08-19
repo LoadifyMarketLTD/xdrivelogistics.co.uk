@@ -97,7 +97,7 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(finalReplayReconciliation).toContain('IF NOT v_had_full_name THEN');
   });
 
-  it('repairs stale replayed functions without changing their authority boundaries', () => {
+  it('repairs stale replayed functions without changing live-only physical contracts', () => {
     expect(finalReplayReconciliation).toContain('CREATE OR REPLACE FUNCTION public.safe_dedup_drivers');
     expect(finalReplayReconciliation).not.toContain('d.first_name');
     expect(finalReplayReconciliation).not.toContain('d.last_name');
@@ -106,7 +106,10 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(finalReplayReconciliation).toContain('v_dup.driver_name');
 
     expect(finalReplayReconciliation).toContain("to_regprocedure('public.submit_onboarding_application_base_v1(uuid)')");
+    expect(finalReplayReconciliation).toContain("v_role_data_type = 'USER-DEFINED' AND v_role_udt_name = 'company_role'");
+    expect(finalReplayReconciliation).toContain("ELSIF v_role_data_type = 'text' THEN");
     expect(finalReplayReconciliation).toContain("replace(v_def, 'v_role text;', 'v_role public.company_role;')");
+    expect(finalReplayReconciliation).toContain('Live XDrive is already type-correct: leave its function definition alone.');
     expect(finalReplayReconciliation).toContain('REVOKE ALL ON FUNCTION public.submit_onboarding_application_base_v1(uuid) FROM authenticated');
 
     expect(finalReplayReconciliation).toContain('CREATE OR REPLACE FUNCTION public.set_company_status_governance');
