@@ -1,1 +1,0 @@
-alter table public.companies drop column if exists enabled_workspaces cascade;

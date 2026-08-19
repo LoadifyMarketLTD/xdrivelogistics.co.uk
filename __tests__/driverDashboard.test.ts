@@ -5,7 +5,7 @@ describe('driver dashboard helpers', () => {
   const jobs = [
     { id: 'job-a', assigned_driver_id: 'driver-1', status: 'allocated', current_status: 'allocated', created_at: '2026-08-01T08:00:00Z' },
     { id: 'job-b', assigned_driver_id: 'driver-2', status: 'delivered', current_status: 'completed', delivery_datetime: '2026-08-01T11:00:00Z', created_at: '2026-08-01T06:00:00Z' },
-    { id: 'job-c', assigned_driver_id: 'driver-1', status: 'delivered', current_status: 'completed', delivery_datetime: '2026-08-02T11:00:00Z', created_at: '2026-08-01T06:00:00Z' },
+    { id: 'job-c', assigned_driver_id: 'driver-1', status: 'delivered', current_status: 'delivered', delivery_datetime: '2026-08-02T11:00:00Z', created_at: '2026-08-01T06:00:00Z' },
   ];
 
   it('keeps canonical status from current_status when present', () => {
