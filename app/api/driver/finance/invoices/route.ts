@@ -196,13 +196,18 @@ export async function POST(request: NextRequest) {
     return respond(400, { error: 'amount must be a positive number.' });
   }
 
-  const fallbackNumber = `INV-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
-  const { data: numberData } = await supabaseAdmin.rpc('next_invoice_number', {
+  const { data: numberData, error: numberError } = await supabaseAdmin.rpc('next_invoice_number', {
     p_company_id: driver.companyId,
   });
+  if (numberError) {
+    return respond(500, { error: `Canonical invoice number generation failed: ${numberError.message}` });
+  }
   const invoiceNumber = typeof numberData === 'string' && numberData.trim()
-    ? numberData
-    : fallbackNumber;
+    ? numberData.trim()
+    : null;
+  if (!invoiceNumber) {
+    return respond(500, { error: 'Canonical invoice number generation returned no value.' });
+  }
 
   const today = new Date().toISOString().split('T')[0];
   const resolvedInvoiceDate = typeof invoice_date === 'string' && invoice_date

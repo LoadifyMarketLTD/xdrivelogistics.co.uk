@@ -1,0 +1,470 @@
+-- PR #357-compatible Driver execution schema + guardrail reconciliation.
+--
+-- The approved PR #357 runtime already owns the canonical execution sequence:
+--   awarded/allocated -> on_my_way -> on_site_pickup -> loaded -> in_transit
+--   -> on_site_delivery -> delivered -> completed
+--
+-- Historical bootstrap migrations predate that contract. On a clean replay they
+-- can leave missing runtime columns, text[]/text POD evidence, enum vocabularies
+-- without the native execution states, and two stale transition triggers that
+-- reject the current RPC sequence.
+--
+-- This migration repairs ONLY those physical/runtime prerequisites. It does not
+-- change workspace UI, award semantics, invoice creation, RLS or permissions.
+
+BEGIN;
+SET LOCAL lock_timeout = '10s';
+SET LOCAL statement_timeout = '120s';
+
+-- ---------------------------------------------------------------------------
+-- 1. Materialise fields already consumed by the PR #357 server/runtime contract.
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS current_status text,
+  ADD COLUMN IF NOT EXISTS assigned_company_id uuid,
+  ADD COLUMN IF NOT EXISTS accepted_bid_id uuid,
+  ADD COLUMN IF NOT EXISTS pod_photos jsonb,
+  ADD COLUMN IF NOT EXISTS pod_generated boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS pod_generated_at timestamptz,
+  ADD COLUMN IF NOT EXISTS on_my_way_at timestamptz,
+  ADD COLUMN IF NOT EXISTS on_site_pickup_at timestamptz,
+  ADD COLUMN IF NOT EXISTS loaded_at timestamptz,
+  ADD COLUMN IF NOT EXISTS on_site_delivery_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
+  ADD COLUMN IF NOT EXISTS completed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS status_updated_at timestamptz;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.jobs'::regclass
+      AND conname = 'jobs_assigned_company_id_fkey'
+  ) THEN
+    ALTER TABLE public.jobs
+      ADD CONSTRAINT jobs_assigned_company_id_fkey
+      FOREIGN KEY (assigned_company_id)
+      REFERENCES public.companies(id)
+      ON DELETE SET NULL
+      NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.jobs'::regclass
+      AND conname = 'jobs_accepted_bid_id_fkey'
+  ) THEN
+    ALTER TABLE public.jobs
+      ADD CONSTRAINT jobs_accepted_bid_id_fkey
+      FOREIGN KEY (accepted_bid_id)
+      REFERENCES public.job_bids(id)
+      ON DELETE SET NULL
+      NOT VALID;
+  END IF;
+END
+$$;
+
+ALTER TABLE public.jobs VALIDATE CONSTRAINT jobs_assigned_company_id_fkey;
+ALTER TABLE public.jobs VALIDATE CONSTRAINT jobs_accepted_bid_id_fkey;
+
+UPDATE public.jobs
+SET current_status = status::text
+WHERE current_status IS NULL OR btrim(current_status) = '';
+
+-- Recover execution-company identity only when the linked driver proves it.
+UPDATE public.jobs j
+SET assigned_company_id = d.company_id
+FROM public.drivers d
+WHERE j.assigned_company_id IS NULL
+  AND j.assigned_driver_id = d.id
+  AND d.company_id IS NOT NULL
+  AND (
+    j.awarded_carrier_company_id IS NULL
+    OR j.awarded_carrier_company_id = d.company_id
+  );
+
+-- ---------------------------------------------------------------------------
+-- 2. Align POD physical types with the already-approved JSONB RPC contract and
+--    the proven live nullable/no-default evidence columns.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_delivery_photos_type text;
+  v_signature_type text;
+  v_pod_photos_type text;
+BEGIN
+  SELECT c.data_type INTO v_delivery_photos_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'delivery_photos';
+
+  IF v_delivery_photos_type = 'ARRAY' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN delivery_photos DROP DEFAULT,
+      ALTER COLUMN delivery_photos TYPE jsonb
+        USING to_jsonb(delivery_photos);
+  ELSIF v_delivery_photos_type IS NULL THEN
+    ALTER TABLE public.jobs ADD COLUMN delivery_photos jsonb;
+  ELSIF v_delivery_photos_type <> 'jsonb' THEN
+    RAISE EXCEPTION 'Unsupported jobs.delivery_photos type: %', v_delivery_photos_type
+      USING ERRCODE = '42804';
+  END IF;
+
+  SELECT c.data_type INTO v_signature_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'delivery_signature_data';
+
+  IF v_signature_type = 'text' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN delivery_signature_data DROP DEFAULT,
+      ALTER COLUMN delivery_signature_data TYPE jsonb
+        USING CASE
+          WHEN delivery_signature_data IS NULL THEN NULL
+          ELSE to_jsonb(delivery_signature_data)
+        END;
+  ELSIF v_signature_type IS NULL THEN
+    ALTER TABLE public.jobs ADD COLUMN delivery_signature_data jsonb;
+  ELSIF v_signature_type <> 'jsonb' THEN
+    RAISE EXCEPTION 'Unsupported jobs.delivery_signature_data type: %', v_signature_type
+      USING ERRCODE = '42804';
+  END IF;
+
+  SELECT c.data_type INTO v_pod_photos_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'pod_photos';
+
+  IF v_pod_photos_type = 'ARRAY' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN pod_photos DROP DEFAULT,
+      ALTER COLUMN pod_photos TYPE jsonb
+        USING to_jsonb(pod_photos);
+  ELSIF v_pod_photos_type = 'text' THEN
+    ALTER TABLE public.jobs
+      ALTER COLUMN pod_photos DROP DEFAULT,
+      ALTER COLUMN pod_photos TYPE jsonb
+        USING CASE
+          WHEN pod_photos IS NULL OR btrim(pod_photos) = '' THEN NULL
+          ELSE jsonb_build_array(pod_photos)
+        END;
+  ELSIF v_pod_photos_type IS NOT NULL AND v_pod_photos_type <> 'jsonb' THEN
+    RAISE EXCEPTION 'Unsupported jobs.pod_photos type: %', v_pod_photos_type
+      USING ERRCODE = '42804';
+  END IF;
+END
+$$;
+
+ALTER TABLE public.jobs
+  ALTER COLUMN delivery_photos DROP DEFAULT,
+  ALTER COLUMN delivery_photos DROP NOT NULL,
+  ALTER COLUMN delivery_signature_data DROP DEFAULT,
+  ALTER COLUMN delivery_signature_data DROP NOT NULL,
+  ALTER COLUMN pod_photos DROP DEFAULT,
+  ALTER COLUMN pod_photos DROP NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- 3. Tracking fields used by the canonical Driver RPC. Live event_time is
+--    mandatory and defaults to now(); user_id remains nullable.
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.job_tracking_events
+  ADD COLUMN IF NOT EXISTS event_time timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS user_id uuid;
+
+UPDATE public.job_tracking_events
+SET event_time = now()
+WHERE event_time IS NULL;
+
+ALTER TABLE public.job_tracking_events
+  ALTER COLUMN event_time SET DEFAULT now(),
+  ALTER COLUMN event_time SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.job_tracking_events'::regclass
+      AND conname = 'job_tracking_events_user_id_fkey'
+  ) THEN
+    ALTER TABLE public.job_tracking_events
+      ADD CONSTRAINT job_tracking_events_user_id_fkey
+      FOREIGN KEY (user_id)
+      REFERENCES auth.users(id)
+      ON DELETE SET NULL
+      NOT VALID;
+  END IF;
+END
+$$;
+ALTER TABLE public.job_tracking_events VALIDATE CONSTRAINT job_tracking_events_user_id_fkey;
+
+-- ---------------------------------------------------------------------------
+-- 4. Align the physical execution types/defaults to the proven live PR #357
+--    contract. Production stores both execution vocabularies as text; fresh
+--    bootstrap still creates historical enums. Already-live text schemas are
+--    no-ops apart from restating the proven defaults/nullability.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_status_data_type text;
+  v_status_udt_name text;
+BEGIN
+  SELECT c.data_type, c.udt_name
+    INTO v_status_data_type, v_status_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'status';
+
+  IF v_status_data_type = 'USER-DEFINED' AND v_status_udt_name = 'job_status' THEN
+    ALTER TABLE public.jobs ALTER COLUMN status DROP DEFAULT;
+    ALTER TABLE public.jobs
+      ALTER COLUMN status TYPE text USING status::text;
+  ELSIF v_status_data_type IS NOT NULL AND v_status_data_type <> 'text' THEN
+    RAISE EXCEPTION 'Unsupported jobs.status type: %/%', v_status_data_type, v_status_udt_name
+      USING ERRCODE = '42804';
+  END IF;
+END
+$$;
+
+ALTER TABLE public.jobs
+  ALTER COLUMN status SET DEFAULT 'open'::text,
+  ALTER COLUMN status DROP NOT NULL;
+
+DO $$
+DECLARE
+  v_event_data_type text;
+  v_event_udt_name text;
+BEGIN
+  SELECT c.data_type, c.udt_name
+    INTO v_event_data_type, v_event_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'job_tracking_events'
+    AND c.column_name = 'event_type';
+
+  IF v_event_data_type = 'USER-DEFINED' AND v_event_udt_name = 'tracking_event_type' THEN
+    ALTER TABLE public.job_tracking_events ALTER COLUMN event_type DROP DEFAULT;
+    ALTER TABLE public.job_tracking_events
+      ALTER COLUMN event_type TYPE text USING event_type::text;
+  ELSIF v_event_data_type IS NOT NULL AND v_event_data_type <> 'text' THEN
+    RAISE EXCEPTION 'Unsupported job_tracking_events.event_type type: %/%', v_event_data_type, v_event_udt_name
+      USING ERRCODE = '42804';
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.job_tracking_events
+    WHERE event_type IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Cannot align job_tracking_events.event_type: NULL legacy values exist.'
+      USING ERRCODE = '23502';
+  END IF;
+END
+$$;
+
+ALTER TABLE public.job_tracking_events
+  ALTER COLUMN event_type DROP DEFAULT,
+  ALTER COLUMN event_type SET NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- 5. Keep historical enums complete for old helper/function casts that may still
+--    exist in replayed schema history. The runtime columns themselves are text.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_label text;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'job_status'
+  ) THEN
+    FOREACH v_label IN ARRAY ARRAY[
+      'on_my_way',
+      'on_site_pickup',
+      'loaded',
+      'on_site_delivery',
+      'completed'
+    ] LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_enum e
+        WHERE e.enumtypid = 'public.job_status'::regtype
+          AND e.enumlabel = v_label
+      ) THEN
+        EXECUTE format('ALTER TYPE public.job_status ADD VALUE %L', v_label);
+      END IF;
+    END LOOP;
+  END IF;
+END
+$$;
+
+DO $$
+DECLARE
+  v_label text;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'tracking_event_type'
+  ) THEN
+    FOREACH v_label IN ARRAY ARRAY[
+      'awarded',
+      'on_my_way_to_pickup',
+      'on_site_pickup',
+      'loaded',
+      'on_my_way_to_delivery',
+      'on_site_delivery'
+    ] LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_enum e
+        WHERE e.enumtypid = 'public.tracking_event_type'::regtype
+          AND e.enumlabel = v_label
+      ) THEN
+        EXECUTE format('ALTER TYPE public.tracking_event_type ADD VALUE %L', v_label);
+      END IF;
+    END LOOP;
+  END IF;
+END
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 6. Remove the second historical lifecycle trigger and install the live-proven
+--    PR #357 DB safety net. Finance remains separate from execution: delivered
+--    progresses to completed; completed is terminal. Legacy invoiced rows remain
+--    read-compatible for invoiced -> paid, but no execution state transitions
+--    into invoiced. POD accepts either delivery_photos or pod_photos exactly as
+--    the current XDrive production guard does.
+-- ---------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs;
+
+CREATE OR REPLACE FUNCTION public.fn_jobs_mvp_guardrails()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_allowed_next text[];
+  v_carrier_company_id uuid;
+  v_issues text[];
+  v_delivery_photo_count integer := 0;
+  v_pod_photo_count integer := 0;
+  v_signature_text text;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+    v_allowed_next := CASE lower(COALESCE(OLD.status::text, ''))
+      WHEN 'draft' THEN ARRAY['posted', 'cancelled', 'disputed']
+      WHEN 'open' THEN ARRAY['posted', 'allocated', 'cancelled', 'disputed']
+      WHEN 'received' THEN ARRAY['posted', 'allocated', 'cancelled', 'disputed']
+      WHEN 'posted' THEN ARRAY['quoted', 'awarded', 'allocated', 'cancelled', 'disputed']
+      WHEN 'quoted' THEN ARRAY['posted', 'awarded', 'allocated', 'cancelled', 'disputed']
+      WHEN 'awarded' THEN ARRAY['allocated', 'on_my_way', 'cancelled', 'disputed']
+      WHEN 'allocated' THEN ARRAY['on_my_way', 'cancelled', 'disputed']
+      WHEN 'accepted' THEN ARRAY['on_my_way', 'cancelled', 'disputed']
+      WHEN 'on_my_way' THEN ARRAY['on_site_pickup', 'cancelled', 'disputed']
+      WHEN 'on_my_way_to_pickup' THEN ARRAY['on_site_pickup', 'cancelled', 'disputed']
+      WHEN 'arrived_pickup' THEN ARRAY['loaded', 'cancelled', 'disputed']
+      WHEN 'on_site_pickup' THEN ARRAY['loaded', 'cancelled', 'disputed']
+      WHEN 'loaded' THEN ARRAY['in_transit', 'cancelled', 'disputed']
+      WHEN 'collected' THEN ARRAY['in_transit', 'cancelled', 'disputed']
+      WHEN 'in_transit' THEN ARRAY['on_site_delivery', 'cancelled', 'disputed']
+      WHEN 'on_my_way_to_delivery' THEN ARRAY['on_site_delivery', 'cancelled', 'disputed']
+      WHEN 'arrived_delivery' THEN ARRAY['delivered', 'cancelled', 'disputed']
+      WHEN 'on_site_delivery' THEN ARRAY['delivered', 'cancelled', 'disputed']
+      WHEN 'delivered' THEN ARRAY['completed']
+      WHEN 'completed' THEN ARRAY[]::text[]
+      WHEN 'invoiced' THEN ARRAY['paid']
+      WHEN 'paid' THEN ARRAY[]::text[]
+      WHEN 'cancelled' THEN ARRAY[]::text[]
+      WHEN 'disputed' THEN ARRAY[]::text[]
+      ELSE ARRAY[]::text[]
+    END;
+
+    IF NOT (lower(COALESCE(NEW.status::text, '')) = ANY (v_allowed_next)) THEN
+      RAISE EXCEPTION 'Invalid job status transition: % -> %', OLD.status, NEW.status
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF lower(COALESCE(NEW.status::text, '')) = 'loaded'
+       AND NULLIF(btrim(COALESCE(NEW.collection_photo_url, '')), '') IS NULL THEN
+      RAISE EXCEPTION 'A loading photo is required before marking the job loaded.'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF lower(COALESCE(NEW.status::text, '')) = 'delivered'
+       AND COALESCE(NEW.pod_required, true) THEN
+      IF jsonb_typeof(COALESCE(NEW.delivery_photos, '[]'::jsonb)) = 'array' THEN
+        v_delivery_photo_count := jsonb_array_length(COALESCE(NEW.delivery_photos, '[]'::jsonb));
+      END IF;
+      IF jsonb_typeof(COALESCE(NEW.pod_photos, '[]'::jsonb)) = 'array' THEN
+        v_pod_photo_count := jsonb_array_length(COALESCE(NEW.pod_photos, '[]'::jsonb));
+      END IF;
+
+      IF v_delivery_photo_count + v_pod_photo_count < 1 THEN
+        RAISE EXCEPTION 'At least one delivery photo or POD document is required before delivery.'
+          USING ERRCODE = '23514';
+      END IF;
+
+      IF NEW.delivery_signature_data IS NULL OR NEW.delivery_signature_data = 'null'::jsonb THEN
+        RAISE EXCEPTION 'Recipient signature is required before delivery.' USING ERRCODE = '23514';
+      END IF;
+      IF jsonb_typeof(NEW.delivery_signature_data) = 'string' THEN
+        v_signature_text := NEW.delivery_signature_data #>> '{}';
+        IF NULLIF(btrim(COALESCE(v_signature_text, '')), '') IS NULL THEN
+          RAISE EXCEPTION 'Recipient signature is required before delivery.' USING ERRCODE = '23514';
+        END IF;
+      END IF;
+      IF NULLIF(btrim(COALESCE(NEW.client_signature_name, '')), '') IS NULL THEN
+        RAISE EXCEPTION 'Recipient name is required before delivery.' USING ERRCODE = '23514';
+      END IF;
+    END IF;
+  END IF;
+
+  IF NEW.exchange_visibility = 'exchange'
+     AND (TG_OP = 'INSERT' OR COALESCE(OLD.exchange_visibility, '') <> 'exchange') THEN
+    v_issues := public.company_compliance_issues(NEW.company_id, 'publish');
+    IF COALESCE(array_length(v_issues, 1), 0) > 0 THEN
+      RAISE EXCEPTION 'Compliance blocked publish action: %', array_to_string(v_issues, ' ')
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  IF TG_OP = 'INSERT'
+     OR (TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status) THEN
+    IF lower(COALESCE(NEW.status::text, '')) IN (
+      'awarded', 'allocated', 'on_my_way', 'on_site_pickup', 'loaded',
+      'in_transit', 'on_site_delivery', 'delivered', 'completed'
+    ) THEN
+      v_carrier_company_id := COALESCE(NEW.awarded_carrier_company_id, NEW.assigned_company_id, NEW.company_id);
+      v_issues := public.company_compliance_issues(v_carrier_company_id, 'execution');
+      IF COALESCE(array_length(v_issues, 1), 0) > 0 THEN
+        RAISE EXCEPTION 'Compliance blocked execution action: %', array_to_string(v_issues, ' ')
+          USING ERRCODE = '42501';
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_jobs_mvp_guardrails ON public.jobs;
+CREATE TRIGGER trg_jobs_mvp_guardrails
+BEFORE INSERT OR UPDATE ON public.jobs
+FOR EACH ROW
+EXECUTE FUNCTION public.fn_jobs_mvp_guardrails();
+
+COMMENT ON FUNCTION public.fn_jobs_mvp_guardrails() IS
+  'PR357-compatible DB backstop preserving the current live XDrive execution transitions, POD evidence contract and publish/execution compliance boundaries.';
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
