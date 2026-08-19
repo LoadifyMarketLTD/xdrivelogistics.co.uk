@@ -50,13 +50,15 @@ describe('PR357 Driver execution schema reconciliation', () => {
     ]) expect(reconciliation).toContain(column);
   });
 
-  it('converges POD evidence to the JSONB contract used by the current RPC without inventing stricter live defaults', () => {
+  it('converges POD evidence to the live JSONB contract without inventing stricter defaults', () => {
     expect(reconciliation).toContain('ALTER COLUMN delivery_photos TYPE jsonb');
     expect(reconciliation).toContain('ALTER COLUMN delivery_signature_data TYPE jsonb');
     expect(reconciliation).toContain('ALTER COLUMN pod_photos DROP DEFAULT');
     expect(reconciliation).toContain('ALTER COLUMN pod_photos DROP NOT NULL');
     expect(reconciliation).not.toContain("pod_photos jsonb NOT NULL DEFAULT '[]'::jsonb");
     expect(reconciliation).toContain("jsonb_array_length(COALESCE(NEW.delivery_photos, '[]'::jsonb))");
+    expect(reconciliation).toContain("jsonb_array_length(COALESCE(NEW.pod_photos, '[]'::jsonb))");
+    expect(reconciliation).toContain('v_delivery_photo_count + v_pod_photo_count < 1');
     expect(reconciliation).toContain("NEW.delivery_signature_data #>> '{}'");
   });
 
@@ -68,6 +70,15 @@ describe('PR357 Driver execution schema reconciliation', () => {
     expect(reconciliation).toContain('ALTER COLUMN event_type TYPE text USING event_type::text');
     expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS event_time timestamptz NOT NULL DEFAULT now()');
     expect(reconciliation).toContain('ALTER COLUMN event_time SET NOT NULL');
+  });
+
+  it('keeps Finance out of execution transitions', () => {
+    expect(reconciliation).toContain("WHEN 'delivered' THEN ARRAY['completed']");
+    expect(reconciliation).toContain("WHEN 'completed' THEN ARRAY[]::text[]");
+    expect(reconciliation).toContain("WHEN 'invoiced' THEN ARRAY['paid']");
+    expect(reconciliation).not.toContain("WHEN 'delivered' THEN ARRAY['completed', 'invoiced']");
+    expect(reconciliation).not.toContain("WHEN 'completed' THEN ARRAY['invoiced']");
+    expect(reconciliation).not.toContain("WHEN 'invoiced' THEN ARRAY['paid', 'completed']");
   });
 
   it('keeps direct legacy status writers aligned with canonical execution without importing Finance aliases', () => {
