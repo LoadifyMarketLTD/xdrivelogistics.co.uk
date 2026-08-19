@@ -1,17 +1,20 @@
 -- Fresh-replay bridge for the historical public.job_status enum -> proven live
 -- jobs.status text contract.
 --
--- PostgreSQL will not ALTER a column type while views/rules depend on that
--- column. Clean history creates dashboard_stats (014) and
--- job_bids_with_job_owner (122) before the PR #357 reconciliation runs, so the
--- later 14:55 migration cannot convert jobs.status until those views are
--- temporarily removed.
+-- PostgreSQL will not ALTER a column type while views/rules or column-specific
+-- trigger definitions depend on that column. Clean history creates
+-- dashboard_stats (014), job_bids_with_job_owner (122), and the historical
+-- trg_validate_job_status_transition (079) before the PR #357 reconciliation
+-- runs, so the later 14:55 migration cannot convert jobs.status until those
+-- structural dependencies are removed.
 --
 -- This bridge is deliberately a no-op when jobs.status is already text (the
 -- current live contract). On enum-backed fresh databases it removes only the two
--- repo-owned dependent views, converts the column, recreates the exact repo
--- contracts in the same transaction and restores their grants. No CASCADE is
--- used and no Workspace/UI/business semantics are changed.
+-- repo-owned dependent views plus the legacy transition trigger, converts the
+-- column, recreates the exact repo view contracts in the same transaction and
+-- restores their grants. The legacy trigger is intentionally NOT recreated here:
+-- 14:55 replaces it with the PR #357-compatible trg_jobs_mvp_guardrails. No
+-- CASCADE is used and no Workspace/UI/business semantics are changed.
 
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -38,13 +41,18 @@ BEGIN
 
   IF v_status_data_type IS DISTINCT FROM 'USER-DEFINED'
      OR v_status_udt_name IS DISTINCT FROM 'job_status' THEN
-    RAISE EXCEPTION 'Unsupported jobs.status type before view bridge: %/%',
+    RAISE EXCEPTION 'Unsupported jobs.status type before dependency bridge: %/%',
       v_status_data_type, v_status_udt_name
       USING ERRCODE = '42804';
   END IF;
 
   v_had_dashboard_stats := to_regclass('public.dashboard_stats') IS NOT NULL;
   v_had_job_bids_owner := to_regclass('public.job_bids_with_job_owner') IS NOT NULL;
+
+  -- Migration 079 installs this column-specific trigger. Migration 14:55 already
+  -- removes it and installs the canonical PR #357 guardrail, so move that removal
+  -- before the physical type conversion on fresh enum-backed databases.
+  DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs;
 
   -- No CASCADE: an unexpected downstream dependency must fail closed rather
   -- than silently deleting another runtime object.
