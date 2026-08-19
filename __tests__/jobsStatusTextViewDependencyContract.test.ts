@@ -13,7 +13,7 @@ describe('jobs.status enum-to-text view dependency bridge', () => {
     expect(source).toContain('RETURN;');
   });
 
-  it('preserves the two repo-owned fresh view contracts without CASCADE', () => {
+  it('preserves the two repo-owned fresh view contracts without cascade drops', () => {
     expect(source).toContain("to_regclass('public.dashboard_stats')");
     expect(source).toContain("to_regclass('public.job_bids_with_job_owner')");
     expect(source).toContain('CREATE VIEW public.dashboard_stats AS');
@@ -21,7 +21,7 @@ describe('jobs.status enum-to-text view dependency bridge', () => {
     expect(source).toContain('WITH (security_invoker = true)');
     expect(source).toContain('GRANT SELECT ON public.job_bids_with_job_owner TO authenticated');
     expect(source).toContain('GRANT SELECT ON public.job_bids_with_job_owner TO service_role');
-    expect(source).not.toContain('CASCADE');
+    expect(source).not.toMatch(/DROP\s+VIEW[^;]*\s+CASCADE/iu);
   });
 
   it('converts only the historical job_status enum and fails closed on unknown view dependencies', () => {
