@@ -373,11 +373,16 @@ export async function POST(
     }
   }
 
-  const fallbackNumber = `INV-${invoiceDate.slice(0, 7).replace('-', '')}-${String(Date.now()).slice(-3)}`;
-  const { data: generatedNumber } = await supabaseAdmin.rpc('next_invoice_number', {
+  const { data: generatedNumber, error: generatedNumberError } = await supabaseAdmin.rpc('next_invoice_number', {
     p_company_id: actor.companyId,
   });
-  const invoiceNumber = cleanText(generatedNumber) || fallbackNumber;
+  if (generatedNumberError) {
+    return respond(500, { error: `Canonical invoice number generation failed: ${generatedNumberError.message}` });
+  }
+  const invoiceNumber = cleanText(generatedNumber);
+  if (!invoiceNumber) {
+    return respond(500, { error: 'Canonical invoice number generation returned no value.' });
+  }
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('invoices')
