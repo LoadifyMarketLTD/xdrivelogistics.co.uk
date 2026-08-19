@@ -16,9 +16,6 @@ const positiveNumber = (value: unknown) => {
   return Number.isFinite(number) && number > 0 ? number : null;
 };
 
-const validEmail = (value: string | null) =>
-  Boolean(value && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
-
 const addDays = (date: string, days: number) => {
   const result = new Date(`${date}T00:00:00.000Z`);
   result.setUTCDate(result.getUTCDate() + days);
@@ -48,6 +45,7 @@ export async function autoGenerateMarketplaceInvoice({
     .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount, payment_terms, payment_due_days')
     .eq('job_id', jobId)
     .eq('supplier_company_id', supplierCompanyId)
+    .eq('agreement_status', 'accepted')
     .maybeSingle();
 
   if (agreementError) throw new Error(agreementError.message);
@@ -66,7 +64,7 @@ export async function autoGenerateMarketplaceInvoice({
   const [{ data: job, error: jobError }, { data: buyer, error: buyerError }] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email')
+      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, customer_reference, currency')
       .eq('id', jobId)
       .maybeSingle(),
     supabase
@@ -79,10 +77,11 @@ export async function autoGenerateMarketplaceInvoice({
   if (jobError) throw new Error(jobError.message);
   if (!job) return { created: false, invoiceId: null, reason: 'Job not found.' };
   if (buyerError) throw new Error(buyerError.message);
+  if (!buyer) return { created: false, invoiceId: null, reason: 'Buyer company was not found.' };
 
-  const clientName = cleanText(job.client_name) || cleanText(buyer?.name);
-  const clientEmail = (cleanText(job.client_email) || cleanText(buyer?.email) || null)?.toLowerCase() ?? null;
-  const clientAddress = [buyer?.address_line1, buyer?.address_line2, buyer?.city, buyer?.postcode]
+  const clientName = cleanText(buyer.name);
+  const clientEmail = cleanText(buyer.email)?.toLowerCase() ?? null;
+  const clientAddress = [buyer.address_line1, buyer.address_line2, buyer.city, buyer.postcode]
     .map(cleanText)
     .filter((value): value is string => Boolean(value))
     .join(', ') || null;
@@ -95,8 +94,7 @@ export async function autoGenerateMarketplaceInvoice({
   const paymentTerms = cleanText(agreement.payment_terms) || '14 days';
   const currency = cleanText(agreement.currency) || cleanText(job.currency) || 'GBP';
 
-  if (!clientName) return { created: false, invoiceId: null, reason: 'Client company name is missing.' };
-  if (!validEmail(clientEmail)) return { created: false, invoiceId: null, reason: 'Client email is missing or invalid.' };
+  if (!clientName) return { created: false, invoiceId: null, reason: 'Buyer company name is missing.' };
   if (!netAmount || !totalAmount || !Number.isFinite(vatAmount) || vatAmount < 0) {
     return { created: false, invoiceId: null, reason: 'Agreement totals are incomplete.' };
   }
@@ -133,7 +131,7 @@ export async function autoGenerateMarketplaceInvoice({
       pickup_datetime: cleanText(job.pickup_datetime),
       delivery_location: cleanText(job.delivery_location),
       delivery_datetime: cleanText(job.delivery_datetime),
-      service_description: cleanText(job.load_details) || 'Transport service',
+      service_description: 'Transport service',
       amount: totalAmount,
       net_amount: netAmount,
       vat_amount: vatAmount,
