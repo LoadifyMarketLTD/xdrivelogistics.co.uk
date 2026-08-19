@@ -19,6 +19,7 @@ describe('invoice lifecycle stays separate from canonical job execution', () => 
 
   it('disables only the stale invoice-to-job-status coupling', () => {
     expect(decoupling).toContain('DROP TRIGGER IF EXISTS trg_sync_job_status_from_invoice ON public.invoices');
+    expect(decoupling).toContain("to_regprocedure('public.fn_sync_job_status_from_invoice()') IS NOT NULL");
     expect(decoupling).not.toContain('DELETE FROM public.invoices');
     expect(decoupling).not.toContain('UPDATE public.invoices');
     expect(decoupling).not.toContain('INSERT INTO public.invoices');
