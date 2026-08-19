@@ -73,8 +73,6 @@ const CARGO_TYPES = [
   'Other'
 ];
 
-const STATUS_OPTIONS = Object.values(JOB_STATUS);
-
 export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -86,7 +84,8 @@ export default function JobDetailPage() {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Job | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [exchangeVisibility, setExchangeVisibility] = useState<'private' | 'exchange' | null>(null);
   const [publishingExchange, setPublishingExchange] = useState(false);
@@ -216,7 +215,7 @@ export default function JobDetailPage() {
           return;
         }
       }
-      
+
     } catch (error) {
       console.error('Error loading job:', error);
       setSaveMessage('Error loading job');
@@ -234,27 +233,52 @@ export default function JobDetailPage() {
 
   const handlePublishToExchange = async () => {
     if (!companyId || !jobId) return;
-    const isPublished = exchangeVisibility === 'exchange';
-    const newVisibility = isPublished ? 'private' : 'exchange';
+    const action = exchangeVisibility === 'exchange' ? 'hide_from_exchange' : 'publish_to_exchange';
     setPublishingExchange(true);
     try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({
-          exchange_visibility: newVisibility,
-          exchange_posted_at: newVisibility === 'exchange' ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', jobId)
-        .eq('company_id', companyId);
-      if (error) {
-        setSaveMessage(`Failed to update exchange visibility: ${error.message}`);
-      } else {
-        setExchangeVisibility(newVisibility);
-        setSaveMessage(newVisibility === 'exchange' ? '✅ Load published to Exchange Marketplace!' : '✅ Load removed from Exchange Marketplace.');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setSaveMessage('Session expired. Please sign in again.');
+        return;
       }
+
+      const response = await fetch(`/api/admin/jobs/${jobId}/governance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ action }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setSaveMessage(`Failed to update Exchange visibility: ${payload.error ?? 'Unknown error'}`);
+        return;
+      }
+
+      const nextVisibility = payload.job?.exchange_visibility === 'exchange' ? 'exchange' : 'private';
+      const nextStatus = typeof payload.job?.status === 'string' ? payload.job.status : job?.status;
+      const nextUpdatedAt = typeof payload.job?.updated_at === 'string'
+        ? payload.job.updated_at
+        : new Date().toISOString();
+
+      setExchangeVisibility(nextVisibility);
+      if (nextStatus) {
+        setJob((currentJob) => currentJob
+          ? { ...currentJob, status: nextStatus, updatedAt: nextUpdatedAt }
+          : currentJob);
+        setFormData((currentForm) => currentForm
+          ? { ...currentForm, status: nextStatus, updatedAt: nextUpdatedAt }
+          : currentForm);
+      }
+      setSaveMessage(
+        nextVisibility === 'exchange'
+          ? '✅ Load published to Exchange Marketplace!'
+          : '✅ Load removed from Exchange Marketplace.'
+      );
     } catch (err) {
-      setSaveMessage('Error updating exchange visibility.');
+      setSaveMessage('Error updating Exchange visibility.');
       console.error(err);
     } finally {
       setPublishingExchange(false);
@@ -274,7 +298,7 @@ export default function JobDetailPage() {
         }
 
         const updatedAt = new Date().toISOString();
-        let savedStatus = formData.status;
+        let savedStatus = job?.status ?? formData.status;
         let savedAssignedDriverId = formData.assignedDriverId;
 
         const { error } = await supabase.from('jobs').update({
@@ -293,7 +317,6 @@ export default function JobDetailPage() {
           cargo_type: formData.cargo.type.toLowerCase(),
           items: formData.cargo.quantity,
           job_distance_miles: formData.distanceMiles,
-          status: formData.status,
           updated_at: updatedAt,
         }).eq('id', jobId).eq('company_id', companyId);
         if (error) {
@@ -346,34 +369,62 @@ export default function JobDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleCancelJob = async () => {
+    if (!cancelReason.trim()) {
+      setSaveMessage('A cancellation reason is required.');
+      return;
+    }
+
     try {
       if (hasSupabaseSession) {
         if (!companyId) {
-          setSaveMessage('Company profile not loaded. Job cannot be deleted safely.');
+          setSaveMessage('Company profile not loaded. Job cannot be cancelled safely.');
           setTimeout(() => setSaveMessage(''), 3000);
           return;
         }
 
-        const { error } = await supabase
-          .from('jobs')
-          .delete()
-          .eq('id', jobId)
-          .eq('company_id', companyId);
-        if (error) {
-          console.error('Failed to delete job:', error.message);
-          setSaveMessage('Error deleting job. Please try again.');
-          setTimeout(() => setSaveMessage(''), 3000);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          setSaveMessage('Session expired. Please sign in again.');
           return;
         }
-        router.push('/admin/jobs');
+
+        const response = await fetch(`/api/admin/jobs/${jobId}/governance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ action: 'cancel', reason: cancelReason.trim() }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setSaveMessage(`Job cancellation failed: ${payload.error ?? 'Unknown error'}`);
+          return;
+        }
+
+        const nextStatus = typeof payload.job?.status === 'string' ? payload.job.status : 'cancelled';
+        const nextUpdatedAt = typeof payload.job?.updated_at === 'string'
+          ? payload.job.updated_at
+          : new Date().toISOString();
+        setJob((currentJob) => currentJob
+          ? { ...currentJob, status: nextStatus, updatedAt: nextUpdatedAt }
+          : currentJob);
+        setFormData((currentForm) => currentForm
+          ? { ...currentForm, status: nextStatus, updatedAt: nextUpdatedAt }
+          : currentForm);
+        setShowCancelConfirm(false);
+        setCancelReason('');
+        setSaveMessage('✅ Job cancelled. The record has been retained for audit history.');
+        setTimeout(() => setSaveMessage(''), 4000);
         return;
       }
-      setSaveMessage('A live Supabase session is required to delete jobs safely.');
+      setSaveMessage('A live Supabase session is required to cancel jobs safely.');
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
-      console.error('Error deleting job:', error);
-      setSaveMessage('Error deleting job. Please try again.');
+      console.error('Error cancelling job:', error);
+      setSaveMessage('Error cancelling job. Please try again.');
       setTimeout(() => setSaveMessage(''), 3000);
     }
   };
@@ -556,7 +607,7 @@ export default function JobDetailPage() {
                     📄 Generate Invoice
                   </button>
                   <button
-                    onClick={() => setShowDeleteConfirm(true)}
+                    onClick={() => setShowCancelConfirm(true)}
                     style={{
                       padding: '0.75rem 1.25rem',
                       backgroundColor: '#dc2626',
@@ -571,7 +622,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
                   >
-                    🗑️ Delete
+                    ⛔ Cancel Job
                   </button>
                   <button
                    onClick={handlePublishToExchange}
@@ -660,8 +711,8 @@ export default function JobDetailPage() {
             )}
           </div>
 
-          {/* Delete Confirmation Modal */}
-          {showDeleteConfirm && (
+          {/* Cancellation Confirmation Modal */}
+          {showCancelConfirm && (
             <div
               style={{
                 position: 'fixed',
@@ -675,27 +726,39 @@ export default function JobDetailPage() {
                 justifyContent: 'center',
                 zIndex: 1000,
               }}
-              onClick={() => setShowDeleteConfirm(false)}
+              onClick={() => setShowCancelConfirm(false)}
             >
               <div
                 style={{
                   backgroundColor: 'white',
                   padding: '2rem',
                   borderRadius: '12px',
-                  maxWidth: '400px',
+                  maxWidth: '440px',
                   width: '90%',
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 style={{ margin: '0 0 1rem 0', color: '#dc2626', fontSize: '1.25rem', fontWeight: '700' }}>
-                  Confirm Delete
+                  Confirm Cancellation
                 </h3>
-                <p style={{ margin: '0 0 1.5rem 0', color: '#374151' }}>
-                  Are you sure you want to delete job {job.jobRef}? This action cannot be undone.
+                <p style={{ margin: '0 0 1rem 0', color: '#374151' }}>
+                  Cancel job {job.jobRef}? The job record will be retained for operational and audit history.
                 </p>
+                <label style={labelStyle}>Cancellation reason</label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  style={{ ...inputStyle, marginBottom: '1.5rem' }}
+                  placeholder="Explain why this job is being cancelled"
+                />
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                   <button
-                    onClick={() => setShowDeleteConfirm(false)}
+                    onClick={() => {
+                      setShowCancelConfirm(false);
+                      setCancelReason('');
+                    }}
                     style={{
                       padding: '0.625rem 1.25rem',
                       backgroundColor: '#e5e7eb',
@@ -707,10 +770,11 @@ export default function JobDetailPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    Cancel
+                    Keep Job
                   </button>
                   <button
-                    onClick={handleDelete}
+                    onClick={handleCancelJob}
+                    disabled={!cancelReason.trim()}
                     style={{
                       padding: '0.625rem 1.25rem',
                       backgroundColor: '#dc2626',
@@ -719,10 +783,11 @@ export default function JobDetailPage() {
                       borderRadius: '6px',
                       fontSize: '0.95rem',
                       fontWeight: '600',
-                      cursor: 'pointer',
+                      cursor: cancelReason.trim() ? 'pointer' : 'not-allowed',
+                      opacity: cancelReason.trim() ? 1 : 0.6,
                     }}
                   >
-                    Delete Job
+                    Cancel Job
                   </button>
                 </div>
               </div>
@@ -743,25 +808,14 @@ export default function JobDetailPage() {
                   Last Updated: {new Date(formData.updatedAt).toLocaleString('en-GB')}
                 </p>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end' }}>
-                {editMode ? (
-                  <div>
-                    <label style={labelStyle}>Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      style={inputStyle}
-                    >
-                      {STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {JOB_STATUS_LABEL[status] ?? status}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div style={getStatusBadgeStyle(formData.status)}>
-                    {JOB_STATUS_LABEL[formData.status] ?? formData.status}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-end' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Status</label>
+                <div style={getStatusBadgeStyle(formData.status)}>
+                  {JOB_STATUS_LABEL[formData.status] ?? formData.status}
+                </div>
+                {editMode && (
+                  <div style={{ maxWidth: '260px', color: '#6b7280', fontSize: '0.75rem', textAlign: 'right' }}>
+                    Lifecycle changes are handled by the controlled job workflow.
                   </div>
                 )}
               </div>
