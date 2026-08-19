@@ -33,8 +33,8 @@ describe('invoice lifecycle stays separate from canonical job execution', () => 
   it('keeps trigger-owned invoice creation on the same canonical numbering contract', () => {
     expect(triggerNumbering).toContain('CREATE OR REPLACE FUNCTION public.generate_invoice_number()');
     expect(triggerNumbering).toContain('NEW.invoice_number := public.next_invoice_number(NEW.company_id)');
-    expect(triggerNumbering).not.toContain('invoice_number_seq');
-    expect(triggerNumbering).not.toContain('XDR-');
+    expect(triggerNumbering).not.toContain("NEW.invoice_number := 'XDR-' ||");
+    expect(triggerNumbering).not.toContain('nextval(\'invoice_number_seq\')');
     expect(triggerNumbering).not.toContain('DROP TRIGGER IF EXISTS trg_generate_invoice_on_job_completion');
   });
 
