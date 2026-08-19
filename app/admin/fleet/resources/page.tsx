@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../../components/workspace/useOperationsIntelligence';
 import {
@@ -17,21 +18,9 @@ import {
   StatusBadge,
 } from '../../../components/workspace/WorkspaceUI';
 
-const IN_PROGRESS = new Set([
-  'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected',
-  'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
-]);
-
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
-
-const hasValidCoordinates = (location: WorkspaceLocation | null | undefined) =>
-  Boolean(location)
-  && typeof location?.lat === 'number'
-  && Number.isFinite(location.lat)
-  && typeof location?.lng === 'number'
-  && Number.isFinite(location.lng);
 
 export default function FleetResourcesPage() {
   const data = useCompanyWorkspaceData();
@@ -66,28 +55,24 @@ export default function FleetResourcesPage() {
         ? `${vehicles.length} assigned vehicles`
         : `${vehicle?.reg_plate ?? 'No reg'} · ${vehicle?.type?.replaceAll('_', ' ') ?? 'vehicle'}`;
     const location = latestLocations.get(driver.id) ?? null;
-    const locationHasCoordinates = hasValidCoordinates(location);
     const timestamp = location?.recorded_at ?? location?.updated_at ?? null;
     const timestampMs = timestamp ? new Date(timestamp).getTime() : Number.NaN;
-    const trackingState: 'live' | 'stale' | 'missing' = !locationHasCoordinates
-      ? 'missing'
-      : !Number.isFinite(timestampMs) || Date.now() - timestampMs > 20 * 60_000
-        ? 'stale'
-        : 'live';
-    const jobs = data.jobs.filter((job) => job.assigned_driver_id === driver.id && !['completed', 'cancelled'].includes(String(job.current_status ?? job.status ?? '').toLowerCase()));
-    const currentJob = jobs.find((job) => {
-      const status = String(job.current_status ?? job.status ?? '').toLowerCase();
-      const pickupTime = job.pickup_datetime ? new Date(job.pickup_datetime).getTime() : Number.NaN;
-      return IN_PROGRESS.has(status) || (Number.isFinite(pickupTime) && pickupTime <= Date.now() + 30 * 60_000);
-    }) ?? null;
-    const nextJob = jobs
-      .filter((job) => job.id !== currentJob?.id && job.pickup_datetime && new Date(job.pickup_datetime).getTime() > Date.now())
+    const trackingState: 'live' | 'stale' | 'missing' = !location ? 'missing' : !Number.isFinite(timestampMs) || Date.now() - timestampMs > 20 * 60_000 ? 'stale' : 'live';
+    const assignedJobs = data.jobs.filter((job) => job.assigned_driver_id === driver.id);
+    const currentJob = assignedJobs.find((job) => classifyWorkspaceJobStage(job) === 'in_progress') ?? null;
+    const nextJob = assignedJobs
+      .filter((job) =>
+        job.id !== currentJob?.id
+        && classifyWorkspaceJobStage(job) === 'allocated'
+        && job.pickup_datetime
+        && new Date(job.pickup_datetime).getTime() > Date.now()
+      )
       .sort((a, b) => new Date(a.pickup_datetime ?? 0).getTime() - new Date(b.pickup_datetime ?? 0).getTime())[0] ?? null;
     const future = intelligence.futureByDriver.get(driver.id) ?? null;
     const returnJourney = intelligence.journeyByDriver.get(driver.id) ?? null;
     const advertising = vehicle ? intelligence.advertisingByVehicle.get(vehicle.id) ?? 'none' : 'none';
     const flags = [
-      vehicles.length === 0 ? 'No vehicle' : null,
+      vehicles.length === 0 ? 'No vehicle assignment' : null,
       vehicles.length > 1 ? 'Multiple vehicle assignments' : null,
       trackingState === 'stale' ? 'Tracking stale' : null,
       trackingState === 'missing' ? 'Tracking missing' : null,
@@ -99,7 +84,6 @@ export default function FleetResourcesPage() {
       vehicle,
       vehicleSignal,
       location,
-      locationHasCoordinates,
       timestamp,
       trackingState,
       currentJob,
@@ -136,9 +120,9 @@ export default function FleetResourcesPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Fleet Resources"
-        description="Canonical driver and vehicle register combining readiness, live location, future position, next work, return journey and advertising visibility."
+        description="Driver and vehicle relationship register combining recorded availability, live location, future position, allocated work, return journey and advertising visibility. Canonical operational eligibility remains server-authoritative."
         actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
-        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Canonical resource view'}</span>}
+        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Fleet resource view'}</span>}
       />
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
@@ -165,19 +149,19 @@ export default function FleetResourcesPage() {
         </div>
       </Panel>
 
-      <Panel title="Canonical fleet register" description={`${filtered.length} driver resource(s) in the current view.`}>
+      <Panel title="Fleet resource register" description={`${filtered.length} driver resource(s) in the current view. Vehicle relationships and local alerts are presentation signals, not an eligibility verdict.`}>
         <DataTable
           columns={['Driver / vehicle', 'State', 'Current / last location', 'Future position', 'Future journey / next work', 'Advertising', 'Tracking', 'Attention', 'Action']}
           rows={filtered.map((row) => [
             <div key="resource"><strong style={{ display: 'block' }}>{row.driver.display_name ?? row.driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{row.vehicleSignal}</span></div>,
             <div key="state"><StatusBadge value={row.driver.availability_status ?? 'offline'} tone={row.driver.availability_status === 'available' ? 'green' : row.driver.availability_status === 'busy' ? 'purple' : 'grey'} />{row.currentJob ? <span style={{ display: 'block', marginTop: 4, color: '#64748b' }}>Current #{row.currentJob.id.slice(0, 8).toUpperCase()}</span> : null}</div>,
-            row.locationHasCoordinates ? <div key="location"><span style={{ display: 'block' }}>{row.location!.lat.toFixed(4)}, {row.location!.lng.toFixed(4)}</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : row.location ? <div key="location-missing"><span style={{ display: 'block' }}>No valid coordinates</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : 'No location',
+            row.location ? <div key="location"><span style={{ display: 'block' }}>{row.location.lat.toFixed(4)}, {row.location.lng.toFixed(4)}</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : 'No location',
             row.future?.futurePosition ? <div key="future"><span style={{ display: 'block' }}>{row.future.futurePosition}</span><span style={{ color: '#64748b' }}>{when(row.future.futurePositionDate)}</span></div> : 'Not published',
-            <div key="journey"><span style={{ display: 'block' }}>{row.returnJourney ? `${row.returnJourney.fromPostcode ?? 'From TBC'} → ${row.returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey'}</span><span style={{ color: '#64748b' }}>{row.nextJob ? `Next ${when(row.nextJob.pickup_datetime)} · ${row.nextJob.pickup_location ?? 'Pickup'}` : row.returnJourney ? when(row.returnJourney.availableFrom) : 'No future job allocated'}</span></div>,
+            <div key="journey"><span style={{ display: 'block' }}>{row.returnJourney ? `${row.returnJourney.fromPostcode ?? 'From TBC'} → ${row.returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey'}</span><span style={{ color: '#64748b' }}>{row.nextJob ? `Next ${when(row.nextJob.pickup_datetime)} · ${row.nextJob.pickup_location ?? 'Pickup'}` : row.returnJourney ? when(row.returnJourney.availableFrom) : 'No future allocated job'}</span></div>,
             <StatusBadge key="advertising" value={row.vehicle ? row.advertising : row.vehicles.length > 1 ? 'multiple vehicles' : 'none'} tone={row.vehicle && row.advertising === 'exchange' ? 'green' : row.vehicle && row.advertising === 'partner' ? 'blue' : 'grey'} />,
             <StatusBadge key="tracking" value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />,
-            row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="ready" value="Ready" tone="green" />,
-            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${row.driver.id}`)}>Driver</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/vehicles?vehicle=${row.vehicle!.id}`)}>Vehicle</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
+            row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="clear" value="No local alert" tone="blue" />,
+            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}
           empty={<EmptyState title="No fleet resources match the current filters" />}
         />
@@ -192,7 +176,7 @@ export default function FleetResourcesPage() {
               vehicle.type?.replaceAll('_', ' ') ?? 'Vehicle',
               <StatusBadge key="advertising" value={intelligence.advertisingByVehicle.get(vehicle.id) ?? 'none'} tone={intelligence.advertisingByVehicle.get(vehicle.id) === 'exchange' ? 'green' : intelligence.advertisingByVehicle.get(vehicle.id) === 'partner' ? 'blue' : 'grey'} />,
               <StatusBadge key="state" value="Unassigned" tone="orange" />,
-              <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/vehicles?vehicle=${vehicle.id}`)}>Open vehicle</ActionButton>,
+              <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>,
             ])}
           />
         </Panel>

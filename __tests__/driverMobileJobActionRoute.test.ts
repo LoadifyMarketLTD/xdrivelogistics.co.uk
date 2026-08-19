@@ -1,28 +1,27 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
   getFeatureFlag: vi.fn(),
-  getBearerToken: vi.fn(),
   requireDriver: vi.fn(),
   insertTrackingEvent: vi.fn(),
   appendStatusHistory: vi.fn(() => []),
   hasPod: vi.fn(() => true),
   mapJob: vi.fn((job: unknown) => job),
   autoGenerateMarketplaceInvoice: vi.fn(),
-  rpc: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
   storageList: vi.fn(),
   existingJob: null as Record<string, unknown> | null,
   updatedJob: null as Record<string, unknown> | null,
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({ rpc: mocks.rpc })),
+  createClient: () => ({ rpc: mocks.rpc }),
 }));
 
 vi.mock('../app/api/_lib/supabaseAdmin', () => ({
-  getBearerToken: mocks.getBearerToken,
+  getBearerToken: () => 'driver-access-token',
   isSupabaseAdminConfigured: true,
   supabaseAdmin: {
     from: mocks.from,
@@ -77,26 +76,24 @@ const makeJobTable = () => ({
 describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://xdrive-test.supabase.co');
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-test-key';
     mocks.getFeatureFlag.mockReset();
-    mocks.getBearerToken.mockReset();
     mocks.requireDriver.mockReset();
     mocks.insertTrackingEvent.mockReset();
     mocks.appendStatusHistory.mockReset();
     mocks.hasPod.mockReset();
     mocks.mapJob.mockReset();
     mocks.autoGenerateMarketplaceInvoice.mockReset();
-    mocks.rpc.mockReset();
     mocks.from.mockReset();
+    mocks.rpc.mockReset();
     mocks.storageList.mockReset();
 
     mocks.appendStatusHistory.mockReturnValue([]);
     mocks.hasPod.mockReturnValue(true);
     mocks.mapJob.mockImplementation((job: unknown) => job);
-    mocks.getBearerToken.mockReturnValue('driver-bearer-token');
     mocks.requireDriver.mockResolvedValue({ userId: 'user-1', driverId: 'driver-1' });
-    mocks.rpc.mockResolvedValue({ data: null, error: null });
+    mocks.rpc.mockResolvedValue({ error: null });
     mocks.autoGenerateMarketplaceInvoice.mockResolvedValue({
       created: false,
       invoiceId: null,
@@ -110,6 +107,8 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
       pod_required: false,
       awarded_carrier_company_id: 'carrier-1',
       assigned_driver_id: 'driver-1',
+      delivery_signature_data: null,
+      client_signature_name: null,
     };
     mocks.updatedJob = {
       ...mocks.existingJob,
@@ -121,10 +120,6 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
       if (table === 'jobs') return makeJobTable();
       throw new Error(`Unexpected table ${table}`);
     });
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('fails closed for non-POD actions when driver_mobile_app is disabled', async () => {
@@ -174,7 +169,7 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     const { POST } = await import('../app/api/driver/mobile/jobs/[id]/[action]/route');
 
     const res = await POST(
-      new NextRequest('http://localhost/api/driver/mobile/jobs/job-1/delivered', { method: 'POST' }),
+      new NextRequest('http://localhost/api/driver/mobile/jobs/job-1/delivered', { method: 'POST', body: '{}' }),
       { params: Promise.resolve({ id: 'job-1', action: 'delivered' }) }
     );
 

@@ -203,9 +203,7 @@ export type RouteRequirement = {
 
 const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // carrier_fleet (/admin)
-  { prefix: '/admin/action-centre', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'fleet_manager', 'dispatcher', 'finance', 'compliance'] },
-  { prefix: '/admin/freight-vision', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
-  { prefix: '/admin/live-availability', workspace: 'carrier_fleet', anyOf: ['fleet.positions.view'] },
+  { prefix: '/admin/action-centre', workspace: 'carrier_fleet' },
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/fleet/future-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
@@ -241,6 +239,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
 
   // broker (/broker)
   { prefix: '/broker/action-centre', workspace: 'broker' },
+  { prefix: '/broker/enquiries', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
@@ -249,12 +248,15 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/compare-quotes', workspace: 'broker', anyOf: ['quotes.compare'] },
   { prefix: '/broker/awards', workspace: 'broker', anyOf: ['quotes.award'] },
   { prefix: '/broker/jobs', workspace: 'broker', anyOf: ['jobs.track'] },
+  { prefix: '/broker/diary', workspace: 'broker', anyOf: ['jobs.track'] },
   { prefix: '/broker/pod-review', workspace: 'broker', anyOf: ['jobs.review_pod'] },
+  { prefix: '/broker/finance', workspace: 'broker', anyOf: ['margins.view', 'invoices.customer.manage', 'invoices.carrier.manage'] },
   { prefix: '/broker/margins', workspace: 'broker', anyOf: ['margins.view'] },
   { prefix: '/broker/customer-invoices', workspace: 'broker', anyOf: ['invoices.customer.manage'] },
   { prefix: '/broker/carrier-costs', workspace: 'broker', anyOf: ['invoices.carrier.manage'] },
   { prefix: '/broker/disputes', workspace: 'broker', anyOf: ['incidents.manage'] },
   { prefix: '/broker/team', workspace: 'broker', anyOf: ['settings.manage'] },
+  { prefix: '/broker/account', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker/notifications', workspace: 'broker' },
   { prefix: '/broker/settings', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
@@ -264,6 +266,11 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/post-load', workspace: 'shipper', anyOf: ['loads.create'] },
   { prefix: '/customer/loads', workspace: 'shipper', anyOf: ['loads.view.own'] },
   { prefix: '/customer/quotes', workspace: 'shipper', anyOf: ['quotes.receive'] },
+  { prefix: '/customer/bookings', workspace: 'shipper', anyOf: ['jobs.view'] },
+  { prefix: '/customer/tracking', workspace: 'shipper', anyOf: ['jobs.track'] },
+  { prefix: '/customer/diary', workspace: 'shipper', anyOf: ['jobs.view'] },
+  { prefix: '/customer/network', workspace: 'shipper', anyOf: ['quotes.receive'] },
+  { prefix: '/customer/account', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer/awards', workspace: 'shipper', anyOf: ['quotes.award'] },
   { prefix: '/customer/deliveries', workspace: 'shipper', anyOf: ['jobs.track'] },
   { prefix: '/customer/jobs', workspace: 'shipper', anyOf: ['jobs.view'] },
@@ -279,8 +286,6 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
 
   // owner_operator (/driver)
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
-  { prefix: '/driver/account', workspace: 'owner_operator' },
-  { prefix: '/driver/event-log', workspace: 'owner_operator' },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
@@ -289,12 +294,14 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/returns', workspace: 'owner_operator' },
   { prefix: '/driver/jobs', workspace: 'owner_operator', anyOf: ['jobs.execute'] },
   { prefix: '/driver/history', workspace: 'owner_operator', anyOf: ['jobs.view'] },
+  { prefix: '/driver/event-log', workspace: 'owner_operator', anyOf: ['jobs.view'] },
   { prefix: '/driver/availability', workspace: 'owner_operator' },
   { prefix: '/driver/vehicles', workspace: 'owner_operator' },
   { prefix: '/driver/documents', workspace: 'owner_operator', anyOf: ['documents.own.manage'] },
   { prefix: '/driver/messages', workspace: 'owner_operator' },
   { prefix: '/driver/more', workspace: 'owner_operator' },
   { prefix: '/driver/notifications', workspace: 'owner_operator' },
+  { prefix: '/driver/account', workspace: 'owner_operator' },
   { prefix: '/driver/profile', workspace: 'owner_operator' },
   { prefix: '/driver', workspace: 'owner_operator', exact: true },
 ];

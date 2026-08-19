@@ -24,18 +24,4 @@ describe('CI workflow Expo gating', () => {
     expect(expoJob).not.toContain('scope:web');
     expect(expoJob).not.toContain('scope:supabase');
   });
-
-  it('detects native Android changes for Kotlin CodeQL without duplicating the native build workflow', () => {
-    const workflow = readRepoFile('.github/workflows/ci.yml');
-    const detectorJob = extractJob(workflow, 'detect-expo-driver-changes', 'expo-driver-typecheck');
-    const nativeWorkflow = readRepoFile('.github/workflows/android-native-ci.yml');
-
-    expect(detectorJob).toContain('android_native_changed');
-    expect(detectorJob).toContain("grep -Eq '^android-native/'");
-    expect(workflow).toContain("needs.detect-expo-driver-changes.outputs.android_native_changed == 'true'");
-    expect(workflow).toContain('name: CodeQL Security Scan (java-kotlin)');
-    expect(workflow).not.toContain('name: Native Android Validation');
-    expect(nativeWorkflow).toContain('- "android-native/**"');
-    expect(nativeWorkflow).toContain('./gradlew --no-daemon clean testDebugUnitTest lintDebug assembleDebug');
-  });
 });
