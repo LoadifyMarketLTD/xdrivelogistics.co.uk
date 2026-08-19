@@ -15,13 +15,18 @@ SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
 CREATE TABLE IF NOT EXISTS public.job_private_commercial_terms (
-  job_id uuid PRIMARY KEY REFERENCES public.jobs(id) ON DELETE CASCADE,
+  job_id uuid PRIMARY KEY,
   owner_company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   customer_price numeric(14,2),
   target_carrier_cost numeric(14,2),
   currency text NOT NULL DEFAULT 'GBP',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT job_private_commercial_terms_job_id_fkey
+    FOREIGN KEY (job_id)
+    REFERENCES public.jobs(id)
+    ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT job_private_commercial_terms_customer_price_nonnegative
     CHECK (customer_price IS NULL OR customer_price >= 0),
   CONSTRAINT job_private_commercial_terms_target_cost_nonnegative
@@ -236,9 +241,11 @@ FOR EACH ROW
 EXECUTE FUNCTION public.xdrive_privateize_broker_terms_before_job_update();
 
 -- Canonical create route currently submits customerPrice/targetCarrierCost as
--- part of the job INSERT. Capture and scrub those values inside the same DB
--- transaction before it commits so no post-award reader can observe them.
-CREATE OR REPLACE FUNCTION public.xdrive_privateize_broker_terms_after_job_insert()
+-- part of the job INSERT. The job UUID default is available to a BEFORE INSERT
+-- trigger, while the deferred FK lets the private row be written before its
+-- parent jobs row. This prevents any stored/raw jobs version from ever carrying
+-- Broker customer revenue or target carrier cost, even transiently.
+CREATE OR REPLACE FUNCTION public.xdrive_privateize_broker_terms_before_job_insert()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -247,7 +254,6 @@ AS $$
 DECLARE
   v_details jsonb;
   v_target numeric;
-  v_sanitized text;
 BEGIN
   IF NOT public.xdrive_is_broker_commercial_job(NEW.company_id, NEW.load_details::text) THEN
     RETURN NEW;
@@ -264,38 +270,33 @@ BEGIN
     NEW.currency::text
   );
 
-  v_sanitized := CASE
-    WHEN v_details IS NULL THEN NEW.load_details::text
-    ELSE (v_details - 'targetCarrierCost')::text
-  END;
-
-  UPDATE public.jobs
-  SET budget_amount = NULL,
-      load_details = v_sanitized
-  WHERE id = NEW.id;
+  NEW.budget_amount := NULL;
+  IF v_details IS NOT NULL AND COALESCE(v_details ? 'targetCarrierCost', false) THEN
+    NEW.load_details := (v_details - 'targetCarrierCost')::text;
+  END IF;
 
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_privateize_broker_terms_after_job_insert ON public.jobs;
-CREATE TRIGGER trg_privateize_broker_terms_after_job_insert
-AFTER INSERT ON public.jobs
+DROP TRIGGER IF EXISTS trg_privateize_broker_terms_before_job_insert ON public.jobs;
+CREATE TRIGGER trg_privateize_broker_terms_before_job_insert
+BEFORE INSERT ON public.jobs
 FOR EACH ROW
-EXECUTE FUNCTION public.xdrive_privateize_broker_terms_after_job_insert();
+EXECUTE FUNCTION public.xdrive_privateize_broker_terms_before_job_insert();
 
 REVOKE ALL ON FUNCTION public.xdrive_safe_jsonb(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_safe_numeric(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_is_broker_commercial_job(uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_upsert_private_broker_terms(uuid, uuid, numeric, numeric, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.xdrive_privateize_broker_terms_before_job_update() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.xdrive_privateize_broker_terms_after_job_insert() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.xdrive_privateize_broker_terms_before_job_insert() FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.xdrive_is_broker_commercial_job(uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.xdrive_upsert_private_broker_terms(uuid, uuid, numeric, numeric, text) TO service_role;
 
-COMMENT ON FUNCTION public.xdrive_privateize_broker_terms_after_job_insert() IS
-  'Atomic Broker privacy backstop: moves customer revenue/target carrier cost into service-role-only storage and scrubs the operational jobs row before commit.';
+COMMENT ON FUNCTION public.xdrive_privateize_broker_terms_before_job_insert() IS
+  'Atomic Broker privacy backstop: stores customer revenue/target carrier cost privately and scrubs the jobs row before it is inserted.';
 COMMENT ON FUNCTION public.xdrive_privateize_broker_terms_before_job_update() IS
   'Prevents later UPDATE operations from reintroducing Broker customer revenue/target carrier cost into the operational jobs row.';
 
