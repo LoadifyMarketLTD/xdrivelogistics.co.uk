@@ -6,20 +6,21 @@ import androidx.lifecycle.viewModelScope
 import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverDocument
+import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DriverNotification
+import co.uk.xdrivelogistics.driver.data.DriverPodUpload
 import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
-import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SecureDriverCommercialApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -52,6 +53,9 @@ data class DriverUiState(
     val invoices: List<DriverInvoice> = emptyList(),
     val nearbyDrivers: List<NearbyDriver> = emptyList(),
     val jobSearchPreferences: Map<String, String> = emptyMap(),
+    val pendingPodJobId: String? = null,
+    val pendingPodPhotoUris: List<String> = emptyList(),
+    val pendingPodDocumentUris: List<String> = emptyList(),
     val selectedTab: DriverTab = DriverTab.NEARBY,
     val selectedJobId: String? = null,
     val actionEntryMode: ActionEntryMode = ActionEntryMode.DETAILS,
@@ -167,6 +171,52 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun mergePendingPodEvidence(jobs: List<DriverJob>): List<DriverJob> {
+        val current = _uiState.value
+        val pendingJobId = current.pendingPodJobId ?: return jobs
+        if (current.pendingPodPhotoUris.isEmpty() && current.pendingPodDocumentUris.isEmpty()) return jobs
+
+        return jobs.map { job ->
+            if (job.id != pendingJobId) {
+                job
+            } else if (job.needsCollectionProof()) {
+                job.copy(
+                    collectionPhotoUrl = current.pendingPodPhotoUris.lastOrNull() ?: job.collectionPhotoUrl,
+                )
+            } else {
+                job.copy(
+                    deliveryPhotos = (job.deliveryPhotos + current.pendingPodPhotoUris).distinct(),
+                    podPhotos = (job.podPhotos + current.pendingPodDocumentUris).distinct(),
+                )
+            }
+        }
+    }
+
+    private fun clearPendingPodEvidence(jobId: String) {
+        if (_uiState.value.pendingPodJobId != jobId) return
+        _uiState.value = _uiState.value.copy(
+            pendingPodJobId = null,
+            pendingPodPhotoUris = emptyList(),
+            pendingPodDocumentUris = emptyList(),
+        )
+    }
+
+    private fun recordPendingPodEvidence(job: DriverJob, upload: DriverPodUpload) {
+        val current = _uiState.value
+        val sameJob = current.pendingPodJobId == job.id
+        val existingPhotos = if (sameJob) current.pendingPodPhotoUris else emptyList()
+        val existingDocuments = if (sameJob) current.pendingPodDocumentUris else emptyList()
+        val nextPhotos = if (upload.kind == "photo") (existingPhotos + upload.objectPath).distinct() else existingPhotos
+        val nextDocuments = if (upload.kind == "document") (existingDocuments + upload.objectPath).distinct() else existingDocuments
+
+        _uiState.value = current.copy(
+            pendingPodJobId = job.id,
+            pendingPodPhotoUris = nextPhotos,
+            pendingPodDocumentUris = nextDocuments,
+        )
+        _uiState.value = _uiState.value.copy(jobs = mergePendingPodEvidence(_uiState.value.jobs))
+    }
+
     private suspend fun loadDriverDataWithSession(session: DriverSession, allowRefresh: Boolean) {
         api.resolveDriverProfile(session)
             .onSuccess { profile ->
@@ -179,11 +229,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 commercialApi.loadDriverJobs(session)
                     .onSuccess { jobs ->
+                        val mergedJobs = mergePendingPodEvidence(jobs)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             session = session,
                             profile = profile,
-                            jobs = jobs,
+                            jobs = mergedJobs,
                             documents = documents,
                             bids = bids,
                             notifications = notifications,
@@ -191,7 +242,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             invoices = invoices,
                             nearbyDrivers = nearbyDrivers,
                             jobSearchPreferences = preferences,
-                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, jobs),
+                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, mergedJobs),
                         )
                     }
                     .onFailure { error ->
@@ -340,7 +391,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun moveSelectedJobTo(nextStatus: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
             val jobId = _uiState.value.selectedJobId
             if (jobId.isNullOrBlank()) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
@@ -359,10 +409,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 return@launch
             }
 
+            val collectionPhoto = if (nextStatus == "loaded") selectedJob.collectionPhotoUrl else null
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
 
-            api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
+            commercialApi.moveDriverJob(
+                session = session,
+                jobId = jobId,
+                nextStatus = nextStatus,
+                collectionPhotoUrl = collectionPhoto,
+            )
                 .onSuccess {
+                    if (nextStatus == "loaded") clearPendingPodEvidence(jobId)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         message = "Status moved to $nextStatus.",
@@ -426,23 +483,26 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun uploadPodForSelectedJob(fileName: String, mimeType: String, bytes: ByteArray) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
             }
+            if (selectedJob.needsCollectionProof() && mimeType.substringBefore(';').lowercase() !in setOf("image/jpeg", "image/png", "image/webp")) {
+                _uiState.value = _uiState.value.copy(error = "Collection proof must be a photo.")
+                return@launch
+            }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.uploadPodDocument(
+            commercialApi.uploadPodEvidence(
                 session = session,
-                driverId = profile.driverId,
-                job = selectedJob,
+                jobId = selectedJob.id,
                 fileName = fileName,
                 mimeType = mimeType,
                 bytes = bytes,
             )
-                .onSuccess {
+                .onSuccess { upload ->
+                    recordPendingPodEvidence(selectedJob, upload)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         message = if (selectedJob.needsCollectionProof()) {
@@ -451,7 +511,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             "Delivery proof uploaded."
                         },
                     )
-                    refreshDriverData()
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -462,17 +521,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun confirmDeliveryRecipientForSelectedJob(recipientName: String) {
+    fun confirmDeliveryRecipientForSelectedJob(recipientName: String, signatureData: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
             }
             if (!selectedJob.hasPod()) {
-                _uiState.value = _uiState.value.copy(error = "Upload the signed POD evidence before confirming the recipient.")
+                _uiState.value = _uiState.value.copy(error = "Upload POD evidence before confirming the recipient.")
                 return@launch
             }
             val cleanName = recipientName.trim()
@@ -480,13 +538,30 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Enter the recipient name.")
                 return@launch
             }
+            val cleanSignature = signatureData.trim()
+            if (!cleanSignature.startsWith("data:image/png;base64,") && !cleanSignature.startsWith("data:image/jpeg;base64,")) {
+                _uiState.value = _uiState.value.copy(error = "Capture the recipient signature before confirming POD.")
+                return@launch
+            }
+
+            val current = _uiState.value
+            val photoUris = if (current.pendingPodJobId == selectedJob.id) current.pendingPodPhotoUris else emptyList()
+            val documentUris = if (current.pendingPodJobId == selectedJob.id) current.pendingPodDocumentUris else emptyList()
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.confirmDeliveryRecipient(session, profile.driverId, selectedJob, cleanName)
+            commercialApi.savePod(
+                session = session,
+                jobId = selectedJob.id,
+                recipientName = cleanName,
+                signatureData = cleanSignature,
+                photoUris = photoUris,
+                documentUris = documentUris,
+            )
                 .onSuccess {
+                    clearPendingPodEvidence(selectedJob.id)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        message = "Recipient and signed POD evidence confirmed.",
+                        message = "Recipient signature and POD evidence confirmed.",
                     )
                     refreshDriverData()
                 }
