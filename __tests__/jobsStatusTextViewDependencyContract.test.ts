@@ -7,7 +7,7 @@ const source = readFileSync(
   'utf8',
 );
 
-describe('jobs.status enum-to-text view dependency bridge', () => {
+describe('jobs.status enum-to-text dependency bridge', () => {
   it('is a no-op for the proven live text contract', () => {
     expect(source).toContain("IF v_status_data_type = 'text' THEN");
     expect(source).toContain('RETURN;');
@@ -24,6 +24,15 @@ describe('jobs.status enum-to-text view dependency bridge', () => {
     expect(source).not.toMatch(/DROP\s+VIEW[^;]*\s+CASCADE/iu);
   });
 
+  it('drops the migration-079 column-specific trigger before converting status', () => {
+    const dropTrigger = source.indexOf('DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs');
+    const alterType = source.indexOf('ALTER COLUMN status TYPE text USING status::text');
+
+    expect(dropTrigger).toBeGreaterThan(-1);
+    expect(alterType).toBeGreaterThan(dropTrigger);
+    expect(source).not.toContain('CREATE TRIGGER trg_validate_job_status_transition');
+  });
+
   it('converts only the historical job_status enum and fails closed on unknown view dependencies', () => {
     expect(source).toContain("v_status_udt_name IS DISTINCT FROM 'job_status'");
     expect(source).toContain('ALTER COLUMN status TYPE text USING status::text');
@@ -31,7 +40,7 @@ describe('jobs.status enum-to-text view dependency bridge', () => {
     expect(source).toContain("a.attname = 'status'");
   });
 
-  it('does not change lifecycle, finance or workspace permissions', () => {
+  it('does not change finance or workspace permissions', () => {
     expect(source).not.toContain('INSERT INTO public.invoices');
     expect(source).not.toContain('UPDATE public.invoices');
     expect(source).not.toContain('accept_job_bid_atomic');
