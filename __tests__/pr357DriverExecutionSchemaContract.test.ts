@@ -48,18 +48,24 @@ describe('PR357 Driver execution schema reconciliation', () => {
     ]) expect(reconciliation).toContain(column);
   });
 
-  it('converges POD evidence to the JSONB contract used by the current RPC', () => {
+  it('converges POD evidence to the JSONB contract used by the current RPC without inventing stricter live defaults', () => {
     expect(reconciliation).toContain('ALTER COLUMN delivery_photos TYPE jsonb');
     expect(reconciliation).toContain('ALTER COLUMN delivery_signature_data TYPE jsonb');
+    expect(reconciliation).toContain('ALTER COLUMN pod_photos DROP DEFAULT');
+    expect(reconciliation).toContain('ALTER COLUMN pod_photos DROP NOT NULL');
+    expect(reconciliation).not.toContain("pod_photos jsonb NOT NULL DEFAULT '[]'::jsonb");
     expect(reconciliation).toContain("jsonb_array_length(COALESCE(NEW.delivery_photos, '[]'::jsonb))");
     expect(reconciliation).toContain("NEW.delivery_signature_data #>> '{}'");
   });
 
-  it('aligns fresh enum-backed execution columns to the proven live text contract', () => {
+  it('aligns fresh enum-backed execution columns to the proven live text/default contract', () => {
     expect(reconciliation).toContain("v_status_udt_name = 'job_status'");
     expect(reconciliation).toContain('ALTER COLUMN status TYPE text USING status::text');
+    expect(reconciliation).toContain("ALTER COLUMN status SET DEFAULT 'open'::text");
     expect(reconciliation).toContain("v_event_udt_name = 'tracking_event_type'");
     expect(reconciliation).toContain('ALTER COLUMN event_type TYPE text USING event_type::text');
+    expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS event_time timestamptz NOT NULL DEFAULT now()');
+    expect(reconciliation).toContain('ALTER COLUMN event_time SET NOT NULL');
   });
 
   it('does not change invoice creation or the legacy invoice sync trigger in this lifecycle slice', () => {
