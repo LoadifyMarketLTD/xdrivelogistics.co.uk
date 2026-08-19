@@ -1,7 +1,7 @@
 -- Reconcile the existing Marketplace governance RPC with the current canonical
--- jobs status/current_status contract. This migration does not add actions,
--- roles or permissions. It only makes the already-supported actions update the
--- canonical lifecycle fields atomically and consistently.
+-- jobs status/current_status/status_history contract. This migration does not add
+-- actions, roles or permissions. It only makes the already-supported actions
+-- update canonical lifecycle fields atomically and consistently.
 
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -84,6 +84,15 @@ BEGIN
           WHEN job_row.current_status IS NULL OR btrim(job_row.current_status) = '' THEN job_row.status::text
           ELSE job_row.current_status
         END,
+        status_history = CASE
+          WHEN v_current_status = 'draft' THEN
+            COALESCE(job_row.status_history, '[]'::jsonb)
+              || jsonb_build_object(
+                   'status', 'posted',
+                   'timestamp', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                 )
+          ELSE job_row.status_history
+        END,
         exchange_visibility = 'exchange',
         exchange_posted_at = now(),
         updated_at = now()
@@ -115,6 +124,11 @@ BEGIN
     UPDATE public.jobs AS job_row
     SET status = 'disputed',
         current_status = 'disputed',
+        status_history = COALESCE(job_row.status_history, '[]'::jsonb)
+          || jsonb_build_object(
+               'status', 'disputed',
+               'timestamp', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+             ),
         updated_at = now()
     WHERE job_row.id = p_job_id;
 
@@ -130,6 +144,11 @@ BEGIN
     UPDATE public.jobs AS job_row
     SET status = 'cancelled',
         current_status = 'cancelled',
+        status_history = COALESCE(job_row.status_history, '[]'::jsonb)
+          || jsonb_build_object(
+               'status', 'cancelled',
+               'timestamp', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+             ),
         updated_at = now()
     WHERE job_row.id = p_job_id;
 
@@ -180,7 +199,7 @@ REVOKE ALL ON FUNCTION public.apply_marketplace_governance_action(uuid, uuid, te
 GRANT EXECUTE ON FUNCTION public.apply_marketplace_governance_action(uuid, uuid, text, text) TO service_role;
 
 COMMENT ON FUNCTION public.apply_marketplace_governance_action(uuid, uuid, text, text) IS
-  'Atomic Marketplace governance using the existing action contract; draft publication becomes posted and force cancel/dispute keep jobs.status and jobs.current_status synchronized.';
+  'Atomic Marketplace governance using the existing action contract; lifecycle mutations keep jobs.status, jobs.current_status and jobs.status_history synchronized.';
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
