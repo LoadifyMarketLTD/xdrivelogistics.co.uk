@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
+  proposedPriceAmount,
   publicOutcode,
-  publicProposedPrice,
   publicQuoteNotes,
 } from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver } from '../_lib';
@@ -23,7 +23,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
   ]);
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
     && executionStatuses.has(String(row.current_status ?? row.status ?? '').toLowerCase());
-  const proposedPrice = publicProposedPrice(row);
+  const proposedPrice = proposedPriceAmount(row.budget_amount);
   return {
     ...row,
     public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
@@ -42,9 +42,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     load_details: privateDetailsRevealed ? row.load_details : publicQuoteNotes(row.load_details),
     special_requirements: privateDetailsRevealed ? row.special_requirements : null,
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
-    // Unlocking execution details never unlocks the poster's private customer
-    // revenue. The driver's own commercial amount is already present on bid.
-    budget_amount: proposedPrice,
+    budget_amount: privateDetailsRevealed ? row.budget_amount : proposedPrice,
     private_details_revealed: privateDetailsRevealed,
     can_update_lifecycle: privateDetailsRevealed
       && !['delivered', 'completed'].includes(String(row.current_status ?? row.status ?? '').toLowerCase()),

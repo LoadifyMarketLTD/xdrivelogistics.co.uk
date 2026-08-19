@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
-import { useBrokerCommercialWorkspaceData } from '../useBrokerCommercialWorkspaceData';
+import { useCompanyWorkspaceData } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -31,13 +31,10 @@ const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'curren
 
 export default function BrokerCustomersPage() {
   const router = useRouter();
-  const data = useBrokerCommercialWorkspaceData();
+  const data = useCompanyWorkspaceData();
   const [search, setSearch] = useState('');
   const [activity, setActivity] = useState<'all' | 'active' | 'completed'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const commercialAvailable = data.commercialTermsAvailability === 'available';
-  const commercialLoading = data.commercialTermsAvailability === 'loading';
-  const privateValueLabel = commercialLoading ? 'Loading…' : 'Unavailable';
 
   const customers = useMemo(() => {
     const map = new Map<string, CustomerRow>();
@@ -50,13 +47,13 @@ export default function BrokerCustomersPage() {
       if (stage === 'awarded' || stage === 'allocated') current.awarded += 1;
       if (stage === 'in_progress') current.active += 1;
       if (stage === 'completed') current.completed += 1;
-      if (commercialAvailable) current.budgetValue += Number(job.budget_amount ?? 0);
+      current.budgetValue += Number(job.budget_amount ?? 0);
       const candidate = job.updated_at ?? job.created_at ?? null;
       if (candidate && (!current.last || candidate > current.last)) current.last = candidate;
       map.set(name, current);
     }
     return [...map.values()].sort((a, b) => String(b.last ?? '').localeCompare(String(a.last ?? '')));
-  }, [commercialAvailable, data.jobs]);
+  }, [data.jobs]);
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -73,7 +70,7 @@ export default function BrokerCustomersPage() {
       <PageHeader
         eyebrow="Broker customers"
         title="Customers"
-        description="Customer relationships derived from broker-managed transport activity. Customer commercial history remains private to the Broker workspace."
+        description="Customer relationships derived from broker-managed transport activity. Active means execution has actually started, not merely awarded or allocated."
         actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Create Load</ActionButton>}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
@@ -101,7 +98,7 @@ export default function BrokerCustomersPage() {
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><span className="driver-cell-label">Customer</span><strong>{customer.name}</strong><div>{customer.jobs} managed load{customer.jobs === 1 ? '' : 's'}</div></div>
                       <div className="workspace-operational-cell"><span className="driver-cell-label">Operational work</span><strong>{customer.active} active</strong><div>{customer.awarded} awarded / allocated · {customer.open} open</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">Commercial history</span><strong>{commercialAvailable ? money(customer.budgetValue) : privateValueLabel}</strong><div>Private customer revenue · {customer.completed} completed</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">Commercial history</span><strong>{money(customer.budgetValue)}</strong><div>Recorded customer budgets · {customer.completed} completed</div></div>
                       <div className="workspace-operational-cell"><span className="driver-cell-label">Last activity</span><strong>{when(customer.last)}</strong><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : customer.name)}>{open ? 'Close' : 'Details'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>{customer.active ? <StatusBadge value="Active execution" tone="green" /> : customer.awarded ? <StatusBadge value="Awarded work" tone="blue" /> : <StatusBadge value="Relationship" tone="grey" />}</span><span>{customer.completed} completed booking{customer.completed === 1 ? '' : 's'}</span></div>
@@ -113,7 +110,7 @@ export default function BrokerCustomersPage() {
                           <div className="workspace-detail-item"><strong>Awarded / allocated</strong><div>{customer.awarded}</div></div>
                           <div className="workspace-detail-item"><strong>In execution</strong><div>{customer.active}</div></div>
                           <div className="workspace-detail-item"><strong>Completed</strong><div>{customer.completed}</div></div>
-                          <div className="workspace-detail-item"><strong>Private customer revenue</strong><div>{commercialAvailable ? money(customer.budgetValue) : privateValueLabel}</div></div>
+                          <div className="workspace-detail-item"><strong>Recorded customer budget</strong><div>{money(customer.budgetValue)}</div></div>
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/loads?customer=${encodeURIComponent(customer.name)}`)}>View loads</ActionButton>

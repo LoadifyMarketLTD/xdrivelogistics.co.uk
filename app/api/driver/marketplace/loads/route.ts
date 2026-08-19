@@ -4,9 +4,9 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabase
 import {
   marketplaceNumber,
   marketplaceText,
+  proposedPriceAmount,
   publicAreaLabel,
   publicOutcode,
-  publicProposedPrice,
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../../_lib/marketplacePublic';
@@ -108,7 +108,7 @@ function publicLoad(
     // Preserve this legacy metadata for compatibility, but do not use it as the
     // visibility gate for XDrive proposed prices.
     is_fixed_price: job.is_fixed_price === true,
-    budget_amount: publicProposedPrice(job),
+    budget_amount: proposedPriceAmount(job.budget_amount),
     currency: marketplaceText(job.currency) ?? 'GBP',
     exchange_posted_at: marketplaceText(job.exchange_posted_at),
     hard_copy_pod: marketplaceText(job.hard_copy_pod),

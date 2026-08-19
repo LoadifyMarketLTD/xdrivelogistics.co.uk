@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
-import { type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { useBrokerCommercialWorkspaceData } from '../useBrokerCommercialWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -41,7 +40,7 @@ function matchesTab(job: WorkspaceJob, tab: LoadTab) {
 export default function BrokerLoadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const data = useBrokerCommercialWorkspaceData();
+  const data = useCompanyWorkspaceData();
   const deepJob = searchParams.get('job');
   const deepCustomer = searchParams.get('customer');
 
@@ -52,9 +51,6 @@ export default function BrokerLoadsPage() {
   const [customer, setCustomer] = useState(deepCustomer || '');
   const [reference, setReference] = useState(deepJob || '');
   const [expanded, setExpanded] = useState<string | null>(deepJob);
-  const commercialAvailable = data.commercialTermsAvailability === 'available';
-  const commercialLoading = data.commercialTermsAvailability === 'loading';
-  const privateValueLabel = commercialLoading ? 'Loading…' : 'Unavailable';
 
   const rows = useMemo(() => {
     const fromTerm = from.trim().toLowerCase();
@@ -101,7 +97,7 @@ export default function BrokerLoadsPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Customer loads" title="Loads" description="Scan customer transport requests, quote activity and operational state from one broker board. Customer revenue remains private to the Broker workspace." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />
+      <PageHeader eyebrow="Customer loads" title="Loads" description="Scan customer transport requests, quote activity and operational state from one broker board." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -130,7 +126,7 @@ export default function BrokerLoadsPage() {
                 const open = expanded === job.id;
                 const quotes = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
                 const bestQuote = quotes.map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0)).filter((amount) => amount > 0).sort((a, b) => a - b)[0];
-                const customerRevenue = commercialAvailable ? Number(job.budget_amount ?? 0) : null;
+                const budget = Number(job.budget_amount ?? 0);
                 const stage = classifyWorkspaceJobStage(job);
 
                 return (
@@ -139,7 +135,7 @@ export default function BrokerLoadsPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>LOAD</div><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{customerRevenue === null ? privateValueLabel : customerRevenue > 0 ? money(customerRevenue) : 'Customer revenue not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={job.current_status || job.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={job.current_status || job.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quotes: {quotes.length}</span><span>{bestQuote ? `Best quote: ${money(bestQuote)}` : 'No live quote'}</span><span>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span></div>
                     {open && (
@@ -149,10 +145,10 @@ export default function BrokerLoadsPage() {
                           <div className="workspace-detail-item"><strong>Pickup</strong><div>{job.pickup_location || job.pickup_postcode || '—'}</div></div>
                           <div className="workspace-detail-item"><strong>Delivery</strong><div>{job.delivery_location || job.delivery_postcode || '—'}</div></div>
                           <div className="workspace-detail-item"><strong>Vehicle</strong><div>{(job.vehicle_type || 'Not specified').replaceAll('_', ' ')}</div></div>
-                          <div className="workspace-detail-item"><strong>Private customer revenue</strong><div>{customerRevenue === null ? privateValueLabel : customerRevenue > 0 ? money(customerRevenue) : 'Not set'}</div></div>
+                          <div className="workspace-detail-item"><strong>Customer budget</strong><div>{budget > 0 ? money(budget) : 'Not set'}</div></div>
                           <div className="workspace-detail-item"><strong>Live carrier quotes</strong><div>{quotes.length}</div></div>
                           <div className="workspace-detail-item"><strong>Best carrier quote</strong><div>{bestQuote ? money(bestQuote) : '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Estimated spread</strong><div>{bestQuote && customerRevenue !== null && customerRevenue > 0 ? money(customerRevenue - bestQuote) : customerRevenue === null ? privateValueLabel : '—'}</div></div>
+                          <div className="workspace-detail-item"><strong>Estimated spread</strong><div>{bestQuote && budget > 0 ? money(budget - bestQuote) : '—'}</div></div>
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                           <ActionButton tone="primary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & award</ActionButton>

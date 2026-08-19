@@ -11,18 +11,13 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-data class DriverPodUpload(
-    val objectPath: String,
-    val kind: String,
-)
-
 /**
- * Security boundary for Android commercial/Marketplace and execution traffic.
+ * Security boundary for Android commercial/Marketplace reads.
  *
  * Pre-award job rows must never be read directly from Supabase because the
  * underlying jobs table contains execution-only addresses, contacts and refs.
- * Critical driver mutations also stay behind XDrive server boundaries so the
- * native app shares the same lifecycle, POD and storage contract as web.
+ * This client consumes only XDrive server projections: quote-safe Marketplace
+ * loads plus assignment-gated execution jobs and quote history.
  */
 class SecureDriverCommercialApi(
     private val xdriveBaseUrl: String,
@@ -94,109 +89,17 @@ class SecureDriverCommercialApi(
             addProperty("amount", amount)
             addProperty("message", message.ifBlank { "Submitted from XDrive Driver Android" })
         }
-        postJson(
-            path = "/api/driver/mobile/bids",
-            accessToken = session.accessToken,
-            body = body,
-            fallbackError = "Failed to submit quote.",
-        )
-    }
-
-    suspend fun moveDriverJob(
-        session: DriverSession,
-        jobId: String,
-        nextStatus: String,
-        collectionPhotoUrl: String? = null,
-    ): Result<Unit> = networkResult {
-        val action = when (nextStatus.trim().lowercase()) {
-            "on_my_way" -> "on-my-way-pickup"
-            "on_site_pickup" -> "arrived-pickup"
-            "loaded" -> "loaded"
-            "in_transit" -> "on-my-way-delivery"
-            "on_site_delivery" -> "arrived-delivery"
-            "delivered" -> "delivered"
-            "completed" -> "completed"
-            else -> throw IllegalArgumentException("Unsupported driver lifecycle status: $nextStatus")
-        }
-        val body = JsonObject().apply {
-            collectionPhotoUrl?.trim()?.takeIf { it.isNotBlank() }?.let {
-                addProperty("collectionPhotoUrl", it)
-            }
-        }
-        postJson(
-            path = "/api/driver/mobile/jobs/$jobId/$action",
-            accessToken = session.accessToken,
-            body = body,
-            fallbackError = "Failed to update job status.",
-        )
-    }
-
-    suspend fun uploadPodEvidence(
-        session: DriverSession,
-        jobId: String,
-        fileName: String,
-        mimeType: String,
-        bytes: ByteArray,
-    ): Result<DriverPodUpload> = networkResult {
-        requireBaseUrl()
-        require(bytes.isNotEmpty()) { "Selected POD file is empty." }
-
-        val normalizedType = mimeType.substringBefore(';').trim().lowercase()
-        val kind = when (normalizedType) {
-            "image/jpeg", "image/png", "image/webp" -> "photo"
-            "application/pdf" -> "document"
-            else -> throw IllegalArgumentException("POD files must be JPEG, PNG, WebP or PDF.")
-        }
-        val safeName = fileName
-            .replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            .replace(Regex("_+"), "_")
-            .take(120)
-            .ifBlank { if (kind == "photo") "pod-photo.jpg" else "pod-document.pdf" }
-
         val request = Request.Builder()
-            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/jobs/$jobId/pod-upload?kind=$kind")
+            .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/bids")
             .addHeader("Authorization", "Bearer ${session.accessToken}")
+            .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
-            .addHeader("X-File-Name", safeName)
-            .post(bytes.toRequestBody(normalizedType.toMediaType()))
+            .post(gson.toJson(body).toRequestBody(jsonMediaType))
             .build()
-
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException(extractError(raw, "Failed to upload POD evidence."))
-            }
-            val payload = runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull()
-                ?: throw IllegalStateException("POD upload response was invalid.")
-            val objectPath = payload.string("objectPath")
-            val responseKind = payload.string("kind")
-            if (objectPath.isBlank() || responseKind !in setOf("photo", "document")) {
-                throw IllegalStateException("POD upload response is missing the stored object path.")
-            }
-            DriverPodUpload(objectPath = objectPath, kind = responseKind)
+            if (!response.isSuccessful) throw IllegalStateException(extractError(raw, "Failed to submit quote."))
         }
-    }
-
-    suspend fun savePod(
-        session: DriverSession,
-        jobId: String,
-        recipientName: String,
-        signatureData: String,
-        photoUris: List<String>,
-        documentUris: List<String>,
-    ): Result<Unit> = networkResult {
-        val body = JsonObject().apply {
-            addProperty("recipientName", recipientName.trim())
-            addProperty("signatureData", signatureData.trim())
-            add("photoUris", gson.toJsonTree(photoUris.distinct()))
-            add("documentUris", gson.toJsonTree(documentUris.distinct()))
-        }
-        postJson(
-            path = "/api/driver/mobile/jobs/$jobId/pod",
-            accessToken = session.accessToken,
-            body = body,
-            fallbackError = "Failed to save POD evidence.",
-        )
     }
 
     private fun mapAssignedJob(row: JsonObject): DriverJob {
@@ -224,9 +127,7 @@ class SecureDriverCommercialApi(
             collectionPhotoUrl = row.nullableString("collectionPhotoUrl"),
             deliverySignatureData = row.get("deliverySignatureData")
                 ?.takeUnless { it.isJsonNull }
-                ?.let { element ->
-                    if (element.isJsonPrimitive && element.asJsonPrimitive.isString) element.asString else gson.toJson(element)
-                },
+                ?.let { gson.toJson(it) },
             clientSignatureName = row.string("clientSignatureName"),
             podRequired = row.booleanOrNull("podRequired") ?: true,
         )
@@ -280,26 +181,6 @@ class SecureDriverCommercialApi(
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw IllegalStateException(extractError(raw, "XDrive request failed."))
             runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull() ?: JsonObject()
-        }
-    }
-
-    private fun postJson(
-        path: String,
-        accessToken: String,
-        body: JsonObject,
-        fallbackError: String,
-    ) {
-        requireBaseUrl()
-        val request = Request.Builder()
-            .url("${xdriveBaseUrl.trimEnd('/')}$path")
-            .addHeader("Authorization", "Bearer $accessToken")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Accept", "application/json")
-            .post(gson.toJson(body).toRequestBody(jsonMediaType))
-            .build()
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException(extractError(raw, fallbackError))
         }
     }
 

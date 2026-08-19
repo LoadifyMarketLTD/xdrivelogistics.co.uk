@@ -76,7 +76,7 @@ data class DriverJob(
     fun hasCollectionProof(): Boolean = !collectionPhotoUrl.isNullOrBlank()
 
     fun hasDeliveryConfirmation(): Boolean = !podRequired || (
-        deliveryPhotos.isNotEmpty() &&
+        hasPod() &&
             !deliverySignatureData.isNullOrBlank() &&
             clientSignatureName.isNotBlank()
         )
@@ -128,9 +128,9 @@ data class DriverJob(
         "loaded" -> if (hasCollectionProof()) null else "Take or upload a collection photo before marking the job Loaded."
         "delivered" -> when {
             !podRequired -> null
-            deliveryPhotos.isEmpty() -> "Take or upload at least one delivery photo before marking the job Delivered."
+            !hasPod() -> "Upload a signed POD or delivery photo before marking the job Delivered."
             clientSignatureName.isBlank() -> "Enter and save the recipient name before marking the job Delivered."
-            deliverySignatureData.isNullOrBlank() -> "Capture and save the recipient signature before marking the job Delivered."
+            deliverySignatureData.isNullOrBlank() -> "Confirm the signed POD evidence before marking the job Delivered."
             else -> null
         }
         else -> null

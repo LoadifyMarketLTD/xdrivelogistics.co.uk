@@ -15,9 +15,9 @@ import { classifyWorkspaceJobStage } from '../../lib/jobs/workspaceJobStage';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import {
   getWorkspaceMetricPresentationStatus,
+  useCompanyWorkspaceData,
   type WorkspaceDataState,
 } from '../components/workspace/useCompanyWorkspaceData';
-import { useBrokerCommercialWorkspaceData } from './useBrokerCommercialWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -70,11 +70,8 @@ const unavailable = (
 
 export default function BrokerDashboardHome() {
   const router = useRouter();
-  const data = useBrokerCommercialWorkspaceData();
+  const data = useCompanyWorkspaceData();
   const [enquiryActions, setEnquiryActions] = useState<EnquiryActionState>({ loading: true, unavailable: false, count: 0 });
-  const commercialAvailable = data.commercialTermsAvailability === 'available';
-  const commercialLoading = data.commercialTermsAvailability === 'loading';
-  const privateValueLabel = commercialLoading ? 'Loading…' : 'Unavailable';
 
   useEffect(() => {
     let active = true;
@@ -256,12 +253,12 @@ export default function BrokerDashboardHome() {
 
       <Panel
         title="Quote decisions requiring action"
-        description="Loads with live carrier quotes remain directly actionable below the broker queue. Customer revenue stays private to the Broker workspace."
+        description="Loads with live carrier quotes remain directly actionable below the broker queue."
         actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
         style={{ marginTop: '12px' }}
       >
         <DataTable
-          columns={['Customer load', 'Route', 'Quotes', 'Customer revenue', 'Best quote', 'Est. margin', 'Decision']}
+          columns={['Customer load', 'Route', 'Quotes', 'Budget', 'Best quote', 'Est. margin', 'Decision']}
           rows={metrics.awaitingAward.slice(0, 8).map((job) => {
             const quotes = data.bids.filter(
               (bid) => bid.job_id === job.id && bid.status === 'submitted',
@@ -270,7 +267,7 @@ export default function BrokerDashboardHome() {
               .map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0))
               .filter((price) => price > 0);
             const best = prices.length ? Math.min(...prices) : 0;
-            const customerRevenue = commercialAvailable ? Number(job.budget_amount ?? 0) : null;
+            const budget = Number(job.budget_amount ?? 0);
             return [
               job.client_name ?? job.id.slice(0, 8).toUpperCase(),
               <strong key="route">
@@ -278,13 +275,9 @@ export default function BrokerDashboardHome() {
                 {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
               </strong>,
               quotes.length,
-              customerRevenue === null ? privateValueLabel : customerRevenue > 0 ? money(customerRevenue) : '—',
+              budget > 0 ? money(budget) : '—',
               best > 0 ? money(best) : '—',
-              customerRevenue === null
-                ? privateValueLabel
-                : best > 0 && customerRevenue > 0
-                  ? money(customerRevenue - best)
-                  : '—',
+              best > 0 && budget > 0 ? money(budget - best) : '—',
               <ActionButton key="decision" tone="success" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>
                 Compare &amp; award
               </ActionButton>,
