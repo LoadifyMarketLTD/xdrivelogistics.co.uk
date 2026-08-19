@@ -6,6 +6,9 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 
 const driverAction = read('app/api/driver/mobile/jobs/[id]/[action]/route.ts');
 const operatorTransition = read('app/api/admin/jobs/[id]/transition/route.ts');
+const autoInvoice = read('app/api/_lib/autoGenerateMarketplaceInvoice.ts');
+const manualInvoice = read('app/api/driver/finance/invoices/route.ts');
+const jobInvoice = read('app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts');
 const decoupling = read('supabase/migrations/20260819151000_decouple_invoice_status_from_job_execution.sql');
 const workspaceStage = read('lib/jobs/workspaceJobStage.ts');
 
@@ -15,6 +18,15 @@ describe('invoice lifecycle stays separate from canonical job execution', () => 
     expect(driverAction).toContain("if (action === 'delivered')");
     expect(operatorTransition).toContain('autoGenerateMarketplaceInvoice({');
     expect(operatorTransition).toContain("parsed.data.nextStatus === 'delivered' || parsed.data.nextStatus === 'completed'");
+  });
+
+  it('fails closed on canonical invoice-number generation across every server creation path', () => {
+    for (const source of [autoInvoice, manualInvoice, jobInvoice]) {
+      expect(source).toContain("rpc('next_invoice_number'");
+      expect(source).toContain('Canonical invoice number generation');
+      expect(source).not.toContain('fallbackNumber');
+      expect(source).not.toContain('String(Date.now()).slice(-3)');
+    }
   });
 
   it('disables only the stale invoice-to-job-status coupling', () => {
