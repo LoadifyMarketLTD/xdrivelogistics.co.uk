@@ -3,8 +3,8 @@ import { sortSmartDestinationCandidates } from '../../../../../lib/smartDestinat
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   marketplaceNumber,
+  proposedPriceAmount,
   publicOutcode,
-  publicProposedPrice,
   publicQuoteNotes,
 } from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver, respond } from '../_lib';
@@ -87,7 +87,7 @@ function publicArea(postcode: unknown) {
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
-  const proposedPrice = publicProposedPrice(row);
+  const proposedPrice = proposedPriceAmount(row.budget_amount);
   const hasProposedPrice = proposedPrice !== null;
   const company = companyInfo(row.companies);
   return {
