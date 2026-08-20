@@ -5,6 +5,8 @@
 -- Constraints/FKs remain authoritative and the transaction is always rolled back.
 
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT plan(1);
 
 CREATE OR REPLACE FUNCTION pg_temp.assert_true(p_condition boolean, p_message text)
 RETURNS void
@@ -194,4 +196,6 @@ SELECT pg_temp.assert_true(
   'Non-overlapping Driver/Vehicle reservation was incorrectly rejected.'
 );
 
+SELECT pass('Fleet Driver/Vehicle double-booking DB guard passed.');
+SELECT * FROM finish();
 ROLLBACK;
