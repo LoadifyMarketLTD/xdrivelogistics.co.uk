@@ -4,6 +4,8 @@
 -- this transaction and the transaction is always rolled back.
 
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT plan(1);
 
 CREATE OR REPLACE FUNCTION pg_temp.assert_true(p_condition boolean, p_message text)
 RETURNS void
@@ -140,4 +142,6 @@ BEGIN
 END;
 $$;
 
+SELECT pass('Notification retry lease/recovery and XDrive dispatcher DB contract passed.');
+SELECT * FROM finish();
 ROLLBACK;
