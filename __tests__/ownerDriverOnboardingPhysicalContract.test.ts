@@ -18,10 +18,18 @@ describe('owner-driver onboarding physical contract reconciliation', () => {
     expect(source).not.toContain('CREATE OR REPLACE FUNCTION public.submit_onboarding_application(');
   });
 
+  it('matches pg_get_functiondef output semantically rather than by source whitespace', () => {
+    expect(source).toContain('regexp_count(v_def, v_old_columns_pattern');
+    expect(source).toContain('regexp_replace(v_def, v_old_columns_pattern');
+    expect(source).toContain('[[:space:]]');
+    expect(source).toContain('require exactly one owner-driver INSERT shape');
+  });
+
   it('fails closed on an unexpected historical function shape', () => {
     expect(source).toContain('Unexpected owner-driver INSERT shape');
     expect(source).toContain('Unexpected owner-driver VALUES shape');
     expect(source).toContain('refusing broad rewrite');
+    expect(source).toContain('rewrite did not produce the canonical physical shape');
   });
 
   it('keeps the preserved base private after reconciliation', () => {
