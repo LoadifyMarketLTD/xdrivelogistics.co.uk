@@ -89,15 +89,19 @@ VALUES
     false
   );
 
+-- Vehicle creation in the live application explicitly starts advertising_state
+-- at 'none'. Mirror that physical contract so this fixture tests Fleet locking,
+-- not an unrelated advertising NOT NULL constraint.
 INSERT INTO public.vehicles (
-  id, company_id, assigned_driver_id, type, reg_plate
+  id, company_id, assigned_driver_id, type, reg_plate, advertising_state
 )
 VALUES (
   '23000000-0000-0000-0000-000000000021',
   '23000000-0000-0000-0000-000000000001',
   '23000000-0000-0000-0000-000000000011',
   'van_small',
-  'PL26TST'
+  'PL26TST',
+  'none'
 );
 
 INSERT INTO public.jobs (
