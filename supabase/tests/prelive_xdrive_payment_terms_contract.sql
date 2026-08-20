@@ -109,11 +109,11 @@ BEGIN
     'Finance extension RPC no longer joins the invoice company authority boundary.'
   );
   PERFORM pg_temp.assert_true(
-    position("coalesce(cm.status::text, '') = 'active'" in v_definition) > 0,
+    position($needle$coalesce(cm.status::text, '') = 'active'$needle$ in v_definition) > 0,
     'Finance extension RPC no longer requires an active finance membership.'
   );
   PERFORM pg_temp.assert_true(
-    position("coalesce(v_company_status, '') <> 'active'" in v_definition) > 0,
+    position($needle$coalesce(v_company_status, '') <> 'active'$needle$ in v_definition) > 0,
     'Finance extension RPC no longer rejects pending/suspended companies.'
   );
 END;
