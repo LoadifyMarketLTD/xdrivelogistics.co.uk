@@ -59,6 +59,11 @@ describe('PreLive Auth and onboarding Storage P0 boundaries', () => {
     expect(storageAuthority).not.toContain("role_in_company::text");
   });
 
+  it('keeps storage policy documentation portable across Supabase-owned storage.objects', () => {
+    expect(source).not.toMatch(/COMMENT\s+ON\s+POLICY[\s\S]*ON\s+storage\.objects/i);
+    expect(storageAuthority).not.toMatch(/COMMENT\s+ON\s+POLICY[\s\S]*ON\s+storage\.objects/i);
+  });
+
   it('keeps company document access behind the tenant-validated signed URL API', () => {
     expect(companyDocumentRoute).toContain(".eq('company_id', document.company_id)");
     expect(companyDocumentRoute).toContain(".eq('status', 'active')");
