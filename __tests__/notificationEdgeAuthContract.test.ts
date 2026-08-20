@@ -28,7 +28,9 @@ describe('notification Edge Function authentication contract', () => {
     expect(functionConfig).toMatch(
       /\[functions\.notify-operational-event\][\s\S]*verify_jwt\s*=\s*false/,
     );
-    expect(source).toContain('if (!webhookAuthorized && !serviceRoleAuthorized)');
+    expect(source).toContain(
+      'if (!webhookAuthorized && !serviceRoleAuthorized && !secretApiKeyAuthorized)',
+    );
   });
 
   it('accepts the canonical service-role Bearer caller used by the DB trigger', () => {
@@ -36,6 +38,17 @@ describe('notification Edge Function authentication contract', () => {
     expect(source).toContain('const serviceBearer = bearerToken(request);');
     expect(source).toContain('const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);');
     expect(source).toContain('if (!webhookAuthorized && !serviceRoleAuthorized)');
+  });
+
+  it('accepts modern Supabase secret keys only through the apikey header', () => {
+    expect(source).toContain("Deno.env.get('SUPABASE_SECRET_KEYS')");
+    expect(source).toContain("request.headers.get('apikey')");
+    expect(source).toContain(
+      'const secretApiKeyAuthorized = secretApiKeys.some((key) => constantTimeEqual(suppliedApiKey, key));',
+    );
+    expect(source).toContain(
+      'if (!webhookAuthorized && !serviceRoleAuthorized && !secretApiKeyAuthorized)',
+    );
   });
 
   it('keeps the optional private webhook-secret path fail-closed', () => {
