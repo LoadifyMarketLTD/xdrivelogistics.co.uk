@@ -3,7 +3,8 @@
  *
  * Private callers may authenticate in either of two ways:
  * - the exact SUPABASE_SERVICE_ROLE_KEY as a Bearer token (the canonical DB
- *   trigger already uses this path), or
+ *   trigger already uses this legacy path),
+ * - any configured modern Supabase secret key in the apikey header, or
  * - XDRIVE_NOTIFICATION_WEBHOOK_SECRET in x-xdrive-webhook-secret for an
  *   explicitly configured Database Webhook / scheduler.
  *
@@ -18,6 +19,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const secretApiKeys = (() => {
+  try {
+    const configured = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, unknown>;
+    return Object.values(configured).filter(
+      (value): value is string => typeof value === 'string' && value.startsWith('sb_secret_'),
+    );
+  } catch {
+    return [];
+  }
+})();
 const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').trim().replace(/\/$/, '');
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
@@ -390,11 +401,13 @@ Deno.serve(async (request) => {
     }
 
     const suppliedSecret = request.headers.get('x-xdrive-webhook-secret') ?? '';
+    const suppliedApiKey = request.headers.get('apikey') ?? '';
     const serviceBearer = bearerToken(request);
     const webhookAuthorized = webhookSecret.length >= 32 && constantTimeEqual(suppliedSecret, webhookSecret);
     const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);
+    const secretApiKeyAuthorized = secretApiKeys.some((key) => constantTimeEqual(suppliedApiKey, key));
 
-    if (!webhookAuthorized && !serviceRoleAuthorized) {
+    if (!webhookAuthorized && !serviceRoleAuthorized && !secretApiKeyAuthorized) {
       return jsonResponse(401, { error: 'Unauthorized.' });
     }
 
