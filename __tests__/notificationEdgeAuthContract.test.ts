@@ -18,6 +18,11 @@ const triggerMigration = readFileSync(
 );
 
 describe('notification Edge Function authentication contract', () => {
+  it('preserves the canonical local XDrive project and PostgreSQL identities', () => {
+    expect(functionConfig).toMatch(/^project_id\s*=\s*"xdrive-prelive"\s*$/m);
+    expect(functionConfig).toMatch(/\[db\][\s\S]*major_version\s*=\s*17/);
+  });
+
   it('deploys the worker with gateway JWT verification disabled so private in-function auth can run', () => {
     expect(functionConfig).toContain('[functions.notify-operational-event]');
     expect(functionConfig).toMatch(
