@@ -132,8 +132,8 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_jwt_role text := COALESCE(
-    current_setting('request.jwt.claim.role', true),
-    current_setting('request.jwt.claims', true)::jsonb ->> 'role',
+    NULLIF(current_setting('request.jwt.claim.role', true), ''),
+    NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
     ''
   );
 BEGIN
