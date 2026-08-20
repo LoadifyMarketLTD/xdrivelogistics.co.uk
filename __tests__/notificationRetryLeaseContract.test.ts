@@ -59,4 +59,12 @@ describe('notification retry lease and scheduler contract', () => {
     expect(edge).toContain('lease_token: null');
     expect(edge).toContain('lease_expires_at: null');
   });
+
+  it('uses a stable provider idempotency key for each event and recipient', () => {
+    expect(edge).toContain('const notificationIdempotencyKey = (eventId: string, recipientId: string)');
+    expect(edge).toContain('`xdrive-notification/${eventId}/${recipientId}`.slice(0, 256)');
+    expect(edge).toContain("'Idempotency-Key': idempotencyKey");
+    expect(edge).toContain('notificationIdempotencyKey(event.id, userId)');
+    expect(edge).toContain('notificationIdempotencyKey(eventId, member.user_id)');
+  });
 });
