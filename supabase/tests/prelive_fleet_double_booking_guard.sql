@@ -47,11 +47,21 @@ ALTER TABLE public.drivers DISABLE TRIGGER USER;
 ALTER TABLE public.vehicles DISABLE TRIGGER USER;
 ALTER TABLE public.jobs DISABLE TRIGGER USER;
 
--- Fresh XDrive schema retains both the legacy required drivers.name column and
--- the canonical display_name column. Populate both so this fixture validates
--- the Fleet reservation guard rather than failing on unrelated driver schema.
+-- Fresh/live XDrive physical contract requires the legacy name/full_name fields
+-- as well as canonical display_name. Populate all identity fields plus is_active
+-- so this fixture reaches the Fleet reservation guard instead of failing on an
+-- unrelated Driver row constraint.
 INSERT INTO public.drivers (
-  id, company_id, name, display_name, status, app_access, driver_type, can_commercial_bid
+  id,
+  company_id,
+  name,
+  full_name,
+  display_name,
+  status,
+  is_active,
+  app_access,
+  driver_type,
+  can_commercial_bid
 )
 VALUES
   (
@@ -59,7 +69,9 @@ VALUES
     '23000000-0000-0000-0000-000000000001',
     'PreLive Driver One',
     'PreLive Driver One',
+    'PreLive Driver One',
     'pending_verification',
+    true,
     false,
     'company_driver',
     false
@@ -69,7 +81,9 @@ VALUES
     '23000000-0000-0000-0000-000000000001',
     'PreLive Driver Two',
     'PreLive Driver Two',
+    'PreLive Driver Two',
     'pending_verification',
+    true,
     false,
     'company_driver',
     false
