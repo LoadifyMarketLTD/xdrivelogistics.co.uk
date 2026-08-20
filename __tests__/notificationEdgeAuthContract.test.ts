@@ -37,7 +37,9 @@ describe('notification Edge Function authentication contract', () => {
     expect(triggerMigration).toContain("'Authorization', 'Bearer ' || v_service_role_key");
     expect(source).toContain('const serviceBearer = bearerToken(request);');
     expect(source).toContain('const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);');
-    expect(source).toContain('if (!webhookAuthorized && !serviceRoleAuthorized)');
+    expect(source).toContain(
+      'if (!webhookAuthorized && !serviceRoleAuthorized && !secretApiKeyAuthorized)',
+    );
   });
 
   it('accepts modern Supabase secret keys only through the apikey header', () => {
