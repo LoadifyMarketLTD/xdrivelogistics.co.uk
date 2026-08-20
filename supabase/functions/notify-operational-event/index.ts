@@ -9,6 +9,9 @@
  *
  * When deployed with --no-verify-jwt this function still fails closed unless
  * one of those private credentials matches in constant time.
+ *
+ * Queue rows are claimed through the DB lease RPC before any provider call.
+ * This prevents duplicate sends when the insert trigger and retry cron overlap.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -34,6 +37,8 @@ interface NotificationEvent {
   status: string;
   attempt_count?: number;
   next_attempt_at?: string | null;
+  lease_token?: string | null;
+  lease_expires_at?: string | null;
 }
 
 const jsonResponse = (status: number, payload: Record<string, unknown>) =>
@@ -276,6 +281,12 @@ async function handleInvoiceCreated(event: NotificationEvent) {
 }
 
 async function processEvent(event: NotificationEvent): Promise<void> {
+  const leaseToken = event.lease_token ?? '';
+  if (!leaseToken) {
+    console.error(`[notify] Event ${event.id} arrived without a queue lease; skipped.`);
+    return;
+  }
+
   let success = false;
   let skipped = false;
   try {
@@ -315,42 +326,30 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       attempt_count: attemptCount,
       next_attempt_at: nextAttemptAt,
       last_error: success || skipped ? null : 'Notification provider or event handler failed.',
+      lease_token: null,
+      lease_expires_at: null,
     })
     .eq('id', event.id)
-    .in('status', ['pending', 'failed']);
+    .eq('lease_token', leaseToken);
 
-  if (error) console.error(`[notify] Could not update event ${event.id}: ${error.message}`);
+  if (error) console.error(`[notify] Could not finalize event ${event.id}: ${error.message}`);
 }
 
-const isDueForRetry = (event: NotificationEvent, nowMs: number) => {
-  if (!event.next_attempt_at) return true;
-  const retryAt = Date.parse(event.next_attempt_at);
-  return Number.isFinite(retryAt) && retryAt <= nowMs;
-};
+async function claimEvents(eventId: string | null, limit: number): Promise<NotificationEvent[]> {
+  const { data, error } = await supabase.rpc('claim_notification_events', {
+    p_event_id: eventId,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []) as NotificationEvent[];
+}
 
 async function loadWebhookEvent(eventId: string): Promise<NotificationEvent[]> {
-  const { data, error } = await supabase
-    .from('notification_events')
-    .select('*')
-    .eq('id', eventId)
-    .in('status', ['pending', 'failed'])
-    .maybeSingle();
-  if (error) throw error;
-  return data ? [data as NotificationEvent] : [];
+  return claimEvents(eventId, 1);
 }
 
 async function loadDueEvents(): Promise<NotificationEvent[]> {
-  const { data, error } = await supabase
-    .from('notification_events')
-    .select('*')
-    .in('status', ['pending', 'failed'])
-    .order('created_at', { ascending: true })
-    .limit(100);
-  if (error) throw error;
-  const nowMs = Date.now();
-  return ((data ?? []) as NotificationEvent[])
-    .filter((event) => isDueForRetry(event, nowMs))
-    .slice(0, 50);
+  return claimEvents(null, 50);
 }
 
 Deno.serve(async (request) => {
