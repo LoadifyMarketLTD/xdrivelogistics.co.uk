@@ -28,9 +28,9 @@ export const COMPANY_CONFIG = {
   },
   
   // Payment configuration (MASTER SPEC)
-  // Standard XDrive terms are immediate, 14 days or 30 days from invoice date.
-  // A single +15 day extension is an exceptional finance action and is stored
-  // separately from the base contractual payment term.
+  // Standard XDrive terms are 14 or 30 days from invoice date. Pay now remains
+  // available for immediate-payment cases. A single +15 day extension is an
+  // exceptional finance action and is stored separately from the base term.
   // Bank-transfer details are read from server-only env vars (no NEXT_PUBLIC_ prefix).
   // They must NEVER be embedded in client-side JavaScript bundles.
   // On the client these fields resolve to '' (empty string); the rendered values
@@ -45,6 +45,7 @@ export const COMPANY_CONFIG = {
       email: process.env.COMPANY_PAYPAL_EMAIL?.trim() || '',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
+    defaultTerm: '14 days' as const,
     specialExtensionDays: 15 as const,
     lateFeeNote: 'Late payments may incur administrative charges.',
     lateFeeAmount: 'A late payment charge of £25 per full week may apply after the due date.',
