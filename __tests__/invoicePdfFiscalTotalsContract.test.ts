@@ -27,6 +27,17 @@ describe('Invoice PDF fiscal totals contract', () => {
     expect(source).toContain('money(finiteMoney(input.totalAmount), input.currency)');
   });
 
+  it('renders the calculated due date and keeps the late-payment notice separate', () => {
+    expect(source).toContain('Due date: ${formatDate(input.dueDate)}');
+    expect(source).toContain("page.drawText('Late payments may incur administrative charges.'");
+    expect(previewRoute).toContain('dueDate: invoice.due_date');
+  });
+
+  it('keeps the approved middle-dot separator representable instead of replacing it with question marks', () => {
+    expect(source).toContain('\\u00B7');
+    expect(source).toContain('\\u00A3\\u00B7\\u20AC');
+  });
+
   it('keeps preview validation enforcing total = net + VAT before PDF generation', () => {
     expect(previewRoute).toContain('Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01');
     expect(previewRoute).toContain('netAmount,');
