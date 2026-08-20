@@ -18,10 +18,20 @@ DO $$
 DECLARE
   v_oid oid;
   v_def text;
-  v_old_columns text := E'INSERT INTO public.drivers (\n        company_id,\n        user_id,\n        display_name,';
+  v_old_columns_pattern text :=
+    'INSERT[[:space:]]+INTO[[:space:]]+public\.drivers[[:space:]]*\([[:space:]]*company_id,[[:space:]]*user_id,[[:space:]]*display_name,';
+  v_new_columns_pattern text :=
+    'INSERT[[:space:]]+INTO[[:space:]]+public\.drivers[[:space:]]*\([[:space:]]*company_id,[[:space:]]*user_id,[[:space:]]*name,[[:space:]]*full_name,[[:space:]]*display_name,';
+  v_old_values_pattern text :=
+    'VALUES[[:space:]]*\([[:space:]]*v_company_id,[[:space:]]*v_app\.user_id,[[:space:]]*COALESCE\(NULLIF\(trim\(v_app\.payload->>''full_name''\),[[:space:]]*''''\),[[:space:]]*split_part\(v_app\.email,[[:space:]]*''@'',[[:space:]]*1\)\),[[:space:]]*v_contact_phone,';
+  v_new_values_pattern text :=
+    'VALUES[[:space:]]*\([[:space:]]*v_company_id,[[:space:]]*v_app\.user_id,[[:space:]]*COALESCE\(NULLIF\(trim\(v_app\.payload->>''full_name''\),[[:space:]]*''''\),[[:space:]]*split_part\(v_app\.email,[[:space:]]*''@'',[[:space:]]*1\)\),[[:space:]]*COALESCE\(NULLIF\(trim\(v_app\.payload->>''full_name''\),[[:space:]]*''''\),[[:space:]]*split_part\(v_app\.email,[[:space:]]*''@'',[[:space:]]*1\)\),[[:space:]]*COALESCE\(NULLIF\(trim\(v_app\.payload->>''full_name''\),[[:space:]]*''''\),[[:space:]]*split_part\(v_app\.email,[[:space:]]*''@'',[[:space:]]*1\)\),[[:space:]]*v_contact_phone,';
   v_new_columns text := E'INSERT INTO public.drivers (\n        company_id,\n        user_id,\n        name,\n        full_name,\n        display_name,';
-  v_old_values text := E'VALUES (\n        v_company_id,\n        v_app.user_id,\n        COALESCE(NULLIF(trim(v_app.payload->>''full_name''), ''''), split_part(v_app.email, ''@'', 1)),\n        v_contact_phone,';
   v_new_values text := E'VALUES (\n        v_company_id,\n        v_app.user_id,\n        COALESCE(NULLIF(trim(v_app.payload->>''full_name''), ''''), split_part(v_app.email, ''@'', 1)),\n        COALESCE(NULLIF(trim(v_app.payload->>''full_name''), ''''), split_part(v_app.email, ''@'', 1)),\n        COALESCE(NULLIF(trim(v_app.payload->>''full_name''), ''''), split_part(v_app.email, ''@'', 1)),\n        v_contact_phone,';
+  v_old_columns_count integer;
+  v_new_columns_count integer;
+  v_old_values_count integer;
+  v_new_values_count integer;
 BEGIN
   v_oid := to_regprocedure('public.submit_onboarding_application_base_v1(uuid)');
 
@@ -33,25 +43,39 @@ BEGIN
   SELECT pg_get_functiondef(v_oid)
   INTO v_def;
 
+  -- pg_get_functiondef() normalises whitespace. Match semantic token order rather
+  -- than source indentation, and require exactly one owner-driver INSERT shape.
+  v_old_columns_count := regexp_count(v_def, v_old_columns_pattern, 1, 'i');
+  v_new_columns_count := regexp_count(v_def, v_new_columns_pattern, 1, 'i');
+  v_old_values_count := regexp_count(v_def, v_old_values_pattern, 1, 'i');
+  v_new_values_count := regexp_count(v_def, v_new_values_pattern, 1, 'i');
+
   -- Idempotent on an already-reconciled environment.
-  IF position(v_new_columns IN v_def) > 0 THEN
-    IF position(v_new_values IN v_def) = 0 THEN
+  IF v_new_columns_count = 1 THEN
+    IF v_new_values_count <> 1 THEN
       RAISE EXCEPTION 'Owner-driver submit columns are reconciled but values are not; refusing partial rewrite.'
         USING ERRCODE = 'P0001';
     END IF;
   ELSE
-    IF position(v_old_columns IN v_def) = 0 THEN
+    IF v_new_columns_count <> 0 OR v_old_columns_count <> 1 THEN
       RAISE EXCEPTION 'Unexpected owner-driver INSERT shape in submit_onboarding_application_base_v1; refusing broad rewrite.'
         USING ERRCODE = 'P0001';
     END IF;
 
-    IF position(v_old_values IN v_def) = 0 THEN
+    IF v_new_values_count <> 0 OR v_old_values_count <> 1 THEN
       RAISE EXCEPTION 'Unexpected owner-driver VALUES shape in submit_onboarding_application_base_v1; refusing broad rewrite.'
         USING ERRCODE = 'P0001';
     END IF;
 
-    v_def := replace(v_def, v_old_columns, v_new_columns);
-    v_def := replace(v_def, v_old_values, v_new_values);
+    v_def := regexp_replace(v_def, v_old_columns_pattern, v_new_columns, 'i');
+    v_def := regexp_replace(v_def, v_old_values_pattern, v_new_values, 'i');
+
+    -- Prove the intended shape exists exactly once before executing the rewrite.
+    IF regexp_count(v_def, v_new_columns_pattern, 1, 'i') <> 1
+       OR regexp_count(v_def, v_new_values_pattern, 1, 'i') <> 1 THEN
+      RAISE EXCEPTION 'Owner-driver submit rewrite did not produce the canonical physical shape; refusing execution.'
+        USING ERRCODE = 'P0001';
+    END IF;
 
     EXECUTE v_def;
   END IF;
