@@ -37,6 +37,14 @@ describe('notification retry lease and scheduler contract', () => {
     expect(migration).not.toContain('extensions.http_post');
   });
 
+  it('fails closed instead of dispatching to a non-XDrive Supabase project', () => {
+    expect(migration).toContain("v_expected_project_ref constant text := 'jqxlauexhkonixtjvljw'");
+    expect(migration).toContain("btrim(v_project_ref) <> v_expected_project_ref");
+    expect(migration).toContain('Supabase project ref is not XDrive');
+    expect(migration).toContain("'https://' || v_expected_project_ref || '.supabase.co/functions/v1/notify-operational-event'");
+    expect(migration).not.toContain("'https://' || v_project_ref || '.supabase.co/functions/v1/notify-operational-event'");
+  });
+
   it('keeps configuration/transport failures retryable rather than terminally skipped', () => {
     expect(migration).toContain("status = 'failed'");
     expect(migration).toContain('processed_at = NULL');
