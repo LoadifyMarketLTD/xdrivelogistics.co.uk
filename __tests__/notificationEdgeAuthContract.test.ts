@@ -7,12 +7,25 @@ const source = readFileSync(
   'utf8',
 );
 
+const functionConfig = readFileSync(
+  resolve(process.cwd(), 'supabase/config.toml'),
+  'utf8',
+);
+
 const triggerMigration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260820103000_notification_retry_leases_and_cron.sql'),
   'utf8',
 );
 
 describe('notification Edge Function authentication contract', () => {
+  it('deploys the worker with gateway JWT verification disabled so private in-function auth can run', () => {
+    expect(functionConfig).toContain('[functions.notify-operational-event]');
+    expect(functionConfig).toMatch(
+      /\[functions\.notify-operational-event\][\s\S]*verify_jwt\s*=\s*false/,
+    );
+    expect(source).toContain('if (!webhookAuthorized && !serviceRoleAuthorized)');
+  });
+
   it('accepts the canonical service-role Bearer caller used by the DB trigger', () => {
     expect(triggerMigration).toContain("'Authorization', 'Bearer ' || v_service_role_key");
     expect(source).toContain('const serviceBearer = bearerToken(request);');
