@@ -1,8 +1,8 @@
 -- Real-database PreLive P1 Fleet resource reservation regression test.
 -- Run only against a disposable/local/staging database after all migrations.
--- Fixture setup temporarily disables USER triggers only on public.jobs, then the
--- actual guard function is exercised through a disposable temp-table trigger.
--- The transaction is always rolled back.
+-- Fixture setup temporarily disables USER triggers on the fixture tables, then
+-- the actual guard function is exercised through a disposable temp-table trigger.
+-- Constraints/FKs remain authoritative and the transaction is always rolled back.
 
 BEGIN;
 
@@ -34,28 +34,19 @@ SELECT pg_temp.assert_true(
   'Canonical Fleet double-booking trigger is missing or disabled.'
 );
 
-INSERT INTO public.companies (
-  id,
-  name,
-  status
-)
+INSERT INTO public.companies (id, name, status)
 VALUES (
   '23000000-0000-0000-0000-000000000001',
   'PreLive Fleet Guard Company',
   'active'
 );
 
--- user_id is deliberately NULL: identity/onboarding triggers may downgrade the
--- synthetic driver status/app access, but the scheduling guard only requires
--- stable Driver/Vehicle identities and the fixture remains FK-valid.
+ALTER TABLE public.drivers DISABLE TRIGGER USER;
+ALTER TABLE public.vehicles DISABLE TRIGGER USER;
+ALTER TABLE public.jobs DISABLE TRIGGER USER;
+
 INSERT INTO public.drivers (
-  id,
-  company_id,
-  display_name,
-  status,
-  app_access,
-  driver_type,
-  can_commercial_bid
+  id, company_id, display_name, status, app_access, driver_type, can_commercial_bid
 )
 VALUES
   (
@@ -78,11 +69,7 @@ VALUES
   );
 
 INSERT INTO public.vehicles (
-  id,
-  company_id,
-  assigned_driver_id,
-  type,
-  reg_plate
+  id, company_id, assigned_driver_id, type, reg_plate
 )
 VALUES (
   '23000000-0000-0000-0000-000000000021',
@@ -91,10 +78,6 @@ VALUES (
   'van_small',
   'PL26TST'
 );
-
--- Seed one already-reserved public job without invoking unrelated workflow
--- triggers. Constraints/FKs still remain authoritative during this fixture.
-ALTER TABLE public.jobs DISABLE TRIGGER USER;
 
 INSERT INTO public.jobs (
   id,
@@ -119,6 +102,8 @@ VALUES (
   '14 days'
 );
 
+ALTER TABLE public.drivers ENABLE TRIGGER USER;
+ALTER TABLE public.vehicles ENABLE TRIGGER USER;
 ALTER TABLE public.jobs ENABLE TRIGGER USER;
 
 CREATE TEMP TABLE prelive_job_guard_probe (
@@ -137,21 +122,13 @@ BEFORE INSERT ON prelive_job_guard_probe
 FOR EACH ROW
 EXECUTE FUNCTION public.guard_job_resource_double_booking();
 
--- Same Driver, overlapping schedule: must fail even without a vehicle on the
--- candidate row.
 DO $$
 BEGIN
   BEGIN
     INSERT INTO prelive_job_guard_probe (
-      id,
-      assigned_driver_id,
-      vehicle_id,
-      current_status,
-      status,
-      pickup_datetime,
-      delivery_datetime
-    )
-    VALUES (
+      id, assigned_driver_id, vehicle_id, current_status, status,
+      pickup_datetime, delivery_datetime
+    ) VALUES (
       '23000000-0000-0000-0000-000000000041',
       '23000000-0000-0000-0000-000000000011',
       NULL,
@@ -160,7 +137,6 @@ BEGIN
       '2026-08-20 13:00:00+00',
       '2026-08-20 15:00:00+00'
     );
-
     RAISE EXCEPTION 'Overlapping Driver allocation unexpectedly succeeded.';
   EXCEPTION
     WHEN check_violation THEN
@@ -171,20 +147,13 @@ BEGIN
 END;
 $$;
 
--- Different Driver but same Vehicle, overlapping schedule: must also fail.
 DO $$
 BEGIN
   BEGIN
     INSERT INTO prelive_job_guard_probe (
-      id,
-      assigned_driver_id,
-      vehicle_id,
-      current_status,
-      status,
-      pickup_datetime,
-      delivery_datetime
-    )
-    VALUES (
+      id, assigned_driver_id, vehicle_id, current_status, status,
+      pickup_datetime, delivery_datetime
+    ) VALUES (
       '23000000-0000-0000-0000-000000000042',
       '23000000-0000-0000-0000-000000000012',
       '23000000-0000-0000-0000-000000000021',
@@ -193,7 +162,6 @@ BEGIN
       '2026-08-20 13:00:00+00',
       '2026-08-20 13:30:00+00'
     );
-
     RAISE EXCEPTION 'Overlapping Vehicle allocation unexpectedly succeeded.';
   EXCEPTION
     WHEN check_violation THEN
@@ -204,17 +172,10 @@ BEGIN
 END;
 $$;
 
--- The same resources are valid once the previous execution window is over.
 INSERT INTO prelive_job_guard_probe (
-  id,
-  assigned_driver_id,
-  vehicle_id,
-  current_status,
-  status,
-  pickup_datetime,
-  delivery_datetime
-)
-VALUES (
+  id, assigned_driver_id, vehicle_id, current_status, status,
+  pickup_datetime, delivery_datetime
+) VALUES (
   '23000000-0000-0000-0000-000000000043',
   '23000000-0000-0000-0000-000000000011',
   '23000000-0000-0000-0000-000000000021',
