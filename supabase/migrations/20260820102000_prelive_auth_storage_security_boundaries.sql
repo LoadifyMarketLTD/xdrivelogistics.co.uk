@@ -208,8 +208,13 @@ USING (
   )
 );
 
-COMMENT ON POLICY onboarding_docs_select_tenant_reviewer ON storage.objects IS
-  'PreLive P0 boundary: Platform Owner may review globally; company owner/admin may review only onboarding documents whose {user_id}/{application_id} path resolves to an application in their own active company.';
+-- PreLive P0 boundary: Platform Owner may review globally; company owner/admin
+-- may review only onboarding documents whose {user_id}/{application_id} path
+-- resolves to an application in their own active company.
+--
+-- Deliberately kept as a SQL source comment rather than COMMENT ON POLICY:
+-- storage.objects is owned by Supabase's storage service role in local/hosted
+-- environments, so COMMENT ON POLICY is not portable from the migration role.
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
