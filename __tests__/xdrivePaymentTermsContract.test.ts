@@ -51,7 +51,7 @@ describe('XDrive financial payment-term contract', () => {
   it('keeps the 30-day contract unchanged when the exceptional +15 days is applied', () => {
     expect(computeInvoiceDueDate('2026-08-20', '30 days')).toBe('2026-09-19');
     expect(computeInvoiceDueDate('2026-08-20', '30 days', 15)).toBe('2026-10-04');
-    expect(() => computeInvoiceDueDate('2026-08-20', '30 days', 30 as 15)).toThrow(
+    expect(() => computeInvoiceDueDate('2026-08-20', '30 days', 30 as unknown as 15)).toThrow(
       'XDrive payment extensions may only be 15 days.',
     );
   });
