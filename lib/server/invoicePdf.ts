@@ -189,6 +189,10 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     page.drawText(addressLine, { x: margin, y: issuerY, size: 8.7, font: regular, color: grey });
     issuerY -= 12;
   }
+  if (input.issuerCompanyNumber) {
+    page.drawText(`Company No. ${pdfText(input.issuerCompanyNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
+    issuerY -= 12;
+  }
   if (input.issuerVatNumber) {
     page.drawText(`UK VAT # ${pdfText(input.issuerVatNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
     issuerY -= 17;
@@ -397,11 +401,13 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
 
   page.drawText('Account Number:', { x: margin + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
   page.drawText(pdfText(input.bankAccountNumber, 'Not configured').slice(0, 24), { x: margin + 91, y: payBoxY + 49, size: 8.2, font: regular, color: dark });
-  page.drawText('VAT:', { x: splitX + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
-  page.drawText(`${finiteMoney(input.vatRate)}%`, { x: splitX + 37, y: payBoxY + 49, size: 8.2, font: regular, color: dark });
+  page.drawText('Net:', { x: splitX + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
+  drawRight(money(finiteMoney(input.netAmount), input.currency), margin + contentWidth - 12, payBoxY + 49, 8.2, regular);
 
   page.drawText('PayPal:', { x: margin + 12, y: payBoxY + 17, size: 8.1, font: bold, color: dark });
   page.drawText(pdfText(input.paypalEmail, 'Not configured').slice(0, 64), { x: margin + 49, y: payBoxY + 17, size: 8.2, font: regular, color: dark });
+  page.drawText(`VAT ${finiteMoney(input.vatRate)}%:`, { x: splitX + 12, y: payBoxY + 17, size: 8.1, font: bold, color: dark });
+  drawRight(money(finiteMoney(input.vatAmount), input.currency), margin + contentWidth - 12, payBoxY + 17, 8.2, regular);
 
   const terms = pdfText(input.paymentTerms, '14 days');
   page.drawText(`Payment terms: ${terms}. Late payments may incur administrative charges.`.slice(0, 112), { x: margin + 12, y: 84, size: 7.5, font: regular, color: dark });
