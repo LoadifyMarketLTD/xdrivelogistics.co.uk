@@ -9,6 +9,17 @@ const source = readFileSync(
   ),
   'utf8',
 );
+const storageAuthority = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260820102500_prelive_onboarding_storage_review_authority.sql',
+  ),
+  'utf8',
+);
+const companyDocumentRoute = readFileSync(
+  resolve(process.cwd(), 'app/api/company/documents/signed-url/route.ts'),
+  'utf8',
+);
 
 describe('PreLive Auth and onboarding Storage P0 boundaries', () => {
   it('fails closed instead of accepting platform-owner aliases from signup metadata', () => {
@@ -39,15 +50,21 @@ describe('PreLive Auth and onboarding Storage P0 boundaries', () => {
     expect(source).toContain("USING ERRCODE = '42501'");
   });
 
-  it('removes the global company_admin Storage reviewer and binds company review to the application tenant', () => {
-    expect(source).toContain('DROP POLICY IF EXISTS onboarding_docs_select_reviewer ON storage.objects;');
-    expect(source).toContain('CREATE POLICY onboarding_docs_select_tenant_reviewer');
-    expect(source).toContain("p.role = 'owner'");
-    expect(source).toContain('cm.company_id = oa.company_id');
-    expect(source).toContain('cm.user_id = auth.uid()');
-    expect(source).toContain("COALESCE(cm.status::text, '') = 'active'");
-    expect(source).toContain("COALESCE(cm.role_in_company::text, '') IN ('owner', 'admin')");
-    expect(source).toContain("oa.user_id::text = (storage.foldername(name))[1]");
-    expect(source).toContain("oa.id::text = (storage.foldername(name))[2]");
+  it('makes direct onboarding-document review Platform Owner only', () => {
+    expect(storageAuthority).toContain('DROP POLICY IF EXISTS onboarding_docs_select_reviewer ON storage.objects;');
+    expect(storageAuthority).toContain('DROP POLICY IF EXISTS onboarding_docs_select_tenant_reviewer ON storage.objects;');
+    expect(storageAuthority).toContain('CREATE POLICY onboarding_docs_select_platform_owner');
+    expect(storageAuthority).toContain("p.role = 'owner'");
+    expect(storageAuthority).toContain("COALESCE(p.status::text, '') = 'active'");
+    expect(storageAuthority).not.toContain("role_in_company::text");
+  });
+
+  it('keeps company document access behind the tenant-validated signed URL API', () => {
+    expect(companyDocumentRoute).toContain(".eq('company_id', document.company_id)");
+    expect(companyDocumentRoute).toContain(".eq('status', 'active')");
+    expect(companyDocumentRoute).toContain('onboardingBelongsToCompany');
+    expect(companyDocumentRoute).toContain('isCanonicalOnboardingObjectPath');
+    expect(companyDocumentRoute).toContain(".from('onboarding-documents')");
+    expect(companyDocumentRoute).toContain('.createSignedUrl(objectPath, 120)');
   });
 });
