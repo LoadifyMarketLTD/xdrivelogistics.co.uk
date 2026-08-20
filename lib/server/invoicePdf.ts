@@ -53,7 +53,7 @@ const pdfText = (value: string | null | undefined, fallback = 'Not provided') =>
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\u00A0/g, ' ')
-    .replace(/[^\x20-\x7E\u00A3\u20AC]/g, '?');
+    .replace(/[^\x20-\x7E\u00A3\u00B7\u20AC]/g, '?');
 
 const finiteMoney = (value: number) => Number.isFinite(value) ? value : 0;
 
@@ -410,7 +410,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   drawRight(money(finiteMoney(input.vatAmount), input.currency), margin + contentWidth - 12, payBoxY + 17, 8.2, regular);
 
   const terms = pdfText(input.paymentTerms, '14 days');
-  page.drawText(`Payment terms: ${terms}. Late payments may incur administrative charges.`.slice(0, 112), { x: margin + 12, y: 84, size: 7.5, font: regular, color: dark });
+  page.drawText(`Payment terms: ${terms}. Due date: ${formatDate(input.dueDate)}.`.slice(0, 112), { x: margin + 12, y: 84, size: 7.5, font: regular, color: dark });
+  page.drawText('Late payments may incur administrative charges.', { x: margin + 12, y: 72, size: 7.5, font: regular, color: dark });
 
   // ---------------------------------------------------------------------------
   // Footer: full-width navy, only verified company/contact data.
