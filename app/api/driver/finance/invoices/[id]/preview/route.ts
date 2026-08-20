@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
 import { loadInvoicePdfContext } from '../../../../../../../lib/server/invoicePdfContext';
 import {
+  normalizeInvoiceVatTreatment,
+  validateInvoiceVatTotals,
+} from '../../../../../../../lib/invoiceVat';
+import {
   getBearerToken,
   isSupabaseAdminConfigured,
   supabaseAdmin,
@@ -103,12 +107,26 @@ export async function GET(
   const vatAmount = Number(invoice.vat_amount);
   const vatRate = Number(invoice.vat_rate);
   const totalAmount = Number(invoice.amount);
-  if (!Number.isFinite(netAmount) || netAmount <= 0
-      || !Number.isFinite(vatAmount) || vatAmount < 0
-      || !Number.isFinite(totalAmount) || totalAmount <= 0
-      || ![0, 5, 20].includes(vatRate)
-      || Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01) {
-    return respond(422, { error: 'Invoice totals are invalid. Fix the Draft before previewing.' });
+  const vatTreatment = normalizeInvoiceVatTreatment(invoice.vat_treatment);
+  if (!vatTreatment || !validateInvoiceVatTotals({
+    netAmount,
+    vatAmount,
+    vatRate,
+    totalAmount,
+    treatment: vatTreatment,
+  })) {
+    return respond(422, { error: 'Invoice VAT treatment/totals are invalid. Fix the Draft before previewing.' });
+  }
+
+  const issuerVatNumber = cleanText(invoice.issuer_vat_number_snapshot)
+    || cleanText(company.vat_number)
+    || null;
+  const customerVatNumber = cleanText(invoice.customer_vat_number_snapshot) || null;
+  if (vatTreatment !== 'not_registered' && !issuerVatNumber) {
+    return respond(422, { error: 'This VAT treatment requires the issuer VAT registration number.' });
+  }
+  if (vatTreatment === 'reverse_charge' && invoice.buyer_company_id && !customerVatNumber) {
+    return respond(422, { error: 'Reverse-charge invoice requires the buyer VAT registration number.' });
   }
 
   const issuerAddress = [company.address_line1, company.address_line2, company.city, company.postcode]
@@ -132,13 +150,14 @@ export async function GET(
       issuerName: companyName,
       issuerAddress,
       issuerCompanyNumber: company.company_number as string | null,
-      issuerVatNumber: company.vat_number as string | null,
+      issuerVatNumber,
       issuerEmail: pdfContext.issuerEmail,
       issuerPhone: pdfContext.issuerPhone,
       issuerWebsite: 'www.xdrivelogistics.co.uk',
       clientName: cleanText(invoice.client_name, 'Customer'),
       clientAddress: invoice.client_address as string | null,
       clientEmail: invoice.client_email as string | null,
+      customerVatNumber,
       pickupLocation: invoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? invoice.pickup_datetime as string | null,
       deliveryLocation: invoice.delivery_location as string | null,
@@ -156,6 +175,7 @@ export async function GET(
       netAmount,
       vatAmount,
       vatRate,
+      vatTreatment,
       totalAmount,
       currency: cleanText(invoice.currency, 'GBP'),
       paymentTerms: invoice.payment_terms as string | null,
