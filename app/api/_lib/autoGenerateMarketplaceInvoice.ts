@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toLegacyInvoiceStatusForDb } from '../../../lib/invoiceStatus';
+import {
+  computeInvoiceDueDate,
+  normalizeXDrivePaymentTerm,
+  paymentTermDays,
+} from '../../../lib/invoicePaymentTerms';
 import { getFeatureFlag } from './platformFlags';
 
 type SupabaseAdminClient = SupabaseClient;
@@ -18,12 +23,6 @@ const positiveNumber = (value: unknown) => {
 
 const validEmail = (value: string | null) =>
   Boolean(value && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
-
-const addDays = (date: string, days: number) => {
-  const result = new Date(`${date}T00:00:00.000Z`);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result.toISOString().slice(0, 10);
-};
 
 export async function autoGenerateMarketplaceInvoice({
   supabase,
@@ -91,8 +90,8 @@ export async function autoGenerateMarketplaceInvoice({
   const vatAmount = Number(agreement.vat_amount);
   const totalAmount = positiveNumber(agreement.agreed_gross_amount);
   const vatRate = Number(agreement.vat_rate);
-  const dueDays = Number.isInteger(Number(agreement.payment_due_days)) ? Number(agreement.payment_due_days) : 14;
-  const paymentTerms = cleanText(agreement.payment_terms) || '14 days';
+  const paymentTerms = normalizeXDrivePaymentTerm(cleanText(agreement.payment_terms));
+  const dueDays = Number(agreement.payment_due_days);
   const currency = cleanText(agreement.currency) || cleanText(job.currency) || 'GBP';
 
   if (!clientName) return { created: false, invoiceId: null, reason: 'Client company name is missing.' };
@@ -104,9 +103,15 @@ export async function autoGenerateMarketplaceInvoice({
   if (Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01) {
     return { created: false, invoiceId: null, reason: 'Agreement totals are inconsistent.' };
   }
+  if (!paymentTerms) {
+    return { created: false, invoiceId: null, reason: 'Commercial agreement payment terms are outside XDrive policy.' };
+  }
+  if (!Number.isInteger(dueDays) || dueDays !== paymentTermDays(paymentTerms)) {
+    return { created: false, invoiceId: null, reason: 'Commercial agreement payment days do not match the XDrive base term.' };
+  }
 
   const invoiceDate = new Date().toISOString().slice(0, 10);
-  const dueDate = addDays(invoiceDate, dueDays);
+  const dueDate = computeInvoiceDueDate(invoiceDate, paymentTerms);
   const { data: generatedNumber, error: generatedNumberError } = await supabase.rpc('next_invoice_number', {
     p_company_id: supplierCompanyId,
   });
