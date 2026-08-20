@@ -29,7 +29,7 @@ describe('PreLive Auth and onboarding Storage P0 boundaries', () => {
     expect(source).not.toContain("WHEN 'super_admin' THEN 'owner'");
     expect(source).not.toContain("WHEN 'superadmin' THEN 'owner'");
     expect(source).not.toContain("raw_user_meta_data ->> 'status'");
-    expect(source).toContain("'active',\n    v_full_name");
+    expect(source).toMatch(/VALUES\s*\(\s*NEW\.id,\s*v_role,\s*'active',\s*v_full_name/s);
   });
 
   it('preserves the legitimate non-platform signup and invitation identities', () => {
