@@ -92,6 +92,33 @@ SELECT pg_temp.assert_true(
   'Service role cannot execute the controlled finance extension RPC.'
 );
 
+-- The effective/latest RPC definition must require both an active membership and
+-- an active invoice company. This is checked from the live function definition
+-- produced by the full migration chain, not from a source-file string.
+DO $$
+DECLARE
+  v_definition text;
+BEGIN
+  SELECT lower(pg_get_functiondef(
+    'public.extend_invoice_due_date_special(uuid,uuid,text)'::regprocedure
+  ))
+  INTO v_definition;
+
+  PERFORM pg_temp.assert_true(
+    position('join public.companies c' in v_definition) > 0,
+    'Finance extension RPC no longer joins the invoice company authority boundary.'
+  );
+  PERFORM pg_temp.assert_true(
+    position("coalesce(cm.status::text, '') = 'active'" in v_definition) > 0,
+    'Finance extension RPC no longer requires an active finance membership.'
+  );
+  PERFORM pg_temp.assert_true(
+    position("coalesce(v_company_status, '') <> 'active'" in v_definition) > 0,
+    'Finance extension RPC no longer rejects pending/suspended companies.'
+  );
+END;
+$$;
+
 SELECT pass('XDrive payment-term and special-extension DB contract passed.');
 SELECT * FROM finish();
 ROLLBACK;
