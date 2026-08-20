@@ -31,8 +31,13 @@ USING (
   )
 );
 
-COMMENT ON POLICY onboarding_docs_select_platform_owner ON storage.objects IS
-  'PreLive P0 final boundary: authenticated direct global review of onboarding-documents is Platform Owner only. Company members use the tenant-validated server signed-URL API for their own company documents.';
+-- PreLive P0 final boundary: authenticated direct global review of
+-- onboarding-documents is Platform Owner only. Company members use the
+-- tenant-validated server signed-URL API for their own company documents.
+--
+-- Deliberately kept as a SQL source comment rather than COMMENT ON POLICY:
+-- storage.objects is owned by Supabase's storage service role in local/hosted
+-- environments, so COMMENT ON POLICY is not portable from the migration role.
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;
