@@ -3,6 +3,8 @@
 -- The transaction is always rolled back.
 
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT plan(1);
 
 CREATE OR REPLACE FUNCTION pg_temp.assert_true(p_condition boolean, p_message text)
 RETURNS void
@@ -178,4 +180,6 @@ SELECT pg_temp.assert_true(
   'Service role lost the canonical Platform Owner promotion path.'
 );
 
+SELECT pass('PreLive Auth privilege and onboarding Storage DB boundaries passed.');
+SELECT * FROM finish();
 ROLLBACK;
