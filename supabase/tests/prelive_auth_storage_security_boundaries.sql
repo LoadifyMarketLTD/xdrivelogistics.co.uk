@@ -214,13 +214,33 @@ SELECT pg_temp.assert_true(
 );
 
 -- ---------------------------------------------------------------------------
--- Notification runtime secrets must not be readable/callable by authenticated
--- users. SECURITY DEFINER transport functions may read app_settings internally,
--- but their execution boundary is service_role only.
+-- Notification runtime secrets must not be visible/callable by authenticated
+-- users. app_settings is protected by a service-role-only RLS policy. The
+-- authenticated role may retain table-level SELECT in Supabase, but RLS must
+-- return zero secret rows. The dispatcher that reads settings internally is
+-- separately service-role-only.
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.assert_true(
-  NOT has_table_privilege('authenticated', 'public.app_settings', 'SELECT'),
-  'Authenticated role has direct SELECT privilege on app_settings.'
+  (
+    SELECT c.relrowsecurity
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'app_settings'
+  ),
+  'RLS is disabled on public.app_settings.'
+);
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'app_settings'
+      AND policyname = 'app_settings_service_role_only'
+      AND cmd = 'ALL'
+      AND position('service_role' in lower(COALESCE(qual, ''))) > 0
+  ),
+  'app_settings service-role-only RLS policy is missing or no longer service-role bound.'
 );
 SELECT pg_temp.assert_true(
   NOT has_function_privilege(
@@ -241,17 +261,22 @@ SELECT set_config(
 );
 SET LOCAL ROLE authenticated;
 DO $$
+DECLARE
+  v_visible_secret_rows integer := 0;
 BEGIN
   BEGIN
-    PERFORM value
+    SELECT count(*)
+    INTO v_visible_secret_rows
     FROM public.app_settings
-    WHERE key = 'supabase_service_role_key';
-
-    RAISE EXCEPTION 'Authenticated user unexpectedly read app_settings.';
+    WHERE key IN ('supabase_service_role_key', 'notification_webhook_secret');
   EXCEPTION
     WHEN insufficient_privilege THEN
-      NULL;
+      v_visible_secret_rows := 0;
   END;
+
+  IF v_visible_secret_rows <> 0 THEN
+    RAISE EXCEPTION 'Authenticated user can read % app_settings secret row(s).', v_visible_secret_rows;
+  END IF;
 END;
 $$;
 RESET ROLE;
