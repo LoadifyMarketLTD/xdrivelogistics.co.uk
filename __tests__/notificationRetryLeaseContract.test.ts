@@ -6,6 +6,10 @@ const migration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260820103000_notification_retry_leases_and_cron.sql'),
   'utf8',
 );
+const realtimeMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260820112500_notification_realtime_publication.sql'),
+  'utf8',
+);
 const edge = readFileSync(
   resolve(process.cwd(), 'supabase/functions/notify-operational-event/index.ts'),
   'utf8',
@@ -66,5 +70,12 @@ describe('notification retry lease and scheduler contract', () => {
     expect(edge).toContain("'Idempotency-Key': idempotencyKey");
     expect(edge).toContain('notificationIdempotencyKey(event.id, userId)');
     expect(edge).toContain('notificationIdempotencyKey(eventId, member.user_id)');
+  });
+
+  it('makes notification_events Realtime publication membership migration-owned and fail-closed', () => {
+    expect(realtimeMigration).toContain("pubname = 'supabase_realtime'");
+    expect(realtimeMigration).toContain("tablename = 'notification_events'");
+    expect(realtimeMigration).toContain('ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_events;');
+    expect(realtimeMigration).toContain('refusing to silently create a non-canonical publication');
   });
 });
