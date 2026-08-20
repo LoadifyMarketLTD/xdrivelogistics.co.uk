@@ -9,6 +9,10 @@ import {
   supabaseValidator,
 } from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
+import {
+  normalizeInvoiceVatTreatment,
+  validateInvoiceVatTotals,
+} from '../../../../../../../lib/invoiceVat';
 
 export const runtime = 'nodejs';
 
@@ -304,6 +308,7 @@ export async function POST(
   const vatAmount = Number(claimedInvoice.vat_amount);
   const vatRate = Number(claimedInvoice.vat_rate);
   const totalAmount = Number(claimedInvoice.amount);
+  const vatTreatment = normalizeInvoiceVatTreatment(claimedInvoice.vat_treatment);
 
   if (!invoiceNumber) return failDelivery(422, 'Invoice number is missing. The invoice was not sent.');
   if (!jobReference) return failDelivery(422, 'Job reference is missing. The invoice was not sent.');
@@ -311,12 +316,14 @@ export async function POST(
   if (!currencyCode || currencyCode.length > 3) {
     return failDelivery(422, 'Invoice currency is invalid. The invoice was not sent.');
   }
-  if (!Number.isFinite(netAmount) || netAmount <= 0
-      || !Number.isFinite(vatAmount) || vatAmount < 0
-      || !Number.isFinite(vatRate) || ![0, 5, 20].includes(vatRate)
-      || !Number.isFinite(totalAmount) || totalAmount <= 0
-      || Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01) {
-    return failDelivery(422, 'Invoice totals are invalid. Net amount plus VAT must equal the positive invoice total.');
+  if (!vatTreatment || !validateInvoiceVatTotals({
+    netAmount,
+    vatAmount,
+    vatRate,
+    totalAmount,
+    treatment: vatTreatment,
+  })) {
+    return failDelivery(422, 'Invoice VAT treatment/totals are invalid. The invoice was not sent.');
   }
 
   const claimedRecipientEmail = typeof claimedInvoice.client_email === 'string'
@@ -336,6 +343,16 @@ export async function POST(
 
   const companyName = cleanHeader(company.name);
   if (!companyName) return failDelivery(422, 'Invoice issuer company name is missing.');
+
+  const issuerVatNumber = cleanHeader(claimedInvoice.issuer_vat_number_snapshot)
+    || cleanHeader(company.vat_number);
+  const customerVatNumber = cleanHeader(claimedInvoice.customer_vat_number_snapshot);
+  if (vatTreatment !== 'not_registered' && !issuerVatNumber) {
+    return failDelivery(422, 'This VAT treatment requires the issuer VAT registration number.');
+  }
+  if (vatTreatment === 'reverse_charge' && claimedInvoice.buyer_company_id && !customerVatNumber) {
+    return failDelivery(422, 'Reverse-charge invoice requires the buyer VAT registration number.');
+  }
 
   const issuerAddress = [
     company.address_line1,
@@ -384,13 +401,14 @@ export async function POST(
       issuerName: companyName,
       issuerAddress,
       issuerCompanyNumber: company.company_number as string | null,
-      issuerVatNumber: company.vat_number as string | null,
+      issuerVatNumber: issuerVatNumber || null,
       issuerEmail: pdfContext.issuerEmail,
       issuerPhone: pdfContext.issuerPhone,
       issuerWebsite: 'www.xdrivelogistics.co.uk',
       clientName,
       clientAddress: claimedInvoice.client_address as string | null,
       clientEmail: recipientEmail,
+      customerVatNumber: customerVatNumber || null,
       pickupLocation: claimedInvoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? claimedInvoice.pickup_datetime as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
@@ -408,6 +426,7 @@ export async function POST(
       netAmount,
       vatAmount,
       vatRate,
+      vatTreatment,
       totalAmount,
       currency: currencyCode,
       paymentTerms: claimedInvoice.payment_terms as string | null,
