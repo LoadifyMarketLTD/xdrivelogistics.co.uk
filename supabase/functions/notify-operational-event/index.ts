@@ -11,7 +11,8 @@
  * one of those private credentials matches in constant time.
  *
  * Queue rows are claimed through the DB lease RPC before any provider call.
- * This prevents duplicate sends when the insert trigger and retry cron overlap.
+ * The lease prevents concurrent workers and the stable Resend Idempotency-Key
+ * prevents a retry from sending the same event to the same recipient twice.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -96,6 +97,9 @@ const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+const notificationIdempotencyKey = (eventId: string, recipientId: string) =>
+  `xdrive-notification/${eventId}/${recipientId}`.slice(0, 256);
+
 async function getUserEmail(userId: string): Promise<{ email: string; name: string } | null> {
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user?.email) return null;
@@ -106,7 +110,12 @@ async function getUserEmail(userId: string): Promise<{ email: string; name: stri
   };
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  idempotencyKey: string,
+): Promise<boolean> {
   if (!resendApiKey) {
     console.error(`[notify] RESEND_API_KEY is not configured; email not sent: ${subject}`);
     return false;
@@ -117,6 +126,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${resendApiKey}`,
+      'Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify({ from: fromEmail, to, subject, html }),
   });
@@ -133,6 +143,7 @@ async function emailCompanyOperators(
   companyId: string,
   subject: string,
   htmlFor: (safeName: string) => string,
+  eventId: string,
 ): Promise<boolean> {
   const { data: members, error } = await supabase
     .from('company_memberships')
@@ -148,7 +159,14 @@ async function emailCompanyOperators(
     members.map(async (member: { user_id: string | null }) => {
       if (!member.user_id) return true;
       const user = await getUserEmail(member.user_id);
-      return user ? sendEmail(user.email, subject, htmlFor(escapeHtml(user.name))) : true;
+      return user
+        ? sendEmail(
+          user.email,
+          subject,
+          htmlFor(escapeHtml(user.name)),
+          notificationIdempotencyKey(eventId, member.user_id),
+        )
+        : true;
     }),
   );
   return results.every((result) => result.status === 'fulfilled' && result.value !== false);
@@ -166,6 +184,7 @@ async function handleJobAssigned(event: NotificationEvent) {
     user.email,
     'New Job Assigned - XDrive Logistics',
     `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -180,6 +199,7 @@ async function handleBidAccepted(event: NotificationEvent) {
     user.email,
     'Bid Accepted - XDrive Logistics',
     `<h2>Your bid has been accepted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your bid of <strong>£${amount}</strong> on job <strong>${jobId}</strong> has been accepted.</p><p><a href="${escapeHtml(buildAppUrl('/admin/bids'))}">Open the bids workspace</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -195,6 +215,7 @@ async function handlePodUploaded(event: NotificationEvent) {
     companyId,
     'Job Delivered - POD Ready',
     (name) => `<h2>Job delivered - POD available</h2><p>Hi ${name},</p><p>Job <strong>${jobId}</strong> has been marked delivered.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p>Sign in to review the proof of delivery.</p><p>XDrive Logistics</p>`,
+    event.id,
   );
 }
 
@@ -211,6 +232,7 @@ async function handleOnboardingInvite(event: NotificationEvent) {
     user.email,
     'Complete onboarding - XDrive Logistics',
     `<h2>Your XDrive onboarding is ready</h2><p>Hi ${escapeHtml(user.name)},</p><p>Continue onboarding to unlock your workspace.</p><p><strong>Account type:</strong> ${accountType}</p><p><a href="${escapeHtml(onboardingUrl)}">Start or resume onboarding</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -225,6 +247,7 @@ async function handleOnboardingSubmitted(event: NotificationEvent) {
     user.email,
     'Onboarding submitted - XDrive Logistics',
     `<h2>Onboarding submitted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your ${accountType} onboarding has been submitted for review.</p><p>Reference: <strong>${reference}</strong></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -237,6 +260,7 @@ async function handleOnboardingApproved(event: NotificationEvent) {
     user.email,
     'Onboarding approved - XDrive Logistics',
     `<h2>Your XDrive workspace is approved</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your onboarding has been approved. You can now sign in and use your workspace.</p><p><a href="${escapeHtml(buildAppUrl('/login'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -250,6 +274,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
       user.email,
       'Invoice disputed - XDrive Logistics',
       `<h2>Invoice disputed</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+      notificationIdempotencyKey(event.id, event.recipient_user_id),
     );
   }
   if (!companyId) return true;
@@ -257,6 +282,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
     companyId,
     'Invoice disputed - XDrive Logistics',
     (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    event.id,
   );
 }
 
@@ -270,6 +296,7 @@ async function handleInvoiceCreated(event: NotificationEvent) {
       user.email,
       'Invoice created - XDrive Logistics',
       `<h2>Invoice created</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+      notificationIdempotencyKey(event.id, event.recipient_user_id),
     );
   }
   if (!companyId) return true;
@@ -277,6 +304,7 @@ async function handleInvoiceCreated(event: NotificationEvent) {
     companyId,
     'Invoice created - XDrive Logistics',
     (name) => `<h2>Invoice created</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    event.id,
   );
 }
 
