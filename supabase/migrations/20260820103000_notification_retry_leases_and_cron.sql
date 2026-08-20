@@ -10,6 +10,8 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
 ALTER TABLE public.notification_events
   ADD COLUMN IF NOT EXISTS lease_token uuid,
   ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
@@ -59,13 +61,79 @@ GRANT EXECUTE ON FUNCTION public.claim_notification_events(uuid, integer)
 COMMENT ON FUNCTION public.claim_notification_events(uuid, integer) IS
   'Service-role notification queue claim with row locking and expiring leases. Prevents duplicate sends when insert-trigger and retry workers overlap.';
 
--- Periodic retry dispatcher. Existing app_settings keys are already protected
--- service-side and are used by the canonical insert trigger as well.
+-- Replace the historical transport definition with the canonical pg_net API.
+-- Configuration failures remain retryable instead of becoming terminal skips.
+CREATE OR REPLACE FUNCTION public.trigger_notify_operational_event()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_project_ref text;
+  v_service_role_key text;
+  v_edge_url text;
+BEGIN
+  SELECT value INTO v_project_ref
+  FROM public.app_settings
+  WHERE key = 'supabase_project_ref'
+  LIMIT 1;
+
+  SELECT value INTO v_service_role_key
+  FROM public.app_settings
+  WHERE key = 'supabase_service_role_key'
+  LIMIT 1;
+
+  IF NULLIF(btrim(COALESCE(v_project_ref, '')), '') IS NULL
+     OR NULLIF(btrim(COALESCE(v_service_role_key, '')), '') IS NULL THEN
+    UPDATE public.notification_events
+    SET status = 'failed',
+        processed_at = NULL,
+        next_attempt_at = now() + interval '2 minutes',
+        last_error = 'Notification transport configuration is incomplete.'
+    WHERE id = NEW.id;
+    RETURN NEW;
+  END IF;
+
+  v_edge_url := 'https://' || v_project_ref || '.supabase.co/functions/v1/notify-operational-event';
+
+  PERFORM net.http_post(
+    url := v_edge_url,
+    body := jsonb_build_object(
+      'event_id', NEW.id,
+      'event_type', NEW.event_type
+    ),
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_service_role_key
+    ),
+    timeout_milliseconds := 5000
+  );
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  UPDATE public.notification_events
+  SET status = 'failed',
+      processed_at = NULL,
+      next_attempt_at = now() + interval '2 minutes',
+      last_error = left(SQLERRM, 2000)
+  WHERE id = NEW.id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_notification_event_insert ON public.notification_events;
+CREATE TRIGGER on_notification_event_insert
+AFTER INSERT ON public.notification_events
+FOR EACH ROW
+EXECUTE FUNCTION public.trigger_notify_operational_event();
+
+-- Periodic retry dispatcher.
 CREATE OR REPLACE FUNCTION public.dispatch_due_notification_events()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, extensions, pg_temp
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_project_ref text;
@@ -92,16 +160,17 @@ BEGIN
 
   v_edge_url := 'https://' || v_project_ref || '.supabase.co/functions/v1/notify-operational-event';
 
-  PERFORM extensions.http_post(
+  PERFORM net.http_post(
     url := v_edge_url,
+    body := jsonb_build_object(
+      'retry_due', true,
+      'requested_at', now()
+    ),
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || v_service_role_key
     ),
-    body := jsonb_build_object(
-      'retry_due', true,
-      'requested_at', now()
-    )::text
+    timeout_milliseconds := 5000
   );
 END;
 $$;
@@ -114,9 +183,9 @@ GRANT EXECUTE ON FUNCTION public.dispatch_due_notification_events()
 COMMENT ON FUNCTION public.dispatch_due_notification_events() IS
   'Invokes notify-operational-event so due failed/pending notification rows are claimed and retried.';
 
--- Supabase Cron is the hosted scheduling authority. pg_net is already used by
--- the canonical insert trigger; enable pg_cron here so fresh rebuilds include
--- the retry worker rather than relying on a dashboard-only manual setting.
+-- Supabase Cron is the hosted scheduling authority. Scheduling the same named
+-- job is idempotent: the existing job is overwritten with this canonical
+-- schedule/command rather than duplicated.
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 SELECT cron.schedule(
