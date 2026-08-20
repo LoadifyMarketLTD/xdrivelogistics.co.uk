@@ -29,7 +29,8 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Auth bootstrap: hostile platform-owner/status metadata must fail closed.
+-- Auth bootstrap: all raw_user_meta_data role/status values are request data.
+-- They must never create authoritative profile role or status.
 -- ---------------------------------------------------------------------------
 INSERT INTO auth.users (
   id, aud, role, email, encrypted_password,
@@ -51,10 +52,10 @@ VALUES
     '21000000-0000-0000-0000-000000000002',
     'authenticated',
     'authenticated',
-    'prelive-dispatcher@example.test',
+    'prelive-hostile-dispatcher@example.test',
     '',
     '{}'::jsonb,
-    '{"role":"company_staff","requested_role":"dispatcher"}'::jsonb,
+    '{"role":"company_staff","requested_role":"dispatcher","status":"active"}'::jsonb,
     now(),
     now()
   ),
@@ -62,36 +63,33 @@ VALUES
     '21000000-0000-0000-0000-000000000003',
     'authenticated',
     'authenticated',
-    'prelive-fleet@example.test',
+    'prelive-hostile-fleet@example.test',
     '',
     '{}'::jsonb,
-    '{"role":"company_admin","requested_role":"fleet_operator"}'::jsonb,
+    '{"role":"company_admin","requested_role":"fleet_operator","status":"active"}'::jsonb,
     now(),
     now()
   );
 
 SELECT pg_temp.assert_equal(
   (SELECT role::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000001'),
-  'customer',
-  'Hostile platform_owner signup metadata was trusted.'
+  NULL::text,
+  'Hostile platform_owner signup metadata granted an authoritative profile role.'
 );
-
+SELECT pg_temp.assert_equal(
+  (SELECT role::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000002'),
+  NULL::text,
+  'Public dispatcher/company_staff metadata granted an authoritative profile role.'
+);
+SELECT pg_temp.assert_equal(
+  (SELECT role::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000003'),
+  NULL::text,
+  'Public fleet/company_admin metadata granted an authoritative profile role.'
+);
 SELECT pg_temp.assert_equal(
   (SELECT status::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000001'),
   'active',
   'Hostile signup metadata controlled authoritative profile status.'
-);
-
-SELECT pg_temp.assert_equal(
-  (SELECT role::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000002'),
-  'company_staff',
-  'Legitimate dispatcher/company_staff identity was broken by the hardening.'
-);
-
-SELECT pg_temp.assert_equal(
-  (SELECT role::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000003'),
-  'company_admin',
-  'Legitimate fleet/company_admin identity was broken by the hardening.'
 );
 
 -- Authenticated self-mutation of authoritative profile fields must fail.
@@ -122,9 +120,141 @@ RESET ROLE;
 
 SELECT pg_temp.assert_equal(
   (SELECT role::text FROM public.profiles WHERE user_id = '21000000-0000-0000-0000-000000000001'),
-  'customer',
+  NULL::text,
   'Self profile mutation changed role after the guard test.'
 );
+
+-- ---------------------------------------------------------------------------
+-- Verified Fleet registration may create an active owner membership, but the
+-- company remains pending_approval. That creator must not be able to activate
+-- the company through authenticated RLS/API authority.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_registration record;
+BEGIN
+  SELECT *
+  INTO v_registration
+  FROM public.register_validated_company_atomic(
+    '21000000-0000-0000-0000-000000000003',
+    'PLV9Z1',
+    'PreLive Fleet Authority Probe Ltd',
+    'active',
+    'fleet_courier'
+  );
+
+  IF NOT COALESCE(v_registration.success, false) OR v_registration.company_id IS NULL THEN
+    RAISE EXCEPTION 'PreLive verified Fleet company fixture could not be created: % %',
+      v_registration.error_code,
+      v_registration.error_message;
+  END IF;
+
+  PERFORM pg_temp.assert_equal(
+    (SELECT status::text FROM public.companies WHERE id = v_registration.company_id),
+    'pending_approval',
+    'Verified Fleet registration created an active company before governance approval.'
+  );
+
+  PERFORM pg_temp.assert_true(
+    EXISTS (
+      SELECT 1
+      FROM public.company_memberships cm
+      WHERE cm.company_id = v_registration.company_id
+        AND cm.user_id = '21000000-0000-0000-0000-000000000003'
+        AND cm.role_in_company::text = 'owner'
+        AND cm.status::text = 'active'
+    ),
+    'Verified Fleet registration did not create the expected canonical owner membership fixture.'
+  );
+END;
+$$;
+
+SELECT set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'sub', '21000000-0000-0000-0000-000000000003',
+    'role', 'authenticated'
+  )::text,
+  true
+);
+SET LOCAL ROLE authenticated;
+UPDATE public.companies
+SET status = 'active'
+WHERE created_by = '21000000-0000-0000-0000-000000000003'
+  AND company_number = 'PLV9Z1';
+RESET ROLE;
+
+SELECT pg_temp.assert_equal(
+  (
+    SELECT status::text
+    FROM public.companies
+    WHERE created_by = '21000000-0000-0000-0000-000000000003'
+      AND company_number = 'PLV9Z1'
+  ),
+  'pending_approval',
+  'Pending company creator self-activated the company through authenticated authority.'
+);
+
+-- The governance company-status RPC itself must remain service-role only.
+SELECT pg_temp.assert_true(
+  NOT has_function_privilege(
+    'authenticated',
+    'public.set_company_status_governance(uuid, uuid, text, text, text)',
+    'EXECUTE'
+  ),
+  'Authenticated role can execute set_company_status_governance().'
+);
+SELECT pg_temp.assert_true(
+  has_function_privilege(
+    'service_role',
+    'public.set_company_status_governance(uuid, uuid, text, text, text)',
+    'EXECUTE'
+  ),
+  'Service role lost the canonical company-governance status RPC.'
+);
+
+-- ---------------------------------------------------------------------------
+-- Notification runtime secrets must not be readable/callable by authenticated
+-- users. SECURITY DEFINER transport functions may read app_settings internally,
+-- but their execution boundary is service_role only.
+-- ---------------------------------------------------------------------------
+SELECT pg_temp.assert_true(
+  NOT has_table_privilege('authenticated', 'public.app_settings', 'SELECT'),
+  'Authenticated role has direct SELECT privilege on app_settings.'
+);
+SELECT pg_temp.assert_true(
+  NOT has_function_privilege(
+    'authenticated',
+    'public.dispatch_due_notification_events()',
+    'EXECUTE'
+  ),
+  'Authenticated role can execute the notification dispatcher that reads service-role configuration.'
+);
+
+SELECT set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'sub', '21000000-0000-0000-0000-000000000001',
+    'role', 'authenticated'
+  )::text,
+  true
+);
+SET LOCAL ROLE authenticated;
+DO $$
+BEGIN
+  BEGIN
+    PERFORM value
+    FROM public.app_settings
+    WHERE key = 'supabase_service_role_key';
+
+    RAISE EXCEPTION 'Authenticated user unexpectedly read app_settings.';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+  END;
+END;
+$$;
+RESET ROLE;
 
 -- ---------------------------------------------------------------------------
 -- Storage review authority: direct global reads are Platform Owner only.
@@ -180,6 +310,6 @@ SELECT pg_temp.assert_true(
   'Service role lost the canonical Platform Owner promotion path.'
 );
 
-SELECT pass('PreLive Auth privilege and onboarding Storage DB boundaries passed.');
+SELECT pass('PreLive Auth privilege, company authority, app_settings and onboarding Storage DB boundaries passed.');
 SELECT * FROM finish();
 ROLLBACK;
