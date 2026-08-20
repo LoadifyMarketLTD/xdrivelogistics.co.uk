@@ -125,9 +125,8 @@ SELECT pg_temp.assert_equal(
 );
 
 -- ---------------------------------------------------------------------------
--- Storage reviewer policy: the historical global company_admin policy must be
--- gone and the replacement must bind the storage path to onboarding application
--- + active same-company owner/admin membership.
+-- Storage review authority: direct global reads are Platform Owner only.
+-- Company members use the separately tested tenant-validated signed-URL API.
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.assert_true(
   NOT EXISTS (
@@ -135,9 +134,12 @@ SELECT pg_temp.assert_true(
     FROM pg_policies
     WHERE schemaname = 'storage'
       AND tablename = 'objects'
-      AND policyname = 'onboarding_docs_select_reviewer'
+      AND policyname IN (
+        'onboarding_docs_select_reviewer',
+        'onboarding_docs_select_tenant_reviewer'
+      )
   ),
-  'Legacy global onboarding_docs_select_reviewer policy still exists.'
+  'A superseded onboarding document reviewer policy still exists.'
 );
 
 SELECT pg_temp.assert_true(
@@ -146,25 +148,24 @@ SELECT pg_temp.assert_true(
     FROM pg_policies
     WHERE schemaname = 'storage'
       AND tablename = 'objects'
-      AND policyname = 'onboarding_docs_select_tenant_reviewer'
+      AND policyname = 'onboarding_docs_select_platform_owner'
   ),
-  'Tenant-scoped onboarding document reviewer policy is missing.'
+  'Platform-Owner-only onboarding document reviewer policy is missing.'
 );
 
 SELECT pg_temp.assert_true(
   (
     SELECT
-      position('onboarding_applications' in lower(qual)) > 0
-      AND position('company_memberships' in lower(qual)) > 0
-      AND position('company_id' in lower(qual)) > 0
-      AND position('foldername' in lower(qual)) > 0
-      AND position('role_in_company' in lower(qual)) > 0
+      position('profiles' in lower(qual)) > 0
+      AND position('owner' in lower(qual)) > 0
+      AND position('active' in lower(qual)) > 0
+      AND position('company_memberships' in lower(qual)) = 0
     FROM pg_policies
     WHERE schemaname = 'storage'
       AND tablename = 'objects'
-      AND policyname = 'onboarding_docs_select_tenant_reviewer'
+      AND policyname = 'onboarding_docs_select_platform_owner'
   ),
-  'Storage reviewer policy is not bound to application path + tenant membership.'
+  'Direct onboarding document review is not exclusively bound to active Platform Owner authority.'
 );
 
 -- The service-only Platform Owner promotion path must remain private.
