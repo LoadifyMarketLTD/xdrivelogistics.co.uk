@@ -47,8 +47,8 @@ export const COMPANY_CONFIG = {
     terms: ['Pay now', '14 days', '30 days'] as const,
     defaultTerm: '14 days' as const,
     specialExtensionDays: 15 as const,
-    lateFeeNote: 'Late payments may incur administrative charges.',
-    lateFeeAmount: 'A late payment charge of £25 per full week may apply after the due date.',
+    lateFeeNote: 'Late commercial payments may be subject to statutory interest and recovery-cost compensation where applicable.',
+    lateFeeAmount: 'Statutory late-payment remedies apply only where legally and contractually applicable.',
   },
   
   // VAT options (MASTER SPEC)
