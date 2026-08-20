@@ -6,6 +6,15 @@ import {
   supabaseValidator,
 } from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus } from '../../../../../../../lib/invoiceStatus';
+import {
+  computeInvoiceDueDate,
+  normalizeXDrivePaymentTerm,
+} from '../../../../../../../lib/invoicePaymentTerms';
+import {
+  calculateInvoiceVatTotals,
+  normalizeInvoiceVatTreatment,
+  type InvoiceVatTreatment,
+} from '../../../../../../../lib/invoiceVat';
 
 export const runtime = 'nodejs';
 
@@ -21,19 +30,11 @@ const validEmail = (value: string) =>
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
   && !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime());
 
-const addDays = (date: string, days: number) => {
-  const result = new Date(`${date}T00:00:00.000Z`);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result.toISOString().slice(0, 10);
-};
-
-const dayDifference = (from: unknown, to: unknown) => {
-  const fromText = cleanText(from, 10);
-  const toText = cleanText(to, 10);
-  if (!validDate(fromText) || !validDate(toText)) return 14;
-  const start = new Date(`${fromText}T00:00:00.000Z`).getTime();
-  const end = new Date(`${toText}T00:00:00.000Z`).getTime();
-  return Math.max(0, Math.round((end - start) / 86_400_000));
+const ordinaryTreatmentForRate = (vatRate: number): InvoiceVatTreatment | null => {
+  if (vatRate === 20) return 'standard';
+  if (vatRate === 5) return 'reduced';
+  if (vatRate === 0) return 'zero_rated';
+  return null;
 };
 
 async function resolveEditor(request: NextRequest, invoiceId: string) {
@@ -122,29 +123,63 @@ export async function PATCH(
   };
 
   if (marketplace) {
-    const dueDays = dayDifference(editor.invoice.invoice_date, editor.invoice.due_date);
-    update.due_date = addDays(invoiceDate, dueDays);
+    const paymentTerms = normalizeXDrivePaymentTerm(editor.invoice.payment_terms);
+    if (!paymentTerms) {
+      return respond(422, { error: 'Marketplace invoice payment terms are outside XDrive policy.' });
+    }
+    update.due_date = computeInvoiceDueDate(invoiceDate, paymentTerms);
   } else {
-    const dueDate = cleanText(body.due_date, 10);
-    const paymentTerms = cleanText(body.payment_terms, 120);
+    const paymentTerms = normalizeXDrivePaymentTerm(cleanText(body.payment_terms, 120));
     const netAmount = Number(body.net_amount);
     const vatRate = Number(body.vat_rate);
 
-    if (!dueDate || !validDate(dueDate)) return respond(422, { error: 'A valid due date is required.' });
-    if (new Date(`${dueDate}T00:00:00.000Z`).getTime() < new Date(`${invoiceDate}T00:00:00.000Z`).getTime()) {
-      return respond(422, { error: 'Due date cannot be before invoice date.' });
+    if (!paymentTerms) {
+      return respond(422, { error: 'Payment terms must be Pay now, 14 days or 30 days.' });
     }
-    if (!paymentTerms) return respond(422, { error: 'Payment terms are required.' });
-    if (!Number.isFinite(netAmount) || netAmount <= 0) return respond(422, { error: 'Net amount must be positive.' });
-    if (![0, 5, 20].includes(vatRate)) return respond(422, { error: 'VAT rate must be 0, 5 or 20.' });
+    if (!Number.isFinite(netAmount) || netAmount <= 0) {
+      return respond(422, { error: 'Net amount must be positive.' });
+    }
+    if (![0, 5, 20].includes(vatRate)) {
+      return respond(422, { error: 'VAT rate must be 0, 5 or 20.' });
+    }
 
-    const vatAmount = Math.round(netAmount * (vatRate / 100) * 100) / 100;
-    update.due_date = dueDate;
+    const currentTreatment = normalizeInvoiceVatTreatment(editor.invoice.vat_treatment);
+    const requestedTreatment = normalizeInvoiceVatTreatment(body.vat_treatment);
+    const preservedExceptionalTreatment = currentTreatment === 'reverse_charge' || currentTreatment === 'not_registered'
+      ? currentTreatment
+      : null;
+    const vatTreatment = requestedTreatment
+      ?? preservedExceptionalTreatment
+      ?? ordinaryTreatmentForRate(vatRate);
+
+    if (!vatTreatment) return respond(422, { error: 'VAT treatment is invalid.' });
+    if (vatTreatment !== 'reverse_charge' && vatTreatment !== 'not_registered') {
+      const ordinary = ordinaryTreatmentForRate(vatRate);
+      if (ordinary !== vatTreatment) {
+        return respond(422, { error: 'VAT rate does not match the selected VAT treatment.' });
+      }
+    }
+
+    let totals;
+    try {
+      totals = calculateInvoiceVatTotals({
+        netAmount,
+        treatment: vatTreatment,
+        reverseChargeRate: vatTreatment === 'reverse_charge' && (vatRate === 5 || vatRate === 20)
+          ? vatRate
+          : null,
+      });
+    } catch (reason) {
+      return respond(422, { error: reason instanceof Error ? reason.message : 'VAT totals are invalid.' });
+    }
+
+    update.due_date = computeInvoiceDueDate(invoiceDate, paymentTerms);
     update.payment_terms = paymentTerms;
-    update.net_amount = Math.round(netAmount * 100) / 100;
-    update.vat_rate = vatRate;
-    update.vat_amount = vatAmount;
-    update.amount = Math.round((netAmount + vatAmount) * 100) / 100;
+    update.net_amount = totals.netAmount;
+    update.vat_treatment = totals.treatment;
+    update.vat_rate = totals.vatRate;
+    update.vat_amount = totals.vatAmount;
+    update.amount = totals.totalAmount;
   }
 
   const { data: updated, error: updateError } = await supabaseAdmin
