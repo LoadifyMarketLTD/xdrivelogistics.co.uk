@@ -1,8 +1,11 @@
 -- XDrive PreLive VAT contract.
 -- A numeric VAT rate is not enough to distinguish zero-rated supplies,
 -- reverse-charge supplies and suppliers that are not VAT registered.
--- Persist the treatment explicitly in the immutable commercial snapshot and the
--- invoice so the payable amount and PDF wording are deterministic.
+-- Persist the treatment explicitly in the commercial snapshot and invoice so
+-- the payable amount and PDF wording are deterministic.
+--
+-- IMPORTANT: reverse_charge is transaction-specific. It is never a company
+-- default; company defaults are standard/reduced/zero-rated/not-registered.
 
 BEGIN;
 
@@ -61,11 +64,13 @@ issuer_vat_number_snapshot = COALESCE(
 ),
 customer_vat_number_snapshot = COALESCE(
   i.customer_vat_number_snapshot,
-  NULLIF(btrim(COALESCE(buyer.vat_number, '')), '')
+  (
+    SELECT NULLIF(btrim(COALESCE(buyer.vat_number, '')), '')
+    FROM public.companies buyer
+    WHERE buyer.id = i.buyer_company_id
+  )
 )
 FROM public.companies c
-LEFT JOIN public.companies buyer
-  ON buyer.id = i.buyer_company_id
 WHERE c.id = i.company_id;
 
 DO $$
@@ -74,10 +79,10 @@ BEGIN
     SELECT 1 FROM public.company_settings
     WHERE default_vat_treatment IS NULL
        OR default_vat_treatment NOT IN (
-         'standard', 'reduced', 'zero_rated', 'reverse_charge', 'not_registered'
+         'standard', 'reduced', 'zero_rated', 'not_registered'
        )
   ) THEN
-    RAISE EXCEPTION 'PreLive VAT migration blocked: company_settings contains an unresolved VAT treatment.';
+    RAISE EXCEPTION 'PreLive VAT migration blocked: company_settings contains an unresolved/invalid default VAT treatment.';
   END IF;
 
   IF EXISTS (
@@ -111,7 +116,7 @@ ALTER TABLE public.company_settings
 ALTER TABLE public.company_settings
   ADD CONSTRAINT company_settings_default_vat_treatment_check
   CHECK (default_vat_treatment IN (
-    'standard', 'reduced', 'zero_rated', 'reverse_charge', 'not_registered'
+    'standard', 'reduced', 'zero_rated', 'not_registered'
   ));
 
 ALTER TABLE public.job_commercial_agreements
@@ -133,6 +138,53 @@ ALTER TABLE public.invoices
   CHECK (vat_treatment IN (
     'standard', 'reduced', 'zero_rated', 'reverse_charge', 'not_registered'
   ));
+
+-- Company settings cannot make reverse charge a blanket default. The normal
+-- settings UI writes only the rate, so this trigger deterministically derives
+-- the corresponding ordinary treatment from VAT registration + rate.
+CREATE OR REPLACE FUNCTION public.fn_guard_xdrive_company_vat_settings()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_vat_number text;
+BEGIN
+  SELECT NULLIF(btrim(COALESCE(c.vat_number, '')), '')
+  INTO v_vat_number
+  FROM public.companies c
+  WHERE c.id = NEW.company_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Company settings company was not found.' USING ERRCODE = '23503';
+  END IF;
+
+  IF v_vat_number IS NULL THEN
+    NEW.default_vat_rate := 0;
+    NEW.default_vat_treatment := 'not_registered';
+  ELSE
+    IF NEW.default_vat_rate NOT IN (0, 5, 20) THEN
+      RAISE EXCEPTION 'VAT-registered company default VAT rate must be 0, 5 or 20.'
+        USING ERRCODE = '23514';
+    END IF;
+
+    NEW.default_vat_treatment := CASE NEW.default_vat_rate
+      WHEN 20 THEN 'standard'
+      WHEN 5 THEN 'reduced'
+      WHEN 0 THEN 'zero_rated'
+    END;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_xdrive_company_vat_settings ON public.company_settings;
+CREATE TRIGGER trg_guard_xdrive_company_vat_settings
+BEFORE INSERT OR UPDATE OF company_id, default_vat_rate, default_vat_treatment
+ON public.company_settings
+FOR EACH ROW
+EXECUTE FUNCTION public.fn_guard_xdrive_company_vat_settings();
 
 CREATE OR REPLACE FUNCTION public.fn_guard_xdrive_commercial_vat_contract()
 RETURNS trigger
@@ -169,8 +221,12 @@ BEGIN
   IF v_treatment = '' THEN
     IF v_supplier_vat_number IS NULL THEN
       v_treatment := 'not_registered';
+    ELSIF v_default_treatment IN ('standard', 'reduced', 'zero_rated') THEN
+      v_treatment := v_default_treatment;
     ELSE
-      v_treatment := lower(btrim(COALESCE(v_default_treatment, '')));
+      -- Fail-safe platform default for a VAT-registered supplier that has not
+      -- saved finance settings yet. Reverse charge is never inferred here.
+      v_treatment := 'standard';
     END IF;
   END IF;
 
@@ -314,6 +370,13 @@ BEGIN
     END IF;
   END IF;
 
+  IF v_treatment = 'reverse_charge'
+     AND NEW.buyer_company_id IS NOT NULL
+     AND v_customer_vat_number IS NULL THEN
+    RAISE EXCEPTION 'Reverse-charge marketplace invoice requires the canonical buyer company VAT number.'
+      USING ERRCODE = '23514';
+  END IF;
+
   v_expected_vat := round((NEW.net_amount * v_rate) / 100.0, 2);
   v_expected_total := CASE
     WHEN v_treatment = 'reverse_charge' THEN round(NEW.net_amount, 2)
@@ -345,6 +408,8 @@ ON public.invoices
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_guard_xdrive_invoice_vat_contract();
 
+COMMENT ON COLUMN public.company_settings.default_vat_treatment IS
+  'Ordinary supplier default only: standard, reduced, zero_rated or not_registered. Reverse charge is transaction-specific and cannot be a company default.';
 COMMENT ON COLUMN public.invoices.vat_treatment IS
   'Explicit VAT semantics: standard, reduced, zero_rated, reverse_charge or not_registered. Reverse-charge VAT is calculated for disclosure but excluded from amount payable.';
 COMMENT ON COLUMN public.invoices.issuer_vat_number_snapshot IS
