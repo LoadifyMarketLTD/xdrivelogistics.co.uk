@@ -27,11 +27,21 @@ describe('notification retry lease and scheduler contract', () => {
     expect(migration).toContain('TO service_role;');
   });
 
-  it('schedules due retries every minute through the private service-role caller', () => {
+  it('schedules due retries every minute through canonical pg_net and the private service-role caller', () => {
+    expect(migration).toContain('CREATE EXTENSION IF NOT EXISTS pg_net;');
     expect(migration).toContain('CREATE EXTENSION IF NOT EXISTS pg_cron;');
     expect(migration).toContain("'xdrive-notification-retry-dispatch'");
     expect(migration).toContain("'* * * * *'");
     expect(migration).toContain("'Authorization', 'Bearer ' || v_service_role_key");
+    expect(migration).toContain('PERFORM net.http_post(');
+    expect(migration).not.toContain('extensions.http_post');
+  });
+
+  it('keeps configuration/transport failures retryable rather than terminally skipped', () => {
+    expect(migration).toContain("status = 'failed'");
+    expect(migration).toContain('processed_at = NULL');
+    expect(migration).toContain("next_attempt_at = now() + interval '2 minutes'");
+    expect(migration).not.toContain("status = 'skipped'");
   });
 
   it('requires a DB lease before provider delivery and releases only its own lease', () => {
