@@ -52,6 +52,52 @@ SELECT pg_temp.assert_true(
   'Notification dispatcher is not using the canonical pg_net HTTP API.'
 );
 
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM pg_publication
+    WHERE pubname = 'supabase_realtime'
+  ),
+  'Canonical Supabase Realtime publication is missing.'
+);
+
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notification_events'
+  ),
+  'notification_events is not published through supabase_realtime.'
+);
+
+SELECT pg_temp.assert_true(
+  COALESCE(
+    (
+      SELECT c.relrowsecurity
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = 'notification_events'
+    ),
+    false
+  ),
+  'notification_events RLS is not enabled.'
+);
+
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notification_events'
+      AND policyname = 'notification_events_select_recipient_or_company_broadcast'
+      AND cmd = 'SELECT'
+  ),
+  'Notification recipient/company-broadcast isolation policy is missing.'
+);
+
 ALTER TABLE public.notification_events
   DISABLE TRIGGER on_notification_event_insert;
 
@@ -142,6 +188,6 @@ BEGIN
 END;
 $$;
 
-SELECT pass('Notification retry lease/recovery and XDrive dispatcher DB contract passed.');
+SELECT pass('Notification retry lease/recovery, Realtime publication/isolation and XDrive dispatcher DB contract passed.');
 SELECT * FROM finish();
 ROLLBACK;
