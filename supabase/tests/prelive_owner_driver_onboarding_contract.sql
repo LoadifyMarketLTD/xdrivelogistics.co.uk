@@ -9,9 +9,13 @@ SELECT ok(
   'Preserved owner-driver onboarding base function exists'
 );
 
-SELECT like(
-  pg_get_functiondef('public.submit_onboarding_application_base_v1(uuid)'::regprocedure),
-  '%name,%full_name,%display_name,%',
+SELECT ok(
+  regexp_replace(
+    pg_get_functiondef('public.submit_onboarding_application_base_v1(uuid)'::regprocedure),
+    '\s+',
+    ' ',
+    'g'
+  ) LIKE '%name, full_name, display_name,%',
   'Owner-driver INSERT populates name, full_name and display_name'
 );
 
