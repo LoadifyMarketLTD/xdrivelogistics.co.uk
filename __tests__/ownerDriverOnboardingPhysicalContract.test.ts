@@ -25,11 +25,23 @@ describe('owner-driver onboarding physical contract reconciliation', () => {
     expect(source).toContain('require exactly one owner-driver INSERT shape');
   });
 
+  it('supports exactly the canonical fresh and observed XDrive Production VALUES shapes', () => {
+    expect(source).toContain('v_old_values_fresh_pattern');
+    expect(source).toContain('v_old_values_live_pattern');
+    expect(source).toContain('v_new_values_fresh_pattern');
+    expect(source).toContain('v_new_values_live_pattern');
+    expect(source).toContain('v_old_values_total := v_old_values_fresh_count + v_old_values_live_count');
+    expect(source).toContain('v_new_values_total := v_new_values_fresh_count + v_new_values_live_count');
+    expect(source).toContain("v_app\\.payload->>''full_name''");
+    expect(source).toContain('accepts exactly the two historical VALUES shapes');
+  });
+
   it('fails closed on an unexpected historical function shape', () => {
     expect(source).toContain('Unexpected owner-driver INSERT shape');
     expect(source).toContain('Unexpected owner-driver VALUES shape');
     expect(source).toContain('refusing broad rewrite');
     expect(source).toContain('rewrite did not produce the canonical physical shape');
+    expect(source).toContain('VALUES shape was not uniquely identified');
   });
 
   it('keeps the preserved base private after reconciliation', () => {
