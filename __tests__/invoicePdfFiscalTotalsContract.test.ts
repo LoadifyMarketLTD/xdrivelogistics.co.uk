@@ -12,6 +12,11 @@ const previewRoute = readFileSync(
   'utf8',
 );
 
+const submitRoute = readFileSync(
+  resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
+  'utf8',
+);
+
 const invoiceVat = readFileSync(
   resolve(process.cwd(), 'lib/invoiceVat.ts'),
   'utf8',
@@ -43,13 +48,20 @@ describe('Invoice PDF fiscal totals contract', () => {
     expect(source).toContain('\\u00A3\\u00B7\\u20AC');
   });
 
-  it('keeps preview validation delegated to the canonical VAT-treatment totals contract', () => {
-    expect(previewRoute).toContain('validateInvoiceVatTotals({');
-    expect(previewRoute).toContain('netAmount,');
-    expect(previewRoute).toContain('vatAmount,');
-    expect(previewRoute).toContain('vatRate,');
-    expect(previewRoute).toContain('totalAmount,');
-    expect(previewRoute).toContain('treatment: vatTreatment');
+  it('keeps preview and submit validation delegated to the canonical VAT-treatment totals contract', () => {
+    for (const route of [previewRoute, submitRoute]) {
+      expect(route).toContain('validateInvoiceVatTotals({');
+      expect(route).toContain('netAmount,');
+      expect(route).toContain('vatAmount,');
+      expect(route).toContain('vatRate,');
+      expect(route).toContain('totalAmount,');
+      expect(route).toContain('treatment: vatTreatment');
+    }
+
+    expect(submitRoute).not.toContain('Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01');
+    expect(submitRoute).toContain('vatTreatment,');
+    expect(submitRoute).toContain('customerVatNumber: customerVatNumber || null');
+    expect(submitRoute).toContain('issuerVatNumber: issuerVatNumber || null');
 
     // The canonical helper validates both ordinary VAT invoices and reverse-charge
     // invoices, where VAT is disclosed but is not added to the amount payable.
