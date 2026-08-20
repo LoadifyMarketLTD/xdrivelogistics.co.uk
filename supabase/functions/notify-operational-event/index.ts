@@ -1,10 +1,14 @@
 /**
  * Processes the notification_events queue.
  *
- * This function may be deployed with --no-verify-jwt only when every caller
- * supplies the private XDRIVE_NOTIFICATION_WEBHOOK_SECRET in the
- * x-xdrive-webhook-secret header. Configure the same header on the Supabase
- * Database Webhook or pg_cron request.
+ * Private callers may authenticate in either of two ways:
+ * - the exact SUPABASE_SERVICE_ROLE_KEY as a Bearer token (the canonical DB
+ *   trigger already uses this path), or
+ * - XDRIVE_NOTIFICATION_WEBHOOK_SECRET in x-xdrive-webhook-secret for an
+ *   explicitly configured Database Webhook / scheduler.
+ *
+ * When deployed with --no-verify-jwt this function still fails closed unless
+ * one of those private credentials matches in constant time.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -51,6 +55,12 @@ const constantTimeEqual = (left: string, right: string) => {
     difference |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
   }
   return difference === 0;
+};
+
+const bearerToken = (request: Request) => {
+  const authorization = request.headers.get('authorization') ?? '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? '';
 };
 
 const escapeHtml = (value: unknown) =>
@@ -348,17 +358,21 @@ Deno.serve(async (request) => {
     if (request.method !== 'POST') {
       return jsonResponse(405, { error: 'Method not allowed.' });
     }
-    if (!supabaseUrl || !serviceRoleKey || !webhookSecret || webhookSecret.length < 32) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return jsonResponse(503, { error: 'Notification function configuration is incomplete.' });
     }
 
     const suppliedSecret = request.headers.get('x-xdrive-webhook-secret') ?? '';
-    if (!constantTimeEqual(suppliedSecret, webhookSecret)) {
+    const serviceBearer = bearerToken(request);
+    const webhookAuthorized = webhookSecret.length >= 32 && constantTimeEqual(suppliedSecret, webhookSecret);
+    const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);
+
+    if (!webhookAuthorized && !serviceRoleAuthorized) {
       return jsonResponse(401, { error: 'Unauthorized.' });
     }
 
     const body = await request.json().catch(() => null);
-    const webhookEventId = body?.record?.id ?? body?.id ?? null;
+    const webhookEventId = body?.record?.id ?? body?.id ?? body?.event_id ?? null;
     const events = isUuid(webhookEventId)
       ? await loadWebhookEvent(webhookEventId)
       : await loadDueEvents();
