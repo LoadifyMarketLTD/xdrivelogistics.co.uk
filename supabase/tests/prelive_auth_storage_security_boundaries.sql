@@ -127,7 +127,7 @@ SELECT pg_temp.assert_equal(
 -- ---------------------------------------------------------------------------
 -- Verified Fleet registration may create an active owner membership, but the
 -- company remains pending_approval. That creator must not be able to activate
--- the company through authenticated RLS/API authority.
+-- the company through authenticated SQL/RLS/API authority.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -178,10 +178,20 @@ SELECT set_config(
   true
 );
 SET LOCAL ROLE authenticated;
-UPDATE public.companies
-SET status = 'active'
-WHERE created_by = '21000000-0000-0000-0000-000000000003'
-  AND company_number = 'PLV9Z1';
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.companies
+    SET status = 'active'
+    WHERE created_by = '21000000-0000-0000-0000-000000000003'
+      AND company_number = 'PLV9Z1';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      -- A missing table-level UPDATE grant is a stronger fail-closed boundary.
+      NULL;
+  END;
+END;
+$$;
 RESET ROLE;
 
 SELECT pg_temp.assert_equal(
