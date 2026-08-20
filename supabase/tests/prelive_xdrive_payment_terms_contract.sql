@@ -2,6 +2,8 @@
 -- Run after all migrations on a disposable/local/staging database.
 
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT plan(1);
 
 CREATE OR REPLACE FUNCTION pg_temp.assert_true(p_condition boolean, p_message text)
 RETURNS void
@@ -90,4 +92,6 @@ SELECT pg_temp.assert_true(
   'Service role cannot execute the controlled finance extension RPC.'
 );
 
+SELECT pass('XDrive payment-term and special-extension DB contract passed.');
+SELECT * FROM finish();
 ROLLBACK;
