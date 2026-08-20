@@ -8,13 +8,13 @@ const source = readFileSync(
 );
 
 const triggerMigration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/115_observable_email_trigger_settings.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260820103000_notification_retry_leases_and_cron.sql'),
   'utf8',
 );
 
 describe('notification Edge Function authentication contract', () => {
   it('accepts the canonical service-role Bearer caller used by the DB trigger', () => {
-    expect(triggerMigration).toContain("'Authorization', 'Bearer ' || _service_role_key");
+    expect(triggerMigration).toContain("'Authorization', 'Bearer ' || v_service_role_key");
     expect(source).toContain('const serviceBearer = bearerToken(request);');
     expect(source).toContain('const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);');
     expect(source).toContain('if (!webhookAuthorized && !serviceRoleAuthorized)');
@@ -27,7 +27,14 @@ describe('notification Edge Function authentication contract', () => {
   });
 
   it('recognises the event_id payload emitted by the canonical DB trigger', () => {
-    expect(triggerMigration).toContain("jsonb_build_object('event_id', NEW.id, 'event_type', NEW.event_type)");
+    expect(triggerMigration).toContain("'event_id', NEW.id");
+    expect(triggerMigration).toContain("'event_type', NEW.event_type");
     expect(source).toContain('body?.record?.id ?? body?.id ?? body?.event_id ?? null');
+  });
+
+  it('uses the canonical pg_net API instead of the historical extensions.http_post call', () => {
+    expect(triggerMigration).toContain('PERFORM net.http_post(');
+    expect(triggerMigration).toContain('timeout_milliseconds := 5000');
+    expect(triggerMigration).not.toContain('extensions.http_post');
   });
 });
