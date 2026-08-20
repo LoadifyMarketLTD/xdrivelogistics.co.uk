@@ -59,7 +59,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   jobRefPrefix: COMPANY_CONFIG.invoice.jobRefPrefix,
   invoicePrefix: COMPANY_CONFIG.invoice.invoicePrefix,
   defaultVatRate: COMPANY_CONFIG.vat.defaultRate as VATRate,
-  paymentTerms: COMPANY_CONFIG.payment.terms[0],
+  paymentTerms: COMPANY_CONFIG.payment.defaultTerm,
   currency: 'GBP',
   dateFormat: 'DD/MM/YYYY',
   bankAccountName: COMPANY_CONFIG.payment.bankTransfer.accountName,
