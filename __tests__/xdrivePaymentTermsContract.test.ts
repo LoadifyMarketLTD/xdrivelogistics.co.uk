@@ -29,6 +29,10 @@ const extensionRoute = readFileSync(
   resolve(process.cwd(), 'app/api/admin/invoices/[id]/extend-due-date/route.ts'),
   'utf8',
 );
+const submitRoute = readFileSync(
+  resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
+  'utf8',
+);
 
 describe('XDrive financial payment-term contract', () => {
   it('exposes only Pay now, 14 days and 30 days as standard payment terms', () => {
@@ -86,5 +90,13 @@ describe('XDrive financial payment-term contract', () => {
     expect(extensionRoute).toContain('authData.user.id');
     expect(extensionRoute).toContain("supabaseAdmin.rpc('extend_invoice_due_date_special'");
     expect(extensionRoute).toContain('extensionDays: 15');
+  });
+
+  it('does not invent a weekly late-payment penalty in invoices or delivery emails', () => {
+    expect(COMPANY_CONFIG.payment.lateFeeNote).toContain('statutory interest');
+    expect(COMPANY_CONFIG.payment.lateFeeAmount).toContain('legally and contractually applicable');
+    expect(submitRoute).toContain('statutory interest and recovery-cost compensation where applicable');
+    expect(submitRoute).not.toContain('£25.00 per week');
+    expect(submitRoute).not.toContain('more than 7 days overdue');
   });
 });
