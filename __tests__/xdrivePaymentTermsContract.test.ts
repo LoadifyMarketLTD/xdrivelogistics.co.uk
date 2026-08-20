@@ -17,6 +17,13 @@ const migration = readFileSync(
   ),
   'utf8',
 );
+const financeAuthorityClosure = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260820112000_finance_active_company_authority_closure.sql',
+  ),
+  'utf8',
+);
 const autoInvoice = readFileSync(
   resolve(process.cwd(), 'app/api/_lib/autoGenerateMarketplaceInvoice.ts'),
   'utf8',
@@ -69,6 +76,16 @@ describe('XDrive financial payment-term contract', () => {
     expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.extend_invoice_due_date_special');
     expect(migration).toContain('TO service_role;');
     expect(migration).toContain('REVOKE ALL ON FUNCTION public.extend_invoice_due_date_special');
+  });
+
+  it('requires both active company and active finance membership for the +15-day exception', () => {
+    expect(financeAuthorityClosure).toContain('JOIN public.companies c');
+    expect(financeAuthorityClosure).toContain("COALESCE(cm.status::text, '') = 'active'");
+    expect(financeAuthorityClosure).toContain("COALESCE(v_company_status, '') <> 'active'");
+    expect(financeAuthorityClosure).toContain('An active company is required to grant a payment extension.');
+    expect(financeAuthorityClosure).toContain("COALESCE(v_role, '') NOT IN ('owner', 'admin', 'finance')");
+    expect(financeAuthorityClosure).toContain('FROM PUBLIC, anon, authenticated;');
+    expect(financeAuthorityClosure).toContain('TO service_role;');
   });
 
   it('does not allow marketplace invoice generation to trust arbitrary due-day values', () => {
