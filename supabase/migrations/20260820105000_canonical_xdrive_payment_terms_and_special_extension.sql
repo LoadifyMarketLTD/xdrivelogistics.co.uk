@@ -169,7 +169,9 @@ ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS payment_extension_days smallint NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS payment_extension_reason text,
   ADD COLUMN IF NOT EXISTS payment_extended_at timestamptz,
-  ADD COLUMN IF NOT EXISTS payment_extended_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+  -- Deliberately no FK to auth.users: this is immutable audit identity and must
+  -- survive later user deletion/anonymisation without corrupting the extension.
+  ADD COLUMN IF NOT EXISTS payment_extended_by uuid;
 
 ALTER TABLE public.invoices
   DROP CONSTRAINT IF EXISTS invoices_payment_extension_days_check;
