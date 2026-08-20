@@ -42,7 +42,7 @@ const DEFAULT_EMAIL_MESSAGE = `Dear [[Customer company]],
 I am attaching Invoice [[Invoice number]] for Load [[Load ID]].
 
 Details:
-Kindly note that a charge of £25.00 per week will apply to invoices that are more than 7 days overdue.
+Late commercial payments may be subject to statutory interest and recovery-cost compensation where applicable.
 
 Invoice: [[Invoice number]]
 Date: [[Invoice date]]
