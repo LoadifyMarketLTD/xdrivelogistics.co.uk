@@ -70,6 +70,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_expected_project_ref constant text := 'jqxlauexhkonixtjvljw';
   v_project_ref text;
   v_service_role_key text;
   v_edge_url text;
@@ -95,7 +96,17 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  v_edge_url := 'https://' || v_project_ref || '.supabase.co/functions/v1/notify-operational-event';
+  IF btrim(v_project_ref) <> v_expected_project_ref THEN
+    UPDATE public.notification_events
+    SET status = 'failed',
+        processed_at = NULL,
+        next_attempt_at = now() + interval '2 minutes',
+        last_error = 'Notification transport blocked: Supabase project ref is not XDrive.'
+    WHERE id = NEW.id;
+    RETURN NEW;
+  END IF;
+
+  v_edge_url := 'https://' || v_expected_project_ref || '.supabase.co/functions/v1/notify-operational-event';
 
   PERFORM net.http_post(
     url := v_edge_url,
@@ -136,6 +147,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_expected_project_ref constant text := 'jqxlauexhkonixtjvljw';
   v_project_ref text;
   v_service_role_key text;
   v_edge_url text;
@@ -154,11 +166,15 @@ BEGIN
     RAISE EXCEPTION 'Notification retry dispatcher is missing app_settings.supabase_project_ref.';
   END IF;
 
+  IF btrim(v_project_ref) <> v_expected_project_ref THEN
+    RAISE EXCEPTION 'Notification retry dispatcher blocked: Supabase project ref is not XDrive.';
+  END IF;
+
   IF NULLIF(btrim(COALESCE(v_service_role_key, '')), '') IS NULL THEN
     RAISE EXCEPTION 'Notification retry dispatcher is missing app_settings.supabase_service_role_key.';
   END IF;
 
-  v_edge_url := 'https://' || v_project_ref || '.supabase.co/functions/v1/notify-operational-event';
+  v_edge_url := 'https://' || v_expected_project_ref || '.supabase.co/functions/v1/notify-operational-event';
 
   PERFORM net.http_post(
     url := v_edge_url,
@@ -181,7 +197,7 @@ GRANT EXECUTE ON FUNCTION public.dispatch_due_notification_events()
   TO service_role;
 
 COMMENT ON FUNCTION public.dispatch_due_notification_events() IS
-  'Invokes notify-operational-event so due failed/pending notification rows are claimed and retried.';
+  'Invokes the XDrive notify-operational-event endpoint only when app_settings.supabase_project_ref exactly matches jqxlauexhkonixtjvljw; due failed/pending rows are then claimed and retried.';
 
 -- Supabase Cron is the hosted scheduling authority. Scheduling the same named
 -- job is idempotent: the existing job is overwritten with this canonical
