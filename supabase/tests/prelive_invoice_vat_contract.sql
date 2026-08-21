@@ -3,11 +3,27 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT plan(4);
 
-INSERT INTO public.companies (id, name, status, vat_number)
+INSERT INTO auth.users (
+  id, aud, role, email, encrypted_password,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+VALUES (
+  '24000000-0000-0000-0000-000000000099',
+  'authenticated',
+  'authenticated',
+  'prelive-vat-owner@example.test',
+  '',
+  '{}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now()
+);
+
+INSERT INTO public.companies (id, name, status, vat_number, created_by)
 VALUES
- ('24000000-0000-0000-0000-000000000001','PreLive VAT Supplier','active','GB111111111'),
- ('24000000-0000-0000-0000-000000000002','PreLive VAT Buyer','active','GB222222222'),
- ('24000000-0000-0000-0000-000000000003','PreLive Non VAT Supplier','active',NULL);
+ ('24000000-0000-0000-0000-000000000001','PreLive VAT Supplier','active','GB111111111','24000000-0000-0000-0000-000000000099'),
+ ('24000000-0000-0000-0000-000000000002','PreLive VAT Buyer','active','GB222222222','24000000-0000-0000-0000-000000000099'),
+ ('24000000-0000-0000-0000-000000000003','PreLive Non VAT Supplier','active',NULL,'24000000-0000-0000-0000-000000000099');
 
 CREATE TEMP TABLE prelive_invoice_vat_probe (
   id uuid PRIMARY KEY,

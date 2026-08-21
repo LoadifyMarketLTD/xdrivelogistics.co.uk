@@ -10,6 +10,11 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
+-- Restore the canonical scheduling-duration column when hosted schema history
+-- contains the legacy migration but the physical column has drifted.
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS job_distance_minutes integer;
+
 CREATE OR REPLACE FUNCTION public.guard_job_resource_double_booking()
 RETURNS trigger
 LANGUAGE plpgsql

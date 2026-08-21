@@ -16,6 +16,11 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '180s';
 
+-- Public signup has no authoritative operational role until onboarding or
+-- governance establishes one. NULL is the fail-closed bootstrap state.
+ALTER TABLE public.profiles
+  ALTER COLUMN role DROP NOT NULL;
+
 -- ---------------------------------------------------------------------------
 -- 1. Auth bootstrap: raw_user_meta_data is request data, never role authority.
 --    Server-controlled raw_app_meta_data may carry a canonical/legacy role for
@@ -86,6 +91,7 @@ BEGIN
   v_is_driver := COALESCE(v_role = 'driver', false);
 
   INSERT INTO public.profiles (
+    id,
     user_id,
     role,
     status,
@@ -96,6 +102,7 @@ BEGIN
     updated_at
   )
   VALUES (
+    NEW.id,
     NEW.id,
     v_role,
     'active',
@@ -116,6 +123,12 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Remove the legacy metadata-role synchronizer. It reads user-controlled
+-- raw_user_meta_data and therefore conflicts with the fail-closed authority
+-- boundary implemented below.
+DROP TRIGGER IF EXISTS trg_enforce_profile_role_from_auth_users ON auth.users;
+DROP FUNCTION IF EXISTS public.enforce_profile_role_from_auth_users();
 
 DROP TRIGGER IF EXISTS on_auth_user_profile_sync ON auth.users;
 CREATE TRIGGER on_auth_user_profile_sync

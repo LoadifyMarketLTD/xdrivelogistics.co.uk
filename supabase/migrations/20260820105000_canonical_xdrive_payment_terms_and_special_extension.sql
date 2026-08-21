@@ -67,6 +67,25 @@ $$;
 
 -- Canonicalise only known historical aliases. Unknown historical values fail
 -- the migration rather than being silently rewritten to a different contract.
+-- Reconcile historical NULL job terms from authoritative existing records:
+-- immutable commercial snapshots first, then the posting company's settings.
+WITH canonical_job_payment_terms AS (
+  SELECT
+    j.id AS job_id,
+    COALESCE(a.payment_terms, cs.default_payment_terms) AS payment_terms
+  FROM public.jobs j
+  LEFT JOIN public.job_commercial_agreements a
+    ON a.job_id = j.id
+  LEFT JOIN public.company_settings cs
+    ON cs.company_id = COALESCE(j.posted_by_company_id, j.company_id)
+  WHERE j.payment_terms IS NULL
+)
+UPDATE public.jobs j
+SET payment_terms = source.payment_terms
+FROM canonical_job_payment_terms source
+WHERE j.id = source.job_id
+  AND source.payment_terms IN ('Pay now', '14 days', '30 days');
+
 UPDATE public.jobs
 SET payment_terms = public.fn_canonical_xdrive_payment_terms(payment_terms)
 WHERE lower(btrim(payment_terms)) IN (
@@ -84,13 +103,9 @@ WHERE default_payment_terms IS NOT NULL
     '30 days', '30 day', 'net 30'
   );
 
-UPDATE public.job_commercial_agreements
-SET payment_terms = public.fn_canonical_xdrive_payment_terms(payment_terms)
-WHERE lower(btrim(payment_terms)) IN (
-  'pay now', 'immediate', 'due on receipt',
-  '14 days', '14 day', 'net 14',
-  '30 days', '30 day', 'net 30'
-);
+-- Commercial agreements are immutable ledger snapshots and must never be
+-- rewritten by canonicalisation. The fail-closed validation below requires
+-- every existing snapshot to already satisfy the canonical payment contract.
 
 UPDATE public.invoices
 SET payment_terms = public.fn_canonical_xdrive_payment_terms(payment_terms)
