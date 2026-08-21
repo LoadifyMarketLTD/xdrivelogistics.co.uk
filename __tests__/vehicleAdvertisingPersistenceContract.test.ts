@@ -67,6 +67,10 @@ describe('vehicle advertising persistence contract', () => {
     expect(validator).toContain("to_regprocedure('public.set_vehicle_advertising_state(uuid, uuid, text, text, jsonb)')");
     expect(validator).toContain('legacy 5-argument RPC must not exist after first migration');
     expect(validator).toContain('Expected legacy 5-argument PostgREST payload to be unavailable');
+    expect(validator).toContain('docker exec "$POSTGRES_CONTAINER_NAME"');
+    expect(validator).toContain('pg_isready -U "$PGUSER" -d postgres');
+    expect(validator).toContain('docker logs --tail 200 "$POSTGRES_CONTAINER_NAME"');
+    expect(validator).toContain('for _ in {1..180}');
   });
 
   it('forces API clients to provide an explicit reason and canonical state', () => {
