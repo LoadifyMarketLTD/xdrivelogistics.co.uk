@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont } from 'pdf-lib';
+import type { InvoiceVatTreatment } from '../invoiceVat';
 
 type InvoiceEvidenceImage = {
   bytes: Uint8Array;
@@ -20,6 +21,7 @@ type InvoicePdfInput = {
   clientName: string;
   clientAddress?: string | null;
   clientEmail?: string | null;
+  customerVatNumber?: string | null;
   pickupLocation?: string | null;
   pickupDateTime?: string | null;
   deliveryLocation?: string | null;
@@ -37,6 +39,7 @@ type InvoicePdfInput = {
   netAmount: number;
   vatAmount: number;
   vatRate: number;
+  vatTreatment?: InvoiceVatTreatment | null;
   totalAmount: number;
   currency: string;
   paymentTerms?: string | null;
@@ -53,7 +56,7 @@ const pdfText = (value: string | null | undefined, fallback = 'Not provided') =>
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\u00A0/g, ' ')
-    .replace(/[^\x20-\x7E\u00A3\u20AC]/g, '?');
+    .replace(/[^\x20-\x7E\u00A3\u00B7\u20AC]/g, '?');
 
 const finiteMoney = (value: number) => Number.isFinite(value) ? value : 0;
 
@@ -129,6 +132,13 @@ const fitText = (font: PDFFont, value: string, maxWidth: number, size: number, m
   return currentSize;
 };
 
+const fallbackVatTreatment = (input: InvoicePdfInput): InvoiceVatTreatment => {
+  if (input.vatTreatment) return input.vatTreatment;
+  if (input.vatRate === 20) return 'standard';
+  if (input.vatRate === 5) return 'reduced';
+  return input.issuerVatNumber ? 'zero_rated' : 'not_registered';
+};
+
 export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595.28, 841.89]);
@@ -150,6 +160,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const margin = 36;
   const contentWidth = pageWidth - margin * 2;
   const issuerName = pdfText(input.issuerName, 'Invoice issuer');
+  const vatTreatment = fallbackVatTreatment(input);
 
   const drawRight = (value: string, xRight: number, y: number, size: number, font: PDFFont, color = dark) => {
     const text = pdfText(value, '');
@@ -189,7 +200,11 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     page.drawText(addressLine, { x: margin, y: issuerY, size: 8.7, font: regular, color: grey });
     issuerY -= 12;
   }
-  if (input.issuerVatNumber) {
+  if (input.issuerCompanyNumber) {
+    page.drawText(`Company No. ${pdfText(input.issuerCompanyNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
+    issuerY -= 12;
+  }
+  if (input.issuerVatNumber && vatTreatment !== 'not_registered') {
     page.drawText(`UK VAT # ${pdfText(input.issuerVatNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
     issuerY -= 17;
   }
@@ -397,14 +412,37 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
 
   page.drawText('Account Number:', { x: margin + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
   page.drawText(pdfText(input.bankAccountNumber, 'Not configured').slice(0, 24), { x: margin + 91, y: payBoxY + 49, size: 8.2, font: regular, color: dark });
-  page.drawText('VAT:', { x: splitX + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
-  page.drawText(`${finiteMoney(input.vatRate)}%`, { x: splitX + 37, y: payBoxY + 49, size: 8.2, font: regular, color: dark });
+  page.drawText('Net:', { x: splitX + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
+  drawRight(money(finiteMoney(input.netAmount), input.currency), margin + contentWidth - 12, payBoxY + 49, 8.2, regular);
 
   page.drawText('PayPal:', { x: margin + 12, y: payBoxY + 17, size: 8.1, font: bold, color: dark });
   page.drawText(pdfText(input.paypalEmail, 'Not configured').slice(0, 64), { x: margin + 49, y: payBoxY + 17, size: 8.2, font: regular, color: dark });
 
+  const vatLabel = vatTreatment === 'not_registered'
+    ? 'VAT: Not registered'
+    : vatTreatment === 'zero_rated'
+      ? 'VAT 0% (zero-rated):'
+      : vatTreatment === 'reverse_charge'
+        ? `VAT ${finiteMoney(input.vatRate)}% (reverse):`
+        : `VAT ${finiteMoney(input.vatRate)}%:`;
+  page.drawText(vatLabel, { x: splitX + 12, y: payBoxY + 17, size: 8.1, font: bold, color: dark });
+  drawRight(money(finiteMoney(input.vatAmount), input.currency), margin + contentWidth - 12, payBoxY + 17, 8.2, regular);
+
   const terms = pdfText(input.paymentTerms, '14 days');
-  page.drawText(`Payment terms: ${terms}. Late payments may incur administrative charges.`.slice(0, 112), { x: margin + 12, y: 84, size: 7.5, font: regular, color: dark });
+  page.drawText(`Payment terms: ${terms}. Due date: ${formatDate(input.dueDate)}.`.slice(0, 112), { x: margin + 12, y: 84, size: 7.5, font: regular, color: dark });
+  page.drawText('Late payments may incur administrative charges.', { x: margin + 12, y: 72, size: 7.5, font: regular, color: dark });
+
+  const vatDisclosure = vatTreatment === 'reverse_charge'
+    ? `Reverse charge: customer accounts for VAT; VAT is excluded from PAYABLE.${input.customerVatNumber ? ` Customer VAT: ${pdfText(input.customerVatNumber, '')}.` : ''}`
+    : vatTreatment === 'not_registered'
+      ? 'Issuer is not VAT registered; no VAT has been charged.'
+      : vatTreatment === 'zero_rated'
+        ? 'Zero-rated supply: VAT charged at 0%.'
+        : '';
+  if (vatDisclosure) {
+    const disclosureSize = fitText(regular, pdfText(vatDisclosure, ''), contentWidth, 6.7, 5.8);
+    page.drawText(pdfText(vatDisclosure, '').slice(0, 160), { x: margin + 12, y: 62, size: disclosureSize, font: regular, color: dark });
+  }
 
   // ---------------------------------------------------------------------------
   // Footer: full-width navy, only verified company/contact data.

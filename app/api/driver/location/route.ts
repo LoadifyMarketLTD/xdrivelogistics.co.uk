@@ -23,16 +23,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Resolve driver row and company from auth user.
-  // company_id is intentionally nullable — individual drivers without a company are permitted.
+  // Resolve the canonical active Driver identity from the authenticated user.
+  // A stale JWT must not keep transmitting location after Driver access has
+  // been disabled or the Driver has left operational service.
   const { data: driverRow, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id')
+    .select('id, company_id, status, app_access')
     .eq('user_id', authData.user.id)
+    .eq('status', 'active')
     .maybeSingle();
 
-  if (driverError || !driverRow) {
-    return NextResponse.json({ error: 'Driver record not found.' }, { status: 403 });
+  if (driverError || !driverRow || driverRow.app_access !== true) {
+    return NextResponse.json({ error: 'Active Driver location access is not available.' }, { status: 403 });
   }
 
   let body: LocationPayload;

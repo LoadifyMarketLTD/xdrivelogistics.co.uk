@@ -1,15 +1,34 @@
 /**
  * Processes the notification_events queue.
  *
- * This function may be deployed with --no-verify-jwt only when every caller
- * supplies the private XDRIVE_NOTIFICATION_WEBHOOK_SECRET in the
- * x-xdrive-webhook-secret header. Configure the same header on the Supabase
- * Database Webhook or pg_cron request.
+ * Private callers may authenticate in either of two ways:
+ * - the exact SUPABASE_SERVICE_ROLE_KEY as a Bearer token (the canonical DB
+ *   trigger already uses this legacy path),
+ * - any configured modern Supabase secret key in the apikey header, or
+ * - XDRIVE_NOTIFICATION_WEBHOOK_SECRET in x-xdrive-webhook-secret for an
+ *   explicitly configured Database Webhook / scheduler.
+ *
+ * When deployed with --no-verify-jwt this function still fails closed unless
+ * one of those private credentials matches in constant time.
+ *
+ * Queue rows are claimed through the DB lease RPC before any provider call.
+ * The lease prevents concurrent workers and the stable Resend Idempotency-Key
+ * prevents a retry from sending the same event to the same recipient twice.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const secretApiKeys = (() => {
+  try {
+    const configured = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, unknown>;
+    return Object.values(configured).filter(
+      (value): value is string => typeof value === 'string' && value.startsWith('sb_secret_'),
+    );
+  } catch {
+    return [];
+  }
+})();
 const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').trim().replace(/\/$/, '');
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
@@ -30,6 +49,8 @@ interface NotificationEvent {
   status: string;
   attempt_count?: number;
   next_attempt_at?: string | null;
+  lease_token?: string | null;
+  lease_expires_at?: string | null;
 }
 
 const jsonResponse = (status: number, payload: Record<string, unknown>) =>
@@ -51,6 +72,12 @@ const constantTimeEqual = (left: string, right: string) => {
     difference |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
   }
   return difference === 0;
+};
+
+const bearerToken = (request: Request) => {
+  const authorization = request.headers.get('authorization') ?? '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? '';
 };
 
 const escapeHtml = (value: unknown) =>
@@ -81,6 +108,9 @@ const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+const notificationIdempotencyKey = (eventId: string, recipientId: string) =>
+  `xdrive-notification/${eventId}/${recipientId}`.slice(0, 256);
+
 async function getUserEmail(userId: string): Promise<{ email: string; name: string } | null> {
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user?.email) return null;
@@ -91,7 +121,12 @@ async function getUserEmail(userId: string): Promise<{ email: string; name: stri
   };
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  idempotencyKey: string,
+): Promise<boolean> {
   if (!resendApiKey) {
     console.error(`[notify] RESEND_API_KEY is not configured; email not sent: ${subject}`);
     return false;
@@ -102,6 +137,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${resendApiKey}`,
+      'Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify({ from: fromEmail, to, subject, html }),
   });
@@ -118,6 +154,7 @@ async function emailCompanyOperators(
   companyId: string,
   subject: string,
   htmlFor: (safeName: string) => string,
+  eventId: string,
 ): Promise<boolean> {
   const { data: members, error } = await supabase
     .from('company_memberships')
@@ -133,7 +170,14 @@ async function emailCompanyOperators(
     members.map(async (member: { user_id: string | null }) => {
       if (!member.user_id) return true;
       const user = await getUserEmail(member.user_id);
-      return user ? sendEmail(user.email, subject, htmlFor(escapeHtml(user.name))) : true;
+      return user
+        ? sendEmail(
+          user.email,
+          subject,
+          htmlFor(escapeHtml(user.name)),
+          notificationIdempotencyKey(eventId, member.user_id),
+        )
+        : true;
     }),
   );
   return results.every((result) => result.status === 'fulfilled' && result.value !== false);
@@ -151,6 +195,7 @@ async function handleJobAssigned(event: NotificationEvent) {
     user.email,
     'New Job Assigned - XDrive Logistics',
     `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -165,6 +210,7 @@ async function handleBidAccepted(event: NotificationEvent) {
     user.email,
     'Bid Accepted - XDrive Logistics',
     `<h2>Your bid has been accepted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your bid of <strong>£${amount}</strong> on job <strong>${jobId}</strong> has been accepted.</p><p><a href="${escapeHtml(buildAppUrl('/admin/bids'))}">Open the bids workspace</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -180,6 +226,7 @@ async function handlePodUploaded(event: NotificationEvent) {
     companyId,
     'Job Delivered - POD Ready',
     (name) => `<h2>Job delivered - POD available</h2><p>Hi ${name},</p><p>Job <strong>${jobId}</strong> has been marked delivered.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p>Sign in to review the proof of delivery.</p><p>XDrive Logistics</p>`,
+    event.id,
   );
 }
 
@@ -196,6 +243,7 @@ async function handleOnboardingInvite(event: NotificationEvent) {
     user.email,
     'Complete onboarding - XDrive Logistics',
     `<h2>Your XDrive onboarding is ready</h2><p>Hi ${escapeHtml(user.name)},</p><p>Continue onboarding to unlock your workspace.</p><p><strong>Account type:</strong> ${accountType}</p><p><a href="${escapeHtml(onboardingUrl)}">Start or resume onboarding</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -210,6 +258,7 @@ async function handleOnboardingSubmitted(event: NotificationEvent) {
     user.email,
     'Onboarding submitted - XDrive Logistics',
     `<h2>Onboarding submitted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your ${accountType} onboarding has been submitted for review.</p><p>Reference: <strong>${reference}</strong></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -222,6 +271,7 @@ async function handleOnboardingApproved(event: NotificationEvent) {
     user.email,
     'Onboarding approved - XDrive Logistics',
     `<h2>Your XDrive workspace is approved</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your onboarding has been approved. You can now sign in and use your workspace.</p><p><a href="${escapeHtml(buildAppUrl('/login'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
   );
 }
 
@@ -235,6 +285,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
       user.email,
       'Invoice disputed - XDrive Logistics',
       `<h2>Invoice disputed</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+      notificationIdempotencyKey(event.id, event.recipient_user_id),
     );
   }
   if (!companyId) return true;
@@ -242,6 +293,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
     companyId,
     'Invoice disputed - XDrive Logistics',
     (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    event.id,
   );
 }
 
@@ -255,6 +307,7 @@ async function handleInvoiceCreated(event: NotificationEvent) {
       user.email,
       'Invoice created - XDrive Logistics',
       `<h2>Invoice created</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+      notificationIdempotencyKey(event.id, event.recipient_user_id),
     );
   }
   if (!companyId) return true;
@@ -262,10 +315,17 @@ async function handleInvoiceCreated(event: NotificationEvent) {
     companyId,
     'Invoice created - XDrive Logistics',
     (name) => `<h2>Invoice created</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    event.id,
   );
 }
 
 async function processEvent(event: NotificationEvent): Promise<void> {
+  const leaseToken = event.lease_token ?? '';
+  if (!leaseToken) {
+    console.error(`[notify] Event ${event.id} arrived without a queue lease; skipped.`);
+    return;
+  }
+
   let success = false;
   let skipped = false;
   try {
@@ -305,42 +365,30 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       attempt_count: attemptCount,
       next_attempt_at: nextAttemptAt,
       last_error: success || skipped ? null : 'Notification provider or event handler failed.',
+      lease_token: null,
+      lease_expires_at: null,
     })
     .eq('id', event.id)
-    .in('status', ['pending', 'failed']);
+    .eq('lease_token', leaseToken);
 
-  if (error) console.error(`[notify] Could not update event ${event.id}: ${error.message}`);
+  if (error) console.error(`[notify] Could not finalize event ${event.id}: ${error.message}`);
 }
 
-const isDueForRetry = (event: NotificationEvent, nowMs: number) => {
-  if (!event.next_attempt_at) return true;
-  const retryAt = Date.parse(event.next_attempt_at);
-  return Number.isFinite(retryAt) && retryAt <= nowMs;
-};
+async function claimEvents(eventId: string | null, limit: number): Promise<NotificationEvent[]> {
+  const { data, error } = await supabase.rpc('claim_notification_events', {
+    p_event_id: eventId,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []) as NotificationEvent[];
+}
 
 async function loadWebhookEvent(eventId: string): Promise<NotificationEvent[]> {
-  const { data, error } = await supabase
-    .from('notification_events')
-    .select('*')
-    .eq('id', eventId)
-    .in('status', ['pending', 'failed'])
-    .maybeSingle();
-  if (error) throw error;
-  return data ? [data as NotificationEvent] : [];
+  return claimEvents(eventId, 1);
 }
 
 async function loadDueEvents(): Promise<NotificationEvent[]> {
-  const { data, error } = await supabase
-    .from('notification_events')
-    .select('*')
-    .in('status', ['pending', 'failed'])
-    .order('created_at', { ascending: true })
-    .limit(100);
-  if (error) throw error;
-  const nowMs = Date.now();
-  return ((data ?? []) as NotificationEvent[])
-    .filter((event) => isDueForRetry(event, nowMs))
-    .slice(0, 50);
+  return claimEvents(null, 50);
 }
 
 Deno.serve(async (request) => {
@@ -348,17 +396,23 @@ Deno.serve(async (request) => {
     if (request.method !== 'POST') {
       return jsonResponse(405, { error: 'Method not allowed.' });
     }
-    if (!supabaseUrl || !serviceRoleKey || !webhookSecret || webhookSecret.length < 32) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return jsonResponse(503, { error: 'Notification function configuration is incomplete.' });
     }
 
     const suppliedSecret = request.headers.get('x-xdrive-webhook-secret') ?? '';
-    if (!constantTimeEqual(suppliedSecret, webhookSecret)) {
+    const suppliedApiKey = request.headers.get('apikey') ?? '';
+    const serviceBearer = bearerToken(request);
+    const webhookAuthorized = webhookSecret.length >= 32 && constantTimeEqual(suppliedSecret, webhookSecret);
+    const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);
+    const secretApiKeyAuthorized = secretApiKeys.some((key) => constantTimeEqual(suppliedApiKey, key));
+
+    if (!webhookAuthorized && !serviceRoleAuthorized && !secretApiKeyAuthorized) {
       return jsonResponse(401, { error: 'Unauthorized.' });
     }
 
     const body = await request.json().catch(() => null);
-    const webhookEventId = body?.record?.id ?? body?.id ?? null;
+    const webhookEventId = body?.record?.id ?? body?.id ?? body?.event_id ?? null;
     const events = isUuid(webhookEventId)
       ? await loadWebhookEvent(webhookEventId)
       : await loadDueEvents();
