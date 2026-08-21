@@ -38,6 +38,34 @@ FROM public.companies c
 WHERE c.id = cs.company_id
   AND cs.default_vat_treatment IS NULL;
 
+-- Commercial agreements are immutable ledger snapshots. Permit only this
+-- one-time NULL-to-canonical VAT classification inside the current transaction.
+-- No other column may change, and the strict lock is restored before COMMIT.
+CREATE OR REPLACE FUNCTION public.fn_lock_commercial_agreement()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND OLD.vat_treatment IS NULL
+     AND NEW.vat_treatment IN (
+       'standard', 'reduced', 'zero_rated', 'reverse_charge', 'not_registered'
+     )
+     AND (to_jsonb(NEW) - 'vat_treatment') =
+         (to_jsonb(OLD) - 'vat_treatment')
+  THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION
+    'commercial_agreement % is immutable and cannot be modified.',
+    OLD.id
+    USING ERRCODE = '23514';
+END;
+$$;
+
 UPDATE public.job_commercial_agreements jca
 SET vat_treatment = CASE
   WHEN NULLIF(btrim(COALESCE(c.vat_number, '')), '') IS NULL THEN 'not_registered'
@@ -49,6 +77,20 @@ END
 FROM public.companies c
 WHERE c.id = jca.supplier_company_id
   AND jca.vat_treatment IS NULL;
+
+CREATE OR REPLACE FUNCTION public.fn_lock_commercial_agreement()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RAISE EXCEPTION
+    'commercial_agreement % is immutable and cannot be %d.',
+    OLD.id, TG_OP
+    USING ERRCODE = '23514';
+END;
+$$;
 
 UPDATE public.invoices i
 SET vat_treatment = CASE

@@ -88,14 +88,27 @@ SELECT pg_temp.assert_true(
 
 SELECT pg_temp.assert_true(
   EXISTS (
-    SELECT 1
-    FROM pg_policies
+    SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'notification_events'
-      AND policyname = 'notification_events_select_recipient_or_company_broadcast'
+      AND policyname = 'notification_events_select_recipient'
+      AND cmd = 'SELECT'
+  )
+  AND EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notification_events'
+      AND policyname = 'notification_events_select_company'
+      AND cmd = 'SELECT'
+  )
+  AND EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notification_events'
+      AND policyname = 'notification_events_select_none_anon'
       AND cmd = 'SELECT'
   ),
-  'Notification recipient/company-broadcast isolation policy is missing.'
+  'Canonical recipient, company and anonymous-deny notification policies are missing.'
 );
 
 ALTER TABLE public.notification_events

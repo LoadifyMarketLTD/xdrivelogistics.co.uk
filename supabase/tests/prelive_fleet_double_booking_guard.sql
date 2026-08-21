@@ -36,11 +36,31 @@ SELECT pg_temp.assert_true(
   'Canonical Fleet double-booking trigger is missing or disabled.'
 );
 
-INSERT INTO public.companies (id, name, status)
+-- companies.created_by is mandatory and references auth.users(id).
+-- This deterministic Auth fixture remains inside this transaction and
+-- is removed by the final ROLLBACK.
+INSERT INTO auth.users (
+  id, aud, role, email, encrypted_password,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+VALUES (
+  '23000000-0000-0000-0000-000000000099',
+  'authenticated',
+  'authenticated',
+  'prelive-fleet-guard-owner@example.test',
+  '',
+  '{}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now()
+);
+
+INSERT INTO public.companies (id, name, status, created_by)
 VALUES (
   '23000000-0000-0000-0000-000000000001',
   'PreLive Fleet Guard Company',
-  'active'
+  'active',
+  '23000000-0000-0000-0000-000000000099'
 );
 
 ALTER TABLE public.drivers DISABLE TRIGGER USER;
@@ -70,7 +90,7 @@ VALUES
     'PreLive Driver One',
     'PreLive Driver One',
     'PreLive Driver One',
-    'pending_verification',
+    'active',
     true,
     false,
     'company_driver',
@@ -82,7 +102,7 @@ VALUES
     'PreLive Driver Two',
     'PreLive Driver Two',
     'PreLive Driver Two',
-    'pending_verification',
+    'active',
     true,
     false,
     'company_driver',
@@ -93,12 +113,13 @@ VALUES
 -- at 'none'. Mirror that physical contract so this fixture tests Fleet locking,
 -- not an unrelated advertising NOT NULL constraint.
 INSERT INTO public.vehicles (
-  id, company_id, assigned_driver_id, type, reg_plate, advertising_state
+  id, company_id, assigned_driver_id, type, vehicle_type, reg_plate, advertising_state
 )
 VALUES (
   '23000000-0000-0000-0000-000000000021',
   '23000000-0000-0000-0000-000000000001',
   '23000000-0000-0000-0000-000000000011',
+  'van_small',
   'van_small',
   'PL26TST',
   'none'
@@ -107,6 +128,8 @@ VALUES (
 INSERT INTO public.jobs (
   id,
   company_id,
+  pickup_location,
+  delivery_location,
   assigned_driver_id,
   vehicle_id,
   status,
@@ -118,6 +141,8 @@ INSERT INTO public.jobs (
 VALUES (
   '23000000-0000-0000-0000-000000000031',
   '23000000-0000-0000-0000-000000000001',
+  'PreLive Fleet Pickup',
+  'PreLive Fleet Delivery',
   '23000000-0000-0000-0000-000000000011',
   '23000000-0000-0000-0000-000000000021',
   'allocated',
