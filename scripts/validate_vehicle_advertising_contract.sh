@@ -24,14 +24,27 @@ cleanup() {
 trap cleanup EXIT
 
 wait_for_pg() {
-  for _ in {1..90}; do
-    if psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -c 'select 1' >/dev/null 2>&1; then
+  # Readiness belongs to the disposable container itself. Checking with a host
+  # psql binary made Windows/WSL networking failures look like database
+  # contract failures and discarded the only useful diagnostics during cleanup.
+  for _ in {1..180}; do
+    if docker exec "$POSTGRES_CONTAINER_NAME" \
+      pg_isready -U "$PGUSER" -d postgres >/dev/null 2>&1; then
       return 0
     fi
+
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$POSTGRES_CONTAINER_NAME" 2>/dev/null || true)" != 'true' ]]; then
+      break
+    fi
+
     sleep 1
   done
 
-  echo "Postgres did not become ready in time" >&2
+  echo "Disposable Postgres did not become ready" >&2
+  docker inspect "$POSTGRES_CONTAINER_NAME" \
+    --format 'status={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' \
+    >&2 || true
+  docker logs --tail 200 "$POSTGRES_CONTAINER_NAME" >&2 || true
   return 1
 }
 
