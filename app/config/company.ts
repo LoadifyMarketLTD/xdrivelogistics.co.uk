@@ -28,6 +28,9 @@ export const COMPANY_CONFIG = {
   },
   
   // Payment configuration (MASTER SPEC)
+  // Standard XDrive terms are 14 or 30 days from invoice date. Pay now remains
+  // available for immediate-payment cases. A single +15 day extension is an
+  // exceptional finance action and is stored separately from the base term.
   // Bank-transfer details are read from server-only env vars (no NEXT_PUBLIC_ prefix).
   // They must NEVER be embedded in client-side JavaScript bundles.
   // On the client these fields resolve to '' (empty string); the rendered values
@@ -42,8 +45,10 @@ export const COMPANY_CONFIG = {
       email: process.env.COMPANY_PAYPAL_EMAIL?.trim() || '',
     },
     terms: ['Pay now', '14 days', '30 days'] as const,
-    lateFeeNote: 'Late payments may incur administrative charges.',
-    lateFeeAmount: 'A late payment charge of £25 per full week may apply after the due date.',
+    defaultTerm: '14 days' as const,
+    specialExtensionDays: 15 as const,
+    lateFeeNote: 'Late commercial payments may be subject to statutory interest and recovery-cost compensation where applicable.',
+    lateFeeAmount: 'Statutory late-payment remedies apply only where legally and contractually applicable.',
   },
   
   // VAT options (MASTER SPEC)
@@ -110,9 +115,7 @@ export const BID_STATUS = {
   WITHDRAWN:  'withdrawn',
 } as const;
 
-export type BidStatusValue = typeof BID_STATUS[keyof typeof BID_STATUS];
-
-// Delay update options (MASTER SPEC)
+// Delay update options (MASTER SPEC) — operational ETA delay, not payment terms.
 export const DELAY_OPTIONS = [15, 30, 45, 60] as const;
 
 export type JobStatus = typeof JOB_STATUS[keyof typeof JOB_STATUS];

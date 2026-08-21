@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toLegacyInvoiceStatusForDb } from '../../../lib/invoiceStatus';
+import {
+  computeInvoiceDueDate,
+  normalizeXDrivePaymentTerm,
+  paymentTermDays,
+} from '../../../lib/invoicePaymentTerms';
+import {
+  normalizeInvoiceVatTreatment,
+  validateInvoiceVatTotals,
+} from '../../../lib/invoiceVat';
 import { getFeatureFlag } from './platformFlags';
 
 type SupabaseAdminClient = SupabaseClient;
@@ -18,12 +27,6 @@ const positiveNumber = (value: unknown) => {
 
 const validEmail = (value: string | null) =>
   Boolean(value && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
-
-const addDays = (date: string, days: number) => {
-  const result = new Date(`${date}T00:00:00.000Z`);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result.toISOString().slice(0, 10);
-};
 
 export async function autoGenerateMarketplaceInvoice({
   supabase,
@@ -45,7 +48,7 @@ export async function autoGenerateMarketplaceInvoice({
 
   const { data: agreement, error: agreementError } = await supabase
     .from('job_commercial_agreements')
-    .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount, payment_terms, payment_due_days')
+    .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_treatment, vat_rate, vat_amount, agreed_gross_amount, payment_terms, payment_due_days')
     .eq('job_id', jobId)
     .eq('supplier_company_id', supplierCompanyId)
     .maybeSingle();
@@ -71,7 +74,7 @@ export async function autoGenerateMarketplaceInvoice({
       .maybeSingle(),
     supabase
       .from('companies')
-      .select('name, email, address_line1, address_line2, city, postcode')
+      .select('name, email, address_line1, address_line2, city, postcode, vat_number')
       .eq('id', agreement.buyer_company_id)
       .maybeSingle(),
   ]);
@@ -91,22 +94,31 @@ export async function autoGenerateMarketplaceInvoice({
   const vatAmount = Number(agreement.vat_amount);
   const totalAmount = positiveNumber(agreement.agreed_gross_amount);
   const vatRate = Number(agreement.vat_rate);
-  const dueDays = Number.isInteger(Number(agreement.payment_due_days)) ? Number(agreement.payment_due_days) : 14;
-  const paymentTerms = cleanText(agreement.payment_terms) || '14 days';
+  const vatTreatment = normalizeInvoiceVatTreatment(agreement.vat_treatment);
+  const paymentTerms = normalizeXDrivePaymentTerm(cleanText(agreement.payment_terms));
+  const dueDays = Number(agreement.payment_due_days);
   const currency = cleanText(agreement.currency) || cleanText(job.currency) || 'GBP';
 
   if (!clientName) return { created: false, invoiceId: null, reason: 'Client company name is missing.' };
   if (!validEmail(clientEmail)) return { created: false, invoiceId: null, reason: 'Client email is missing or invalid.' };
-  if (!netAmount || !totalAmount || !Number.isFinite(vatAmount) || vatAmount < 0) {
-    return { created: false, invoiceId: null, reason: 'Agreement totals are incomplete.' };
+  if (!netAmount || !totalAmount || !vatTreatment) {
+    return { created: false, invoiceId: null, reason: 'Agreement VAT snapshot is incomplete.' };
   }
-  if (![0, 5, 20].includes(vatRate)) return { created: false, invoiceId: null, reason: 'VAT rate is invalid.' };
-  if (Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01) {
-    return { created: false, invoiceId: null, reason: 'Agreement totals are inconsistent.' };
+  if (!validateInvoiceVatTotals({ netAmount, vatAmount, vatRate, totalAmount, treatment: vatTreatment })) {
+    return { created: false, invoiceId: null, reason: 'Agreement VAT totals do not match its VAT treatment.' };
+  }
+  if (vatTreatment === 'reverse_charge' && !cleanText(buyer?.vat_number)) {
+    return { created: false, invoiceId: null, reason: 'Reverse-charge agreement requires the buyer VAT number before invoicing.' };
+  }
+  if (!paymentTerms) {
+    return { created: false, invoiceId: null, reason: 'Commercial agreement payment terms are outside XDrive policy.' };
+  }
+  if (!Number.isInteger(dueDays) || dueDays !== paymentTermDays(paymentTerms)) {
+    return { created: false, invoiceId: null, reason: 'Commercial agreement payment days do not match the XDrive base term.' };
   }
 
   const invoiceDate = new Date().toISOString().slice(0, 10);
-  const dueDate = addDays(invoiceDate, dueDays);
+  const dueDate = computeInvoiceDueDate(invoiceDate, paymentTerms);
   const { data: generatedNumber, error: generatedNumberError } = await supabase.rpc('next_invoice_number', {
     p_company_id: supplierCompanyId,
   });
@@ -141,6 +153,7 @@ export async function autoGenerateMarketplaceInvoice({
       service_description: cleanText(job.load_details) || 'Transport service',
       amount: totalAmount,
       net_amount: netAmount,
+      vat_treatment: vatTreatment,
       vat_amount: vatAmount,
       vat_rate: vatRate,
       currency,
