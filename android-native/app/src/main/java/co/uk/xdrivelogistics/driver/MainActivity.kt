@@ -289,9 +289,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onStopTracking = {
-                                startService(
-                                    Intent(this, TrackingService::class.java).setAction(TrackingService.ACTION_STOP),
-                                )
+                                stopService(Intent(this, TrackingService::class.java))
                             },
                             onPublishLocation = {
                                 startTrackingAfterPermission = false
@@ -495,6 +493,8 @@ private fun DriverAppShell(
             .fillMaxSize()
             .background(Navy)
             .statusBarsPadding()
+            // navigationBarsPadding is handled by BottomNav so its background
+            // extends behind the system gesture bar; do not apply it here.
     ) {
         AppHeader(
             title = state.headerTitle(),
@@ -510,15 +510,15 @@ private fun DriverAppShell(
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
                 DriverTab.SMARTPAY -> SmartPayScreen(state)
                 DriverTab.ACTION -> ActionScreen(
-                    state,
-                    onSendNote,
-                    onSubmitQuote,
-                    onPickPodFile,
-                    onCapturePodPhoto,
-                    onConfirmDeliveryRecipient,
-                    onMoveStatus,
-                    onNavigateTo,
-                )
+            state,
+            onSendNote,
+            onSubmitQuote,
+            onPickPodFile,
+            onCapturePodPhoto,
+            onConfirmDeliveryRecipient,
+            onMoveStatus,
+            onNavigateTo,
+        )
                 DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking)
             }
@@ -1138,13 +1138,13 @@ private fun ActionScreen(
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
                 "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote, state.isSubmittingQuote) }
                 "POD" -> item {
-                    PodPanel(
-                        selected,
-                        onCapturePodPhoto,
-                        onPickPodFile,
-                        onConfirmDeliveryRecipient,
-                    )
-                }
+            PodPanel(
+                selected,
+                onCapturePodPhoto,
+                onPickPodFile,
+                onConfirmDeliveryRecipient,
+            )
+        }
             }
         }
         item {
@@ -2079,17 +2079,21 @@ private fun JobCard(
             job.deliveryDatetime?.takeIf { it.isNotBlank() }?.let { InfoLine("Delivery time", it.driverDateTimeLabel()) }
             job.humanLoadLines().forEach { (label, value) -> InfoLine(label, value) }
             Spacer(Modifier.height(12.dp))
-            StatusTimeline(job.driverStatusKey())
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = { onMoveStatus(job.nextStatus()) },
-                enabled = job.canMoveNext(),
-                colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(job.nextActionLabel(), fontWeight = FontWeight.Bold) }
-            if (job.nextStatus() == "delivered" && !job.hasPod()) {
-                Text("Upload POD before Delivered.", color = Yellow, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+            if (job.isPosted()) {
+                QuoteBox(onSubmitQuote)
+            } else {
+                StatusTimeline(job.driverStatusKey())
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { onMoveStatus(job.nextStatus()) },
+                    enabled = job.canMoveNext(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(job.nextActionLabel(), fontWeight = FontWeight.Bold) }
+                if (job.nextStatus() == "delivered" && !job.hasPod()) {
+                    Text("Upload POD before Delivered.", color = Yellow, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                }
             }
             if (selected) Text("Selected for POD and quick actions", color = Yellow, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         }
@@ -2103,6 +2107,9 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
         modifier = Modifier
             .fillMaxWidth()
             .background(Navy2)
+            // navigationBarsPadding here (not on the outer Column) so Navy2 background
+            // extends visually behind the system gesture indicator on Android 10+ devices
+            // while label content remains above it.
             .navigationBarsPadding()
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
