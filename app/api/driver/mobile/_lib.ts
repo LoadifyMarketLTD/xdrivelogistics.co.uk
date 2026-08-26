@@ -35,23 +35,36 @@ async function enforceActiveNativeDeviceBinding(
 ): Promise<NextResponse | null> {
   if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
-  const { data: activeBinding, error: bindingError } = await supabaseAdmin
-    .from('driver_mobile_device_sessions')
-    .select('installation_id, auth_session_id')
-    .eq('user_id', userId)
-    .eq('driver_id', driverId)
-    .eq('enabled', true)
-    .is('revoked_at', null)
-    .maybeSingle();
+  const [{ data: activeBinding, error: bindingError }, { data: nativeHistory, error: historyError }] = await Promise.all([
+    supabaseAdmin
+      .from('driver_mobile_device_sessions')
+      .select('installation_id, auth_session_id')
+      .eq('user_id', userId)
+      .eq('driver_id', driverId)
+      .eq('enabled', true)
+      .is('revoked_at', null)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('driver_mobile_device_sessions')
+      .select('installation_id')
+      .eq('user_id', userId)
+      .eq('driver_id', driverId)
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  if (bindingError) {
+  if (bindingError || historyError) {
     return respond(500, { error: 'Mobile device session validation failed.' });
   }
 
-  // Legacy clients remain compatible only until this driver completes the first
-  // native-device registration. From then on the server-side binding is
-  // authoritative and cannot be bypassed by simply omitting the device header.
-  if (!activeBinding) return null;
+  // Legacy compatibility ends permanently after this driver completes the first
+  // native-device registration. If that registered session is later logged out or
+  // revoked, an old JWT must not regain access merely because there is no active
+  // row left. Only drivers with no native-session history may use the legacy path.
+  if (!activeBinding) {
+    if (nativeHistory) return respond(401, { error: 'No active native device session is authorised.' });
+    return null;
+  }
 
   const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
   const authSessionId = validatedSessionId(token);
@@ -66,9 +79,6 @@ async function enforceActiveNativeDeviceBinding(
     return respond(401, { error: 'This mobile session has been revoked or replaced by another device.' });
   }
 
-  // Presence bookkeeping is deliberately best-effort. Access has already been
-  // authorized above; a telemetry write failure must not turn a valid request
-  // into an operational outage.
   void supabaseAdmin
     .from('driver_mobile_device_sessions')
     .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -324,8 +334,6 @@ export function mapJob(row: MobileJobRow) {
     vehicleType: row.vehicle_type,
     price: toMoney(agreedRateAmount),
     agreedRateAmount,
-    // Legacy Android field name retained for assigned jobs. It intentionally
-    // mirrors the agreed carrier rate and never exposes customer budget.
     budgetAmount: agreedRateAmount,
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
