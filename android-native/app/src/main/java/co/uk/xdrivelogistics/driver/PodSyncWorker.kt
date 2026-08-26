@@ -51,12 +51,15 @@ class PodSyncWorker(
         if (actions.isEmpty()) return Result.success()
 
         for (action in actions) {
-            val payload = runCatching { pendingStore.readBytes(action) }
-                .getOrElse { error ->
-                    pendingStore.fail(action, error.message ?: "Saved POD evidence is missing.")
-                    notifyTerminalFailure(action.jobId, error.message ?: "Saved POD evidence is missing.")
-                    continue
-                }
+            val payloadResult = runCatching { pendingStore.readBytes(action) }
+            if (payloadResult.isFailure) {
+                val error = payloadResult.exceptionOrNull()
+                val message = error?.message ?: "Saved POD evidence is missing."
+                pendingStore.fail(action, message)
+                notifyTerminalFailure(action.jobId, message)
+                continue
+            }
+            val payload = payloadResult.getOrThrow()
 
             var upload = syncClient.sync(session.accessToken, action, payload)
             if (upload.isFailure && upload.exceptionOrNull().isPodSessionFailure()) {
