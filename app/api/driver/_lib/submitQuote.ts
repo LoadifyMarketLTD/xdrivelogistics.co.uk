@@ -13,8 +13,38 @@ export type DriverQuoteInput = {
 };
 
 export type DriverQuoteResult =
-  | { ok: true; status: 201; bidId: string; jobId: string }
+  | { ok: true; status: 200 | 201; bidId: string; jobId: string; idempotent: boolean }
   | { ok: false; status: number; error: string; denialReasons?: string[] };
+
+type ActiveBidRow = {
+  id: string;
+  bidder_driver_id: string | null;
+  bidder_user_id: string | null;
+};
+
+async function findActiveBidForDriver(
+  supabaseAdmin: AdminClient,
+  driver: DriverContext,
+  jobId: string,
+): Promise<{ bid: ActiveBidRow | null; error: string | null }> {
+  let query = supabaseAdmin
+    .from('job_bids')
+    .select('id, bidder_driver_id, bidder_user_id')
+    .eq('job_id', jobId)
+    .in('status', ['submitted', 'accepted']);
+
+  query = driver.companyId
+    ? query.eq('company_id', driver.companyId)
+    : query.is('company_id', null).eq('bidder_user_id', driver.userId);
+
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) return { bid: null, error: error.message };
+  if (!data) return { bid: null, error: null };
+
+  const bid = data as ActiveBidRow;
+  const sameDriver = bid.bidder_driver_id === driver.driverId || bid.bidder_user_id === driver.userId;
+  return { bid: sameDriver ? bid : null, error: null };
+}
 
 export async function submitDriverQuote(
   supabaseAdmin: AdminClient,
@@ -47,10 +77,15 @@ export async function submitDriverQuote(
 
   if (!eligibility.eligible) {
     if (eligibility.denialReasons.includes('active_bid_exists')) {
+      const existing = await findActiveBidForDriver(supabaseAdmin, driver, jobId);
+      if (existing.error) return { ok: false, status: 500, error: existing.error };
+      if (existing.bid) {
+        return { ok: true, status: 200, bidId: String(existing.bid.id), jobId, idempotent: true };
+      }
       return {
         ok: false,
         status: 409,
-        error: 'You already have an active quote for this job.',
+        error: 'Your company already has an active quote for this job.',
         denialReasons: eligibility.denialReasons,
       };
     }
@@ -126,10 +161,18 @@ export async function submitDriverQuote(
 
   if (insertError) {
     if (insertError.code === '23505') {
-      return { ok: false, status: 409, error: 'You already have an active quote for this job.' };
+      // A concurrent retry may have created the row after eligibility was checked.
+      // Resolve the existing active bid and return success only when it belongs to
+      // this same authenticated driver. A different company driver remains a conflict.
+      const existing = await findActiveBidForDriver(supabaseAdmin, driver, jobId);
+      if (existing.error) return { ok: false, status: 500, error: existing.error };
+      if (existing.bid) {
+        return { ok: true, status: 200, bidId: String(existing.bid.id), jobId, idempotent: true };
+      }
+      return { ok: false, status: 409, error: 'Your company already has an active quote for this job.' };
     }
     return { ok: false, status: 500, error: insertError.message };
   }
 
-  return { ok: true, status: 201, bidId: String(bid.id), jobId };
+  return { ok: true, status: 201, bidId: String(bid.id), jobId, idempotent: false };
 }
