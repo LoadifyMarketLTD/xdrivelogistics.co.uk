@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+fun secretProperty(name: String): String? =
+    (project.findProperty(name) as String?)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(name)?.takeIf { it.isNotBlank() }
+
 val xdriveBaseUrl = (project.findProperty("XDRIVE_BASE_URL") as String?) ?: "https://www.xdrivelogistics.co.uk"
 val supabaseUrl = (project.findProperty("XDRIVE_SUPABASE_URL") as String?) ?: ""
 val supabaseAnonKey = (project.findProperty("XDRIVE_SUPABASE_ANON_KEY") as String?) ?: ""
@@ -10,6 +14,28 @@ val firebaseProjectId = (project.findProperty("XDRIVE_FIREBASE_PROJECT_ID") as S
 val firebaseApplicationId = (project.findProperty("XDRIVE_FIREBASE_APPLICATION_ID") as String?) ?: ""
 val firebaseApiKey = (project.findProperty("XDRIVE_FIREBASE_API_KEY") as String?) ?: ""
 val firebaseSenderId = (project.findProperty("XDRIVE_FIREBASE_SENDER_ID") as String?) ?: ""
+
+val releaseKeystorePath = secretProperty("XDRIVE_ANDROID_KEYSTORE_PATH")
+val releaseStorePassword = secretProperty("XDRIVE_ANDROID_STORE_PASSWORD")
+val releaseKeyAlias = secretProperty("XDRIVE_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = secretProperty("XDRIVE_ANDROID_KEY_PASSWORD")
+val releaseSigningComplete = listOf(
+    releaseKeystorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+val releaseTaskRequested = gradle.startParameter.taskNames.any { task ->
+    task.contains("release", ignoreCase = true) || task.contains("bundle", ignoreCase = true)
+}
+
+if (releaseTaskRequested && !releaseSigningComplete) {
+    throw org.gradle.api.GradleException(
+        "Production Android signing is not configured. Recover/verify the existing Play upload-key lineage, then provide " +
+            "XDRIVE_ANDROID_KEYSTORE_PATH, XDRIVE_ANDROID_STORE_PASSWORD, XDRIVE_ANDROID_KEY_ALIAS and XDRIVE_ANDROID_KEY_PASSWORD. " +
+            "Do not generate an unrelated replacement key merely to make the build pass.",
+    )
+}
 
 android {
     namespace = "co.uk.xdrivelogistics.driver"
@@ -37,9 +63,23 @@ android {
         buildConfigField("String", "FIREBASE_SENDER_ID", "\"$firebaseSenderId\"")
     }
 
+    signingConfigs {
+        if (releaseSigningComplete) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseKeystorePath))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseSigningComplete) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
