@@ -61,8 +61,10 @@ data class DriverUiState(
 )
 
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
-    private val sessionStore = SessionStore(application.applicationContext)
-    private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(application.applicationContext)
+    private val appContext = application.applicationContext
+    private val sessionStore = SessionStore(appContext)
+    private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(appContext)
+    private val pendingStatusStore = PendingJobStatusStore(appContext)
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
         supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -95,6 +97,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     session = persisted,
                     error = "",
                 )
+                if (pendingStatusStore.hasPendingForUser(persisted.userId)) {
+                    JobStatusSyncScheduler.schedule(appContext)
+                }
                 refreshDriverData()
                 startLiveRefresh(persisted)
             }
@@ -204,11 +209,12 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
                 commercialApi.loadDriverJobs(session)
                     .onSuccess { jobs ->
+                        val visibleJobs = pendingStatusStore.optimisticJobs(session.userId, jobs)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             session = session,
                             profile = profile,
-                            jobs = jobs,
+                            jobs = visibleJobs,
                             documents = documents,
                             bids = bids,
                             notifications = notifications,
@@ -216,7 +222,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             invoices = invoices,
                             nearbyDrivers = nearbyDrivers,
                             jobSearchPreferences = preferences,
-                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, jobs),
+                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, visibleJobs),
                         )
                         applyPendingJobDeepLinkIfReady()
                     }
@@ -396,10 +402,26 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     refreshDriverData()
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to update job status."),
-                    )
+                    if (error.isRetryableStatusSyncFailure() || error.isStatusSessionFailure()) {
+                        pendingStatusStore.enqueue(
+                            userId = session.userId,
+                            driverId = profile.driverId,
+                            jobId = jobId,
+                            nextStatus = nextStatus,
+                        )
+                        JobStatusSyncScheduler.schedule(appContext)
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            jobs = pendingStatusStore.optimisticJobs(session.userId, _uiState.value.jobs),
+                            message = "Status saved offline and will sync automatically.",
+                            error = "",
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = error.friendlyDriverMessage("Failed to update job status."),
+                        )
+                    }
                 }
         }
     }
