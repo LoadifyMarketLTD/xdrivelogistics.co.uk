@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { getOrRefreshTrafficEta } from '../../../../lib/tracking/trafficEta';
 
 type LocationPayload = {
   job_id?: string;
@@ -20,13 +21,11 @@ type JobCandidate = {
   delivery_datetime: string | null;
 };
 
-type EtaSnapshot = {
-  etaAt: string;
-  lateByMinutes: number;
-};
-
 const ACTIVE_JOB_STATUSES = new Set([
   'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
+]);
+const DELIVERY_ETA_STATUSES = new Set([
   'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
 ]);
 const ETA_ALERT_MIN_LATE_MINUTES = 5;
@@ -36,44 +35,19 @@ const ETA_ALERT_CHANGE_MINUTES = 10;
 const statusOf = (job: Pick<JobCandidate, 'current_status' | 'status'>) =>
   String(job.current_status ?? job.status ?? '').trim().toLowerCase();
 
-async function calculateTrafficEta(lat: number, lng: number, deliveryPostcode: string | null, deliveryDatetime: string | null): Promise<EtaSnapshot | null> {
-  const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim();
-  if (!mapboxToken || !deliveryPostcode || !deliveryDatetime) return null;
-
-  try {
-    const postcodeResponse = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(deliveryPostcode)}`, {
-      signal: AbortSignal.timeout(4_000),
-      cache: 'no-store',
-    });
-    if (!postcodeResponse.ok) return null;
-    const postcodePayload = await postcodeResponse.json() as { result?: { latitude?: number; longitude?: number } | null };
-    const destinationLat = Number(postcodePayload.result?.latitude);
-    const destinationLng = Number(postcodePayload.result?.longitude);
-    if (!Number.isFinite(destinationLat) || !Number.isFinite(destinationLng)) return null;
-
-    const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${lng},${lat};${destinationLng},${destinationLat}?overview=false&steps=false&access_token=${encodeURIComponent(mapboxToken)}`;
-    const routeResponse = await fetch(routeUrl, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
-    if (!routeResponse.ok) return null;
-    const routePayload = await routeResponse.json() as { routes?: Array<{ duration?: number }> };
-    const durationSeconds = Number(routePayload.routes?.[0]?.duration);
-    const plannedDeliveryMs = new Date(deliveryDatetime).getTime();
-    if (!Number.isFinite(durationSeconds) || durationSeconds < 0 || !Number.isFinite(plannedDeliveryMs)) return null;
-
-    const etaMs = Date.now() + durationSeconds * 1000;
-    return {
-      etaAt: new Date(etaMs).toISOString(),
-      lateByMinutes: Math.round((etaMs - plannedDeliveryMs) / 60_000),
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number) {
-  if (!supabaseAdmin || !job.company_id) return;
+  if (!supabaseAdmin || !job.company_id || !DELIVERY_ETA_STATUSES.has(statusOf(job))) return;
 
-  const eta = await calculateTrafficEta(lat, lng, job.delivery_postcode, job.delivery_datetime);
-  if (!eta || eta.lateByMinutes <= ETA_ALERT_MIN_LATE_MINUTES) return;
+  const eta = await getOrRefreshTrafficEta({
+    admin: supabaseAdmin,
+    jobId: job.id,
+    originLat: lat,
+    originLng: lng,
+    deliveryPostcode: job.delivery_postcode,
+    plannedDeliveryAt: job.delivery_datetime,
+  });
+  const lateByMinutes = eta?.late_by_minutes;
+  if (lateByMinutes == null || lateByMinutes <= ETA_ALERT_MIN_LATE_MINUTES) return;
 
   const { data: latestAlert } = await supabaseAdmin
     .from('notification_events')
@@ -89,7 +63,7 @@ async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number)
     const lastCreatedMs = new Date(latestAlert.created_at).getTime();
     const previousLateBy = Number((latestAlert.payload as Record<string, unknown> | null)?.late_by_minutes);
     const withinCooldown = Number.isFinite(lastCreatedMs) && Date.now() - lastCreatedMs < ETA_ALERT_COOLDOWN_MS;
-    const materialChange = !Number.isFinite(previousLateBy) || Math.abs(eta.lateByMinutes - previousLateBy) >= ETA_ALERT_CHANGE_MINUTES;
+    const materialChange = !Number.isFinite(previousLateBy) || Math.abs(lateByMinutes - previousLateBy) >= ETA_ALERT_CHANGE_MINUTES;
     if (withinCooldown && !materialChange) return;
   }
 
@@ -107,10 +81,10 @@ async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number)
   const now = new Date().toISOString();
   const payload = {
     job_id: job.id,
-    eta_at: eta.etaAt,
+    eta_at: eta.eta_at,
     planned_delivery_at: job.delivery_datetime,
-    late_by_minutes: eta.lateByMinutes,
-    message: `Traffic ETA alert: delivery is currently predicted about ${eta.lateByMinutes} minutes after the planned delivery time.`,
+    late_by_minutes: lateByMinutes,
+    message: `Traffic ETA alert: delivery is currently predicted about ${lateByMinutes} minutes after the planned delivery time.`,
   };
 
   await supabaseAdmin.from('notification_events').insert(recipientIds.map((recipientUserId) => ({
@@ -216,8 +190,8 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  // In-app ETA alerts use the canonical notification_events feed directly.
-  // Alert failures never roll back a successfully accepted GPS point.
+  // GPS points remain frequent and inexpensive. Traffic ETA is cached server-side,
+  // refreshed at most every 15 minutes per active delivery job, and monthly-capped.
   await maybeCreateEtaAlerts(jobRow, lat, lng).catch(() => undefined);
 
   return NextResponse.json({ ok: true, job_id: jobRow.id });
