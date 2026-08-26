@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  validateKnownNativeAuthSession,
+} from '../../_lib/supabaseAdmin';
 import { getOrRefreshTrafficEta } from '../../../../lib/tracking/trafficEta';
 
 type LocationPayload = {
@@ -110,6 +115,14 @@ export async function POST(request: NextRequest) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const nativeGate = await validateKnownNativeAuthSession(token, authData.user.id);
+  if (!nativeGate.allowed) {
+    return NextResponse.json(
+      { error: nativeGate.error ?? 'This native device session is no longer authorised.' },
+      { status: nativeGate.error === 'Server auth is not configured.' ? 503 : 401 },
+    );
+  }
+
   const { data: driverRow, error: driverError } = await supabaseAdmin
     .from('drivers')
     .select('id, company_id, status, app_access')
@@ -190,8 +203,6 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  // GPS points remain frequent and inexpensive. Traffic ETA is cached server-side,
-  // refreshed at most every 15 minutes per active delivery job, and monthly-capped.
   await maybeCreateEtaAlerts(jobRow, lat, lng).catch(() => undefined);
 
   return NextResponse.json({ ok: true, job_id: jobRow.id });
