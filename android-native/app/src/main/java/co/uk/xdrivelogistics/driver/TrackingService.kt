@@ -112,6 +112,7 @@ class TrackingService : Service() {
 
     override fun onDestroy() {
         val recoverFromExternalStop = !intentionalStop &&
+            mode == RuntimeMode.JOB &&
             XDriveDriverApp.isAppVisible &&
             hasLocationPermission() &&
             runCatching { sessionStore.readSession() }.getOrNull() != null
