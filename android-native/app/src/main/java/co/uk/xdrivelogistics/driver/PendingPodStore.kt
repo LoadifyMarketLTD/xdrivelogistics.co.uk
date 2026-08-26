@@ -64,6 +64,12 @@ class PendingPodStore(context: Context) {
         bytes: ByteArray,
     ): PendingPodUpload {
         require(bytes.isNotEmpty()) { "Selected POD file is empty." }
+        require(bytes.size <= MAX_POD_BYTES) { "POD file must be 10 MB or smaller." }
+
+        val normalizedMimeType = mimeType.substringBefore(';').trim().lowercase()
+        require(normalizedMimeType in ALLOWED_POD_MIME_TYPES) {
+            "POD must be a PDF, JPEG or PNG file."
+        }
 
         val id = UUID.randomUUID().toString()
         val safeName = fileName.ifBlank { "pod.jpg" }.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
@@ -85,7 +91,7 @@ class PendingPodStore(context: Context) {
             jobId = jobId,
             isCollectionProof = isCollectionProof,
             fileName = safeName,
-            mimeType = mimeType.ifBlank { "application/octet-stream" },
+            mimeType = normalizedMimeType,
             localFileName = localFileName,
             remoteObjectName = remoteObjectName,
             createdAtEpochMs = System.currentTimeMillis(),
@@ -178,5 +184,11 @@ class PendingPodStore(context: Context) {
         private const val KEY_QUEUE = "queue"
         private const val KEY_FAILURES = "failures"
         private const val QUEUE_DIR = "xdrive_pending_pod_payloads"
+        private const val MAX_POD_BYTES = 10 * 1024 * 1024
+        private val ALLOWED_POD_MIME_TYPES = setOf(
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+        )
     }
 }
