@@ -1,0 +1,63 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+describe('Android active-job tracking lifecycle contract', () => {
+  const root = process.cwd();
+  const app = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/XDriveDriverApp.kt'),
+    'utf8',
+  );
+  const api = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/TrackingStateApi.kt'),
+    'utf8',
+  );
+  const manifest = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/AndroidManifest.xml'),
+    'utf8',
+  );
+  const route = fs.readFileSync(
+    path.join(root, 'app/api/driver/tracking-state/route.ts'),
+    'utf8',
+  );
+  const service = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt'),
+    'utf8',
+  );
+
+  it('uses server-authoritative single-active-job eligibility', () => {
+    expect(route).toContain('const ACTIVE_JOB_STATUSES = new Set([');
+    expect(route).toContain(".eq('assigned_driver_id', driver.id)");
+    expect(route).toContain('if (activeJobs.length !== 1)');
+    expect(route).toContain("should_track: true");
+    expect(route).toContain("reason: activeJobs.length === 0 ? 'no_active_job' : 'multiple_active_jobs'");
+  });
+
+  it('reconciles only while an Activity is visible', () => {
+    expect(app).toContain('Application.ActivityLifecycleCallbacks');
+    expect(app).toContain('onActivityResumed');
+    expect(app).toContain('onActivityPaused');
+    expect(app).toContain('while (isActive && resumedActivities > 0)');
+    expect(app).toContain('RECONCILE_INTERVAL_MS = 30_000L');
+    expect(app).not.toContain('BOOT_COMPLETED');
+    expect(manifest).not.toContain('RECEIVE_BOOT_COMPLETED');
+  });
+
+  it('starts the existing foreground TrackingService only when location permission exists', () => {
+    expect(app).toContain('hasForegroundLocationPermission()');
+    expect(app).toContain('ContextCompat.startForegroundService');
+    expect(app).toContain('TrackingService::class.java');
+    expect(manifest).toContain('android:name=".XDriveDriverApp"');
+    expect(manifest).toContain('android:foregroundServiceType="location"');
+  });
+
+  it('keeps the native tracking interval at the agreed 60 seconds', () => {
+    expect(service).toContain('TRACKING_INTERVAL_MS = 60_000L');
+  });
+
+  it('uses only the authenticated XDrive tracking-state endpoint', () => {
+    expect(api).toContain('/api/driver/tracking-state');
+    expect(api).toContain('Bearer $accessToken');
+    expect(api).not.toContain('SUPABASE');
+    expect(api).not.toContain('driver_locations');
+  });
+});
