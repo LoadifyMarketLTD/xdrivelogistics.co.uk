@@ -6,8 +6,10 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import co.uk.xdrivelogistics.driver.BuildConfig
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class SessionStore(context: Context) {
@@ -58,10 +60,22 @@ class SessionStore(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         trySend(readSession())
 
-        // A logout attempted while offline is kept only as encrypted pending
-        // revocation material, never as an active app session. Retry whenever the
-        // app observes the store again.
         launch { retryPendingRevocation() }
+
+        // Do not trust a locally persisted session indefinitely. While the app is
+        // running, check that this exact installation + auth session remains the
+        // active native device. Network failures preserve offline usability; an
+        // explicit 401/403 device-revocation result removes the stale session.
+        launch {
+            while (isActive) {
+                delay(30_000L)
+                val current = readSession() ?: continue
+                val validation = validateDeviceBinding(current)
+                if (validation.isFailure && validation.exceptionOrNull().isDeviceSessionRevoked()) {
+                    clearActiveSession()
+                }
+            }
+        }
 
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
@@ -85,13 +99,7 @@ class SessionStore(context: Context) {
     }
 
     suspend fun saveSession(session: DriverSession) {
-        // Never let a stale pending logout silently survive a later login. Retry
-        // the previous session revocation first; a network failure keeps the
-        // encrypted pending record for a future retry without blocking login.
         retryPendingRevocation()
-
-        // A session is not considered persistable until XDrive binds it to this
-        // random native installation. The server enforces newest-native-login-wins.
         deviceSessionApi.register(session).getOrThrow()
 
         prefs.edit()
@@ -112,9 +120,6 @@ class SessionStore(context: Context) {
             return
         }
 
-        // Logout is immediate on-device. Persist revocation material first, then
-        // remove the active app session. Server cleanup is retried in the safe
-        // order: device binding -> push endpoint -> Supabase Auth session.
         savePendingRevocation(current)
         clearActiveSession()
         retryPendingRevocation()
@@ -123,9 +128,6 @@ class SessionStore(context: Context) {
     private suspend fun retryPendingRevocation() {
         val pending = readPendingRevocation() ?: return
 
-        // Keep the valid credential until the XDrive device registry is disabled;
-        // otherwise an offline failure followed by Auth logout would make the
-        // device binding impossible to revoke with the user's own session.
         val deviceRevocation = deviceSessionApi.revoke(pending)
         if (deviceRevocation.isFailure && !deviceRevocation.exceptionOrNull().isDeviceSessionRevoked()) {
             return
