@@ -4,6 +4,7 @@ import { use, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../../lib/supabaseClient';
+import JobLiveTrackingPanel from '../../../components/tracking/JobLiveTrackingPanel';
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
@@ -71,7 +72,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       <PageHeader
         eyebrow="Customer booking"
         title={job ? `XDrive XDL-${job.id.slice(0, 8).toUpperCase()}` : 'Booking detail'}
-        description="The authoritative customer-side transport record: Order, exact route, carrier, contacts, POD, history, documents and authorised invoice information."
+        description="The authoritative customer-side transport record: Order, exact route, carrier, contacts, POD, history, documents, live execution tracking and authorised invoice information."
         actions={
           <>
             <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton>
@@ -94,6 +95,8 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
             <span><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong> → <strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong></span>
             <span>Pickup {when(job.pickup_datetime)} · <StatusBadge value={presentationStatus ?? 'unknown'} /></span>
           </div>
+
+          {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id} />}
 
           {!job.awarded_carrier_company_id && quotes.length > 0 && (
             <Panel title="Carrier quotes awaiting your decision" description="Open the member profile before award, then select the carrier quote for this booking.">
