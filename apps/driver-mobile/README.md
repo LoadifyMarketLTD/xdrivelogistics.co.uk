@@ -1,19 +1,23 @@
-# XDrive Driver Mobile
+# XDrive Driver Mobile Preview
 
-Native driver app scaffold for Android/iOS built with Expo React Native.
+This Expo / React Native application under `apps/driver-mobile/` is an **internal preview and behavioural reference**. It is not the production Android application and must not be submitted to the Play Store as XDrive Driver.
 
-This is not a mobile web page, PWA, or `/m` route. The target output is an installable Android APK/AAB and later an iOS build.
+## Canonical production owner
 
-## MVP Scope
+- Production Android source: `android-native/`
+- Framework: Kotlin / Jetpack Compose
+- Production Android package: `co.uk.xdrivelogistics.driver`
+- Expo preview package: `co.uk.xdrivelogistics.driver.preview`
 
-- Persistent driver login.
-- Active Job as the default operational screen.
-- My Jobs with Active, Upcoming, and Completed scopes.
-- Job Detail with operational fields only.
-- Canonical execution flow from awarded to delivered.
-- POD capture shell for photo, document, and signature.
-- Critical notification registration shell.
-- Offline queue skeleton for status/POD retry.
+The Expo project may be used to compare flows, prototype UX and run internal APK tests. Useful behaviour must be rebuilt or verified in `android-native/` before it becomes a production Android feature.
+
+## Preview scope
+
+- Driver login and session reference flows.
+- Job lifecycle reference screens.
+- Live-load and quote UX reference.
+- POD/photo/signature reference flows.
+- Push and offline-retry reference implementations.
 
 ## Commands
 
@@ -22,7 +26,6 @@ npm install
 npm run start
 npm run android
 npm run build:android:apk
-npm run build:android:aab
 ```
 
 From the repository root:
@@ -33,48 +36,23 @@ npm run mobile:android
 npm run mobile:apk
 ```
 
-## Expo / EAS Project
+## Expo / EAS preview project
 
 - Organization: `xdrive-logistics-ltd`
-- Project: `XDrive Driver`
-- Slug: `xdrive-driver`
 - Project ID: `c19b0bdf-567a-488e-b78f-d36b84f25c99`
-- Android package: `co.uk.xdrivelogistics.driver`
+- Android package: `co.uk.xdrivelogistics.driver.preview`
+- iOS bundle ID: `co.uk.xdrivelogistics.driver.preview`
+- Distribution: internal preview APK only
 
-## EAS Build Profiles
+`eas.json` intentionally contains no Play Store production profile and no submit profile. Do not add a production AAB/store path to this preview application.
 
-- `preview`: Android APK for internal testing.
-- `production`: Android App Bundle for Play Store release.
+The preview app can bootstrap public Supabase configuration from `https://www.xdrivelogistics.co.uk/api/driver/mobile/config` or use preview EAS environment values when explicitly configured.
 
-The mobile app now supports two Supabase config sources:
-
-- **Preferred fallback:** runtime fetch from `https://www.xdrivelogistics.co.uk/api/driver/mobile/config`
-- **Optional override:** EAS secrets injected at build time
-
-This means the APK build no longer depends on EAS secrets just to make login work. If the production site already has `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` configured, the app can bootstrap auth at runtime automatically.
-
-If you still want to override the runtime config during cloud builds, register the Supabase credentials as **EAS secrets**:
-
-```bash
-eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<your-supabase-url>"
-eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<your-supabase-anon-key>"
-```
-
-`EXPO_PUBLIC_API_BASE_URL` is already set to `https://www.xdrivelogistics.co.uk` in `eas.json` and does not need a separate secret.
-
-> **Why keep EAS secrets optional?** Metro statically inlines `process.env.EXPO_PUBLIC_*` at bundle time, but the app now falls back to a runtime config fetch before auth starts. Missing EAS secrets no longer block login as long as the production site exposes valid public Supabase settings from `/api/driver/mobile/config`.
-
-For Android credentials, EAS can generate and manage the keystore during the first build. Do not lose the Expo account access because that keystore signs future Android releases.
-
-## Architecture Rules
+## Architecture rules
 
 - Backend remains the source of truth.
-- The mobile client does not decide critical business transitions.
-- Status changes use atomic backend endpoints.
-- Offline actions are queued and retried; the UI must show pending/synced/failed states.
-
-## Functional APK Audit
-
-- Use `/home/runner/work/xdrivelogistics.co.uk/xdrivelogistics.co.uk/apps/driver-mobile/docs/apk-functional-audit-workbook.md` as the canonical ecran-cu-ecran, buton-cu-buton audit workbook.
-- Fill baseline metadata (APK build ID/hash + environment) before starting execution.
-- Record all defects in the in-file Functional Gap Register and convert approved fixes into P0/P1/P2 remediation backlog items.
+- The preview client does not decide critical business transitions.
+- Shared server APIs may remain compatible with the preview while it exists.
+- Production Android features belong in `android-native/`.
+- `co.uk.xdrivelogistics.driver` is reserved exclusively for the Kotlin production application.
+- Expo preview signing credentials, if any exist in EAS, must never be treated as the production Android signing lineage.

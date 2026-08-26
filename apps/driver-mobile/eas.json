@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.13.3",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "preview": {
@@ -13,27 +13,6 @@
         "APP_ENV": "preview",
         "EXPO_PUBLIC_API_BASE_URL": "https://www.xdrivelogistics.co.uk"
       }
-    },
-    "production": {
-      "distribution": "store",
-      "autoIncrement": true,
-      "android": {
-        "buildType": "app-bundle",
-        "splits": [
-          {
-            "language": "en"
-          }
-        ]
-      },
-      "env": {
-        "APP_ENV": "production",
-        "EXPO_PUBLIC_API_BASE_URL": "https://www.xdrivelogistics.co.uk"
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "android": {}
     }
   }
 }
