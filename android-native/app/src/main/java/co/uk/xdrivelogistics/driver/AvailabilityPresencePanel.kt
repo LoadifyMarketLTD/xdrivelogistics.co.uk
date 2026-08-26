@@ -1,6 +1,7 @@
 package co.uk.xdrivelogistics.driver
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,9 +42,10 @@ import kotlinx.coroutines.launch
 /**
  * Explicit pre-award availability control.
  *
- * This panel is intentionally separate from active-job TrackingService. It
- * takes one location fix only when the driver presses Start availability,
- * then the server-side presence expires automatically after 1/4/8 hours.
+ * Availability data remains separate from active-job GPS on the server, while
+ * the phone uses one foreground TrackingService runtime. The runtime publishes
+ * availability every five minutes and can switch internally to mandatory
+ * active-job tracking without starting a second location service in background.
  */
 @Composable
 fun AvailabilityPresencePanel(session: DriverSession?) {
@@ -64,6 +66,21 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
         return fine || coarse
     }
 
+    fun startLocationRuntime() {
+        if (!hasLocationPermission()) return
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, TrackingService::class.java),
+        )
+    }
+
+    fun reconcileStopAvailability() {
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, TrackingService::class.java).setAction(TrackingService.ACTION_STOP_AVAILABILITY),
+        )
+    }
+
     fun startAvailability() {
         val currentSession = session ?: return
         if (state.isSaving) return
@@ -76,7 +93,8 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                 hasLocationPermission = hasLocationPermission(),
             ).onSuccess { presence ->
                 visibility = presence.visibility.ifBlank { visibility }
-                state = AvailabilityPresenceUiState.from(presence).copy(message = "Availability sharing is active.")
+                state = AvailabilityPresenceUiState.from(presence).copy(message = "Availability sharing is active and will refresh every 5 minutes.")
+                startLocationRuntime()
             }.onFailure { error ->
                 state = state.copy(isSaving = false, error = error.message ?: "Availability could not be started.")
             }
@@ -96,6 +114,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
 
     LaunchedEffect(session?.accessToken) {
         val currentSession = session ?: run {
+            context.stopService(Intent(context, TrackingService::class.java))
             state = AvailabilityPresenceUiState()
             visibility = "private"
             return@LaunchedEffect
@@ -104,6 +123,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
             .onSuccess { presence ->
                 visibility = presence.visibility.ifBlank { "private" }
                 state = AvailabilityPresenceUiState.from(presence)
+                if (presence.active && hasLocationPermission()) startLocationRuntime()
             }
             .onFailure { error -> state = state.copy(error = error.message ?: "Availability status could not be loaded.") }
     }
@@ -119,7 +139,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                 Column(Modifier.weight(1f)) {
                     Text("Available for work", color = XDriveTheme.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Text(
-                        "Optional pre-award location sharing for Fleet and load matching. This does not start job tracking.",
+                        "Optional pre-award location sharing for Fleet and load matching. While ON, availability refreshes every 5 minutes; an allocated job switches the same phone runtime to secure job tracking.",
                         color = XDriveTheme.TextSecondary,
                         fontSize = 13.sp,
                     )
@@ -166,7 +186,10 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                         state = state.copy(isSaving = true, message = "", error = "")
                         scope.launch {
                             controller.stop(currentSession)
-                                .onSuccess { state = AvailabilityPresenceUiState(message = "Availability sharing stopped.") }
+                                .onSuccess {
+                                    reconcileStopAvailability()
+                                    state = AvailabilityPresenceUiState(message = "Availability sharing stopped.")
+                                }
                                 .onFailure { error -> state = state.copy(isSaving = false, error = error.message ?: "Availability could not be stopped.") }
                         }
                     },

@@ -74,14 +74,34 @@ class AvailabilityPresenceApi(
             method = "POST",
             body = body,
         )
-        val ok = payload.bool("ok")
-        if (!ok) error("Availability request was not acknowledged.")
+        if (!payload.bool("ok")) error("Availability request was not acknowledged.")
         AvailabilityPresence(
             active = true,
             visibility = payload.string("visibility").ifBlank { visibility },
             availableUntil = payload.nullableString("available_until"),
             recordedAt = null,
         )
+    }
+
+    /** Refreshes coordinates only; server preserves visibility and available_until. */
+    suspend fun refreshLocation(
+        session: DriverSession,
+        lat: Double,
+        lng: Double,
+    ): Result<String?> = networkResult {
+        require(lat in -90.0..90.0 && lng in -180.0..180.0) { "Invalid location." }
+        val body = JsonObject().apply {
+            addProperty("lat", lat)
+            addProperty("lng", lng)
+        }
+        val payload = requestJson(
+            path = "/api/driver/availability-presence",
+            accessToken = session.accessToken,
+            method = "PUT",
+            body = body,
+        )
+        if (!payload.bool("ok")) error("Availability refresh was not acknowledged.")
+        payload.nullableString("available_until")
     }
 
     suspend fun stop(session: DriverSession): Result<Unit> = networkResult {
@@ -112,6 +132,9 @@ class AvailabilityPresenceApi(
             "POST" -> builder
                 .addHeader("Content-Type", "application/json")
                 .post(gson.toJson(body ?: JsonObject()).toRequestBody(jsonMediaType))
+            "PUT" -> builder
+                .addHeader("Content-Type", "application/json")
+                .put(gson.toJson(body ?: JsonObject()).toRequestBody(jsonMediaType))
             else -> error("Unsupported HTTP method")
         }
 
@@ -121,7 +144,7 @@ class AvailabilityPresenceApi(
                 val message = runCatching {
                     gson.fromJson(raw, JsonObject::class.java)?.get("error")?.asString
                 }.getOrNull()
-                throw IllegalStateException(message ?: "Availability request failed.")
+                throw IllegalStateException(message ?: "Availability request failed (${response.code}).")
             }
             if (raw.isBlank()) JsonObject() else gson.fromJson(raw, JsonObject::class.java) ?: JsonObject()
         }
