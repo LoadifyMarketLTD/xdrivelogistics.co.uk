@@ -339,7 +339,6 @@ private fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var rememberMe by remember { mutableStateOf(true) }
     var showPassword by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -389,22 +388,6 @@ private fun LoginScreen(
             )
         }
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = rememberMe,
-                    onCheckedChange = { rememberMe = it },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Yellow,
-                        uncheckedColor = Border,
-                        checkmarkColor = Navy,
-                    )
-                )
-                Text("Remember me", color = TextPrimary)
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = { }) { Text("Forgot password?", color = Yellow) }
-            }
-        }
-        item {
             Button(
                 onClick = { onLogin(email.trim(), password) },
                 enabled = email.isNotBlank() && password.isNotBlank() && !isLoading,
@@ -419,21 +402,6 @@ private fun LoginScreen(
                 } else {
                     Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
-            }
-        }
-        item { DividerLabel("OR") }
-        item {
-            OutlinedButton(
-                onClick = { },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, Border),
-            ) {
-                Text("Fingerprint", color = Yellow)
-                Spacer(Modifier.width(12.dp))
-                Text("Log in with Biometrics", color = TextPrimary, fontSize = 16.sp)
             }
         }
         item {
@@ -2107,9 +2075,6 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
         modifier = Modifier
             .fillMaxWidth()
             .background(Navy2)
-            // navigationBarsPadding here (not on the outer Column) so Navy2 background
-            // extends visually behind the system gesture indicator on Android 10+ devices
-            // while label content remains above it.
             .navigationBarsPadding()
             .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
