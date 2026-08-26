@@ -13,8 +13,80 @@ export type DriverQuoteInput = {
 };
 
 export type DriverQuoteResult =
-  | { ok: true; status: 201; bidId: string; jobId: string }
+  | { ok: true; status: 200 | 201; bidId: string; jobId: string; idempotent: boolean }
   | { ok: false; status: number; error: string; denialReasons?: string[] };
+
+type DriverBidRow = {
+  id: string;
+  status: string | null;
+  bidder_driver_id: string | null;
+  bidder_user_id: string | null;
+  amount: number | null;
+  bid_price_gbp: number | null;
+  message: string | null;
+};
+
+async function findPriorBidForDriver(
+  supabaseAdmin: AdminClient,
+  driver: DriverContext,
+  jobId: string,
+  amount: number,
+  message: string,
+): Promise<{ matchingRetry: DriverBidRow | null; priorBidExists: boolean; error: string | null }> {
+  const { data, error } = await supabaseAdmin
+    .from('job_bids')
+    .select('id, status, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, message')
+    .eq('job_id', jobId)
+    .or(`bidder_driver_id.eq.${driver.driverId},bidder_user_id.eq.${driver.userId}`)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { matchingRetry: null, priorBidExists: false, error: error.message };
+  if (!data) return { matchingRetry: null, priorBidExists: false, error: null };
+
+  const bid = data as DriverBidRow;
+  const sameIdentity = bid.bidder_driver_id === driver.driverId || bid.bidder_user_id === driver.userId;
+  const storedAmount = Number(bid.bid_price_gbp ?? bid.amount);
+  const sameAmount = Number.isFinite(storedAmount) && Math.abs(storedAmount - amount) < 0.000001;
+  const sameMessage = (bid.message ?? '').trim() === message;
+  const retryableStatus = (bid.status ?? '').toLowerCase() === 'submitted' || (bid.status ?? '').toLowerCase() === 'accepted';
+
+  return {
+    matchingRetry: sameIdentity && sameAmount && sameMessage && retryableStatus ? bid : null,
+    priorBidExists: true,
+    error: null,
+  };
+}
+
+async function findMatchingActiveCompanyBid(
+  supabaseAdmin: AdminClient,
+  driver: DriverContext,
+  jobId: string,
+  amount: number,
+  message: string,
+): Promise<{ bid: DriverBidRow | null; error: string | null }> {
+  if (!driver.companyId) return { bid: null, error: null };
+
+  const { data, error } = await supabaseAdmin
+    .from('job_bids')
+    .select('id, status, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, message')
+    .eq('job_id', jobId)
+    .eq('company_id', driver.companyId)
+    .in('status', ['submitted', 'accepted'])
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { bid: null, error: error.message };
+  if (!data) return { bid: null, error: null };
+
+  const bid = data as DriverBidRow;
+  const sameDriver = bid.bidder_driver_id === driver.driverId || bid.bidder_user_id === driver.userId;
+  const storedAmount = Number(bid.bid_price_gbp ?? bid.amount);
+  const sameAmount = Number.isFinite(storedAmount) && Math.abs(storedAmount - amount) < 0.000001;
+  const sameMessage = (bid.message ?? '').trim() === message;
+  return { bid: sameDriver && sameAmount && sameMessage ? bid : null, error: null };
+}
 
 export async function submitDriverQuote(
   supabaseAdmin: AdminClient,
@@ -29,6 +101,19 @@ export async function submitDriverQuote(
   if (message.length > 1_000) return { ok: false, status: 400, error: 'Quote message is too long.' };
   if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) {
     return { ok: false, status: 400, error: 'Enter a valid quote amount.' };
+  }
+
+  const prior = await findPriorBidForDriver(supabaseAdmin, driver, jobId, amount, message);
+  if (prior.error) return { ok: false, status: 500, error: prior.error };
+  if (prior.matchingRetry) {
+    return { ok: true, status: 200, bidId: String(prior.matchingRetry.id), jobId, idempotent: true };
+  }
+  if (prior.priorBidExists) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'You have already quoted for this job. A driver can quote only once per job.',
+    };
   }
 
   let eligibilityResult: Awaited<ReturnType<typeof resolveDriverBidEligibility>>;
@@ -47,10 +132,15 @@ export async function submitDriverQuote(
 
   if (!eligibility.eligible) {
     if (eligibility.denialReasons.includes('active_bid_exists')) {
+      const existing = await findMatchingActiveCompanyBid(supabaseAdmin, driver, jobId, amount, message);
+      if (existing.error) return { ok: false, status: 500, error: existing.error };
+      if (existing.bid) {
+        return { ok: true, status: 200, bidId: String(existing.bid.id), jobId, idempotent: true };
+      }
       return {
         ok: false,
         status: 409,
-        error: 'You already have an active quote for this job.',
+        error: 'Your company already has an active quote for this job.',
         denialReasons: eligibility.denialReasons,
       };
     }
@@ -105,9 +195,6 @@ export async function submitDriverQuote(
     }
   }
 
-  // Driver-originated bids are always attributable to the named driver. The
-  // company id carries commercial supplier context for company_driver; the
-  // accepted bidder_driver_id remains the execution identity for allocation.
   const { data: bid, error: insertError } = await supabaseAdmin
     .from('job_bids')
     .insert({
@@ -126,10 +213,15 @@ export async function submitDriverQuote(
 
   if (insertError) {
     if (insertError.code === '23505') {
-      return { ok: false, status: 409, error: 'You already have an active quote for this job.' };
+      const retry = await findPriorBidForDriver(supabaseAdmin, driver, jobId, amount, message);
+      if (retry.error) return { ok: false, status: 500, error: retry.error };
+      if (retry.matchingRetry) {
+        return { ok: true, status: 200, bidId: String(retry.matchingRetry.id), jobId, idempotent: true };
+      }
+      return { ok: false, status: 409, error: 'A quote already exists for this job.' };
     }
     return { ok: false, status: 500, error: insertError.message };
   }
 
-  return { ok: true, status: 201, bidId: String(bid.id), jobId };
+  return { ok: true, status: 201, bidId: String(bid.id), jobId, idempotent: false };
 }

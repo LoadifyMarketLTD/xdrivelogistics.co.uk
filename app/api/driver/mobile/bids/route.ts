@@ -104,5 +104,6 @@ export async function POST(request: NextRequest) {
     success: true,
     bidId: result.bidId,
     jobId: result.jobId,
+    idempotent: result.idempotent,
   });
 }
