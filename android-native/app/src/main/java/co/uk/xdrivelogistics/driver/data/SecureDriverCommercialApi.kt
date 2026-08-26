@@ -98,12 +98,7 @@ class SecureDriverCommercialApi(
             .addHeader("Accept", "application/json")
             .post(gson.toJson(body).toRequestBody(jsonMediaType))
             .build()
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                throw IllegalStateException("HTTP ${response.code}: ${extractError(raw, "Failed to submit quote.")}")
-            }
-        }
+        execute(request, "Failed to submit quote.")
     }
 
     private fun mapAssignedJob(row: JsonObject): DriverJob {
@@ -184,9 +179,32 @@ class SecureDriverCommercialApi(
             .build()
         return http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}: ${extractError(raw, "XDrive request failed.")}")
+            if (!response.isSuccessful) throwResponse(response.code, raw, "XDrive request failed.")
             runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull() ?: JsonObject()
         }
+    }
+
+    private fun execute(request: Request, fallback: String) {
+        http.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throwResponse(response.code, raw, fallback)
+        }
+    }
+
+    private fun throwResponse(code: Int, raw: String, fallback: String): Nothing {
+        val message = extractError(raw, fallback)
+        if ((code == 401 || code == 403) && message.isNativeBindingMessage()) {
+            throw DeviceSessionException(code, message)
+        }
+        throw IllegalStateException("HTTP $code: $message")
+    }
+
+    private fun String.isNativeBindingMessage(): Boolean {
+        val lower = lowercase()
+        return "native device" in lower ||
+            "mobile session" in lower ||
+            "revoked or replaced" in lower ||
+            "device identity" in lower
     }
 
     private fun requireBaseUrl() {

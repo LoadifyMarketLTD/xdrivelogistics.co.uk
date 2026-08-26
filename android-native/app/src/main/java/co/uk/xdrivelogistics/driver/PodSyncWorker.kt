@@ -16,18 +16,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.uk.xdrivelogistics.driver.data.ApiClient
-import co.uk.xdrivelogistics.driver.data.DriverProfile
+import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
+import co.uk.xdrivelogistics.driver.data.SecureDriverMutationApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
-import com.google.gson.Gson
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import co.uk.xdrivelogistics.driver.data.isDeviceSessionRevoked
 import java.io.IOException
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 class PodSyncWorker(
@@ -41,15 +34,22 @@ class PodSyncWorker(
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
-    private val syncClient = DurablePodSyncClient(
-        supabaseUrl = BuildConfig.SUPABASE_URL,
-        supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
+    private val mutationApi = SecureDriverMutationApi(
+        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+        installationId = DeviceInstallationIdentity(appContext).installationId,
     )
 
     override suspend fun doWork(): Result {
         var session = sessionStore.readSession() ?: return Result.success()
         val actions = pendingStore.pendingForUser(session.userId)
         if (actions.isEmpty()) return Result.success()
+
+        val deviceValidation = sessionStore.validateDeviceBinding(session)
+        if (deviceValidation.isFailure && deviceValidation.exceptionOrNull().isDeviceSessionRevoked()) {
+            sessionStore.clear(redirectToLogin = false)
+            return Result.success()
+        }
+        if (deviceValidation.isFailure) return Result.retry()
 
         var profileResult = api.resolveDriverProfile(session)
         if (profileResult.isFailure && profileResult.exceptionOrNull().isPodSessionFailure()) {
@@ -70,8 +70,6 @@ class PodSyncWorker(
         val profile = profileResult.getOrThrow()
 
         for (action in actions) {
-            // Fail closed if queued evidence no longer belongs to the currently
-            // authenticated driver's profile. Never replay across accounts/drivers.
             if (action.driverId != profile.driverId) {
                 val message = "Saved POD belongs to a different driver profile."
                 pendingStore.fail(action, message)
@@ -81,21 +79,28 @@ class PodSyncWorker(
 
             val payloadResult = runCatching { pendingStore.readBytes(action) }
             if (payloadResult.isFailure) {
-                val error = payloadResult.exceptionOrNull()
-                val message = error?.message ?: "Saved POD evidence is missing."
+                val message = payloadResult.exceptionOrNull()?.message ?: "Saved POD evidence is missing."
                 pendingStore.fail(action, message)
                 notifyTerminalFailure(action.jobId, message)
                 continue
             }
             val payload = payloadResult.getOrThrow()
 
-            var upload = syncClient.sync(session.accessToken, profile, action, payload)
+            var upload = mutationApi.uploadPodEvidence(session, action, payload)
+            if (upload.isFailure && upload.exceptionOrNull().isDeviceSessionRevoked()) {
+                sessionStore.clear(redirectToLogin = false)
+                return Result.success()
+            }
             if (upload.isFailure && upload.exceptionOrNull().isPodSessionFailure()) {
                 val refreshed = api.refreshSession(session)
                 if (refreshed.isSuccess) {
                     session = refreshed.getOrThrow()
                     sessionStore.saveSession(session)
-                    upload = syncClient.sync(session.accessToken, profile, action, payload)
+                    upload = mutationApi.uploadPodEvidence(session, action, payload)
+                    if (upload.isFailure && upload.exceptionOrNull().isDeviceSessionRevoked()) {
+                        sessionStore.clear(redirectToLogin = false)
+                        return Result.success()
+                    }
                 } else {
                     val refreshError = refreshed.exceptionOrNull()
                     return if (refreshError.isRetryablePodSyncFailure()) Result.retry() else Result.success()
@@ -178,135 +183,6 @@ object PodSyncScheduler {
     }
 }
 
-private class DurablePodSyncClient(
-    private val supabaseUrl: String,
-    private val supabaseAnonKey: String,
-) {
-    private val gson = Gson()
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-    private val http = OkHttpClient.Builder()
-        .callTimeout(20, TimeUnit.SECONDS)
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .build()
-
-    fun sync(
-        accessToken: String,
-        profile: DriverProfile,
-        action: PendingPodUpload,
-        bytes: ByteArray,
-    ): kotlin.Result<Unit> = runCatching {
-        require(supabaseUrl.isNotBlank() && supabaseAnonKey.isNotBlank()) {
-            "SUPABASE_URL and SUPABASE_ANON_KEY must be configured in BuildConfig."
-        }
-        require(profile.companyId.isNotBlank()) { "Driver company is missing for POD storage." }
-        require(profile.driverId == action.driverId) { "POD driver profile no longer matches this queue item." }
-
-        val storagePath = "${profile.companyId}/${action.jobId}/${action.remoteObjectName}"
-        uploadObject(accessToken, action, storagePath, bytes)
-        linkObjectToJob(accessToken, action, storagePath)
-    }
-
-    private fun uploadObject(
-        accessToken: String,
-        action: PendingPodUpload,
-        storagePath: String,
-        bytes: ByteArray,
-    ) {
-        val request = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/storage/v1/object/pod-photos/$storagePath")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer $accessToken")
-            .addHeader("x-upsert", "false")
-            .post(bytes.toRequestBody(action.mimeType.toMediaType()))
-            .build()
-
-        http.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (response.isSuccessful) return
-
-            // The object name is stable for this queue item. If a previous
-            // attempt uploaded it but died before linking the job row, an
-            // "already exists" conflict means the upload stage is complete.
-            val lower = raw.lowercase()
-            val alreadyExists = response.code == 409 ||
-                ((response.code == 400 || response.code == 422) &&
-                    ("already exists" in lower || "duplicate" in lower || "resource already exists" in lower))
-            if (!alreadyExists) {
-                throwPodHttp(response.code, raw, "Failed to upload saved POD evidence.")
-            }
-        }
-    }
-
-    private fun linkObjectToJob(accessToken: String, action: PendingPodUpload, storagePath: String) {
-        val encodedJobId = URLEncoder.encode(action.jobId, StandardCharsets.UTF_8.toString())
-        val encodedDriverId = URLEncoder.encode(action.driverId, StandardCharsets.UTF_8.toString())
-
-        val currentRequest = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?select=id,delivery_photos,pod_photos&id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId&limit=1")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer $accessToken")
-            .addHeader("Accept", "application/json")
-            .build()
-
-        val current = http.newCall(currentRequest).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throwPodHttp(response.code, raw, "Failed to verify the POD assignment.")
-            val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
-            if (rows == null || rows.size() == 0) {
-                throw IllegalStateException("POD evidence could not be linked to this driver assignment.")
-            }
-            rows[0].asJsonObject
-        }
-
-        val patchBody = JsonObject().apply {
-            if (action.isCollectionProof) {
-                addProperty("collection_photo_url", storagePath)
-            } else {
-                val delivery = current.stringArray("delivery_photos") + storagePath
-                val pod = current.stringArray("pod_photos") + storagePath
-                add("delivery_photos", gson.toJsonTree(delivery.distinct()))
-                add("pod_photos", gson.toJsonTree(pod.distinct()))
-            }
-            addProperty("updated_at", java.time.Instant.now().toString())
-        }
-
-        val patchRequest = Request.Builder()
-            .url("${supabaseUrl.trimEnd('/')}/rest/v1/jobs?id=eq.$encodedJobId&assigned_driver_id=eq.$encodedDriverId")
-            .addHeader("apikey", supabaseAnonKey)
-            .addHeader("Authorization", "Bearer $accessToken")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "return=representation")
-            .patch(gson.toJson(patchBody).toRequestBody(jsonMediaType))
-            .build()
-
-        http.newCall(patchRequest).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throwPodHttp(response.code, raw, "POD upload succeeded, but the job link failed.")
-            val rows = runCatching { gson.fromJson(raw, JsonArray::class.java) }.getOrNull()
-            if (rows == null || rows.size() == 0) {
-                throw IllegalStateException("POD evidence could not be linked to this driver assignment.")
-            }
-        }
-    }
-
-    private fun JsonObject.stringArray(name: String): List<String> {
-        val value = get(name) ?: return emptyList()
-        if (value.isJsonNull || !value.isJsonArray) return emptyList()
-        return value.asJsonArray.mapNotNull { element ->
-            runCatching { element.asString }.getOrNull()?.takeIf { it.isNotBlank() }
-        }
-    }
-
-    private fun throwPodHttp(code: Int, raw: String, fallback: String): Nothing {
-        val message = runCatching {
-            val json = gson.fromJson(raw, JsonObject::class.java)
-            json.get("error")?.asString ?: json.get("message")?.asString
-        }.getOrNull().orEmpty().ifBlank { fallback }
-        throw IllegalStateException("HTTP $code: $message")
-    }
-}
-
 internal fun Throwable?.isRetryablePodSyncFailure(): Boolean {
     if (this == null) return false
     if (this is IOException) return true
@@ -328,6 +204,7 @@ internal fun Throwable?.isRetryablePodSyncFailure(): Boolean {
 }
 
 internal fun Throwable?.isPodSessionFailure(): Boolean {
+    if (this.isDeviceSessionRevoked()) return false
     val text = this?.message.orEmpty().lowercase()
     return "jwt" in text ||
         "token" in text ||

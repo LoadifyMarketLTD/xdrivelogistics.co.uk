@@ -87,7 +87,16 @@ class DeviceSessionApi(
         withContext(Dispatchers.IO) { runCatching(block) }
 }
 
-class DeviceSessionException(val httpCode: Int, message: String) : IllegalStateException(message)
+class DeviceSessionException(
+    val httpCode: Int,
+    val serverDetail: String,
+) : IllegalStateException(
+    if (httpCode == 401 || httpCode == 403) {
+        "This device is no longer authorised for XDrive Driver."
+    } else {
+        serverDetail
+    },
+)
 
 fun Throwable?.isDeviceSessionRevoked(): Boolean =
     this is DeviceSessionException && (httpCode == 401 || httpCode == 403)
