@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  validateKnownNativeAuthSession,
+} from '../../_lib/supabaseAdmin';
 
 type PasswordUpdatePayload = {
   newPassword?: string;
@@ -18,6 +23,14 @@ export async function POST(request: NextRequest) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const nativeGate = await validateKnownNativeAuthSession(token, authData.user.id);
+  if (!nativeGate.allowed) {
+    return NextResponse.json(
+      { error: nativeGate.error ?? 'This native device session is no longer authorised.' },
+      { status: nativeGate.error === 'Server auth is not configured.' ? 503 : 401 },
+    );
   }
 
   const body = (await request.json()) as PasswordUpdatePayload;
