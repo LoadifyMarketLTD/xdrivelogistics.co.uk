@@ -46,8 +46,8 @@ async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number)
     deliveryPostcode: job.delivery_postcode,
     plannedDeliveryAt: job.delivery_datetime,
   });
-  const lateByMinutes = eta?.late_by_minutes;
-  if (lateByMinutes == null || lateByMinutes <= ETA_ALERT_MIN_LATE_MINUTES) return;
+  if (!eta || eta.late_by_minutes == null || eta.late_by_minutes <= ETA_ALERT_MIN_LATE_MINUTES) return;
+  const lateByMinutes = eta.late_by_minutes;
 
   const { data: latestAlert } = await supabaseAdmin
     .from('notification_events')
