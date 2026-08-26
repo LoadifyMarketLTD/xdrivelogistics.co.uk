@@ -4,6 +4,13 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const ACTIVE_JOB_STATUSES = new Set([
+  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
+]);
+const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
+  String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return NextResponse.json({ error: 'Availability is temporarily unavailable.' }, { status: 503 });
   const token = getBearerToken(request);
@@ -29,7 +36,44 @@ export async function GET(request: NextRequest) {
     .limit(500);
   if (error) return NextResponse.json({ error: 'Availability locations could not be loaded.' }, { status: 500 });
 
-  const positions = (data ?? []).flatMap((row) => {
+  const presenceRows = data ?? [];
+  const driverIds = [...new Set(presenceRows.map((row) => String(row.driver_id ?? '')).filter(Boolean))];
+  if (driverIds.length === 0) {
+    return NextResponse.json({ positions: [] }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
+  }
+
+  const { data: drivers, error: driversError } = await supabaseAdmin
+    .from('drivers')
+    .select('id, status, app_access, availability_status')
+    .in('id', driverIds);
+  if (driversError) return NextResponse.json({ error: 'Driver availability eligibility could not be verified.' }, { status: 500 });
+
+  const eligibleDriverIds = new Set((drivers ?? [])
+    .filter((driver) => String(driver.status ?? '').toLowerCase() === 'active'
+      && driver.app_access === true
+      && String(driver.availability_status ?? '').toLowerCase() === 'available')
+    .map((driver) => String(driver.id)));
+
+  const eligibleIds = [...eligibleDriverIds];
+  if (eligibleIds.length === 0) {
+    return NextResponse.json({ positions: [] }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
+  }
+
+  const { data: jobs, error: jobsError } = await supabaseAdmin
+    .from('jobs')
+    .select('assigned_driver_id, current_status, status')
+    .in('assigned_driver_id', eligibleIds)
+    .limit(2000);
+  if (jobsError) return NextResponse.json({ error: 'Active job eligibility could not be verified.' }, { status: 500 });
+
+  const driversWithActiveJobs = new Set((jobs ?? [])
+    .filter((job) => job.assigned_driver_id && ACTIVE_JOB_STATUSES.has(statusOf(job)))
+    .map((job) => String(job.assigned_driver_id)));
+
+  const positions = presenceRows.flatMap((row) => {
+    const driverId = String(row.driver_id ?? '');
+    if (!eligibleDriverIds.has(driverId) || driversWithActiveJobs.has(driverId)) return [];
+
     const companyId = row.company_id ? String(row.company_id) : null;
     const sameCompany = Boolean(companyId && ownCompanies.has(companyId));
     if (sameCompany) {
