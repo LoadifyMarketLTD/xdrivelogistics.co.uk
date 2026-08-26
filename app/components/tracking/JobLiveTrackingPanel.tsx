@@ -12,6 +12,11 @@ type TrackingPayload = {
   fresh?: boolean;
   reason?: string;
   eta_provider_configured?: boolean;
+  planned_delivery_at?: string | null;
+  eta_risk?: {
+    level: 'on_time' | 'at_risk' | 'late';
+    late_by_minutes: number;
+  } | null;
   driver?: { id: string; display_name: string };
   location?: {
     lat: number;
@@ -89,9 +94,21 @@ export default function JobLiveTrackingPanel({ jobId }: { jobId: string }) {
     );
   }
 
+  const risk = payload.eta_risk;
+
   return (
     <Panel title="Live tracking" description="Job-scoped driver position. Access ends automatically when the transport leaves the active execution lifecycle.">
       <div style={{ display: 'grid', gap: 8 }}>
+        {payload.fresh === false && (
+          <AlertBanner tone="warning">No fresh GPS update has been received in the last 3 minutes. Treat the displayed position as stale until tracking resumes.</AlertBanner>
+        )}
+        {risk?.level === 'at_risk' && (
+          <AlertBanner tone="warning">ETA alert: current traffic routing predicts arrival about {risk.late_by_minutes} minutes after the planned delivery time of {when(payload.planned_delivery_at)}.</AlertBanner>
+        )}
+        {risk?.level === 'late' && (
+          <AlertBanner tone="danger">Late-delivery alert: current traffic routing predicts arrival about {risk.late_by_minutes} minutes after the planned delivery time of {when(payload.planned_delivery_at)}.</AlertBanner>
+        )}
+
         <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
           <span><StatusBadge value={payload.fresh === false ? 'Position stale' : 'Live'} tone={payload.fresh === false ? 'orange' : 'green'} /> · {(payload.phase ?? 'in progress').replaceAll('_', ' ')}</span>
           <span>Updated {when(payload.location?.recorded_at)}</span>
