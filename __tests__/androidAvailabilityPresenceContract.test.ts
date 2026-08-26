@@ -19,6 +19,10 @@ describe('Android availability presence contract', () => {
     path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt'),
     'utf8',
   );
+  const serverRoute = fs.readFileSync(
+    path.join(root, 'app/api/driver/availability-presence/route.ts'),
+    'utf8',
+  );
 
   it('uses the dedicated server availability endpoint only', () => {
     expect(source).toContain('/api/driver/availability-presence');
@@ -43,6 +47,15 @@ describe('Android availability presence contract', () => {
     expect(source).toContain('Bearer $accessToken');
     expect(source).not.toContain('SUPABASE');
     expect(source).not.toContain('supabase');
+  });
+
+  it('matches the server GET/POST/DELETE response envelopes', () => {
+    expect(serverRoute).toContain('NextResponse.json({ active, presence: active ? data : null })');
+    expect(serverRoute).toContain('NextResponse.json({ ok: true, visibility, available_until: availableUntil })');
+    expect(serverRoute).toContain('NextResponse.json({ ok: true })');
+    expect(source).toContain('payload.objectOrNull("presence")');
+    expect(source).toContain('active = true');
+    expect(source).toContain('if (!payload.bool("ok"))');
   });
 
   it('publishes one explicit location without starting job foreground tracking', () => {
