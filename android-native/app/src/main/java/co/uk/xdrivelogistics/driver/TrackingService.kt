@@ -240,7 +240,7 @@ class TrackingService : Service() {
         val now = System.currentTimeMillis()
         if (lastJobPublishAt != 0L && now - lastJobPublishAt < JOB_PUBLISH_INTERVAL_MS) return
 
-        captureCurrentLocation()?.let { current -> pendingStore.save(current) }
+        captureCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY)?.let { current -> pendingStore.save(current) }
         val pending = pendingStore.read()
         if (pending == null) {
             updateNotification(
@@ -309,7 +309,7 @@ class TrackingService : Service() {
         val now = System.currentTimeMillis()
         if (lastAvailabilityPublishAt != 0L && now - lastAvailabilityPublishAt < AVAILABILITY_PUBLISH_INTERVAL_MS) return
 
-        val location = captureCurrentLocation() ?: return
+        val location = captureCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY) ?: return
         val result = availabilityApi.refreshLocation(session, location.latitude, location.longitude)
         if (result.isSuccess) {
             lastAvailabilityPublishAt = System.currentTimeMillis()
@@ -395,10 +395,10 @@ class TrackingService : Service() {
         stopSelf()
     }
 
-    private suspend fun captureCurrentLocation(): PendingLocation? = runCatching {
+    private suspend fun captureCurrentLocation(priority: Int): PendingLocation? = runCatching {
         val tokenSource = CancellationTokenSource()
         val location = fusedClient.getCurrentLocation(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            priority,
             tokenSource.token,
         ).await() ?: return null
         PendingLocation(
