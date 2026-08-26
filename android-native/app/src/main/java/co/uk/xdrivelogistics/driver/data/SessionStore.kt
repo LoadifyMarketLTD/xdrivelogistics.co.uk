@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SessionStore(context: Context) {
     private object Keys {
@@ -25,6 +26,7 @@ class SessionStore(context: Context) {
     }
 
     private val appContext = context.applicationContext
+    private val loginPreferences by lazy { LoginPreferenceStore(appContext) }
     private val installationIdentity by lazy { DeviceInstallationIdentity(appContext) }
     private val deviceSessionApi by lazy {
         DeviceSessionApi(
@@ -51,6 +53,16 @@ class SessionStore(context: Context) {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
+    }
+
+    init {
+        // Only the first SessionStore created in a process applies the cold-start
+        // persistence policy. A user who did not choose Keep me signed in remains
+        // authenticated for the current process, but the encrypted active session
+        // is discarded the next time Android starts a new app process.
+        if (processPersistencePolicyApplied.compareAndSet(false, true) && !loginPreferences.rememberMe) {
+            clearActiveSession()
+        }
     }
 
     val session: Flow<DriverSession?> = callbackFlow {
@@ -180,5 +192,9 @@ class SessionStore(context: Context) {
             .remove(Keys.pendingLogoutUserId)
             .remove(Keys.pendingLogoutEmail)
             .commit()
+    }
+
+    private companion object {
+        val processPersistencePolicyApplied = AtomicBoolean(false)
     }
 }
