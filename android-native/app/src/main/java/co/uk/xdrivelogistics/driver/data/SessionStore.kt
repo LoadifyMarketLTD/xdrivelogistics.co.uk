@@ -98,13 +98,14 @@ class SessionStore(context: Context) {
             return
         }
 
-        // Make logout immediate on-device. Keep a separate encrypted pending copy
-        // until both push endpoint removal and Auth session revocation have been
-        // completed. A logged-out phone must not remain a live job-notification target.
+        // Logout is immediate on-device. Push endpoint cleanup is best-effort,
+        // but it must never block Supabase Auth revocation. Push rows are also
+        // bound to auth_session_id server-side, so a successfully revoked session
+        // is no longer eligible for delivery even if token deletion was offline.
         savePendingRevocation(current)
         clearActiveSession()
+        unregisterPushBestEffort(current)
 
-        if (!unregisterPushIfNeeded(current)) return
         if (revoker.revoke(current).isSuccess) {
             clearPendingRevocation()
         }
@@ -112,19 +113,19 @@ class SessionStore(context: Context) {
 
     private suspend fun retryPendingRevocation() {
         val pending = readPendingRevocation() ?: return
-        if (!unregisterPushIfNeeded(pending)) return
+        unregisterPushBestEffort(pending)
         if (revoker.revoke(pending).isSuccess) {
             clearPendingRevocation()
         }
     }
 
-    private suspend fun unregisterPushIfNeeded(session: DriverSession): Boolean {
+    private suspend fun unregisterPushBestEffort(session: DriverSession) {
         val installationId = appContext
             .getSharedPreferences("xdrive_push_installation", Context.MODE_PRIVATE)
             .getString("installation_id", null)
             ?.takeIf { it.isNotBlank() }
-            ?: return true
-        return pushApi.unregister(session, installationId).isSuccess
+            ?: return
+        pushApi.unregister(session, installationId)
     }
 
     private fun readPendingRevocation(): DriverSession? {
