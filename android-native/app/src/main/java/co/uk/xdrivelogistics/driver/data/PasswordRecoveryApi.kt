@@ -53,6 +53,21 @@ class PasswordRecoveryApi(
             .put(gson.toJson(body).toRequestBody(jsonMediaType))
             .build()
         execute(request, "Password could not be updated.")
+
+        // The recovery access token is short-lived, but there is no reason to
+        // leave its temporary Auth session active after a successful password
+        // change. Logout is best-effort because the password update is already
+        // complete and must not be reported as failed if cleanup cannot run.
+        runCatching {
+            val logout = Request.Builder()
+                .url("${supabaseUrl.trimEnd('/')}/auth/v1/logout?scope=local")
+                .addHeader("apikey", supabaseAnonKey)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json")
+                .post("{}".toRequestBody(jsonMediaType))
+                .build()
+            http.newCall(logout).execute().close()
+        }
     }
 
     private fun execute(request: Request, fallback: String) {
@@ -60,10 +75,11 @@ class PasswordRecoveryApi(
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 val message = runCatching {
-                    gson.fromJson(raw, JsonObject::class.java)
-                        ?.get("msg")?.takeUnless { it.isJsonNull }?.asString
-                        ?: gson.fromJson(raw, JsonObject::class.java)
-                            ?.get("error_description")?.takeUnless { it.isJsonNull }?.asString
+                    val json = gson.fromJson(raw, JsonObject::class.java)
+                    json?.get("msg")?.takeUnless { it.isJsonNull }?.asString
+                        ?: json?.get("message")?.takeUnless { it.isJsonNull }?.asString
+                        ?: json?.get("error_description")?.takeUnless { it.isJsonNull }?.asString
+                        ?: json?.get("error")?.takeUnless { it.isJsonNull }?.asString
                 }.getOrNull().orEmpty().ifBlank { fallback }
                 throw IllegalStateException(message)
             }
@@ -82,32 +98,32 @@ class PasswordRecoveryApi(
     companion object {
         const val REDIRECT_URI = "xdrive://reset-password"
 
-        fun recoveryAccessToken(uri: Uri?): String? {
-            if (uri == null || uri.scheme != "xdrive" || uri.host != "reset-password") return null
+        private fun fragmentValues(uri: Uri?): Map<String, String> {
+            if (uri == null || uri.scheme != "xdrive" || uri.host != "reset-password") return emptyMap()
             val fragment = uri.fragment.orEmpty()
-            if (fragment.isBlank()) return null
+            if (fragment.isBlank()) return emptyMap()
             return fragment.split('&')
                 .mapNotNull { part ->
                     val pieces = part.split('=', limit = 2)
                     if (pieces.size == 2) Uri.decode(pieces[0]) to Uri.decode(pieces[1]) else null
                 }
                 .toMap()
+        }
+
+        fun recoveryAccessToken(uri: Uri?): String? {
+            val values = fragmentValues(uri)
+            return values
                 .takeIf { it["type"] == "recovery" }
                 ?.get("access_token")
                 ?.takeIf { it.isNotBlank() }
         }
 
         fun recoveryError(uri: Uri?): String? {
-            if (uri == null || uri.scheme != "xdrive" || uri.host != "reset-password") return null
-            val fragment = uri.fragment.orEmpty()
-            if (fragment.isBlank()) return null
-            val values = fragment.split('&')
-                .mapNotNull { part ->
-                    val pieces = part.split('=', limit = 2)
-                    if (pieces.size == 2) Uri.decode(pieces[0]) to Uri.decode(pieces[1]) else null
-                }
-                .toMap()
-            return values["error_description"]?.takeIf { it.isNotBlank() }
+            val values = fragmentValues(uri)
+            return values["error_description"]
+                ?.takeIf { it.isNotBlank() }
+                ?: values["error"]?.takeIf { it.isNotBlank() }
+                ?: values["error_code"]?.takeIf { it.isNotBlank() }
         }
     }
 }
