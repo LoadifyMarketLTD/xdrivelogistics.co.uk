@@ -72,6 +72,7 @@
                 <data android:scheme="xdrive" android:host="notification" />
                 <data android:scheme="xdrive" android:host="documents" />
                 <data android:scheme="xdrive" android:host="profile" />
+                <data android:scheme="xdrive" android:host="reset-password" />
             </intent-filter>
         </activity>
         <provider
