@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -56,7 +55,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
 
     var state by remember { mutableStateOf(AvailabilityPresenceUiState()) }
     var visibility by remember { mutableStateOf("private") }
-    var hours by remember { mutableIntStateOf(4) }
+    var hours by remember { mutableStateOf(4) }
     var pendingStart by remember { mutableStateOf(false) }
 
     fun hasLocationPermission(): Boolean {
