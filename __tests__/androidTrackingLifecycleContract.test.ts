@@ -58,6 +58,21 @@ describe('Android active-job tracking lifecycle contract', () => {
     expect(service).toContain('allowStop = false');
   });
 
+  it('requires precise/FINE location for active jobs but allows foreground coarse/fine for availability', () => {
+    expect(service).toContain('hasFineLocationPermission()');
+    expect(service).toContain('Manifest.permission.ACCESS_FINE_LOCATION');
+    expect(service).toContain('Active delivery tracking requires Precise/Fine location.');
+    expect(service).toContain('runAvailabilityMode(session)');
+    expect(service).toContain('hasLocationPermission()');
+  });
+
+  it('fails closed when Android Location Services are off and links to system settings', () => {
+    expect(service).toContain('LocationManager::class.java');
+    expect(service).toContain('isLocationEnabled');
+    expect(service).toContain('Settings.ACTION_LOCATION_SOURCE_SETTINGS');
+    expect(service).toContain('Android Location Services are OFF');
+  });
+
   it('keeps the running service able to switch from availability to job without a background FGS start', () => {
     expect(service).toContain('if (trackingState.shouldTrack)');
     expect(service).toContain('runJobMode(session)');
