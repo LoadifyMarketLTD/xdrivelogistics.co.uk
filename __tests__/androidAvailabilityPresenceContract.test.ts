@@ -11,6 +11,14 @@ describe('Android availability presence contract', () => {
     path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/AvailabilityPresenceController.kt'),
     'utf8',
   );
+  const panel = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/AvailabilityPresencePanel.kt'),
+    'utf8',
+  );
+  const mainActivity = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/MainActivity.kt'),
+    'utf8',
+  );
 
   it('uses the dedicated server availability endpoint only', () => {
     expect(source).toContain('/api/driver/availability-presence');
@@ -24,6 +32,10 @@ describe('Android availability presence contract', () => {
     expect(source).toContain('visibility in setOf("private", "fleet", "exchange")');
     expect(source).toContain('suspend fun start(');
     expect(source).toContain('suspend fun stop(');
+    expect(panel).toContain('listOf(1, 4, 8)');
+    expect(panel).toContain('AvailabilityChoice("Private"');
+    expect(panel).toContain('AvailabilityChoice("My Fleet"');
+    expect(panel).toContain('AvailabilityChoice("Exchange"');
   });
 
   it('uses authenticated XDrive server calls rather than direct Supabase table writes', () => {
@@ -40,5 +52,13 @@ describe('Android availability presence contract', () => {
     expect(controller).not.toContain('startForegroundService');
     expect(controller).not.toContain('Intent(');
     expect(controller).not.toContain('TrackingService::class.java');
+    expect(panel).not.toContain('TrackingService');
+    expect(panel).not.toContain('startForegroundService');
+  });
+
+  it('is wired into the existing More/Profile screen without replacing job tracking', () => {
+    expect(mainActivity).toContain('item { AvailabilityPresencePanel(state.session) }');
+    expect(mainActivity).toContain('Intent(this, TrackingService::class.java)');
+    expect(mainActivity).toContain('Text("Tracking"');
   });
 });
