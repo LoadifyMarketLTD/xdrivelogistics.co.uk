@@ -50,10 +50,18 @@ class XDriveMessagingService : FirebaseMessagingService() {
             )
         }
 
-        val deepLink = if (jobId != null) Uri.parse("xdrive://job/$jobId") else Uri.parse("xdrive://notification")
-        val intent = Intent(Intent.ACTION_VIEW, deepLink, applicationContext, MainActivity::class.java).apply {
+        val intent = if (jobId != null) {
+            Intent(applicationContext, JobDeepLinkActivity::class.java).apply {
+                action = JobDeepLinkActivity.ACTION_OPEN_JOB
+                data = Uri.parse("xdrive://job/$jobId")
+                putExtra(JobDeepLinkActivity.EXTRA_JOB_ID, jobId)
+            }
+        } else {
+            Intent(Intent.ACTION_VIEW, Uri.parse("xdrive://notification"), applicationContext, MainActivity::class.java)
+        }.apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
+
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
             abs((jobId ?: title).hashCode()),

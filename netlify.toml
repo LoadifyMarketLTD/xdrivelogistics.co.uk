@@ -1,5 +1,6 @@
 [build]
   command = "npm run build"
+  ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
   NODE_VERSION = "20"
