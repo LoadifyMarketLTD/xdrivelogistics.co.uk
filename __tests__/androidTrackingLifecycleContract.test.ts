@@ -28,11 +28,11 @@ describe('Android active-job tracking lifecycle contract', () => {
     expect(route).toContain('const ACTIVE_JOB_STATUSES = new Set([');
     expect(route).toContain(".eq('assigned_driver_id', driver.id)");
     expect(route).toContain('if (activeJobs.length !== 1)');
-    expect(route).toContain("should_track: true");
+    expect(route).toContain('should_track: true');
     expect(route).toContain("reason: activeJobs.length === 0 ? 'no_active_job' : 'multiple_active_jobs'");
   });
 
-  it('reconciles only while an Activity is visible', () => {
+  it('starts/reconciles the location runtime from a visible Activity state only', () => {
     expect(app).toContain('Application.ActivityLifecycleCallbacks');
     expect(app).toContain('onActivityResumed');
     expect(app).toContain('onActivityPaused');
@@ -42,16 +42,27 @@ describe('Android active-job tracking lifecycle contract', () => {
     expect(manifest).not.toContain('RECEIVE_BOOT_COMPLETED');
   });
 
-  it('starts the existing foreground TrackingService only when location permission exists', () => {
+  it('uses one foreground TrackingService for both runtime modes', () => {
     expect(app).toContain('hasForegroundLocationPermission()');
     expect(app).toContain('ContextCompat.startForegroundService');
     expect(app).toContain('TrackingService::class.java');
     expect(manifest).toContain('android:name=".XDriveDriverApp"');
+    expect(manifest).toContain('android:name=".TrackingService"');
     expect(manifest).toContain('android:foregroundServiceType="location"');
+    expect(manifest).not.toContain('AvailabilityTrackingService');
   });
 
-  it('keeps the native tracking interval at the agreed 60 seconds', () => {
-    expect(service).toContain('TRACKING_INTERVAL_MS = 60_000L');
+  it('keeps active-job publish cadence at the agreed 60 seconds', () => {
+    expect(service).toContain('JOB_PUBLISH_INTERVAL_MS = 60_000L');
+    expect(service).toContain('RuntimeMode.JOB');
+    expect(service).toContain('allowStop = false');
+  });
+
+  it('keeps the running service able to switch from availability to job without a background FGS start', () => {
+    expect(service).toContain('if (trackingState.shouldTrack)');
+    expect(service).toContain('runJobMode(session)');
+    expect(service).toContain('runAvailabilityMode(session)');
+    expect(service).toContain('RECONCILE_INTERVAL_MS = 30_000L');
   });
 
   it('uses only the authenticated XDrive tracking-state endpoint', () => {
