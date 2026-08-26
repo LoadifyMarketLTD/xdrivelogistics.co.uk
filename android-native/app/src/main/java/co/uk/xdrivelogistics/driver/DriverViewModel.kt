@@ -66,6 +66,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(appContext)
     private val pendingStatusStore = PendingJobStatusStore(appContext)
     private val pendingPodStore = PendingPodStore(appContext)
+    private val pendingQuoteStore = PendingQuoteStore(appContext)
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
         supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -103,6 +104,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 if (pendingPodStore.hasPendingForUser(persisted.userId)) {
                     PodSyncScheduler.schedule(appContext)
+                }
+                if (pendingQuoteStore.hasPendingForUser(persisted.userId)) {
+                    QuoteSyncScheduler.schedule(appContext)
                 }
                 refreshDriverData()
                 startLiveRefresh(persisted)
@@ -206,7 +210,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             .onSuccess { profile ->
                 val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
                 val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
-                val bids = commercialApi.loadDriverBids(session).getOrDefault(emptyList())
+                val serverBids = commercialApi.loadDriverBids(session).getOrDefault(emptyList())
                 val notifications = api.loadDriverNotifications(session).getOrDefault(emptyList())
                 val returnJourney = api.loadReturnJourney(session, profile.driverId).getOrNull()
                 val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
@@ -214,13 +218,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 commercialApi.loadDriverJobs(session)
                     .onSuccess { jobs ->
                         val visibleJobs = pendingStatusStore.optimisticJobs(session.userId, jobs)
+                        val visibleBids = pendingQuoteStore.optimisticBids(session.userId, visibleJobs, serverBids)
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             session = session,
                             profile = profile,
                             jobs = visibleJobs,
                             documents = documents,
-                            bids = bids,
+                            bids = visibleBids,
                             notifications = notifications,
                             returnJourney = returnJourney,
                             invoices = invoices,
@@ -229,6 +234,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, visibleJobs),
                         )
                         pendingPodStore.consumeFailureForUser(session.userId)?.let { failure ->
+                            _uiState.value = _uiState.value.copy(error = failure)
+                        }
+                        pendingQuoteStore.consumeFailureForUser(session.userId)?.let { failure ->
                             _uiState.value = _uiState.value.copy(error = failure)
                         }
                         applyPendingJobDeepLinkIfReady()
@@ -435,7 +443,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     fun submitQuoteForSelectedJob(amountText: String, note: String) {
         val quoteJobId = _uiState.value.selectedJobId
+        val session = _uiState.value.session
+        val profile = _uiState.value.profile
         if (_uiState.value.isSubmittingQuote) return
+        if (!quoteJobId.isNullOrBlank() && _uiState.value.bids.any { it.jobId == quoteJobId }) {
+            _uiState.value = _uiState.value.copy(
+                error = "You have already quoted for this job. A driver can quote only once per job.",
+                message = "",
+            )
+            return
+        }
         _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
         viewModelScope.launch {
             val outcome = quoteCoordinator.submit(
@@ -443,8 +460,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 jobs = _uiState.value.jobs,
                 amountText = amountText,
                 note = note,
-                session = _uiState.value.session,
-                profile = _uiState.value.profile,
+                session = session,
+                profile = profile,
             )
             when (outcome) {
                 is QuoteSubmitOutcome.AlreadyInFlight,
@@ -468,11 +485,49 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     refreshDriverData()
                 }
                 is QuoteSubmitOutcome.ApiFailure -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isSubmittingQuote = false,
-                        error = outcome.error.friendlyDriverMessage("Failed to submit quote."),
-                    )
+                    if ((outcome.error.isRetryableQuoteFailure() || outcome.error.isQuoteSessionFailure()) &&
+                        session != null && profile != null && !quoteJobId.isNullOrBlank()
+                    ) {
+                        val amount = parseFinitePositiveAmount(amountText)
+                        if (amount == null) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                isSubmittingQuote = false,
+                                error = "Enter a valid quote amount.",
+                            )
+                            return@launch
+                        }
+                        runCatching {
+                            pendingQuoteStore.enqueue(
+                                userId = session.userId,
+                                driverId = profile.driverId,
+                                jobId = quoteJobId,
+                                amount = amount,
+                                note = note.trim(),
+                            )
+                            QuoteSyncScheduler.schedule(appContext)
+                        }.onSuccess {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                isSubmittingQuote = false,
+                                bids = pendingQuoteStore.optimisticBids(session.userId, _uiState.value.jobs, _uiState.value.bids),
+                                message = "Quote saved securely on this device. Pending sync — it has not reached the load poster yet.",
+                                error = "",
+                            )
+                        }.onFailure { saveError ->
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                isSubmittingQuote = false,
+                                error = saveError.message ?: "Failed to save quote securely on this device.",
+                            )
+                        }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            isSubmittingQuote = false,
+                            error = outcome.error.friendlyDriverMessage("Failed to submit quote."),
+                        )
+                    }
                 }
             }
         }
