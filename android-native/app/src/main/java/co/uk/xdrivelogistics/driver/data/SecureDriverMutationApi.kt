@@ -94,9 +94,21 @@ class SecureDriverMutationApi(
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw IllegalStateException("HTTP ${response.code}: ${extractError(raw, fallback)}")
+                val message = extractError(raw, fallback)
+                if ((response.code == 401 || response.code == 403) && message.isNativeBindingMessage()) {
+                    throw DeviceSessionException(response.code, message)
+                }
+                throw IllegalStateException("HTTP ${response.code}: $message")
             }
         }
+    }
+
+    private fun String.isNativeBindingMessage(): Boolean {
+        val lower = lowercase()
+        return "native device" in lower ||
+            "mobile session" in lower ||
+            "revoked or replaced" in lower ||
+            "device identity" in lower
     }
 
     private fun extractError(rawBody: String, fallback: String): String = runCatching {
