@@ -9,8 +9,11 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -40,8 +43,10 @@ import java.time.format.DateTimeFormatter
  *
  * The runtime keeps privacy/data contracts separate while avoiding an Android
  * background-start gap between pre-job availability and an allocated job:
- * - JOB mode publishes only to /api/driver/location every 60 seconds.
- * - AVAILABILITY mode publishes only to /api/driver/availability-presence every 5 minutes.
+ * - JOB mode requires precise/FINE location and publishes only to
+ *   /api/driver/location every 60 seconds.
+ * - AVAILABILITY mode accepts foreground coarse/fine permission and publishes
+ *   only to /api/driver/availability-presence every 5 minutes.
  * - server-authoritative state is reconciled every 30 seconds, so an already
  *   running foreground service can switch modes without creating a new location
  *   foreground service from the background.
@@ -80,8 +85,6 @@ class TrackingService : Service() {
             return START_STICKY
         }
 
-        // Legacy/manual Stop must never disable mandatory active-job tracking.
-        // The asynchronous server check decides whether stopping is permitted.
         if (intent?.action == ACTION_STOP) {
             scope.launch { stopIfNoActiveJob() }
             return START_STICKY
@@ -115,9 +118,6 @@ class TrackingService : Service() {
         scope.cancel()
         super.onDestroy()
 
-        // MainActivity historically calls stopService() directly. While the app
-        // is visible, immediately reconcile rather than allowing that legacy UI
-        // action to create a gap during a mandatory active job.
         if (recoverFromExternalStop) {
             runCatching {
                 ContextCompat.startForegroundService(
@@ -204,13 +204,38 @@ class TrackingService : Service() {
             mode = RuntimeMode.JOB
             lastJobPublishAt = 0L
             pendingStore.clear()
+        }
+
+        if (!isDeviceLocationEnabled()) {
             updateNotification(
-                "XDrive job tracking active",
-                "Allocated job detected. Secure live tracking is active.",
+                "XDrive job tracking requires Location",
+                "Android Location Services are OFF. Turn them on to continue secure live tracking.",
                 ongoing = true,
                 allowStop = false,
+                settingsIntent = locationSettingsIntent(),
+                settingsLabel = "Turn on Location",
             )
+            return
         }
+
+        if (!hasFineLocationPermission()) {
+            updateNotification(
+                "XDrive job tracking needs Precise Location",
+                "Active delivery tracking requires Precise/Fine location. Enable precise location for XDrive.",
+                ongoing = true,
+                allowStop = false,
+                settingsIntent = appLocationSettingsIntent(),
+                settingsLabel = "Location settings",
+            )
+            return
+        }
+
+        updateNotification(
+            "XDrive job tracking active",
+            "Allocated job detected. Secure precise live tracking is active.",
+            ongoing = true,
+            allowStop = false,
+        )
 
         val now = System.currentTimeMillis()
         if (lastJobPublishAt != 0L && now - lastJobPublishAt < JOB_PUBLISH_INTERVAL_MS) return
@@ -220,7 +245,7 @@ class TrackingService : Service() {
         if (pending == null) {
             updateNotification(
                 "XDrive job tracking waiting for GPS",
-                "No current position is available yet. Tracking will retry automatically.",
+                "No current precise position is available yet. Tracking will retry automatically.",
                 ongoing = true,
                 allowStop = false,
             )
@@ -260,13 +285,26 @@ class TrackingService : Service() {
             mode = RuntimeMode.AVAILABILITY
             lastAvailabilityPublishAt = 0L
             pendingStore.clear()
+        }
+
+        if (!isDeviceLocationEnabled()) {
             updateNotification(
-                "XDrive availability active",
-                "Pre-job availability is active. Location refreshes every 5 minutes.",
+                "XDrive availability needs Location",
+                "Android Location Services are OFF. Turn them on to refresh your availability position.",
                 ongoing = true,
                 allowStop = true,
+                settingsIntent = locationSettingsIntent(),
+                settingsLabel = "Turn on Location",
             )
+            return
         }
+
+        updateNotification(
+            "XDrive availability active",
+            "Pre-job availability is active. Location refreshes every 5 minutes.",
+            ongoing = true,
+            allowStop = true,
+        )
 
         val now = System.currentTimeMillis()
         if (lastAvailabilityPublishAt != 0L && now - lastAvailabilityPublishAt < AVAILABILITY_PUBLISH_INTERVAL_MS) return
@@ -413,6 +451,32 @@ class TrackingService : Service() {
         return text.contains("unauthorized") || text.contains("jwt") || text.contains("token") || text.contains("session")
     }
 
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    private fun hasFineLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    private fun isDeviceLocationEnabled(): Boolean =
+        runCatching { getSystemService(LocationManager::class.java).isLocationEnabled }.getOrDefault(false)
+
+    private fun locationSettingsIntent(): PendingIntent = PendingIntent.getActivity(
+        this,
+        2,
+        Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun appLocationSettingsIntent(): PendingIntent = PendingIntent.getActivity(
+        this,
+        3,
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
     private suspend fun stopWithMessage(title: String, text: String) {
         updateNotification(title, text, ongoing = false, allowStop = false)
         delay(STOP_MESSAGE_DELAY_MS)
@@ -420,13 +484,14 @@ class TrackingService : Service() {
         stopSelf()
     }
 
-    private fun hasLocationPermission(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        return fine || coarse
-    }
-
-    private fun notification(title: String, text: String, ongoing: Boolean, allowStop: Boolean): Notification {
+    private fun notification(
+        title: String,
+        text: String,
+        ongoing: Boolean,
+        allowStop: Boolean,
+        settingsIntent: PendingIntent? = null,
+        settingsLabel: String? = null,
+    ): Notification {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
@@ -441,6 +506,9 @@ class TrackingService : Service() {
             .setOngoing(ongoing)
             .setOnlyAlertOnce(true)
 
+        if (settingsIntent != null && !settingsLabel.isNullOrBlank()) {
+            builder.addAction(android.R.drawable.ic_menu_manage, settingsLabel, settingsIntent)
+        }
         if (allowStop) {
             val stopIntent = PendingIntent.getService(
                 this,
@@ -453,10 +521,17 @@ class TrackingService : Service() {
         return builder.build()
     }
 
-    private fun updateNotification(title: String, text: String, ongoing: Boolean, allowStop: Boolean) {
+    private fun updateNotification(
+        title: String,
+        text: String,
+        ongoing: Boolean,
+        allowStop: Boolean,
+        settingsIntent: PendingIntent? = null,
+        settingsLabel: String? = null,
+    ) {
         getSystemService(NotificationManager::class.java).notify(
             NOTIFICATION_ID,
-            notification(title, text, ongoing, allowStop),
+            notification(title, text, ongoing, allowStop, settingsIntent, settingsLabel),
         )
     }
 
@@ -472,7 +547,7 @@ class TrackingService : Service() {
         val time = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
         updateNotification(
             "XDrive job tracking active",
-            "Last job location shared successfully at $time.",
+            "Last precise job location shared successfully at $time.",
             ongoing = true,
             allowStop = false,
         )
