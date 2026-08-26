@@ -16,7 +16,6 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.AvailabilityPresenceApi
-import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -61,7 +60,11 @@ class AvailabilityTrackingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            stopSelf()
+            val session = sessionStore.readSession()
+            scope.launch {
+                if (session != null) availabilityApi.stop(session)
+                stopSelf()
+            }
             return START_NOT_STICKY
         }
         if (!hasLocationPermission()) {
