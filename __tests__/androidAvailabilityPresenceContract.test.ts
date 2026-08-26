@@ -49,16 +49,17 @@ describe('Android availability presence contract', () => {
     expect(source).not.toContain('supabase');
   });
 
-  it('matches the server GET/POST/DELETE response envelopes', () => {
+  it('matches the server availability response envelopes', () => {
     expect(serverRoute).toContain('NextResponse.json({ active, presence: active ? data : null })');
     expect(serverRoute).toContain('NextResponse.json({ ok: true, visibility, available_until: availableUntil })');
+    expect(serverRoute).toContain('NextResponse.json({ ok: true, available_until: presence.available_until })');
     expect(serverRoute).toContain('NextResponse.json({ ok: true })');
     expect(source).toContain('payload.objectOrNull("presence")');
     expect(source).toContain('active = true');
     expect(source).toContain('if (!payload.bool("ok"))');
   });
 
-  it('publishes one fresh explicit location without starting job foreground tracking', () => {
+  it('publishes a fresh initial fix and never starts active-job TrackingService', () => {
     expect(controller).toContain('getFusedLocationProviderClient');
     expect(controller).toContain('getCurrentLocation(');
     expect(controller).toContain('Priority.PRIORITY_BALANCED_POWER_ACCURACY');
@@ -67,8 +68,8 @@ describe('Android availability presence contract', () => {
     expect(controller).not.toContain('startForegroundService');
     expect(controller).not.toContain('Intent(');
     expect(controller).not.toContain('TrackingService::class.java');
-    expect(panel).not.toContain('TrackingService');
-    expect(panel).not.toContain('startForegroundService');
+    expect(panel).toContain('AvailabilityTrackingService::class.java');
+    expect(panel).not.toContain('Intent(context, TrackingService::class.java)');
   });
 
   it('is wired into the existing More/Profile screen without replacing job tracking', () => {
