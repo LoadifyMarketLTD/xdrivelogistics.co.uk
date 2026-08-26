@@ -1,7 +1,6 @@
 package co.uk.xdrivelogistics.driver.data
 
 import com.google.gson.Gson
-import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
