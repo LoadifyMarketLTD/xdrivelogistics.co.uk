@@ -63,6 +63,17 @@ async function trafficEta(lat: number, lng: number, deliveryPostcode: string | n
   }
 }
 
+function etaRisk(etaAt: string | null | undefined, plannedDelivery: string | null | undefined) {
+  if (!etaAt || !plannedDelivery) return null;
+  const etaMs = new Date(etaAt).getTime();
+  const plannedMs = new Date(plannedDelivery).getTime();
+  if (!Number.isFinite(etaMs) || !Number.isFinite(plannedMs)) return null;
+  const deltaMinutes = Math.round((etaMs - plannedMs) / 60_000);
+  if (deltaMinutes <= 5) return { level: 'on_time', late_by_minutes: Math.max(0, deltaMinutes) };
+  if (deltaMinutes <= 20) return { level: 'at_risk', late_by_minutes: deltaMinutes };
+  return { level: 'late', late_by_minutes: deltaMinutes };
+}
+
 export async function GET(request: NextRequest, context: { params: Promise<{ jobId: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Live tracking is temporarily unavailable.' });
 
@@ -77,7 +88,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, assigned_driver_id, current_status, status, delivery_postcode, delivery_location')
+    .select('id, company_id, awarded_carrier_company_id, assigned_driver_id, current_status, status, delivery_postcode, delivery_location, delivery_datetime')
     .eq('id', jobId)
     .maybeSingle();
   if (jobError) return json(500, { error: 'Tracking job could not be loaded.' });
@@ -101,11 +112,22 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
       tracking_active: false,
       location: null,
       eta: null,
+      eta_risk: null,
+      planned_delivery_at: job.delivery_datetime ?? null,
       reason: ['delivered', 'completed', 'invoiced', 'paid'].includes(phase) ? 'completed' : 'not-in-execution',
     });
   }
 
-  if (!job.assigned_driver_id) return json(200, { job_id: job.id, phase, tracking_active: false, location: null, eta: null, reason: 'driver-not-assigned' });
+  if (!job.assigned_driver_id) return json(200, {
+    job_id: job.id,
+    phase,
+    tracking_active: false,
+    location: null,
+    eta: null,
+    eta_risk: null,
+    planned_delivery_at: job.delivery_datetime ?? null,
+    reason: 'driver-not-assigned',
+  });
 
   const [{ data: location, error: locationError }, { data: driver }] = await Promise.all([
     supabaseAdmin
@@ -120,7 +142,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
   ]);
   if (locationError) return json(500, { error: 'Live position could not be loaded.' });
 
-  if (!location) return json(200, { job_id: job.id, phase, tracking_active: true, location: null, eta: null, reason: 'awaiting-first-position' });
+  if (!location) return json(200, {
+    job_id: job.id,
+    phase,
+    tracking_active: true,
+    location: null,
+    eta: null,
+    eta_risk: null,
+    planned_delivery_at: job.delivery_datetime ?? null,
+    reason: 'awaiting-first-position',
+  });
 
   const lat = Number(location.lat);
   const lng = Number(location.lng);
@@ -145,6 +176,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
       recorded_at: recordedAt,
     },
     eta,
+    eta_risk: etaRisk(eta?.eta_at, job.delivery_datetime),
+    planned_delivery_at: job.delivery_datetime ?? null,
     eta_provider_configured: Boolean(process.env.MAPBOX_ACCESS_TOKEN?.trim()),
   });
 }
