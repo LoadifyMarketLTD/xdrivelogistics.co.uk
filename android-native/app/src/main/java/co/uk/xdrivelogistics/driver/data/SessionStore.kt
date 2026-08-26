@@ -1,10 +1,12 @@
 package co.uk.xdrivelogistics.driver.data
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import co.uk.xdrivelogistics.driver.BuildConfig
+import co.uk.xdrivelogistics.driver.LoginActivity
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -85,6 +87,7 @@ class SessionStore(context: Context) {
                 val validation = validateDeviceBinding(current)
                 if (validation.isFailure && validation.exceptionOrNull().isDeviceSessionRevoked()) {
                     clearActiveSession()
+                    openLoginActivity()
                 }
             }
         }
@@ -125,16 +128,18 @@ class SessionStore(context: Context) {
     suspend fun validateDeviceBinding(session: DriverSession): Result<Unit> =
         deviceSessionApi.validate(session)
 
-    suspend fun clear() {
+    suspend fun clear(redirectToLogin: Boolean = true) {
         val current = readSession()
         if (current == null) {
             clearActiveSession()
+            if (redirectToLogin) openLoginActivity()
             return
         }
 
         savePendingRevocation(current)
         clearActiveSession()
         retryPendingRevocation()
+        if (redirectToLogin) openLoginActivity()
     }
 
     private suspend fun retryPendingRevocation() {
@@ -192,6 +197,16 @@ class SessionStore(context: Context) {
             .remove(Keys.pendingLogoutUserId)
             .remove(Keys.pendingLogoutEmail)
             .commit()
+    }
+
+    private fun openLoginActivity() {
+        runCatching {
+            appContext.startActivity(
+                Intent(appContext, LoginActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                },
+            )
+        }
     }
 
     private companion object {
