@@ -74,9 +74,25 @@ class DeviceSessionApi(
                         ?.takeUnless { it.isJsonNull }
                         ?.asString
                 }.getOrNull().orEmpty().ifBlank { fallback }
-                throw DeviceSessionException(response.code, message)
+
+                // A 401 can also mean the Supabase access token simply expired.
+                // Only explicit server-side native-binding rejections are terminal
+                // for this installation; ordinary auth expiry must be refreshable.
+                if ((response.code == 401 || response.code == 403) && message.isNativeBindingMessage()) {
+                    throw DeviceSessionException(response.code, message)
+                }
+                throw IllegalStateException("HTTP ${response.code}: $message")
             }
         }
+    }
+
+    private fun String.isNativeBindingMessage(): Boolean {
+        val lower = lowercase()
+        return "native device" in lower ||
+            "mobile session" in lower ||
+            "revoked or replaced" in lower ||
+            "device identity" in lower ||
+            "no active native device session" in lower
     }
 
     private fun requireBaseUrl() {
@@ -90,13 +106,6 @@ class DeviceSessionApi(
 class DeviceSessionException(
     val httpCode: Int,
     val serverDetail: String,
-) : IllegalStateException(
-    if (httpCode == 401 || httpCode == 403) {
-        "This device is no longer authorised for XDrive Driver."
-    } else {
-        serverDetail
-    },
-)
+) : IllegalStateException("This device is no longer authorised for XDrive Driver.")
 
-fun Throwable?.isDeviceSessionRevoked(): Boolean =
-    this is DeviceSessionException && (httpCode == 401 || httpCode == 403)
+fun Throwable?.isDeviceSessionRevoked(): Boolean = this is DeviceSessionException
