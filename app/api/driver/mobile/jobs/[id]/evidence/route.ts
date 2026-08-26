@@ -33,9 +33,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!ALLOWED_TYPES.has(contentType)) {
     return respond(415, { error: 'POD must be a PDF, JPEG or PNG file.' });
   }
-  if (kind === 'collection' && contentType === 'application/pdf') {
-    return respond(415, { error: 'Collection proof must be a JPEG or PNG image.' });
-  }
 
   const objectName = request.headers.get('x-xdrive-evidence-name')?.trim() ?? '';
   if (!SAFE_NAME.test(objectName)) return respond(400, { error: 'Evidence filename is invalid.' });
@@ -66,16 +63,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (kind === 'collection') {
-    const { error } = await supabaseAdmin
+    const { data: updated, error } = await supabaseAdmin
       .from('jobs')
       .update({ collection_photo_url: storagePath, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('assigned_driver_id', driver.driverId);
+      .eq('assigned_driver_id', driver.driverId)
+      .select('id')
+      .maybeSingle();
     if (error) return respond(500, { error: error.message });
+    if (!updated) return respond(409, { error: 'Collection evidence could not be linked to this assignment.' });
   } else {
     const deliveryPhotos = safeArray(job.delivery_photos).filter((value): value is string => typeof value === 'string');
     const podPhotos = safeArray(job.pod_photos).filter((value): value is string => typeof value === 'string');
-    const { error } = await supabaseAdmin
+    const { data: updated, error } = await supabaseAdmin
       .from('jobs')
       .update({
         delivery_photos: Array.from(new Set([...deliveryPhotos, storagePath])),
@@ -83,8 +83,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('assigned_driver_id', driver.driverId);
+      .eq('assigned_driver_id', driver.driverId)
+      .select('id')
+      .maybeSingle();
     if (error) return respond(500, { error: error.message });
+    if (!updated) return respond(409, { error: 'POD evidence could not be linked to this assignment.' });
   }
 
   return respond(200, { ok: true, storagePath });
