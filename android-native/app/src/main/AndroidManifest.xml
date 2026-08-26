@@ -27,10 +27,6 @@
             android:name=".TrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
-        <service
-            android:name=".AvailabilityTrackingService"
-            android:exported="false"
-            android:foregroundServiceType="location" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
