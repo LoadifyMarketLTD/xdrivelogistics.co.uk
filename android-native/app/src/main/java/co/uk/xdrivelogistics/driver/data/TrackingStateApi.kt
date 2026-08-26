@@ -1,5 +1,6 @@
 package co.uk.xdrivelogistics.driver.data
 
+import co.uk.xdrivelogistics.driver.XDriveDriverApp
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,11 @@ class TrackingStateApi(
     private val xdriveBaseUrl: String,
     private val installationId: String,
 ) {
+    constructor(xdriveBaseUrl: String) : this(
+        xdriveBaseUrl,
+        DeviceInstallationIdentity(XDriveDriverApp.instance.applicationContext).installationId,
+    )
+
     private val gson = Gson()
     private val http = OkHttpClient.Builder()
         .callTimeout(20, TimeUnit.SECONDS)
