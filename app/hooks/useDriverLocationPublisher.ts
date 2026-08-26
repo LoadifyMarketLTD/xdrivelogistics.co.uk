@@ -16,21 +16,21 @@ const ACTIVE_STATUSES = new Set([
 ]);
 
 /**
- * Publishes the driver's GPS position while a specific assigned job is in an
- * execution state. The job id is transmitted with every point so downstream
- * access control can grant visibility per transport rather than per driver.
+ * Publishes GPS throughout the complete active execution lifecycle. The API
+ * resolves the authenticated driver's single active assigned job when jobId is
+ * omitted, and always persists the resolved job id with the location row.
  */
 export function useDriverLocationPublisher(
   jobStatus: string | null | undefined,
-  jobId: string | null | undefined,
   enabled = true,
+  jobId?: string | null,
 ) {
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPositionRef = useRef<GeolocationPosition | null>(null);
 
   const normalisedStatus = String(jobStatus ?? '').trim().toLowerCase();
-  const isActive = enabled && Boolean(jobId && ACTIVE_STATUSES.has(normalisedStatus));
+  const isActive = enabled && ACTIVE_STATUSES.has(normalisedStatus);
 
   const cleanup = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -46,7 +46,7 @@ export function useDriverLocationPublisher(
 
   const publishPosition = useCallback(async () => {
     const pos = lastPositionRef.current;
-    if (!pos || !jobId || !isActive) return;
+    if (!pos || !isActive) return;
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -64,7 +64,7 @@ export function useDriverLocationPublisher(
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          job_id: jobId,
+          ...(jobId ? { job_id: jobId } : {}),
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           heading: pos.coords.heading ?? null,
@@ -81,7 +81,6 @@ export function useDriverLocationPublisher(
       cleanup();
       return;
     }
-
     if (!('geolocation' in navigator)) return;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -90,10 +89,7 @@ export function useDriverLocationPublisher(
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 5_000 },
     );
 
-    intervalRef.current = setInterval(() => {
-      void publishPosition();
-    }, PUBLISH_INTERVAL_MS);
-
+    intervalRef.current = setInterval(() => { void publishPosition(); }, PUBLISH_INTERVAL_MS);
     return () => { cleanup(); };
   }, [cleanup, isActive, publishPosition]);
 }
