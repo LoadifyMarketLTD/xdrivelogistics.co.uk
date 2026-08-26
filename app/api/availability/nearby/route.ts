@@ -11,12 +11,14 @@ export async function GET(request: NextRequest) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: memberships } = await supabaseAdmin
+  const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('company_id')
     .eq('user_id', authData.user.id)
     .eq('status', 'active');
+  if (membershipError) return NextResponse.json({ error: 'Company access could not be verified.' }, { status: 500 });
   const ownCompanies = new Set((memberships ?? []).map((row) => String(row.company_id ?? '')).filter(Boolean));
+  if (ownCompanies.size === 0) return NextResponse.json({ error: 'An active company membership is required.' }, { status: 403 });
 
   const { data, error } = await supabaseAdmin
     .from('driver_availability_presence')
@@ -42,7 +44,6 @@ export async function GET(request: NextRequest) {
     }
     if (row.visibility !== 'exchange') return [];
     return [{
-      driver_id: row.driver_id,
       scope: 'exchange',
       lat: Number(row.exchange_lat),
       lng: Number(row.exchange_lng),
