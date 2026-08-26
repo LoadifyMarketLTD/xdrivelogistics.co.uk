@@ -10,10 +10,16 @@ fun secretProperty(name: String): String? =
 val xdriveBaseUrl = (project.findProperty("XDRIVE_BASE_URL") as String?) ?: "https://www.xdrivelogistics.co.uk"
 val supabaseUrl = (project.findProperty("XDRIVE_SUPABASE_URL") as String?) ?: ""
 val supabaseAnonKey = (project.findProperty("XDRIVE_SUPABASE_ANON_KEY") as String?) ?: ""
-val firebaseProjectId = (project.findProperty("XDRIVE_FIREBASE_PROJECT_ID") as String?) ?: ""
-val firebaseApplicationId = (project.findProperty("XDRIVE_FIREBASE_APPLICATION_ID") as String?) ?: ""
-val firebaseApiKey = (project.findProperty("XDRIVE_FIREBASE_API_KEY") as String?) ?: ""
-val firebaseSenderId = (project.findProperty("XDRIVE_FIREBASE_SENDER_ID") as String?) ?: ""
+val firebaseProjectId = secretProperty("XDRIVE_FIREBASE_PROJECT_ID") ?: ""
+val firebaseApplicationId = secretProperty("XDRIVE_FIREBASE_APPLICATION_ID") ?: ""
+val firebaseApiKey = secretProperty("XDRIVE_FIREBASE_API_KEY") ?: ""
+val firebaseSenderId = secretProperty("XDRIVE_FIREBASE_SENDER_ID") ?: ""
+val firebaseClientConfigComplete = listOf(
+    firebaseProjectId,
+    firebaseApplicationId,
+    firebaseApiKey,
+    firebaseSenderId,
+).all { it.isNotBlank() }
 
 val releaseKeystorePath = secretProperty("XDRIVE_ANDROID_KEYSTORE_PATH")
 val releaseStorePassword = secretProperty("XDRIVE_ANDROID_STORE_PASSWORD")
@@ -37,6 +43,14 @@ if (releaseTaskRequested && !releaseSigningComplete) {
     )
 }
 
+if (releaseTaskRequested && !firebaseClientConfigComplete) {
+    throw org.gradle.api.GradleException(
+        "Production Firebase Cloud Messaging is not configured. Provide " +
+            "XDRIVE_FIREBASE_PROJECT_ID, XDRIVE_FIREBASE_APPLICATION_ID, XDRIVE_FIREBASE_API_KEY and XDRIVE_FIREBASE_SENDER_ID " +
+            "for the Firebase Android app registered to co.uk.xdrivelogistics.driver before building a release.",
+    )
+}
+
 android {
     namespace = "co.uk.xdrivelogistics.driver"
     compileSdk = 35
@@ -53,7 +67,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Replace these values for your environment before building production APKs.
         buildConfigField("String", "XDRIVE_BASE_URL", "\"$xdriveBaseUrl\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
