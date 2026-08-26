@@ -65,6 +65,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val sessionStore = SessionStore(appContext)
     private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(appContext)
     private val pendingStatusStore = PendingJobStatusStore(appContext)
+    private val pendingPodStore = PendingPodStore(appContext)
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
         supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -99,6 +100,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 if (pendingStatusStore.hasPendingForUser(persisted.userId)) {
                     JobStatusSyncScheduler.schedule(appContext)
+                }
+                if (pendingPodStore.hasPendingForUser(persisted.userId)) {
+                    PodSyncScheduler.schedule(appContext)
                 }
                 refreshDriverData()
                 startLiveRefresh(persisted)
@@ -224,6 +228,9 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             jobSearchPreferences = preferences,
                             selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, visibleJobs),
                         )
+                        pendingPodStore.consumeFailureForUser(session.userId)?.let { failure ->
+                            _uiState.value = _uiState.value.copy(error = failure)
+                        }
                         applyPendingJobDeepLinkIfReady()
                     }
                     .onFailure { error ->
@@ -480,31 +487,38 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
                 return@launch
             }
+            if (bytes.isEmpty()) {
+                _uiState.value = _uiState.value.copy(error = "Selected POD file is empty.")
+                return@launch
+            }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.uploadPodDocument(
-                session = session,
-                driverId = profile.driverId,
-                job = selectedJob,
-                fileName = fileName,
-                mimeType = mimeType,
-                bytes = bytes,
-            )
+            runCatching {
+                pendingPodStore.enqueue(
+                    userId = session.userId,
+                    driverId = profile.driverId,
+                    jobId = selectedJob.id,
+                    isCollectionProof = selectedJob.needsCollectionProof(),
+                    fileName = fileName,
+                    mimeType = mimeType,
+                    bytes = bytes,
+                )
+                PodSyncScheduler.schedule(appContext)
+            }
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         message = if (selectedJob.needsCollectionProof()) {
-                            "Collection proof uploaded."
+                            "Collection proof saved securely and will sync automatically."
                         } else {
-                            "Delivery proof uploaded."
+                            "POD saved securely and will sync automatically."
                         },
                     )
-                    refreshDriverData()
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to upload POD."),
+                        error = error.message ?: "Failed to save POD securely on this device.",
                     )
                 }
         }
