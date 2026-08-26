@@ -8,8 +8,8 @@ const ACTIVE_JOB_STATUSES = new Set([
   'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
 ]);
 
-// Native Android consumes these GET/POST/DELETE response envelopes through the
-// same authenticated server boundary; keep availability separate from job GPS.
+// Native Android consumes these authenticated response envelopes through the
+// same server boundary; keep pre-award availability separate from active-job GPS.
 const roundedForExchange = (value: number) => Math.round(value * 100) / 100;
 const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
   String(job.current_status ?? job.status ?? '').trim().toLowerCase();
@@ -41,20 +41,33 @@ async function authenticatedDriver(request: NextRequest) {
   return { driver };
 }
 
-export async function GET(request: NextRequest) {
-  const auth = await authenticatedDriver(request);
-  if ('error' in auth) return auth.error;
-
-  if (String(auth.driver.availability_status ?? '').toLowerCase() !== 'available') {
-    return NextResponse.json({ active: false, presence: null });
+async function ensureAvailabilityEligible(driver: { id: string; availability_status?: string | null }) {
+  if (String(driver.availability_status ?? '').toLowerCase() !== 'available') {
+    return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
   }
   try {
-    if (await hasActiveAssignedJob(auth.driver.id)) {
-      return NextResponse.json({ active: false, presence: null });
+    if (await hasActiveAssignedJob(driver.id)) {
+      return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
     }
   } catch {
     return NextResponse.json({ error: 'Availability eligibility could not be verified.' }, { status: 500 });
   }
+  return null;
+}
+
+function parseCoordinates(body: { lat?: number; lng?: number }) {
+  const lat = typeof body.lat === 'number' ? body.lat : Number.NaN;
+  const lng = typeof body.lng === 'number' ? body.lng : Number.NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+export async function GET(request: NextRequest) {
+  const auth = await authenticatedDriver(request);
+  if ('error' in auth) return auth.error;
+
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
+  if (eligibilityError) return NextResponse.json({ active: false, presence: null });
 
   const { data, error } = await supabaseAdmin!
     .from('driver_availability_presence')
@@ -69,24 +82,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
-  if (String(auth.driver.availability_status ?? '').toLowerCase() !== 'available') {
-    return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
-  }
-  try {
-    if (await hasActiveAssignedJob(auth.driver.id)) {
-      return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
-    }
-  } catch {
-    return NextResponse.json({ error: 'Availability eligibility could not be verified.' }, { status: 500 });
-  }
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
+  if (eligibilityError) return eligibilityError;
 
   let body: { lat?: number; lng?: number; visibility?: string; hours?: number };
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 }); }
-  const lat = typeof body.lat === 'number' ? body.lat : Number.NaN;
-  const lng = typeof body.lng === 'number' ? body.lng : Number.NaN;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return NextResponse.json({ error: 'Valid lat/lng are required.' }, { status: 400 });
-  }
+  const coordinates = parseCoordinates(body);
+  if (!coordinates) return NextResponse.json({ error: 'Valid lat/lng are required.' }, { status: 400 });
+  const { lat, lng } = coordinates;
   const visibility = typeof body.visibility === 'string' && VISIBILITIES.has(body.visibility) ? body.visibility : 'private';
   const requestedHours = typeof body.hours === 'number' && Number.isFinite(body.hours) ? body.hours : 4;
   const hours = Math.min(MAX_HOURS, Math.max(1, Math.round(requestedHours)));
@@ -107,6 +110,46 @@ export async function POST(request: NextRequest) {
   }, { onConflict: 'driver_id' });
   if (error) return NextResponse.json({ error: 'Availability presence could not be updated.' }, { status: 500 });
   return NextResponse.json({ ok: true, visibility, available_until: availableUntil });
+}
+
+// Refreshes only coordinates/timestamps. It deliberately preserves visibility
+// and available_until so periodic Android updates can never extend the driver's
+// explicit 1/4/8 hour opt-in window.
+export async function PUT(request: NextRequest) {
+  const auth = await authenticatedDriver(request);
+  if ('error' in auth) return auth.error;
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
+  if (eligibilityError) return eligibilityError;
+
+  let body: { lat?: number; lng?: number };
+  try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 }); }
+  const coordinates = parseCoordinates(body);
+  if (!coordinates) return NextResponse.json({ error: 'Valid lat/lng are required.' }, { status: 400 });
+
+  const { data: presence, error: presenceError } = await supabaseAdmin!
+    .from('driver_availability_presence')
+    .select('available_until')
+    .eq('driver_id', auth.driver.id)
+    .maybeSingle();
+  if (presenceError) return NextResponse.json({ error: 'Availability presence could not be verified.' }, { status: 500 });
+  if (!presence?.available_until || new Date(presence.available_until).getTime() <= Date.now()) {
+    return NextResponse.json({ error: 'Availability sharing is no longer active.' }, { status: 409 });
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin!
+    .from('driver_availability_presence')
+    .update({
+      exact_lat: coordinates.lat,
+      exact_lng: coordinates.lng,
+      exchange_lat: roundedForExchange(coordinates.lat),
+      exchange_lng: roundedForExchange(coordinates.lng),
+      recorded_at: now,
+      updated_at: now,
+    })
+    .eq('driver_id', auth.driver.id);
+  if (error) return NextResponse.json({ error: 'Availability location could not be refreshed.' }, { status: 500 });
+  return NextResponse.json({ ok: true, available_until: presence.available_until });
 }
 
 export async function DELETE(request: NextRequest) {
