@@ -22,6 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.companyId) return respond(403, { error: 'Driver company is required for POD storage.' });
 
   const { id } = await params;
   const kind = request.headers.get('x-xdrive-evidence-kind')?.trim().toLowerCase() ?? '';
@@ -50,8 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (payload.length === 0) return respond(400, { error: 'Selected POD file is empty.' });
   if (payload.length > MAX_BYTES) return respond(413, { error: 'POD file must be 10 MB or smaller.' });
 
-  const folder = contentType === 'application/pdf' ? 'documents' : 'photos';
-  const storagePath = `${id}/${folder}/${objectName}`;
+  const storagePath = `${driver.companyId}/${id}/${objectName}`;
   const upload = await supabaseAdmin.storage
     .from('pod-photos')
     .upload(storagePath, payload, { contentType, upsert: false });
