@@ -20,16 +20,21 @@ type ActiveBidRow = {
   id: string;
   bidder_driver_id: string | null;
   bidder_user_id: string | null;
+  amount: number | null;
+  bid_price_gbp: number | null;
+  message: string | null;
 };
 
-async function findActiveBidForDriver(
+async function findMatchingActiveBidForDriver(
   supabaseAdmin: AdminClient,
   driver: DriverContext,
   jobId: string,
-): Promise<{ bid: ActiveBidRow | null; error: string | null }> {
+  amount: number,
+  message: string,
+): Promise<{ bid: ActiveBidRow | null; conflictingActiveBid: boolean; error: string | null }> {
   let query = supabaseAdmin
     .from('job_bids')
-    .select('id, bidder_driver_id, bidder_user_id')
+    .select('id, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, message')
     .eq('job_id', jobId)
     .in('status', ['submitted', 'accepted']);
 
@@ -38,12 +43,20 @@ async function findActiveBidForDriver(
     : query.is('company_id', null).eq('bidder_user_id', driver.userId);
 
   const { data, error } = await query.limit(1).maybeSingle();
-  if (error) return { bid: null, error: error.message };
-  if (!data) return { bid: null, error: null };
+  if (error) return { bid: null, conflictingActiveBid: false, error: error.message };
+  if (!data) return { bid: null, conflictingActiveBid: false, error: null };
 
   const bid = data as ActiveBidRow;
   const sameDriver = bid.bidder_driver_id === driver.driverId || bid.bidder_user_id === driver.userId;
-  return { bid: sameDriver ? bid : null, error: null };
+  const storedAmount = Number(bid.bid_price_gbp ?? bid.amount);
+  const sameAmount = Number.isFinite(storedAmount) && Math.abs(storedAmount - amount) < 0.000001;
+  const sameMessage = (bid.message ?? '').trim() === message;
+
+  return {
+    bid: sameDriver && sameAmount && sameMessage ? bid : null,
+    conflictingActiveBid: true,
+    error: null,
+  };
 }
 
 export async function submitDriverQuote(
@@ -77,7 +90,7 @@ export async function submitDriverQuote(
 
   if (!eligibility.eligible) {
     if (eligibility.denialReasons.includes('active_bid_exists')) {
-      const existing = await findActiveBidForDriver(supabaseAdmin, driver, jobId);
+      const existing = await findMatchingActiveBidForDriver(supabaseAdmin, driver, jobId, amount, message);
       if (existing.error) return { ok: false, status: 500, error: existing.error };
       if (existing.bid) {
         return { ok: true, status: 200, bidId: String(existing.bid.id), jobId, idempotent: true };
@@ -85,7 +98,7 @@ export async function submitDriverQuote(
       return {
         ok: false,
         status: 409,
-        error: 'Your company already has an active quote for this job.',
+        error: 'An active quote already exists for this job. Refresh before changing the quote.',
         denialReasons: eligibility.denialReasons,
       };
     }
@@ -140,9 +153,6 @@ export async function submitDriverQuote(
     }
   }
 
-  // Driver-originated bids are always attributable to the named driver. The
-  // company id carries commercial supplier context for company_driver; the
-  // accepted bidder_driver_id remains the execution identity for allocation.
   const { data: bid, error: insertError } = await supabaseAdmin
     .from('job_bids')
     .insert({
@@ -161,15 +171,16 @@ export async function submitDriverQuote(
 
   if (insertError) {
     if (insertError.code === '23505') {
-      // A concurrent retry may have created the row after eligibility was checked.
-      // Resolve the existing active bid and return success only when it belongs to
-      // this same authenticated driver. A different company driver remains a conflict.
-      const existing = await findActiveBidForDriver(supabaseAdmin, driver, jobId);
+      const existing = await findMatchingActiveBidForDriver(supabaseAdmin, driver, jobId, amount, message);
       if (existing.error) return { ok: false, status: 500, error: existing.error };
       if (existing.bid) {
         return { ok: true, status: 200, bidId: String(existing.bid.id), jobId, idempotent: true };
       }
-      return { ok: false, status: 409, error: 'Your company already has an active quote for this job.' };
+      return {
+        ok: false,
+        status: 409,
+        error: 'An active quote already exists for this job. Refresh before changing the quote.',
+      };
     }
     return { ok: false, status: 500, error: insertError.message };
   }
