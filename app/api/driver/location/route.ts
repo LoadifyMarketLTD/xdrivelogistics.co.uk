@@ -104,6 +104,7 @@ async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number)
   const recipientIds = [...new Set((recipients ?? []).map((row) => String(row.user_id ?? '')).filter(Boolean))];
   if (recipientIds.length === 0) return;
 
+  const now = new Date().toISOString();
   const payload = {
     job_id: job.id,
     eta_at: eta.etaAt,
@@ -119,6 +120,8 @@ async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number)
     company_id: job.company_id,
     recipient_user_id: recipientUserId,
     payload,
+    status: 'sent',
+    processed_at: now,
   })));
 }
 
@@ -213,8 +216,8 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  // Alert failures never roll back a successfully accepted GPS point, but we do
-  // await the attempt so serverless runtimes cannot discard it after response.
+  // In-app ETA alerts use the canonical notification_events feed directly.
+  // Alert failures never roll back a successfully accepted GPS point.
   await maybeCreateEtaAlerts(jobRow, lat, lng).catch(() => undefined);
 
   return NextResponse.json({ ok: true, job_id: jobRow.id });
