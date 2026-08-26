@@ -119,7 +119,7 @@ class PendingJobStatusStore(context: Context) {
     }
 
     private fun writeAll(items: List<PendingJobStatusUpdate>) {
-        prefs.edit().putString(KEY_QUEUE, gson.toJson(items)).apply()
+        prefs.edit().putString(KEY_QUEUE, gson.toJson(items)).commit()
     }
 
     private fun readFailures(): List<JobStatusSyncFailure> {
@@ -130,7 +130,7 @@ class PendingJobStatusStore(context: Context) {
     }
 
     private fun writeFailures(items: List<JobStatusSyncFailure>) {
-        prefs.edit().putString(KEY_FAILURES, gson.toJson(items)).apply()
+        prefs.edit().putString(KEY_FAILURES, gson.toJson(items)).commit()
     }
 
     companion object {
