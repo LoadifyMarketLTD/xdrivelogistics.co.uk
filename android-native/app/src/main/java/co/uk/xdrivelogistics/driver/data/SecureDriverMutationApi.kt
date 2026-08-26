@@ -96,7 +96,7 @@ class SecureDriverMutationApi(
             if (!response.isSuccessful) {
                 val message = extractError(raw, fallback)
                 if ((response.code == 401 || response.code == 403) && message.isNativeBindingMessage()) {
-                    throw DeviceSessionException(response.code, message)
+                    throw DeviceSessionException(response.code, "This device is no longer authorised for XDrive Driver.")
                 }
                 throw IllegalStateException("HTTP ${response.code}: $message")
             }
