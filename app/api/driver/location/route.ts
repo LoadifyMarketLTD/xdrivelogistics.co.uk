@@ -26,8 +26,8 @@ type EtaSnapshot = {
 };
 
 const ACTIVE_JOB_STATUSES = new Set([
-  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup',
-  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
+  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
 ]);
 const ETA_ALERT_MIN_LATE_MINUTES = 5;
 const ETA_ALERT_COOLDOWN_MS = 15 * 60_000;
@@ -213,8 +213,9 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  // Alerts are non-blocking: a notification outage must never prevent GPS ingestion.
-  void maybeCreateEtaAlerts(jobRow, lat, lng).catch(() => undefined);
+  // Alert failures never roll back a successfully accepted GPS point, but we do
+  // await the attempt so serverless runtimes cannot discard it after response.
+  await maybeCreateEtaAlerts(jobRow, lat, lng).catch(() => undefined);
 
   return NextResponse.json({ ok: true, job_id: jobRow.id });
 }
