@@ -19,6 +19,7 @@ import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.SecureDriverCommercialApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
+import co.uk.xdrivelogistics.driver.data.isDeviceSessionRevoked
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -45,6 +46,7 @@ class QuoteSyncWorker(
 
         val deviceValidation = sessionStore.validateDeviceBinding(session)
         if (deviceValidation.isFailure && deviceValidation.exceptionOrNull().isDeviceSessionRevoked()) {
+            sessionStore.clear(redirectToLogin = false)
             return Result.success()
         }
         if (deviceValidation.isFailure) return Result.retry()
@@ -74,12 +76,20 @@ class QuoteSyncWorker(
             }
 
             var result = commercialApi.submitJobQuote(session, action.jobId, action.amount, action.note)
+            if (result.isFailure && result.exceptionOrNull().isDeviceSessionRevoked()) {
+                sessionStore.clear(redirectToLogin = false)
+                return Result.success()
+            }
             if (result.isFailure && result.exceptionOrNull().isQuoteSessionFailure()) {
                 val refreshed = api.refreshSession(session)
                 if (refreshed.isSuccess) {
                     session = refreshed.getOrThrow()
                     sessionStore.saveSession(session)
                     result = commercialApi.submitJobQuote(session, action.jobId, action.amount, action.note)
+                    if (result.isFailure && result.exceptionOrNull().isDeviceSessionRevoked()) {
+                        sessionStore.clear(redirectToLogin = false)
+                        return Result.success()
+                    }
                 } else {
                     return if (refreshed.exceptionOrNull().isRetryableQuoteFailure()) Result.retry() else Result.success()
                 }
@@ -181,6 +191,7 @@ internal fun Throwable?.isRetryableQuoteFailure(): Boolean {
 }
 
 internal fun Throwable?.isQuoteSessionFailure(): Boolean {
+    if (this.isDeviceSessionRevoked()) return false
     val text = this?.message.orEmpty().lowercase()
     return "jwt" in text ||
         "token" in text ||
