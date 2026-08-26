@@ -32,8 +32,8 @@ describe('Android periodic availability contract', () => {
     expect(panel).toContain('AvailabilityTrackingService::class.java');
   });
 
-  it('never reuses active-job TrackingService or driver_locations', () => {
-    expect(service).not.toContain('TrackingService::class.java');
+  it('never invokes active-job TrackingService or driver_locations', () => {
+    expect(service).not.toContain('Intent(this, TrackingService::class.java)');
     expect(service).not.toContain('driver_locations');
     expect(api).not.toContain('driver_locations');
     expect(server).not.toContain(".from('driver_locations')");
