@@ -34,6 +34,8 @@ type TrackingPayload = {
   error?: string;
 };
 
+type SharePayload = { share_url?: string; expires_at?: string; error?: string };
+
 const when = (value?: string | null) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not available';
@@ -42,6 +44,8 @@ export default function JobLiveTrackingPanel({ jobId }: { jobId: string }) {
   const [payload, setPayload] = useState<TrackingPayload | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMessage, setShareMessage] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +66,49 @@ export default function JobLiveTrackingPanel({ jobId }: { jobId: string }) {
       setLoading(false);
     }
   }, [jobId]);
+
+  const createShareLink = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error('Your session has expired. Sign in again.');
+    const response = await fetch(`/api/tracking/jobs/${jobId}/share`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    const next = await response.json().catch(() => ({})) as SharePayload;
+    if (!response.ok || !next.share_url) throw new Error(next.error ?? 'Secure tracking link could not be created.');
+    return next.share_url;
+  }, [jobId]);
+
+  const copyShareLink = useCallback(async () => {
+    setShareBusy(true);
+    setShareMessage('');
+    try {
+      const shareUrl = await createShareLink();
+      await navigator.clipboard.writeText(shareUrl);
+      setShareMessage('Secure live tracking link copied.');
+    } catch (reason) {
+      setShareMessage(reason instanceof Error ? reason.message : 'Tracking link could not be copied.');
+    } finally {
+      setShareBusy(false);
+    }
+  }, [createShareLink]);
+
+  const shareOnWhatsApp = useCallback(async () => {
+    setShareBusy(true);
+    setShareMessage('');
+    try {
+      const shareUrl = await createShareLink();
+      const message = `XDrive Live Delivery Tracking\nTrack this active delivery here: ${shareUrl}\nThis secure read-only link stops working when the live transport ends.`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+      setShareMessage('WhatsApp share opened with a secure tracking link.');
+    } catch (reason) {
+      setShareMessage(reason instanceof Error ? reason.message : 'WhatsApp sharing could not be started.');
+    } finally {
+      setShareBusy(false);
+    }
+  }, [createShareLink]);
 
   useEffect(() => {
     void load();
@@ -127,6 +174,16 @@ export default function JobLiveTrackingPanel({ jobId }: { jobId: string }) {
           ) : (
             <span>{payload.eta_provider_configured ? 'Traffic ETA temporarily unavailable' : 'Traffic ETA awaiting routing provider configuration'}</span>
           )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" onClick={() => { void shareOnWhatsApp(); }} disabled={shareBusy}>
+            Share Live Tracking via WhatsApp
+          </button>
+          <button type="button" onClick={() => { void copyShareLink(); }} disabled={shareBusy}>
+            Copy Tracking Link
+          </button>
+          {shareMessage && <span className="workspace-record-meta">{shareMessage}</span>}
         </div>
       </div>
     </Panel>
