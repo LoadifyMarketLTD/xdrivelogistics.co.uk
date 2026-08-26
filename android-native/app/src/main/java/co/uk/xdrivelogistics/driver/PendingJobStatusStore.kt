@@ -16,14 +16,20 @@ data class PendingJobStatusUpdate(
     val jobId: String,
     val nextStatus: String,
     val createdAtEpochMs: Long,
-    val blocked: Boolean = false,
-    val lastError: String? = null,
+)
+
+private data class JobStatusSyncFailure(
+    val userId: String,
+    val jobId: String,
+    val message: String,
+    val createdAtEpochMs: Long,
 )
 
 class PendingJobStatusStore(context: Context) {
     private val appContext = context.applicationContext
     private val gson = Gson()
     private val listType = object : TypeToken<List<PendingJobStatusUpdate>>() {}.type
+    private val failureListType = object : TypeToken<List<JobStatusSyncFailure>>() {}.type
     private val prefs: SharedPreferences by lazy {
         val masterKey = MasterKey.Builder(appContext)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -42,7 +48,7 @@ class PendingJobStatusStore(context: Context) {
         val canonical = normalizeDriverStatus(nextStatus)
         val current = readAll().toMutableList()
         current.firstOrNull {
-            !it.blocked && it.userId == userId && it.driverId == driverId && it.jobId == jobId && it.nextStatus == canonical
+            it.userId == userId && it.driverId == driverId && it.jobId == jobId && it.nextStatus == canonical
         }?.let { return it }
 
         val action = PendingJobStatusUpdate(
@@ -61,7 +67,7 @@ class PendingJobStatusStore(context: Context) {
     @Synchronized
     fun pendingForUser(userId: String): List<PendingJobStatusUpdate> =
         readAll()
-            .filter { it.userId == userId && !it.blocked }
+            .filter { it.userId == userId }
             .sortedBy { it.createdAtEpochMs }
 
     @Synchronized
@@ -73,12 +79,24 @@ class PendingJobStatusStore(context: Context) {
     }
 
     @Synchronized
-    fun markBlocked(id: String, error: String) {
-        writeAll(
-            readAll().map {
-                if (it.id == id) it.copy(blocked = true, lastError = error.take(500)) else it
-            },
+    fun failJob(userId: String, jobId: String, error: String) {
+        writeAll(readAll().filterNot { it.userId == userId && it.jobId == jobId })
+        val failures = readFailures().filterNot { it.userId == userId && it.jobId == jobId }.toMutableList()
+        failures += JobStatusSyncFailure(
+            userId = userId,
+            jobId = jobId,
+            message = error.take(500),
+            createdAtEpochMs = System.currentTimeMillis(),
         )
+        writeFailures(failures)
+    }
+
+    @Synchronized
+    fun consumeFailureForUser(userId: String): String? {
+        val failures = readFailures().sortedBy { it.createdAtEpochMs }
+        val failure = failures.firstOrNull { it.userId == userId } ?: return null
+        writeFailures(failures.filterNot { it === failure })
+        return "A saved job status could not be synced: ${failure.message} Refresh the job before continuing."
     }
 
     @Synchronized
@@ -104,8 +122,20 @@ class PendingJobStatusStore(context: Context) {
         prefs.edit().putString(KEY_QUEUE, gson.toJson(items)).apply()
     }
 
+    private fun readFailures(): List<JobStatusSyncFailure> {
+        val raw = prefs.getString(KEY_FAILURES, null) ?: return emptyList()
+        return runCatching { gson.fromJson<List<JobStatusSyncFailure>>(raw, failureListType) }
+            .getOrNull()
+            .orEmpty()
+    }
+
+    private fun writeFailures(items: List<JobStatusSyncFailure>) {
+        prefs.edit().putString(KEY_FAILURES, gson.toJson(items)).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "xdrive_pending_job_status"
         private const val KEY_QUEUE = "queue"
+        private const val KEY_FAILURES = "failures"
     }
 }
