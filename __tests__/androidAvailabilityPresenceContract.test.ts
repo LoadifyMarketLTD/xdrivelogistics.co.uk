@@ -7,6 +7,10 @@ describe('Android availability presence contract', () => {
     path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/AvailabilityPresenceApi.kt'),
     'utf8',
   );
+  const controller = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/AvailabilityPresenceController.kt'),
+    'utf8',
+  );
 
   it('uses the dedicated server availability endpoint only', () => {
     expect(source).toContain('/api/driver/availability-presence');
@@ -27,5 +31,14 @@ describe('Android availability presence contract', () => {
     expect(source).toContain('Bearer $accessToken');
     expect(source).not.toContain('SUPABASE');
     expect(source).not.toContain('supabase');
+  });
+
+  it('publishes one explicit location without starting job foreground tracking', () => {
+    expect(controller).toContain('getFusedLocationProviderClient');
+    expect(controller).toContain('locationClient.lastLocation');
+    expect(controller).toContain('hasLocationPermission');
+    expect(controller).not.toContain('startForegroundService');
+    expect(controller).not.toContain('Intent(');
+    expect(controller).not.toContain('TrackingService::class.java');
   });
 });
