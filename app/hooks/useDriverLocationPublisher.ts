@@ -1,26 +1,36 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-const PUBLISH_INTERVAL_MS = 30_000; // publish every 30 s
-const ACTIVE_STATUSES = ['allocated', 'collected', 'in_transit'];
+const PUBLISH_INTERVAL_MS = 30_000;
+const ACTIVE_STATUSES = new Set([
+  'allocated',
+  'accepted',
+  'on_my_way',
+  'on_my_way_to_pickup',
+  'on_site_pickup',
+  'loaded',
+  'collected',
+  'in_transit',
+  'on_my_way_to_delivery',
+  'on_site_delivery',
+]);
 
 /**
- * Publishes the driver's GPS position to /api/driver/location while the job
- * is in an active state (allocated, collected, in_transit).
- *
- * @param jobStatus  Current job status string (or null when no active job).
- * @param enabled    Pass `false` to unconditionally disable publishing
- *                   (e.g. when Supabase is not configured).
+ * Publishes GPS throughout the complete active execution lifecycle. The API
+ * resolves the authenticated driver's single active assigned job when jobId is
+ * omitted, and always persists the resolved job id with the location row.
  */
 export function useDriverLocationPublisher(
   jobStatus: string | null | undefined,
   enabled = true,
+  jobId?: string | null,
 ) {
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPositionRef = useRef<GeolocationPosition | null>(null);
 
-  const isActive = enabled && Boolean(jobStatus && ACTIVE_STATUSES.includes(jobStatus));
+  const normalisedStatus = String(jobStatus ?? '').trim().toLowerCase();
+  const isActive = enabled && ACTIVE_STATUSES.has(normalisedStatus);
 
   const cleanup = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -36,61 +46,50 @@ export function useDriverLocationPublisher(
 
   const publishPosition = useCallback(async () => {
     const pos = lastPositionRef.current;
-    if (!pos) return;
+    if (!pos || !isActive) return;
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return;
 
-      const speedMph =
-        pos.coords.speed != null
-          ? Math.round(pos.coords.speed * 2.237 * 10) / 10 // m/s → mph
-          : null;
+      const speedMph = pos.coords.speed != null
+        ? Math.round(pos.coords.speed * 2.237 * 10) / 10
+        : null;
 
       await fetch('/api/driver/location', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + token,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          lat:       pos.coords.latitude,
-          lng:       pos.coords.longitude,
-          heading:   pos.coords.heading ?? null,
+          ...(jobId ? { job_id: jobId } : {}),
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          heading: pos.coords.heading ?? null,
           speed_mph: speedMph,
         }),
       });
     } catch {
-      // network errors are silently swallowed — telemetry is best-effort
+      // Telemetry is best-effort; the next scheduled point retries naturally.
     }
-  }, []);
+  }, [isActive, jobId]);
 
   useEffect(() => {
     if (!isActive) {
       cleanup();
       return;
     }
+    if (!('geolocation' in navigator)) return;
 
-    if (!('geolocation' in navigator)) {
-      return;
-    }
-
-    // Start watching position
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => { lastPositionRef.current = pos; },
-      () => { /* silently ignore geolocation errors */ },
+      (pos) => { lastPositionRef.current = pos; void publishPosition(); },
+      () => { /* browser permission/GPS failures remain non-blocking */ },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 5_000 },
     );
 
-    // Publish on a fixed interval regardless of movement
-    intervalRef.current = setInterval(() => {
-      void publishPosition();
-    }, PUBLISH_INTERVAL_MS);
-
-    // Publish immediately so the position appears right away
-    void publishPosition();
-
+    intervalRef.current = setInterval(() => { void publishPosition(); }, PUBLISH_INTERVAL_MS);
     return () => { cleanup(); };
   }, [cleanup, isActive, publishPosition]);
 }
