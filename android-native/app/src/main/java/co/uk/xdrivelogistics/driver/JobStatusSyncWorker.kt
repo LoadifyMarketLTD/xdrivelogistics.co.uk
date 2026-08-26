@@ -10,7 +10,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.uk.xdrivelogistics.driver.data.ApiClient
-import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -33,8 +32,6 @@ class JobStatusSyncWorker(
         if (actions.isEmpty()) return Result.success()
 
         for (action in actions) {
-            if (action.userId != session.userId) continue
-
             var update = api.updateJobStatus(session, action.driverId, action.jobId, action.nextStatus)
             if (update.isFailure && update.exceptionOrNull().isStatusSessionFailure()) {
                 val refreshed = api.refreshSession(session)
@@ -57,9 +54,10 @@ class JobStatusSyncWorker(
             if (error.isRetryableStatusSyncFailure()) return Result.retry()
             if (error.isStatusSessionFailure()) return Result.success()
 
-            pendingStore.markBlocked(
-                action.id,
-                error?.message ?: "Status update was rejected by the server.",
+            pendingStore.failJob(
+                userId = action.userId,
+                jobId = action.jobId,
+                error = error?.message ?: "Status update was rejected by the server.",
             )
             return Result.success()
         }
