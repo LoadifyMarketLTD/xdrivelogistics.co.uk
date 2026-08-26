@@ -29,12 +29,15 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     private val sessionStore by lazy { SessionStore(applicationContext) }
     private val trackingStateApi by lazy { TrackingStateApi(BuildConfig.XDRIVE_BASE_URL) }
     private val availabilityApi by lazy { AvailabilityPresenceApi(BuildConfig.XDRIVE_BASE_URL) }
+    private val pushRegistrationManager by lazy { PushRegistrationManager(applicationContext) }
     private var reconciliationJob: Job? = null
     private var resumedActivities = 0
+    private var pushRegisteredUserId: String? = null
 
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+        pushRegistrationManager.initializeFirebase()
     }
 
     override fun onTerminate() {
@@ -47,6 +50,7 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     override fun onActivityResumed(activity: Activity) {
         resumedActivities += 1
         isAppVisible = true
+        scope.launch { reconcilePushRegistration() }
         if (reconciliationJob?.isActive == true) return
         reconciliationJob = scope.launch {
             while (isActive && resumedActivities > 0) {
@@ -62,6 +66,18 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
             isAppVisible = false
             reconciliationJob?.cancel()
             reconciliationJob = null
+        }
+    }
+
+    private suspend fun reconcilePushRegistration() {
+        val session = runCatching { sessionStore.readSession() }.getOrNull() ?: run {
+            pushRegisteredUserId = null
+            return
+        }
+        if (!pushRegistrationManager.isConfigured()) return
+        if (pushRegisteredUserId == session.userId) return
+        if (pushRegistrationManager.ensureRegistered(session).isSuccess) {
+            pushRegisteredUserId = session.userId
         }
     }
 
