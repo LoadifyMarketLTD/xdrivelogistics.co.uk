@@ -50,9 +50,10 @@ async function findPriorBidForDriver(
   const storedAmount = Number(bid.bid_price_gbp ?? bid.amount);
   const sameAmount = Number.isFinite(storedAmount) && Math.abs(storedAmount - amount) < 0.000001;
   const sameMessage = (bid.message ?? '').trim() === message;
+  const retryableStatus = (bid.status ?? '').toLowerCase() === 'submitted' || (bid.status ?? '').toLowerCase() === 'accepted';
 
   return {
-    matchingRetry: sameIdentity && sameAmount && sameMessage ? bid : null,
+    matchingRetry: sameIdentity && sameAmount && sameMessage && retryableStatus ? bid : null,
     priorBidExists: true,
     error: null,
   };
