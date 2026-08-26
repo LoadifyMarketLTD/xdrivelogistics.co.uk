@@ -42,9 +42,10 @@ import kotlinx.coroutines.launch
 /**
  * Explicit pre-award availability control.
  *
- * This remains separate from active-job TrackingService. Start publishes one
- * fresh fix, then AvailabilityTrackingService refreshes only the availability
- * presence every five minutes until the original 1/4/8 hour expiry.
+ * Availability data remains separate from active-job GPS on the server, while
+ * the phone uses one foreground TrackingService runtime. The runtime publishes
+ * availability every five minutes and can switch internally to mandatory
+ * active-job tracking without starting a second location service in background.
  */
 @Composable
 fun AvailabilityPresencePanel(session: DriverSession?) {
@@ -65,16 +66,19 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
         return fine || coarse
     }
 
-    fun startPeriodicService() {
+    fun startLocationRuntime() {
         if (!hasLocationPermission()) return
         ContextCompat.startForegroundService(
             context,
-            Intent(context, AvailabilityTrackingService::class.java),
+            Intent(context, TrackingService::class.java),
         )
     }
 
-    fun stopPeriodicService() {
-        context.stopService(Intent(context, AvailabilityTrackingService::class.java))
+    fun reconcileStopAvailability() {
+        ContextCompat.startForegroundService(
+            context,
+            Intent(context, TrackingService::class.java).setAction(TrackingService.ACTION_STOP_AVAILABILITY),
+        )
     }
 
     fun startAvailability() {
@@ -90,7 +94,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
             ).onSuccess { presence ->
                 visibility = presence.visibility.ifBlank { visibility }
                 state = AvailabilityPresenceUiState.from(presence).copy(message = "Availability sharing is active and will refresh every 5 minutes.")
-                startPeriodicService()
+                startLocationRuntime()
             }.onFailure { error ->
                 state = state.copy(isSaving = false, error = error.message ?: "Availability could not be started.")
             }
@@ -110,7 +114,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
 
     LaunchedEffect(session?.accessToken) {
         val currentSession = session ?: run {
-            stopPeriodicService()
+            context.stopService(Intent(context, TrackingService::class.java))
             state = AvailabilityPresenceUiState()
             visibility = "private"
             return@LaunchedEffect
@@ -119,8 +123,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
             .onSuccess { presence ->
                 visibility = presence.visibility.ifBlank { "private" }
                 state = AvailabilityPresenceUiState.from(presence)
-                if (presence.active && hasLocationPermission()) startPeriodicService()
-                else if (!presence.active) stopPeriodicService()
+                if (presence.active && hasLocationPermission()) startLocationRuntime()
             }
             .onFailure { error -> state = state.copy(error = error.message ?: "Availability status could not be loaded.") }
     }
@@ -136,7 +139,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                 Column(Modifier.weight(1f)) {
                     Text("Available for work", color = XDriveTheme.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Text(
-                        "Optional pre-award location sharing for Fleet and load matching. While ON, availability location refreshes every 5 minutes. Active-job tracking remains separate.",
+                        "Optional pre-award location sharing for Fleet and load matching. While ON, availability refreshes every 5 minutes; an allocated job switches the same phone runtime to secure job tracking.",
                         color = XDriveTheme.TextSecondary,
                         fontSize = 13.sp,
                     )
@@ -184,7 +187,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                         scope.launch {
                             controller.stop(currentSession)
                                 .onSuccess {
-                                    stopPeriodicService()
+                                    reconcileStopAvailability()
                                     state = AvailabilityPresenceUiState(message = "Availability sharing stopped.")
                                 }
                                 .onFailure { error -> state = state.copy(isSaving = false, error = error.message ?: "Availability could not be stopped.") }
