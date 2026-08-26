@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -76,6 +77,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                 hours = hours,
                 hasLocationPermission = hasLocationPermission(),
             ).onSuccess { presence ->
+                visibility = presence.visibility.ifBlank { visibility }
                 state = AvailabilityPresenceUiState.from(presence).copy(message = "Availability sharing is active.")
             }.onFailure { error ->
                 state = state.copy(isSaving = false, error = error.message ?: "Availability could not be started.")
@@ -97,10 +99,14 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
     LaunchedEffect(session?.accessToken) {
         val currentSession = session ?: run {
             state = AvailabilityPresenceUiState()
+            visibility = "private"
             return@LaunchedEffect
         }
         controller.load(currentSession)
-            .onSuccess { presence -> state = AvailabilityPresenceUiState.from(presence) }
+            .onSuccess { presence ->
+                visibility = presence.visibility.ifBlank { "private" }
+                state = AvailabilityPresenceUiState.from(presence)
+            }
             .onFailure { error -> state = state.copy(error = error.message ?: "Availability status could not be loaded.") }
     }
 
