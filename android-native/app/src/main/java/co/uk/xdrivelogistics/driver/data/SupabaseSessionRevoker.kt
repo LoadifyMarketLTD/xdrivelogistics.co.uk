@@ -34,20 +34,17 @@ internal class SupabaseSessionRevoker(
                 "Supabase Auth is not configured."
             }
 
-            when (val first = logout(session.accessToken)) {
-                LogoutResult.SUCCESS,
-                LogoutResult.ALREADY_REVOKED -> Unit
+            when (logout(session.accessToken)) {
+                LogoutResult.SUCCESS -> Unit
                 LogoutResult.AUTH_EXPIRED -> {
                     val refreshed = refresh(session.refreshToken)
                     if (refreshed == null) {
-                        // The refresh token is no longer usable, which means the
-                        // server session can no longer be refreshed and is already
-                        // effectively terminated.
+                        // The refresh token is no longer usable, so this session can
+                        // no longer mint credentials and is effectively terminated.
                         Unit
                     } else {
                         when (logout(refreshed)) {
-                            LogoutResult.SUCCESS,
-                            LogoutResult.ALREADY_REVOKED -> Unit
+                            LogoutResult.SUCCESS -> Unit
                             LogoutResult.AUTH_EXPIRED -> throw IllegalStateException("Session revocation could not be confirmed.")
                             LogoutResult.RETRY -> throw IOException("Session revocation is temporarily unavailable.")
                         }
@@ -72,8 +69,7 @@ internal class SupabaseSessionRevoker(
                 when {
                     response.isSuccessful -> LogoutResult.SUCCESS
                     response.code == 401 || response.code == 403 -> LogoutResult.AUTH_EXPIRED
-                    response.code in 500..599 || response.code == 408 || response.code == 429 -> LogoutResult.RETRY
-                    else -> LogoutResult.ALREADY_REVOKED
+                    else -> LogoutResult.RETRY
                 }
             }
         } catch (_: IOException) {
@@ -91,27 +87,23 @@ internal class SupabaseSessionRevoker(
             .post(gson.toJson(body).toRequestBody(jsonMediaType))
             .build()
 
-        return try {
-            http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    if (response.code == 401 || response.code == 403 || response.code == 400) return null
-                    throw IOException("Session refresh for revocation failed (${response.code}).")
-                }
-                val raw = response.body?.string().orEmpty()
-                gson.fromJson(raw, JsonObject::class.java)
-                    ?.get("access_token")
-                    ?.takeUnless { it.isJsonNull }
-                    ?.asString
-                    ?.takeIf { it.isNotBlank() }
+        return http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                if (response.code == 400 || response.code == 401 || response.code == 403) return null
+                throw IOException("Session refresh for revocation failed (${response.code}).")
             }
-        } catch (error: IOException) {
-            throw error
+            val raw = response.body?.string().orEmpty()
+            gson.fromJson(raw, JsonObject::class.java)
+                ?.get("access_token")
+                ?.takeUnless { it.isJsonNull }
+                ?.asString
+                ?.takeIf { it.isNotBlank() }
+                ?: throw IOException("Session refresh for revocation returned no access token.")
         }
     }
 
     private enum class LogoutResult {
         SUCCESS,
-        ALREADY_REVOKED,
         AUTH_EXPIRED,
         RETRY,
     }
