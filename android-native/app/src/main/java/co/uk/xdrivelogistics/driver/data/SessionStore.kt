@@ -29,6 +29,7 @@ class SessionStore(context: Context) {
             supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
         )
     }
+    private val pushApi by lazy { PushRegistrationApi(BuildConfig.XDRIVE_BASE_URL) }
     private val prefs: SharedPreferences by lazy {
         val masterKey = MasterKey.Builder(appContext)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -97,11 +98,13 @@ class SessionStore(context: Context) {
             return
         }
 
-        // Make logout immediate on-device. Keep a separate encrypted pending copy
-        // only long enough to confirm server revocation or retry after a transient
-        // network failure.
+        // Logout is immediate on-device. Push endpoint cleanup is best-effort,
+        // but it must never block Supabase Auth revocation. Push rows are also
+        // bound to auth_session_id server-side, so a successfully revoked session
+        // is no longer eligible for delivery even if token deletion was offline.
         savePendingRevocation(current)
         clearActiveSession()
+        unregisterPushBestEffort(current)
 
         if (revoker.revoke(current).isSuccess) {
             clearPendingRevocation()
@@ -110,9 +113,19 @@ class SessionStore(context: Context) {
 
     private suspend fun retryPendingRevocation() {
         val pending = readPendingRevocation() ?: return
+        unregisterPushBestEffort(pending)
         if (revoker.revoke(pending).isSuccess) {
             clearPendingRevocation()
         }
+    }
+
+    private suspend fun unregisterPushBestEffort(session: DriverSession) {
+        val installationId = appContext
+            .getSharedPreferences("xdrive_push_installation", Context.MODE_PRIVATE)
+            .getString("installation_id", null)
+            ?.takeIf { it.isNotBlank() }
+            ?: return
+        pushApi.unregister(session, installationId)
     }
 
     private fun readPendingRevocation(): DriverSession? {

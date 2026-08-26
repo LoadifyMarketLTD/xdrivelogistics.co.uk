@@ -6,6 +6,10 @@ plugins {
 val xdriveBaseUrl = (project.findProperty("XDRIVE_BASE_URL") as String?) ?: "https://www.xdrivelogistics.co.uk"
 val supabaseUrl = (project.findProperty("XDRIVE_SUPABASE_URL") as String?) ?: ""
 val supabaseAnonKey = (project.findProperty("XDRIVE_SUPABASE_ANON_KEY") as String?) ?: ""
+val firebaseProjectId = (project.findProperty("XDRIVE_FIREBASE_PROJECT_ID") as String?) ?: ""
+val firebaseApplicationId = (project.findProperty("XDRIVE_FIREBASE_APPLICATION_ID") as String?) ?: ""
+val firebaseApiKey = (project.findProperty("XDRIVE_FIREBASE_API_KEY") as String?) ?: ""
+val firebaseSenderId = (project.findProperty("XDRIVE_FIREBASE_SENDER_ID") as String?) ?: ""
 
 android {
     namespace = "co.uk.xdrivelogistics.driver"
@@ -24,6 +28,10 @@ android {
         buildConfigField("String", "XDRIVE_BASE_URL", "\"$xdriveBaseUrl\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$firebaseProjectId\"")
+        buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"$firebaseApplicationId\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"$firebaseApiKey\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"$firebaseSenderId\"")
     }
 
     buildTypes {
@@ -63,9 +71,11 @@ android {
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
+    val firebaseBom = platform("com.google.firebase:firebase-bom:34.18.0")
 
     implementation(composeBom)
     androidTestImplementation(composeBom)
+    implementation(firebaseBom)
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
@@ -87,6 +97,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
