@@ -19,6 +19,7 @@ import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.SecureDriverMutationApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
+import co.uk.xdrivelogistics.driver.data.isDeviceSessionRevoked
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -42,6 +43,13 @@ class PodSyncWorker(
         var session = sessionStore.readSession() ?: return Result.success()
         val actions = pendingStore.pendingForUser(session.userId)
         if (actions.isEmpty()) return Result.success()
+
+        val deviceValidation = sessionStore.validateDeviceBinding(session)
+        if (deviceValidation.isFailure && deviceValidation.exceptionOrNull().isDeviceSessionRevoked()) {
+            sessionStore.clear(redirectToLogin = false)
+            return Result.success()
+        }
+        if (deviceValidation.isFailure) return Result.retry()
 
         var profileResult = api.resolveDriverProfile(session)
         if (profileResult.isFailure && profileResult.exceptionOrNull().isPodSessionFailure()) {
@@ -78,17 +86,21 @@ class PodSyncWorker(
             }
             val payload = payloadResult.getOrThrow()
 
-            // POD bytes and job-link mutation now cross the XDrive mobile security
-            // boundary. A superseded device with a still-valid Supabase JWT cannot
-            // upload/link evidence because the server requires the current native
-            // installation id + auth session binding before touching Storage/jobs.
             var upload = mutationApi.uploadPodEvidence(session, action, payload)
+            if (upload.isFailure && upload.exceptionOrNull().isDeviceSessionRevoked()) {
+                sessionStore.clear(redirectToLogin = false)
+                return Result.success()
+            }
             if (upload.isFailure && upload.exceptionOrNull().isPodSessionFailure()) {
                 val refreshed = api.refreshSession(session)
                 if (refreshed.isSuccess) {
                     session = refreshed.getOrThrow()
                     sessionStore.saveSession(session)
                     upload = mutationApi.uploadPodEvidence(session, action, payload)
+                    if (upload.isFailure && upload.exceptionOrNull().isDeviceSessionRevoked()) {
+                        sessionStore.clear(redirectToLogin = false)
+                        return Result.success()
+                    }
                 } else {
                     val refreshError = refreshed.exceptionOrNull()
                     return if (refreshError.isRetryablePodSyncFailure()) Result.retry() else Result.success()
@@ -192,13 +204,12 @@ internal fun Throwable?.isRetryablePodSyncFailure(): Boolean {
 }
 
 internal fun Throwable?.isPodSessionFailure(): Boolean {
+    if (this.isDeviceSessionRevoked()) return false
     val text = this?.message.orEmpty().lowercase()
     return "jwt" in text ||
         "token" in text ||
         "http 401" in text ||
         "unauthorized" in text ||
         "authentication required" in text ||
-        "session" in text ||
-        "revoked or replaced" in text ||
-        "active native device identity" in text
+        "session" in text
 }
