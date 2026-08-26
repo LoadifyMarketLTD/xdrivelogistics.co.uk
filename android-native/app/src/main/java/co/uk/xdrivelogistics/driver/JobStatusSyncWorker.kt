@@ -1,6 +1,12 @@
 package co.uk.xdrivelogistics.driver
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -54,15 +60,54 @@ class JobStatusSyncWorker(
             if (error.isRetryableStatusSyncFailure()) return Result.retry()
             if (error.isStatusSessionFailure()) return Result.success()
 
+            val message = error?.message ?: "Status update was rejected by the server."
             pendingStore.failJob(
                 userId = action.userId,
                 jobId = action.jobId,
-                error = error?.message ?: "Status update was rejected by the server.",
+                error = message,
             )
+            notifyTerminalFailure(action.jobId, message)
             return Result.success()
         }
 
         return Result.success()
+    }
+
+    private fun notifyTerminalFailure(jobId: String, message: String) {
+        runCatching {
+            val manager = applicationContext.getSystemService(NotificationManager::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        FAILURE_CHANNEL_ID,
+                        "Driver status sync",
+                        NotificationManager.IMPORTANCE_DEFAULT,
+                    ),
+                )
+            }
+            val openApp = PendingIntent.getActivity(
+                applicationContext,
+                0,
+                Intent(applicationContext, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            manager.notify(
+                FAILURE_NOTIFICATION_ID,
+                NotificationCompat.Builder(applicationContext, FAILURE_CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.stat_notify_error)
+                    .setContentTitle("XDrive status sync needs attention")
+                    .setContentText("Job ${jobId.take(8).uppercase()}: ${message.take(120)}")
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(message.take(500)))
+                    .setContentIntent(openApp)
+                    .setAutoCancel(true)
+                    .build(),
+            )
+        }
+    }
+
+    companion object {
+        private const val FAILURE_CHANNEL_ID = "xdrive_driver_status_sync"
+        private const val FAILURE_NOTIFICATION_ID = 4603
     }
 }
 
