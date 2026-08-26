@@ -19,6 +19,7 @@ internal enum class UploadOutcome {
     SUCCESS,
     RETRY,
     AUTH_REQUIRED,
+    JOB_NOT_ACTIVE,
 }
 
 internal fun Throwable.isAuthenticationFailure(): Boolean {
