@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.core.content.ContextCompat
+import co.uk.xdrivelogistics.driver.data.AvailabilityPresenceApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.data.TrackingStateApi
 import kotlinx.coroutines.CoroutineScope
@@ -19,17 +20,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Reconciles active-job tracking only while the driver app is visible.
- *
- * Android 12+ restricts starting a location foreground service from the
- * background. This coordinator therefore checks server-authoritative job state
- * while an Activity is resumed, then starts TrackingService from that visible
- * state. Once started, TrackingService is allowed to continue in background.
+ * Starts/reconciles the single foreground location runtime only while the app
+ * is visible. The already-running TrackingService then owns both JOB and
+ * AVAILABILITY modes and can switch between them without a background FGS start.
  */
 class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val sessionStore by lazy { SessionStore(applicationContext) }
     private val trackingStateApi by lazy { TrackingStateApi(BuildConfig.XDRIVE_BASE_URL) }
+    private val availabilityApi by lazy { AvailabilityPresenceApi(BuildConfig.XDRIVE_BASE_URL) }
     private var reconciliationJob: Job? = null
     private var resumedActivities = 0
 
@@ -47,10 +46,11 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
 
     override fun onActivityResumed(activity: Activity) {
         resumedActivities += 1
+        isAppVisible = true
         if (reconciliationJob?.isActive == true) return
         reconciliationJob = scope.launch {
             while (isActive && resumedActivities > 0) {
-                reconcileTracking()
+                reconcileLocationRuntime()
                 delay(RECONCILE_INTERVAL_MS)
             }
         }
@@ -59,22 +59,28 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     override fun onActivityPaused(activity: Activity) {
         resumedActivities = (resumedActivities - 1).coerceAtLeast(0)
         if (resumedActivities == 0) {
+            isAppVisible = false
             reconciliationJob?.cancel()
             reconciliationJob = null
         }
     }
 
-    private suspend fun reconcileTracking() {
+    private suspend fun reconcileLocationRuntime() {
         val session = runCatching { sessionStore.readSession() }.getOrNull() ?: return
-        val state = trackingStateApi.load(session.accessToken).getOrNull() ?: return
-        if (!state.shouldTrack) return
         if (!hasForegroundLocationPermission()) return
+
+        val activeJob = trackingStateApi.load(session.accessToken).getOrNull()?.shouldTrack == true
+        val activeAvailability = if (activeJob) {
+            false
+        } else {
+            availabilityApi.load(session).getOrNull()?.active == true
+        }
+        if (!activeJob && !activeAvailability) return
 
         runCatching {
             ContextCompat.startForegroundService(
                 applicationContext,
-                Intent(applicationContext, TrackingService::class.java)
-                    .putExtra(EXTRA_RECONCILED_JOB_ID, state.jobId),
+                Intent(applicationContext, TrackingService::class.java),
             )
         }
     }
@@ -92,6 +98,10 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     override fun onActivityDestroyed(activity: Activity) = Unit
 
     companion object {
+        @Volatile
+        var isAppVisible: Boolean = false
+            private set
+
         const val EXTRA_RECONCILED_JOB_ID = "xdrive_reconciled_job_id"
         private const val RECONCILE_INTERVAL_MS = 30_000L
     }
