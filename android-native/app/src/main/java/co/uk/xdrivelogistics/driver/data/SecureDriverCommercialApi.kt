@@ -98,7 +98,9 @@ class SecureDriverCommercialApi(
             .build()
         http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException(extractError(raw, "Failed to submit quote."))
+            if (!response.isSuccessful) {
+                throw IllegalStateException("HTTP ${response.code}: ${extractError(raw, "Failed to submit quote.")}")
+            }
         }
     }
 
@@ -179,7 +181,7 @@ class SecureDriverCommercialApi(
             .build()
         return http.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException(extractError(raw, "XDrive request failed."))
+            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}: ${extractError(raw, "XDrive request failed.")}")
             runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull() ?: JsonObject()
         }
     }
