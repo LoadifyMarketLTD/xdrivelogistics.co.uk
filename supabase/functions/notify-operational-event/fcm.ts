@@ -66,6 +66,7 @@ export async function sendFcmMessage(args: {
               priority: 'high',
               notification: {
                 channel_id: 'xdrive_driver_assignments',
+                click_action: 'co.uk.xdrivelogistics.driver.OPEN_JOB',
               },
             },
           },
