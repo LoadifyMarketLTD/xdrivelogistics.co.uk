@@ -19,13 +19,12 @@ data class AvailabilityPresence(
 
 /**
  * Native pre-award availability client.
- *
- * This deliberately does not use TrackingService and does not publish into
- * driver_locations. Availability is opt-in, time-limited and handled only by
- * the XDrive server projection created for driver_availability_presence.
+ * Availability and active-job tracking remain separate products, but both are
+ * bound to the currently authorised native installation/session.
  */
 class AvailabilityPresenceApi(
     private val xdriveBaseUrl: String,
+    private val installationId: String,
 ) {
     private val gson = Gson()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -36,11 +35,7 @@ class AvailabilityPresenceApi(
         .build()
 
     suspend fun load(session: DriverSession): Result<AvailabilityPresence> = networkResult {
-        val payload = requestJson(
-            path = "/api/driver/availability-presence",
-            accessToken = session.accessToken,
-            method = "GET",
-        )
+        val payload = requestJson("/api/driver/availability-presence", session.accessToken, "GET")
         val active = payload.bool("active")
         val presence = payload.objectOrNull("presence")
         AvailabilityPresence(
@@ -51,126 +46,66 @@ class AvailabilityPresenceApi(
         )
     }
 
-    suspend fun start(
-        session: DriverSession,
-        lat: Double,
-        lng: Double,
-        visibility: String,
-        hours: Int,
-    ): Result<AvailabilityPresence> = networkResult {
+    suspend fun start(session: DriverSession, lat: Double, lng: Double, visibility: String, hours: Int): Result<AvailabilityPresence> = networkResult {
         require(visibility in setOf("private", "fleet", "exchange")) { "Unsupported availability visibility." }
         require(hours in setOf(1, 4, 8)) { "Availability duration must be 1, 4 or 8 hours." }
         require(lat in -90.0..90.0 && lng in -180.0..180.0) { "Invalid location." }
-
         val body = JsonObject().apply {
-            addProperty("lat", lat)
-            addProperty("lng", lng)
-            addProperty("visibility", visibility)
-            addProperty("hours", hours)
+            addProperty("lat", lat); addProperty("lng", lng); addProperty("visibility", visibility); addProperty("hours", hours)
         }
-        val payload = requestJson(
-            path = "/api/driver/availability-presence",
-            accessToken = session.accessToken,
-            method = "POST",
-            body = body,
-        )
+        val payload = requestJson("/api/driver/availability-presence", session.accessToken, "POST", body)
         if (!payload.bool("ok")) error("Availability request was not acknowledged.")
-        AvailabilityPresence(
-            active = true,
-            visibility = payload.string("visibility").ifBlank { visibility },
-            availableUntil = payload.nullableString("available_until"),
-            recordedAt = null,
-        )
+        AvailabilityPresence(true, payload.string("visibility").ifBlank { visibility }, payload.nullableString("available_until"), null)
     }
 
-    /** Refreshes coordinates only; server preserves visibility and available_until. */
-    suspend fun refreshLocation(
-        session: DriverSession,
-        lat: Double,
-        lng: Double,
-    ): Result<String?> = networkResult {
+    suspend fun refreshLocation(session: DriverSession, lat: Double, lng: Double): Result<String?> = networkResult {
         require(lat in -90.0..90.0 && lng in -180.0..180.0) { "Invalid location." }
-        val body = JsonObject().apply {
-            addProperty("lat", lat)
-            addProperty("lng", lng)
-        }
-        val payload = requestJson(
-            path = "/api/driver/availability-presence",
-            accessToken = session.accessToken,
-            method = "PUT",
-            body = body,
-        )
+        val body = JsonObject().apply { addProperty("lat", lat); addProperty("lng", lng) }
+        val payload = requestJson("/api/driver/availability-presence", session.accessToken, "PUT", body)
         if (!payload.bool("ok")) error("Availability refresh was not acknowledged.")
         payload.nullableString("available_until")
     }
 
     suspend fun stop(session: DriverSession): Result<Unit> = networkResult {
-        val payload = requestJson(
-            path = "/api/driver/availability-presence",
-            accessToken = session.accessToken,
-            method = "DELETE",
-        )
+        val payload = requestJson("/api/driver/availability-presence", session.accessToken, "DELETE")
         if (!payload.bool("ok")) error("Availability stop was not acknowledged.")
         Unit
     }
 
-    private fun requestJson(
-        path: String,
-        accessToken: String,
-        method: String,
-        body: JsonObject? = null,
-    ): JsonObject {
+    private fun requestJson(path: String, accessToken: String, method: String, body: JsonObject? = null): JsonObject {
         require(xdriveBaseUrl.isNotBlank()) { "XDRIVE_BASE_URL is missing." }
+        require(installationId.isNotBlank()) { "Native installation identity is missing." }
         val builder = Request.Builder()
             .url("${xdriveBaseUrl.trimEnd('/')}$path")
             .addHeader("Authorization", "Bearer $accessToken")
+            .addHeader("X-XDrive-Installation-Id", installationId)
             .addHeader("Accept", "application/json")
-
         when (method) {
             "GET" -> builder.get()
             "DELETE" -> builder.delete()
-            "POST" -> builder
-                .addHeader("Content-Type", "application/json")
-                .post(gson.toJson(body ?: JsonObject()).toRequestBody(jsonMediaType))
-            "PUT" -> builder
-                .addHeader("Content-Type", "application/json")
-                .put(gson.toJson(body ?: JsonObject()).toRequestBody(jsonMediaType))
+            "POST" -> builder.addHeader("Content-Type", "application/json").post(gson.toJson(body ?: JsonObject()).toRequestBody(jsonMediaType))
+            "PUT" -> builder.addHeader("Content-Type", "application/json").put(gson.toJson(body ?: JsonObject()).toRequestBody(jsonMediaType))
             else -> error("Unsupported HTTP method")
         }
-
         return http.newCall(builder.build()).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                val message = runCatching {
-                    gson.fromJson(raw, JsonObject::class.java)?.get("error")?.asString
-                }.getOrNull()
-                throw IllegalStateException(message ?: "Availability request failed (${response.code}).")
+                val message = runCatching { gson.fromJson(raw, JsonObject::class.java)?.get("error")?.asString }.getOrNull().orEmpty()
+                    .ifBlank { "Availability request failed (${response.code})." }
+                if ((response.code == 401 || response.code == 403) && message.isBindingMessage()) throw DeviceSessionException(response.code, message)
+                throw IllegalStateException("HTTP ${response.code}: $message")
             }
             if (raw.isBlank()) JsonObject() else gson.fromJson(raw, JsonObject::class.java) ?: JsonObject()
         }
     }
 
-    private suspend fun <T> networkResult(block: () -> T): Result<T> =
-        withContext(Dispatchers.IO) { runCatching(block) }
-
-    private fun JsonObject.string(name: String): String {
-        val value = get(name) ?: return ""
-        return if (value.isJsonNull) "" else runCatching { value.asString }.getOrDefault("")
+    private fun String.isBindingMessage(): Boolean {
+        val lower = lowercase()
+        return "native device" in lower || "mobile session" in lower || "revoked or replaced" in lower || "device identity" in lower
     }
-
-    private fun JsonObject.nullableString(name: String): String? {
-        val value = get(name) ?: return null
-        return if (value.isJsonNull) null else runCatching { value.asString }.getOrNull()
-    }
-
-    private fun JsonObject.bool(name: String): Boolean {
-        val value = get(name) ?: return false
-        return if (value.isJsonNull) false else runCatching { value.asBoolean }.getOrDefault(false)
-    }
-
-    private fun JsonObject.objectOrNull(name: String): JsonObject? {
-        val value = get(name) ?: return null
-        if (value.isJsonNull || !value.isJsonObject) return null
-        return value.asJsonObject
-    }
+    private suspend fun <T> networkResult(block: () -> T): Result<T> = withContext(Dispatchers.IO) { runCatching(block) }
+    private fun JsonObject.string(name: String) = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrDefault("") } ?: ""
+    private fun JsonObject.nullableString(name: String) = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrNull() }
+    private fun JsonObject.bool(name: String) = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asBoolean }.getOrDefault(false) } ?: false
+    private fun JsonObject.objectOrNull(name: String): JsonObject? = get(name)?.takeIf { it.isJsonObject }?.asJsonObject
 }
