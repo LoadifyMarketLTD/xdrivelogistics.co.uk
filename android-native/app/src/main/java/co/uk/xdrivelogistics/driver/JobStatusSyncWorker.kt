@@ -16,6 +16,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.uk.xdrivelogistics.driver.data.ApiClient
+import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
+import co.uk.xdrivelogistics.driver.data.SecureDriverMutationApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -31,6 +33,10 @@ class JobStatusSyncWorker(
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
+    private val mutationApi = SecureDriverMutationApi(
+        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+        installationId = DeviceInstallationIdentity(appContext).installationId,
+    )
 
     override suspend fun doWork(): Result {
         var session = sessionStore.readSession() ?: return Result.success()
@@ -38,13 +44,16 @@ class JobStatusSyncWorker(
         if (actions.isEmpty()) return Result.success()
 
         for (action in actions) {
-            var update = api.updateJobStatus(session, action.driverId, action.jobId, action.nextStatus)
+            // Never replay lifecycle mutations directly against Supabase. The XDrive
+            // endpoint verifies installation_id + JWT session_id against the active
+            // native device binding before invoking the atomic lifecycle RPC.
+            var update = mutationApi.updateJobStatus(session, action.jobId, action.nextStatus)
             if (update.isFailure && update.exceptionOrNull().isStatusSessionFailure()) {
                 val refreshed = api.refreshSession(session)
                 if (refreshed.isSuccess) {
                     session = refreshed.getOrThrow()
                     sessionStore.saveSession(session)
-                    update = api.updateJobStatus(session, action.driverId, action.jobId, action.nextStatus)
+                    update = mutationApi.updateJobStatus(session, action.jobId, action.nextStatus)
                 } else {
                     val refreshError = refreshed.exceptionOrNull()
                     return if (refreshError.isRetryableStatusSyncFailure()) Result.retry() else Result.success()
@@ -143,17 +152,23 @@ internal fun Throwable?.isRetryableStatusSyncFailure(): Boolean {
         "connection" in text ||
         "network" in text ||
         "temporarily unavailable" in text ||
-        "502" in text ||
-        "503" in text ||
-        "504" in text
+        "http 408" in text ||
+        "http 425" in text ||
+        "http 429" in text ||
+        "http 500" in text ||
+        "http 502" in text ||
+        "http 503" in text ||
+        "http 504" in text
 }
 
 internal fun Throwable?.isStatusSessionFailure(): Boolean {
     val text = this?.message.orEmpty().lowercase()
     return "jwt" in text ||
         "token" in text ||
-        "401" in text ||
+        "http 401" in text ||
         "unauthorized" in text ||
         "authentication required" in text ||
-        "session" in text
+        "session" in text ||
+        "revoked or replaced" in text ||
+        "active native device identity" in text
 }
