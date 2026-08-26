@@ -3,6 +3,7 @@ package co.uk.xdrivelogistics.driver
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import co.uk.xdrivelogistics.driver.data.SessionStore
 
 class JobDeepLinkActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,8 +28,13 @@ class JobDeepLinkActivity : Activity() {
             PendingJobDeepLinkStore(applicationContext).save(jobId)
         }
 
+        val destination = if (SessionStore(applicationContext).readSession() == null) {
+            LoginActivity::class.java
+        } else {
+            MainActivity::class.java
+        }
         startActivity(
-            Intent(this, MainActivity::class.java).apply {
+            Intent(this, destination).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
         )

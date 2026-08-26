@@ -1,16 +1,19 @@
 package co.uk.xdrivelogistics.driver.data
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import co.uk.xdrivelogistics.driver.BuildConfig
+import co.uk.xdrivelogistics.driver.LoginActivity
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SessionStore(context: Context) {
     private object Keys {
@@ -25,6 +28,7 @@ class SessionStore(context: Context) {
     }
 
     private val appContext = context.applicationContext
+    private val loginPreferences by lazy { LoginPreferenceStore(appContext) }
     private val installationIdentity by lazy { DeviceInstallationIdentity(appContext) }
     private val deviceSessionApi by lazy {
         DeviceSessionApi(
@@ -53,6 +57,16 @@ class SessionStore(context: Context) {
         )
     }
 
+    init {
+        // Only the first SessionStore created in a process applies the cold-start
+        // persistence policy. A user who did not choose Keep me signed in remains
+        // authenticated for the current process, but the encrypted active session
+        // is discarded the next time Android starts a new app process.
+        if (processPersistencePolicyApplied.compareAndSet(false, true) && !loginPreferences.rememberMe) {
+            clearActiveSession()
+        }
+    }
+
     val session: Flow<DriverSession?> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
             trySend(readSession())
@@ -73,6 +87,7 @@ class SessionStore(context: Context) {
                 val validation = validateDeviceBinding(current)
                 if (validation.isFailure && validation.exceptionOrNull().isDeviceSessionRevoked()) {
                     clearActiveSession()
+                    openLoginActivity()
                 }
             }
         }
@@ -113,16 +128,18 @@ class SessionStore(context: Context) {
     suspend fun validateDeviceBinding(session: DriverSession): Result<Unit> =
         deviceSessionApi.validate(session)
 
-    suspend fun clear() {
+    suspend fun clear(redirectToLogin: Boolean = true) {
         val current = readSession()
         if (current == null) {
             clearActiveSession()
+            if (redirectToLogin) openLoginActivity()
             return
         }
 
         savePendingRevocation(current)
         clearActiveSession()
         retryPendingRevocation()
+        if (redirectToLogin) openLoginActivity()
     }
 
     private suspend fun retryPendingRevocation() {
@@ -180,5 +197,19 @@ class SessionStore(context: Context) {
             .remove(Keys.pendingLogoutUserId)
             .remove(Keys.pendingLogoutEmail)
             .commit()
+    }
+
+    private fun openLoginActivity() {
+        runCatching {
+            appContext.startActivity(
+                Intent(appContext, LoginActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                },
+            )
+        }
+    }
+
+    private companion object {
+        val processPersistencePolicyApplied = AtomicBoolean(false)
     }
 }
