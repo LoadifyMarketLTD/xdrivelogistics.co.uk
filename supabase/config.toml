@@ -3,5 +3,9 @@ project_id = "xdrive-prelive"
 [db]
 major_version = 17
 
+[auth]
+site_url = "https://www.xdrivelogistics.co.uk"
+additional_redirect_urls = ["xdrive://reset-password"]
+
 [functions.notify-operational-event]
 verify_jwt = false
