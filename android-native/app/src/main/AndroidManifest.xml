@@ -35,6 +35,30 @@
             </intent-filter>
         </service>
         <activity
+            android:name=".JobDeepLinkActivity"
+            android:exported="true"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="co.uk.xdrivelogistics.driver.OPEN_JOB" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="xdrive" android:host="job" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.xdrivelogistics.co.uk"
+                    android:pathPrefix="/driver/jobs/" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
@@ -43,25 +67,11 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
-
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="xdrive" android:host="job" />
                 <data android:scheme="xdrive" android:host="notification" />
                 <data android:scheme="xdrive" android:host="documents" />
                 <data android:scheme="xdrive" android:host="profile" />
-            </intent-filter>
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data
-                    android:scheme="https"
-                    android:host="www.xdrivelogistics.co.uk"
-                    android:pathPrefix="/driver/jobs/" />
             </intent-filter>
         </activity>
         <provider
