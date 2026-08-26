@@ -1,17 +1,19 @@
-# Android Availability Tracking Wiring
+# Android Availability Tracking wiring
 
-Status: implementation in progress on `feat/android-availability-tracking-20260826`.
+Status: UI wiring complete on PR #368; merge remains gated on verification.
 
-Implemented and safe to review:
-- dedicated `AvailabilityPresenceApi` using only `/api/driver/availability-presence`;
-- authenticated server calls only; no direct Supabase availability table writes;
-- 1/4/8 hour duration contract and private/fleet/exchange visibility contract;
-- one-shot `AvailabilityPresenceController` using fused last location;
-- no `TrackingService`, no job `driver_locations`, no foreground-service start;
-- source-level contract coverage.
+- Native client: `AvailabilityPresenceApi` uses only `/api/driver/availability-presence`.
+- Location acquisition: one-shot fused-location lookup on explicit driver Start.
+- More/Profile: `AvailabilityPresencePanel(state.session)` is wired into the existing screen.
+- Visibility: Private / My Fleet / Exchange.
+- Auto-off choices: 1 / 4 / 8 hours.
+- Server envelopes are matched explicitly: GET `{ active, presence }`, POST `{ ok, visibility, available_until }`, DELETE `{ ok }`.
+- Existing active-job `TrackingService` remains separate and unchanged.
+- No direct Supabase writes, no `driver_locations` writes, no availability-triggered foreground service.
 
-Deliberately not yet claimed complete:
-- the control is not yet wired into the existing native `More/Profile` Compose screen;
-- no merge should occur until that UI wiring is added and Android compile/build evidence is available.
+Verification required before merge:
+- focused source contract PASS;
+- real XDrive Netlify preview PASS;
+- Android compile/build evidence where a free runner/toolchain is available.
 
-This separation is intentional: pre-award availability must never silently become continuous active-job tracking.
+Do not report Android build PASS unless compilation has actually run successfully.
