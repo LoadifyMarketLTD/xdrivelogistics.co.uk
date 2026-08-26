@@ -92,19 +92,20 @@ class SessionStore(context: Context) {
 
     suspend fun clear() {
         val current = readSession()
-        if (current != null) {
-            val revoked = revoker.revoke(current)
-            if (revoked.isFailure) {
-                // Logout must still remove active credentials from the phone.
-                // Preserve only an encrypted pending copy so server revocation can
-                // be retried later instead of silently abandoning the session.
-                savePendingRevocation(current)
-            } else {
-                clearPendingRevocation()
-            }
+        if (current == null) {
+            clearActiveSession()
+            return
         }
 
+        // Make logout immediate on-device. Keep a separate encrypted pending copy
+        // only long enough to confirm server revocation or retry after a transient
+        // network failure.
+        savePendingRevocation(current)
         clearActiveSession()
+
+        if (revoker.revoke(current).isSuccess) {
+            clearPendingRevocation()
+        }
     }
 
     private suspend fun retryPendingRevocation() {
