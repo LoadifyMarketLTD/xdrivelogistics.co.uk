@@ -16,6 +16,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.uk.xdrivelogistics.driver.data.ApiClient
+import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.SecureDriverCommercialApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import java.io.IOException
@@ -32,12 +33,21 @@ class QuoteSyncWorker(
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
-    private val commercialApi = SecureDriverCommercialApi(BuildConfig.XDRIVE_BASE_URL)
+    private val commercialApi = SecureDriverCommercialApi(
+        BuildConfig.XDRIVE_BASE_URL,
+        DeviceInstallationIdentity(appContext).installationId,
+    )
 
     override suspend fun doWork(): Result {
         var session = sessionStore.readSession() ?: return Result.success()
         val actions = pendingStore.pendingForUser(session.userId)
         if (actions.isEmpty()) return Result.success()
+
+        val deviceValidation = sessionStore.validateDeviceBinding(session)
+        if (deviceValidation.isFailure && deviceValidation.exceptionOrNull().isDeviceSessionRevoked()) {
+            return Result.success()
+        }
+        if (deviceValidation.isFailure) return Result.retry()
 
         var profileResult = api.resolveDriverProfile(session)
         if (profileResult.isFailure && profileResult.exceptionOrNull().isQuoteSessionFailure()) {
@@ -138,9 +148,6 @@ object QuoteSyncScheduler {
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        // A newly queued quote may arrive while the current worker is using an
-        // earlier snapshot. Replace the one-time work so the next run always
-        // rereads the complete encrypted queue. Server retry is idempotent.
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             UNIQUE_WORK,
             ExistingWorkPolicy.REPLACE,
