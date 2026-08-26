@@ -6,8 +6,8 @@ import co.uk.xdrivelogistics.driver.data.DriverJob
  * Client-side pre-flight ownership and eligibility checks for driver job status
  * transitions.
  *
- * These guards run on the Android device before the API is called.  They surface
- * clear rejection messages and avoid unnecessary network round-trips.  They do
+ * These guards run on the Android device before the API is called. They surface
+ * clear rejection messages and avoid unnecessary network round-trips. They do
  * NOT replace server-side enforcement:
  *
  * - Supabase RLS policy `jobs_select_assigned_driver` (migration 044) ensures
@@ -15,6 +15,11 @@ import co.uk.xdrivelogistics.driver.data.DriverJob
  * - `driver_update_job_status_atomic` (migration 20260723201400) is a
  *   `SECURITY DEFINER` RPC that independently validates `assigned_driver_id` and
  *   company membership before writing any status change.
+ *
+ * For `on_my_way`, XDrive also makes a best-effort attempt to start the existing
+ * foreground tracking runtime while the app is visible. Tracking visibility and
+ * manual lifecycle status intentionally remain separate channels: a temporary
+ * GPS/location/network problem must not deadlock a legitimate job progression.
  *
  * See [co.uk.xdrivelogistics.driver.JobsOwnershipPolicyAudit] (test sources)
  * for the full static policy audit.
@@ -38,5 +43,12 @@ internal fun preflightStatusUpdateRejection(job: DriverJob, nextStatus: String):
     }
     val blockingRequirement = job.blockingRequirementFor(nextStatus)
     if (blockingRequirement != null) return blockingRequirement
+
+    if (nextStatus == "on_my_way") {
+        runCatching {
+            DepartureTrackingCoordinator(XDriveDriverApp.instance).startBestEffort()
+        }
+    }
+
     return null
 }

@@ -43,6 +43,7 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         registerActivityLifecycleCallbacks(this)
         pushRegistrationManager.initializeFirebase()
     }
@@ -142,6 +143,10 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     companion object {
         @Volatile
         var isAppVisible: Boolean = false
+            private set
+
+        @Volatile
+        lateinit var instance: XDriveDriverApp
             private set
 
         const val EXTRA_RECONCILED_JOB_ID = "xdrive_reconciled_job_id"
