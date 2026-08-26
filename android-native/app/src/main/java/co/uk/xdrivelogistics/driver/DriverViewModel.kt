@@ -62,6 +62,7 @@ data class DriverUiState(
 
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
     private val sessionStore = SessionStore(application.applicationContext)
+    private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(application.applicationContext)
     private val api = ApiClient(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
         supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -98,6 +99,29 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                 startLiveRefresh(persisted)
             }
         }
+
+        viewModelScope.launch {
+            pendingJobDeepLinkStore.pendingJobIds.collectLatest { jobId ->
+                if (jobId.isNullOrBlank()) return@collectLatest
+                if (!applyPendingJobDeepLinkIfReady() && _uiState.value.session != null) {
+                    refreshDriverData()
+                }
+            }
+        }
+    }
+
+    private fun applyPendingJobDeepLinkIfReady(): Boolean {
+        val jobId = pendingJobDeepLinkStore.read() ?: return false
+        if (_uiState.value.jobs.none { it.id == jobId }) return false
+
+        _uiState.value = _uiState.value.copy(
+            selectedJobId = jobId,
+            selectedTab = DriverTab.ACTION,
+            actionEntryMode = ActionEntryMode.DETAILS,
+            error = "",
+        )
+        pendingJobDeepLinkStore.clear()
+        return true
     }
 
     fun login(email: String, password: String) {
@@ -122,6 +146,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun logout() {
         viewModelScope.launch {
             liveRefreshJob?.cancel()
+            pendingJobDeepLinkStore.clear()
             sessionStore.clear()
         }
     }
@@ -193,6 +218,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                             jobSearchPreferences = preferences,
                             selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, jobs),
                         )
+                        applyPendingJobDeepLinkIfReady()
                     }
                     .onFailure { error ->
                         if (allowRefresh && error.isSessionError()) {
