@@ -1839,6 +1839,7 @@ private fun ProfileScreen(
                 InfoLine("Status", "Active")
             }
         }
+        item { AvailabilityPresencePanel(state.session) }
         item {
             XDriveCard {
                 Text("Tracking", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
