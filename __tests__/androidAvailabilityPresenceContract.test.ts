@@ -58,10 +58,12 @@ describe('Android availability presence contract', () => {
     expect(source).toContain('if (!payload.bool("ok"))');
   });
 
-  it('publishes one explicit location without starting job foreground tracking', () => {
+  it('publishes one fresh explicit location without starting job foreground tracking', () => {
     expect(controller).toContain('getFusedLocationProviderClient');
-    expect(controller).toContain('locationClient.lastLocation');
+    expect(controller).toContain('getCurrentLocation(');
+    expect(controller).toContain('Priority.PRIORITY_BALANCED_POWER_ACCURACY');
     expect(controller).toContain('hasLocationPermission');
+    expect(controller).not.toContain('lastLocation');
     expect(controller).not.toContain('startForegroundService');
     expect(controller).not.toContain('Intent(');
     expect(controller).not.toContain('TrackingService::class.java');
