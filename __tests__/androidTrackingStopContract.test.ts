@@ -8,8 +8,9 @@ describe('Android tracking stop contract', () => {
   );
   const source = fs.readFileSync(servicePath, 'utf8');
 
-  test('external service stops recover while the authenticated app is visible', () => {
+  test('external service stops recover only for active job mode', () => {
     expect(source).toContain('val recoverFromExternalStop = !intentionalStop');
+    expect(source).toContain('mode == RuntimeMode.JOB');
     expect(source).toContain('XDriveDriverApp.isAppVisible');
     expect(source).toContain('ContextCompat.startForegroundService(');
   });
@@ -23,5 +24,6 @@ describe('Android tracking stop contract', () => {
   test('availability stop remains separate from mandatory active-job tracking', () => {
     expect(source).toContain('ACTION_STOP_AVAILABILITY');
     expect(source).toMatch(/stopAvailabilityIfNoActiveJob\(\)[\s\S]*Availability controls cannot stop tracking for an active allocated job\./);
+    expect(source).toContain('mode = RuntimeMode.AVAILABILITY');
   });
 });
