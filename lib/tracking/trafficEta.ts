@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const ETA_REFRESH_MS = 5 * 60_000;
+const ETA_REFRESH_MS = 15 * 60_000;
 const MAPBOX_SOURCE = 'mapbox-driving-traffic';
+const DEFAULT_MONTHLY_REQUEST_LIMIT = 90_000;
+const ABSOLUTE_MONTHLY_REQUEST_CAP = 90_000;
 
 export type TrafficEtaSnapshot = {
   eta_at: string;
@@ -19,6 +21,12 @@ type CachedRow = TrafficEtaSnapshot & {
 };
 
 const normalizePostcode = (value: string) => value.replace(/\s+/g, '').toUpperCase();
+
+const monthlyRequestLimit = () => {
+  const configured = Number(process.env.MAPBOX_MONTHLY_REQUEST_LIMIT);
+  if (!Number.isFinite(configured) || configured < 1) return DEFAULT_MONTHLY_REQUEST_LIMIT;
+  return Math.min(Math.floor(configured), ABSOLUTE_MONTHLY_REQUEST_CAP);
+};
 
 export const isTrafficEtaConfigured = () => Boolean(process.env.MAPBOX_ACCESS_TOKEN?.trim());
 
@@ -51,6 +59,14 @@ async function loadCachedRow(admin: SupabaseClient, jobId: string): Promise<Cach
     .maybeSingle();
   if (error || !data) return null;
   return data as CachedRow;
+}
+
+async function reserveMapboxRequest(admin: SupabaseClient): Promise<boolean> {
+  const { data, error } = await admin.rpc('reserve_tracking_provider_request', {
+    p_provider: MAPBOX_SOURCE,
+    p_limit: monthlyRequestLimit(),
+  });
+  return !error && data === true;
 }
 
 async function resolveDestination(
@@ -101,6 +117,10 @@ export async function getOrRefreshTrafficEta(params: {
 
   const destination = await resolveDestination(params.deliveryPostcode, cached);
   if (!destination) return cached;
+
+  // Reserve one provider request before calling Mapbox. The production default
+  // intentionally stops at 90k/month, leaving a buffer below the free allowance.
+  if (!(await reserveMapboxRequest(params.admin))) return cached;
 
   try {
     const coordinates = `${params.originLng},${params.originLat};${destination.lng},${destination.lat}`;
