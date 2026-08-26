@@ -23,6 +23,8 @@ const actionToCanonicalStatus: Record<string, string> = {
   delivered: 'delivered',
 };
 
+const ON_MY_WAY_TRACKING_FRESHNESS_MS = 2 * 60_000;
+
 const userScopedSupabase = (token: string) => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -70,6 +72,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
   const job = existing as unknown as MobileJobRow;
+
+  if (action === 'on-my-way-pickup') {
+    const freshSince = new Date(Date.now() - ON_MY_WAY_TRACKING_FRESHNESS_MS).toISOString();
+    const { data: latestLocation, error: locationError } = await supabaseAdmin
+      .from('driver_locations')
+      .select('recorded_at')
+      .eq('job_id', id)
+      .eq('driver_id', driver.driverId)
+      .gte('recorded_at', freshSince)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (locationError) return respond(503, { error: 'Live tracking readiness could not be verified. Please try again.' });
+    if (!latestLocation?.recorded_at) {
+      return respond(409, {
+        error: 'Live tracking is not ready. Enable Precise Location and Android Location Services, keep XDrive open briefly, then try On My Way again.',
+      });
+    }
+  }
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
