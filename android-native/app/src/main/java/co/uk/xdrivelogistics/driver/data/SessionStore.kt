@@ -23,6 +23,13 @@ class SessionStore(context: Context) {
     }
 
     private val appContext = context.applicationContext
+    private val installationIdentity by lazy { DeviceInstallationIdentity(appContext) }
+    private val deviceSessionApi by lazy {
+        DeviceSessionApi(
+            xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+            installationId = installationIdentity.installationId,
+        )
+    }
     private val revoker by lazy {
         SupabaseSessionRevoker(
             supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -83,13 +90,20 @@ class SessionStore(context: Context) {
         // encrypted pending record for a future retry without blocking login.
         retryPendingRevocation()
 
+        // A session is not considered persistable until XDrive binds it to this
+        // random native installation. The server enforces newest-native-login-wins.
+        deviceSessionApi.register(session).getOrThrow()
+
         prefs.edit()
             .putString(Keys.accessToken, session.accessToken)
             .putString(Keys.refreshToken, session.refreshToken)
             .putString(Keys.userId, session.userId)
             .putString(Keys.email, session.email)
-            .apply()
+            .commit()
     }
+
+    suspend fun validateDeviceBinding(session: DriverSession): Result<Unit> =
+        deviceSessionApi.validate(session)
 
     suspend fun clear() {
         val current = readSession()
@@ -98,34 +112,33 @@ class SessionStore(context: Context) {
             return
         }
 
-        // Logout is immediate on-device. Push endpoint cleanup is best-effort,
-        // but it must never block Supabase Auth revocation. Push rows are also
-        // bound to auth_session_id server-side, so a successfully revoked session
-        // is no longer eligible for delivery even if token deletion was offline.
+        // Logout is immediate on-device. Persist revocation material first, then
+        // remove the active app session. Server cleanup is retried in the safe
+        // order: device binding -> push endpoint -> Supabase Auth session.
         savePendingRevocation(current)
         clearActiveSession()
-        unregisterPushBestEffort(current)
-
-        if (revoker.revoke(current).isSuccess) {
-            clearPendingRevocation()
-        }
+        retryPendingRevocation()
     }
 
     private suspend fun retryPendingRevocation() {
         val pending = readPendingRevocation() ?: return
+
+        // Keep the valid credential until the XDrive device registry is disabled;
+        // otherwise an offline failure followed by Auth logout would make the
+        // device binding impossible to revoke with the user's own session.
+        val deviceRevocation = deviceSessionApi.revoke(pending)
+        if (deviceRevocation.isFailure && !deviceRevocation.exceptionOrNull().isDeviceSessionRevoked()) {
+            return
+        }
+
         unregisterPushBestEffort(pending)
-        if (revoker.revoke(pending).isSuccess) {
+        if (revoker.revoke(pending).isSuccess || deviceRevocation.exceptionOrNull().isDeviceSessionRevoked()) {
             clearPendingRevocation()
         }
     }
 
     private suspend fun unregisterPushBestEffort(session: DriverSession) {
-        val installationId = appContext
-            .getSharedPreferences("xdrive_push_installation", Context.MODE_PRIVATE)
-            .getString("installation_id", null)
-            ?.takeIf { it.isNotBlank() }
-            ?: return
-        pushApi.unregister(session, installationId)
+        pushApi.unregister(session, installationIdentity.installationId)
     }
 
     private fun readPendingRevocation(): DriverSession? {
@@ -146,7 +159,7 @@ class SessionStore(context: Context) {
             .putString(Keys.pendingLogoutRefreshToken, session.refreshToken)
             .putString(Keys.pendingLogoutUserId, session.userId)
             .putString(Keys.pendingLogoutEmail, session.email)
-            .apply()
+            .commit()
     }
 
     private fun clearActiveSession() {
@@ -155,7 +168,7 @@ class SessionStore(context: Context) {
             .remove(Keys.refreshToken)
             .remove(Keys.userId)
             .remove(Keys.email)
-            .apply()
+            .commit()
     }
 
     private fun clearPendingRevocation() {
@@ -164,6 +177,6 @@ class SessionStore(context: Context) {
             .remove(Keys.pendingLogoutRefreshToken)
             .remove(Keys.pendingLogoutUserId)
             .remove(Keys.pendingLogoutEmail)
-            .apply()
+            .commit()
     }
 }
