@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 
@@ -17,9 +18,6 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() && !process.env.SUPABASE_SERV
   console.warn('[supabaseAdmin] Using legacy SUPABASE_SERVICE_KEY — prefer SUPABASE_SERVICE_ROLE_KEY.');
 }
 
-// Anon key (public) — used for JWT validation so that token verification never
-// depends on the service-role key being present/correct.  The service-role key
-// is only needed for privileged admin operations (inviteUserByEmail, etc.).
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
   '';
@@ -37,9 +35,6 @@ export const supabaseAdmin = isSupabaseAdminConfigured
   ? createClient(supabaseUrl, supabaseServiceKey, clientOpts)
   : null;
 
-// Validator client uses the publicly-known anon key so that auth.getUser(jwt)
-// always works even when the service-role key is misconfigured or absent in
-// non-production environments (e.g. Netlify deploy previews).
 export const supabaseValidator =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, clientOpts)
@@ -52,3 +47,55 @@ export const getBearerToken = (request: NextRequest) => {
   if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
   return token.trim();
 };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const jwtSessionId = (token: string): string | null => {
+  try {
+    const encoded = token.split('.')[1];
+    if (!encoded) return null;
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { session_id?: unknown };
+    return typeof payload.session_id === 'string' && UUID_RE.test(payload.session_id)
+      ? payload.session_id
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Preserve web/legacy sessions while making every JWT that has entered the
+ * native-device registry obey that registry for the rest of its lifetime.
+ *
+ * A normal web JWT has no row in driver_mobile_device_sessions and is unaffected.
+ * A native JWT has an auth_session_id row; once that row is disabled/revoked it
+ * cannot continue using generic driver endpoints during the remaining JWT TTL.
+ */
+export async function validateKnownNativeAuthSession(
+  token: string,
+  userId: string,
+): Promise<{ allowed: boolean; knownNative: boolean; error?: string }> {
+  if (!supabaseAdmin) {
+    return { allowed: false, knownNative: false, error: 'Server auth is not configured.' };
+  }
+  const sessionId = jwtSessionId(token);
+  if (!sessionId) return { allowed: true, knownNative: false };
+
+  const { data: binding, error } = await supabaseAdmin
+    .from('driver_mobile_device_sessions')
+    .select('user_id,enabled,revoked_at')
+    .eq('auth_session_id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    return { allowed: false, knownNative: false, error: 'Mobile device session validation failed.' };
+  }
+  if (!binding) return { allowed: true, knownNative: false };
+  if (String(binding.user_id) !== userId) {
+    return { allowed: false, knownNative: true, error: 'Native session identity mismatch.' };
+  }
+  if (binding.enabled !== true || binding.revoked_at != null) {
+    return { allowed: false, knownNative: true, error: 'This native device session has been revoked.' };
+  }
+  return { allowed: true, knownNative: true };
+}
