@@ -13,9 +13,11 @@
  *
  * Queue rows are claimed through the DB lease RPC before any provider call.
  * The lease prevents concurrent workers and the stable Resend Idempotency-Key
- * prevents a retry from sending the same event to the same recipient twice.
+ * prevents a retry from duplicating email delivery. FCM shares this canonical
+ * event queue and is enabled only when a valid Firebase service account exists.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { parseFirebaseServiceAccount, sendFcmMessage } from './fcm.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -33,6 +35,7 @@ const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk'
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
 const webhookSecret = Deno.env.get('XDRIVE_NOTIFICATION_WEBHOOK_SECRET') ?? '';
+const firebaseServiceAccount = parseFirebaseServiceAccount(Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON') ?? '');
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -51,6 +54,14 @@ interface NotificationEvent {
   next_attempt_at?: string | null;
   lease_token?: string | null;
   lease_expires_at?: string | null;
+}
+
+interface PushDevice {
+  device_id: string;
+  installation_id: string;
+  fcm_token: string;
+  platform: string;
+  app_package: string;
 }
 
 const jsonResponse = (status: number, payload: Record<string, unknown>) =>
@@ -150,6 +161,56 @@ async function sendEmail(
   return true;
 }
 
+async function sendAssignedJobPush(userId: string, jobId: string): Promise<boolean> {
+  // Push is additive. Existing email/inbox delivery must keep working before a
+  // Firebase project is configured, so missing Firebase credentials are neutral.
+  if (!firebaseServiceAccount) return true;
+
+  const { data, error } = await supabase.rpc('active_driver_push_devices_for_user', {
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error(`[notify] Could not load active push devices for ${userId}: ${error.message}`);
+    return false;
+  }
+
+  const devices = (data ?? []) as PushDevice[];
+  if (!devices.length) return true;
+
+  const results = await Promise.all(devices.map(async (device) => {
+    const result = await sendFcmMessage({
+      account: firebaseServiceAccount,
+      token: device.fcm_token,
+      title: 'New Job Assigned - XDrive Logistics',
+      body: 'A new job has been assigned to you. Open XDrive to view the job details.',
+      data: {
+        event_type: 'job_assigned',
+        job_id: jobId,
+        deep_link: `xdrive://job/${jobId}`,
+      },
+    });
+
+    if (result.unregistered) {
+      const { error: disableError } = await supabase
+        .from('driver_push_devices')
+        .update({ enabled: false, updated_at: new Date().toISOString() })
+        .eq('id', device.device_id);
+      if (disableError) {
+        console.error(`[notify] Could not disable unregistered push device ${device.device_id}: ${disableError.message}`);
+        return false;
+      }
+      return true;
+    }
+
+    if (!result.ok) {
+      console.error(`[notify] FCM delivery failed for device ${device.device_id}: ${result.error ?? 'unknown error'}`);
+    }
+    return result.ok;
+  }));
+
+  return results.every(Boolean);
+}
+
 async function emailCompanyOperators(
   companyId: string,
   subject: string,
@@ -191,12 +252,16 @@ async function handleJobAssigned(event: NotificationEvent) {
   const jobIdRaw = String(event.payload.job_id ?? event.entity_id);
   const pickup = escapeHtml(event.payload.pickup_location ?? 'TBC');
   const delivery = escapeHtml(event.payload.delivery_location ?? 'TBC');
-  return sendEmail(
-    user.email,
-    'New Job Assigned - XDrive Logistics',
-    `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
-    notificationIdempotencyKey(event.id, userId),
-  );
+  const [emailOk, pushOk] = await Promise.all([
+    sendEmail(
+      user.email,
+      'New Job Assigned - XDrive Logistics',
+      `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
+      notificationIdempotencyKey(event.id, userId),
+    ),
+    sendAssignedJobPush(userId, jobIdRaw),
+  ]);
+  return emailOk && pushOk;
 }
 
 async function handleBidAccepted(event: NotificationEvent) {
