@@ -1,5 +1,6 @@
 package co.uk.xdrivelogistics.driver.data
 
+import co.uk.xdrivelogistics.driver.XDriveDriverApp
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
@@ -17,15 +18,15 @@ data class AvailabilityPresence(
     val recordedAt: String? = null,
 )
 
-/**
- * Native pre-award availability client.
- * Availability and active-job tracking remain separate products, but both are
- * bound to the currently authorised native installation/session.
- */
 class AvailabilityPresenceApi(
     private val xdriveBaseUrl: String,
     private val installationId: String,
 ) {
+    constructor(xdriveBaseUrl: String) : this(
+        xdriveBaseUrl,
+        DeviceInstallationIdentity(XDriveDriverApp.instance.applicationContext).installationId,
+    )
+
     private val gson = Gson()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val http = OkHttpClient.Builder()
@@ -38,21 +39,14 @@ class AvailabilityPresenceApi(
         val payload = requestJson("/api/driver/availability-presence", session.accessToken, "GET")
         val active = payload.bool("active")
         val presence = payload.objectOrNull("presence")
-        AvailabilityPresence(
-            active = active,
-            visibility = presence?.string("visibility").orEmpty().ifBlank { "private" },
-            availableUntil = if (active) presence?.nullableString("available_until") else null,
-            recordedAt = if (active) presence?.nullableString("recorded_at") else null,
-        )
+        AvailabilityPresence(active, presence?.string("visibility").orEmpty().ifBlank { "private" }, if (active) presence?.nullableString("available_until") else null, if (active) presence?.nullableString("recorded_at") else null)
     }
 
     suspend fun start(session: DriverSession, lat: Double, lng: Double, visibility: String, hours: Int): Result<AvailabilityPresence> = networkResult {
         require(visibility in setOf("private", "fleet", "exchange")) { "Unsupported availability visibility." }
         require(hours in setOf(1, 4, 8)) { "Availability duration must be 1, 4 or 8 hours." }
         require(lat in -90.0..90.0 && lng in -180.0..180.0) { "Invalid location." }
-        val body = JsonObject().apply {
-            addProperty("lat", lat); addProperty("lng", lng); addProperty("visibility", visibility); addProperty("hours", hours)
-        }
+        val body = JsonObject().apply { addProperty("lat", lat); addProperty("lng", lng); addProperty("visibility", visibility); addProperty("hours", hours) }
         val payload = requestJson("/api/driver/availability-presence", session.accessToken, "POST", body)
         if (!payload.bool("ok")) error("Availability request was not acknowledged.")
         AvailabilityPresence(true, payload.string("visibility").ifBlank { visibility }, payload.nullableString("available_until"), null)
@@ -90,8 +84,7 @@ class AvailabilityPresenceApi(
         return http.newCall(builder.build()).execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                val message = runCatching { gson.fromJson(raw, JsonObject::class.java)?.get("error")?.asString }.getOrNull().orEmpty()
-                    .ifBlank { "Availability request failed (${response.code})." }
+                val message = runCatching { gson.fromJson(raw, JsonObject::class.java)?.get("error")?.asString }.getOrNull().orEmpty().ifBlank { "Availability request failed (${response.code})." }
                 if ((response.code == 401 || response.code == 403) && message.isBindingMessage()) throw DeviceSessionException(response.code, message)
                 throw IllegalStateException("HTTP ${response.code}: $message")
             }
