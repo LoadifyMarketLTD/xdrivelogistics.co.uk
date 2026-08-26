@@ -4,6 +4,8 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
 
+// Native Android consumes these GET/POST/DELETE response envelopes through the
+// same authenticated server boundary; keep availability separate from job GPS.
 const roundedForExchange = (value: number) => Math.round(value * 100) / 100;
 
 async function authenticatedDriver(request: NextRequest) {
