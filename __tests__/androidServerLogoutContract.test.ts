@@ -31,8 +31,8 @@ describe('Android server-side logout revocation contract', () => {
 
   it('removes active phone credentials immediately while retaining only encrypted retry material', () => {
     const savePending = store.indexOf('savePendingRevocation(current)');
-    const clearActive = store.indexOf('clearActiveSession()');
-    const revoke = store.indexOf('revoker.revoke(current)');
+    const clearActive = store.indexOf('clearActiveSession()', savePending);
+    const revoke = store.indexOf('revoker.revoke(current)', clearActive);
     expect(savePending).toBeGreaterThan(-1);
     expect(clearActive).toBeGreaterThan(savePending);
     expect(revoke).toBeGreaterThan(clearActive);
