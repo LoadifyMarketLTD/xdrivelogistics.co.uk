@@ -36,7 +36,7 @@ comment on table public.driver_push_devices is
 comment on column public.driver_push_devices.fcm_token is
   'Provider delivery token. Treat as sensitive routing data and expose only to trusted server-side delivery code.';
 comment on column public.driver_push_devices.auth_session_id is
-  'Supabase JWT session_id captured only after server validation. Delivery is eligible only while the matching auth.sessions row remains active.';
+  'Supabase JWT session_id captured only after server validation. Delivery is eligible only while the matching auth.sessions row remains active and unexpired.';
 
 create or replace function public.active_driver_push_devices_for_user(p_user_id uuid)
 returns table (
@@ -64,6 +64,7 @@ as $$
     and d.enabled = true
     and d.platform = 'android'
     and d.app_package = 'co.uk.xdrivelogistics.driver'
+    and (s.not_after is null or s.not_after > now())
   order by d.last_seen_at desc, d.id;
 $$;
 
