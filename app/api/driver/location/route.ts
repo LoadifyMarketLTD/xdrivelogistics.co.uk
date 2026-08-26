@@ -9,18 +9,21 @@ type LocationPayload = {
   speed_mph?: number | null;
 };
 
+type JobCandidate = {
+  id: string;
+  assigned_driver_id: string | null;
+  awarded_carrier_company_id: string | null;
+  current_status: string | null;
+  status: string | null;
+};
+
 const ACTIVE_JOB_STATUSES = new Set([
-  'allocated',
-  'accepted',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
+  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
 ]);
+
+const statusOf = (job: Pick<JobCandidate, 'current_status' | 'status'>) =>
+  String(job.current_status ?? job.status ?? '').trim().toLowerCase();
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -51,29 +54,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const jobId = typeof body.job_id === 'string' && body.job_id.trim() ? body.job_id.trim() : null;
+  const requestedJobId = typeof body.job_id === 'string' && body.job_id.trim() ? body.job_id.trim() : null;
   const lat = typeof body.lat === 'number' ? body.lat : null;
   const lng = typeof body.lng === 'number' ? body.lng : null;
 
-  if (!jobId) return NextResponse.json({ error: 'job_id is required.' }, { status: 400 });
   if (lat === null || lng === null) return NextResponse.json({ error: 'lat and lng are required.' }, { status: 400 });
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return NextResponse.json({ error: 'Invalid lat/lng values.' }, { status: 400 });
   }
 
-  const { data: jobRow, error: jobError } = await supabaseAdmin
-    .from('jobs')
-    .select('id, assigned_driver_id, awarded_carrier_company_id, current_status, status')
-    .eq('id', jobId)
-    .maybeSingle();
+  let jobRow: JobCandidate | null = null;
+  if (requestedJobId) {
+    const { data, error } = await supabaseAdmin
+      .from('jobs')
+      .select('id, assigned_driver_id, awarded_carrier_company_id, current_status, status')
+      .eq('id', requestedJobId)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: 'Assigned job could not be resolved.' }, { status: 500 });
+    jobRow = data as JobCandidate | null;
+  } else {
+    const { data, error } = await supabaseAdmin
+      .from('jobs')
+      .select('id, assigned_driver_id, awarded_carrier_company_id, current_status, status')
+      .eq('assigned_driver_id', driverRow.id)
+      .order('updated_at', { ascending: false })
+      .limit(10);
+    if (error) return NextResponse.json({ error: 'Assigned jobs could not be resolved.' }, { status: 500 });
+    const active = ((data ?? []) as JobCandidate[]).filter((job) => ACTIVE_JOB_STATUSES.has(statusOf(job)));
+    if (active.length !== 1) {
+      return NextResponse.json({ error: 'A single active job could not be identified for tracking.' }, { status: 409 });
+    }
+    jobRow = active[0];
+  }
 
-  const jobStatus = String(jobRow?.current_status ?? jobRow?.status ?? '').trim().toLowerCase();
-  if (
-    jobError
-    || !jobRow
-    || jobRow.assigned_driver_id !== driverRow.id
-    || !ACTIVE_JOB_STATUSES.has(jobStatus)
-  ) {
+  if (!jobRow || jobRow.assigned_driver_id !== driverRow.id || !ACTIVE_JOB_STATUSES.has(statusOf(jobRow))) {
     return NextResponse.json({ error: 'Location publishing is not authorised for this job state.' }, { status: 403 });
   }
 
@@ -91,7 +105,7 @@ export async function POST(request: NextRequest) {
     .insert({
       driver_id: driverRow.id,
       company_id: driverRow.company_id ?? null,
-      job_id: jobId,
+      job_id: jobRow.id,
       lat,
       lng,
       heading,
@@ -100,5 +114,5 @@ export async function POST(request: NextRequest) {
     });
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, job_id: jobRow.id });
 }
