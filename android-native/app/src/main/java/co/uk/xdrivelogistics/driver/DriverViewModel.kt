@@ -15,6 +15,7 @@ import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SecureDriverCommercialApi
+import co.uk.xdrivelogistics.driver.data.SecureDriverMutationApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +76,10 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
     )
     private val commercialApi = SecureDriverCommercialApi(
+        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+        installationId = installationIdentity.installationId,
+    )
+    private val mutationApi = SecureDriverMutationApi(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
         installationId = installationIdentity.installationId,
     )
@@ -432,7 +437,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
 
-            api.updateJobStatus(session, profile.driverId, jobId, nextStatus)
+            mutationApi.updateJobStatus(session, jobId, nextStatus)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -606,7 +611,6 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun confirmDeliveryRecipientForSelectedJob(recipientName: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
             if (selectedJob == null) {
                 _uiState.value = _uiState.value.copy(error = "Select a job first.")
@@ -623,7 +627,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.confirmDeliveryRecipient(session, profile.driverId, selectedJob, cleanName)
+            mutationApi.confirmDeliveryRecipient(session, selectedJob.id, cleanName)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
