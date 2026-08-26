@@ -64,6 +64,26 @@ class SecureDriverMutationApi(
         execute(request, "Saved POD evidence could not be synced.")
     }
 
+    suspend fun confirmDeliveryRecipient(
+        session: DriverSession,
+        jobId: String,
+        recipientName: String,
+    ): Result<Unit> = networkResult {
+        requireConfigured()
+        val cleanName = recipientName.trim()
+        require(cleanName.isNotBlank()) { "Recipient name is required." }
+        val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
+        val body = JsonObject().apply { addProperty("recipientName", cleanName) }
+        val request = baseRequest(
+            "${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/jobs/$encodedJobId/confirmation",
+            session.accessToken,
+        )
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(body).toRequestBody(jsonMediaType))
+            .build()
+        execute(request, "Failed to confirm delivery evidence.")
+    }
+
     private fun baseRequest(url: String, accessToken: String): Request.Builder = Request.Builder()
         .url(url)
         .addHeader("Authorization", "Bearer $accessToken")
