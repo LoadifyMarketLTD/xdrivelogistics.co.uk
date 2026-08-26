@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { getFeatureFlag } from '../../../../_lib/platformFlags';
-import { isDriverContext, requireDriver, respond } from '../../_lib';
+import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../../../_lib/platformFlags';
+import { isDriverContext, requireDriver, respond } from '../../../_lib';
 
 const ALLOWED_STATUS = new Set([
   'on_my_way',
