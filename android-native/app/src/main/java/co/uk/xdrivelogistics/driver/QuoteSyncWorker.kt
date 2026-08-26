@@ -138,9 +138,12 @@ object QuoteSyncScheduler {
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
+        // A newly queued quote may arrive while the current worker is using an
+        // earlier snapshot. Replace the one-time work so the next run always
+        // rereads the complete encrypted queue. Server retry is idempotent.
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             UNIQUE_WORK,
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             request,
         )
     }
@@ -152,6 +155,7 @@ internal fun Throwable?.isRetryableQuoteFailure(): Boolean {
     val text = message.orEmpty().lowercase()
     if ("maximum number of bids" in text) return false
     if ("active quote already exists" in text) return false
+    if ("already quoted for this job" in text) return false
     if ("no longer available" in text || "not visible" in text || "fully verified" in text) return false
     return "unable to resolve host" in text ||
         "no address associated with hostname" in text ||
