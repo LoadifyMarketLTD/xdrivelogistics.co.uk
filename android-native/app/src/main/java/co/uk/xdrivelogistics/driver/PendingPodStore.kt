@@ -14,13 +14,12 @@ data class PendingPodUpload(
     val id: String,
     val userId: String,
     val driverId: String,
-    val companyId: String,
     val jobId: String,
     val isCollectionProof: Boolean,
     val fileName: String,
     val mimeType: String,
     val localFileName: String,
-    val remoteStoragePath: String,
+    val remoteObjectName: String,
     val createdAtEpochMs: Long,
 )
 
@@ -58,7 +57,6 @@ class PendingPodStore(context: Context) {
     fun enqueue(
         userId: String,
         driverId: String,
-        companyId: String,
         jobId: String,
         isCollectionProof: Boolean,
         fileName: String,
@@ -66,14 +64,13 @@ class PendingPodStore(context: Context) {
         bytes: ByteArray,
     ): PendingPodUpload {
         require(bytes.isNotEmpty()) { "Selected POD file is empty." }
-        require(companyId.isNotBlank()) { "Driver company is missing for POD storage." }
 
         val id = UUID.randomUUID().toString()
         val safeName = fileName.ifBlank { "pod.jpg" }.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
         val localFileName = "$id.pod"
-        // Production storage policies for pod-photos scope the first two folders
-        // to company_id/job_id. The UUID makes this path stable for every retry.
-        val remotePath = "$companyId/$jobId/android-offline-$id-$safeName"
+        // Stable object name; the worker prefixes the verified current company/job
+        // so production pod-photos storage policies remain authoritative.
+        val remoteObjectName = "android-offline-$id-$safeName"
         val localFile = File(queueDir, localFileName)
 
         encryptedFile(localFile).openFileOutput().use { output ->
@@ -85,13 +82,12 @@ class PendingPodStore(context: Context) {
             id = id,
             userId = userId,
             driverId = driverId,
-            companyId = companyId,
             jobId = jobId,
             isCollectionProof = isCollectionProof,
             fileName = safeName,
             mimeType = mimeType.ifBlank { "application/octet-stream" },
             localFileName = localFileName,
-            remoteStoragePath = remotePath,
+            remoteObjectName = remoteObjectName,
             createdAtEpochMs = System.currentTimeMillis(),
         )
         val current = readAll().toMutableList()
