@@ -39,8 +39,8 @@ internal class SupabaseSessionRevoker(
                 LogoutResult.AUTH_EXPIRED -> {
                     val refreshed = refresh(session.refreshToken)
                     if (refreshed == null) {
-                        // The refresh token is no longer usable, so this session can
-                        // no longer mint credentials and is effectively terminated.
+                        // The refresh token/session is confirmed gone, so it can no
+                        // longer mint credentials and revocation is complete.
                         Unit
                     } else {
                         when (logout(refreshed)) {
@@ -77,7 +77,7 @@ internal class SupabaseSessionRevoker(
         }
     }
 
-    /** Returns a fresh access token, or null when the old refresh session is gone. */
+    /** Returns a fresh access token, or null only when the old session is confirmed gone. */
     private fun refresh(refreshToken: String): String? {
         val body = JsonObject().apply { addProperty("refresh_token", refreshToken) }
         val request = Request.Builder()
@@ -88,11 +88,12 @@ internal class SupabaseSessionRevoker(
             .build()
 
         return http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                if (response.code == 400 || response.code == 401 || response.code == 403) return null
-                throw IOException("Session refresh for revocation failed (${response.code}).")
-            }
             val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val code = authErrorCode(raw)
+                if (code in TERMINAL_REFRESH_CODES) return null
+                throw IOException("Session refresh for revocation failed (${response.code}${code?.let { ", $it" } ?: ""}).")
+            }
             gson.fromJson(raw, JsonObject::class.java)
                 ?.get("access_token")
                 ?.takeUnless { it.isJsonNull }
@@ -102,9 +103,28 @@ internal class SupabaseSessionRevoker(
         }
     }
 
+    private fun authErrorCode(raw: String): String? = runCatching {
+        gson.fromJson(raw, JsonObject::class.java)
+            ?.get("code")
+            ?.takeUnless { it.isJsonNull }
+            ?.asString
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+
     private enum class LogoutResult {
         SUCCESS,
         AUTH_EXPIRED,
         RETRY,
+    }
+
+    private companion object {
+        val TERMINAL_REFRESH_CODES = setOf(
+            "refresh_token_not_found",
+            "refresh_token_already_used",
+            "session_not_found",
+            "session_expired",
+        )
     }
 }
