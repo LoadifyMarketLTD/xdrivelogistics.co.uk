@@ -1,6 +1,7 @@
 package co.uk.xdrivelogistics.driver.data
 
 import com.google.gson.Gson
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,11 +42,13 @@ class AvailabilityPresenceApi(
             accessToken = session.accessToken,
             method = "GET",
         )
+        val active = payload.bool("active")
+        val presence = payload.objectOrNull("presence")
         AvailabilityPresence(
-            active = payload.bool("active"),
-            visibility = payload.string("visibility").ifBlank { "private" },
-            availableUntil = payload.nullableString("available_until"),
-            recordedAt = payload.nullableString("recorded_at"),
+            active = active,
+            visibility = presence?.string("visibility").orEmpty().ifBlank { "private" },
+            availableUntil = if (active) presence?.nullableString("available_until") else null,
+            recordedAt = if (active) presence?.nullableString("recorded_at") else null,
         )
     }
 
@@ -72,20 +75,23 @@ class AvailabilityPresenceApi(
             method = "POST",
             body = body,
         )
+        val ok = payload.bool("ok")
+        if (!ok) error("Availability request was not acknowledged.")
         AvailabilityPresence(
-            active = payload.bool("active"),
+            active = true,
             visibility = payload.string("visibility").ifBlank { visibility },
             availableUntil = payload.nullableString("available_until"),
-            recordedAt = payload.nullableString("recorded_at"),
+            recordedAt = null,
         )
     }
 
     suspend fun stop(session: DriverSession): Result<Unit> = networkResult {
-        requestJson(
+        val payload = requestJson(
             path = "/api/driver/availability-presence",
             accessToken = session.accessToken,
             method = "DELETE",
         )
+        if (!payload.bool("ok")) error("Availability stop was not acknowledged.")
         Unit
     }
 
@@ -138,5 +144,11 @@ class AvailabilityPresenceApi(
     private fun JsonObject.bool(name: String): Boolean {
         val value = get(name) ?: return false
         return if (value.isJsonNull) false else runCatching { value.asBoolean }.getOrDefault(false)
+    }
+
+    private fun JsonObject.objectOrNull(name: String): JsonObject? {
+        val value = get(name) ?: return null
+        if (value.isJsonNull || !value.isJsonObject) return null
+        return value.asJsonObject
     }
 }
