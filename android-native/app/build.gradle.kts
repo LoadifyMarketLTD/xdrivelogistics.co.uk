@@ -19,7 +19,10 @@ android {
         applicationId = "co.uk.xdrivelogistics.driver"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        // Production version codes use YYYYMMDD as a monotonic baseline. This
+        // intentionally exceeds every historical Native/Expo value in the repo
+        // (1/2) while remaining well below Android's maximum versionCode.
+        versionCode = 20260826
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
