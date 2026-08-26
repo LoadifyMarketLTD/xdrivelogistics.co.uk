@@ -26,6 +26,17 @@ describe('opt-in availability tracking contract', () => {
     expect(page).toContain('OFF by default');
   });
 
+  it('suppresses availability for active jobs and non-available drivers', () => {
+    expect(driverApi).toContain('const ACTIVE_JOB_STATUSES = new Set([');
+    expect(driverApi).toContain(".eq('assigned_driver_id', driverId)");
+    expect(driverApi).toContain('Availability sharing is disabled while you have an active assigned job.');
+    expect(driverApi).toContain("return NextResponse.json({ active: false, presence: null });");
+    expect(nearbyApi).toContain(".select('id, status, app_access, availability_status')");
+    expect(nearbyApi).toContain("availability_status ?? '').toLowerCase() === 'available'");
+    expect(nearbyApi).toContain('driversWithActiveJobs');
+    expect(nearbyApi).toContain('if (!eligibleDriverIds.has(driverId) || driversWithActiveJobs.has(driverId)) return [];');
+  });
+
   it('gives exact coordinates only to the same fleet and rounded coordinates to exchange users', () => {
     expect(driverApi).toContain('Math.round(value * 100) / 100');
     expect(nearbyApi).toContain("scope: 'fleet'");
