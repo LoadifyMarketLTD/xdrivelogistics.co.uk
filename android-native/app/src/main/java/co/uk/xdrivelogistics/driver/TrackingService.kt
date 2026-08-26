@@ -117,9 +117,7 @@ class TrackingService : Service() {
                 return
             }
 
-            captureCurrentLocation()?.let { current ->
-                pendingStore.save(current)
-            }
+            captureCurrentLocation()?.let { current -> pendingStore.save(current) }
 
             val pending = pendingStore.read()
             if (pending == null) {
@@ -164,6 +162,14 @@ class TrackingService : Service() {
                     )
                     return
                 }
+                UploadOutcome.JOB_NOT_ACTIVE -> {
+                    pendingStore.clear()
+                    stopWithMessage(
+                        "XDrive tracking stopped",
+                        "The delivery is no longer in an active tracking stage.",
+                    )
+                    return
+                }
             }
         }
     }
@@ -189,6 +195,7 @@ class TrackingService : Service() {
         if (first.isSuccess) return UploadOutcome.SUCCESS
 
         val firstError = first.exceptionOrNull()
+        if (firstError.isInactiveJobFailure()) return UploadOutcome.JOB_NOT_ACTIVE
         if (firstError?.isAuthenticationFailure() != true) return UploadOutcome.RETRY
 
         val refreshed = api.refreshSession(session)
@@ -209,9 +216,17 @@ class TrackingService : Service() {
         )
         return when {
             retried.isSuccess -> UploadOutcome.SUCCESS
+            retried.exceptionOrNull().isInactiveJobFailure() -> UploadOutcome.JOB_NOT_ACTIVE
             retried.exceptionOrNull()?.isAuthenticationFailure() == true -> UploadOutcome.AUTH_REQUIRED
             else -> UploadOutcome.RETRY
         }
+    }
+
+    private fun Throwable?.isInactiveJobFailure(): Boolean {
+        val text = this?.message?.lowercase().orEmpty()
+        return text.contains("single active job")
+            || text.contains("not authorised for this job state")
+            || text.contains("delivery is no longer")
     }
 
     private suspend fun stopWithMessage(title: String, text: String) {

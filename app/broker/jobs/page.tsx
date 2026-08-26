@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -94,7 +95,7 @@ export default function BrokerJobsPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Broker operations" title="Jobs" description="Monitor awarded carrier work from allocation through execution, delivery evidence and completion in one operational board." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
+      <PageHeader eyebrow="Broker operations" title="Jobs" description="Monitor awarded carrier work from allocation through live execution, traffic ETA, delivery evidence and completion in one operational board." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -140,7 +141,8 @@ export default function BrokerJobsPage() {
                     </div>
 
                     {open && (
-                      <div className="workspace-record-details">
+                      <div className="workspace-record-details" style={{ display: 'grid', gap: 8 }}>
+                        {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id} />}
                         <div className="workspace-detail-grid">
                           <div className="workspace-detail-item"><strong>Customer</strong><div>{job.client_name || '—'}</div></div>
                           <div className="workspace-detail-item"><strong>Pickup</strong><div>{job.pickup_location || job.pickup_postcode || '—'}</div></div>
