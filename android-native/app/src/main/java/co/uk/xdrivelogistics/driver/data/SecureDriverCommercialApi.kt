@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
  */
 class SecureDriverCommercialApi(
     private val xdriveBaseUrl: String,
+    private val installationId: String,
 ) {
     private val gson = Gson()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -92,6 +93,7 @@ class SecureDriverCommercialApi(
         val request = Request.Builder()
             .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/bids")
             .addHeader("Authorization", "Bearer ${session.accessToken}")
+            .addHeader("X-XDrive-Installation-Id", installationId)
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
             .post(gson.toJson(body).toRequestBody(jsonMediaType))
@@ -176,6 +178,7 @@ class SecureDriverCommercialApi(
         val request = Request.Builder()
             .url("${xdriveBaseUrl.trimEnd('/')}$path")
             .addHeader("Authorization", "Bearer $accessToken")
+            .addHeader("X-XDrive-Installation-Id", installationId)
             .addHeader("Accept", "application/json")
             .get()
             .build()
@@ -188,6 +191,7 @@ class SecureDriverCommercialApi(
 
     private fun requireBaseUrl() {
         require(xdriveBaseUrl.isNotBlank()) { "XDRIVE_BASE_URL is missing." }
+        require(installationId.isNotBlank()) { "Native installation identity is missing." }
     }
 
     private suspend fun <T> networkResult(block: () -> T): Result<T> =

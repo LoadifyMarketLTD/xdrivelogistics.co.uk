@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import co.uk.xdrivelogistics.driver.data.ApiClient
+import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverDocument
 import co.uk.xdrivelogistics.driver.data.DriverJob
@@ -62,6 +63,7 @@ data class DriverUiState(
 
 class DriverViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = application.applicationContext
+    private val installationIdentity = DeviceInstallationIdentity(appContext)
     private val sessionStore = SessionStore(appContext)
     private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(appContext)
     private val pendingStatusStore = PendingJobStatusStore(appContext)
@@ -74,6 +76,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     )
     private val commercialApi = SecureDriverCommercialApi(
         xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+        installationId = installationIdentity.installationId,
     )
 
     // Commercial Marketplace reads/submission go through XDrive server APIs so
@@ -142,15 +145,28 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
 
             val result = api.login(email.trim(), password)
-            result
-                .onSuccess { session ->
-                    sessionStore.saveSession(session)
-                    _uiState.value = _uiState.value.copy(message = "Login successful.")
+            if (result.isFailure) {
+                val error = result.exceptionOrNull()
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = error?.friendlyDriverMessage("Login failed.") ?: "Login failed.",
+                )
+                return@launch
+            }
+
+            val session = result.getOrThrow()
+            runCatching { sessionStore.saveSession(session) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        message = "Login successful.",
+                        error = "",
+                    )
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.friendlyDriverMessage("Login failed."),
+                        error = error.friendlyDriverMessage("This device could not be registered for driver access."),
                     )
                 }
         }
@@ -268,9 +284,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun refreshAndRetry(session: DriverSession) {
         api.refreshSession(session)
             .onSuccess { refreshed ->
-                sessionStore.saveSession(refreshed)
-                _uiState.value = _uiState.value.copy(session = refreshed)
-                loadDriverDataWithSession(refreshed, allowRefresh = false)
+                runCatching { sessionStore.saveSession(refreshed) }
+                    .onSuccess {
+                        _uiState.value = _uiState.value.copy(session = refreshed)
+                        loadDriverDataWithSession(refreshed, allowRefresh = false)
+                    }
+                    .onFailure { error ->
+                        sessionStore.clear()
+                        _uiState.value = DriverUiState(
+                            error = error.friendlyDriverMessage("This device session could not be renewed. Please sign in again."),
+                        )
+                    }
             }
             .onFailure {
                 sessionStore.clear()

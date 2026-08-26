@@ -1,26 +1,21 @@
 package co.uk.xdrivelogistics.driver
 
 import android.content.Context
+import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.PushRegistrationApi
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 
 class PushRegistrationManager(context: Context) {
     private val appContext = context.applicationContext
     private val api = PushRegistrationApi(BuildConfig.XDRIVE_BASE_URL)
-    private val prefs = appContext.getSharedPreferences("xdrive_push_installation", Context.MODE_PRIVATE)
+    private val installationIdentity = DeviceInstallationIdentity(appContext)
 
-    val installationId: String by lazy {
-        prefs.getString(KEY_INSTALLATION_ID, null)
-            ?.takeIf { runCatching { UUID.fromString(it) }.isSuccess }
-            ?: UUID.randomUUID().toString().also {
-                prefs.edit().putString(KEY_INSTALLATION_ID, it).apply()
-            }
-    }
+    val installationId: String
+        get() = installationIdentity.installationId
 
     fun isConfigured(): Boolean = listOf(
         BuildConfig.FIREBASE_PROJECT_ID,
@@ -57,8 +52,4 @@ class PushRegistrationManager(context: Context) {
     }
 
     suspend fun unregister(session: DriverSession): Result<Unit> = api.unregister(session, installationId)
-
-    private companion object {
-        const val KEY_INSTALLATION_ID = "installation_id"
-    }
 }

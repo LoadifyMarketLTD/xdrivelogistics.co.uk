@@ -6,8 +6,10 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import co.uk.xdrivelogistics.driver.BuildConfig
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class SessionStore(context: Context) {
@@ -23,6 +25,13 @@ class SessionStore(context: Context) {
     }
 
     private val appContext = context.applicationContext
+    private val installationIdentity by lazy { DeviceInstallationIdentity(appContext) }
+    private val deviceSessionApi by lazy {
+        DeviceSessionApi(
+            xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
+            installationId = installationIdentity.installationId,
+        )
+    }
     private val revoker by lazy {
         SupabaseSessionRevoker(
             supabaseUrl = BuildConfig.SUPABASE_URL,
@@ -51,10 +60,22 @@ class SessionStore(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         trySend(readSession())
 
-        // A logout attempted while offline is kept only as encrypted pending
-        // revocation material, never as an active app session. Retry whenever the
-        // app observes the store again.
         launch { retryPendingRevocation() }
+
+        // Do not trust a locally persisted session indefinitely. While the app is
+        // running, check that this exact installation + auth session remains the
+        // active native device. Network failures preserve offline usability; an
+        // explicit 401/403 device-revocation result removes the stale session.
+        launch {
+            while (isActive) {
+                delay(30_000L)
+                val current = readSession() ?: continue
+                val validation = validateDeviceBinding(current)
+                if (validation.isFailure && validation.exceptionOrNull().isDeviceSessionRevoked()) {
+                    clearActiveSession()
+                }
+            }
+        }
 
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
@@ -78,18 +99,19 @@ class SessionStore(context: Context) {
     }
 
     suspend fun saveSession(session: DriverSession) {
-        // Never let a stale pending logout silently survive a later login. Retry
-        // the previous session revocation first; a network failure keeps the
-        // encrypted pending record for a future retry without blocking login.
         retryPendingRevocation()
+        deviceSessionApi.register(session).getOrThrow()
 
         prefs.edit()
             .putString(Keys.accessToken, session.accessToken)
             .putString(Keys.refreshToken, session.refreshToken)
             .putString(Keys.userId, session.userId)
             .putString(Keys.email, session.email)
-            .apply()
+            .commit()
     }
+
+    suspend fun validateDeviceBinding(session: DriverSession): Result<Unit> =
+        deviceSessionApi.validate(session)
 
     suspend fun clear() {
         val current = readSession()
@@ -98,34 +120,27 @@ class SessionStore(context: Context) {
             return
         }
 
-        // Logout is immediate on-device. Push endpoint cleanup is best-effort,
-        // but it must never block Supabase Auth revocation. Push rows are also
-        // bound to auth_session_id server-side, so a successfully revoked session
-        // is no longer eligible for delivery even if token deletion was offline.
         savePendingRevocation(current)
         clearActiveSession()
-        unregisterPushBestEffort(current)
-
-        if (revoker.revoke(current).isSuccess) {
-            clearPendingRevocation()
-        }
+        retryPendingRevocation()
     }
 
     private suspend fun retryPendingRevocation() {
         val pending = readPendingRevocation() ?: return
+
+        val deviceRevocation = deviceSessionApi.revoke(pending)
+        if (deviceRevocation.isFailure && !deviceRevocation.exceptionOrNull().isDeviceSessionRevoked()) {
+            return
+        }
+
         unregisterPushBestEffort(pending)
-        if (revoker.revoke(pending).isSuccess) {
+        if (revoker.revoke(pending).isSuccess || deviceRevocation.exceptionOrNull().isDeviceSessionRevoked()) {
             clearPendingRevocation()
         }
     }
 
     private suspend fun unregisterPushBestEffort(session: DriverSession) {
-        val installationId = appContext
-            .getSharedPreferences("xdrive_push_installation", Context.MODE_PRIVATE)
-            .getString("installation_id", null)
-            ?.takeIf { it.isNotBlank() }
-            ?: return
-        pushApi.unregister(session, installationId)
+        pushApi.unregister(session, installationIdentity.installationId)
     }
 
     private fun readPendingRevocation(): DriverSession? {
@@ -146,7 +161,7 @@ class SessionStore(context: Context) {
             .putString(Keys.pendingLogoutRefreshToken, session.refreshToken)
             .putString(Keys.pendingLogoutUserId, session.userId)
             .putString(Keys.pendingLogoutEmail, session.email)
-            .apply()
+            .commit()
     }
 
     private fun clearActiveSession() {
@@ -155,7 +170,7 @@ class SessionStore(context: Context) {
             .remove(Keys.refreshToken)
             .remove(Keys.userId)
             .remove(Keys.email)
-            .apply()
+            .commit()
     }
 
     private fun clearPendingRevocation() {
@@ -164,6 +179,6 @@ class SessionStore(context: Context) {
             .remove(Keys.pendingLogoutRefreshToken)
             .remove(Keys.pendingLogoutUserId)
             .remove(Keys.pendingLogoutEmail)
-            .apply()
+            .commit()
     }
 }
