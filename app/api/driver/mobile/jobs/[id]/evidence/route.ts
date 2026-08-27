@@ -9,6 +9,16 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,180}$/;
 
+function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
+  if (contentType === 'application/pdf') return payload.subarray(0, 5).toString('ascii') === '%PDF-';
+  if (contentType === 'image/jpeg') return payload.length >= 3 && payload[0] === 0xff && payload[1] === 0xd8 && payload[2] === 0xff;
+  if (contentType === 'image/png') {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    return payload.length >= signature.length && signature.every((value, index) => payload[index] === value);
+  }
+  return false;
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -50,6 +60,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const payload = Buffer.from(await request.arrayBuffer());
   if (payload.length === 0) return respond(400, { error: 'Selected POD file is empty.' });
   if (payload.length > MAX_BYTES) return respond(413, { error: 'POD file must be 10 MB or smaller.' });
+  if (!hasExpectedMagicBytes(payload, contentType)) {
+    return respond(415, { error: 'POD file content does not match its declared file type.' });
+  }
 
   const storagePath = `${driver.companyId}/${id}/${objectName}`;
   const upload = await supabaseAdmin.storage
