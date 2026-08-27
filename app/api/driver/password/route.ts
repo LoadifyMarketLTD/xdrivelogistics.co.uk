@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { requireActiveNativeAuthSession } from '../mobile/_deviceSessionGate';
+import { rejectRevokedNativeAuthSession } from '../mobile/_deviceSessionGate';
 
 type PasswordUpdatePayload = { newPassword?: string };
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (driverError) return NextResponse.json({ error: 'We could not verify your Driver account.' }, { status: 500 });
   if (!driverRow) return NextResponse.json({ error: 'Driver account required.' }, { status: 403 });
 
-  const deviceGate = await requireActiveNativeAuthSession(request, authData.user.id, String(driverRow.id));
+  const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, String(driverRow.id));
   if (deviceGate) return deviceGate;
 
   const body = (await request.json().catch(() => null)) as PasswordUpdatePayload | null;
