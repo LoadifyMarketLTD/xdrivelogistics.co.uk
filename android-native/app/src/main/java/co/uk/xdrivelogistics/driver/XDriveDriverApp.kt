@@ -13,6 +13,7 @@ import co.uk.xdrivelogistics.driver.data.AvailabilityPresenceApi
 import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.data.TrackingStateApi
+import co.uk.xdrivelogistics.driver.data.isDeviceSessionRevoked
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
