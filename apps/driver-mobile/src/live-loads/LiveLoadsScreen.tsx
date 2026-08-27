@@ -14,6 +14,7 @@ import {
   validateQuote,
   type QuoteLineItems,
 } from '../jobs/quoteHelpers';
+import { DriverAvailabilityPanel } from './DriverAvailabilityPanel';
 import { LiveLoadCard } from './LiveLoadCard';
 
 type Feed = 'live' | 'pinned' | 'hidden';
@@ -306,6 +307,7 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
       <QuotePanel job={quoteJob} onCancel={() => setQuoteJob(null)} onSubmit={(items) => void handleSubmitQuote(items)} submitting={submitting} />
     ) : null}
     <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadJobs(preferences)} tintColor="#ffc107" colors={['#ffc107']} />}>
+      <DriverAvailabilityPanel />
       {displayed.length === 0 ? <Text style={styles.empty}>No loads in this section.</Text> : displayed.map((job) => feed === 'hidden'
         ? <RestoreCard key={job.id} job={job} onRestore={() => restore(job.id)} />
         : <SwipeCard key={job.id} job={job} pinned={preferences.savedJobIds.includes(job.id)} onOpen={() => openQuote(job)} onQuote={() => openQuote(job)} onTogglePin={() => togglePin(job.id)} onHide={() => hide(job.id)} />)}
