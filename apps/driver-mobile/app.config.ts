@@ -8,6 +8,7 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   scheme: 'xdrivedriver',
   userInterfaceStyle: 'light',
+  icon: './assets/xdrive-native-logo.jpeg',
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: false,
@@ -15,6 +16,11 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'co.uk.xdrivelogistics.driver',
+    versionCode: 3,
+    adaptiveIcon: {
+      backgroundColor: '#0B2F6B',
+      foregroundImage: './assets/xdrive-native-logo.jpeg',
+    },
     permissions: [
       'CAMERA',
       'POST_NOTIFICATIONS',
@@ -41,7 +47,24 @@ const config: ExpoConfig = {
     'expo-image-picker',
     'expo-document-picker',
     'expo-notifications',
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#FFFFFF',
+        image: './assets/splash-icon.png',
+        imageWidth: 220,
+      },
+    ],
   ],
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
+  updates: {
+    enabled: false,
+    checkAutomatically: 'NEVER',
+    fallbackToCacheTimeout: 0,
+    url: 'https://u.expo.dev/c19b0bdf-567a-488e-b78f-d36b84f25c99',
+  },
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
