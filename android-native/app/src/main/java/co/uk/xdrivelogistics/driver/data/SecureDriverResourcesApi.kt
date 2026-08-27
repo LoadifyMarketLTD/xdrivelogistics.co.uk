@@ -188,7 +188,7 @@ class SecureDriverResourcesApi(
     private fun <T> JsonArray.mapObjects(block: (JsonObject) -> T): List<T> = buildList {
         for (index in 0 until size()) {
             val element = get(index)
-            if (element.isJsonObject()) add(block(element.getAsJsonObject()))
+            if (element is JsonObject) add(block(element))
         }
     }
     private fun JsonObject.string(name: String): String = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrDefault("") } ?: ""
