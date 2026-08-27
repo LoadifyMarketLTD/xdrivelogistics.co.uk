@@ -2,7 +2,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
 import { apiRequest, getApiBaseUrl } from '../api/client';
-import { ensureDeviceSession, XDRIVE_DRIVER_PACKAGE } from '../auth/deviceSession';
+import { ensureDeviceSession, getInstallationId, XDRIVE_DRIVER_PACKAGE } from '../auth/deviceSession';
 
 export async function registerPushToken(sessionToken: string) {
   try {
@@ -30,4 +30,13 @@ export async function registerPushToken(sessionToken: string) {
   } catch {
     return null;
   }
+}
+
+export async function unregisterPushDevice(sessionToken: string): Promise<void> {
+  const installationId = await getInstallationId();
+  await apiRequest('/api/driver/push-devices', {
+    method: 'DELETE',
+    token: sessionToken,
+    body: { installation_id: installationId },
+  });
 }
