@@ -17,21 +17,14 @@ function sessionIdFromBearer(request: NextRequest): string | null {
   }
 }
 
-/**
- * Server-side compatibility gate for native endpoints whose oldest Android call
- * sites predate X-XDrive-Installation-Id. The registry's auth_session_id is
- * unique and is atomically bound to one installation, so matching session_id
- * still prevents a superseded device/JWT from using the endpoint.
- *
- * Once a driver has native-session history, no active row is fail-closed.
- */
+/** Strict native-only gate. Once native history exists, only the one active auth
+ * session may use the endpoint. Suitable for GPS/tracking/native-only routes. */
 export async function requireActiveNativeAuthSession(
   request: NextRequest,
   userId: string,
   driverId: string,
 ): Promise<NextResponse | null> {
   if (!supabaseAdmin) return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
-
   const sessionId = sessionIdFromBearer(request);
   if (!sessionId) return NextResponse.json({ error: 'Authenticated session identity is required.' }, { status: 401 });
 
@@ -66,6 +59,38 @@ export async function requireActiveNativeAuthSession(
     .from('driver_mobile_device_sessions')
     .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('auth_session_id', sessionId);
+  return null;
+}
 
+/** Compatibility gate for endpoints shared by web and Native. A session that has
+ * never been registered as Native is left alone; a session that is present in
+ * the Native registry must still be active. This prevents a revoked Android JWT
+ * from bypassing device revocation without breaking an independent web login. */
+export async function rejectRevokedNativeAuthSession(
+  request: NextRequest,
+  userId: string,
+  driverId: string,
+): Promise<NextResponse | null> {
+  if (!supabaseAdmin) return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
+  const sessionId = sessionIdFromBearer(request);
+  if (!sessionId) return NextResponse.json({ error: 'Authenticated session identity is required.' }, { status: 401 });
+
+  const { data: binding, error } = await supabaseAdmin
+    .from('driver_mobile_device_sessions')
+    .select('installation_id, enabled, revoked_at')
+    .eq('user_id', userId)
+    .eq('driver_id', driverId)
+    .eq('auth_session_id', sessionId)
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: 'Mobile device session validation failed.' }, { status: 500 });
+  if (!binding) return null;
+  if (binding.enabled !== true || binding.revoked_at) {
+    return NextResponse.json({ error: 'This mobile session has been revoked or replaced by another device.' }, { status: 401 });
+  }
+
+  void supabaseAdmin
+    .from('driver_mobile_device_sessions')
+    .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('auth_session_id', sessionId);
   return null;
 }
