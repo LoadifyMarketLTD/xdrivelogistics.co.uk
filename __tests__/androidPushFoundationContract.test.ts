@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('Android native push foundation contract', () => {
   const root = process.cwd();
@@ -87,8 +88,8 @@ describe('Android native push foundation contract', () => {
   });
 
   it('never blocks auth-session revocation on best-effort push cleanup', () => {
-    const cleanup = sessionStore.indexOf('unregisterPushBestEffort(current)');
-    const revoke = sessionStore.indexOf('revoker.revoke(current)', cleanup);
+    const cleanup = sessionStore.indexOf('unregisterPushBestEffort(pending)');
+    const revoke = sessionStore.indexOf('revoker.revoke(pending)', cleanup);
     expect(cleanup).toBeGreaterThan(-1);
     expect(revoke).toBeGreaterThan(cleanup);
     expect(sessionStore).not.toContain('if (!unregisterPush');

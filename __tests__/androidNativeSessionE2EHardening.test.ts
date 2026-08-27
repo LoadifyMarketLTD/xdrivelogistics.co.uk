@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it, test } from 'vitest';
 
 describe('Android native E2E security hardening', () => {
   const root = process.cwd();
