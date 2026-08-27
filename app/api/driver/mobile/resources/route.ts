@@ -52,35 +52,11 @@ export async function GET(request: NextRequest) {
       .from('invoices')
       .select('id,invoice_number,status,payment_status,total,amount,currency,client_name,due_date')
       .eq('company_id', context.companyId)
+      .eq('created_by', context.userId)
       .order('created_at', { ascending: false })
       .limit(50);
     if (invoiceResult.error) return NextResponse.json({ error: invoiceResult.error.message }, { status: 500 });
     invoices = (invoiceResult.data ?? []) as AnyRow[];
-  }
-
-  let nearbyDrivers: AnyRow[] = [];
-  if (context.companyId) {
-    const [driversResult, vehiclesResult, locationsResult] = await Promise.all([
-      supabaseAdmin!.from('drivers').select('id,display_name,name,email').eq('company_id', context.companyId),
-      supabaseAdmin!.from('vehicles').select('assigned_driver_id,type,vehicle_type,make,model,reg_plate,registration').eq('company_id', context.companyId),
-      supabaseAdmin!.from('driver_locations').select('driver_id,lat,lng,recorded_at').eq('company_id', context.companyId).order('recorded_at', { ascending: false }).limit(200),
-    ]);
-    const nearbyError = driversResult.error ?? vehiclesResult.error ?? locationsResult.error;
-    if (nearbyError) return NextResponse.json({ error: nearbyError.message }, { status: 500 });
-    const names = new Map((driversResult.data ?? []).map((row) => [String(row.id), String(row.display_name || row.name || row.email || 'Driver')]));
-    const vehicles = new Map((vehiclesResult.data ?? []).map((row) => {
-      const makeModel = [row.make, row.model].filter(Boolean).join(' ');
-      const type = String(row.vehicle_type || row.type || '');
-      const reg = String(row.reg_plate || row.registration || '');
-      return [String(row.assigned_driver_id), [makeModel, type, reg].filter(Boolean).join(' - ')];
-    }));
-    const seen = new Set<string>();
-    nearbyDrivers = (locationsResult.data ?? []).flatMap((row) => {
-      const driverId = String(row.driver_id ?? '');
-      if (!driverId || seen.has(driverId)) return [];
-      seen.add(driverId);
-      return [{ driver_id: driverId, driver_name: names.get(driverId) ?? 'Driver', vehicle_label: vehicles.get(driverId) ?? 'Vehicle TBC', lat: row.lat, lng: row.lng, recorded_at: row.recorded_at }];
-    });
   }
 
   const driver = driverResult.data as AnyRow;
@@ -109,7 +85,7 @@ export async function GET(request: NextRequest) {
       notifications: notificationsResult.data ?? [],
       return_journey: journeyResult.data ?? null,
       invoices,
-      nearby_drivers: nearbyDrivers,
+      nearby_drivers: [],
       job_search_preferences: preferencesResult.data ?? [],
     },
   });
