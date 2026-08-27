@@ -3,8 +3,6 @@ import * as Network from 'expo-network';
 import { Component, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-import { supabase } from './src/auth/supabase';
-import { startTrackingRuntime, stopTrackingRuntime } from './src/tracking/runtime';
 import { colors, spacing } from './src/ui/theme';
 import { normalizeApiBaseUrl, fallbackBaseUrl as fallbackApiBaseUrl } from './src/utils/url';
 
@@ -75,29 +73,6 @@ export default function App() {
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-    };
-  }, []);
-
-  useEffect(() => {
-    let disposed = false;
-
-    void supabase.auth.getSession().then(({ data }) => {
-      if (disposed) return;
-      const token = data.session?.access_token?.trim();
-      if (token) startTrackingRuntime(token);
-      else stopTrackingRuntime();
-    }).catch(() => stopTrackingRuntime());
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const token = session?.access_token?.trim();
-      if (token) startTrackingRuntime(token);
-      else stopTrackingRuntime();
-    });
-
-    return () => {
-      disposed = true;
-      subscription.unsubscribe();
-      stopTrackingRuntime();
     };
   }, []);
 
