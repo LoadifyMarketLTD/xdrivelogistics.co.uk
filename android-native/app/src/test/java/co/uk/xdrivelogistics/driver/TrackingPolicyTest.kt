@@ -86,10 +86,11 @@ class TrackingPolicyTest {
     @Test
     fun `task10 upload outcome values are distinct`() {
         val outcomes = UploadOutcome.values()
-        assertEquals(3, outcomes.size)
+        assertEquals(4, outcomes.size)
         assertTrue(UploadOutcome.SUCCESS in outcomes)
         assertTrue(UploadOutcome.RETRY in outcomes)
         assertTrue(UploadOutcome.AUTH_REQUIRED in outcomes)
+        assertTrue(UploadOutcome.JOB_NOT_ACTIVE in outcomes)
     }
 
     @Test
