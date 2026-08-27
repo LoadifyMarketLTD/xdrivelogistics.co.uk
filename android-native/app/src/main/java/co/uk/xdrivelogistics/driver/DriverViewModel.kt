@@ -56,6 +56,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val installationIdentity = DeviceInstallationIdentity(appContext)
     private val sessionStore = SessionStore(appContext)
     private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(appContext)
+    private val pendingAppDestinationStore = PendingAppDestinationStore(appContext)
     private val pendingStatusStore = PendingJobStatusStore(appContext)
     private val pendingPodStore = PendingPodStore(appContext)
     private val pendingQuoteStore = PendingQuoteStore(appContext)
@@ -102,6 +103,18 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         return true
     }
 
+    private fun applyPendingAppDestinationIfReady(): Boolean {
+        val destination = pendingAppDestinationStore.read() ?: return false
+        val tab = when (destination) {
+            PendingAppDestination.MESSAGES -> DriverTab.MESSAGES
+            PendingAppDestination.PROFILE,
+            PendingAppDestination.DOCUMENTS -> DriverTab.PROFILE
+        }
+        _uiState.value = _uiState.value.copy(selectedTab = tab, error = "")
+        pendingAppDestinationStore.clear()
+        return true
+    }
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
@@ -120,6 +133,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             liveRefreshJob?.cancel()
             pendingJobDeepLinkStore.clear()
+            pendingAppDestinationStore.clear()
             sessionStore.clear()
         }
     }
@@ -189,7 +203,8 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         )
         pendingPodStore.consumeFailureForUser(session.userId)?.let { _uiState.value = _uiState.value.copy(error = it) }
         pendingQuoteStore.consumeFailureForUser(session.userId)?.let { _uiState.value = _uiState.value.copy(error = it) }
-        applyPendingJobDeepLinkIfReady()
+        val openedJob = applyPendingJobDeepLinkIfReady()
+        if (!openedJob) applyPendingAppDestinationIfReady()
     }
 
     private suspend fun handleLoadFailure(session: DriverSession, error: Throwable?, allowRefresh: Boolean, fallback: String) {
@@ -230,9 +245,16 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val jobId = _uiState.value.selectedJobId
             if (jobId.isNullOrBlank()) { _uiState.value = _uiState.value.copy(error = "Select a job first."); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.sendQuickNote(session.accessToken, jobId, note.trim(), important)
+            mutationApi.sendQuickNote(session, jobId, note.trim(), important)
                 .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Dispatch note sent.") }
-                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to send note.")) }
+                .onFailure { error ->
+                    if (error.isDeviceSessionRevoked()) {
+                        sessionStore.clear()
+                        _uiState.value = DriverUiState(error = "This device session was replaced by another login.")
+                    } else {
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = error.friendlyDriverMessage("Failed to send note."))
+                    }
+                }
         }
     }
 
