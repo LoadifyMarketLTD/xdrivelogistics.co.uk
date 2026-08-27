@@ -2,108 +2,115 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import {
-  proposedPriceAmount,
-  publicOutcode,
-  publicQuoteNotes,
-} from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
 
-function publicArea(postcode: unknown) {
-  const outcode = publicOutcode(postcode);
-  return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
-}
-
-function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
-  const executionStatuses = new Set([
-    'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected',
-    'in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered', 'completed',
-  ]);
-  const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
-    && executionStatuses.has(String(row.current_status ?? row.status ?? '').toLowerCase());
-  const proposedPrice = proposedPriceAmount(row.budget_amount);
-  return {
-    ...row,
-    public_reference: `XDL-${String(row.id ?? '').slice(0, 8).toUpperCase()}`,
-    posting_company_name: company?.name ?? null,
-    posting_company_member_code: company?.company_number ?? null,
-    pickup_location: privateDetailsRevealed ? row.pickup_location : publicArea(row.pickup_postcode),
-    pickup_postcode: privateDetailsRevealed ? row.pickup_postcode : publicOutcode(row.pickup_postcode),
-    delivery_location: privateDetailsRevealed ? row.delivery_location : publicArea(row.delivery_postcode),
-    delivery_postcode: privateDetailsRevealed ? row.delivery_postcode : publicOutcode(row.delivery_postcode),
-    collection_contact_name: privateDetailsRevealed ? row.collection_contact_name : null,
-    collection_contact_phone: privateDetailsRevealed ? row.collection_contact_phone : null,
-    delivery_contact_name: privateDetailsRevealed ? row.delivery_contact_name : null,
-    delivery_contact_phone: privateDetailsRevealed ? row.delivery_contact_phone : null,
-    client_name: privateDetailsRevealed ? row.client_name : null,
-    client_phone: privateDetailsRevealed ? row.client_phone : null,
-    load_details: privateDetailsRevealed ? row.load_details : publicQuoteNotes(row.load_details),
-    special_requirements: privateDetailsRevealed ? row.special_requirements : null,
-    access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
-    budget_amount: privateDetailsRevealed ? row.budget_amount : proposedPrice,
-    private_details_revealed: privateDetailsRevealed,
-    can_update_lifecycle: privateDetailsRevealed
-      && !['delivered', 'completed'].includes(String(row.current_status ?? row.status ?? '').toLowerCase()),
-  };
+function cleanString(value: unknown, max = 5000) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
 export async function GET(request: NextRequest) {
   const context = await requireDriver(request);
   if (!isDriverContext(context)) return context;
 
-  const [driverResult, bidsResult, documentsResult, invoicesResult, alertsResult] = await Promise.all([
-    supabaseAdmin!.from('drivers').select('id,display_name,phone,email,status,app_access,driver_type,can_commercial_bid').eq('id', context.driverId).maybeSingle(),
-    supabaseAdmin!.from('job_bids').select('id,job_id,company_id,bidder_user_id,bidder_driver_id,amount,bid_price_gbp,currency,message,status,created_at').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('driver_documents').select('id,driver_id,doc_type,status,expiry_date,rejection_reason,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('invoices').select('id,company_id,job_id,commercial_agreement_id,buyer_company_id,supplier_company_id,invoice_number,status,payment_status,amount,due_date,created_at').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
-    supabaseAdmin!.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('recipient_user_id', context.userId).order('created_at', { ascending: false }).limit(100),
-  ]);
-
-  const firstError = driverResult.error ?? bidsResult.error ?? documentsResult.error ?? invoicesResult.error ?? alertsResult.error;
-  if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
-
-  const driver = (driverResult.data ?? null) as AnyRow | null;
-  const bids = (bidsResult.data ?? []) as AnyRow[];
-  const jobIds = [...new Set(bids.map((bid) => String(bid.job_id ?? '')).filter(Boolean))];
-  const jobsResult = jobIds.length > 0
-    ? await supabaseAdmin!.from('jobs').select('id,company_id,status,current_status,assigned_driver_id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,collection_contact_name,collection_contact_phone,delivery_contact_name,delivery_contact_phone,client_name,client_phone,load_details,special_requirements,access_restrictions,budget_amount,is_fixed_price').in('id', jobIds)
-    : { data: [], error: null };
-  if (jobsResult.error) return NextResponse.json({ error: jobsResult.error.message }, { status: 500 });
-  const jobs = (jobsResult.data ?? []) as AnyRow[];
-
-  const companyIds = [...new Set([...(context.companyId ? [context.companyId] : []), ...jobs.map((job) => String(job.company_id ?? '')).filter(Boolean)])];
-  const companiesResult = companyIds.length
-    ? await supabaseAdmin!.from('companies').select('id,name,company_number,company_type').in('id', companyIds)
-    : { data: [], error: null };
-  if (companiesResult.error) return NextResponse.json({ error: companiesResult.error.message }, { status: 500 });
-  const companies = new Map(((companiesResult.data ?? []) as AnyRow[]).map((company) => [String(company.id), company]));
-  const jobsById = new Map(jobs.map((job) => [String(job.id), sanitizeQuoteJob(job, context.driverId, companies.get(String(job.company_id)))]));
+  const driverResult = await supabaseAdmin!
+    .from('drivers')
+    .select('id,company_id,display_name,full_name,name,email,phone,status,app_access,driver_type,can_commercial_bid')
+    .eq('id', context.driverId)
+    .maybeSingle();
+  if (driverResult.error || !driverResult.data) {
+    return NextResponse.json({ error: driverResult.error?.message ?? 'Driver profile was not found.' }, { status: 500 });
+  }
 
   const vehicleResult = await supabaseAdmin!
     .from('vehicles')
-    .select('id,reg_plate,type,make,model')
+    .select('id,type,vehicle_type,make,model,registration,reg_plate,reg')
     .eq('assigned_driver_id', context.driverId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
+  const vehicleId = String(vehicleResult.data?.id ?? '');
 
-  const userResult = await supabaseAdmin!.auth.admin.getUserById(context.userId);
-  const email = String(driver?.email ?? userResult.data.user?.email ?? '');
+  const [driverDocsResult, vehicleDocsResult, notificationsResult, journeyResult, preferencesResult] = await Promise.all([
+    supabaseAdmin!.from('driver_documents').select('id,doc_type,status,expiry_date,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
+    vehicleId
+      ? supabaseAdmin!.from('vehicle_documents').select('id,doc_type,status,expiry_date,created_at').eq('vehicle_id', vehicleId).order('created_at', { ascending: false }).limit(100)
+      : Promise.resolve({ data: [], error: null }),
+    supabaseAdmin!.from('notifications').select('id,title,body,type,read_at,created_at').eq('user_id', context.userId).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin!.from('return_journeys').select('id,from_location,to_location,available_date').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin!.from('driver_job_search_preferences').select('job_id,state').eq('driver_id', context.driverId),
+  ]);
+
+  const firstError = driverDocsResult.error ?? vehicleDocsResult.error ?? notificationsResult.error ?? journeyResult.error ?? preferencesResult.error;
+  if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
+
+  let invoices: AnyRow[] = [];
+  if (context.companyId) {
+    const invoiceResult = await supabaseAdmin!
+      .from('invoices')
+      .select('id,invoice_number,status,payment_status,total,amount,currency,client_name,due_date')
+      .eq('company_id', context.companyId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (invoiceResult.error) return NextResponse.json({ error: invoiceResult.error.message }, { status: 500 });
+    invoices = (invoiceResult.data ?? []) as AnyRow[];
+  }
+
+  let nearbyDrivers: AnyRow[] = [];
+  if (context.companyId) {
+    const [driversResult, vehiclesResult, locationsResult] = await Promise.all([
+      supabaseAdmin!.from('drivers').select('id,display_name,name,email').eq('company_id', context.companyId),
+      supabaseAdmin!.from('vehicles').select('assigned_driver_id,type,vehicle_type,make,model,reg_plate,registration').eq('company_id', context.companyId),
+      supabaseAdmin!.from('driver_locations').select('driver_id,lat,lng,recorded_at').eq('company_id', context.companyId).order('recorded_at', { ascending: false }).limit(200),
+    ]);
+    const nearbyError = driversResult.error ?? vehiclesResult.error ?? locationsResult.error;
+    if (nearbyError) return NextResponse.json({ error: nearbyError.message }, { status: 500 });
+    const names = new Map((driversResult.data ?? []).map((row) => [String(row.id), String(row.display_name || row.name || row.email || 'Driver')]));
+    const vehicles = new Map((vehiclesResult.data ?? []).map((row) => {
+      const makeModel = [row.make, row.model].filter(Boolean).join(' ');
+      const type = String(row.vehicle_type || row.type || '');
+      const reg = String(row.reg_plate || row.registration || '');
+      return [String(row.assigned_driver_id), [makeModel, type, reg].filter(Boolean).join(' - ')];
+    }));
+    const seen = new Set<string>();
+    nearbyDrivers = (locationsResult.data ?? []).flatMap((row) => {
+      const driverId = String(row.driver_id ?? '');
+      if (!driverId || seen.has(driverId)) return [];
+      seen.add(driverId);
+      return [{ driver_id: driverId, driver_name: names.get(driverId) ?? 'Driver', vehicle_label: vehicles.get(driverId) ?? 'Vehicle TBC', lat: row.lat, lng: row.lng, recorded_at: row.recorded_at }];
+    });
+  }
+
+  const driver = driverResult.data as AnyRow;
+  const vehicle = (vehicleResult.data ?? null) as AnyRow | null;
+  const displayName = String(driver.display_name || driver.full_name || driver.name || driver.email || 'Driver');
+  const vehicleLabel = vehicle
+    ? [[vehicle.make, vehicle.model].filter(Boolean).join(' '), String(vehicle.vehicle_type || vehicle.type || '')].filter(Boolean).join(' - ')
+    : '';
+  const vehicleRegistration = vehicle ? String(vehicle.registration || vehicle.reg_plate || vehicle.reg || '') : '';
+
   return NextResponse.json({
     resources: {
-      name: String(driver?.display_name ?? userResult.data.user?.user_metadata?.full_name ?? email),
-      email,
-      phone: String(driver?.phone ?? ''),
-      driver,
-      company: context.companyId ? (companies.get(context.companyId) ?? null) : null,
-      vehicle: (vehicleResult.data ?? null) as AnyRow | null,
-      quotes: bids.map((bid) => ({ ...bid, job: jobsById.get(String(bid.job_id)) ?? null })),
-      documents: documentsResult.data ?? [],
-      invoices: invoicesResult.data ?? [],
-      alerts: alertsResult.data ?? [],
+      profile: {
+        driver_id: context.driverId,
+        company_id: context.companyId,
+        vehicle_id: vehicleId || null,
+        display_name: displayName,
+        email: String(driver.email ?? ''),
+        vehicle_label: vehicleLabel,
+        vehicle_registration: vehicleRegistration,
+      },
+      documents: [
+        ...(driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })),
+        ...(vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })),
+      ],
+      notifications: notificationsResult.data ?? [],
+      return_journey: journeyResult.data ?? null,
+      invoices,
+      nearby_drivers: nearbyDrivers,
+      job_search_preferences: preferencesResult.data ?? [],
     },
   });
 }
@@ -112,36 +119,93 @@ export async function POST(request: NextRequest) {
   const context = await requireDriver(request);
   if (!isDriverContext(context)) return context;
   const body = await request.json().catch(() => null) as AnyRow | null;
-  if (!body || String(body.action ?? '') !== 'upload_document') {
-    return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
+  if (!body) return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+  const action = String(body.action ?? '');
+
+  if (action === 'mark_notification_read' || action === 'delete_notification') {
+    const notificationId = cleanString(body.notificationId, 80);
+    if (!notificationId) return NextResponse.json({ error: 'Notification id is required.' }, { status: 400 });
+    if (action === 'mark_notification_read') {
+      const { data, error } = await supabaseAdmin!.from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .eq('user_id', context.userId)
+        .select('id');
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (!data?.length) return NextResponse.json({ error: 'Notification not found.' }, { status: 404 });
+    } else {
+      const { data, error } = await supabaseAdmin!.from('notifications')
+        .delete().eq('id', notificationId).eq('user_id', context.userId).select('id');
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (!data?.length) return NextResponse.json({ error: 'Notification not found.' }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
   }
 
-  const docType = String(body.docType ?? '').trim().slice(0, 100);
-  const fileName = String(body.fileName ?? 'document').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 160);
-  const mimeType = String(body.mimeType ?? 'application/octet-stream');
-  const base64 = typeof body.base64 === 'string' ? body.base64 : '';
-  if (!docType || !base64) return NextResponse.json({ error: 'Document type and file are required.' }, { status: 400 });
-  if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
-    return NextResponse.json({ error: 'Use a PDF, JPG, PNG or WEBP document.' }, { status: 400 });
-  }
-  const bytes = Buffer.from(base64, 'base64');
-  if (bytes.length === 0 || bytes.length > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: 'Document must be smaller than 10 MB.' }, { status: 400 });
+  if (action === 'save_return_journey') {
+    const fromLocation = cleanString(body.fromLocation, 300);
+    const toLocation = cleanString(body.toLocation, 300);
+    const rawDate = cleanString(body.availableDate, 80);
+    const availableDate = rawDate && Number.isFinite(Date.parse(rawDate)) ? new Date(rawDate).toISOString() : null;
+    const { error } = await supabaseAdmin!.rpc('replace_driver_return_journey', {
+      p_driver_id: context.driverId,
+      p_company_id: context.companyId,
+      p_from_location: fromLocation,
+      p_to_location: toLocation,
+      p_available_date: availableDate,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: error.code === '22023' ? 400 : 500 });
+    return NextResponse.json({ ok: true });
   }
 
-  const uploadFolder = context.companyId ?? context.driverId;
-  const path = `${uploadFolder}/${context.driverId}/${randomUUID()}-${fileName}`;
-  const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
-  if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
-  const { error: documentError } = await supabaseAdmin!.from('driver_documents').insert({
-    driver_id: context.driverId,
-    doc_type: docType,
-    file_path: path,
-    status: 'pending',
-  });
-  if (documentError) {
-    await supabaseAdmin!.storage.from('driver-docs').remove([path]);
-    return NextResponse.json({ error: documentError.message }, { status: 500 });
+  if (action === 'set_job_preference') {
+    const jobId = cleanString(body.jobId, 80);
+    const state = body.state == null ? null : cleanString(body.state, 20);
+    if (!jobId) return NextResponse.json({ error: 'Job id is required.' }, { status: 400 });
+    if (state !== null && !['saved', 'deleted'].includes(state)) return NextResponse.json({ error: 'Unsupported job preference.' }, { status: 400 });
+    if (state === null) {
+      const { error } = await supabaseAdmin!.from('driver_job_search_preferences').delete().eq('driver_id', context.driverId).eq('job_id', jobId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    } else {
+      const { error } = await supabaseAdmin!.from('driver_job_search_preferences').upsert({
+        driver_id: context.driverId, job_id: jobId, state, updated_at: new Date().toISOString(),
+      }, { onConflict: 'driver_id,job_id' });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
   }
-  return NextResponse.json({ ok: true });
+
+  if (action === 'upload_document') {
+    const docType = cleanString(body.docType, 100);
+    const fileName = cleanString(body.fileName, 160).replace(/[^a-zA-Z0-9._-]/g, '-') || 'document';
+    const mimeType = cleanString(body.mimeType, 100) || 'application/octet-stream';
+    const base64 = typeof body.base64 === 'string' ? body.base64 : '';
+    const isVehicleDocument = body.isVehicleDocument === true;
+    if (!docType || !base64) return NextResponse.json({ error: 'Document type and file are required.' }, { status: 400 });
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) return NextResponse.json({ error: 'Use a PDF, JPG, PNG or WEBP document.' }, { status: 400 });
+    const bytes = Buffer.from(base64, 'base64');
+    if (bytes.length === 0 || bytes.length > 10 * 1024 * 1024) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 400 });
+
+    const vehicleResult = isVehicleDocument
+      ? await supabaseAdmin!.from('vehicles').select('id').eq('assigned_driver_id', context.driverId).eq('company_id', context.companyId).limit(1).maybeSingle()
+      : { data: null, error: null };
+    if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
+    if (isVehicleDocument && !vehicleResult.data?.id) return NextResponse.json({ error: 'No assigned vehicle is available for this document.' }, { status: 409 });
+
+    const uploadFolder = context.companyId ?? context.driverId;
+    const path = `${uploadFolder}/${context.driverId}/${randomUUID()}-${fileName}`;
+    const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
+    if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
+
+    const insertResult = isVehicleDocument
+      ? await supabaseAdmin!.from('vehicle_documents').insert({ vehicle_id: vehicleResult.data!.id, doc_type: docType, file_path: path, status: 'pending', uploaded_by: context.userId })
+      : await supabaseAdmin!.from('driver_documents').insert({ driver_id: context.driverId, doc_type: docType, file_path: path, status: 'pending' });
+    if (insertResult.error) {
+      await supabaseAdmin!.storage.from('driver-docs').remove([path]);
+      return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
 }
