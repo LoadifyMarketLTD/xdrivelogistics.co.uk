@@ -1,11 +1,12 @@
 import Constants from 'expo-constants';
 
 import { supabase } from '../auth/supabase';
+import { ensureDeviceSession } from '../auth/deviceSession';
 import { normalizeApiBaseUrl, fallbackBaseUrl as fallbackApiBaseUrl } from '../utils/url';
 
 type ApiOptions = {
   token?: string | null;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT';
   body?: unknown;
 };
 
@@ -16,14 +17,6 @@ export function getApiBaseUrl() {
   return normalizeApiBaseUrl(typeof configured === 'string' ? configured : fallbackApiBaseUrl);
 }
 
-/**
- * Resolve the bearer token to use for a request.
- *
- * Priority order:
- *  1. Explicit token passed by the caller (fastest path after sign-in).
- *  2. Live Supabase session (covers token-refresh races and any call sites
- *     that do not forward the token explicitly).
- */
 async function resolveAuthToken(explicitToken?: string | null): Promise<string | null> {
   const normalized = explicitToken?.trim();
   if (normalized) return normalized;
@@ -39,17 +32,21 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = await resolveAuthToken(options.token);
-  const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const apiBaseUrl = getApiBaseUrl();
+  const installationId = token ? await ensureDeviceSession(apiBaseUrl, token) : null;
+  const url = `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+
   const response = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(installationId ? { 'x-xdrive-installation-id': installationId } : {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: controller.signal,
   }).catch((error) => {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -59,6 +56,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   }).finally(() => {
     clearTimeout(timeoutId);
   });
+
   const payload = await response.json().catch(() => ({} as { error?: string; message?: string }));
   if (!response.ok) {
     const message =
