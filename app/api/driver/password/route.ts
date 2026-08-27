@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { requireActiveNativeAuthSession } from '../mobile/_deviceSessionGate';
 
-type PasswordUpdatePayload = {
-  newPassword?: string;
-};
+type PasswordUpdatePayload = { newPassword?: string };
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
-  }
-
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
   const token = getBearerToken(request);
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const body = (await request.json()) as PasswordUpdatePayload;
-  const newPassword = body.newPassword?.trim() || '';
-
-  if (newPassword.length < 8) {
-    return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
-  }
+  if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { data: driverRow, error: driverError } = await supabaseAdmin
     .from('drivers')
@@ -33,30 +17,23 @@ export async function POST(request: NextRequest) {
     .eq('user_id', authData.user.id)
     .limit(1)
     .maybeSingle();
+  if (driverError) return NextResponse.json({ error: 'We could not verify your Driver account.' }, { status: 500 });
+  if (!driverRow) return NextResponse.json({ error: 'Driver account required.' }, { status: 403 });
 
-  if (driverError) {
-    return NextResponse.json({ error: 'We could not verify your Driver account.' }, { status: 500 });
-  }
-  if (!driverRow) {
-    return NextResponse.json({ error: 'Driver account required.' }, { status: 403 });
-  }
+  const deviceGate = await requireActiveNativeAuthSession(request, authData.user.id, String(driverRow.id));
+  if (deviceGate) return deviceGate;
 
-  const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
-    password: newPassword,
-  });
+  const body = (await request.json().catch(() => null)) as PasswordUpdatePayload | null;
+  const newPassword = body?.newPassword?.trim() || '';
+  if (newPassword.length < 8) return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
 
-  if (updateUserError) {
-    return NextResponse.json({ error: updateUserError.message }, { status: 400 });
-  }
+  const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, { password: newPassword });
+  if (updateUserError) return NextResponse.json({ error: updateUserError.message }, { status: 400 });
 
   const { error: driverUpdateError } = await supabaseAdmin
     .from('drivers')
-    .update({
-      must_change_password: false,
-      temp_password_generated_at: null,
-    })
+    .update({ must_change_password: false, temp_password_generated_at: null })
     .eq('id', driverRow.id);
-
   if (driverUpdateError) {
     return NextResponse.json({ error: `Password changed but driver flag update failed: ${driverUpdateError.message}` }, { status: 500 });
   }
