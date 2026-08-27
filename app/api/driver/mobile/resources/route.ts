@@ -5,9 +5,26 @@ import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_DOCUMENT_BASE64_CHARS = 14_000_000;
 
 function cleanString(value: unknown, max = 5000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function hasExpectedDocumentMagicBytes(bytes: Buffer, mimeType: string) {
+  if (mimeType === 'application/pdf') return bytes.subarray(0, 5).toString('ascii') === '%PDF-';
+  if (mimeType === 'image/jpeg') return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mimeType === 'image/png') {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    return bytes.length >= signature.length && signature.every((value, index) => bytes[index] === value);
+  }
+  if (mimeType === 'image/webp') {
+    return bytes.length >= 12
+      && bytes.subarray(0, 4).toString('ascii') === 'RIFF'
+      && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+  }
+  return false;
 }
 
 export async function GET(request: NextRequest) {
@@ -159,8 +176,12 @@ export async function POST(request: NextRequest) {
     const isVehicleDocument = body.isVehicleDocument === true;
     if (!docType || !base64) return NextResponse.json({ error: 'Document type and file are required.' }, { status: 400 });
     if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) return NextResponse.json({ error: 'Use a PDF, JPG, PNG or WEBP document.' }, { status: 400 });
+    if (base64.length > MAX_DOCUMENT_BASE64_CHARS) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 413 });
     const bytes = Buffer.from(base64, 'base64');
-    if (bytes.length === 0 || bytes.length > 10 * 1024 * 1024) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 400 });
+    if (bytes.length === 0 || bytes.length > MAX_DOCUMENT_BYTES) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 413 });
+    if (!hasExpectedDocumentMagicBytes(bytes, mimeType)) {
+      return NextResponse.json({ error: 'Document content does not match its declared file type.' }, { status: 415 });
+    }
 
     const vehicleResult = isVehicleDocument
       ? await supabaseAdmin!.from('vehicles').select('id').eq('assigned_driver_id', context.driverId).eq('company_id', context.companyId).limit(1).maybeSingle()
