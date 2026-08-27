@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "XDrive Driver Preview",
-    "slug": "xdrive-driver-preview",
-    "version": "1.1.0-preview.2",
+    "name": "XDrive Driver",
+    "slug": "xdrive-driver",
+    "version": "1.1.0",
     "orientation": "portrait",
     "newArchEnabled": false,
     "icon": "./assets/xdrive-native-logo.jpeg",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "co.uk.xdrivelogistics.driver.preview"
+      "supportsTablet": false,
+      "bundleIdentifier": "co.uk.xdrivelogistics.driver"
     },
     "android": {
-      "package": "co.uk.xdrivelogistics.driver.preview",
-      "versionCode": 2,
+      "package": "co.uk.xdrivelogistics.driver",
+      "versionCode": 3,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -31,8 +31,8 @@
     },
     "owner": "xdrive-logistics-ltd",
     "extra": {
-      "releaseChannel": "preview",
-      "productionOwner": "android-native",
+      "releaseChannel": "production-candidate",
+      "productionOwner": "apps/driver-mobile",
       "eas": {
         "projectId": "c19b0bdf-567a-488e-b78f-d36b84f25c99"
       }
