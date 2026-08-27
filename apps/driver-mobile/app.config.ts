@@ -48,12 +48,6 @@ const config: ExpoConfig = {
     'expo-document-picker',
     'expo-notifications',
     [
-      'expo-location',
-      {
-        locationWhenInUsePermission: 'XDrive Driver uses your location for active job tracking and optional availability sharing.',
-      },
-    ],
-    [
       'expo-splash-screen',
       {
         backgroundColor: '#FFFFFF',
