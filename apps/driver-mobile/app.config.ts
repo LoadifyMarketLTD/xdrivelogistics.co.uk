@@ -27,6 +27,9 @@ const config: ExpoConfig = {
       'ACCESS_NETWORK_STATE',
       'ACCESS_FINE_LOCATION',
       'ACCESS_COARSE_LOCATION',
+      'ACCESS_BACKGROUND_LOCATION',
+      'FOREGROUND_SERVICE',
+      'FOREGROUND_SERVICE_LOCATION',
     ],
     intentFilters: [
       {
@@ -47,6 +50,15 @@ const config: ExpoConfig = {
     'expo-image-picker',
     'expo-document-picker',
     'expo-notifications',
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission: 'Allow XDrive Driver to use your location while you are carrying an active delivery job.',
+        locationAlwaysAndWhenInUsePermission: 'Allow XDrive Driver to share your location while an active delivery job is in progress.',
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+      },
+    ],
     [
       'expo-splash-screen',
       {
