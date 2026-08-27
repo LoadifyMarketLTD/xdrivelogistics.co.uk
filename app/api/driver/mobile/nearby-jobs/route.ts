@@ -54,13 +54,11 @@ type NearbyJobRow = {
   companies?: {
     name?: string | null;
     company_number?: string | null;
-    phone?: string | null;
     company_type?: string | null;
     created_at?: string | null;
   } | Array<{
     name?: string | null;
     company_number?: string | null;
-    phone?: string | null;
     company_type?: string | null;
     created_at?: string | null;
   }> | null;
@@ -73,7 +71,7 @@ const nearbySelect = [
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
   'pallets', 'weight_kg', 'budget_amount', 'currency', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
-  'job_distance_miles', 'exchange_posted_at', 'companies(name,company_number,phone,company_type,created_at)',
+  'job_distance_miles', 'exchange_posted_at', 'companies(name,company_number,company_type,created_at)',
 ].join(',');
 
 function companyInfo(companies: NearbyJobRow['companies']) {
@@ -96,7 +94,6 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     poster: {
       name: company?.name ?? null,
       memberCode: company?.company_number ?? null,
-      phone: company?.phone ?? null,
       memberType: company?.company_type ?? null,
       memberSince: company?.created_at ?? null,
     },
