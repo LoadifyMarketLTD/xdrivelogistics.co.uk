@@ -10,6 +10,7 @@ export const OPERATIONAL_TRACKING_TASK = 'xdrive-driver-operational-location';
 const TRACKING_INTERVAL_MS = 20_000;
 const TRACKING_DISTANCE_METRES = 50;
 let permissionPromptInFlight = false;
+let backgroundPermissionPromptAttempted = false;
 
 function speedMetresPerSecondToMph(speed: number | null | undefined) {
   return typeof speed === 'number' && Number.isFinite(speed) && speed >= 0 ? speed * 2.2369362921 : null;
@@ -61,20 +62,27 @@ TaskManager.defineTask(OPERATIONAL_TRACKING_TASK, async ({ data, error }) => {
 async function requestBackgroundPermissionWithExplanation(): Promise<boolean> {
   const current = await Location.getBackgroundPermissionsAsync();
   if (current.status === Location.PermissionStatus.GRANTED) return true;
-  if (permissionPromptInFlight) return false;
+  if (permissionPromptInFlight || backgroundPermissionPromptAttempted) return false;
 
   permissionPromptInFlight = true;
+  backgroundPermissionPromptAttempted = true;
   try {
     if (Platform.OS === 'android') {
       const accepted = await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (value: boolean) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
         Alert.alert(
           'Location during active jobs',
           'XDrive Driver uses background location only while an assigned delivery job is active so authorised operations users can follow job progress and delivery ETA.',
           [
-            { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Continue', onPress: () => resolve(true) },
+            { text: 'Not now', style: 'cancel', onPress: () => finish(false) },
+            { text: 'Continue', onPress: () => finish(true) },
           ],
-          { cancelable: true, onDismiss: () => resolve(false) },
+          { cancelable: true, onDismiss: () => finish(false) },
         );
       });
       if (!accepted) return false;
