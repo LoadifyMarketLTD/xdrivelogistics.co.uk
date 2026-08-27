@@ -6,34 +6,37 @@ const root = path.resolve(__dirname, '..');
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('Android production ownership contract', () => {
-  it('reserves the production application id for android-native', () => {
-    const nativeGradle = read('android-native/app/build.gradle.kts');
-    expect(nativeGradle).toContain('applicationId = "co.uk.xdrivelogistics.driver"');
-  });
-
-  it('keeps Expo on the explicit preview identity in every Expo config source', () => {
+  it('assigns the production application id to the Expo driver app', () => {
     const appJson = JSON.parse(read('apps/driver-mobile/app.json'));
     const appConfig = read('apps/driver-mobile/app.config.ts');
-    expect(appJson.expo.android.package).toBe('co.uk.xdrivelogistics.driver.preview');
-    expect(appJson.expo.ios.bundleIdentifier).toBe('co.uk.xdrivelogistics.driver.preview');
-    expect(appJson.expo.extra.releaseChannel).toBe('preview');
-    expect(appConfig).toContain("package: 'co.uk.xdrivelogistics.driver.preview'");
-    expect(appConfig).toContain("bundleIdentifier: 'co.uk.xdrivelogistics.driver.preview'");
+    expect(appJson.expo.android.package).toBe('co.uk.xdrivelogistics.driver');
+    expect(appJson.expo.ios.bundleIdentifier).toBe('co.uk.xdrivelogistics.driver');
+    expect(appConfig).toContain("package: 'co.uk.xdrivelogistics.driver'");
+    expect(appConfig).toContain("bundleIdentifier: 'co.uk.xdrivelogistics.driver'");
   });
 
-  it('prevents Expo from exposing a Play Store production build or submit profile', () => {
+  it('marks apps/driver-mobile as the production candidate owner', () => {
+    const appJson = JSON.parse(read('apps/driver-mobile/app.json'));
+    const appConfig = read('apps/driver-mobile/app.config.ts');
+    expect(appJson.expo.extra.productionOwner).toBe('apps/driver-mobile');
+    expect(appJson.expo.extra.releaseChannel).toBe('production-candidate');
+    expect(appConfig).toContain("productionOwner: 'apps/driver-mobile'");
+    expect(appConfig).toContain("releaseChannel: 'production-candidate'");
+  });
+
+  it('keeps an internal production-candidate APK profile without a store submit path', () => {
     const eas = JSON.parse(read('apps/driver-mobile/eas.json'));
     const pkg = JSON.parse(read('apps/driver-mobile/package.json'));
-    expect(eas.build.production).toBeUndefined();
+    expect(eas.build['production-apk'].distribution).toBe('internal');
+    expect(eas.build['production-apk'].android.buildType).toBe('apk');
     expect(eas.submit).toBeUndefined();
-    expect(pkg.scripts['build:android:aab']).toBeUndefined();
-    expect(pkg.scripts['build:android:apk']).toContain('--profile preview');
+    expect(pkg.scripts['build:android:apk']).toContain('--profile production-apk');
   });
 
-  it('documents Kotlin as the production owner and Expo as preview only', () => {
+  it('documents Expo as the canonical production candidate and blocks premature release', () => {
     const readme = read('apps/driver-mobile/README.md');
-    expect(readme).toContain('Production Android source: `android-native/`');
-    expect(readme).toContain('Expo preview package: `co.uk.xdrivelogistics.driver.preview`');
-    expect(readme).toContain('must not be submitted to the Play Store');
+    expect(readme).toContain('canonical XDrive Driver application source');
+    expect(readme).toContain('Do not publish or submit a store build');
+    expect(readme).toContain('never generate a replacement production keystore');
   });
 });
