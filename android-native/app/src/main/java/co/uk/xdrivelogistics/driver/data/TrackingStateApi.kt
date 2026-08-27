@@ -1,5 +1,6 @@
 package co.uk.xdrivelogistics.driver.data
 
+import co.uk.xdrivelogistics.driver.XDriveDriverApp
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +18,13 @@ data class TrackingState(
 
 class TrackingStateApi(
     private val xdriveBaseUrl: String,
+    private val installationId: String,
 ) {
+    constructor(xdriveBaseUrl: String) : this(
+        xdriveBaseUrl,
+        DeviceInstallationIdentity(XDriveDriverApp.instance.applicationContext).installationId,
+    )
+
     private val gson = Gson()
     private val http = OkHttpClient.Builder()
         .callTimeout(20, TimeUnit.SECONDS)
@@ -28,9 +35,11 @@ class TrackingStateApi(
     suspend fun load(accessToken: String): Result<TrackingState> = withContext(Dispatchers.IO) {
         runCatching {
             require(xdriveBaseUrl.isNotBlank()) { "XDRIVE_BASE_URL is missing." }
+            require(installationId.isNotBlank()) { "Native installation identity is missing." }
             val request = Request.Builder()
                 .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/tracking-state")
                 .addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("X-XDrive-Installation-Id", installationId)
                 .addHeader("Accept", "application/json")
                 .get()
                 .build()
@@ -40,8 +49,11 @@ class TrackingStateApi(
                 if (!response.isSuccessful) {
                     val message = runCatching {
                         gson.fromJson(raw, JsonObject::class.java)?.get("error")?.asString
-                    }.getOrNull()
-                    throw IllegalStateException(message ?: "Tracking state request failed (${response.code}).")
+                    }.getOrNull().orEmpty().ifBlank { "Tracking state request failed (${response.code})." }
+                    if ((response.code == 401 || response.code == 403) && message.isBindingMessage()) {
+                        throw DeviceSessionException(response.code, message)
+                    }
+                    throw IllegalStateException("HTTP ${response.code}: $message")
                 }
                 val payload = if (raw.isBlank()) JsonObject() else gson.fromJson(raw, JsonObject::class.java) ?: JsonObject()
                 TrackingState(
@@ -52,6 +64,11 @@ class TrackingStateApi(
                 )
             }
         }
+    }
+
+    private fun String.isBindingMessage(): Boolean {
+        val lower = lowercase()
+        return "native device" in lower || "mobile session" in lower || "revoked or replaced" in lower || "device identity" in lower
     }
 
     private fun JsonObject.bool(name: String): Boolean {

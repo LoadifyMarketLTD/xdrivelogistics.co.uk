@@ -43,6 +43,31 @@ class SecureDriverMutationApi(
         execute(request, "Driver status update failed.")
     }
 
+    suspend fun sendQuickNote(
+        session: DriverSession,
+        jobId: String,
+        note: String,
+        important: Boolean,
+    ): Result<Unit> = networkResult {
+        requireConfigured()
+        val cleanNote = note.trim()
+        require(cleanNote.isNotBlank()) { "Write a short note first." }
+        require(cleanNote.length <= 2000) { "Note is too long." }
+        val encodedJobId = URLEncoder.encode(jobId, StandardCharsets.UTF_8.toString())
+        val body = JsonObject().apply {
+            addProperty("note", cleanNote)
+            addProperty("visibility", if (important) "important" else "internal")
+        }
+        val request = baseRequest(
+            "${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/jobs/$encodedJobId/notes",
+            session.accessToken,
+        )
+            .addHeader("Content-Type", "application/json")
+            .post(gson.toJson(body).toRequestBody(jsonMediaType))
+            .build()
+        execute(request, "Failed to send note.")
+    }
+
     suspend fun uploadPodEvidence(
         session: DriverSession,
         action: PendingPodUpload,

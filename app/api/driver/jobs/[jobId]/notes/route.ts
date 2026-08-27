@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { rejectRevokedNativeAuthSession } from '../../../mobile/_deviceSessionGate';
 
 type Params = { params: Promise<{ jobId: string }> };
 
@@ -35,50 +36,41 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const token = getBearerToken(request);
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: driverRow, error: driverError } = await supabaseAdmin
+    .from('drivers')
+    .select('id')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+  if (driverError) return NextResponse.json({ error: 'Driver identity lookup failed.' }, { status: 500 });
+  if (driverRow) {
+    const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, String(driverRow.id));
+    if (deviceGate) return deviceGate;
   }
 
   const { jobId } = await params;
-  if (!jobId) {
-    return NextResponse.json({ error: 'Missing job id.' }, { status: 400 });
-  }
+  if (!jobId) return NextResponse.json({ error: 'Missing job id.' }, { status: 400 });
 
   const body = (await request.json().catch(() => null)) as NoteBody | null;
   const note = typeof body?.note === 'string' ? body.note.trim() : '';
   const visibility = body?.visibility === 'important' ? 'important' : 'internal';
-
-  if (!note) {
-    return NextResponse.json({ error: 'Write a short note first.' }, { status: 400 });
-  }
-
-  if (note.length > 2000) {
-    return NextResponse.json({ error: 'Note is too long.' }, { status: 400 });
-  }
+  if (!note) return NextResponse.json({ error: 'Write a short note first.' }, { status: 400 });
+  if (note.length > 2000) return NextResponse.json({ error: 'Note is too long.' }, { status: 400 });
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select('id, company_id')
     .eq('id', jobId)
     .maybeSingle();
-
-  if (jobError) {
-    return NextResponse.json({ error: jobError.message }, { status: 500 });
-  }
-
-  if (!job?.company_id) {
-    return NextResponse.json({ error: 'Job not found.' }, { status: 404 });
-  }
+  if (jobError) return NextResponse.json({ error: jobError.message }, { status: 500 });
+  if (!job?.company_id) return NextResponse.json({ error: 'Job not found.' }, { status: 404 });
 
   const hasAccess = await resolveCompanyAccess(authData.user.id, job.company_id);
-  if (!hasAccess) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-  }
+  if (!hasAccess) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
 
   const { error: insertError } = await supabaseAdmin.from('job_notes').insert({
     company_id: job.company_id,
@@ -91,9 +83,6 @@ export async function POST(request: NextRequest, { params }: Params) {
     status: 'active',
   });
 
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
-  }
-
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
   return NextResponse.json({ ok: true }, { status: 201 });
 }

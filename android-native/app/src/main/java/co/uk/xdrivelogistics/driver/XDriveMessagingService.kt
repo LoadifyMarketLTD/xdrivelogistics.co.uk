@@ -57,7 +57,7 @@ class XDriveMessagingService : FirebaseMessagingService() {
                 putExtra(JobDeepLinkActivity.EXTRA_JOB_ID, jobId)
             }
         } else {
-            Intent(Intent.ACTION_VIEW, Uri.parse("xdrive://notification"), applicationContext, MainActivity::class.java)
+            Intent(Intent.ACTION_VIEW, Uri.parse("xdrive://notification"), applicationContext, AppDeepLinkActivity::class.java)
         }.apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }

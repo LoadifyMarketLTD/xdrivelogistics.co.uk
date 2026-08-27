@@ -7,39 +7,28 @@ import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
 import co.uk.xdrivelogistics.driver.data.DriverBid
 import co.uk.xdrivelogistics.driver.data.DriverDocument
+import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverJob
 import co.uk.xdrivelogistics.driver.data.DriverNotification
 import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverReturnJourney
-import co.uk.xdrivelogistics.driver.data.DriverInvoice
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.NearbyDriver
 import co.uk.xdrivelogistics.driver.data.SecureDriverCommercialApi
 import co.uk.xdrivelogistics.driver.data.SecureDriverMutationApi
+import co.uk.xdrivelogistics.driver.data.SecureDriverResourcesApi
 import co.uk.xdrivelogistics.driver.data.SessionStore
+import co.uk.xdrivelogistics.driver.data.isDeviceSessionRevoked
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-enum class DriverTab {
-    NEARBY,
-    QUOTES,
-    BOOKINGS,
-    JOBS,
-    SMARTPAY,
-    ACTION,
-    MESSAGES,
-    PROFILE,
-}
-
-enum class ActionEntryMode {
-    DETAILS,
-    QUOTE,
-}
+enum class DriverTab { NEARBY, QUOTES, BOOKINGS, JOBS, SMARTPAY, ACTION, MESSAGES, PROFILE }
+enum class ActionEntryMode { DETAILS, QUOTE }
 
 data class DriverUiState(
     val isLoading: Boolean = false,
@@ -67,25 +56,14 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private val installationIdentity = DeviceInstallationIdentity(appContext)
     private val sessionStore = SessionStore(appContext)
     private val pendingJobDeepLinkStore = PendingJobDeepLinkStore(appContext)
+    private val pendingAppDestinationStore = PendingAppDestinationStore(appContext)
     private val pendingStatusStore = PendingJobStatusStore(appContext)
     private val pendingPodStore = PendingPodStore(appContext)
     private val pendingQuoteStore = PendingQuoteStore(appContext)
-    private val api = ApiClient(
-        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
-        supabaseUrl = BuildConfig.SUPABASE_URL,
-        supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY,
-    )
-    private val commercialApi = SecureDriverCommercialApi(
-        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
-        installationId = installationIdentity.installationId,
-    )
-    private val mutationApi = SecureDriverMutationApi(
-        xdriveBaseUrl = BuildConfig.XDRIVE_BASE_URL,
-        installationId = installationIdentity.installationId,
-    )
-
-    // Commercial Marketplace reads/submission go through XDrive server APIs so
-    // a native client never needs pre-award SELECT access to the jobs table.
+    private val api = ApiClient(BuildConfig.XDRIVE_BASE_URL, BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+    private val commercialApi = SecureDriverCommercialApi(BuildConfig.XDRIVE_BASE_URL, installationIdentity.installationId)
+    private val mutationApi = SecureDriverMutationApi(BuildConfig.XDRIVE_BASE_URL, installationIdentity.installationId)
+    private val resourcesApi = SecureDriverResourcesApi(BuildConfig.XDRIVE_BASE_URL, installationIdentity.installationId)
     private val quoteCoordinator = QuoteSubmissionCoordinator { session, _, jobId, amount, note ->
         commercialApi.submitJobQuote(session, jobId, amount, note)
     }
@@ -101,32 +79,18 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     _uiState.value = DriverUiState()
                     return@collectLatest
                 }
-
-                _uiState.value = _uiState.value.copy(
-                    isAuthenticated = true,
-                    session = persisted,
-                    error = "",
-                )
-                if (pendingStatusStore.hasPendingForUser(persisted.userId)) {
-                    JobStatusSyncScheduler.schedule(appContext)
-                }
-                if (pendingPodStore.hasPendingForUser(persisted.userId)) {
-                    PodSyncScheduler.schedule(appContext)
-                }
-                if (pendingQuoteStore.hasPendingForUser(persisted.userId)) {
-                    QuoteSyncScheduler.schedule(appContext)
-                }
+                _uiState.value = _uiState.value.copy(isAuthenticated = true, session = persisted, error = "")
+                if (pendingStatusStore.hasPendingForUser(persisted.userId)) JobStatusSyncScheduler.schedule(appContext)
+                if (pendingPodStore.hasPendingForUser(persisted.userId)) PodSyncScheduler.schedule(appContext)
+                if (pendingQuoteStore.hasPendingForUser(persisted.userId)) QuoteSyncScheduler.schedule(appContext)
                 refreshDriverData()
                 startLiveRefresh(persisted)
             }
         }
-
         viewModelScope.launch {
             pendingJobDeepLinkStore.pendingJobIds.collectLatest { jobId ->
                 if (jobId.isNullOrBlank()) return@collectLatest
-                if (!applyPendingJobDeepLinkIfReady() && _uiState.value.session != null) {
-                    refreshDriverData()
-                }
+                if (!applyPendingJobDeepLinkIfReady() && _uiState.value.session != null) refreshDriverData()
             }
         }
     }
@@ -134,46 +98,34 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     private fun applyPendingJobDeepLinkIfReady(): Boolean {
         val jobId = pendingJobDeepLinkStore.read() ?: return false
         if (_uiState.value.jobs.none { it.id == jobId }) return false
-
-        _uiState.value = _uiState.value.copy(
-            selectedJobId = jobId,
-            selectedTab = DriverTab.ACTION,
-            actionEntryMode = ActionEntryMode.DETAILS,
-            error = "",
-        )
+        _uiState.value = _uiState.value.copy(selectedJobId = jobId, selectedTab = DriverTab.ACTION, actionEntryMode = ActionEntryMode.DETAILS, error = "")
         pendingJobDeepLinkStore.clear()
+        return true
+    }
+
+    private fun applyPendingAppDestinationIfReady(): Boolean {
+        val destination = pendingAppDestinationStore.read() ?: return false
+        val tab = when (destination) {
+            PendingAppDestination.MESSAGES -> DriverTab.MESSAGES
+            PendingAppDestination.PROFILE,
+            PendingAppDestination.DOCUMENTS -> DriverTab.PROFILE
+        }
+        _uiState.value = _uiState.value.copy(selectedTab = tab, error = "")
+        pendingAppDestinationStore.clear()
         return true
     }
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-
             val result = api.login(email.trim(), password)
             if (result.isFailure) {
-                val error = result.exceptionOrNull()
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = error?.friendlyDriverMessage("Login failed.") ?: "Login failed.",
-                )
+                _uiState.value = _uiState.value.copy(isLoading = false, error = result.exceptionOrNull()?.friendlyDriverMessage("Login failed.") ?: "Login failed.")
                 return@launch
             }
-
-            val session = result.getOrThrow()
-            runCatching { sessionStore.saveSession(session) }
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Login successful.",
-                        error = "",
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("This device could not be registered for driver access."),
-                    )
-                }
+            runCatching { sessionStore.saveSession(result.getOrThrow()) }
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Login successful.", error = "") }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(isLoading = false, error = error.friendlyDriverMessage("This device could not be registered for driver access.")) }
         }
     }
 
@@ -181,6 +133,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             liveRefreshJob?.cancel()
             pendingJobDeepLinkStore.clear()
+            pendingAppDestinationStore.clear()
             sessionStore.clear()
         }
     }
@@ -191,99 +144,80 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             while (isActive) {
                 delay(30_000L)
                 val current = _uiState.value.session
-                if (current?.accessToken == session.accessToken && !_uiState.value.isLoading) {
-                    loadDriverDataWithSession(current, allowRefresh = true)
-                }
+                if (current?.accessToken == session.accessToken && !_uiState.value.isLoading) loadDriverDataWithSession(current, allowRefresh = true)
             }
         }
     }
 
     fun changeTab(tab: DriverTab) {
-        _uiState.value = _uiState.value.copy(
-            selectedTab = tab,
-            actionEntryMode = if (tab == DriverTab.ACTION) _uiState.value.actionEntryMode else ActionEntryMode.DETAILS,
-        )
+        _uiState.value = _uiState.value.copy(selectedTab = tab, actionEntryMode = if (tab == DriverTab.ACTION) _uiState.value.actionEntryMode else ActionEntryMode.DETAILS)
     }
-
-    fun selectJob(jobId: String) {
-        _uiState.value = _uiState.value.copy(selectedJobId = jobId)
-    }
-
+    fun selectJob(jobId: String) { _uiState.value = _uiState.value.copy(selectedJobId = jobId) }
     fun openActionForJob(jobId: String, mode: ActionEntryMode) {
-        _uiState.value = _uiState.value.copy(
-            selectedJobId = jobId,
-            selectedTab = DriverTab.ACTION,
-            actionEntryMode = mode,
-        )
+        _uiState.value = _uiState.value.copy(selectedJobId = jobId, selectedTab = DriverTab.ACTION, actionEntryMode = mode)
     }
 
     fun refreshDriverData() {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             loadDriverDataWithSession(session, allowRefresh = true)
         }
     }
 
     private suspend fun loadDriverDataWithSession(session: DriverSession, allowRefresh: Boolean) {
-        api.resolveDriverProfile(session)
-            .onSuccess { profile ->
-                val documents = api.loadDriverDocuments(session, profile).getOrDefault(emptyList())
-                val preferences = api.loadJobSearchPreferences(session, profile.driverId).getOrDefault(emptyMap())
-                val serverBids = commercialApi.loadDriverBids(session).getOrDefault(emptyList())
-                val notifications = api.loadDriverNotifications(session).getOrDefault(emptyList())
-                val returnJourney = api.loadReturnJourney(session, profile.driverId).getOrNull()
-                val invoices = api.loadDriverInvoices(session, profile.companyId).getOrDefault(emptyList())
-                val nearbyDrivers = api.loadNearbyDrivers(session, profile.companyId).getOrDefault(emptyList())
-                commercialApi.loadDriverJobs(session)
-                    .onSuccess { jobs ->
-                        val visibleJobs = pendingStatusStore.optimisticJobs(session.userId, jobs)
-                        val visibleBids = pendingQuoteStore.optimisticBids(session.userId, visibleJobs, serverBids)
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            session = session,
-                            profile = profile,
-                            jobs = visibleJobs,
-                            documents = documents,
-                            bids = visibleBids,
-                            notifications = notifications,
-                            returnJourney = returnJourney,
-                            invoices = invoices,
-                            nearbyDrivers = nearbyDrivers,
-                            jobSearchPreferences = preferences,
-                            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, visibleJobs),
-                        )
-                        pendingPodStore.consumeFailureForUser(session.userId)?.let { failure ->
-                            _uiState.value = _uiState.value.copy(error = failure)
-                        }
-                        pendingQuoteStore.consumeFailureForUser(session.userId)?.let { failure ->
-                            _uiState.value = _uiState.value.copy(error = failure)
-                        }
-                        applyPendingJobDeepLinkIfReady()
-                    }
-                    .onFailure { error ->
-                        if (allowRefresh && error.isSessionError()) {
-                            refreshAndRetry(session)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                profile = profile,
-                                error = error.friendlyDriverMessage("Failed to load jobs."),
-                            )
-                        }
-                    }
-            }
-            .onFailure { error ->
-                if (allowRefresh && error.isSessionError()) {
-                    refreshAndRetry(session)
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlySessionMessage() ?: error.friendlyDriverMessage("Failed to load driver profile."),
-                    )
-                }
-            }
+        val resourcesResult = resourcesApi.load(session)
+        if (resourcesResult.isFailure) {
+            handleLoadFailure(session, resourcesResult.exceptionOrNull(), allowRefresh, "Failed to load driver resources.")
+            return
+        }
+        val resources = resourcesResult.getOrThrow()
+
+        val bidsResult = commercialApi.loadDriverBids(session)
+        if (bidsResult.isFailure) {
+            handleLoadFailure(session, bidsResult.exceptionOrNull(), allowRefresh, "Failed to load quotes.")
+            return
+        }
+        val jobsResult = commercialApi.loadDriverJobs(session)
+        if (jobsResult.isFailure) {
+            handleLoadFailure(session, jobsResult.exceptionOrNull(), allowRefresh, "Failed to load jobs.")
+            return
+        }
+
+        val jobs = jobsResult.getOrThrow()
+        val visibleJobs = pendingStatusStore.optimisticJobs(session.userId, jobs)
+        val visibleBids = pendingQuoteStore.optimisticBids(session.userId, visibleJobs, bidsResult.getOrThrow())
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            session = session,
+            profile = resources.profile,
+            jobs = visibleJobs,
+            documents = resources.documents,
+            bids = visibleBids,
+            notifications = resources.notifications,
+            returnJourney = resources.returnJourney,
+            invoices = resources.invoices,
+            nearbyDrivers = resources.nearbyDrivers,
+            jobSearchPreferences = resources.jobSearchPreferences,
+            selectedJobId = resolveSelectedJobId(_uiState.value.selectedJobId, visibleJobs),
+        )
+        pendingPodStore.consumeFailureForUser(session.userId)?.let { _uiState.value = _uiState.value.copy(error = it) }
+        pendingQuoteStore.consumeFailureForUser(session.userId)?.let { _uiState.value = _uiState.value.copy(error = it) }
+        val openedJob = applyPendingJobDeepLinkIfReady()
+        if (!openedJob) applyPendingAppDestinationIfReady()
+    }
+
+    private suspend fun handleLoadFailure(session: DriverSession, error: Throwable?, allowRefresh: Boolean, fallback: String) {
+        if (error.isDeviceSessionRevoked()) {
+            sessionStore.clear()
+            _uiState.value = DriverUiState(error = "This device session was replaced by another login. Please sign in again.")
+            return
+        }
+        if (allowRefresh && error?.isSessionError() == true) {
+            refreshAndRetry(session)
+        } else {
+            _uiState.value = _uiState.value.copy(isLoading = false, error = error?.friendlyDriverMessage(fallback) ?: fallback)
+        }
     }
 
     private suspend fun refreshAndRetry(session: DriverSession) {
@@ -296,9 +230,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
                     }
                     .onFailure { error ->
                         sessionStore.clear()
-                        _uiState.value = DriverUiState(
-                            error = error.friendlyDriverMessage("This device session could not be renewed. Please sign in again."),
-                        )
+                        _uiState.value = DriverUiState(error = error.friendlyDriverMessage("This device session could not be renewed. Please sign in again."))
                     }
             }
             .onFailure {
@@ -311,24 +243,17 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val jobId = _uiState.value.selectedJobId
-            if (jobId.isNullOrBlank()) {
-                _uiState.value = _uiState.value.copy(error = "Select a job first.")
-                return@launch
-            }
-
+            if (jobId.isNullOrBlank()) { _uiState.value = _uiState.value.copy(error = "Select a job first."); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.sendQuickNote(session.accessToken, jobId, note.trim(), important)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Dispatch note sent.",
-                    )
-                }
+            mutationApi.sendQuickNote(session, jobId, note.trim(), important)
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Dispatch note sent.") }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to send note."),
-                    )
+                    if (error.isDeviceSessionRevoked()) {
+                        sessionStore.clear()
+                        _uiState.value = DriverUiState(error = "This device session was replaced by another login.")
+                    } else {
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = error.friendlyDriverMessage("Failed to send note."))
+                    }
                 }
         }
     }
@@ -336,80 +261,49 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
     fun markAlertRead(notificationId: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            api.markNotificationRead(session, notificationId)
+            resourcesApi.markNotificationRead(session, notificationId)
                 .onSuccess { refreshDriverData() }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to mark alert read.")) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.friendlyDriverMessage("Failed to mark alert read.")) }
         }
     }
 
     fun deleteAlert(notificationId: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            api.deleteNotification(session, notificationId)
+            resourcesApi.deleteNotification(session, notificationId)
                 .onSuccess { refreshDriverData() }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.friendlyDriverMessage("Failed to delete alert.")) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = it.friendlyDriverMessage("Failed to delete alert.")) }
         }
     }
 
     fun saveReturnJourney(fromLocation: String, toLocation: String, availableDate: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
-            if (fromLocation.isBlank() && toLocation.isBlank()) {
-                _uiState.value = _uiState.value.copy(error = "Enter a journey location first.")
-                return@launch
-            }
+            if (fromLocation.isBlank() && toLocation.isBlank()) { _uiState.value = _uiState.value.copy(error = "Enter a journey location first."); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.saveReturnJourney(session, profile.driverId, fromLocation.trim(), toLocation.trim(), availableDate.trim())
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(isLoading = false, message = "Journey saved.")
-                    refreshDriverData()
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.friendlyDriverMessage("Failed to save journey."))
-                }
+            resourcesApi.saveReturnJourney(session, fromLocation.trim(), toLocation.trim(), availableDate.trim())
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Journey saved."); refreshDriverData() }
+                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to save journey.")) }
         }
     }
 
     fun sendLocation(lat: Double, lng: Double) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             api.sendLocation(session.accessToken, lat, lng)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Location published.",
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to publish location."),
-                    )
-                }
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Location published.") }
+                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to publish location.")) }
         }
     }
 
     fun updatePassword(newPassword: String) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             api.updatePassword(session.accessToken, newPassword)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Password updated.",
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to update password."),
-                    )
-                }
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Password updated.") }
+                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to update password.")) }
         }
     }
 
@@ -418,54 +312,22 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
             val jobId = _uiState.value.selectedJobId
-            if (jobId.isNullOrBlank()) {
-                _uiState.value = _uiState.value.copy(error = "Select a job first.")
-                return@launch
-            }
-
+            if (jobId.isNullOrBlank()) { _uiState.value = _uiState.value.copy(error = "Select a job first."); return@launch }
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == jobId }
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Selected job was not found.")
-                return@launch
-            }
-
-            val rejection = preflightStatusUpdateRejection(selectedJob, nextStatus)
-            if (rejection != null) {
-                _uiState.value = _uiState.value.copy(error = rejection)
-                return@launch
-            }
-
+            if (selectedJob == null) { _uiState.value = _uiState.value.copy(error = "Selected job was not found."); return@launch }
+            preflightStatusUpdateRejection(selectedJob, nextStatus)?.let { _uiState.value = _uiState.value.copy(error = it); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-
             mutationApi.updateJobStatus(session, jobId, nextStatus)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Status moved to $nextStatus.",
-                    )
-                    refreshDriverData()
-                }
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Status moved to $nextStatus."); refreshDriverData() }
                 .onFailure { error ->
-                    if (error.isRetryableStatusSyncFailure() || error.isStatusSessionFailure()) {
-                        pendingStatusStore.enqueue(
-                            userId = session.userId,
-                            driverId = profile.driverId,
-                            jobId = jobId,
-                            nextStatus = nextStatus,
-                        )
-                        JobStatusSyncScheduler.schedule(appContext)
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            jobs = pendingStatusStore.optimisticJobs(session.userId, _uiState.value.jobs),
-                            message = "Status saved offline and will sync automatically.",
-                            error = "",
-                        )
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = error.friendlyDriverMessage("Failed to update job status."),
-                        )
+                    if (error.isDeviceSessionRevoked()) {
+                        sessionStore.clear(); return@onFailure
                     }
+                    if (error.isRetryableStatusSyncFailure() || error.isStatusSessionFailure()) {
+                        pendingStatusStore.enqueue(session.userId, profile.driverId, jobId, nextStatus)
+                        JobStatusSyncScheduler.schedule(appContext)
+                        _uiState.value = _uiState.value.copy(isLoading = false, jobs = pendingStatusStore.optimisticJobs(session.userId, _uiState.value.jobs), message = "Status saved offline and will sync automatically.", error = "")
+                    } else _uiState.value = _uiState.value.copy(isLoading = false, error = error.friendlyDriverMessage("Failed to update job status."))
                 }
         }
     }
@@ -476,87 +338,38 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         val profile = _uiState.value.profile
         if (_uiState.value.isSubmittingQuote) return
         if (!quoteJobId.isNullOrBlank() && _uiState.value.bids.any { it.jobId == quoteJobId }) {
-            _uiState.value = _uiState.value.copy(
-                error = "You have already quoted for this job. A driver can quote only once per job.",
-                message = "",
-            )
+            _uiState.value = _uiState.value.copy(error = "You have already quoted for this job. A driver can quote only once per job.", message = "")
             return
         }
         _uiState.value = _uiState.value.copy(isLoading = true, isSubmittingQuote = true, error = "", message = "")
         viewModelScope.launch {
-            val outcome = quoteCoordinator.submit(
-                quoteJobId = quoteJobId,
-                jobs = _uiState.value.jobs,
-                amountText = amountText,
-                note = note,
-                session = session,
-                profile = profile,
-            )
-            when (outcome) {
-                is QuoteSubmitOutcome.AlreadyInFlight,
-                is QuoteSubmitOutcome.NoSession,
-                is QuoteSubmitOutcome.NoProfile -> {
+            when (val outcome = quoteCoordinator.submit(quoteJobId, _uiState.value.jobs, amountText, note, session, profile)) {
+                is QuoteSubmitOutcome.AlreadyInFlight, is QuoteSubmitOutcome.NoSession, is QuoteSubmitOutcome.NoProfile ->
                     _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false)
-                }
-                is QuoteSubmitOutcome.ValidationFailure -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isSubmittingQuote = false,
-                        error = outcome.result.toUserMessage(),
-                    )
-                }
+                is QuoteSubmitOutcome.ValidationFailure ->
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false, error = outcome.result.toUserMessage())
                 is QuoteSubmitOutcome.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isSubmittingQuote = false,
-                        message = "Quote submitted.",
-                    )
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false, message = "Quote submitted.")
                     refreshDriverData()
                 }
                 is QuoteSubmitOutcome.ApiFailure -> {
-                    if ((outcome.error.isRetryableQuoteFailure() || outcome.error.isQuoteSessionFailure()) &&
-                        session != null && profile != null && !quoteJobId.isNullOrBlank()
-                    ) {
+                    if (outcome.error.isDeviceSessionRevoked()) {
+                        sessionStore.clear(); _uiState.value = DriverUiState(error = "This device session was replaced by another login."); return@launch
+                    }
+                    if ((outcome.error.isRetryableQuoteFailure() || outcome.error.isQuoteSessionFailure()) && session != null && profile != null && !quoteJobId.isNullOrBlank()) {
                         val amount = parseFinitePositiveAmount(amountText)
-                        if (amount == null) {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                isSubmittingQuote = false,
-                                error = "Enter a valid quote amount.",
-                            )
-                            return@launch
-                        }
+                        if (amount == null) { _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false, error = "Enter a valid quote amount."); return@launch }
                         runCatching {
-                            pendingQuoteStore.enqueue(
-                                userId = session.userId,
-                                driverId = profile.driverId,
-                                jobId = quoteJobId,
-                                amount = amount,
-                                note = note.trim(),
-                            )
+                            pendingQuoteStore.enqueue(session.userId, profile.driverId, quoteJobId, amount, note.trim())
                             QuoteSyncScheduler.schedule(appContext)
                         }.onSuccess {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                isSubmittingQuote = false,
+                            _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false,
                                 bids = pendingQuoteStore.optimisticBids(session.userId, _uiState.value.jobs, _uiState.value.bids),
-                                message = "Quote saved securely on this device. Pending sync — it has not reached the load poster yet.",
-                                error = "",
-                            )
+                                message = "Quote saved securely on this device. Pending sync — it has not reached the load poster yet.", error = "")
                         }.onFailure { saveError ->
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                isSubmittingQuote = false,
-                                error = saveError.message ?: "Failed to save quote securely on this device.",
-                            )
+                            _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false, error = saveError.message ?: "Failed to save quote securely on this device.")
                         }
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            isSubmittingQuote = false,
-                            error = outcome.error.friendlyDriverMessage("Failed to submit quote."),
-                        )
-                    }
+                    } else _uiState.value = _uiState.value.copy(isLoading = false, isSubmittingQuote = false, error = outcome.error.friendlyDriverMessage("Failed to submit quote."))
                 }
             }
         }
@@ -567,44 +380,15 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
             val session = _uiState.value.session ?: return@launch
             val profile = _uiState.value.profile ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Select a job first.")
-                return@launch
-            }
-            if (bytes.isEmpty()) {
-                _uiState.value = _uiState.value.copy(error = "Selected POD file is empty.")
-                return@launch
-            }
-
+            if (selectedJob == null) { _uiState.value = _uiState.value.copy(error = "Select a job first."); return@launch }
+            if (bytes.isEmpty()) { _uiState.value = _uiState.value.copy(error = "Selected POD file is empty."); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             runCatching {
-                pendingPodStore.enqueue(
-                    userId = session.userId,
-                    driverId = profile.driverId,
-                    jobId = selectedJob.id,
-                    isCollectionProof = selectedJob.needsCollectionProof(),
-                    fileName = fileName,
-                    mimeType = mimeType,
-                    bytes = bytes,
-                )
+                pendingPodStore.enqueue(session.userId, profile.driverId, selectedJob.id, selectedJob.needsCollectionProof(), fileName, mimeType, bytes)
                 PodSyncScheduler.schedule(appContext)
-            }
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = if (selectedJob.needsCollectionProof()) {
-                            "Collection proof saved securely and will sync automatically."
-                        } else {
-                            "POD saved securely and will sync automatically."
-                        },
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to save POD securely on this device.",
-                    )
-                }
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(isLoading = false, message = if (selectedJob.needsCollectionProof()) "Collection proof saved securely and will sync automatically." else "POD saved securely and will sync automatically.")
+            }.onFailure { error -> _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Failed to save POD securely on this device.") }
         }
     }
 
@@ -612,125 +396,59 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val selectedJob = _uiState.value.jobs.firstOrNull { it.id == _uiState.value.selectedJobId }
-            if (selectedJob == null) {
-                _uiState.value = _uiState.value.copy(error = "Select a job first.")
-                return@launch
-            }
-            if (!selectedJob.hasPod()) {
-                _uiState.value = _uiState.value.copy(error = "Upload the signed POD evidence before confirming the recipient.")
-                return@launch
-            }
+            if (selectedJob == null) { _uiState.value = _uiState.value.copy(error = "Select a job first."); return@launch }
+            if (!selectedJob.hasPod()) { _uiState.value = _uiState.value.copy(error = "Upload the signed POD evidence before confirming the recipient."); return@launch }
             val cleanName = recipientName.trim()
-            if (cleanName.isBlank()) {
-                _uiState.value = _uiState.value.copy(error = "Enter the recipient name.")
-                return@launch
-            }
-
+            if (cleanName.isBlank()) { _uiState.value = _uiState.value.copy(error = "Enter the recipient name."); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
             mutationApi.confirmDeliveryRecipient(session, selectedJob.id, cleanName)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "Recipient and signed POD evidence confirmed.",
-                    )
-                    refreshDriverData()
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to confirm delivery evidence."),
-                    )
-                }
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "Recipient and signed POD evidence confirmed."); refreshDriverData() }
+                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to confirm delivery evidence.")) }
         }
     }
 
     fun uploadComplianceDocument(docType: String, isVehicleDocument: Boolean, fileName: String, mimeType: String, bytes: ByteArray) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
-            if (bytes.isEmpty()) {
-                _uiState.value = _uiState.value.copy(error = "Selected document is empty.")
-                return@launch
-            }
-
+            if (bytes.isEmpty()) { _uiState.value = _uiState.value.copy(error = "Selected document is empty."); return@launch }
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.uploadComplianceDocument(
-                session = session,
-                profile = profile,
-                docType = docType,
-                isVehicleDocument = isVehicleDocument,
-                fileName = fileName,
-                mimeType = mimeType,
-                bytes = bytes,
-            )
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        message = "$docType uploaded for review.",
-                    )
-                    refreshDriverData()
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to upload document."),
-                    )
-                }
+            resourcesApi.uploadComplianceDocument(session, docType, isVehicleDocument, fileName, mimeType, bytes)
+                .onSuccess { _uiState.value = _uiState.value.copy(isLoading = false, message = "$docType uploaded for review."); refreshDriverData() }
+                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to upload document.")) }
         }
     }
 
     fun setJobSearchPreference(jobId: String, state: String?) {
         viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
-            val profile = _uiState.value.profile ?: return@launch
             _uiState.value = _uiState.value.copy(isLoading = true, error = "", message = "")
-            api.setJobSearchPreference(session, profile.driverId, jobId, state)
+            resourcesApi.setJobSearchPreference(session, jobId, state)
                 .onSuccess {
                     val next = _uiState.value.jobSearchPreferences.toMutableMap()
                     if (state == null) next.remove(jobId) else next[jobId] = state
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        jobSearchPreferences = next,
-                        message = when (state) {
-                            "saved" -> "Job saved."
-                            "deleted" -> "Job hidden."
-                            else -> "Job restored."
-                        },
-                    )
+                    _uiState.value = _uiState.value.copy(isLoading = false, jobSearchPreferences = next,
+                        message = when (state) { "saved" -> "Job saved."; "deleted" -> "Job hidden."; else -> "Job restored." })
                 }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.friendlyDriverMessage("Failed to update job preference."),
-                    )
-                }
+                .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = it.friendlyDriverMessage("Failed to update job preference.")) }
         }
     }
 }
 
 private fun Throwable.isSessionError(): Boolean {
     val text = message.orEmpty().lowercase()
-    return "jwt" in text ||
-        "token" in text ||
-        "401" in text ||
-        "unauthorized" in text ||
-        "session" in text
+    return "jwt" in text || "token" in text || "401" in text || "unauthorized" in text || "session" in text
 }
 
-private fun Throwable.friendlySessionMessage(): String? =
-    if (isSessionError()) "Your session expired. Please sign in again." else null
+private fun Throwable.friendlySessionMessage(): String? = if (isSessionError()) "Your session expired. Please sign in again." else null
 
 private fun Throwable.friendlyDriverMessage(fallback: String): String {
-    val text = message.orEmpty()
-    val lower = text.lowercase()
+    val text = message.orEmpty(); val lower = text.lowercase()
     return when {
+        isDeviceSessionRevoked() -> "This device session was replaced by another login. Please sign in again."
         isSessionError() -> "Your session expired. Please sign in again."
-        "unable to resolve host" in lower || "no address associated with hostname" in lower ->
-            "Connection problem. Check internet signal and refresh."
-        "violates check constraint" in lower || "relation" in lower || "postgres" in lower || "sql" in lower ->
-            "The action could not be completed. Please refresh and try again."
-        "status update could not be applied" in lower ->
-            "The status could not be updated. Please refresh and try again."
+        "unable to resolve host" in lower || "no address associated with hostname" in lower -> "Connection problem. Check internet signal and refresh."
+        "violates check constraint" in lower || "relation" in lower || "postgres" in lower || "sql" in lower -> "The action could not be completed. Please refresh and try again."
+        "status update could not be applied" in lower -> "The status could not be updated. Please refresh and try again."
         text.isNotBlank() -> text
         else -> fallback
     }

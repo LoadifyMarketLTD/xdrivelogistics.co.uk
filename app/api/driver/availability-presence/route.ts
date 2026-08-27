@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isDriverContext, requireDriver } from '../mobile/_lib';
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
@@ -8,8 +9,6 @@ const ACTIVE_JOB_STATUSES = new Set([
   'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
 ]);
 
-// Native Android consumes these authenticated response envelopes through the
-// same server boundary; keep pre-award availability separate from active-job GPS.
 const roundedForExchange = (value: number) => Math.round(value * 100) / 100;
 const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
   String(job.current_status ?? job.status ?? '').trim().toLowerCase();
@@ -26,18 +25,15 @@ async function hasActiveAssignedJob(driverId: string) {
 }
 
 async function authenticatedDriver(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return { error: NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 }) };
-  const token = getBearerToken(request);
-  if (!token) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  const { data: driver, error: driverError } = await supabaseAdmin
+  const context = await requireDriver(request);
+  if (!isDriverContext(context)) return { error: context };
+
+  const { data: driver, error } = await supabaseAdmin!
     .from('drivers')
-    .select('id, company_id, status, app_access, availability_status')
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
+    .select('id, company_id, availability_status')
+    .eq('id', context.driverId)
     .maybeSingle();
-  if (driverError || !driver || driver.app_access !== true) return { error: NextResponse.json({ error: 'Active driver access is required.' }, { status: 403 }) };
+  if (error || !driver) return { error: NextResponse.json({ error: 'Active driver access is required.' }, { status: 403 }) };
   return { driver };
 }
 
@@ -65,7 +61,6 @@ function parseCoordinates(body: { lat?: number; lng?: number }) {
 export async function GET(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
-
   const eligibilityError = await ensureAvailabilityEligible(auth.driver);
   if (eligibilityError) return NextResponse.json({ active: false, presence: null });
 
@@ -89,7 +84,6 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 }); }
   const coordinates = parseCoordinates(body);
   if (!coordinates) return NextResponse.json({ error: 'Valid lat/lng are required.' }, { status: 400 });
-  const { lat, lng } = coordinates;
   const visibility = typeof body.visibility === 'string' && VISIBILITIES.has(body.visibility) ? body.visibility : 'private';
   const requestedHours = typeof body.hours === 'number' && Number.isFinite(body.hours) ? body.hours : 4;
   const hours = Math.min(MAX_HOURS, Math.max(1, Math.round(requestedHours)));
@@ -100,10 +94,10 @@ export async function POST(request: NextRequest) {
     driver_id: auth.driver.id,
     company_id: auth.driver.company_id ?? null,
     visibility,
-    exact_lat: lat,
-    exact_lng: lng,
-    exchange_lat: roundedForExchange(lat),
-    exchange_lng: roundedForExchange(lng),
+    exact_lat: coordinates.lat,
+    exact_lng: coordinates.lng,
+    exchange_lat: roundedForExchange(coordinates.lat),
+    exchange_lng: roundedForExchange(coordinates.lng),
     available_until: availableUntil,
     recorded_at: now.toISOString(),
     updated_at: now.toISOString(),
@@ -112,9 +106,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, visibility, available_until: availableUntil });
 }
 
-// Refreshes only coordinates/timestamps. It deliberately preserves visibility
-// and available_until so periodic Android updates can never extend the driver's
-// explicit 1/4/8 hour opt-in window.
 export async function PUT(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
