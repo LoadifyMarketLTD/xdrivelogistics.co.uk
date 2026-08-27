@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('Android active-job tracking lifecycle contract', () => {
   const root = process.cwd();
@@ -26,7 +27,7 @@ describe('Android active-job tracking lifecycle contract', () => {
 
   it('uses server-authoritative single-active-job eligibility', () => {
     expect(route).toContain('const ACTIVE_JOB_STATUSES = new Set([');
-    expect(route).toContain(".eq('assigned_driver_id', driver.id)");
+    expect(route).toContain(".eq('assigned_driver_id', driver.driverId)");
     expect(route).toContain('if (activeJobs.length !== 1)');
     expect(route).toContain('should_track: true');
     expect(route).toContain("reason: activeJobs.length === 0 ? 'no_active_job' : 'multiple_active_jobs'");

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('Android push job deep-link contract', () => {
   const root = process.cwd();
