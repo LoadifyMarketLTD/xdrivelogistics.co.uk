@@ -23,6 +23,7 @@ import co.uk.xdrivelogistics.driver.data.DriverSession
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.data.TrackingState
 import co.uk.xdrivelogistics.driver.data.TrackingStateApi
+import co.uk.xdrivelogistics.driver.data.isDeviceSessionRevoked
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -166,6 +167,7 @@ class TrackingService : Service() {
 
             val trackingResolution = resolveTrackingState(session)
             if (trackingResolution == null) {
+                if (sessionStore.readSession() == null) return
                 updateNotificationForCurrentMode("Connection unavailable. Work state will retry.")
                 delay(STATE_RETRY_INTERVAL_MS)
                 continue
@@ -181,6 +183,11 @@ class TrackingService : Service() {
 
             val availabilityResult = availabilityApi.load(session)
             if (availabilityResult.isFailure) {
+                val error = availabilityResult.exceptionOrNull()
+                if (error.isDeviceSessionRevoked()) {
+                    stopForRevokedDevice()
+                    return
+                }
                 updateNotificationForCurrentMode("Availability state could not be verified. Retrying safely.")
                 delay(STATE_RETRY_INTERVAL_MS)
                 continue
@@ -324,7 +331,12 @@ class TrackingService : Service() {
             return
         }
 
-        if (result.exceptionOrNull().isAvailabilityEnded()) {
+        val error = result.exceptionOrNull()
+        if (error.isDeviceSessionRevoked()) {
+            stopForRevokedDevice()
+            return
+        }
+        if (error.isAvailabilityEnded()) {
             mode = RuntimeMode.CHECKING
             lastAvailabilityPublishAt = 0L
         } else {
@@ -340,13 +352,29 @@ class TrackingService : Service() {
     private suspend fun resolveTrackingState(session: DriverSession): Pair<DriverSession, TrackingState>? {
         val first = trackingStateApi.load(session.accessToken)
         if (first.isSuccess) return session to first.getOrThrow()
-        if (!first.exceptionOrNull().isAuthenticationFailure()) return null
+
+        val firstError = first.exceptionOrNull()
+        if (firstError.isDeviceSessionRevoked()) {
+            stopForRevokedDevice()
+            return null
+        }
+        if (!firstError.isAuthenticationFailure()) return null
 
         val refreshed = api.refreshSession(session)
         if (refreshed.isFailure) return null
         val refreshedSession = refreshed.getOrThrow()
-        sessionStore.saveSession(refreshedSession)
-        return trackingStateApi.load(refreshedSession.accessToken).getOrNull()?.let { refreshedSession to it }
+        val saved = runCatching { sessionStore.saveSession(refreshedSession) }
+        if (saved.isFailure) {
+            if (saved.exceptionOrNull().isDeviceSessionRevoked()) stopForRevokedDevice()
+            return null
+        }
+
+        val retried = trackingStateApi.load(refreshedSession.accessToken)
+        if (retried.isFailure && retried.exceptionOrNull().isDeviceSessionRevoked()) {
+            stopForRevokedDevice()
+            return null
+        }
+        return retried.getOrNull()?.let { refreshedSession to it }
     }
 
     private suspend fun stopAvailabilityIfNoActiveJob() {
@@ -357,6 +385,7 @@ class TrackingService : Service() {
             return
         }
         val state = resolveTrackingState(session)?.second
+        if (sessionStore.readSession() == null) return
         if (state?.shouldTrack == true) {
             mode = RuntimeMode.JOB
             updateNotification(
@@ -367,7 +396,11 @@ class TrackingService : Service() {
             )
             return
         }
-        availabilityApi.stop(session)
+        val stopped = availabilityApi.stop(session)
+        if (stopped.isFailure && stopped.exceptionOrNull().isDeviceSessionRevoked()) {
+            stopForRevokedDevice()
+            return
+        }
         intentionalStop = true
         pendingStore.clear()
         stopSelf()
@@ -381,6 +414,7 @@ class TrackingService : Service() {
             return
         }
         val state = resolveTrackingState(session)?.second
+        if (sessionStore.readSession() == null) return
         if (state?.shouldTrack == true) {
             mode = RuntimeMode.JOB
             updateNotification(
@@ -423,7 +457,14 @@ class TrackingService : Service() {
         }
 
         val refreshedSession = refreshed.getOrThrow()
-        sessionStore.saveSession(refreshedSession)
+        val saved = runCatching { sessionStore.saveSession(refreshedSession) }
+        if (saved.isFailure) {
+            if (saved.exceptionOrNull().isDeviceSessionRevoked()) {
+                stopForRevokedDevice()
+                return UploadOutcome.AUTH_REQUIRED
+            }
+            return UploadOutcome.RETRY
+        }
         val retried = api.sendLocation(refreshedSession.accessToken, pending.latitude, pending.longitude)
         return when {
             retried.isSuccess -> UploadOutcome.SUCCESS
@@ -431,6 +472,16 @@ class TrackingService : Service() {
             retried.exceptionOrNull().isAuthenticationFailure() -> UploadOutcome.AUTH_REQUIRED
             else -> UploadOutcome.RETRY
         }
+    }
+
+    private suspend fun stopForRevokedDevice() {
+        pendingStore.clear()
+        intentionalStop = true
+        sessionStore.clear(redirectToLogin = false)
+        stopWithMessage(
+            "XDrive tracking stopped",
+            "This device session was replaced by another login. Sign in again to continue.",
+        )
     }
 
     private fun Throwable?.isInactiveJobFailure(): Boolean {
@@ -448,6 +499,7 @@ class TrackingService : Service() {
     }
 
     private fun Throwable?.isAuthenticationFailure(): Boolean {
+        if (this.isDeviceSessionRevoked()) return false
         val text = this?.message?.lowercase().orEmpty()
         return text.contains("unauthorized") || text.contains("jwt") || text.contains("token") || text.contains("session")
     }
