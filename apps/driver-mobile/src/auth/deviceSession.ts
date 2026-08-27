@@ -73,6 +73,28 @@ export async function ensureDeviceSession(apiBaseUrl: string, token: string): Pr
   }
 }
 
+export async function revokeDeviceSession(apiBaseUrl: string, token: string): Promise<void> {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) return;
+
+  const installationId = await getInstallationId();
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/driver/mobile/device-session`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${normalizedToken}`,
+      'x-xdrive-installation-id': installationId,
+    },
+  });
+
+  if (!response.ok && response.status !== 401) {
+    const payload = await response.json().catch(() => ({} as { error?: string }));
+    throw new Error(typeof payload?.error === 'string' ? payload.error : `Device session revocation failed with HTTP ${response.status}`);
+  }
+
+  clearDeviceSessionRegistrationCache();
+}
+
 export function clearDeviceSessionRegistrationCache() {
   registeredToken = null;
   registrationInFlight = null;
