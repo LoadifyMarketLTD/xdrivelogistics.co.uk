@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isDriverContext, requireDriver } from '../mobile/_lib';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -29,39 +26,11 @@ function missingStatusColumn(message: string | null | undefined) {
 }
 
 async function resolveDriver(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return { error: json(503, { error: 'Service not configured.' }) } as const;
-  }
-
-  const token = getBearerToken(request);
-  if (!token) {
-    return { error: json(401, { error: 'Unauthorized — missing bearer token.' }) } as const;
-  }
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) {
-    return { error: json(401, { error: 'Unauthorized — invalid or expired token.' }) } as const;
-  }
-
-  const { data: driver, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-
-  if (driverError || !driver) {
-    return { error: json(403, { error: 'Driver profile required.' }) } as const;
-  }
-
-  const status = String(driver.status ?? '').trim().toLowerCase();
-  if (['suspended', 'inactive', 'blocked', 'rejected'].includes(status)) {
-    return { error: json(403, { error: 'Active driver profile required.' }) } as const;
-  }
-
+  const context = await requireDriver(request);
+  if (!isDriverContext(context)) return { error: context } as const;
   return {
-    driverId: driver.id as string,
-    companyId: driver.company_id as string,
+    driverId: context.driverId,
+    companyId: context.companyId,
   } as const;
 }
 
