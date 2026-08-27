@@ -513,8 +513,15 @@ class TrackingService : Service() {
     private fun hasFineLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    private fun isDeviceLocationEnabled(): Boolean =
-        runCatching { getSystemService(LocationManager::class.java).isLocationEnabled }.getOrDefault(false)
+    private fun isDeviceLocationEnabled(): Boolean = runCatching {
+        val manager = getSystemService(LocationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            manager.isLocationEnabled
+        } else {
+            manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }
+    }.getOrDefault(false)
 
     private fun locationSettingsIntent(): PendingIntent = PendingIntent.getActivity(
         this,
