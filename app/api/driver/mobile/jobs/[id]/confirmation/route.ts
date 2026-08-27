@@ -5,18 +5,13 @@ import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import { isDriverContext, requireDriver, respond, safeArray } from '../../../_lib';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-  if (!(await getFeatureFlag(supabaseAdmin, 'driver_mobile_app'))) {
-    return respond(503, { error: 'The driver mobile app is currently disabled.' });
-  }
-  if (!(await getFeatureFlag(supabaseAdmin, 'pod_capture'))) {
-    return respond(503, { error: 'POD capture is currently disabled.' });
-  }
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!(await getFeatureFlag(supabaseAdmin, 'driver_mobile_app'))) return respond(503, { error: 'The driver mobile app is currently disabled.' });
+  if (!(await getFeatureFlag(supabaseAdmin, 'pod_capture'))) return respond(503, { error: 'POD capture is currently disabled.' });
 
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.companyId) return respond(403, { error: 'Driver company is required for POD confirmation.' });
 
   const { id } = await params;
   const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
@@ -38,13 +33,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ...safeArray(job.delivery_photos).filter((value): value is string => typeof value === 'string'),
   ].filter(Boolean);
   const evidencePath = evidence.at(-1);
-  if (!evidencePath) return respond(409, { error: 'Upload the signed POD evidence first.' });
+  if (!evidencePath) return respond(409, { error: 'Upload POD evidence first.' });
+
+  const expectedPrefix = `${driver.companyId}/${id}/`;
+  if (!evidencePath.startsWith(expectedPrefix)) {
+    return respond(409, { error: 'POD evidence does not belong to this driver assignment.' });
+  }
 
   const now = new Date().toISOString();
   const confirmation = {
-    type: 'signed_pod_evidence',
+    type: 'recipient_typed_name_attestation',
+    signature_method: 'typed_name_attestation',
     evidence_path: evidencePath,
     recipient_name: recipientName,
+    job_id: id,
+    driver_id: driver.driverId,
     confirmed_at: now,
     source: 'xdrive_driver_android',
   };
@@ -63,5 +66,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (error) return respond(500, { error: error.message });
   if (!updated) return respond(409, { error: 'Delivery evidence could not be linked to this assignment.' });
-  return respond(200, { ok: true });
+  return respond(200, { ok: true, signatureMethod: 'typed_name_attestation' });
 }
