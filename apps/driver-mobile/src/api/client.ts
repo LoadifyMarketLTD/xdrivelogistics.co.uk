@@ -10,6 +10,14 @@ type ApiOptions = {
   body?: unknown;
 };
 
+type BinaryApiOptions = {
+  token?: string | null;
+  method?: 'POST' | 'PUT' | 'PATCH';
+  body: ArrayBuffer | Uint8Array;
+  contentType: string;
+  headers?: Record<string, string>;
+};
+
 const requestTimeoutMs = 20_000;
 
 export function getApiBaseUrl() {
@@ -28,6 +36,12 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
   } catch {
     return null;
   }
+}
+
+function responseMessage(payload: { error?: unknown; message?: unknown }, status: number) {
+  if (typeof payload?.error === 'string') return payload.error;
+  if (typeof payload?.message === 'string') return payload.message;
+  return `Request failed with HTTP ${status}`;
 }
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
@@ -58,14 +72,41 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   });
 
   const payload = await response.json().catch(() => ({} as { error?: string; message?: string }));
-  if (!response.ok) {
-    const message =
-      typeof payload?.error === 'string'
-        ? payload.error
-        : typeof payload?.message === 'string'
-          ? payload.message
-          : `Request failed with HTTP ${response.status}`;
-    throw new Error(message);
-  }
+  if (!response.ok) throw new Error(responseMessage(payload, response.status));
+  return payload as T;
+}
+
+export async function apiBinaryRequest<T>(path: string, options: BinaryApiOptions): Promise<T> {
+  const token = await resolveAuthToken(options.token);
+  if (!token) throw new Error('Authenticated session is required.');
+
+  const apiBaseUrl = getApiBaseUrl();
+  const installationId = await ensureDeviceSession(apiBaseUrl, token);
+  const url = `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+
+  const response = await fetch(url, {
+    method: options.method ?? 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': options.contentType,
+      Authorization: `Bearer ${token}`,
+      'x-xdrive-installation-id': installationId,
+      ...(options.headers ?? {}),
+    },
+    body: options.body instanceof Uint8Array ? options.body : new Uint8Array(options.body),
+    signal: controller.signal,
+  }).catch((error) => {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    throw error;
+  }).finally(() => {
+    clearTimeout(timeoutId);
+  });
+
+  const payload = await response.json().catch(() => ({} as { error?: string; message?: string }));
+  if (!response.ok) throw new Error(responseMessage(payload, response.status));
   return payload as T;
 }
