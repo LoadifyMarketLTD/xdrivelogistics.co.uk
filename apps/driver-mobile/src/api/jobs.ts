@@ -1,5 +1,4 @@
-import { apiRequest } from './client';
-import { supabase } from '../auth/supabase';
+import { apiBinaryRequest, apiRequest } from './client';
 import type { DriverJob, JobScope } from '../jobs/types';
 
 export async function fetchJobs(scope: JobScope, token: string) {
@@ -25,50 +24,75 @@ function uniqueName() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function isPersistentJobPath(jobId: string, uri: string, kind: 'photos' | 'documents') {
+function isPersistentJobPath(jobId: string, uri: string) {
   const value = uri.trim();
-  return value.startsWith(`${jobId}/${kind}/`) && !value.includes('://') && !value.includes('..') && !value.includes('\\');
+  return value.includes(`/${jobId}/`) && !value.includes('://') && !value.includes('..') && !value.includes('\\');
 }
 
-async function uploadLocalPodFile(jobId: string, uri: string, kind: 'photos' | 'documents') {
-  if (isPersistentJobPath(jobId, uri, kind)) return uri.trim();
+function evidenceContentType(extension: string, kind: 'photos' | 'documents') {
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'pdf') return 'application/pdf';
+  if (kind === 'photos') return 'image/jpeg';
+  throw new Error('POD documents must be PDF, JPEG or PNG files.');
+}
+
+async function uploadLocalPodFile(
+  jobId: string,
+  uri: string,
+  kind: 'photos' | 'documents',
+  token: string,
+) {
+  if (isPersistentJobPath(jobId, uri)) return uri.trim();
   if (!uri.includes('://')) throw new Error('POD evidence path is invalid. Please select the file again.');
 
   const response = await fetch(uri);
   if (!response.ok) throw new Error(`Unable to read the selected POD ${kind === 'photos' ? 'photo' : 'document'}.`);
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength === 0) throw new Error('The selected POD file is empty.');
-  if (bytes.byteLength > 15 * 1024 * 1024) throw new Error('POD files must be 15 MB or smaller.');
+  if (bytes.byteLength > 10 * 1024 * 1024) throw new Error('POD files must be 10 MB or smaller.');
 
-  const extension = safeExtension(uri, kind === 'photos' ? 'jpg' : 'bin');
-  const storagePath = `${jobId}/${kind}/${uniqueName()}.${extension}`;
-  const contentType = kind === 'photos'
-    ? (extension === 'png' ? 'image/png' : 'image/jpeg')
-    : 'application/octet-stream';
+  const extension = safeExtension(uri, kind === 'photos' ? 'jpg' : 'pdf');
+  const contentType = evidenceContentType(extension, kind);
+  const objectName = `${uniqueName()}.${extension}`;
 
-  const { error } = await supabase.storage
-    .from('pod-photos')
-    .upload(storagePath, bytes, { contentType, upsert: false, cacheControl: '3600' });
-  if (error) throw new Error(`POD upload failed: ${error.message}`);
-  return storagePath;
+  const uploaded = await apiBinaryRequest<{ ok: true; storagePath: string }>(
+    `/api/driver/mobile/jobs/${jobId}/evidence`,
+    {
+      token,
+      body: bytes,
+      contentType,
+      headers: {
+        'x-xdrive-evidence-kind': 'delivery',
+        'x-xdrive-evidence-name': objectName,
+      },
+    },
+  );
+
+  return uploaded.storagePath;
 }
 
-async function persistPodFiles(jobId: string, values: unknown, kind: 'photos' | 'documents') {
+async function persistPodFiles(
+  jobId: string,
+  values: unknown,
+  kind: 'photos' | 'documents',
+  token: string,
+) {
   const uris = Array.isArray(values)
     ? values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     : [];
 
   const persisted: string[] = [];
   for (const uri of uris) {
-    persisted.push(await uploadLocalPodFile(jobId, uri, kind));
+    persisted.push(await uploadLocalPodFile(jobId, uri, kind, token));
   }
   return persisted;
 }
 
 export async function uploadPod(jobId: string, token: string, metadata: Record<string, unknown>) {
   const [photoUris, documentUris] = await Promise.all([
-    persistPodFiles(jobId, metadata.photoUris, 'photos'),
-    persistPodFiles(jobId, metadata.documentUris, 'documents'),
+    persistPodFiles(jobId, metadata.photoUris, 'photos', token),
+    persistPodFiles(jobId, metadata.documentUris, 'documents', token),
   ]);
 
   return apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
