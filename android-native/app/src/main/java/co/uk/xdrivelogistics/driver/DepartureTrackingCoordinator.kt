@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 
 /**
@@ -46,8 +47,15 @@ internal class DepartureTrackingCoordinator(
     private fun hasFineLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    private fun isDeviceLocationEnabled(): Boolean =
-        runCatching { context.getSystemService(LocationManager::class.java).isLocationEnabled }.getOrDefault(false)
+    private fun isDeviceLocationEnabled(): Boolean = runCatching {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            manager.isLocationEnabled
+        } else {
+            manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }
+    }.getOrDefault(false)
 }
 
 internal fun DepartureTrackingCoordinator.Outcome.driverWarningOrNull(): String? = when (this) {
