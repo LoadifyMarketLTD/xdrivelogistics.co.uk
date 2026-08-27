@@ -1,8 +1,11 @@
 import { apiBinaryRequest, apiRequest } from './client';
 import type { DriverJob, JobScope } from '../jobs/types';
+import { syncOperationalTracking } from '../tracking/operationalTracking';
 
 export async function fetchJobs(scope: JobScope, token: string) {
-  return apiRequest<{ jobs: DriverJob[] }>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
+  const response = await apiRequest<{ jobs: DriverJob[] }>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
+  void syncOperationalTracking({ promptForPermissions: true }).catch(() => undefined);
+  return response;
 }
 
 export async function fetchJob(jobId: string, token: string) {
@@ -10,7 +13,9 @@ export async function fetchJob(jobId: string, token: string) {
 }
 
 export async function postJobStatus(jobId: string, endpoint: string, token: string) {
-  return apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, { method: 'POST', token });
+  const response = await apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, { method: 'POST', token });
+  void syncOperationalTracking({ promptForPermissions: true }).catch(() => undefined);
+  return response;
 }
 
 function safeExtension(uri: string, fallback: string) {
