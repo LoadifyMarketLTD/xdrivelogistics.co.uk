@@ -59,41 +59,35 @@ export async function POST(request: NextRequest) {
   if (!UUID_RE.test(installationId)) return NextResponse.json({ error: 'A valid installation_id is required.' }, { status: 400 });
   if (appPackage !== ANDROID_PACKAGE) return NextResponse.json({ error: 'Unsupported Android application package.' }, { status: 400 });
 
-  const now = new Date().toISOString();
+  // Registration is decided atomically in Postgres against auth.sessions.created_at.
+  // A request from an older but still-valid JWT can never reclaim the binding after
+  // a newer native login has been registered.
+  const { error: registerError } = await supabaseAdmin!.rpc('register_driver_mobile_device_session', {
+    p_installation_id: installationId,
+    p_user_id: auth.userId,
+    p_driver_id: auth.driverId,
+    p_auth_session_id: auth.sessionId,
+    p_app_package: ANDROID_PACKAGE,
+    p_device_label: deviceLabel,
+  });
 
-  // Newest native login wins. Revoke any previous XDrive mobile binding for this
-  // named driver before activating this exact installation + Supabase session.
-  const { error: revokeError } = await supabaseAdmin!
-    .from('driver_mobile_device_sessions')
-    .update({ enabled: false, revoked_at: now, updated_at: now })
-    .eq('driver_id', auth.driverId)
-    .eq('enabled', true)
-    .is('revoked_at', null)
-    .neq('installation_id', installationId);
-  if (revokeError) return NextResponse.json({ error: 'Previous mobile device could not be revoked.' }, { status: 500 });
+  if (registerError) {
+    const message = registerError.message || 'Mobile device session could not be registered.';
+    if (registerError.code === '42501' && message.toLowerCase().includes('superseded')) {
+      return NextResponse.json(
+        { error: 'This mobile session has been revoked or replaced by a newer native login.' },
+        { status: 401 },
+      );
+    }
+    if (registerError.code === '42501') return NextResponse.json({ error: message }, { status: 403 });
+    if (registerError.code === '28000') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (registerError.code === '22023') return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: 'Mobile device session could not be registered.' }, { status: 500 });
+  }
 
-  // A reinstall or relogin may reuse the same installation id with a new auth session.
-  const { error: upsertError } = await supabaseAdmin!
-    .from('driver_mobile_device_sessions')
-    .upsert({
-      installation_id: installationId,
-      user_id: auth.userId,
-      driver_id: auth.driverId,
-      auth_session_id: auth.sessionId,
-      platform: 'android',
-      app_package: ANDROID_PACKAGE,
-      device_label: deviceLabel,
-      enabled: true,
-      revoked_at: null,
-      last_seen_at: now,
-      updated_at: now,
-    }, { onConflict: 'installation_id' });
-  if (upsertError) return NextResponse.json({ error: 'Mobile device session could not be registered.' }, { status: 500 });
-
-  // Supabase Auth has no free project-level single-session guarantee. Use the
-  // current validated access token to revoke refresh capability for other user
-  // sessions while preserving this login. Old JWTs may survive until expiry, so
-  // XDrive mobile endpoints additionally enforce the registry above.
+  // Defense in depth: revoke refresh capability for other Supabase Auth sessions.
+  // The XDrive registry remains authoritative because already-issued JWTs can live
+  // until expiry, and the atomic registration rule above prevents stale reclaim.
   const authBase = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (authBase && anonKey) {
@@ -109,8 +103,7 @@ export async function POST(request: NextRequest) {
         cache: 'no-store',
       });
     } catch {
-      // Registry enforcement is authoritative for XDrive mobile access. Other-session
-      // Auth revocation is defense in depth and must not roll back a safe binding.
+      // Registry enforcement is authoritative; Auth revocation is defense in depth.
     }
   }
 
@@ -141,7 +134,8 @@ export async function GET(request: NextRequest) {
   await supabaseAdmin!
     .from('driver_mobile_device_sessions')
     .update({ last_seen_at: now, updated_at: now })
-    .eq('installation_id', installationId);
+    .eq('installation_id', installationId)
+    .eq('auth_session_id', auth.sessionId);
 
   return NextResponse.json({ ok: true, installationId });
 }

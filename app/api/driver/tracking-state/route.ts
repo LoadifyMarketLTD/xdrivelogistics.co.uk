@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isDriverContext, requireDriver } from '../mobile/_lib';
 
 const ACTIVE_JOB_STATUSES = new Set([
   'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
@@ -13,31 +14,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return NextResponse.json({ error: 'Tracking state is temporarily unavailable.' }, { status: 503 });
-  }
+  const driver = await requireDriver(request);
+  if (!isDriverContext(driver)) return driver;
 
-  const token = getBearerToken(request);
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: driver, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, status, app_access')
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (driverError || !driver || driver.app_access !== true) {
-    return NextResponse.json({ should_track: false, reason: 'driver_not_eligible' });
-  }
-
-  const { data: jobs, error: jobsError } = await supabaseAdmin
+  const { data: jobs, error: jobsError } = await supabaseAdmin!
     .from('jobs')
     .select('id, assigned_driver_id, awarded_carrier_company_id, current_status, status')
-    .eq('assigned_driver_id', driver.id)
+    .eq('assigned_driver_id', driver.driverId)
     .order('updated_at', { ascending: false })
     .limit(20);
 
@@ -45,20 +28,13 @@ export async function GET(request: NextRequest) {
 
   const activeJobs = (jobs ?? []).filter((job) => {
     if (!ACTIVE_JOB_STATUSES.has(statusOf(job))) return false;
-    if (job.awarded_carrier_company_id && driver.company_id && job.awarded_carrier_company_id !== driver.company_id) return false;
+    if (job.awarded_carrier_company_id && driver.companyId && job.awarded_carrier_company_id !== driver.companyId) return false;
     return true;
   });
 
   if (activeJobs.length !== 1) {
-    return NextResponse.json({
-      should_track: false,
-      reason: activeJobs.length === 0 ? 'no_active_job' : 'multiple_active_jobs',
-    });
+    return NextResponse.json({ should_track: false, reason: activeJobs.length === 0 ? 'no_active_job' : 'multiple_active_jobs' });
   }
 
-  return NextResponse.json({
-    should_track: true,
-    job_id: activeJobs[0].id,
-    status: statusOf(activeJobs[0]),
-  });
+  return NextResponse.json({ should_track: true, job_id: activeJobs[0].id, status: statusOf(activeJobs[0]) });
 }
