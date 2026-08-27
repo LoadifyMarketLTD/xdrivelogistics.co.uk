@@ -1,8 +1,11 @@
 import Constants from 'expo-constants';
 import * as Network from 'expo-network';
+import * as Notifications from 'expo-notifications';
 import { Component, useEffect, useState, type ComponentType, type ReactNode } from 'react';
-import { Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
+import { DriverJobIntentScreen } from './src/navigation/DriverJobIntentScreen';
+import { jobIdFromNotificationData, jobIdFromUrl } from './src/navigation/jobIntent';
 import { colors, spacing } from './src/ui/theme';
 import { normalizeApiBaseUrl, fallbackBaseUrl as fallbackApiBaseUrl } from './src/utils/url';
 
@@ -30,6 +33,7 @@ const startupTimeoutMs = 15000;
 
 export default function App() {
   const [DriverMobileApp, setDriverMobileApp] = useState<DriverMobileAppComponent | null>(null);
+  const [intentJobId, setIntentJobId] = useState<string | null>(null);
   const [startupError, setStartupError] = useState('');
   const [startupMessage, setStartupMessage] = useState('Starting driver workspace...');
   const [diagnostics, setDiagnostics] = useState<DiagnosticSnapshot>({
@@ -75,6 +79,50 @@ export default function App() {
       clearTimeout(timeoutId);
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const acceptUrl = (url: unknown) => {
+      const jobId = jobIdFromUrl(url);
+      if (mounted && jobId) setIntentJobId(jobId);
+    };
+
+    const acceptNotification = (response: Notifications.NotificationResponse | null | undefined) => {
+      const data = response?.notification?.request?.content?.data;
+      const jobId = jobIdFromNotificationData(data);
+      if (mounted && jobId) setIntentJobId(jobId);
+      return jobId;
+    };
+
+    void Linking.getInitialURL().then(acceptUrl).catch(() => undefined);
+    void Notifications.getLastNotificationResponseAsync()
+      .then(async (response) => {
+        if (acceptNotification(response)) {
+          await Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
+
+    const linkSubscription = Linking.addEventListener('url', ({ url }) => acceptUrl(url));
+    const notificationSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      acceptNotification(response);
+    });
+
+    return () => {
+      mounted = false;
+      linkSubscription.remove();
+      notificationSubscription.remove();
+    };
+  }, []);
+
+  if (DriverMobileApp && intentJobId) {
+    return (
+      <StartupErrorBoundary diagnostics={diagnostics}>
+        <DriverJobIntentScreen jobId={intentJobId} onClose={() => setIntentJobId(null)} />
+      </StartupErrorBoundary>
+    );
+  }
 
   if (DriverMobileApp) {
     return (
