@@ -39,15 +39,6 @@ const userScopedSupabase = (token: string) => {
   });
 };
 
-const storedSignatureText = (value: unknown) => {
-  if (typeof value === 'string') return value.trim() || null;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const candidate = (value as Record<string, unknown>).value;
-    return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
-  }
-  return null;
-};
-
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
@@ -75,7 +66,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
-  const job = existing as unknown as MobileJobRow;
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
@@ -83,27 +73,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!scoped) return respond(503, { error: 'Authenticated lifecycle client is not configured.' });
 
   const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
-  const collectionPhotoUrl = typeof body.collectionPhotoUrl === 'string' ? body.collectionPhotoUrl.trim() || null : null;
   const driverNotes = typeof body.driverNotes === 'string' ? body.driverNotes.trim().slice(0, 5000) || null : null;
-  const signature = typeof body.deliverySignatureData === 'string' && body.deliverySignatureData.trim()
-    ? body.deliverySignatureData.trim()
-    : storedSignatureText(job.delivery_signature_data);
-  const recipient = typeof body.clientSignatureName === 'string' && body.clientSignatureName.trim()
-    ? body.clientSignatureName.trim()
-    : job.client_signature_name;
-  const deliveryPhotos = Array.isArray(body.deliveryPhotos)
-    ? body.deliveryPhotos.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    : null;
 
+  // Physical evidence is server-authoritative. The mobile status request is not
+  // allowed to inject collection/POD paths, signatures or recipient identity.
+  // Collection evidence is first validated and linked by /evidence; delivery
+  // evidence is first validated and persisted by /pod. Passing NULL here makes
+  // driver_update_job_status_atomic use the already-persisted jobs columns.
   const { error: lifecycleError } = await scoped.rpc('driver_update_job_status_atomic', {
     p_driver_id: driver.driverId,
     p_job_id: id,
     p_next_status: nextStatus,
-    p_collection_photo_url: collectionPhotoUrl,
+    p_collection_photo_url: null,
     p_driver_notes: driverNotes,
-    p_delivery_photos: deliveryPhotos,
-    p_delivery_signature_data: signature,
-    p_client_signature_name: recipient,
+    p_delivery_photos: null,
+    p_delivery_signature_data: null,
+    p_client_signature_name: null,
   });
 
   if (lifecycleError) {
