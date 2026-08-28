@@ -40,27 +40,54 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: driverResult.error?.message ?? 'Driver profile was not found.' }, { status: 500 });
   }
 
-  const vehicleResult = await supabaseAdmin!
-    .from('vehicles')
-    .select('id,type,make,model,reg_plate')
-    .eq('assigned_driver_id', context.driverId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [vehicleResult, companyResult] = await Promise.all([
+    supabaseAdmin!
+      .from('vehicles')
+      .select('id,type,make,model,reg_plate')
+      .eq('assigned_driver_id', context.driverId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    context.companyId
+      ? supabaseAdmin!
+        .from('companies')
+        .select('id,name,company_number,company_type,status')
+        .eq('id', context.companyId)
+        .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
+  if (companyResult.error) return NextResponse.json({ error: companyResult.error.message }, { status: 500 });
   const vehicleId = String(vehicleResult.data?.id ?? '');
 
-  const [driverDocsResult, vehicleDocsResult, notificationsResult, journeyResult, preferencesResult] = await Promise.all([
+  let alertsQuery = supabaseAdmin!
+    .from('notification_events')
+    .select('id,event_type,entity_type,entity_id,payload,status,created_at,recipient_user_id,company_id')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  alertsQuery = context.companyId
+    ? alertsQuery.or(`recipient_user_id.eq.${context.userId},and(recipient_user_id.is.null,company_id.eq.${context.companyId})`)
+    : alertsQuery.eq('recipient_user_id', context.userId);
+
+  const [driverDocsResult, vehicleDocsResult, notificationsResult, alertsResult, journeyResult, preferencesResult] = await Promise.all([
     supabaseAdmin!.from('driver_documents').select('id,doc_type,status,expiry_date,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
     vehicleId
       ? supabaseAdmin!.from('vehicle_documents').select('id,doc_type,status,expiry_date,created_at').eq('vehicle_id', vehicleId).order('created_at', { ascending: false }).limit(100)
       : Promise.resolve({ data: [], error: null }),
+    // Legacy inbox remains available only for compatibility actions below.
+    // Expo operational notifications are sourced from notification_events.
     supabaseAdmin!.from('notifications').select('id,title,body,type,read_at,created_at').eq('user_id', context.userId).order('created_at', { ascending: false }).limit(100),
+    alertsQuery,
     supabaseAdmin!.from('return_journeys').select('id,from_location,to_location,available_date').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin!.from('driver_job_search_preferences').select('job_id,state').eq('driver_id', context.driverId),
   ]);
 
-  const firstError = driverDocsResult.error ?? vehicleDocsResult.error ?? notificationsResult.error ?? journeyResult.error ?? preferencesResult.error;
+  const firstError = driverDocsResult.error
+    ?? vehicleDocsResult.error
+    ?? notificationsResult.error
+    ?? alertsResult.error
+    ?? journeyResult.error
+    ?? preferencesResult.error;
   if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
 
   let invoices: AnyRow[] = [];
@@ -77,31 +104,52 @@ export async function GET(request: NextRequest) {
   }
 
   const driver = driverResult.data as AnyRow;
+  const company = (companyResult.data ?? null) as AnyRow | null;
   const vehicle = (vehicleResult.data ?? null) as AnyRow | null;
   const displayName = String(driver.display_name || driver.email || 'Driver');
+  const phone = String(driver.phone ?? '');
+  const email = String(driver.email ?? '');
   const vehicleLabel = vehicle
     ? [[vehicle.make, vehicle.model].filter(Boolean).join(' '), String(vehicle.type || '')].filter(Boolean).join(' - ')
     : '';
   const vehicleRegistration = vehicle ? String(vehicle.reg_plate || '') : '';
+  const documents = [
+    ...(driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })),
+    ...(vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })),
+  ];
+  const alerts = (alertsResult.data ?? []).map((row) => ({
+    ...row,
+    payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
+  }));
 
   return NextResponse.json({
     resources: {
+      // Canonical Expo contract. These fields are consumed directly by
+      // DriverMobileApp for authorization-derived capabilities, profile and alerts.
+      name: displayName,
+      email,
+      phone,
+      driver,
+      company,
+      vehicle,
+      quotes: [],
+      documents,
+      invoices,
+      alerts,
+
+      // Compatibility shape retained for older mobile consumers while Expo is the
+      // production owner. The legacy notification inbox is not an Expo authority.
       profile: {
         driver_id: context.driverId,
         company_id: context.companyId,
         vehicle_id: vehicleId || null,
         display_name: displayName,
-        email: String(driver.email ?? ''),
+        email,
         vehicle_label: vehicleLabel,
         vehicle_registration: vehicleRegistration,
       },
-      documents: [
-        ...(driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })),
-        ...(vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })),
-      ],
       notifications: notificationsResult.data ?? [],
       return_journey: journeyResult.data ?? null,
-      invoices,
       nearby_drivers: [],
       job_search_preferences: preferencesResult.data ?? [],
     },
