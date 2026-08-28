@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    return savePod(request, id, driver.userId, driver.driverId);
+    return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
   }
 
   const nextStatus = actionToCanonicalStatus[action];
@@ -140,16 +140,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 const persistentPodPath = (
+  companyId: string | null,
   jobId: string,
   kind: 'photos' | 'documents',
   value: unknown
 ): value is string => {
-  if (typeof value !== 'string') return false;
+  if (!companyId || typeof value !== 'string') return false;
   const path = value.trim();
   return (
     path.length > 0 &&
     path.length <= 1024 &&
-    path.startsWith(`${jobId}/${kind}/`) &&
+    path.startsWith(`${companyId}/${jobId}/${kind}/`) &&
     !path.includes('://') &&
     !path.includes('..') &&
     !path.includes('\\') &&
@@ -170,7 +171,13 @@ const storageObjectExists = async (path: string) => {
   return (data ?? []).some((entry) => entry.name === fileName);
 };
 
-async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
+async function savePod(
+  request: NextRequest,
+  jobId: string,
+  userId: string,
+  driverId: string,
+  companyId: string | null,
+) {
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -206,8 +213,8 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(413, { error: 'Recipient signature is too large.' });
   }
 
-  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(jobId, 'photos', value));
-  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(jobId, 'documents', value));
+  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'photos', value));
+  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(companyId, jobId, 'documents', value));
   if (photoPaths.length !== rawPhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
@@ -238,8 +245,8 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
-      delivery_photos: [...existingPhotos, ...photoPaths],
-      pod_photos: [...existingDocuments, ...documentPaths],
+      delivery_photos: Array.from(new Set([...existingPhotos, ...photoPaths])),
+      pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
       delivery_signature_data: signatureData,
       client_signature_name: recipientName,
       delivery_notes: typeof body.notes === 'string' && body.notes.trim()
