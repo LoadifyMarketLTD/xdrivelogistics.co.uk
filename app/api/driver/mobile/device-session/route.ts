@@ -42,6 +42,31 @@ async function authenticatedDriver(request: NextRequest) {
   return { token, userId: authData.user.id, driverId: String(driver.id), sessionId };
 }
 
+async function invalidateStalePushBindings(userId: string, driverId: string, installationId: string) {
+  const now = new Date().toISOString();
+
+  // The installation may have been used by a previous account/session. Remove
+  // its old FCM row completely so no notification for that historical identity
+  // can be delivered while the new session is being established.
+  const currentInstallationCleanup = await supabaseAdmin!
+    .from('driver_push_devices')
+    .delete()
+    .eq('installation_id', installationId);
+  if (currentInstallationCleanup.error) return currentInstallationCleanup.error;
+
+  // Newest native login wins for API access and push delivery alike. Keeping an
+  // older device enabled here would allow job metadata to reach a device whose
+  // XDrive device-session binding has already been revoked.
+  const otherDeviceCleanup = await supabaseAdmin!
+    .from('driver_push_devices')
+    .update({ enabled: false, updated_at: now })
+    .eq('user_id', userId)
+    .eq('driver_id', driverId)
+    .neq('installation_id', installationId)
+    .eq('enabled', true);
+  return otherDeviceCleanup.error;
+}
+
 export async function POST(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
@@ -83,6 +108,15 @@ export async function POST(request: NextRequest) {
     if (registerError.code === '28000') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (registerError.code === '22023') return NextResponse.json({ error: message }, { status: 400 });
     return NextResponse.json({ error: 'Mobile device session could not be registered.' }, { status: 500 });
+  }
+
+  // Push routing is security-sensitive job metadata, not a best-effort profile
+  // resource. Fail the registration response if stale push bindings cannot be
+  // invalidated; the already-authoritative binding remains and a retry of this
+  // same session will safely retry cleanup before the app proceeds.
+  const pushCleanupError = await invalidateStalePushBindings(auth.userId, auth.driverId, installationId);
+  if (pushCleanupError) {
+    return NextResponse.json({ error: 'Mobile push session reconciliation failed.' }, { status: 503 });
   }
 
   // Defense in depth: revoke refresh capability for other Supabase Auth sessions.
