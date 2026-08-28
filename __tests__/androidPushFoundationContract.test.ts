@@ -12,6 +12,10 @@ describe('XDrive Driver push foundation contract', () => {
     path.join(root, 'app/api/driver/push-devices/route.ts'),
     'utf8',
   );
+  const serverDeviceSession = fs.readFileSync(
+    path.join(root, 'app/api/driver/mobile/device-session/route.ts'),
+    'utf8',
+  );
   const appConfig = fs.readFileSync(path.join(root, 'apps/driver-mobile/app.config.ts'), 'utf8');
   const packageJson = fs.readFileSync(path.join(root, 'apps/driver-mobile/package.json'), 'utf8');
   const pushRegistration = fs.readFileSync(
@@ -47,6 +51,22 @@ describe('XDrive Driver push foundation contract', () => {
     expect(route).toContain('requireActiveBinding');
     expect(route).toContain('auth_session_id: auth.sessionId');
     expect(route).toContain("appPackage !== ANDROID_PACKAGE");
+  });
+
+  it('invalidates stale push routing when a newer XDrive device session wins', () => {
+    expect(serverDeviceSession).toContain('invalidateStalePushBindings');
+    expect(serverDeviceSession).toContain(".from('driver_push_devices')");
+    expect(serverDeviceSession).toContain(".eq('installation_id', installationId)");
+    expect(serverDeviceSession).toContain(".neq('auth_session_id', authSessionId)");
+    expect(serverDeviceSession).toContain(".neq('installation_id', installationId)");
+    expect(serverDeviceSession).toContain(".eq('enabled', true)");
+    expect(serverDeviceSession).toContain("{ error: 'Mobile push session reconciliation failed.' }");
+  });
+
+  it('preserves the current FCM registration across JWT refresh in the same auth session', () => {
+    expect(deviceSession).toContain('if (registeredToken === normalizedToken) return installationId');
+    expect(serverDeviceSession).toContain(".neq('auth_session_id', authSessionId)");
+    expect(serverDeviceSession).not.toContain(".delete()\n    .eq('installation_id', installationId);\n");
   });
 
   it('uses the native Android provider token from Expo and the canonical push endpoint', () => {
