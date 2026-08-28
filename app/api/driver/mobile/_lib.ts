@@ -19,72 +19,30 @@ function validatedSessionId(token: string): string | null {
     const encoded = token.split('.')[1];
     if (!encoded) return null;
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { session_id?: unknown };
-    return typeof payload.session_id === 'string' && UUID_RE.test(payload.session_id)
-      ? payload.session_id
-      : null;
+    return typeof payload.session_id === 'string' && UUID_RE.test(payload.session_id) ? payload.session_id : null;
   } catch {
     return null;
   }
 }
 
-async function enforceActiveNativeDeviceBinding(
-  request: NextRequest,
-  token: string,
-  userId: string,
-  driverId: string,
-): Promise<NextResponse | null> {
+async function enforceActiveNativeDeviceBinding(request: NextRequest, token: string, userId: string, driverId: string): Promise<NextResponse | null> {
   if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-
   const [{ data: activeBinding, error: bindingError }, { data: nativeHistory, error: historyError }] = await Promise.all([
-    supabaseAdmin
-      .from('driver_mobile_device_sessions')
-      .select('installation_id, auth_session_id')
-      .eq('user_id', userId)
-      .eq('driver_id', driverId)
-      .eq('enabled', true)
-      .is('revoked_at', null)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('driver_mobile_device_sessions')
-      .select('installation_id')
-      .eq('user_id', userId)
-      .eq('driver_id', driverId)
-      .limit(1)
-      .maybeSingle(),
+    supabaseAdmin.from('driver_mobile_device_sessions').select('installation_id, auth_session_id').eq('user_id', userId).eq('driver_id', driverId).eq('enabled', true).is('revoked_at', null).maybeSingle(),
+    supabaseAdmin.from('driver_mobile_device_sessions').select('installation_id').eq('user_id', userId).eq('driver_id', driverId).limit(1).maybeSingle(),
   ]);
-
-  if (bindingError || historyError) {
-    return respond(500, { error: 'Mobile device session validation failed.' });
-  }
-
-  // Legacy compatibility ends permanently after this driver completes the first
-  // native-device registration. If that registered session is later logged out or
-  // revoked, an old JWT must not regain access merely because there is no active
-  // row left. Only drivers with no native-session history may use the legacy path.
+  if (bindingError || historyError) return respond(500, { error: 'Mobile device session validation failed.' });
   if (!activeBinding) {
     if (nativeHistory) return respond(401, { error: 'No active native device session is authorised.' });
     return null;
   }
-
   const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
   const authSessionId = validatedSessionId(token);
-  if (!UUID_RE.test(installationId) || !authSessionId) {
-    return respond(401, { error: 'Active native device identity is required.' });
-  }
-
-  if (
-    String(activeBinding.installation_id) !== installationId ||
-    String(activeBinding.auth_session_id) !== authSessionId
-  ) {
+  if (!UUID_RE.test(installationId) || !authSessionId) return respond(401, { error: 'Active native device identity is required.' });
+  if (String(activeBinding.installation_id) !== installationId || String(activeBinding.auth_session_id) !== authSessionId) {
     return respond(401, { error: 'This mobile session has been revoked or replaced by another device.' });
   }
-
-  void supabaseAdmin
-    .from('driver_mobile_device_sessions')
-    .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('installation_id', installationId)
-    .eq('auth_session_id', authSessionId);
-
+  void supabaseAdmin.from('driver_mobile_device_sessions').update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('installation_id', installationId).eq('auth_session_id', authSessionId);
   return null;
 }
 
@@ -142,88 +100,46 @@ export type MobileJobRow = {
   created_at: string | null;
 };
 
-export async function requireDriver(
-  request: NextRequest,
-  options: { requireOperationallyActive?: boolean } = {},
-): Promise<DriverContext | NextResponse> {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
+export async function requireDriver(request: NextRequest, options: { requireOperationallyActive?: boolean } = {}): Promise<DriverContext | NextResponse> {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
-
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
   const [{ data: driverInitialRow, error: driverInitialError }, { data: profileRow, error: profileError }] = await Promise.all([
-    supabaseAdmin
-      .from('drivers')
-      .select('id, company_id, user_id, app_access, status, driver_type, can_commercial_bid')
-      .eq('user_id', authData.user.id)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('profiles')
-      .select('status')
-      .eq('user_id', authData.user.id)
-      .maybeSingle(),
+    supabaseAdmin.from('drivers').select('id, company_id, user_id, app_access, status, driver_type, can_commercial_bid').eq('user_id', authData.user.id).maybeSingle(),
+    supabaseAdmin.from('profiles').select('status').eq('user_id', authData.user.id).maybeSingle(),
   ]);
-
   const useLegacyDriverFallback = isMissingDriverCommercialColumn(driverInitialError);
   const { data: driverLegacyRow, error: driverLegacyError } = useLegacyDriverFallback
-    ? await supabaseAdmin
-        .from('drivers')
-        .select('id, company_id, user_id, app_access, status')
-        .eq('user_id', authData.user.id)
-        .maybeSingle()
+    ? await supabaseAdmin.from('drivers').select('id, company_id, user_id, app_access, status').eq('user_id', authData.user.id).maybeSingle()
     : { data: null, error: null };
-  const driverRow = useLegacyDriverFallback
-    ? (driverLegacyRow ? { ...driverLegacyRow, driver_type: null, can_commercial_bid: false } : null)
-    : driverInitialRow;
+  const driverRow = useLegacyDriverFallback ? (driverLegacyRow ? { ...driverLegacyRow, driver_type: null, can_commercial_bid: false } : null) : driverInitialRow;
   const driverError = useLegacyDriverFallback ? driverLegacyError : driverInitialError;
-
   if (driverError) return respond(500, { error: driverError.message });
   if (profileError) return respond(500, { error: profileError.message });
   if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
-  if (driverRow.app_access !== true) {
-    return respond(403, { error: 'Driver app access has not been approved.' });
-  }
+  if (driverRow.app_access !== true) return respond(403, { error: 'Driver app access has not been approved.' });
 
   const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
   const driverStatus = String(driverRow.status ?? '').trim().toLowerCase();
   if (options.requireOperationallyActive !== false) {
-    if (profileStatus !== 'active') {
-      return respond(403, { error: 'Driver profile is not active.' });
-    }
-    if (driverStatus !== 'active') {
-      return respond(403, { error: 'Driver account is not active.' });
-    }
+    if (profileStatus !== 'active') return respond(403, { error: 'Driver profile is not active.' });
+    if (driverStatus !== 'active') return respond(403, { error: 'Driver account is not active.' });
   }
-
   const driverId = String(driverRow.id);
-  const deviceGate = await enforceActiveNativeDeviceBinding(
-    request,
-    token,
-    authData.user.id,
-    driverId,
-  );
+  const deviceGate = await enforceActiveNativeDeviceBinding(request, token, authData.user.id, driverId);
   if (deviceGate) return deviceGate;
 
-  const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
-    ? driverRow.company_id.trim()
-    : null;
+  const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0 ? driverRow.company_id.trim() : null;
   let companyStatus: string | null = null;
   if (companyId) {
-    const { data: companyRow, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('status')
-      .eq('id', companyId)
-      .maybeSingle();
+    const { data: companyRow, error: companyError } = await supabaseAdmin.from('companies').select('status').eq('id', companyId).maybeSingle();
     if (companyError) return respond(500, { error: companyError.message });
     companyStatus = String(companyRow?.status ?? '').trim().toLowerCase() || null;
   }
-
   return {
     userId: authData.user.id,
     driverId,
@@ -241,67 +157,27 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 }
 
 export const jobSelect = [
-  'id',
-  'status',
-  'current_status',
-  'assigned_driver_id',
-  'company_id',
-  'awarded_carrier_company_id',
-  'pickup_location',
-  'pickup_postcode',
-  'delivery_location',
-  'delivery_postcode',
-  'pickup_datetime',
-  'delivery_datetime',
-  'distance_miles',
-  'job_distance_miles',
-  'vehicle_type',
-  'requested_vehicle_type',
-  'requested_vehicle_label',
-  'cargo_type',
-  'requested_cargo_label',
-  'agreed_rate',
-  'agreed_rate_gbp',
-  'collection_contact_name',
-  'collection_contact_phone',
-  'delivery_contact_name',
-  'delivery_contact_phone',
-  'client_name',
-  'client_phone',
-  'load_details',
-  'special_requirements',
-  'access_restrictions',
-  'pod_required',
-  'pod_generated',
-  'collection_photo_url',
-  'delivery_photos',
-  'pod_photos',
-  'delivery_signature_data',
-  'client_signature_name',
-  'status_history',
-  'updated_at',
-  'created_at',
+  'id','status','current_status','assigned_driver_id','company_id','awarded_carrier_company_id',
+  'pickup_location','pickup_postcode','delivery_location','delivery_postcode','pickup_datetime','delivery_datetime',
+  'distance_miles','job_distance_miles','vehicle_type','requested_vehicle_type','requested_vehicle_label','cargo_type','requested_cargo_label',
+  'agreed_rate','agreed_rate_gbp','collection_contact_name','collection_contact_phone','delivery_contact_name','delivery_contact_phone',
+  'client_name','client_phone','load_details','special_requirements','access_restrictions','pod_required','pod_generated',
+  'collection_photo_url','delivery_photos','pod_photos','delivery_signature_data','client_signature_name','status_history','updated_at','created_at',
 ].join(',');
 
-export function safeArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
+export function safeArray(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
 export function appendStatusHistory(existingHistory: unknown, entry: Record<string, unknown>) {
   if (Array.isArray(existingHistory)) return [...existingHistory.filter((item) => item && typeof item === 'object'), entry];
   return [entry];
 }
-
 export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
   return Boolean(job.pod_generated) || safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0 || Boolean(job.delivery_signature_data);
 }
-
 export function toMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return 'Price TBC';
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
 }
-
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
   const current = String(job.current_status || job.status || 'awarded').toLowerCase();
   if (current === 'on_my_way') return 'on_my_way_pickup';
@@ -310,6 +186,20 @@ export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'
   if (current === 'in_transit') return 'on_my_way_delivery';
   if (current === 'allocated') return 'awarded';
   return current;
+}
+
+function publicStatusHistory(value: unknown) {
+  return safeArray(value)
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
+    .slice(-100)
+    .map((entry) => ({
+      status: String(entry.status ?? entry.event_type ?? entry.eventType ?? '').trim(),
+      at: typeof (entry.at ?? entry.created_at ?? entry.createdAt ?? entry.event_time) === 'string'
+        ? String(entry.at ?? entry.created_at ?? entry.createdAt ?? entry.event_time)
+        : null,
+      source: typeof entry.source === 'string' ? entry.source : null,
+    }))
+    .filter((entry) => entry.status.length > 0);
 }
 
 export function mapJob(row: MobileJobRow) {
@@ -344,6 +234,7 @@ export function mapJob(row: MobileJobRow) {
     collectionPhotoUrl: row.collection_photo_url,
     deliverySignatureData: row.delivery_signature_data,
     clientSignatureName: row.client_signature_name || '',
+    statusHistory: publicStatusHistory(row.status_history),
     contactAllowed: Boolean(contactPhone),
     contactName,
     contactPhone,
