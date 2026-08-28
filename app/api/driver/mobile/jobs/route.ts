@@ -4,9 +4,11 @@ import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
 import { loadDriverAgreedRates } from '../../_lib/commercialRate';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../_lib';
+import { buildSignedJobAttachments } from '../jobAttachmentPresentation';
+import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../jobOperationalPresentation';
 import { buildSignedPodPresentations } from '../podPresentation';
 
-type MobileJobWithPodPresentation = MobileJobRow & {
+type MobileJobWithPresentation = MobileJobRow & Record<string, unknown> & {
   damage_photos?: unknown;
   pod_generated_at?: string | null;
   driver_notes?: string | null;
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('jobs')
-    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes`)
+    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
     .eq('assigned_driver_id', driver.driverId)
     .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
     .limit(limit);
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
-  const rows = (data ?? []) as unknown as MobileJobWithPodPresentation[];
+  const rows = (data ?? []) as unknown as MobileJobWithPresentation[];
   const commercial = await loadDriverAgreedRates(supabaseAdmin, rows);
   const nextCursor = completedHistory && rows.length === limit
     ? rows[rows.length - 1]?.updated_at ?? null
@@ -84,6 +86,16 @@ export async function GET(request: NextRequest) {
     podPresentationPartial = true;
   }
 
+  let attachmentPresentationPartial = false;
+  let attachments = new Map<string, Array<Record<string, unknown>>>();
+  try {
+    attachments = await buildSignedJobAttachments(rows);
+  } catch {
+    // Load documents are additive to execution. A signing/read outage must never
+    // hide the assigned job itself or leak a raw private storage path.
+    attachmentPresentationPartial = true;
+  }
+
   return respond(200, {
     scope,
     ...(completedHistory ? { historyDays, nextCursor } : {}),
@@ -91,6 +103,8 @@ export async function GET(request: NextRequest) {
       const agreedRate = commercial.rates.get(row.id) ?? null;
       return {
         ...mapJob(row),
+        ...buildJobOperationalPresentation(row),
+        attachments: attachments.get(row.id) ?? [],
         pod: pods.get(row.id) ?? null,
         price: toMoney(agreedRate),
         agreedRateAmount: agreedRate,
@@ -101,5 +115,6 @@ export async function GET(request: NextRequest) {
     }),
     commercialRatePartial: commercial.partial,
     podPresentationPartial,
+    attachmentPresentationPartial,
   });
 }
