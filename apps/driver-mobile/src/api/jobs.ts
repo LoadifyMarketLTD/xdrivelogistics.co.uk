@@ -82,8 +82,46 @@ function safeExtension(uri: string, fallback: string) {
   return extension && /^[a-z0-9]{1,8}$/.test(extension) ? extension : fallback;
 }
 
-function uniqueName() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+function safeEvidenceBatchId(value: unknown) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  return /^[A-Za-z0-9._-]{8,96}$/.test(candidate) ? candidate : null;
+}
+
+function stableLegacyBatchHash(value: string) {
+  // This is an idempotency namespace for pre-batch queued payloads, not a
+  // security/integrity digest. Two independent 32-bit accumulators keep the
+  // legacy fallback stable across process restarts without a new dependency.
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first ^= code;
+    first = Math.imul(first, 0x01000193);
+    second ^= code + index;
+    second = Math.imul(second, 0x85ebca6b);
+    second ^= second >>> 13;
+  }
+  return `${(first >>> 0).toString(16).padStart(8, '0')}${(second >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function legacyEvidenceBatchId(jobId: string, metadata: Record<string, unknown>) {
+  const seed = JSON.stringify({
+    jobId,
+    recipientName: typeof metadata.recipientName === 'string' ? metadata.recipientName : '',
+    notes: typeof metadata.notes === 'string' ? metadata.notes : '',
+    photoUris: stringUris(metadata.photoUris),
+    damagePhotoUris: stringUris(metadata.damagePhotoUris),
+    documentUris: stringUris(metadata.documentUris),
+  });
+  return `legacy-${stableLegacyBatchHash(seed)}`;
+}
+
+function createEvidenceBatchId() {
+  return `pod-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function evidenceObjectName(batchId: string, kind: PodEvidenceKind, index: number, extension: string) {
+  return `${batchId}-${kind}-${String(index + 1).padStart(2, '0')}.${extension}`;
 }
 
 function isPersistentJobPath(jobId: string, kind: PodEvidenceKind, uri: string) {
@@ -106,6 +144,8 @@ async function uploadLocalPodFile(
   uri: string,
   kind: PodEvidenceKind,
   token: string,
+  batchId: string,
+  index: number,
 ) {
   if (isPersistentJobPath(jobId, kind, uri)) return uri.trim();
   if (!uri.includes('://')) throw new Error('POD evidence path is invalid. Please select the file again.');
@@ -118,7 +158,10 @@ async function uploadLocalPodFile(
 
   const extension = safeExtension(uri, kind === 'documents' ? 'pdf' : 'jpg');
   const contentType = evidenceContentType(extension, kind);
-  const objectName = `${uniqueName()}.${extension}`;
+  // The object name is stable for this capture batch. If an upload reaches
+  // storage but the response is lost, replay uses the same path and the server's
+  // existing duplicate-as-success behaviour becomes truly idempotent.
+  const objectName = evidenceObjectName(batchId, kind, index, extension);
 
   const uploaded = await apiBinaryRequest<{ ok: true; storagePath: string }>(
     `/api/driver/mobile/jobs/${jobId}/evidence`,
@@ -145,14 +188,15 @@ async function persistPodFiles(
   values: unknown,
   kind: PodEvidenceKind,
   token: string,
+  batchId: string,
 ) {
   const uris = Array.isArray(values)
     ? values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     : [];
 
   const persisted: string[] = [];
-  for (const uri of uris) {
-    persisted.push(await uploadLocalPodFile(jobId, uri, kind, token));
+  for (let index = 0; index < uris.length; index += 1) {
+    persisted.push(await uploadLocalPodFile(jobId, uris[index]!, kind, token, batchId, index));
   }
   return persisted;
 }
@@ -197,10 +241,23 @@ function normalizedPodPhotoInputs(metadata: Record<string, unknown>) {
 
 export async function uploadPod(jobId: string, token: string, metadata: Record<string, unknown>) {
   const normalizedPhotos = normalizedPodPhotoInputs(metadata);
+  const explicitBatchId = safeEvidenceBatchId(metadata.evidenceBatchId);
+  const hasPersistentOfflineInput = [
+    ...normalizedPhotos.deliveryPhotoUris,
+    ...normalizedPhotos.damagePhotoUris,
+    ...stringUris(metadata.documentUris),
+  ].some((uri) => uri.includes('xdrive-pod-offline'));
+  const batchId = explicitBatchId
+    ?? (hasPersistentOfflineInput ? legacyEvidenceBatchId(jobId, metadata) : createEvidenceBatchId());
+
+  // Mutate the caller-owned payload deliberately so a transient online failure
+  // that is subsequently enqueued keeps the same idempotency namespace.
+  metadata.evidenceBatchId = batchId;
+
   const [photoUris, damagePhotoUris, documentUris] = await Promise.all([
-    persistPodFiles(jobId, normalizedPhotos.deliveryPhotoUris, 'photos', token),
-    persistPodFiles(jobId, normalizedPhotos.damagePhotoUris, 'damage', token),
-    persistPodFiles(jobId, metadata.documentUris, 'documents', token),
+    persistPodFiles(jobId, normalizedPhotos.deliveryPhotoUris, 'photos', token, batchId),
+    persistPodFiles(jobId, normalizedPhotos.damagePhotoUris, 'damage', token, batchId),
+    persistPodFiles(jobId, metadata.documentUris, 'documents', token, batchId),
   ]);
   if (photoUris.length + damagePhotoUris.length > 10) {
     throw new Error('A maximum of 10 POD and damage photos can be submitted for one delivery.');
