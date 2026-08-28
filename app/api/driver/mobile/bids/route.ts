@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const identityFilters = [`bidder_user_id.eq.${driver.userId}`, `bidder_driver_id.eq.${driver.driverId}`];
   const { data: bids, error: bidsError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, company_id, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, currency, status, message, created_at, collect_within_minutes, additional_extras_gbp, quoted_vehicle_id')
+    .select('id, job_id, company_id, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, base_amount, currency, status, message, created_at, collect_within_minutes, additional_extras_gbp, quoted_vehicle_id, quoted_vehicle_label')
     .or(identityFilters.join(','))
     .order('created_at', { ascending: false })
     .limit(100);
@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
     : { data: [], error: null };
   if (jobsError) return respond(500, { error: jobsError.message });
 
-  const vehicleIds = [...new Set((bids ?? []).map((bid) => String(bid.quoted_vehicle_id ?? '')).filter(Boolean))];
+  const vehicleIds = [...new Set((bids ?? [])
+    .filter((bid) => !String(bid.quoted_vehicle_label ?? '').trim())
+    .map((bid) => String(bid.quoted_vehicle_id ?? ''))
+    .filter(Boolean))];
   const { data: vehicles, error: vehiclesError } = vehicleIds.length
     ? await supabaseAdmin.from('vehicles').select('id,type,make,model,reg_plate').in('id', vehicleIds)
     : { data: [], error: null };
@@ -46,15 +49,17 @@ export async function GET(request: NextRequest) {
       const vehicle = bid.quoted_vehicle_id ? vehicleById.get(String(bid.quoted_vehicle_id)) : null;
       const total = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
       const extras = Number(bid.additional_extras_gbp ?? 0);
+      const storedBase = bid.base_amount == null ? total - extras : Number(bid.base_amount);
+      const fallbackVehicleLabel = vehicle ? [vehicle.make, vehicle.model, vehicle.type, vehicle.reg_plate].filter(Boolean).join(' · ') : null;
       return {
         id: bid.id,
         jobId: bid.job_id,
         amount: Number.isFinite(total) ? total : null,
-        baseAmount: Number.isFinite(total - extras) ? Number((total - extras).toFixed(2)) : null,
+        baseAmount: Number.isFinite(storedBase) ? Number(storedBase.toFixed(2)) : null,
         additionalExtrasGbp: Number.isFinite(extras) ? extras : 0,
         collectWithinMinutes: bid.collect_within_minutes ?? null,
         quotedVehicleId: bid.quoted_vehicle_id ?? null,
-        quotedVehicleLabel: vehicle ? [vehicle.make, vehicle.model, vehicle.type, vehicle.reg_plate].filter(Boolean).join(' · ') : null,
+        quotedVehicleLabel: String(bid.quoted_vehicle_label ?? '').trim() || fallbackVehicleLabel,
         currency: bid.currency || 'GBP',
         status: bid.status || 'submitted',
         message: bid.message || '',
