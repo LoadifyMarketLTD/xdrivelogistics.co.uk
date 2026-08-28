@@ -83,7 +83,15 @@ export async function GET(request: NextRequest) {
     // Expo operational notifications are sourced from notification_events.
     supabaseAdmin!.from('notifications').select('id,title,body,type,read_at,created_at').eq('user_id', context.userId).order('created_at', { ascending: false }).limit(100),
     alertsQuery,
-    supabaseAdmin!.from('return_journeys').select('id,from_location,to_location,available_date').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    // Return Journeys was reconciled to the canonical PR #357 runtime schema on
+    // 19 Aug 2026. Do not depend on optional historical from_location / available_date
+    // columns in this compatibility resource response.
+    supabaseAdmin!.from('return_journeys')
+      .select('id,from_postcode,to_postcode,available_from,available_to,vehicle_type,notes,status')
+      .eq('driver_id', context.driverId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabaseAdmin!.from('driver_job_search_preferences').select('job_id,state').eq('driver_id', context.driverId),
   ]);
 
@@ -129,6 +137,17 @@ export async function GET(request: NextRequest) {
       payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
     }))
     : [];
+  const canonicalJourney = !journeyResult.error ? journeyResult.data as AnyRow | null : null;
+  const compatibilityJourney = canonicalJourney
+    ? {
+      ...canonicalJourney,
+      // Keep the historical response aliases for any older consumer, but derive
+      // them from canonical storage instead of querying legacy columns.
+      from_location: canonicalJourney.from_postcode ?? null,
+      to_location: canonicalJourney.to_postcode ?? null,
+      available_date: canonicalJourney.available_from ?? null,
+    }
+    : null;
 
   return NextResponse.json({
     resources: {
@@ -158,7 +177,7 @@ export async function GET(request: NextRequest) {
         vehicle_registration: vehicleRegistration,
       },
       notifications: notificationsResult.error ? [] : notificationsResult.data ?? [],
-      return_journey: journeyResult.error ? null : journeyResult.data ?? null,
+      return_journey: compatibilityJourney,
       nearby_drivers: [],
       job_search_preferences: preferencesResult.error ? [] : preferencesResult.data ?? [],
     },
@@ -193,18 +212,45 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'save_return_journey') {
-    const fromLocation = cleanString(body.fromLocation, 300);
-    const toLocation = cleanString(body.toLocation, 300);
-    const rawDate = cleanString(body.availableDate, 80);
-    const availableDate = rawDate && Number.isFinite(Date.parse(rawDate)) ? new Date(rawDate).toISOString() : null;
-    const { error } = await supabaseAdmin!.rpc('replace_driver_return_journey', {
-      p_driver_id: context.driverId,
-      p_company_id: context.companyId,
-      p_from_location: fromLocation,
-      p_to_location: toLocation,
-      p_available_date: availableDate,
+    // Deprecated compatibility action. Expo uses /api/driver/return-journey,
+    // but keep older consumers functional on the same canonical schema.
+    const fromPostcode = cleanString(body.fromLocation ?? body.fromPostcode, 120).toUpperCase();
+    const toPostcode = cleanString(body.toLocation ?? body.toPostcode, 120).toUpperCase();
+    const rawDate = cleanString(body.availableDate ?? body.availableFrom, 80);
+    const availableFrom = rawDate && Number.isFinite(Date.parse(rawDate)) ? new Date(rawDate).toISOString() : null;
+    if (!fromPostcode) return NextResponse.json({ error: 'Starting postcode is required.' }, { status: 400 });
+    if (!context.companyId) return NextResponse.json({ error: 'A company-bound driver profile is required for return journeys.' }, { status: 409 });
+
+    // Preserve the current journey unless the replacement can be inserted. Insert
+    // first, then remove older rows; this is safer than the historical delete-first
+    // RPC if the insert is rejected by a clean canonical schema.
+    const newJourneyId = randomUUID();
+    const now = new Date().toISOString();
+    const { error: insertError } = await supabaseAdmin!.from('return_journeys').insert({
+      id: newJourneyId,
+      driver_id: context.driverId,
+      company_id: context.companyId,
+      from_postcode: fromPostcode,
+      to_postcode: toPostcode || null,
+      available_from: availableFrom,
+      available_to: null,
+      vehicle_type: null,
+      notes: null,
+      status: 'available',
+      created_at: now,
     });
-    if (error) return NextResponse.json({ error: error.message }, { status: error.code === '22023' ? 400 : 500 });
+    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+
+    const { error: cleanupError } = await supabaseAdmin!.from('return_journeys')
+      .delete()
+      .eq('driver_id', context.driverId)
+      .neq('id', newJourneyId);
+    if (cleanupError) {
+      return NextResponse.json({
+        error: 'The new return journey was saved, but older declarations could not be reconciled safely.',
+        reconciliation_required: true,
+      }, { status: 503 });
+    }
     return NextResponse.json({ ok: true });
   }
 
