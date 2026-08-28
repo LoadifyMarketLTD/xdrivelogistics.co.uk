@@ -263,7 +263,7 @@ async function savePod(
       pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
       delivery_signature_data: signatureData,
       client_signature_name: recipientName,
-      delivery_notes: typeof body.notes === 'string' && body.notes.trim()
+      driver_notes: typeof body.notes === 'string' && body.notes.trim()
         ? body.notes.trim().slice(0, 5000)
         : null,
       pod_generated: true,
