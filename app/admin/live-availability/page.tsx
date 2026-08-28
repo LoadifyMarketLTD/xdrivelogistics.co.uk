@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
+import { useFleetAvailabilityPresence } from '../../components/workspace/useFleetAvailabilityPresence';
 import { useOperationsIntelligence } from '../../components/workspace/useOperationsIntelligence';
 import {
   ActionButton,
@@ -34,6 +35,7 @@ const when = (value: string | null | undefined) => value
 export default function LiveAvailabilityPage() {
   const data = useCompanyWorkspaceData();
   const intelligence = useOperationsIntelligence(data.companyId);
+  const presence = useFleetAvailabilityPresence(data.companyId);
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('live');
   const [search, setSearch] = useState('');
@@ -41,9 +43,18 @@ export default function LiveAvailabilityPage() {
   const [freshness, setFreshness] = useState<FreshnessFilter>('all');
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
-  const refreshAll = async () => {
-    await Promise.all([data.refresh(), intelligence.refresh()]);
-  };
+  const refreshAll = useCallback(async () => {
+    await Promise.all([data.refresh(), intelligence.refresh(), presence.refresh()]);
+  }, [data.refresh, intelligence.refresh, presence.refresh]);
+
+  // CX Fleet is an operational live view, not a static report. Keep the Fleet
+  // page fresh without conflating two distinct location contracts: active-job
+  // tracking remains in driver_locations, while idle published availability is
+  // read through the server-scoped availability presence endpoint.
+  useEffect(() => {
+    const intervalId = window.setInterval(() => { void refreshAll(); }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [refreshAll]);
 
   const latestLocations = useMemo(() => {
     const map = new Map<string, WorkspaceLocation>();
@@ -53,8 +64,29 @@ export default function LiveAvailabilityPage() {
       const nextTime = new Date(location.recorded_at ?? location.updated_at ?? 0).getTime();
       if (!current || nextTime >= currentTime) map.set(location.driver_id, location);
     }
+
+    // `/api/availability/nearby` omits drivers already executing an active job,
+    // so these points naturally complement job tracking rather than overriding it.
+    // They restore location visibility for an idle driver who explicitly published
+    // Fleet/Exchange availability after their last tracked job ended.
+    for (const point of presence.points) {
+      const current = map.get(point.driverId);
+      const currentTime = current ? new Date(current.recorded_at ?? current.updated_at ?? 0).getTime() : 0;
+      const nextTime = new Date(point.recordedAt ?? 0).getTime();
+      if (!current || !Number.isFinite(currentTime) || (Number.isFinite(nextTime) && nextTime >= currentTime)) {
+        map.set(point.driverId, {
+          id: `availability:${point.driverId}`,
+          driver_id: point.driverId,
+          job_id: null,
+          lat: point.lat,
+          lng: point.lng,
+          recorded_at: point.recordedAt,
+          updated_at: null,
+        });
+      }
+    }
     return map;
-  }, [data.locations]);
+  }, [data.locations, presence.points]);
 
   const driverRows = useMemo(() => data.drivers.map((driver) => {
     const location = latestLocations.get(driver.id) ?? null;
@@ -125,12 +157,13 @@ export default function LiveAvailabilityPage() {
         eyebrow="Fleet resources"
         title="Live Availability"
         description="Live and future driver capacity with tracking freshness, assigned resources, next work and declared future-position visibility."
-        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || presence.loading}>{data.loading || intelligence.loading || presence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational availability'}</span>}
       />
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
+      {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {intelligence.partial && (
         <AlertBanner tone="warning">Some future-position, return-journey or advertising intelligence is temporarily unavailable. Live driver availability and tracking remain available.</AlertBanner>
       )}
