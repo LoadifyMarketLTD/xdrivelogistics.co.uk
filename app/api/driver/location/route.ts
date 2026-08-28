@@ -119,7 +119,10 @@ export async function POST(request: NextRequest) {
   if (!jobRow || jobRow.assigned_driver_id !== driverRow.id || !ACTIVE_JOB_STATUSES.has(statusOf(jobRow))) {
     return NextResponse.json({ error: 'Location publishing is not authorised for this job state.' }, { status: 403 });
   }
-  if (jobRow.awarded_carrier_company_id && driverRow.company_id && jobRow.awarded_carrier_company_id !== driverRow.company_id) {
+  // Tenant-bound tracking must fail closed. Once a job is awarded to a carrier
+  // company, an assigned driver with null or different company membership must
+  // not be allowed to publish GPS against that job.
+  if (jobRow.awarded_carrier_company_id && jobRow.awarded_carrier_company_id !== driverRow.company_id) {
     return NextResponse.json({ error: 'Driver company does not match the awarded carrier.' }, { status: 403 });
   }
 
