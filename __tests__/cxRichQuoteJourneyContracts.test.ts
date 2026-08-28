@@ -10,19 +10,33 @@ describe('CX parity rich quote and journey contracts', () => {
   const bids = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/bids/route.ts'), 'utf8');
   const resources = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/resources/route.ts'), 'utf8');
 
-  it('stores collection ETA, extras and selected vehicle as structured bid fields', () => {
+  it('stores the complete rich quote as structured immutable fields', () => {
+    expect(migration).toContain('base_amount');
     expect(migration).toContain('collect_within_minutes');
     expect(migration).toContain('additional_extras_gbp');
     expect(migration).toContain('quoted_vehicle_id');
+    expect(migration).toContain('quoted_vehicle_label');
+    expect(quote).toContain('base_amount: baseAmount');
     expect(quote).toContain('collect_within_minutes: collectWithinMinutes');
     expect(quote).toContain('additional_extras_gbp: additionalExtrasGbp');
     expect(quote).toContain('quoted_vehicle_id: vehicleId');
+    expect(quote).toContain('quoted_vehicle_label: vehicleLabel');
+    expect(bids).toContain('base_amount');
     expect(bids).toContain('quotedVehicleLabel');
+    expect(bids).toContain("String(bid.quoted_vehicle_label ?? '').trim() || fallbackVehicleLabel");
   });
 
   it('validates that a quoted vehicle belongs to the authenticated driver', () => {
     expect(quote).toContain(".eq('assigned_driver_id', driver.driverId)");
     expect(quote).toContain('The selected vehicle is not assigned to your driver account.');
+    expect(quote).toContain(".select('id, company_id, assigned_driver_id, type, make, model, reg_plate')");
+  });
+
+  it('keeps rich quote retries idempotent across base, extras, ETA and vehicle identity', () => {
+    expect(quote).toContain('Math.abs(storedBase - baseAmount) < 0.000001');
+    expect(quote).toContain('Math.abs(storedExtras - additionalExtrasGbp) < 0.000001');
+    expect(quote).toContain('(bid.collect_within_minutes ?? null) === collectWithinMinutes');
+    expect(quote).toContain('(bid.quoted_vehicle_id ?? null) === vehicleId');
   });
 
   it('supports Going Home, Going To and Future Journey with capacity metadata', () => {
