@@ -10,6 +10,8 @@ type JobsPage = {
   commercialRatePartial?: boolean;
 };
 
+type PodEvidenceKind = 'photos' | 'damage' | 'documents';
+
 async function fetchCompletedHistory(token: string) {
   const jobs: DriverJob[] = [];
   const seenJobIds = new Set<string>();
@@ -84,37 +86,37 @@ function uniqueName() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function isPersistentJobPath(jobId: string, kind: 'photos' | 'documents', uri: string) {
+function isPersistentJobPath(jobId: string, kind: PodEvidenceKind, uri: string) {
   const value = uri.trim();
   if (!value || value.includes('://') || value.includes('..') || value.includes('\\') || value.startsWith('/')) return false;
   const segments = value.split('/');
   return segments.length >= 4 && Boolean(segments[0]) && segments[1] === jobId && segments[2] === kind && Boolean(segments[3]);
 }
 
-function evidenceContentType(extension: string, kind: 'photos' | 'documents') {
+function evidenceContentType(extension: string, kind: PodEvidenceKind) {
   if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
   if (extension === 'png') return 'image/png';
   if (extension === 'pdf') return 'application/pdf';
-  if (kind === 'photos') return 'image/jpeg';
+  if (kind === 'photos' || kind === 'damage') return 'image/jpeg';
   throw new Error('POD documents must be PDF, JPEG or PNG files.');
 }
 
 async function uploadLocalPodFile(
   jobId: string,
   uri: string,
-  kind: 'photos' | 'documents',
+  kind: PodEvidenceKind,
   token: string,
 ) {
   if (isPersistentJobPath(jobId, kind, uri)) return uri.trim();
   if (!uri.includes('://')) throw new Error('POD evidence path is invalid. Please select the file again.');
 
   const response = await fetch(uri);
-  if (!response.ok) throw new Error(`Unable to read the selected POD ${kind === 'photos' ? 'photo' : 'document'}.`);
+  if (!response.ok) throw new Error(`Unable to read the selected POD ${kind === 'documents' ? 'document' : 'photo'}.`);
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength === 0) throw new Error('The selected POD file is empty.');
   if (bytes.byteLength > 10 * 1024 * 1024) throw new Error('POD files must be 10 MB or smaller.');
 
-  const extension = safeExtension(uri, kind === 'photos' ? 'jpg' : 'pdf');
+  const extension = safeExtension(uri, kind === 'documents' ? 'pdf' : 'jpg');
   const contentType = evidenceContentType(extension, kind);
   const objectName = `${uniqueName()}.${extension}`;
 
@@ -141,7 +143,7 @@ async function uploadLocalPodFile(
 async function persistPodFiles(
   jobId: string,
   values: unknown,
-  kind: 'photos' | 'documents',
+  kind: PodEvidenceKind,
   token: string,
 ) {
   const uris = Array.isArray(values)
@@ -156,13 +158,14 @@ async function persistPodFiles(
 }
 
 export async function uploadPod(jobId: string, token: string, metadata: Record<string, unknown>) {
-  const [deliveryPhotoUris, damagePhotoUris, documentUris] = await Promise.all([
+  const [photoUris, damagePhotoUris, documentUris] = await Promise.all([
     persistPodFiles(jobId, metadata.photoUris, 'photos', token),
-    persistPodFiles(jobId, metadata.damagePhotoUris, 'photos', token),
+    persistPodFiles(jobId, metadata.damagePhotoUris, 'damage', token),
     persistPodFiles(jobId, metadata.documentUris, 'documents', token),
   ]);
-  const photoUris = [...deliveryPhotoUris, ...damagePhotoUris];
-  if (photoUris.length > 10) throw new Error('A maximum of 10 POD and damage photos can be submitted for one delivery.');
+  if (photoUris.length + damagePhotoUris.length > 10) {
+    throw new Error('A maximum of 10 POD and damage photos can be submitted for one delivery.');
+  }
   if (documentUris.length > 10) throw new Error('A maximum of 10 POD documents can be submitted for one delivery.');
 
   const response = await apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
@@ -170,10 +173,10 @@ export async function uploadPod(jobId: string, token: string, metadata: Record<s
     token,
     body: {
       ...metadata,
-      // Delivery and damage images share the protected photo collection. The
-      // backend receives only durable storage paths, never local device URIs.
+      // The backend receives only durable tenant-scoped storage paths, never
+      // local device URIs. Damage evidence remains distinguishable end-to-end.
       photoUris,
-      damagePhotoUris: [],
+      damagePhotoUris,
       documentUris,
     },
   });
