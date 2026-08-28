@@ -129,10 +129,13 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
   };
 }
 
-export async function fetchLiveLoads(options: { destinationMode?: boolean; radiusMiles?: 10 | 20 | 30 } = {}) {
+export async function fetchLiveLoads(options: { destinationMode?: boolean; radiusMiles?: number } = {}) {
   const params = new URLSearchParams();
   if (options.destinationMode) params.set('mode', 'destination');
-  if (options.radiusMiles) params.set('radius', String(options.radiusMiles));
+  if (options.radiusMiles != null && Number.isFinite(options.radiusMiles)) {
+    const radius = Math.min(300, Math.max(10, Math.round(options.radiusMiles)));
+    params.set('radius', String(radius));
+  }
   const suffix = params.toString();
   const payload = await apiRequest<LiveLoadsResponse>(`/api/driver/mobile/nearby-jobs${suffix ? `?${suffix}` : ''}`);
   return {
