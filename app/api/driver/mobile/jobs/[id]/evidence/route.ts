@@ -8,7 +8,7 @@ import { isDriverContext, requireDriver, respond } from '../../../_lib';
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,180}$/;
-type DeliveryEvidenceCategory = 'photos' | 'documents';
+type DeliveryEvidenceCategory = 'photos' | 'damage' | 'documents';
 
 function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
   if (contentType === 'application/pdf') return payload.subarray(0, 5).toString('ascii') === '%PDF-';
@@ -22,7 +22,7 @@ function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
 
 function deliveryEvidenceCategory(request: NextRequest): DeliveryEvidenceCategory | null {
   const category = request.headers.get('x-xdrive-evidence-category')?.trim().toLowerCase() ?? '';
-  return category === 'photos' || category === 'documents' ? category : null;
+  return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -47,14 +47,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   const category = kind === 'delivery' ? deliveryEvidenceCategory(request) : 'collection';
   if (!category) {
-    return respond(400, { error: 'Delivery evidence category must be photos or documents.' });
+    return respond(400, { error: 'Delivery evidence category must be photos, damage or documents.' });
   }
 
   const contentType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
   if (!ALLOWED_TYPES.has(contentType)) {
     return respond(415, { error: 'POD must be a PDF, JPEG or PNG file.' });
   }
-  if ((category === 'photos' || category === 'collection') && contentType === 'application/pdf') {
+  if ((category === 'photos' || category === 'damage' || category === 'collection') && contentType === 'application/pdf') {
     return respond(415, { error: 'Photo evidence must be a JPEG or PNG image.' });
   }
 
@@ -78,8 +78,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // Keep the company id as the first folder because pod-photos RLS is tenant-scoped
-  // on storage.foldername(name)[1]. The category subfolder lets final POD submission
-  // validate photos and documents independently without leaking local device paths.
+  // on storage.foldername(name)[1]. The category subfolder preserves delivery,
+  // damage and document semantics without ever exposing local device paths.
   const storagePath = `${driver.companyId}/${id}/${category}/${objectName}`;
   const upload = await supabaseAdmin.storage
     .from('pod-photos')
