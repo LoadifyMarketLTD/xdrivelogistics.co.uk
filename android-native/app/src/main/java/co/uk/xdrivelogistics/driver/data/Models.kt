@@ -15,6 +15,8 @@ data class DriverProfile(
     val email: String = "",
     val vehicleLabel: String = "",
     val vehicleRegistration: String = "",
+    val payloadKg: Double? = null,
+    val palletsCapacity: Int? = null,
 )
 
 data class DriverJob(
@@ -43,7 +45,6 @@ data class DriverJob(
     val podRequired: Boolean = true,
 ) {
     fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
-
     fun driverStatusKey(): String = when (statusKey()) {
         "assigned", "accepted" -> "allocated"
         "arrived_pickup" -> "on_site_pickup"
@@ -52,39 +53,13 @@ data class DriverJob(
         "arrived_delivery" -> "on_site_delivery"
         else -> statusKey()
     }
-
-    fun isInProgress(): Boolean = driverStatusKey() in listOf(
-        "on_my_way",
-        "on_site_pickup",
-        "loaded",
-        "in_transit",
-        "on_site_delivery",
-        "in_progress",
-    )
-
-    fun isActive(): Boolean = driverStatusKey() !in listOf(
-        "delivered",
-        "completed",
-        "cancelled",
-        "canceled",
-        "invoiced",
-        "paid",
-    )
-
+    fun isInProgress(): Boolean = driverStatusKey() in listOf("on_my_way", "on_site_pickup", "loaded", "in_transit", "on_site_delivery", "in_progress")
+    fun isActive(): Boolean = driverStatusKey() !in listOf("delivered", "completed", "cancelled", "canceled", "invoiced", "paid")
     fun hasPod(): Boolean = deliveryPhotos.isNotEmpty() || podPhotos.isNotEmpty()
-
     fun hasCollectionProof(): Boolean = !collectionPhotoUrl.isNullOrBlank()
-
-    fun hasDeliveryConfirmation(): Boolean = !podRequired || (
-        hasPod() &&
-            !deliverySignatureData.isNullOrBlank() &&
-            clientSignatureName.isNotBlank()
-        )
-
+    fun hasDeliveryConfirmation(): Boolean = !podRequired || (hasPod() && !deliverySignatureData.isNullOrBlank() && clientSignatureName.isNotBlank())
     fun isPosted(): Boolean = driverStatusKey() == "posted"
-
     fun routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
-
     fun statusLabel(): String = when (driverStatusKey()) {
         "allocated" -> "Allocated"
         "awarded" -> "Awarded"
@@ -95,11 +70,8 @@ data class DriverJob(
         "on_site_delivery" -> "Arrived at Delivery"
         "delivered" -> "Delivered (POD)"
         "completed" -> "Completed"
-        else -> driverStatusKey().split('_').joinToString(" ") { part ->
-            part.replaceFirstChar { it.uppercase() }
-        }
+        else -> driverStatusKey().split('_').joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
     }
-
     fun nextStatus(): String = when (driverStatusKey()) {
         "allocated", "awarded" -> "on_my_way"
         "on_my_way" -> "on_site_pickup"
@@ -110,7 +82,6 @@ data class DriverJob(
         "delivered" -> "completed"
         else -> ""
     }
-
     fun nextActionLabel(): String = when (nextStatus()) {
         "on_my_way" -> "On My Way to Collection"
         "on_site_pickup" -> "Arrived at Collection"
@@ -121,9 +92,7 @@ data class DriverJob(
         "completed" -> "Complete Job"
         else -> "No further action"
     }
-
     fun needsCollectionProof(): Boolean = nextStatus() == "loaded"
-
     fun blockingRequirementFor(next: String = nextStatus()): String? = when (next) {
         "loaded" -> if (hasCollectionProof()) null else "Take or upload a collection photo before marking the job Loaded."
         "delivered" -> when {
@@ -135,7 +104,6 @@ data class DriverJob(
         }
         else -> null
     }
-
     fun canMoveNext(): Boolean = nextStatus().isNotBlank() && blockingRequirementFor() == null
 }
 
@@ -160,6 +128,11 @@ data class DriverBid(
     val deliveryLocation: String,
     val pickupDatetime: String?,
     val clientName: String,
+    val baseAmount: Double? = null,
+    val additionalExtrasGbp: Double = 0.0,
+    val collectWithinMinutes: Int? = null,
+    val quotedVehicleId: String? = null,
+    val quotedVehicleLabel: String? = null,
 )
 
 data class DriverNotification(
@@ -176,6 +149,14 @@ data class DriverReturnJourney(
     val fromLocation: String,
     val toLocation: String,
     val availableDate: String?,
+    val mode: String = "going_home",
+    val goAnywhere: Boolean = false,
+    val viaLocation: String = "",
+    val journeyEta: String? = null,
+    val capacityStatus: String = "",
+    val weightAvailableKg: Double? = null,
+    val palletSpaceAvailable: Int? = null,
+    val status: String = "available",
 )
 
 data class DriverInvoice(
@@ -197,7 +178,41 @@ data class NearbyDriver(
     val recordedAt: String?,
 )
 
-data class DriverPreferences(
-    val notifyTracked: Boolean = false,
-    val emailNotifications: Boolean = false,
+data class DriverAlertPreferences(
+    val pushEnabled: Boolean = true,
+    val soundEnabled: Boolean = true,
+    val headsUpEnabled: Boolean = true,
+    val marketplaceEnabled: Boolean = true,
+    val quoteEnabled: Boolean = true,
+    val bookingEnabled: Boolean = true,
+    val operationalEnabled: Boolean = true,
+)
+
+data class DriverSearchDefaults(
+    val values: Map<String, String> = emptyMap(),
+)
+
+data class MarketCluster(
+    val latitude: Double,
+    val longitude: Double,
+    val count: Int,
+)
+
+data class DriverMarketIntelligence(
+    val radiusMiles: Int = 30,
+    val competition: String = "quiet",
+    val clusters: List<MarketCluster> = emptyList(),
+    val ppmVisible: Boolean = false,
+    val ppmMedian: Double? = null,
+    val ppmLow: Double? = null,
+    val ppmHigh: Double? = null,
+    val ppmSampleCount: Int = 0,
+)
+
+data class DriverCollectionPass(
+    val jobId: String,
+    val passCode: String,
+    val issuedAt: String?,
+    val expiresAt: String?,
+    val verifiedAt: String?,
 )
