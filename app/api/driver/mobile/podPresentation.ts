@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { safeArray } from './_lib';
+import { buildJobAuditTrail } from './jobAuditPresentation';
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
@@ -14,6 +15,7 @@ type PodPresentationRow = {
   delivery_signature_data?: unknown;
   client_signature_name?: string | null;
   driver_notes?: string | null;
+  status_history?: unknown;
 };
 
 type SignedUrlRow = {
@@ -175,6 +177,7 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
       comments: notes.comments,
       completedBy: 'Assigned driver',
       completedByRole: 'driver',
+      auditHistory: buildJobAuditTrail(row),
     });
   }
 
