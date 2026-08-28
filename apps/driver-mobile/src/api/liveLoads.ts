@@ -156,15 +156,21 @@ export async function fetchLiveLoads(options: { destinationMode?: boolean; radiu
 }
 
 export async function fetchActiveQuotedJobIds() {
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error('Your session has expired. Please log in again.');
-  const { data, error } = await supabase
-    .from('job_bids')
-    .select('job_id')
-    .eq('bidder_user_id', auth.user.id)
-    .in('status', ['submitted', 'accepted']);
-  if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
+  const token = await accessToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
+  const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids?scope=active-company`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    signal: controller.signal,
+  }).catch((error) => {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    throw error;
+  }).finally(() => clearTimeout(timeoutId));
+  const payload = await response.json().catch(() => ({})) as { activeJobIds?: string[]; error?: string };
+  if (!response.ok) throw new Error(payload.error || `Unable to load active quotes (HTTP ${response.status}).`);
+  return new Set((payload.activeJobIds ?? []).map((jobId) => String(jobId)));
 }
 
 export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string) {
