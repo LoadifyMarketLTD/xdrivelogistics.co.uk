@@ -37,7 +37,7 @@ Validation states:
 
 | # | Domain | CX benchmark | XDrive evidence | Verdict | Action / commit | Validation |
 |---|---|---|---|---|---|---|
-| 1 | Marketplace / Exchange | Load search, matching, quoting, member/load discovery, available vehicles | In progress | PENDING | — | NEEXECUTED |
+| 1 | Marketplace / Exchange | Load search, matching, quoting, member/load discovery, available vehicles | Audited; repairs below | REPAIR | `7ae684cb`, `17f8125d`, `e1f9b751`, `5eb48d96`, `94ce0c90`, `6efd39d4` + contract tests | STATIC VERIFIED; tests NEEXECUTED |
 | 2 | Fleet | Driver/vehicle management, job allocation, own-fleet map, alerts | — | PENDING | — | NEEXECUTED |
 | 3 | Driver | Search, jobs, lifecycle, availability, journeys, tracking, POD/history | — | PENDING | — | NEEXECUTED |
 | 4 | Customer / Load Poster | Post/manage jobs, visibility, booking/tracking handoff | — | PENDING | — | NEEXECUTED |
@@ -56,18 +56,46 @@ Validation states:
 
 ## Domain notes
 
-### 1. Marketplace / Exchange
+### 1. Marketplace / Exchange — STATIC CLOSED
 
-Status: IN PROGRESS
+CX benchmark established from current official/public CX material:
+- verified closed-network members can search loads and quote;
+- load posters select/accept a carrier quote;
+- load search supports location/vehicle/schedule matching and alerts/auto-matching;
+- available-vehicle discovery supports direct carrier contact/booking workflows;
+- compliance is a prerequisite and remains monitored;
+- commercial activity belongs to the carrier/member relationship, while drivers execute work.
 
-Audit targets:
-- load visibility/search/filtering;
-- Exchange vs direct/private visibility;
-- own-company exclusion;
-- load data minimisation before award;
-- quote/bid eligibility and company-level uniqueness;
-- fixed-price/direct-booking semantics;
-- award/assignment handoff;
-- available vehicles and matching;
-- expiry/idempotency/race protection;
-- web/mobile parity where intentional.
+XDrive strengths retained (`KEEP` inside this repaired domain):
+- exact pickup/delivery coordinates are used server-side for radius/ranking but are not returned pre-award;
+- public pre-award load DTOs use outcodes/approximate areas;
+- own-company jobs are excluded from carrier search;
+- Exchange vs direct-invite visibility is explicit;
+- job posting is idempotency-aware and creates `exchange_expires_at`;
+- database compliance triggers guard publish/bid/execution, and award rechecks carrier compliance;
+- canonical `accept_job_bid_atomic` accepts one bid, rejects competitors, records award history and only auto-allocates a sole owner-driver carrier;
+- detailed mobile quote history remains personal to the named driver.
+
+Repairs completed:
+1. Active quote identity now matches the canonical DB rule: one active quote per carrier company/job, not per driver/job (`7ae684cb`).
+2. Driver marketplace load-board visibility is strict: missing visibility is not implicitly public; expired posts are excluded; `myBid` follows company identity when available (`17f8125d`).
+3. Driver search now honours canonical `exchange_expires_at` (`e1f9b751`).
+4. Company Marketplace search and quote submission now honour `exchange_expires_at`, including a server-side 409 after expiry (`5eb48d96`).
+5. Expo no longer reads `job_bids` directly to decide whether a load is already quoted. The device-bound mobile bids API exposes only active company `jobId`s, preserving company quote identity without leaking colleagues' amounts/messages (`94ce0c90`, `6efd39d4`).
+
+Contract tests added:
+- `cxVsXdriveMarketplaceCompanyQuoteContract.test.ts`
+- `cxVsXdriveDriverLoadBoardContract.test.ts`
+- `cxVsXdriveMarketplaceExpiryParity.test.ts`
+- `cxVsXdriveMobileActiveQuoteBoundary.test.ts`
+
+Deferred deliberately to later domains rather than duplicated here:
+- Expo `canQuote` readiness UX → Domain 3 Driver;
+- Vehicles-on-Demand / Live Availability direct-booking handoff → Domain 8 Availability;
+- broader pricing / PPM intelligence → Domain 10 Commercial.
+
+Static verdict: `REPAIR` completed for demonstrated fragmentation. Repository diff is scoped to Marketplace contracts/tests plus this ledger. Executable build/test proof is still pending.
+
+### 2. Fleet
+
+Status: NEXT
