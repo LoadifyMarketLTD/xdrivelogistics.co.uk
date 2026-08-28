@@ -13,9 +13,16 @@ SET LOCAL statement_timeout = '120s';
 -- Rich driver quote metadata
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS base_amount numeric,
   ADD COLUMN IF NOT EXISTS collect_within_minutes integer,
   ADD COLUMN IF NOT EXISTS additional_extras_gbp numeric,
-  ADD COLUMN IF NOT EXISTS quoted_vehicle_id uuid REFERENCES public.vehicles(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS quoted_vehicle_id uuid REFERENCES public.vehicles(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS quoted_vehicle_label text;
+
+ALTER TABLE public.job_bids
+  DROP CONSTRAINT IF EXISTS job_bids_base_amount_check,
+  ADD CONSTRAINT job_bids_base_amount_check
+    CHECK (base_amount IS NULL OR (base_amount > 0 AND base_amount <= 1000000));
 
 ALTER TABLE public.job_bids
   DROP CONSTRAINT IF EXISTS job_bids_collect_within_minutes_check,
@@ -25,14 +32,23 @@ ALTER TABLE public.job_bids
 ALTER TABLE public.job_bids
   DROP CONSTRAINT IF EXISTS job_bids_additional_extras_gbp_check,
   ADD CONSTRAINT job_bids_additional_extras_gbp_check
-    CHECK (additional_extras_gbp IS NULL OR additional_extras_gbp >= 0);
+    CHECK (additional_extras_gbp IS NULL OR (additional_extras_gbp >= 0 AND additional_extras_gbp <= 1000000));
 
+ALTER TABLE public.job_bids
+  DROP CONSTRAINT IF EXISTS job_bids_quoted_vehicle_label_check,
+  ADD CONSTRAINT job_bids_quoted_vehicle_label_check
+    CHECK (quoted_vehicle_label IS NULL OR length(quoted_vehicle_label) <= 300);
+
+COMMENT ON COLUMN public.job_bids.base_amount IS
+  'Driver-entered base quote amount excluding explicit extras.';
 COMMENT ON COLUMN public.job_bids.collect_within_minutes IS
   'Driver-declared time to reach collection after quote acceptance.';
 COMMENT ON COLUMN public.job_bids.additional_extras_gbp IS
   'Explicit quoted extras excluding VAT; never encoded into free-text notes.';
 COMMENT ON COLUMN public.job_bids.quoted_vehicle_id IS
   'Canonical vehicle selected by the driver for this quote.';
+COMMENT ON COLUMN public.job_bids.quoted_vehicle_label IS
+  'Immutable display snapshot of the selected vehicle at quote submission time.';
 
 -- ---------------------------------------------------------------------------
 -- Rich return journey / Going Home / Going To / Future Journey contract
