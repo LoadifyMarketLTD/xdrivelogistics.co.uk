@@ -51,6 +51,7 @@ type NearbyJobRow = {
   job_distance_minutes: number | null;
   distance_to_pickup_miles: number | string | null;
   exchange_posted_at: string | null;
+  exchange_expires_at: string | null;
   companies?: {
     name?: string | null;
     company_number?: string | null;
@@ -71,7 +72,8 @@ const nearbySelect = [
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
   'pallets', 'weight_kg', 'budget_amount', 'currency', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
-  'job_distance_miles', 'exchange_posted_at', 'companies(name,company_number,company_type,created_at)',
+  'job_distance_miles', 'job_distance_minutes', 'distance_to_pickup_miles', 'exchange_posted_at', 'exchange_expires_at',
+  'companies(name,company_number,company_type,created_at)',
 ].join(',');
 
 function companyInfo(companies: NearbyJobRow['companies']) {
@@ -132,7 +134,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     proposedPriceGbp: proposedPrice,
     canQuote: true,
     canSave: true,
-    expiresAt: null,
+    expiresAt: row.exchange_expires_at,
     pickupCountryCode: row.pickup_country_code || 'GB',
     deliveryCountryCode: row.delivery_country_code || 'GB',
     serviceMode: row.service_mode || null,
@@ -157,6 +159,12 @@ function matchesPublicSearch(row: NearbyJobRow, search: string) {
     row.id,
   ].filter(Boolean).join(' ').toLowerCase();
   return publicText.includes(search);
+}
+
+function exchangePostActive(row: NearbyJobRow, nowMs = Date.now()) {
+  if (!row.exchange_expires_at) return true;
+  const expires = new Date(row.exchange_expires_at).getTime();
+  return Number.isFinite(expires) && expires > nowMs;
 }
 
 type Coordinates = { lat: number; lng: number };
@@ -234,7 +242,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
   const rows = ((data ?? []) as unknown as NearbyJobRow[])
-    .filter((row) => matchesPublicSearch(row, search))
+    .filter((row) => exchangePostActive(row) && matchesPublicSearch(row, search))
     .slice(0, limit);
   const commercialBidExtras = driver.canCommercialBid
     ? {}
@@ -281,8 +289,10 @@ export async function GET(request: NextRequest) {
 
   const availableAfter = currentJob.delivery_datetime || currentJob.delivery_time_slot || null;
   const availableAfterMs = jobTime(availableAfter);
-  const requestedRadius = searchParams.get('radius');
-  const radiusMiles = ['10', '20', '30'].includes(String(requestedRadius)) ? Number(requestedRadius) : 10;
+  const requestedRadius = Number(searchParams.get('radius'));
+  const radiusMiles = Number.isFinite(requestedRadius)
+    ? Math.min(300, Math.max(10, Math.round(requestedRadius)))
+    : 10;
 
   const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
     supabaseAdmin.from('drivers').select('international_work_approved').eq('id', driver.driverId).maybeSingle(),
