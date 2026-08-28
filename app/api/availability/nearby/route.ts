@@ -11,6 +11,23 @@ const ACTIVE_JOB_STATUSES = new Set([
 const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
   String(job.current_status ?? job.status ?? '').trim().toLowerCase();
 
+type NearbyPosition = {
+  driver_id?: unknown;
+  company_id: string | null;
+  member_name?: unknown;
+  member_code?: unknown;
+  member_type?: unknown;
+  scope: 'fleet' | 'exchange';
+  lat: number;
+  lng: number;
+  vehicle_type: unknown;
+  payload_kg: unknown;
+  pallets_capacity: unknown;
+  has_tail_lift: unknown;
+  available_until: unknown;
+  recorded_at: unknown;
+};
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return NextResponse.json({ error: 'Availability is temporarily unavailable.' }, { status: 503 });
   const token = getBearerToken(request);
@@ -96,7 +113,7 @@ export async function GET(request: NextRequest) {
     .filter((company) => String(company.status ?? '').toLowerCase() === 'active')
     .map((company) => [String(company.id), company]));
 
-  const positions = presenceRows.flatMap((row) => {
+  const positions = presenceRows.flatMap<NearbyPosition>((row) => {
     const driverId = String(row.driver_id ?? '');
     if (!eligibleDriverIds.has(driverId) || driversWithActiveJobs.has(driverId)) return [];
 
