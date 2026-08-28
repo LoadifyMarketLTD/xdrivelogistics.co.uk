@@ -4,6 +4,19 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/su
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import { isDriverContext, requireDriver, respond, safeArray } from '../../../_lib';
 
+const DELIVERY_STATUSES = new Set(['completed', 'partial', 'refused', 'left_safe']);
+
+function stringField(body: Record<string, unknown>, key: string, max: number) {
+  const value = typeof body[key] === 'string' ? body[key].trim() : '';
+  return value.slice(0, max);
+}
+
+function optionalNumber(body: Record<string, unknown>, key: string, min: number, max: number) {
+  if (body[key] == null || body[key] === '') return null;
+  const parsed = Number(body[key]);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : Number.NaN;
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   if (!(await getFeatureFlag(supabaseAdmin, 'driver_mobile_app'))) return respond(503, { error: 'The driver mobile app is currently disabled.' });
@@ -15,9 +28,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { id } = await params;
   const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
-  const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
+  const recipientName = stringField(body, 'recipientName', 200);
   if (!recipientName) return respond(400, { error: 'Recipient name is required.' });
-  if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
+
+  const leftAt = stringField(body, 'leftAt', 200);
+  const packaging = stringField(body, 'packaging', 200);
+  const driverNotes = stringField(body, 'driverNotes', 1_000);
+  const requestedStatus = stringField(body, 'deliveryStatus', 40).toLowerCase() || 'completed';
+  if (!DELIVERY_STATUSES.has(requestedStatus)) return respond(400, { error: 'Unsupported delivery status.' });
+
+  const numberOfItems = optionalNumber(body, 'numberOfItems', 0, 100_000);
+  if (Number.isNaN(numberOfItems)) return respond(400, { error: 'Number of items is invalid.' });
+  const weightKg = optionalNumber(body, 'weightKg', 0, 100_000);
+  if (Number.isNaN(weightKg)) return respond(400, { error: 'Delivery weight is invalid.' });
+
+  const deliveredAtRaw = stringField(body, 'deliveredAt', 80);
+  const deliveredAtParsed = deliveredAtRaw ? new Date(deliveredAtRaw) : new Date();
+  if (Number.isNaN(deliveredAtParsed.getTime())) return respond(400, { error: 'Delivered time is invalid.' });
+  const nowMs = Date.now();
+  if (Math.abs(deliveredAtParsed.getTime() - nowMs) > 7 * 24 * 60 * 60 * 1000) {
+    return respond(400, { error: 'Delivered time must be within seven days of this confirmation.' });
+  }
 
   const { data: job, error: loadError } = await supabaseAdmin
     .from('jobs')
@@ -40,12 +71,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(409, { error: 'POD evidence does not belong to this driver assignment.' });
   }
 
+  const requestedSignaturePath = stringField(body, 'signatureEvidencePath', 600);
+  const signatureEvidencePath = requestedSignaturePath || null;
+  if (signatureEvidencePath && (!signatureEvidencePath.startsWith(expectedPrefix) || !evidence.includes(signatureEvidencePath))) {
+    return respond(409, { error: 'Signature evidence does not belong to this driver assignment.' });
+  }
+
   const now = new Date().toISOString();
   const confirmation = {
-    type: 'recipient_typed_name_attestation',
-    signature_method: 'typed_name_attestation',
+    type: signatureEvidencePath ? 'recipient_signature_evidence' : 'recipient_typed_name_attestation',
+    signature_method: signatureEvidencePath ? 'drawn_or_image_evidence' : 'typed_name_attestation',
     evidence_path: evidencePath,
+    signature_evidence_path: signatureEvidencePath,
     recipient_name: recipientName,
+    left_at: leftAt || null,
+    delivered_at: deliveredAtParsed.toISOString(),
+    delivery_status: requestedStatus,
+    number_of_items: numberOfItems,
+    packaging: packaging || null,
+    weight_kg: weightKg,
+    driver_notes: driverNotes || null,
     job_id: id,
     driver_id: driver.driverId,
     confirmed_at: now,
@@ -57,6 +102,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .update({
       client_signature_name: recipientName,
       delivery_signature_data: confirmation,
+      pod_generated: true,
+      pod_generated_at: now,
       updated_at: now,
     })
     .eq('id', id)
@@ -66,5 +113,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (error) return respond(500, { error: error.message });
   if (!updated) return respond(409, { error: 'Delivery evidence could not be linked to this assignment.' });
-  return respond(200, { ok: true, signatureMethod: 'typed_name_attestation' });
+  return respond(200, {
+    ok: true,
+    signatureMethod: confirmation.signature_method,
+    deliveryStatus: requestedStatus,
+    deliveredAt: deliveredAtParsed.toISOString(),
+  });
 }
