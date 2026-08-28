@@ -277,10 +277,10 @@ export async function uploadPod(jobId: string, token: string, metadata: Record<s
     },
   });
 
-  await cleanupPersistedPodPayload(metadata);
-
-  // Refresh through the assignment-gated detail endpoint so the caller receives
-  // short-lived signed URLs for the newly stored private POD evidence immediately.
+  // Refresh before deleting durable offline files. If the POD POST succeeded but
+  // this read fails (for example, signed-URL preparation is temporarily down),
+  // the queue must retain valid local evidence for its idempotent retry.
   const refreshed = await fetchJob(jobId, token);
+  await cleanupPersistedPodPayload(metadata);
   return { ok: true as const, job: refreshed.job };
 }
