@@ -1,11 +1,6 @@
 package co.uk.xdrivelogistics.driver.data
 
-data class DriverSession(
-    val accessToken: String,
-    val refreshToken: String,
-    val userId: String,
-    val email: String,
-)
+data class DriverSession(val accessToken: String, val refreshToken: String, val userId: String, val email: String)
 
 data class DriverProfile(
     val driverId: String,
@@ -18,6 +13,8 @@ data class DriverProfile(
     val payloadKg: Double? = null,
     val palletsCapacity: Int? = null,
 )
+
+data class DriverStatusEvent(val status: String, val at: String? = null, val source: String? = null)
 
 data class DriverJob(
     val id: String,
@@ -43,6 +40,7 @@ data class DriverJob(
     val deliverySignatureData: String? = null,
     val clientSignatureName: String = "",
     val podRequired: Boolean = true,
+    val statusHistory: List<DriverStatusEvent> = emptyList(),
 ) {
     fun statusKey(): String = currentStatus.ifBlank { status }.lowercase()
     fun driverStatusKey(): String = when (statusKey()) {
@@ -70,7 +68,7 @@ data class DriverJob(
         "on_site_delivery" -> "Arrived at Delivery"
         "delivered" -> "Delivered (POD)"
         "completed" -> "Completed"
-        else -> driverStatusKey().split('_').joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
+        else -> driverStatusKey().split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
     }
     fun nextStatus(): String = when (driverStatusKey()) {
         "allocated", "awarded" -> "on_my_way"
@@ -107,112 +105,35 @@ data class DriverJob(
     fun canMoveNext(): Boolean = nextStatus().isNotBlank() && blockingRequirementFor() == null
 }
 
-data class DriverDocument(
-    val id: String,
-    val docType: String,
-    val status: String,
-    val createdAt: String?,
-    val expiryDate: String? = null,
-    val isVehicleDocument: Boolean = false,
-)
+data class DriverDocument(val id: String, val docType: String, val status: String, val createdAt: String?, val expiryDate: String? = null, val isVehicleDocument: Boolean = false)
 
 data class DriverBid(
-    val id: String,
-    val jobId: String,
-    val amount: Double?,
-    val currency: String,
-    val status: String,
-    val message: String,
-    val createdAt: String?,
-    val pickupLocation: String,
-    val deliveryLocation: String,
-    val pickupDatetime: String?,
-    val clientName: String,
-    val baseAmount: Double? = null,
-    val additionalExtrasGbp: Double = 0.0,
-    val collectWithinMinutes: Int? = null,
-    val quotedVehicleId: String? = null,
-    val quotedVehicleLabel: String? = null,
+    val id: String, val jobId: String, val amount: Double?, val currency: String, val status: String, val message: String,
+    val createdAt: String?, val pickupLocation: String, val deliveryLocation: String, val pickupDatetime: String?, val clientName: String,
+    val baseAmount: Double? = null, val additionalExtrasGbp: Double = 0.0, val collectWithinMinutes: Int? = null,
+    val quotedVehicleId: String? = null, val quotedVehicleLabel: String? = null,
 )
 
-data class DriverNotification(
-    val id: String,
-    val title: String,
-    val body: String,
-    val type: String,
-    val readAt: String?,
-    val createdAt: String?,
-)
+data class DriverNotification(val id: String, val title: String, val body: String, val type: String, val readAt: String?, val createdAt: String?)
 
 data class DriverReturnJourney(
-    val id: String,
-    val fromLocation: String,
-    val toLocation: String,
-    val availableDate: String?,
-    val mode: String = "going_home",
-    val goAnywhere: Boolean = false,
-    val viaLocation: String = "",
-    val journeyEta: String? = null,
-    val capacityStatus: String = "",
-    val weightAvailableKg: Double? = null,
-    val palletSpaceAvailable: Int? = null,
-    val status: String = "available",
+    val id: String, val fromLocation: String, val toLocation: String, val availableDate: String?, val mode: String = "going_home",
+    val goAnywhere: Boolean = false, val viaLocation: String = "", val journeyEta: String? = null, val capacityStatus: String = "",
+    val weightAvailableKg: Double? = null, val palletSpaceAvailable: Int? = null, val status: String = "available",
 )
 
-data class DriverInvoice(
-    val id: String,
-    val invoiceNumber: String,
-    val status: String,
-    val amount: Double?,
-    val currency: String,
-    val clientName: String,
-    val dueDate: String?,
-)
-
-data class NearbyDriver(
-    val driverId: String,
-    val driverName: String,
-    val vehicleLabel: String,
-    val lat: Double?,
-    val lng: Double?,
-    val recordedAt: String?,
-)
+data class DriverInvoice(val id: String, val invoiceNumber: String, val status: String, val amount: Double?, val currency: String, val clientName: String, val dueDate: String?)
+data class NearbyDriver(val driverId: String, val driverName: String, val vehicleLabel: String, val lat: Double?, val lng: Double?, val recordedAt: String?)
 
 data class DriverAlertPreferences(
-    val pushEnabled: Boolean = true,
-    val soundEnabled: Boolean = true,
-    val headsUpEnabled: Boolean = true,
-    val marketplaceEnabled: Boolean = true,
-    val quoteEnabled: Boolean = true,
-    val bookingEnabled: Boolean = true,
-    val operationalEnabled: Boolean = true,
+    val pushEnabled: Boolean = true, val soundEnabled: Boolean = true, val headsUpEnabled: Boolean = true,
+    val marketplaceEnabled: Boolean = true, val quoteEnabled: Boolean = true, val bookingEnabled: Boolean = true, val operationalEnabled: Boolean = true,
 )
 
-data class DriverSearchDefaults(
-    val values: Map<String, String> = emptyMap(),
-)
-
-data class MarketCluster(
-    val latitude: Double,
-    val longitude: Double,
-    val count: Int,
-)
-
+data class DriverSearchDefaults(val values: Map<String, String> = emptyMap())
+data class MarketCluster(val latitude: Double, val longitude: Double, val count: Int)
 data class DriverMarketIntelligence(
-    val radiusMiles: Int = 30,
-    val competition: String = "quiet",
-    val clusters: List<MarketCluster> = emptyList(),
-    val ppmVisible: Boolean = false,
-    val ppmMedian: Double? = null,
-    val ppmLow: Double? = null,
-    val ppmHigh: Double? = null,
-    val ppmSampleCount: Int = 0,
+    val radiusMiles: Int = 30, val competition: String = "quiet", val clusters: List<MarketCluster> = emptyList(),
+    val ppmVisible: Boolean = false, val ppmMedian: Double? = null, val ppmLow: Double? = null, val ppmHigh: Double? = null, val ppmSampleCount: Int = 0,
 )
-
-data class DriverCollectionPass(
-    val jobId: String,
-    val passCode: String,
-    val issuedAt: String?,
-    val expiresAt: String?,
-    val verifiedAt: String?,
-)
+data class DriverCollectionPass(val jobId: String, val passCode: String, val issuedAt: String?, val expiresAt: String?, val verifiedAt: String?)
