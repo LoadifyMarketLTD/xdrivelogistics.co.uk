@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { driverJobStatusesForScope } from '../../../../../../lib/jobs/jobLifecyclePresentation';
 import { loadDriverAgreedRates } from '../../../_lib/commercialRate';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
 import { buildSignedJobAttachments } from '../../jobAttachmentPresentation';
@@ -11,6 +12,16 @@ type MobileJobWithPresentation = MobileJobRow & Record<string, unknown> & {
   pod_generated_at?: string | null;
   driver_notes?: string | null;
 };
+
+const detailReadableStatuses = new Set([
+  ...(driverJobStatusesForScope('upcoming') ?? []),
+  ...(driverJobStatusesForScope('active') ?? []),
+  ...(driverJobStatusesForScope('completed') ?? []),
+].map((status) => String(status).trim().toLowerCase()));
+
+function executionStatus(row: Pick<MobileJobRow, 'status' | 'current_status'>) {
+  return String(row.current_status || row.status || '').trim().toLowerCase();
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -29,6 +40,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!data) return respond(404, { error: 'Job not found.' });
 
   const row = data as unknown as MobileJobWithPresentation;
+  const status = executionStatus(row);
+  if (!detailReadableStatuses.has(status)) {
+    const message = status === 'cancelled'
+      ? 'This job has been cancelled and is no longer actionable in XDrive Driver.'
+      : status === 'disputed'
+        ? 'This job is disputed and is no longer actionable in XDrive Driver.'
+        : 'This assigned job is no longer in an executable Driver lifecycle state.';
+    return respond(409, { error: message, lifecycleStatus: status || null, actionable: false });
+  }
+
   const commercial = await loadDriverAgreedRates(supabaseAdmin, [row]);
   const agreedRate = commercial.rates.get(row.id) ?? null;
 
