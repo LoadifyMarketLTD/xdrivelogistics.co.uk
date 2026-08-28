@@ -4,11 +4,13 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 
 import {
   fetchAvailabilityPresence,
+  fetchMarketIntelligence,
   fetchReturnJourney,
   saveReturnJourney,
   startAvailabilityPresence,
   stopAvailabilityPresence,
   type AvailabilityPresence,
+  type MarketIntelligence,
   type ReturnJourney,
 } from '../api/operations';
 import { getSessionToken } from '../auth/sessionStore';
@@ -21,6 +23,7 @@ const visibilityOptions: Array<[Visibility, string]> = [
   ['exchange', 'Exchange'],
 ];
 const hourOptions = [2, 4, 8];
+const marketRadiusOptions = [10, 30, 50, 100, 200, 300] as const;
 
 async function requireToken() {
   const token = (await getSessionToken())?.trim() || '';
@@ -40,6 +43,10 @@ async function currentCoords() {
   return { lat: location.coords.latitude, lng: location.coords.longitude };
 }
 
+function moneyPerMile(value: number | null) {
+  return value == null ? null : `£${value.toFixed(2)}/mi`;
+}
+
 export function DriverAvailabilityPanel() {
   const [availability, setAvailability] = useState<AvailabilityPresence | null>(null);
   const [visibility, setVisibility] = useState<Visibility>('exchange');
@@ -49,8 +56,25 @@ export function DriverAvailabilityPanel() {
   const [toPostcode, setToPostcode] = useState('');
   const [vehicleType, setVehicleType] = useState('');
   const [notes, setNotes] = useState('');
+  const [marketRadius, setMarketRadius] = useState<number>(30);
+  const [market, setMarket] = useState<MarketIntelligence | null>(null);
+  const [marketBusy, setMarketBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  const loadMarket = useCallback(async (radius = marketRadius) => {
+    setMarketBusy(true);
+    try {
+      const token = await requireToken();
+      const intelligence = await fetchMarketIntelligence(token, radius);
+      setMarket(intelligence);
+    } catch (error) {
+      setMarket(null);
+      setMessage(error instanceof Error ? error.message : 'Market intelligence could not be loaded.');
+    } finally {
+      setMarketBusy(false);
+    }
+  }, [marketRadius]);
 
   const load = useCallback(async () => {
     try {
@@ -67,10 +91,11 @@ export function DriverAvailabilityPanel() {
         setVehicleType(journey.vehicle_type ?? '');
         setNotes(journey.notes ?? '');
       }
+      await loadMarket(marketRadius);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Availability could not be loaded.');
     }
-  }, []);
+  }, [loadMarket, marketRadius]);
 
   useEffect(() => {
     void load();
@@ -89,6 +114,7 @@ export function DriverAvailabilityPanel() {
       });
       setAvailability({ visibility: result.visibility, available_until: result.available_until });
       setMessage('Availability published.');
+      await loadMarket(marketRadius);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Availability could not be published.');
     } finally {
@@ -103,6 +129,7 @@ export function DriverAvailabilityPanel() {
       const token = await requireToken();
       await stopAvailabilityPresence(token);
       setAvailability(null);
+      setMarket(null);
       setMessage('Availability stopped.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Availability could not be stopped.');
@@ -197,6 +224,62 @@ export function DriverAvailabilityPanel() {
       </View>
 
       <View style={styles.card}>
+        <View style={styles.marketHeader}>
+          <View style={styles.marketTitleWrap}>
+            <Text style={styles.heading}>Market intelligence</Text>
+            <Text style={styles.copy}>Privacy-safe competition and £/mile benchmarks. No exact competitor locations are exposed.</Text>
+          </View>
+          <TouchableOpacity style={styles.refreshButton} onPress={() => void loadMarket(marketRadius)} disabled={marketBusy}>
+            <Text style={styles.refreshText}>{marketBusy ? '...' : 'REFRESH'}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.chips}>
+          {marketRadiusOptions.map((radius) => (
+            <TouchableOpacity
+              key={radius}
+              style={[styles.chip, marketRadius === radius && styles.chipActive]}
+              onPress={() => {
+                setMarketRadius(radius);
+                void loadMarket(radius);
+              }}
+              disabled={marketBusy}
+            >
+              <Text style={[styles.chipText, marketRadius === radius && styles.chipTextActive]}>{radius} mi</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {market?.whoIsNearby.active ? (
+          <>
+            <View style={styles.marketMetricRow}>
+              <Text style={styles.marketMetricLabel}>Competition</Text>
+              <Text style={styles.marketMetricValue}>{market.whoIsNearby.competition.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.privacyText}>
+              {market.whoIsNearby.clusters.length > 0
+                ? `${market.whoIsNearby.clusters.length} privacy-safe competitor cluster${market.whoIsNearby.clusters.length === 1 ? '' : 's'} detected within ${market.radiusMiles} mi.`
+                : `No competitor cluster meets the minimum privacy threshold within ${market.radiusMiles} mi.`}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.privacyText}>{market?.whoIsNearby.reason || 'Publish availability to enable nearby market intelligence.'}</Text>
+        )}
+        {market?.ppm.visible && market.ppm.median != null ? (
+          <View style={styles.rateBox}>
+            <Text style={styles.rateTitle}>7-day market benchmark</Text>
+            <Text style={styles.rateMain}>Median {moneyPerMile(market.ppm.median)}</Text>
+            {market.ppm.low != null && market.ppm.high != null ? (
+              <Text style={styles.rateRange}>Typical range {moneyPerMile(market.ppm.low)} – {moneyPerMile(market.ppm.high)}</Text>
+            ) : null}
+            {market.ppm.vehicleType ? <Text style={styles.rateMeta}>Vehicle: {market.ppm.vehicleType.replace(/_/g, ' ')}</Text> : null}
+          </View>
+        ) : (
+          <Text style={styles.privacyText}>
+            Rate benchmark stays hidden until at least {market?.ppm.privacyMinimum ?? 5} anonymous completed-job samples are available.
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.heading}>Return journey</Text>
         <Text style={styles.copy}>Publish a return route so suitable XDrive loads can be matched to your direction.</Text>
         <TextInput value={fromPostcode} onChangeText={setFromPostcode} autoCapitalize="characters" placeholder="From postcode *" placeholderTextColor="#6b7280" style={styles.input} editable={!busy} />
@@ -239,5 +322,18 @@ const styles = StyleSheet.create({
   primaryText: { color: '#111827', fontWeight: '900', fontSize: 12 },
   secondary: { flex: 1, minHeight: 44, borderColor: '#374151', borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   secondaryText: { color: '#f8fafc', fontWeight: '900', fontSize: 12 },
+  marketHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  marketTitleWrap: { flex: 1, gap: 4 },
+  refreshButton: { minHeight: 36, borderColor: '#374151', borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  refreshText: { color: '#fbbf24', fontWeight: '900', fontSize: 11 },
+  marketMetricRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111827', borderRadius: 10, padding: 10 },
+  marketMetricLabel: { color: '#9ca3af', fontWeight: '700', fontSize: 12 },
+  marketMetricValue: { color: '#fbbf24', fontWeight: '900', fontSize: 13 },
+  privacyText: { color: '#9ca3af', fontSize: 12, lineHeight: 17 },
+  rateBox: { backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 10, padding: 10, gap: 4 },
+  rateTitle: { color: '#9ca3af', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+  rateMain: { color: '#4ade80', fontSize: 17, fontWeight: '900' },
+  rateRange: { color: '#e5e7eb', fontSize: 12, fontWeight: '700' },
+  rateMeta: { color: '#9ca3af', fontSize: 11 },
   message: { color: '#fbbf24', fontWeight: '700', fontSize: 12 },
 });
