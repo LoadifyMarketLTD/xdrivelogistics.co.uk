@@ -20,6 +20,20 @@ type BinaryApiOptions = {
 
 const requestTimeoutMs = 20_000;
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+  }
+}
+
+export function isPermanentClientError(error: unknown) {
+  return error instanceof ApiRequestError && error.status >= 400 && error.status < 500;
+}
+
 export function getApiBaseUrl() {
   const configured = Constants.expoConfig?.extra?.apiBaseUrl;
   return normalizeApiBaseUrl(typeof configured === 'string' ? configured : fallbackApiBaseUrl);
@@ -72,7 +86,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   });
 
   const payload = await response.json().catch(() => ({} as { error?: string; message?: string }));
-  if (!response.ok) throw new Error(responseMessage(payload, response.status));
+  if (!response.ok) throw new ApiRequestError(responseMessage(payload, response.status), response.status);
   return payload as T;
 }
 
@@ -107,6 +121,6 @@ export async function apiBinaryRequest<T>(path: string, options: BinaryApiOption
   });
 
   const payload = await response.json().catch(() => ({} as { error?: string; message?: string }));
-  if (!response.ok) throw new Error(responseMessage(payload, response.status));
+  if (!response.ok) throw new ApiRequestError(responseMessage(payload, response.status), response.status);
   return payload as T;
 }
