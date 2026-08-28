@@ -4,6 +4,13 @@ import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
 import { loadDriverAgreedRates } from '../../_lib/commercialRate';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../_lib';
+import { buildSignedPodPresentations } from '../podPresentation';
+
+type MobileJobWithPodPresentation = MobileJobRow & {
+  damage_photos?: unknown;
+  pod_generated_at?: string | null;
+  delivery_notes?: string | null;
+};
 
 function validIsoDate(value: string | null) {
   if (!value) return null;
@@ -33,7 +40,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('jobs')
-    .select(jobSelect)
+    .select(`${jobSelect},damage_photos,pod_generated_at,delivery_notes`)
     .eq('assigned_driver_id', driver.driverId)
     .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
     .limit(limit);
@@ -60,11 +67,22 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
-  const rows = (data ?? []) as unknown as MobileJobRow[];
+  const rows = (data ?? []) as unknown as MobileJobWithPodPresentation[];
   const commercial = await loadDriverAgreedRates(supabaseAdmin, rows);
   const nextCursor = completedHistory && rows.length === limit
     ? rows[rows.length - 1]?.updated_at ?? null
     : null;
+
+  let podPresentationPartial = false;
+  let pods = new Map<string, Record<string, unknown> | null>();
+  try {
+    pods = await buildSignedPodPresentations(rows, driver.companyId);
+  } catch {
+    // Job execution/history must remain available during a transient storage
+    // signing outage. The private evidence stays undisclosed and the client can
+    // refresh to obtain new signed links later.
+    podPresentationPartial = true;
+  }
 
   return respond(200, {
     scope,
@@ -73,6 +91,7 @@ export async function GET(request: NextRequest) {
       const agreedRate = commercial.rates.get(row.id) ?? null;
       return {
         ...mapJob(row),
+        pod: pods.get(row.id) ?? null,
         price: toMoney(agreedRate),
         agreedRateAmount: agreedRate,
         // Android keeps this legacy field name for assigned jobs. Its value is
@@ -81,5 +100,6 @@ export async function GET(request: NextRequest) {
       };
     }),
     commercialRatePartial: commercial.partial,
+    podPresentationPartial,
   });
 }
