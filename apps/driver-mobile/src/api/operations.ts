@@ -30,6 +30,34 @@ export type ReturnJourney = {
 
 export type ReturnJourneyInput = ReturnJourney;
 
+export type MarketIntelligence = {
+  radiusMiles: number;
+  whoIsNearby: {
+    active: boolean;
+    competition: 'quiet' | 'moderate' | 'busy';
+    clusterPrivacyMinimum: number;
+    clusters: Array<{
+      latitude: number;
+      longitude: number;
+      count: number;
+    }>;
+    reason: string | null;
+  };
+  ppm: {
+    periodDays: number;
+    vehicleType: string | null;
+    sampleCount: number;
+    privacyMinimum: number;
+    visible: boolean;
+    median: number | null;
+    low: number | null;
+    high: number | null;
+    currency: 'GBP';
+    unit: 'per_mile';
+  };
+  generatedAt: string;
+};
+
 export async function fetchTrackingState(token: string) {
   return apiRequest<TrackingState>('/api/driver/tracking-state', { token });
 }
@@ -95,4 +123,9 @@ export async function saveReturnJourney(token: string, journey: ReturnJourneyInp
     token,
     body: journey,
   });
+}
+
+export async function fetchMarketIntelligence(token: string, radiusMiles = 30) {
+  const radius = Math.min(300, Math.max(5, Math.round(radiusMiles)));
+  return apiRequest<MarketIntelligence>(`/api/driver/mobile/market-intelligence?radius=${radius}`, { token });
 }
