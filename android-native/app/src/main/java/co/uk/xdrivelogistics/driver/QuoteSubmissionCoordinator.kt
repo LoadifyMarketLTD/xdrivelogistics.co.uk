@@ -25,6 +25,14 @@ internal typealias QuoteSubmitFn = suspend (
     vehicleId: String?,
 ) -> Result<Unit>
 
+internal typealias LegacyQuoteSubmitFn = suspend (
+    session: DriverSession,
+    profile: DriverProfile,
+    jobId: String,
+    amount: Double,
+    note: String,
+) -> Result<Unit>
+
 internal sealed class QuoteSubmitOutcome {
     object AlreadyInFlight : QuoteSubmitOutcome()
     object NoSession : QuoteSubmitOutcome()
@@ -51,6 +59,12 @@ internal sealed class QuoteSubmitOutcome {
 }
 
 internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
+    constructor(legacySubmitFn: LegacyQuoteSubmitFn) : this(
+        submitFn = { session, profile, jobId, amount, note, _, _, _ ->
+            legacySubmitFn(session, profile, jobId, amount, note)
+        },
+    )
+
     private val inFlight = AtomicBoolean(false)
 
     suspend fun submit(
@@ -104,7 +118,6 @@ internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
         }
     }
 
-    /** Compatibility overload for historical unit tests while production UI migrates. */
     suspend fun submit(
         quoteJobId: String?,
         jobs: List<DriverJob>,
