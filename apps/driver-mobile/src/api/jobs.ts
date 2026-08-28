@@ -86,7 +86,9 @@ function uniqueName() {
 
 function isPersistentJobPath(jobId: string, kind: 'photos' | 'documents', uri: string) {
   const value = uri.trim();
-  return value.startsWith(`${jobId}/${kind}/`) && !value.includes('://') && !value.includes('..') && !value.includes('\\');
+  if (!value || value.includes('://') || value.includes('..') || value.includes('\\') || value.startsWith('/')) return false;
+  const segments = value.split('/');
+  return segments.length >= 4 && Boolean(segments[0]) && segments[1] === jobId && segments[2] === kind && Boolean(segments[3]);
 }
 
 function evidenceContentType(extension: string, kind: 'photos' | 'documents') {
@@ -123,12 +125,16 @@ async function uploadLocalPodFile(
       body: bytes,
       contentType,
       headers: {
-        'x-xdrive-evidence-kind': kind === 'documents' ? 'document' : 'delivery',
+        'x-xdrive-evidence-kind': 'delivery',
+        'x-xdrive-evidence-category': kind,
         'x-xdrive-evidence-name': objectName,
       },
     },
   );
 
+  if (!isPersistentJobPath(jobId, kind, uploaded.storagePath)) {
+    throw new Error('XDrive returned an invalid POD storage path. Please retry the upload.');
+  }
   return uploaded.storagePath;
 }
 
@@ -164,8 +170,8 @@ export async function uploadPod(jobId: string, token: string, metadata: Record<s
     token,
     body: {
       ...metadata,
-      // The backend stores delivery and damage images in the same protected
-      // delivery-photo evidence collection; never send local damagePhotoUris.
+      // Delivery and damage images share the protected photo collection. The
+      // backend receives only durable storage paths, never local device URIs.
       photoUris,
       damagePhotoUris: [],
       documentUris,
