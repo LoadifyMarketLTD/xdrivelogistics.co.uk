@@ -28,6 +28,10 @@ function hasExpectedDocumentMagicBytes(bytes: Buffer, mimeType: string) {
 }
 
 export async function GET(request: NextRequest) {
+  // Identity, access approval, active status and native-device binding remain
+  // fail-closed inside requireDriver. Everything loaded below is presentation or
+  // operational context and must not turn a valid driver session into a false
+  // "Access denied" response when one peripheral subsystem is temporarily down.
   const context = await requireDriver(request);
   if (!isDriverContext(context)) return context;
 
@@ -56,9 +60,10 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
-  if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
-  if (companyResult.error) return NextResponse.json({ error: companyResult.error.message }, { status: 500 });
-  const vehicleId = String(vehicleResult.data?.id ?? '');
+
+  const vehicle = vehicleResult.error ? null : (vehicleResult.data ?? null) as AnyRow | null;
+  const company = companyResult.error ? null : (companyResult.data ?? null) as AnyRow | null;
+  const vehicleId = String(vehicle?.id ?? '');
 
   let alertsQuery = supabaseAdmin!
     .from('notification_events')
@@ -82,13 +87,16 @@ export async function GET(request: NextRequest) {
     supabaseAdmin!.from('driver_job_search_preferences').select('job_id,state').eq('driver_id', context.driverId),
   ]);
 
-  const firstError = driverDocsResult.error
-    ?? vehicleDocsResult.error
-    ?? notificationsResult.error
-    ?? alertsResult.error
-    ?? journeyResult.error
-    ?? preferencesResult.error;
-  if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
+  const partialResources = [
+    vehicleResult.error ? 'vehicle' : null,
+    companyResult.error ? 'company' : null,
+    driverDocsResult.error ? 'driver_documents' : null,
+    vehicleDocsResult.error ? 'vehicle_documents' : null,
+    notificationsResult.error ? 'legacy_notifications' : null,
+    alertsResult.error ? 'alerts' : null,
+    journeyResult.error ? 'return_journey' : null,
+    preferencesResult.error ? 'job_search_preferences' : null,
+  ].filter((value): value is string => Boolean(value));
 
   let invoices: AnyRow[] = [];
   if (context.companyId) {
@@ -99,13 +107,11 @@ export async function GET(request: NextRequest) {
       .eq('created_by', context.userId)
       .order('created_at', { ascending: false })
       .limit(50);
-    if (invoiceResult.error) return NextResponse.json({ error: invoiceResult.error.message }, { status: 500 });
-    invoices = (invoiceResult.data ?? []) as AnyRow[];
+    if (invoiceResult.error) partialResources.push('invoices');
+    else invoices = (invoiceResult.data ?? []) as AnyRow[];
   }
 
   const driver = driverResult.data as AnyRow;
-  const company = (companyResult.data ?? null) as AnyRow | null;
-  const vehicle = (vehicleResult.data ?? null) as AnyRow | null;
   const displayName = String(driver.display_name || driver.email || 'Driver');
   const phone = String(driver.phone ?? '');
   const email = String(driver.email ?? '');
@@ -114,13 +120,15 @@ export async function GET(request: NextRequest) {
     : '';
   const vehicleRegistration = vehicle ? String(vehicle.reg_plate || '') : '';
   const documents = [
-    ...(driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })),
-    ...(vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })),
+    ...(!driverDocsResult.error ? (driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })) : []),
+    ...(!vehicleDocsResult.error ? (vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })) : []),
   ];
-  const alerts = (alertsResult.data ?? []).map((row) => ({
-    ...row,
-    payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
-  }));
+  const alerts = !alertsResult.error
+    ? (alertsResult.data ?? []).map((row) => ({
+      ...row,
+      payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
+    }))
+    : [];
 
   return NextResponse.json({
     resources: {
@@ -136,6 +144,7 @@ export async function GET(request: NextRequest) {
       documents,
       invoices,
       alerts,
+      partial: partialResources,
 
       // Compatibility shape retained for older mobile consumers while Expo is the
       // production owner. The legacy notification inbox is not an Expo authority.
@@ -148,10 +157,10 @@ export async function GET(request: NextRequest) {
         vehicle_label: vehicleLabel,
         vehicle_registration: vehicleRegistration,
       },
-      notifications: notificationsResult.data ?? [],
-      return_journey: journeyResult.data ?? null,
+      notifications: notificationsResult.error ? [] : notificationsResult.data ?? [],
+      return_journey: journeyResult.error ? null : journeyResult.data ?? null,
       nearby_drivers: [],
-      job_search_preferences: preferencesResult.data ?? [],
+      job_search_preferences: preferencesResult.error ? [] : preferencesResult.data ?? [],
     },
   });
 }
