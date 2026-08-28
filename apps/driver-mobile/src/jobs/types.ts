@@ -20,9 +20,20 @@ export type AttachmentCategory =
   | 'customs'
   | 'delivery_photos'
   | 'collection_photos'
-  | 'damage_photos';
+  | 'damage_photos'
+  | 'other';
 
-export type AttachmentFileType = 'pdf' | 'jpg' | 'png' | 'docx' | 'xlsx';
+export type AttachmentFileType =
+  | 'pdf'
+  | 'jpg'
+  | 'png'
+  | 'webp'
+  | 'csv'
+  | 'doc'
+  | 'docx'
+  | 'xls'
+  | 'xlsx'
+  | 'other';
 
 export type JobAttachment = {
   id: string;
