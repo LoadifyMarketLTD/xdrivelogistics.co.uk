@@ -5,9 +5,11 @@ describe('Driver mobile authorised job presentation', () => {
   const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
   const attachments = read('app/api/driver/mobile/jobAttachmentPresentation.ts');
   const operational = read('app/api/driver/mobile/jobOperationalPresentation.ts');
+  const audit = read('app/api/driver/mobile/jobAuditPresentation.ts');
   const listRoute = read('app/api/driver/mobile/jobs/route.ts');
   const detailRoute = read('app/api/driver/mobile/jobs/[id]/route.ts');
   const storageMigration = read('supabase/migrations/101_customer_load_posting_completion.sql');
+  const lifecycleMigration = read('supabase/migrations/20260827052500_preserve_driver_pod_signature_json.sql');
   const mobileTypes = read('apps/driver-mobile/src/jobs/types.ts');
 
   it('keeps load documents private and validates owner company plus job before service-role signing', () => {
@@ -43,6 +45,19 @@ describe('Driver mobile authorised job presentation', () => {
     expect(operational).toContain('customerReference: text(row.customer_reference)');
     expect(operational).toContain("type: 'collection'");
     expect(operational).toContain("type: 'delivery'");
+  });
+
+  it('derives the status audit only from canonical persisted history and real POD timestamps', () => {
+    expect(lifecycleMigration).toContain("'source', 'driver_atomic_rpc'");
+    expect(lifecycleMigration).toContain("'actor_user_id', v_actor");
+    expect(audit).toContain('historyRows(row.status_history)');
+    expect(audit).toContain("if (status === 'on_my_way' || status === 'on_my_way_pickup') return 'on_my_way_pickup'");
+    expect(audit).toContain("if (status === 'on_site_pickup' || status === 'arrived_pickup') return 'arrived_pickup'");
+    expect(audit).toContain("if (['in_transit', 'on_my_way_delivery', 'on_my_way_to_delivery', 'on_route_delivery'].includes(status)) return 'on_my_way_delivery'");
+    expect(audit).toContain("if (status === 'invoiced' || status === 'invoice_generated') return 'invoice_generated'");
+    expect(audit).toContain('const podTimestamp = validTimestamp(row.pod_generated_at)');
+    expect(audit).toContain("status: 'pod_completed'");
+    expect(operational).toContain('auditTrail: buildJobAuditTrail(row)');
   });
 
   it('attaches the same enriched presentation to list and detail responses', () => {
