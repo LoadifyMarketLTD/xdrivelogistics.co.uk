@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   const driverResult = await supabaseAdmin!
     .from('drivers')
-    .select('id,company_id,display_name,full_name,name,email,phone,status,app_access,driver_type,can_commercial_bid')
+    .select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid')
     .eq('id', context.driverId)
     .maybeSingle();
   if (driverResult.error || !driverResult.data) {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   const vehicleResult = await supabaseAdmin!
     .from('vehicles')
-    .select('id,type,vehicle_type,make,model,registration,reg_plate,reg')
+    .select('id,type,make,model,reg_plate')
     .eq('assigned_driver_id', context.driverId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -78,11 +78,11 @@ export async function GET(request: NextRequest) {
 
   const driver = driverResult.data as AnyRow;
   const vehicle = (vehicleResult.data ?? null) as AnyRow | null;
-  const displayName = String(driver.display_name || driver.full_name || driver.name || driver.email || 'Driver');
+  const displayName = String(driver.display_name || driver.email || 'Driver');
   const vehicleLabel = vehicle
-    ? [[vehicle.make, vehicle.model].filter(Boolean).join(' '), String(vehicle.vehicle_type || vehicle.type || '')].filter(Boolean).join(' - ')
+    ? [[vehicle.make, vehicle.model].filter(Boolean).join(' '), String(vehicle.type || '')].filter(Boolean).join(' - ')
     : '';
-  const vehicleRegistration = vehicle ? String(vehicle.registration || vehicle.reg_plate || vehicle.reg || '') : '';
+  const vehicleRegistration = vehicle ? String(vehicle.reg_plate || '') : '';
 
   return NextResponse.json({
     resources: {
