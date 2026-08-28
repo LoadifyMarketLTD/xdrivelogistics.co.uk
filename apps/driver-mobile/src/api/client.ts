@@ -19,6 +19,7 @@ type BinaryApiOptions = {
 };
 
 const requestTimeoutMs = 20_000;
+const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429]);
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -31,7 +32,10 @@ export class ApiRequestError extends Error {
 }
 
 export function isPermanentClientError(error: unknown) {
-  return error instanceof ApiRequestError && error.status >= 400 && error.status < 500;
+  return error instanceof ApiRequestError
+    && error.status >= 400
+    && error.status < 500
+    && !RETRYABLE_HTTP_STATUSES.has(error.status);
 }
 
 export function getApiBaseUrl() {
