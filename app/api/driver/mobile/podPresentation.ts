@@ -13,7 +13,7 @@ type PodPresentationRow = {
   pod_photos?: unknown;
   delivery_signature_data?: unknown;
   client_signature_name?: string | null;
-  delivery_notes?: string | null;
+  driver_notes?: string | null;
 };
 
 type SignedUrlRow = {
@@ -115,7 +115,7 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
       deliveryPhotoUris: evidence.delivery.map((path) => signedByPath.get(path)).filter((url): url is string => Boolean(url)),
       damagePhotoUris: evidence.damage.map((path) => signedByPath.get(path)).filter((url): url is string => Boolean(url)),
       documentUris: evidence.documents.map((path) => signedByPath.get(path)).filter((url): url is string => Boolean(url)),
-      comments: row.delivery_notes?.trim() || undefined,
+      comments: row.driver_notes?.trim() || undefined,
       completedBy: 'Assigned driver',
       completedByRole: 'driver',
     });
