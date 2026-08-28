@@ -583,10 +583,7 @@ export default function DriverMobileApp() {
                   setScope(nextScope);
                   if (token) void loadJobs(token, nextScope, { navigate: false });
                 }}
-                onOpen={(nextJob) => {
-                  setJob(nextJob);
-                  setScreen('detail');
-                }}
+                onOpen={(nextJob) => void openJobById(nextJob.id)}
               />
             )}
             {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => setScreen('viewPod')} />}
@@ -995,12 +992,12 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
       Alert.alert('Recipient required', 'Enter the recipient name before saving POD.');
       return;
     }
-    if (photoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
+    if (photoUris.length === 0 && damagePhotoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
       Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
       return;
     }
-    if (photoUris.length > 10) {
-      Alert.alert('Too many photos', 'A maximum of 10 delivery photos are allowed.');
+    if (photoUris.length + damagePhotoUris.length > 10) {
+      Alert.alert('Too many photos', 'A maximum of 10 delivery and damage photos are allowed in total.');
       return;
     }
     if (documentUris.length > 10) {
@@ -1013,6 +1010,7 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
     // Encode extra UI fields into the supported `notes` field so the backend
     // persists them without requiring a schema change.
     const noteParts: string[] = [];
+    if (recipientCompany.trim()) noteParts.push(`Receiver company: ${recipientCompany.trim()}`);
     if (quantityDelivered.trim()) noteParts.push(`Qty: ${quantityDelivered.trim()}`);
     if (itemsMissing.trim()) noteParts.push(`Missing: ${itemsMissing.trim()}`);
     if (itemsDamaged.trim()) noteParts.push(`Damaged: ${itemsDamaged.trim()}`);
@@ -1022,11 +1020,9 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
     if (comments.trim()) noteParts.push(`Comments: ${comments.trim()}`);
     const notes = noteParts.join(' | ').slice(0, 2000) || undefined;
 
-    // Combine delivery and damage photos into photoUris for the backend.
-    const allPhotoUris = [...photoUris, ...damagePhotoUris].slice(0, 10);
-
     const payload = {
-      photoUris: allPhotoUris,
+      photoUris,
+      damagePhotoUris,
       documentUris,
       recipientName: recipientName.trim(),
       signatureData: signatureData.trim() || undefined,
