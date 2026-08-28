@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Alert, Image, Linking, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
+import { isPermanentClientError } from '../api/client';
 import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
@@ -301,6 +302,23 @@ export default function DriverMobileApp() {
     }
   }, [token]);
 
+  const openPodByJobId = useCallback(async (jobId: string) => {
+    if (!token) return;
+    setLoading(true);
+    setMessage('');
+    try {
+      // Always refresh through the assignment-gated detail endpoint so private
+      // POD evidence receives fresh short-lived signed URLs at view time.
+      const response = await fetchJob(jobId, token);
+      setJob(response.job);
+      setScreen('viewPod');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to open this POD.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     void waitForReadySession()
       .then(async (readySession) => {
@@ -515,13 +533,19 @@ export default function DriverMobileApp() {
         await loadJobs(token, scope, { navigate: false });
       } catch (error) {
         const text = error instanceof Error ? error.message : 'Unable to update job status. Please retry.';
-        if (/pod is required/i.test(text)) {
+        if (/pod is required|delivery photo|recipient signature/i.test(text)) {
           setMessage(text);
           setScreen('pod');
           return;
         }
-        // Online failure — keep the server-confirmed status; do NOT advance it locally.
-        // Queue the action for automatic retry.
+        if (isPermanentClientError(error)) {
+          setMessage(text);
+          await loadJobs(token, scope, { navigate: false }).catch(() => undefined);
+          return;
+        }
+        // Transient online failure — keep the server-confirmed status and queue
+        // the action for automatic retry. Permanent 4xx responses never enter
+        // the queue because retrying them cannot make the contract valid.
         const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
         setQueue((items) => reconcileQueueState(items, queued));
         setMessage(text);
@@ -586,7 +610,7 @@ export default function DriverMobileApp() {
                 onOpen={(nextJob) => void openJobById(nextJob.id)}
               />
             )}
-            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => setScreen('viewPod')} />}
+            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => void openPodByJobId(job.id)} />}
             {screen === 'pod' && job && authUserId && (
               <PodScreen
                 job={job}
@@ -992,7 +1016,16 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
       Alert.alert('Recipient required', 'Enter the recipient name before saving POD.');
       return;
     }
-    if (photoUris.length === 0 && damagePhotoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
+    if (job.podRequired) {
+      if (photoUris.length === 0) {
+        Alert.alert('Delivery photo required', 'Capture at least one delivery photo before saving POD.');
+        return;
+      }
+      if (!signatureData.trim()) {
+        Alert.alert('Signature required', 'Capture the recipient signature before saving POD.');
+        return;
+      }
+    } else if (photoUris.length === 0 && damagePhotoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
       Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
       return;
     }
@@ -1041,10 +1074,15 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
       const response = await uploadPod(job.id, token, payload);
       setSubmitting(false);
       onSaved('job' in response ? response.job as DriverJob : undefined);
-    } catch {
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'The POD could not be saved.';
+      setSubmitting(false);
+      if (isPermanentClientError(error)) {
+        Alert.alert('POD not saved', text);
+        return;
+      }
       const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      setSubmitting(false);
       Alert.alert('POD queued for retry', 'The upload failed. Your POD evidence has been saved and will retry automatically.', [
         { text: 'OK', onPress: () => onSaved() },
       ]);
