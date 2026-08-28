@@ -100,6 +100,11 @@ export async function GET(request: NextRequest) {
       .from('driver_availability_presence')
       .select('exact_lat,exact_lng,available_until')
       .eq('driver_id', driver.driverId)
+      // Nearby competition intelligence is reciprocal: a driver must explicitly
+      // publish Exchange visibility before using their exact private coordinate
+      // as the origin for aggregate Exchange discovery. Private/Fleet presence
+      // remains private and does not unlock the exchange-nearby view.
+      .eq('visibility', 'exchange')
       .gt('available_until', nowIso)
       .maybeSingle(),
     supabaseAdmin
