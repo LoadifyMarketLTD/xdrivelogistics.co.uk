@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
 
 import type { QueuedActionStatus } from '../jobs/types';
+import { clearPersistedPodEvidenceForUser, persistQueuedPodPayload } from './podEvidencePersistence';
 
 export type QueuedAction = {
   id: string;
@@ -74,8 +75,17 @@ export async function enqueueAction(userId: string, action: Omit<QueuedAction, '
       item.status !== 'synced',
   );
   if (existing) return existing;
+
+  // POD queue entries must never point only at ImagePicker/DocumentPicker cache.
+  // Persist evidence before committing the queue item so replay remains valid
+  // after process restart or cache eviction.
+  const payload = action.endpoint === 'pod' && action.payload
+    ? await persistQueuedPodPayload(userId, action.jobId, action.payload)
+    : action.payload;
+
   const queued: QueuedAction = {
     ...action,
+    payload,
     id: `${action.jobId}-${action.endpoint}-${Date.now()}`,
     status: 'pending',
     createdAt: new Date().toISOString(),
@@ -146,11 +156,12 @@ export async function isOnline() {
 
 /**
  * Clear the account-scoped queue for the given user.
- * Also removes the legacy unscoped key to prevent data leakage across app upgrades.
- * Call on sign-out, token expiry, failed auth and any session-loss path.
+ * Also removes the legacy unscoped key and any durable queued POD evidence so
+ * sign-out cannot leave another driver's documents on the next local session.
  */
 export async function clearQueue(userId: string) {
   await AsyncStorage.multiRemove([queueStorageKey(userId), legacyQueueKey]);
+  await clearPersistedPodEvidenceForUser(userId);
 }
 
 /**
@@ -181,4 +192,3 @@ export function reconcileQueueState(current: QueuedAction[], incoming: QueuedAct
   next[idx] = incoming;
   return next;
 }
-
