@@ -11,6 +11,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import co.uk.xdrivelogistics.driver.data.AvailabilityPresenceApi
 import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
+import co.uk.xdrivelogistics.driver.data.NativeInstallationBinding
 import co.uk.xdrivelogistics.driver.data.SessionStore
 import co.uk.xdrivelogistics.driver.data.TrackingStateApi
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +38,7 @@ class XDriveDriverApp : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        NativeInstallationBinding.initialize(applicationContext)
         registerActivityLifecycleCallbacks(this)
         pushRegistrationManager.initializeFirebase()
     }
