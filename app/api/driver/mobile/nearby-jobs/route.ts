@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { sortSmartDestinationCandidates } from '../../../../../lib/smartDestinationPriority';
+import { resolveDriverOperationalEligibility } from '../../_lib/operationalEligibility';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   marketplaceNumber,
@@ -244,9 +245,24 @@ export async function GET(request: NextRequest) {
   const rows = ((data ?? []) as unknown as NearbyJobRow[])
     .filter((row) => exchangePostActive(row) && matchesPublicSearch(row, search))
     .slice(0, limit);
-  const commercialBidExtras = driver.canCommercialBid
+
+  let operationallyEligible = false;
+  let operationalQuoteWarning = 'Your driver or assigned vehicle is not currently eligible for commercial bidding.';
+  try {
+    const readiness = await resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId);
+    operationallyEligible = readiness.eligible;
+    if (!readiness.checks.commercialBidEnabled) {
+      operationalQuoteWarning = 'Your account type does not permit commercial bidding.';
+    }
+  } catch {
+    // Browsing is still useful during a readiness subsystem outage, but quoting
+    // must fail closed until the authoritative eligibility check is available.
+    operationalQuoteWarning = 'Quote eligibility could not be verified. Refresh before submitting a quote.';
+  }
+
+  const commercialBidExtras = operationallyEligible
     ? {}
-    : { canQuote: false, quoteWarning: 'Your account type does not permit commercial bidding.' };
+    : { canQuote: false, quoteWarning: operationalQuoteWarning };
   if (!destinationMode) return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)) });
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
@@ -341,10 +357,10 @@ export async function GET(request: NextRequest) {
       extras: {
         distanceFromCurrentDeliveryMiles: miles === null ? null : Number(miles.toFixed(1)),
         destinationPriority,
-        canQuote: !needsInternationalApproval && driver.canCommercialBid,
+        canQuote: operationallyEligible && !needsInternationalApproval,
         internationalEligibilityRequired: needsInternationalApproval,
-        quoteWarning: !driver.canCommercialBid
-          ? 'Your account type does not permit commercial bidding.'
+        quoteWarning: !operationallyEligible
+          ? operationalQuoteWarning
           : needsInternationalApproval
             ? 'International eligibility must be approved for the company, driver and assigned vehicle.'
             : timingImpossible
