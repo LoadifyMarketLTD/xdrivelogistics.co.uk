@@ -303,13 +303,21 @@ export function toMoney(value: number | string | null | undefined) {
 }
 
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
-  const current = String(job.current_status || job.status || 'awarded').toLowerCase();
-  if (current === 'on_my_way') return 'on_my_way_pickup';
-  if (current === 'on_site_pickup') return 'arrived_pickup';
-  if (current === 'on_site_delivery') return 'arrived_delivery';
-  if (current === 'in_transit') return 'on_my_way_delivery';
-  if (current === 'allocated') return 'awarded';
-  return current;
+  const current = String(job.current_status || job.status || 'awarded').trim().toLowerCase();
+  if (current === 'assigned' || current === 'accepted' || current === 'allocated') return 'awarded';
+  if (current === 'on_my_way' || current === 'on_my_way_to_pickup') return 'on_my_way_pickup';
+  if (current === 'on_site_pickup' || current === 'arrived_pickup') return 'arrived_pickup';
+  if (current === 'collected') return 'loaded';
+  if (current === 'in_transit' || current === 'on_route_delivery' || current === 'on_my_way_to_delivery') return 'on_my_way_delivery';
+  if (current === 'on_site_delivery' || current === 'arrived_delivery') return 'arrived_delivery';
+  if (current === 'invoiced') return 'invoice_generated';
+  if (current === 'paid') return 'completed';
+  if (current === 'awarded' || current === 'loaded' || current === 'delivered' || current === 'completed') return current;
+  // Assignment-gated mobile reads should never expose open/cancelled/disputed
+  // lifecycle states as actionable DriverJob statuses. Preserve a safe, known
+  // presentation value instead of leaking an unknown DB string into the Expo
+  // status flow where statusIndex() would otherwise become -1.
+  return 'awarded';
 }
 
 export function mapJob(row: MobileJobRow) {
