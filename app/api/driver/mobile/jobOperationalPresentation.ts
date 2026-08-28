@@ -1,3 +1,5 @@
+import { buildJobAuditTrail } from './jobAuditPresentation';
+
 export const driverJobOperationalSelect = [
   'pallets',
   'weight_kg',
@@ -74,6 +76,7 @@ export function buildJobOperationalPresentation(row: OperationalJobRow) {
     specialInstructions: text(row.special_requirements),
     customerReference: text(row.customer_reference),
     internalReference: text(row.booking_reference),
+    auditTrail: buildJobAuditTrail(row),
     stops: [
       {
         id: `${row.id}:collection`,
