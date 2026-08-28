@@ -26,17 +26,20 @@ type DriverBidRow = {
   bidder_user_id: string | null;
   amount: number | null;
   bid_price_gbp: number | null;
+  base_amount: number | null;
   message: string | null;
   collect_within_minutes: number | null;
   additional_extras_gbp: number | null;
   quoted_vehicle_id: string | null;
+  quoted_vehicle_label: string | null;
 };
 
-const BID_SELECT = 'id, status, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, message, collect_within_minutes, additional_extras_gbp, quoted_vehicle_id';
+const BID_SELECT = 'id, status, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, base_amount, message, collect_within_minutes, additional_extras_gbp, quoted_vehicle_id, quoted_vehicle_label';
 
 function sameQuote(
   bid: DriverBidRow,
   driver: DriverContext,
+  baseAmount: number,
   totalAmount: number,
   message: string,
   collectWithinMinutes: number | null,
@@ -46,9 +49,12 @@ function sameQuote(
   const sameIdentity = bid.bidder_driver_id === driver.driverId || bid.bidder_user_id === driver.userId;
   const storedAmount = Number(bid.bid_price_gbp ?? bid.amount);
   const storedExtras = Number(bid.additional_extras_gbp ?? 0);
+  const storedBase = bid.base_amount == null ? storedAmount - storedExtras : Number(bid.base_amount);
   return sameIdentity
     && Number.isFinite(storedAmount)
+    && Number.isFinite(storedBase)
     && Math.abs(storedAmount - totalAmount) < 0.000001
+    && Math.abs(storedBase - baseAmount) < 0.000001
     && Math.abs(storedExtras - additionalExtrasGbp) < 0.000001
     && (bid.message ?? '').trim() === message
     && (bid.collect_within_minutes ?? null) === collectWithinMinutes
@@ -59,6 +65,7 @@ async function findPriorBidForDriver(
   supabaseAdmin: AdminClient,
   driver: DriverContext,
   jobId: string,
+  baseAmount: number,
   totalAmount: number,
   message: string,
   collectWithinMinutes: number | null,
@@ -80,7 +87,7 @@ async function findPriorBidForDriver(
   const bid = data as DriverBidRow;
   const retryableStatus = (bid.status ?? '').toLowerCase() === 'submitted' || (bid.status ?? '').toLowerCase() === 'accepted';
   return {
-    matchingRetry: sameQuote(bid, driver, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId) && retryableStatus ? bid : null,
+    matchingRetry: sameQuote(bid, driver, baseAmount, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId) && retryableStatus ? bid : null,
     priorBidExists: true,
     error: null,
   };
@@ -90,6 +97,7 @@ async function findMatchingActiveCompanyBid(
   supabaseAdmin: AdminClient,
   driver: DriverContext,
   jobId: string,
+  baseAmount: number,
   totalAmount: number,
   message: string,
   collectWithinMinutes: number | null,
@@ -109,7 +117,7 @@ async function findMatchingActiveCompanyBid(
   if (!data) return { bid: null, error: null };
   const bid = data as DriverBidRow;
   return {
-    bid: sameQuote(bid, driver, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId) ? bid : null,
+    bid: sameQuote(bid, driver, baseAmount, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId) ? bid : null,
     error: null,
   };
 }
@@ -118,19 +126,24 @@ async function validateQuotedVehicle(
   supabaseAdmin: AdminClient,
   driver: DriverContext,
   vehicleId: string | null,
-): Promise<{ vehicleId: string | null; error: string | null; status?: number }> {
-  if (!vehicleId) return { vehicleId: null, error: null };
+): Promise<{ vehicleId: string | null; vehicleLabel: string | null; error: string | null; status?: number }> {
+  if (!vehicleId) return { vehicleId: null, vehicleLabel: null, error: null };
   const { data, error } = await supabaseAdmin
     .from('vehicles')
-    .select('id, company_id, assigned_driver_id')
+    .select('id, company_id, assigned_driver_id, type, make, model, reg_plate')
     .eq('id', vehicleId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
-  if (error) return { vehicleId: null, error: error.message, status: 500 };
+  if (error) return { vehicleId: null, vehicleLabel: null, error: error.message, status: 500 };
   if (!data || (driver.companyId && data.company_id !== driver.companyId)) {
-    return { vehicleId: null, error: 'The selected vehicle is not assigned to your driver account.', status: 403 };
+    return { vehicleId: null, vehicleLabel: null, error: 'The selected vehicle is not assigned to your driver account.', status: 403 };
   }
-  return { vehicleId: String(data.id), error: null };
+  const vehicleLabel = [data.make, data.model, data.type, data.reg_plate]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean)
+    .join(' · ')
+    .slice(0, 300) || null;
+  return { vehicleId: String(data.id), vehicleLabel, error: null };
 }
 
 export async function submitDriverQuote(
@@ -162,9 +175,10 @@ export async function submitDriverQuote(
   const vehicle = await validateQuotedVehicle(supabaseAdmin, driver, requestedVehicleId);
   if (vehicle.error) return { ok: false, status: vehicle.status ?? 500, error: vehicle.error };
   const vehicleId = vehicle.vehicleId;
+  const vehicleLabel = vehicle.vehicleLabel;
 
   const prior = await findPriorBidForDriver(
-    supabaseAdmin, driver, jobId, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId,
+    supabaseAdmin, driver, jobId, baseAmount, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId,
   );
   if (prior.error) return { ok: false, status: 500, error: prior.error };
   if (prior.matchingRetry) {
@@ -186,7 +200,7 @@ export async function submitDriverQuote(
   if (!eligibility.eligible) {
     if (eligibility.denialReasons.includes('active_bid_exists')) {
       const existing = await findMatchingActiveCompanyBid(
-        supabaseAdmin, driver, jobId, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId,
+        supabaseAdmin, driver, jobId, baseAmount, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId,
       );
       if (existing.error) return { ok: false, status: 500, error: existing.error };
       if (existing.bid) {
@@ -235,12 +249,14 @@ export async function submitDriverQuote(
       bidder_driver_id: driver.driverId,
       bid_price_gbp: totalAmount,
       amount: totalAmount,
+      base_amount: baseAmount,
       currency: 'GBP',
       message: message || null,
       status: 'submitted',
       collect_within_minutes: collectWithinMinutes,
       additional_extras_gbp: additionalExtrasGbp,
       quoted_vehicle_id: vehicleId,
+      quoted_vehicle_label: vehicleLabel,
     })
     .select('id')
     .single();
@@ -248,7 +264,7 @@ export async function submitDriverQuote(
   if (insertError) {
     if (insertError.code === '23505') {
       const retry = await findPriorBidForDriver(
-        supabaseAdmin, driver, jobId, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId,
+        supabaseAdmin, driver, jobId, baseAmount, totalAmount, message, collectWithinMinutes, additionalExtrasGbp, vehicleId,
       );
       if (retry.error) return { ok: false, status: 500, error: retry.error };
       if (retry.matchingRetry) {
