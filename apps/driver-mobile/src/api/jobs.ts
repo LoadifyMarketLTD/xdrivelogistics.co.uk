@@ -168,7 +168,7 @@ export async function uploadPod(jobId: string, token: string, metadata: Record<s
   }
   if (documentUris.length > 10) throw new Error('A maximum of 10 POD documents can be submitted for one delivery.');
 
-  const response = await apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
+  await apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
     method: 'POST',
     token,
     body: {
@@ -182,5 +182,9 @@ export async function uploadPod(jobId: string, token: string, metadata: Record<s
   });
 
   await cleanupPersistedPodPayload(metadata);
-  return response;
+
+  // Refresh through the assignment-gated detail endpoint so the caller receives
+  // short-lived signed URLs for the newly stored private POD evidence immediately.
+  const refreshed = await fetchJob(jobId, token);
+  return { ok: true as const, job: refreshed.job };
 }
