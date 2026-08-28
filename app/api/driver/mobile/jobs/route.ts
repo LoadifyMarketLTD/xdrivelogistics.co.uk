@@ -9,7 +9,7 @@ import { buildSignedPodPresentations } from '../podPresentation';
 type MobileJobWithPodPresentation = MobileJobRow & {
   damage_photos?: unknown;
   pod_generated_at?: string | null;
-  delivery_notes?: string | null;
+  driver_notes?: string | null;
 };
 
 function validIsoDate(value: string | null) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('jobs')
-    .select(`${jobSelect},damage_photos,pod_generated_at,delivery_notes`)
+    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes`)
     .eq('assigned_driver_id', driver.driverId)
     .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
     .limit(limit);
