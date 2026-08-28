@@ -124,6 +124,7 @@ class SecureDriverCommercialApi(
             deliverySignatureData = row.get("deliverySignatureData")?.takeUnless { it.isJsonNull }?.let { gson.toJson(it) },
             clientSignatureName = row.string("clientSignatureName"),
             podRequired = row.booleanOrNull("podRequired") ?: true,
+            statusHistory = row.statusEventArray("statusHistory"),
         )
     }
 
@@ -217,6 +218,25 @@ class SecureDriverCommercialApi(
         val array = getAsJsonArray(name) ?: return emptyList()
         return buildList {
             for (index in 0 until array.size()) array[index].takeUnless { it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }?.let(::add)
+        }
+    }
+    private fun JsonObject.statusEventArray(name: String): List<DriverStatusEvent> {
+        val array = getAsJsonArray(name) ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.size()) {
+                val item = array[index]
+                if (!item.isJsonObject) continue
+                val event = item.asJsonObject
+                val status = event.string("status").trim()
+                if (status.isBlank()) continue
+                add(
+                    DriverStatusEvent(
+                        status = status,
+                        at = event.nullableString("at"),
+                        source = event.nullableString("source"),
+                    )
+                )
+            }
         }
     }
 }
