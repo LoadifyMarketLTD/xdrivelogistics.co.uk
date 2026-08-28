@@ -9,16 +9,26 @@ export function jobIdFromUrl(value: unknown): string | null {
   if (typeof value !== 'string' || !value.trim()) return null;
   try {
     const url = new URL(value.trim());
+    const protocol = url.protocol.toLowerCase();
+    const host = url.hostname.toLowerCase();
     const segments = url.pathname.split('/').filter(Boolean);
 
-    // xdrivedriver://job/<uuid> parses "job" as the host.
-    if (url.protocol === 'xdrivedriver:' && url.hostname.toLowerCase() === 'job') {
+    // Canonical mobile scheme emitted by the notification worker.
+    // Keep the historical xdrivedriver scheme readable so already-issued links
+    // remain harmlessly backward compatible during the Expo recovery.
+    if ((protocol === 'xdrive:' || protocol === 'xdrivedriver:') && host === 'job') {
       return validJobId(segments[0]);
     }
 
-    const jobSegment = segments.findIndex((segment) => segment.toLowerCase() === 'jobs' || segment.toLowerCase() === 'job');
-    if (jobSegment >= 0) return validJobId(segments[jobSegment + 1]);
-    return validJobId(url.searchParams.get('job_id')) || validJobId(url.searchParams.get('jobId'));
+    // Only accept HTTPS-style route parsing for actual web URLs. This prevents
+    // an arbitrary custom scheme from smuggling a job id through a path segment.
+    if (protocol === 'https:' || protocol === 'http:') {
+      const jobSegment = segments.findIndex((segment) => segment.toLowerCase() === 'jobs' || segment.toLowerCase() === 'job');
+      if (jobSegment >= 0) return validJobId(segments[jobSegment + 1]);
+      return validJobId(url.searchParams.get('job_id')) || validJobId(url.searchParams.get('jobId'));
+    }
+
+    return null;
   } catch {
     return null;
   }
