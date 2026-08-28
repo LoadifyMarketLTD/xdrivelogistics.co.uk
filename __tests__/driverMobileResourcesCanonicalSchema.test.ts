@@ -53,6 +53,17 @@ describe('driver mobile resources canonical schema contract', () => {
     expect(client).toContain('alerts: DriverAlert[]');
   });
 
+  it('keeps the compatibility Return Journey resource on the canonical PR #357 schema', () => {
+    expect(source).toContain(".select('id,from_postcode,to_postcode,available_from,available_to,vehicle_type,notes,status')");
+    expect(source).toContain('from_location: canonicalJourney.from_postcode ?? null');
+    expect(source).toContain('to_location: canonicalJourney.to_postcode ?? null');
+    expect(source).toContain('available_date: canonicalJourney.available_from ?? null');
+    expect(source).not.toContain(".select('id,from_location,to_location,available_date')");
+    expect(source).not.toContain("rpc('replace_driver_return_journey'");
+    expect(source).toContain('from_postcode: fromPostcode');
+    expect(source).toContain("status: 'available'");
+  });
+
   it('returns the Expo profile contract while retaining legacy resources compatibility', () => {
     expect(source).toContain('name: displayName');
     expect(source).toContain('email,');
