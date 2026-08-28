@@ -77,7 +77,7 @@ WITH canonical_job_payment_terms AS (
   LEFT JOIN public.job_commercial_agreements a
     ON a.job_id = j.id
   LEFT JOIN public.company_settings cs
-    ON cs.company_id = COALESCE(j.posted_by_company_id, j.company_id)
+    ON cs.company_id = j.company_id
   WHERE j.payment_terms IS NULL
 )
 UPDATE public.jobs j
