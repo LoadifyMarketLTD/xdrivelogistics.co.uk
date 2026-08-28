@@ -7,8 +7,13 @@ describe('Driver mobile POD capture UI contract', () => {
     'utf8',
   );
 
-  it('accepts damage-only POD evidence and enforces a combined photo limit without truncation', () => {
-    expect(source).toContain('photoUris.length === 0 && damagePhotoUris.length === 0 && documentUris.length === 0');
+  it('requires delivery photo and recipient signature for required POD while keeping optional POD evidence flexible', () => {
+    expect(source).toContain('if (job.podRequired) {');
+    expect(source).toContain("if (photoUris.length === 0) {");
+    expect(source).toContain("Alert.alert('Delivery photo required'");
+    expect(source).toContain("if (!signatureData.trim()) {");
+    expect(source).toContain("Alert.alert('Signature required'");
+    expect(source).toContain('else if (photoUris.length === 0 && damagePhotoUris.length === 0 && documentUris.length === 0 && !signatureData.trim())');
     expect(source).toContain('photoUris.length + damagePhotoUris.length > 10');
     expect(source).not.toContain('[...photoUris, ...damagePhotoUris].slice(0, 10)');
   });
@@ -20,9 +25,17 @@ describe('Driver mobile POD capture UI contract', () => {
     expect(source).not.toContain('photoUris: allPhotoUris');
   });
 
-  it('opens a job from the list through the assignment-gated detail endpoint', () => {
+  it('does not queue a newly rejected permanent 4xx status or POD submission', () => {
+    expect(source.match(/if \(isPermanentClientError\(error\)\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(source).toContain('// the action for automatic retry. Permanent 4xx responses never enter');
+    expect(source).toContain("Alert.alert('POD not saved', text)");
+  });
+
+  it('opens list jobs and VIEW POD through a fresh assignment-gated detail fetch', () => {
     expect(source).toContain('onOpen={(nextJob) => void openJobById(nextJob.id)}');
-    expect(source).toContain('const response = await fetchJob(jobId, token)');
-    expect(source).toContain("setScreen('detail')");
+    expect(source).toContain('const openPodByJobId = useCallback(async (jobId: string) => {');
+    expect(source.match(/const response = await fetchJob\(jobId, token\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(source).toContain("setScreen('viewPod')");
+    expect(source).toContain('onViewPod={() => void openPodByJobId(job.id)}');
   });
 });
