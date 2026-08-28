@@ -103,6 +103,22 @@ internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
             inFlight.set(false)
         }
     }
+
+    /** Compatibility overload for historical unit tests while production UI migrates. */
+    suspend fun submit(
+        quoteJobId: String?,
+        jobs: List<DriverJob>,
+        amountText: String,
+        note: String,
+        session: DriverSession?,
+        profile: DriverProfile?,
+    ): QuoteSubmitOutcome = submit(
+        quoteJobId = quoteJobId,
+        jobs = jobs,
+        input = RichQuoteInput(amountText = amountText, note = note),
+        session = session,
+        profile = profile,
+    )
 }
 
 private fun parseNonNegativeAmount(raw: String): Double? {
