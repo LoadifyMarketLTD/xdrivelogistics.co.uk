@@ -45,6 +45,15 @@ BEGIN
     RAISE EXCEPTION 'Driver identity is required.' USING ERRCODE = '22023';
   END IF;
 
+  -- A blank starting postcode is the canonical clear operation. Clearing is
+  -- keyed only by the already-authenticated driver identity, so it remains
+  -- possible even if a historical driver row has lost its company binding.
+  IF v_from_postcode IS NULL THEN
+    DELETE FROM public.return_journeys
+    WHERE driver_id = p_driver_id;
+    RETURN NULL;
+  END IF;
+
   IF p_company_id IS NULL THEN
     RAISE EXCEPTION 'A company-bound driver profile is required for return journeys.' USING ERRCODE = '22023';
   END IF;
@@ -64,14 +73,6 @@ BEGIN
      AND p_available_to IS NOT NULL
      AND p_available_to < p_available_from THEN
     RAISE EXCEPTION 'Return journey end must not be before its start.' USING ERRCODE = '22023';
-  END IF;
-
-  -- A blank starting postcode is the canonical clear operation. It executes in
-  -- the same database transaction as any replacement operation.
-  IF v_from_postcode IS NULL THEN
-    DELETE FROM public.return_journeys
-    WHERE driver_id = p_driver_id;
-    RETURN NULL;
   END IF;
 
   -- Delete + insert is atomic inside this function. If the canonical insert is
