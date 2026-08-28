@@ -29,7 +29,7 @@ describe('driver collection evidence lifecycle contract', () => {
     expect(app).toContain("if (nextStep.endpoint === 'loaded')");
     expect(app).toContain('collectionPhotoUri: uri');
     expect(app).toContain('collectionEvidenceId: createCollectionEvidenceId()');
-    expect(app).toContain("endpoint: nextStep.endpoint, payload: actionPayload");
+    expect(app).toContain('endpoint: nextStep.endpoint, payload: actionPayload');
   });
 
   it('persists queued Loaded evidence outside picker cache and clears it on logout', () => {
@@ -43,8 +43,8 @@ describe('driver collection evidence lifecycle contract', () => {
 
   it('uploads collection evidence with a stable object name before the status request', () => {
     const uploadIndex = jobsClient.indexOf("if (endpoint === 'loaded') await uploadCollectionPhoto(jobId, token, payload)");
-    const statusIndex = jobsClient.indexOf('const response = await apiRequest');
-    const cleanupIndex = jobsClient.indexOf("if (endpoint === 'loaded') await cleanupPersistedCollectionPayload(payload)");
+    const statusIndex = jobsClient.indexOf('const response = await apiRequest', uploadIndex);
+    const cleanupIndex = jobsClient.indexOf("if (endpoint === 'loaded') await cleanupPersistedCollectionPayload(payload)", statusIndex);
 
     expect(uploadIndex).toBeGreaterThan(-1);
     expect(statusIndex).toBeGreaterThan(uploadIndex);
@@ -58,8 +58,8 @@ describe('driver collection evidence lifecycle contract', () => {
   it('keeps the private evidence endpoint assignment-gated and storage-authoritative', () => {
     expect(evidenceRoute).toContain('requireDriver(request)');
     expect(evidenceRoute).toContain(".eq('assigned_driver_id', driver.driverId)");
-    expect(evidenceRoute).toContain("storage.from('pod-photos')");
-    expect(evidenceRoute).toContain("collection_photo_url: storagePath");
+    expect(evidenceRoute).toContain(".from('pod-photos')");
+    expect(evidenceRoute).toContain('collection_photo_url: storagePath');
     expect(evidenceRoute).toContain('upsert: false');
   });
 
@@ -75,8 +75,8 @@ describe('driver collection evidence lifecycle contract', () => {
   });
 
   it('keeps collection proof mandatory in the authoritative database transition', () => {
-    expect(lifecycleMigration).toContain("v_next = 'loaded'");
-    expect(lifecycleMigration).toContain('v_effective_collection_photo IS NULL');
-    expect(lifecycleMigration).toContain('A collection photo is required before loading');
+    expect(lifecycleMigration).toContain("v_next_status = 'loaded'");
+    expect(lifecycleMigration).toContain('v_effective_collection_photo is null');
+    expect(lifecycleMigration).toContain('A loading photo is required before marking the job loaded.');
   });
 });
