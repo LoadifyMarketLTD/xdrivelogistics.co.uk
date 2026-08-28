@@ -2,6 +2,7 @@
   "expo": {
     "name": "XDrive Driver",
     "slug": "xdrive-driver",
+    "scheme": "xdrive",
     "version": "1.1.0",
     "orientation": "portrait",
     "newArchEnabled": false,
