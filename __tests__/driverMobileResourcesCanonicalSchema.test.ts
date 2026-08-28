@@ -26,9 +26,21 @@ describe('driver mobile resources canonical schema contract', () => {
     expect(source).not.toContain('vehicle.reg ||');
   });
 
-  it('keeps resources behind the native driver boundary', () => {
+  it('keeps authorization fail-closed at the native driver boundary', () => {
     expect(source).toContain('const context = await requireDriver(request)');
     expect(source).toContain('if (!isDriverContext(context)) return context');
+    expect(source).toContain("return NextResponse.json({ error: driverResult.error?.message ?? 'Driver profile was not found.' }, { status: 500 })");
+  });
+
+  it('does not turn peripheral resource outages into false driver access denial', () => {
+    expect(source).toContain('const partialResources = [');
+    expect(source).toContain("vehicleResult.error ? 'vehicle' : null");
+    expect(source).toContain("alertsResult.error ? 'alerts' : null");
+    expect(source).toContain("if (invoiceResult.error) partialResources.push('invoices')");
+    expect(source).toContain('partial: partialResources');
+    expect(source).not.toContain('const firstError = driverDocsResult.error');
+    expect(source).not.toContain('if (vehicleResult.error) return NextResponse.json');
+    expect(source).not.toContain('if (companyResult.error) return NextResponse.json');
   });
 
   it('uses notification_events as the Expo operational alert authority', () => {
@@ -37,6 +49,7 @@ describe('driver mobile resources canonical schema contract', () => {
     expect(source).toContain('recipient_user_id.eq.${context.userId}');
     expect(source).toContain('recipient_user_id.is.null,company_id.eq.${context.companyId}');
     expect(source).toContain('alerts,');
+    expect(source).toContain("const alerts = !alertsResult.error");
     expect(client).toContain('alerts: DriverAlert[]');
   });
 
@@ -51,6 +64,6 @@ describe('driver mobile resources canonical schema contract', () => {
     expect(source).toContain('documents,');
     expect(source).toContain('invoices,');
     expect(source).toContain('profile: {');
-    expect(source).toContain('notifications: notificationsResult.data ?? []');
+    expect(source).toContain('notifications: notificationsResult.error ? [] : notificationsResult.data ?? []');
   });
 });
