@@ -7,7 +7,7 @@ import { buildSignedPodPresentations } from '../../podPresentation';
 type MobileJobWithPodPresentation = MobileJobRow & {
   damage_photos?: unknown;
   pod_generated_at?: string | null;
-  delivery_notes?: string | null;
+  driver_notes?: string | null;
 };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from('jobs')
-    .select(`${jobSelect},damage_photos,pod_generated_at,delivery_notes`)
+    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes`)
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
