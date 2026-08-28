@@ -23,6 +23,12 @@ const actionToCanonicalStatus: Record<string, string> = {
   delivered: 'delivered',
 };
 
+type PodEvidenceKind = 'photos' | 'damage' | 'documents';
+
+type MobileJobWithDamageEvidence = MobileJobRow & {
+  damage_photos?: unknown;
+};
+
 const userScopedSupabase = (token: string) => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -142,7 +148,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 const persistentPodPath = (
   companyId: string | null,
   jobId: string,
-  kind: 'photos' | 'documents',
+  kind: PodEvidenceKind,
   value: unknown
 ): value is string => {
   if (!companyId || typeof value !== 'string') return false;
@@ -187,7 +193,7 @@ async function savePod(
 
   const { data: existing, error: loadError } = await supabaseAdmin!
     .from('jobs')
-    .select(jobSelect)
+    .select(`${jobSelect},damage_photos`)
     .eq('id', jobId)
     .eq('assigned_driver_id', driverId)
     .maybeSingle();
@@ -195,16 +201,17 @@ async function savePod(
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
 
-  const job = existing as unknown as MobileJobRow;
+  const job = existing as unknown as MobileJobWithDamageEvidence;
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
   const rawPhotoUris = safeArray(body.photoUris);
+  const rawDamagePhotoUris = safeArray(body.damagePhotoUris);
   const rawDocumentUris = safeArray(body.documentUris);
 
   if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
   if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
-  if (rawPhotoUris.length > 10 || rawDocumentUris.length > 10) {
-    return respond(400, { error: 'A maximum of 10 POD photos and 10 documents is allowed.' });
+  if (rawPhotoUris.length + rawDamagePhotoUris.length > 10 || rawDocumentUris.length > 10) {
+    return respond(400, { error: 'A maximum of 10 delivery/damage photos and 10 documents is allowed.' });
   }
   if (rawSignature && !/^data:image\/(png|jpeg);base64,/i.test(rawSignature)) {
     return respond(400, { error: 'Recipient signature format is invalid.' });
@@ -214,17 +221,22 @@ async function savePod(
   }
 
   const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'photos', value));
+  const damagePhotoPaths = rawDamagePhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'damage', value));
   const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(companyId, jobId, 'documents', value));
-  if (photoPaths.length !== rawPhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
+  if (
+    photoPaths.length !== rawPhotoUris.length ||
+    damagePhotoPaths.length !== rawDamagePhotoUris.length ||
+    documentPaths.length !== rawDocumentUris.length
+  ) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
-  if (!rawSignature && photoPaths.length + documentPaths.length === 0) {
-    return respond(400, { error: 'A recipient signature, POD photo or POD document is required.' });
+  if (!rawSignature && photoPaths.length + damagePhotoPaths.length + documentPaths.length === 0) {
+    return respond(400, { error: 'A recipient signature, POD photo, damage photo or POD document is required.' });
   }
 
   try {
     const existenceChecks = await Promise.all(
-      [...photoPaths, ...documentPaths].map((path) => storageObjectExists(path))
+      [...photoPaths, ...damagePhotoPaths, ...documentPaths].map((path) => storageObjectExists(path))
     );
     if (existenceChecks.some((exists) => !exists)) {
       return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });
@@ -239,6 +251,7 @@ async function savePod(
 
   const now = new Date().toISOString();
   const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
+  const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
 
@@ -246,6 +259,7 @@ async function savePod(
     .from('jobs')
     .update({
       delivery_photos: Array.from(new Set([...existingPhotos, ...photoPaths])),
+      damage_photos: Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths])),
       pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
       delivery_signature_data: signatureData,
       client_signature_name: recipientName,
