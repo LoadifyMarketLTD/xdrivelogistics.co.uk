@@ -2,9 +2,63 @@ import { apiBinaryRequest, apiRequest } from './client';
 import type { DriverJob, JobScope } from '../jobs/types';
 import { syncOperationalTracking } from '../tracking/operationalTracking';
 
+type JobsPage = {
+  jobs: DriverJob[];
+  historyDays?: number;
+  nextCursor?: string | null;
+  commercialRatePartial?: boolean;
+};
+
+async function fetchCompletedHistory(token: string) {
+  const jobs: DriverJob[] = [];
+  const seenJobIds = new Set<string>();
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+  let commercialRatePartial = false;
+  let historyDays = 365;
+
+  while (true) {
+    const params = new URLSearchParams({
+      scope: 'completed',
+      historyDays: '365',
+      limit: '250',
+    });
+    if (cursor) params.set('cursor', cursor);
+
+    const page = await apiRequest<JobsPage>(`/api/driver/mobile/jobs?${params.toString()}`, { token });
+    historyDays = page.historyDays ?? historyDays;
+    commercialRatePartial = commercialRatePartial || page.commercialRatePartial === true;
+
+    for (const job of page.jobs ?? []) {
+      if (seenJobIds.add(job.id)) jobs.push(job);
+    }
+
+    const nextCursor = page.nextCursor?.trim() || null;
+    if (!nextCursor) break;
+    if (seenCursors.has(nextCursor)) {
+      throw new Error('Completed job history pagination returned a repeated cursor. Refresh and try again.');
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  return {
+    jobs,
+    historyDays,
+    nextCursor: null,
+    commercialRatePartial,
+  } satisfies JobsPage;
+}
+
 export async function fetchJobs(scope: JobScope, token: string) {
-  const response = await apiRequest<{ jobs: DriverJob[] }>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
-  void syncOperationalTracking({ promptForPermissions: true }).catch(() => undefined);
+  const response = scope === 'completed'
+    ? await fetchCompletedHistory(token)
+    : await apiRequest<JobsPage>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
+
+  // Completed-history browsing must never be the action that prompts a driver
+  // for location permission. Active/upcoming work still reconciles the exact
+  // server-authoritative tracking state and may request permission when needed.
+  void syncOperationalTracking({ promptForPermissions: scope !== 'completed' }).catch(() => undefined);
   return response;
 }
 
