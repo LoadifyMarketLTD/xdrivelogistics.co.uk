@@ -11,14 +11,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-/**
- * Security boundary for Android commercial/Marketplace reads.
- *
- * Pre-award job rows must never be read directly from Supabase because the
- * underlying jobs table contains execution-only addresses, contacts and refs.
- * This client consumes only XDrive server projections: quote-safe Marketplace
- * loads plus assignment-gated execution jobs and quote history.
- */
 class SecureDriverCommercialApi(
     private val xdriveBaseUrl: String,
     private val installationId: String,
@@ -50,6 +42,11 @@ class SecureDriverCommercialApi(
                         deliveryLocation = row.string("deliveryLocation").ifBlank { "Delivery area" },
                         pickupDatetime = row.nullableString("pickupDatetime"),
                         clientName = row.string("clientName"),
+                        baseAmount = row.doubleOrNull("baseAmount"),
+                        additionalExtrasGbp = row.doubleOrNull("additionalExtrasGbp") ?: 0.0,
+                        collectWithinMinutes = row.intOrNull("collectWithinMinutes"),
+                        quotedVehicleId = row.nullableString("quotedVehicleId"),
+                        quotedVehicleLabel = row.nullableString("quotedVehicleLabel"),
                     )
                 )
             }
@@ -60,21 +57,15 @@ class SecureDriverCommercialApi(
         val assignedPayload = getJson("/api/driver/mobile/jobs?scope=all&limit=100", session.accessToken)
         val assignedRows = assignedPayload.getAsJsonArray("jobs") ?: JsonArray()
         val assigned = buildList {
-            for (index in 0 until assignedRows.size()) {
-                add(mapAssignedJob(assignedRows[index].asJsonObject))
-            }
+            for (index in 0 until assignedRows.size()) add(mapAssignedJob(assignedRows[index].asJsonObject))
         }
-
         val nearbyPayload = getJson("/api/driver/mobile/nearby-jobs?limit=100", session.accessToken)
         val nearbyRows = nearbyPayload.getAsJsonArray("jobs") ?: JsonArray()
         val nearby = buildList {
-            for (index in 0 until nearbyRows.size()) {
-                add(mapMarketplaceJob(nearbyRows[index].asJsonObject))
-            }
+            for (index in 0 until nearbyRows.size()) add(mapMarketplaceJob(nearbyRows[index].asJsonObject))
         }
-
         val assignedIds = assigned.mapTo(mutableSetOf()) { it.id }
-        return@networkResult (assigned + nearby.filterNot { it.id in assignedIds })
+        (assigned + nearby.filterNot { it.id in assignedIds })
             .sortedWith(compareBy<DriverJob> { it.isPosted() }.thenBy { it.pickupDatetime ?: "" })
     }
 
@@ -83,12 +74,18 @@ class SecureDriverCommercialApi(
         jobId: String,
         amount: Double,
         message: String,
+        collectWithinMinutes: Int? = null,
+        additionalExtrasGbp: Double = 0.0,
+        vehicleId: String? = null,
     ): Result<Unit> = networkResult {
         requireBaseUrl()
         val body = JsonObject().apply {
             addProperty("jobId", jobId)
             addProperty("amount", amount)
             addProperty("message", message.ifBlank { "Submitted from XDrive Driver Android" })
+            if (collectWithinMinutes != null) addProperty("collectWithinMinutes", collectWithinMinutes)
+            addProperty("additionalExtrasGbp", additionalExtrasGbp)
+            if (!vehicleId.isNullOrBlank()) addProperty("vehicleId", vehicleId)
         }
         val request = Request.Builder()
             .url("${xdriveBaseUrl.trimEnd('/')}/api/driver/mobile/bids")
@@ -124,9 +121,7 @@ class SecureDriverCommercialApi(
             deliveryPhotos = row.stringArray("deliveryPhotos"),
             podPhotos = row.stringArray("podPhotos"),
             collectionPhotoUrl = row.nullableString("collectionPhotoUrl"),
-            deliverySignatureData = row.get("deliverySignatureData")
-                ?.takeUnless { it.isJsonNull }
-                ?.let { gson.toJson(it) },
+            deliverySignatureData = row.get("deliverySignatureData")?.takeUnless { it.isJsonNull }?.let { gson.toJson(it) },
             clientSignatureName = row.string("clientSignatureName"),
             podRequired = row.booleanOrNull("podRequired") ?: true,
         )
@@ -162,8 +157,7 @@ class SecureDriverCommercialApi(
             pickupPostcode = pickup?.string("postcode").orEmpty(),
             deliveryPostcode = delivery?.string("postcode").orEmpty(),
             distanceMiles = row.doubleOrNull("journeyDistanceMiles"),
-            pickupDistanceFromActiveDeliveryMiles = row.doubleOrNull("distanceFromCurrentDeliveryMiles")
-                ?: row.doubleOrNull("distanceToPickupMiles"),
+            pickupDistanceFromActiveDeliveryMiles = row.doubleOrNull("distanceFromCurrentDeliveryMiles") ?: row.doubleOrNull("distanceToPickupMiles"),
             podRequired = true,
         )
     }
@@ -193,18 +187,13 @@ class SecureDriverCommercialApi(
 
     private fun throwResponse(code: Int, raw: String, fallback: String): Nothing {
         val message = extractError(raw, fallback)
-        if ((code == 401 || code == 403) && message.isNativeBindingMessage()) {
-            throw DeviceSessionException(code, message)
-        }
+        if ((code == 401 || code == 403) && message.isNativeBindingMessage()) throw DeviceSessionException(code, message)
         throw IllegalStateException("HTTP $code: $message")
     }
 
     private fun String.isNativeBindingMessage(): Boolean {
         val lower = lowercase()
-        return "native device" in lower ||
-            "mobile session" in lower ||
-            "revoked or replaced" in lower ||
-            "device identity" in lower
+        return "native device" in lower || "mobile session" in lower || "revoked or replaced" in lower || "device identity" in lower
     }
 
     private fun requireBaseUrl() {
@@ -212,42 +201,22 @@ class SecureDriverCommercialApi(
         require(installationId.isNotBlank()) { "Native installation identity is missing." }
     }
 
-    private suspend fun <T> networkResult(block: () -> T): Result<T> =
-        withContext(Dispatchers.IO) { runCatching(block) }
-
+    private suspend fun <T> networkResult(block: () -> T): Result<T> = withContext(Dispatchers.IO) { runCatching(block) }
     private fun extractError(rawBody: String, fallback: String): String = runCatching {
         if (rawBody.isBlank()) fallback else {
             val json = gson.fromJson(rawBody, JsonObject::class.java)
             json.get("error")?.asString ?: json.get("message")?.asString ?: fallback
         }
     }.getOrDefault(fallback)
-
-    private fun JsonObject.string(name: String): String {
-        val value = get(name) ?: return ""
-        return if (value.isJsonNull) "" else runCatching { value.asString }.getOrDefault("")
-    }
-
-    private fun JsonObject.nullableString(name: String): String? {
-        val value = get(name) ?: return null
-        return if (value.isJsonNull) null else runCatching { value.asString }.getOrNull()
-    }
-
-    private fun JsonObject.doubleOrNull(name: String): Double? {
-        val value = get(name) ?: return null
-        return if (value.isJsonNull) null else runCatching { value.asDouble }.getOrNull()
-    }
-
-    private fun JsonObject.booleanOrNull(name: String): Boolean? {
-        val value = get(name) ?: return null
-        return if (value.isJsonNull) null else runCatching { value.asBoolean }.getOrNull()
-    }
-
+    private fun JsonObject.string(name: String): String = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrDefault("") } ?: ""
+    private fun JsonObject.nullableString(name: String): String? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrNull() }
+    private fun JsonObject.doubleOrNull(name: String): Double? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asDouble }.getOrNull() }
+    private fun JsonObject.intOrNull(name: String): Int? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() }
+    private fun JsonObject.booleanOrNull(name: String): Boolean? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asBoolean }.getOrNull() }
     private fun JsonObject.stringArray(name: String): List<String> {
         val array = getAsJsonArray(name) ?: return emptyList()
         return buildList {
-            for (index in 0 until array.size()) {
-                array[index].takeUnless { it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }?.let(::add)
-            }
+            for (index in 0 until array.size()) array[index].takeUnless { it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }?.let(::add)
         }
     }
 }
