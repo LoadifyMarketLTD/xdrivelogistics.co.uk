@@ -5,90 +5,108 @@ import co.uk.xdrivelogistics.driver.data.DriverProfile
 import co.uk.xdrivelogistics.driver.data.DriverSession
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Function type for the actual API call that submits a quote.
- * Decoupled from [ApiClient] so the coordinator can be tested without a live API.
- */
+internal data class RichQuoteInput(
+    val amountText: String,
+    val note: String,
+    val collectWithinMinutes: Int? = null,
+    val additionalExtrasText: String = "",
+    val vehicleId: String? = null,
+    val vehicleLabel: String? = null,
+)
+
 internal typealias QuoteSubmitFn = suspend (
     session: DriverSession,
     profile: DriverProfile,
     jobId: String,
     amount: Double,
     note: String,
+    collectWithinMinutes: Int?,
+    additionalExtrasGbp: Double,
+    vehicleId: String?,
 ) -> Result<Unit>
 
-/** Result returned by [QuoteSubmissionCoordinator.submit]. */
 internal sealed class QuoteSubmitOutcome {
-    /** A previous submission is still in-flight; this call was dropped without an API call. */
     object AlreadyInFlight : QuoteSubmitOutcome()
-    /** No active session was present; no API call was made. */
     object NoSession : QuoteSubmitOutcome()
-    /** Driver profile was not loaded; no API call was made. */
     object NoProfile : QuoteSubmitOutcome()
-    /** Input validation failed; no API call was made. */
-    data class ValidationFailure(val result: QuoteValidationResult) : QuoteSubmitOutcome()
-    /** The API call succeeded. [resolvedJobId] is the job that was actually quoted. */
-    data class Success(val resolvedJobId: String) : QuoteSubmitOutcome()
-    /** The API call failed. */
-    data class ApiFailure(val error: Throwable) : QuoteSubmitOutcome()
+    data class ValidationFailure(val message: String) : QuoteSubmitOutcome()
+    data class Success(
+        val resolvedJobId: String,
+        val amount: Double,
+        val additionalExtrasGbp: Double,
+        val collectWithinMinutes: Int?,
+        val vehicleId: String?,
+        val vehicleLabel: String?,
+        val note: String,
+    ) : QuoteSubmitOutcome()
+    data class ApiFailure(
+        val error: Throwable,
+        val amount: Double,
+        val additionalExtrasGbp: Double,
+        val collectWithinMinutes: Int?,
+        val vehicleId: String?,
+        val vehicleLabel: String?,
+        val note: String,
+    ) : QuoteSubmitOutcome()
 }
 
-/**
- * Encapsulates quote-submission orchestration with:
- * - An atomic single-flight guard (at most one submission in progress at a time).
- * - Explicit job-ID capture at call time, never re-read inside the coroutine.
- * - Quote-open lifecycle parity with the server (`posted` or `quoted`).
- *
- * The injectable [submitFn] makes this unit-testable without Robolectric or a live API.
- * Production code passes the secure XDrive server quote mutation; tests pass a stub lambda.
- */
 internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
-
     private val inFlight = AtomicBoolean(false)
 
-    /**
-     * Attempt to submit a quote.
-     *
-     * Returns [QuoteSubmitOutcome.AlreadyInFlight] immediately if another submission is already
-     * in progress — no API call is made and the guard is not re-set.
-     *
-     * @param quoteJobId The job ID explicitly opened for quoting (captured before coroutine launch).
-     * @param jobs       Current live-loads list used for validation.
-     * @param amountText Raw amount string entered in the UI.
-     * @param note       Optional message to accompany the quote.
-     * @param session    Active driver session; null yields [QuoteSubmitOutcome.NoSession].
-     * @param profile    Active driver profile; null yields [QuoteSubmitOutcome.NoProfile].
-     */
     suspend fun submit(
         quoteJobId: String?,
         jobs: List<DriverJob>,
-        amountText: String,
-        note: String,
+        input: RichQuoteInput,
         session: DriverSession?,
         profile: DriverProfile?,
     ): QuoteSubmitOutcome {
-        // compareAndSet false->true is atomic; if it returns false the flag was already true.
         if (!inFlight.compareAndSet(false, true)) return QuoteSubmitOutcome.AlreadyInFlight
         return try {
             val sess = session ?: return QuoteSubmitOutcome.NoSession
             val prof = profile ?: return QuoteSubmitOutcome.NoProfile
-
             val selectedJob = jobs.firstOrNull { it.id == quoteJobId }
-                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.NO_JOB_SELECTED)
+                ?: return QuoteSubmitOutcome.ValidationFailure("Select a posted job first.")
             if (selectedJob.status.lowercase() !in setOf("posted", "quoted")) {
-                return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.JOB_NOT_POSTED)
+                return QuoteSubmitOutcome.ValidationFailure("This job is no longer open for quotation.")
             }
-            val amount = parseFinitePositiveAmount(amountText)
-                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT)
+            val amount = parseFinitePositiveAmount(input.amountText)
+                ?: return QuoteSubmitOutcome.ValidationFailure("Enter a valid quote amount.")
+            val extras = if (input.additionalExtrasText.isBlank()) 0.0 else parseNonNegativeAmount(input.additionalExtrasText)
+                ?: return QuoteSubmitOutcome.ValidationFailure("Enter a valid extras amount.")
+            if (extras > 1_000_000.0 || amount + extras > 1_000_000.0) {
+                return QuoteSubmitOutcome.ValidationFailure("Quote total is too high.")
+            }
+            if (input.collectWithinMinutes != null && input.collectWithinMinutes !in 5..240) {
+                return QuoteSubmitOutcome.ValidationFailure("Collection time must be between 5 and 240 minutes.")
+            }
+            val vehicleId = input.vehicleId?.trim()?.takeIf { it.isNotBlank() }
+            if (vehicleId != null && vehicleId != prof.vehicleId) {
+                return QuoteSubmitOutcome.ValidationFailure("Select the vehicle currently assigned to your driver profile.")
+            }
+            val note = input.note.trim()
+            if (note.length > 1_000) return QuoteSubmitOutcome.ValidationFailure("Quote message is too long.")
 
-            // The server mutation revalidates operational eligibility and job availability.
-            submitFn(sess, prof, selectedJob.id, amount, note.trim())
+            submitFn(sess, prof, selectedJob.id, amount, note, input.collectWithinMinutes, extras, vehicleId)
                 .fold(
-                    onSuccess = { QuoteSubmitOutcome.Success(selectedJob.id) },
-                    onFailure = { QuoteSubmitOutcome.ApiFailure(it) },
+                    onSuccess = {
+                        QuoteSubmitOutcome.Success(
+                            selectedJob.id, amount, extras, input.collectWithinMinutes, vehicleId, input.vehicleLabel, note,
+                        )
+                    },
+                    onFailure = {
+                        QuoteSubmitOutcome.ApiFailure(
+                            it, amount, extras, input.collectWithinMinutes, vehicleId, input.vehicleLabel, note,
+                        )
+                    },
                 )
         } finally {
             inFlight.set(false)
         }
     }
+}
+
+private fun parseNonNegativeAmount(raw: String): Double? {
+    val normalized = raw.trim().replace(",", "").removePrefix("£").trim()
+    val value = normalized.toDoubleOrNull() ?: return null
+    return value.takeIf { it.isFinite() && it >= 0.0 }
 }
