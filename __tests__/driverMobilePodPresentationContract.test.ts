@@ -20,8 +20,28 @@ describe('Driver mobile private POD presentation', () => {
     expect(presentation).toContain('damagePhotoUris:');
     expect(presentation).toContain('documentUris:');
     expect(presentation).toContain('receiverName:');
+    expect(presentation).toContain('receiverCompany: notes.receiverCompany');
+    expect(presentation).toContain('quantityDelivered: notes.quantityDelivered');
+    expect(presentation).toContain('itemsMissing: notes.itemsMissing');
+    expect(presentation).toContain('itemsDamaged: notes.itemsDamaged');
+    expect(presentation).toContain('receiverNotes: notes.receiverNotes');
+    expect(presentation).toContain('driverNotes: notes.driverNotes');
+    expect(presentation).toContain('comments: notes.comments');
     expect(presentation).toContain('signatureData,');
     expect(presentation).toContain("completedByRole: 'driver'");
+  });
+
+  it('reconstructs structured mobile POD notes while preserving older free text', () => {
+    expect(presentation).toContain('function parsePodNotes(value: string | null | undefined)');
+    expect(presentation).toContain("[/^Receiver company:\\s*(.+)$/i, 'receiverCompany']");
+    expect(presentation).toContain("[/^Qty:\\s*(.+)$/i, 'quantityDelivered']");
+    expect(presentation).toContain("[/^Missing:\\s*(.+)$/i, 'itemsMissing']");
+    expect(presentation).toContain("[/^Damaged:\\s*(.+)$/i, 'itemsDamaged']");
+    expect(presentation).toContain("[/^Receiver:\\s*(.+)$/i, 'receiverNotes']");
+    expect(presentation).toContain("[/^Driver:\\s*(.+)$/i, 'driverNotes']");
+    expect(presentation).toContain("[/^Comments:\\s*(.+)$/i, 'comments']");
+    expect(presentation).toContain('/^Damage photos:\\s*\\d+$/i.test(text)');
+    expect(presentation).toContain('if (!recognised) parsed.comments = raw');
   });
 
   it('adds signed POD presentation to both job list and authorised detail reads', () => {
