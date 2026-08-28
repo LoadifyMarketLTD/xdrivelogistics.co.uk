@@ -105,8 +105,11 @@ export async function resolveDriverBidEligibility(
       .in('status', activeBidStatuses)
       .limit(1);
 
+    // The canonical database rule is one active quote per carrier company/job.
+    // A second driver belonging to the same carrier must therefore see the same
+    // active-bid gate instead of reaching the unique index only at insert time.
     const { data: existing, error: existingError } = driver.companyId
-      ? await query.eq('company_id', driver.companyId).eq('bidder_driver_id', driver.driverId)
+      ? await query.eq('company_id', driver.companyId)
       : await query.eq('bidder_driver_id', driver.driverId);
 
     if (existingError) {
