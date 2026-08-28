@@ -7,12 +7,22 @@ describe('CX-benchmark market intelligence contract', () => {
     'utf8',
   );
 
-  it('keeps Who is Nearby privacy-safe and aggregate-only', () => {
+  it('keeps Who is Nearby privacy-safe, aggregate-only and reciprocal', () => {
     expect(source).toContain('MIN_CLUSTER_SIZE = 3');
     expect(source).toContain('GRID_DEGREES = 0.1');
+    expect(source).toContain(".select('exact_lat,exact_lng,available_until')");
     expect(source).toContain(".eq('visibility', 'exchange')");
     expect(source).toContain('cluster.count >= MIN_CLUSTER_SIZE');
+    expect(source).toContain("reason: ownLocation ? null : 'Set Exchange availability to enable nearby competition intelligence.'");
     expect(source).not.toContain('display_name');
+    expect(source).not.toContain('exact_lat,exact_lng,driver_id');
+  });
+
+  it('reads competitor locations only from exchange-rounded coordinates', () => {
+    expect(source).toContain(".select('driver_id,company_id,exchange_lat,exchange_lng,available_until')");
+    expect(source).toContain('validCoordinate(row.exchange_lat, row.exchange_lng)');
+    expect(source).not.toContain('row.exact_lat');
+    expect(source).not.toContain('row.exact_lng');
   });
 
   it('uses accepted commercial agreements for seven-day PPM intelligence', () => {
