@@ -3,7 +3,12 @@ import { Alert, Animated, PanResponder, RefreshControl, ScrollView, StyleSheet, 
 
 import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
 import { supabase } from '../auth/supabase';
-import { loadMarketplacePreferences, saveMarketplacePreferences, type MarketplacePreferences } from '../jobs/marketplacePreferences';
+import {
+  loadMarketplacePreferences,
+  saveMarketplacePreferences,
+  type DestinationRadiusMiles,
+  type MarketplacePreferences,
+} from '../jobs/marketplacePreferences';
 import {
   buildQuoteMessage,
   computeSubtotal,
@@ -18,6 +23,8 @@ import { DriverAvailabilityPanel } from './DriverAvailabilityPanel';
 import { LiveLoadCard } from './LiveLoadCard';
 
 type Feed = 'live' | 'pinned' | 'hidden';
+
+const destinationRadiusOptions: DestinationRadiusMiles[] = [10, 20, 30, 50, 100, 150, 200, 300];
 
 const defaultPreferences: MarketplacePreferences = {
   savedJobIds: [],
@@ -72,7 +79,6 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         </>
       )}
 
-      {/* Currency — GBP only as required by backend contract */}
       <View style={styles.lineRow}>
         <Text style={styles.lineLabel}>Currency</Text>
         <Text style={styles.currencyFixed}>{SUPPORTED_CURRENCY}</Text>
@@ -109,7 +115,6 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         editable={!submitting}
       />
 
-      {/* VAT toggle */}
       <TouchableOpacity style={styles.vatRow} onPress={() => set('vatEnabled', !items.vatEnabled)} disabled={submitting}>
         <View style={[styles.vatCheck, items.vatEnabled && styles.vatCheckActive]}>
           {items.vatEnabled ? <Text style={styles.vatCheckMark}>✓</Text> : null}
@@ -117,7 +122,6 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         <Text style={styles.vatLabel}>Apply VAT (20%)</Text>
       </TouchableOpacity>
 
-      {/* Subtotal / VAT / Total breakdown */}
       {items.vatEnabled && (
         <>
           <View style={styles.totalRow}>
@@ -242,6 +246,15 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     });
   }, [accountEmail]);
 
+  const applyDestinationSettings = useCallback((update: (current: MarketplacePreferences) => MarketplacePreferences) => {
+    setPreferences((current) => {
+      const next = update(current);
+      void saveMarketplacePreferences(accountEmail, next);
+      void loadJobs(next);
+      return next;
+    });
+  }, [accountEmail, loadJobs]);
+
   const togglePin = useCallback((jobId: string) => persistPreferences((current) => ({
     ...current,
     savedJobIds: current.savedJobIds.includes(jobId) ? current.savedJobIds.filter((id) => id !== jobId) : [...current.savedJobIds, jobId],
@@ -302,6 +315,39 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
         <TouchableOpacity key={key} style={[styles.tab, feed === key && styles.activeTab]} onPress={() => setFeed(key)}><Text style={[styles.tabText, feed === key && styles.activeTabText]}>{label}</Text></TouchableOpacity>
       ))}
     </View>
+    <View style={styles.returnIqPanel}>
+      <View style={styles.returnIqHeader}>
+        <View style={styles.returnIqTitleWrap}>
+          <Text style={styles.returnIqTitle}>Return IQ</Text>
+          <Text style={styles.returnIqCopy}>Prioritise suitable loads near your active delivery destination.</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.returnIqToggle, preferences.destinationPriorityEnabled && styles.returnIqToggleActive]}
+          onPress={() => applyDestinationSettings((current) => ({ ...current, destinationPriorityEnabled: !current.destinationPriorityEnabled }))}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle Return IQ"
+        >
+          <Text style={[styles.returnIqToggleText, preferences.destinationPriorityEnabled && styles.returnIqToggleTextActive]}>
+            {preferences.destinationPriorityEnabled ? 'ON' : 'OFF'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {preferences.destinationPriorityEnabled ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radiusRow}>
+          {destinationRadiusOptions.map((radius) => (
+            <TouchableOpacity
+              key={radius}
+              style={[styles.radiusChip, preferences.destinationRadiusMiles === radius && styles.radiusChipActive]}
+              onPress={() => applyDestinationSettings((current) => ({ ...current, destinationRadiusMiles: radius }))}
+              accessibilityRole="button"
+              accessibilityLabel={`Return IQ radius ${radius} miles`}
+            >
+              <Text style={[styles.radiusChipText, preferences.destinationRadiusMiles === radius && styles.radiusChipTextActive]}>{radius} mi</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
+    </View>
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {quoteJob ? (
       <QuotePanel job={quoteJob} onCancel={() => setQuoteJob(null)} onSubmit={(items) => void handleSubmitQuote(items)} submitting={submitting} />
@@ -324,6 +370,20 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: '#ffc107' },
   tabText: { color: '#9ca3af', fontWeight: '800', fontSize: 13 },
   activeTabText: { color: '#111827' },
+  returnIqPanel: { backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
+  returnIqHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  returnIqTitleWrap: { flex: 1, gap: 3 },
+  returnIqTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '900' },
+  returnIqCopy: { color: '#9ca3af', fontSize: 12, lineHeight: 16 },
+  returnIqToggle: { minWidth: 54, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderColor: '#374151', borderWidth: 1, borderRadius: 18, backgroundColor: '#111827' },
+  returnIqToggleActive: { backgroundColor: '#ffc107', borderColor: '#ffc107' },
+  returnIqToggleText: { color: '#cbd5e1', fontWeight: '900', fontSize: 12 },
+  returnIqToggleTextActive: { color: '#111827' },
+  radiusRow: { gap: 8, paddingRight: 4 },
+  radiusChip: { minHeight: 38, minWidth: 58, alignItems: 'center', justifyContent: 'center', borderColor: '#374151', borderWidth: 1, borderRadius: 10, backgroundColor: '#111827', paddingHorizontal: 10 },
+  radiusChipActive: { backgroundColor: '#1d4ed8', borderColor: '#3b82f6' },
+  radiusChipText: { color: '#cbd5e1', fontWeight: '800', fontSize: 12 },
+  radiusChipTextActive: { color: '#ffffff' },
   error: { color: '#fca5a5', backgroundColor: '#3f151b', borderRadius: 10, padding: 10, fontWeight: '700' },
   quotePanel: { backgroundColor: '#0d1a24', borderColor: '#1f2937', borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
   quoteTitle: { color: '#f8fafc', fontSize: 14, fontWeight: '800' },
