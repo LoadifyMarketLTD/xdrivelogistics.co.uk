@@ -98,17 +98,21 @@ export async function resolveDriverBidEligibility(
 
   let hasActiveBid = false;
   if (job) {
-    const query = supabaseAdmin
+    let query = supabaseAdmin
       .from('job_bids')
       .select('id')
       .eq('job_id', jobId)
       .in('status', activeBidStatuses)
       .limit(1);
 
-    const { data: existing, error: existingError } = driver.companyId
-      ? await query.eq('company_id', driver.companyId).eq('bidder_driver_id', driver.driverId)
-      : await query.eq('bidder_driver_id', driver.driverId);
+    // Marketplace business rule and DB backstop are company-scoped: one active
+    // carrier quote per company per job. Do not let a second driver from the same
+    // company reach the insert race simply because bidder_driver_id differs.
+    query = driver.companyId
+      ? query.eq('company_id', driver.companyId)
+      : query.eq('bidder_driver_id', driver.driverId);
 
+    const { data: existing, error: existingError } = await query;
     if (existingError) {
       throw new Error(existingError.message);
     }
