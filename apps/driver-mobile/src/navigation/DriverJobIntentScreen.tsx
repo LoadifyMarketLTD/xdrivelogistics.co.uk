@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { fetchJob } from '../api/jobs';
-import { getSessionToken } from '../auth/sessionStore';
+import { supabase } from '../auth/supabase';
 import type { DriverJob } from '../jobs/types';
 import { colors, spacing } from '../ui/theme';
 
@@ -13,23 +13,58 @@ export function DriverJobIntentScreen({ jobId, onClose }: { jobId: string; onClo
 
   useEffect(() => {
     let active = true;
+    let authorisedUserId: string | null = null;
+
+    const invalidateIntent = (message: string) => {
+      if (!active) return;
+      authorisedUserId = null;
+      setJob(null);
+      setError(message);
+      setLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user?.id?.trim() || null;
+      if (!nextUserId) {
+        invalidateIntent('Your driver session has ended. Sign in again before opening this job.');
+        return;
+      }
+      if (authorisedUserId && nextUserId !== authorisedUserId) {
+        invalidateIntent('The signed-in driver changed. Close this notification and reopen it for the current account.');
+      }
+    });
+
     void (async () => {
       setLoading(true);
       setError('');
       try {
-        const token = (await getSessionToken())?.trim() || '';
-        if (!token) throw new Error('Sign in to XDrive Driver before opening this job.');
+        // Use Supabase's current authenticated session, not the separate secure
+        // token mirror. This prevents a cold-start intent from reviving a stale
+        // token that belonged to a previous or expired workspace session.
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        const session = data.session;
+        const token = session?.access_token?.trim() || '';
+        const userId = session?.user?.id?.trim() || '';
+        if (!token || !userId) throw new Error('Sign in to XDrive Driver before opening this job.');
+
+        authorisedUserId = userId;
         const response = await fetchJob(jobId, token);
-        if (!active) return;
+        if (!active || authorisedUserId !== userId) return;
         setJob(response.job);
       } catch (loadError) {
         if (!active) return;
+        setJob(null);
         setError(loadError instanceof Error ? loadError.message : 'This job cannot be opened.');
       } finally {
         if (active) setLoading(false);
       }
     })();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [jobId]);
 
   return (
