@@ -63,7 +63,15 @@ class QuoteSyncWorker(appContext: Context, params: WorkerParameters) : Coroutine
                 pendingStore.fail(action, message); notifyFailure(action.jobId, message); continue
             }
 
-            var result = commercialApi.submitJobQuote(session, action.jobId, action.amount, action.note)
+            var result = commercialApi.submitJobQuote(
+                session = session,
+                jobId = action.jobId,
+                amount = action.amount,
+                message = action.note,
+                collectWithinMinutes = action.collectWithinMinutes,
+                additionalExtrasGbp = action.additionalExtrasGbp,
+                vehicleId = action.vehicleId,
+            )
             if (result.isFailure && result.exceptionOrNull().isDeviceSessionRevoked()) {
                 sessionStore.clear(redirectToLogin = false); return Result.success()
             }
@@ -76,7 +84,15 @@ class QuoteSyncWorker(appContext: Context, params: WorkerParameters) : Coroutine
                         if (saved.exceptionOrNull().isDeviceSessionRevoked()) return Result.success()
                         return if (saved.exceptionOrNull().isRetryableQuoteFailure()) Result.retry() else Result.success()
                     }
-                    result = commercialApi.submitJobQuote(session, action.jobId, action.amount, action.note)
+                    result = commercialApi.submitJobQuote(
+                        session = session,
+                        jobId = action.jobId,
+                        amount = action.amount,
+                        message = action.note,
+                        collectWithinMinutes = action.collectWithinMinutes,
+                        additionalExtrasGbp = action.additionalExtrasGbp,
+                        vehicleId = action.vehicleId,
+                    )
                     if (result.isFailure && result.exceptionOrNull().isDeviceSessionRevoked()) {
                         sessionStore.clear(redirectToLogin = false); return Result.success()
                     }
@@ -153,7 +169,7 @@ internal fun Throwable?.isRetryableQuoteFailure(): Boolean {
     if (this is IOException) return true
     val text = message.orEmpty().lowercase()
     if ("maximum number of bids" in text || "active quote already exists" in text || "already quoted for this job" in text) return false
-    if ("no longer available" in text || "not visible" in text || "fully verified" in text) return false
+    if ("no longer available" in text || "not visible" in text || "fully verified" in text || "selected vehicle is not assigned" in text) return false
     return "unable to resolve host" in text || "no address associated with hostname" in text || "timeout" in text || "timed out" in text ||
         "connection" in text || "network" in text || "temporarily unavailable" in text || "http 408" in text || "http 425" in text ||
         ("http 429" in text && "please wait" in text) || "http 500" in text || "http 502" in text || "http 503" in text || "http 504" in text
