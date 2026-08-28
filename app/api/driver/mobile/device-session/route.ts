@@ -42,16 +42,17 @@ async function authenticatedDriver(request: NextRequest) {
   return { token, userId: authData.user.id, driverId: String(driver.id), sessionId };
 }
 
-async function invalidateStalePushBindings(userId: string, driverId: string, installationId: string) {
+async function invalidateStalePushBindings(userId: string, driverId: string, installationId: string, authSessionId: string) {
   const now = new Date().toISOString();
 
-  // The installation may have been used by a previous account/session. Remove
-  // its old FCM row completely so no notification for that historical identity
-  // can be delivered while the new session is being established.
+  // The installation may have been used by a previous Supabase Auth session.
+  // Remove only a mismatched session row: access-token refreshes keep the same
+  // auth_session_id and must not silently unregister the current FCM token.
   const currentInstallationCleanup = await supabaseAdmin!
     .from('driver_push_devices')
     .delete()
-    .eq('installation_id', installationId);
+    .eq('installation_id', installationId)
+    .neq('auth_session_id', authSessionId);
   if (currentInstallationCleanup.error) return currentInstallationCleanup.error;
 
   // Newest native login wins for API access and push delivery alike. Keeping an
@@ -114,7 +115,12 @@ export async function POST(request: NextRequest) {
   // resource. Fail the registration response if stale push bindings cannot be
   // invalidated; the already-authoritative binding remains and a retry of this
   // same session will safely retry cleanup before the app proceeds.
-  const pushCleanupError = await invalidateStalePushBindings(auth.userId, auth.driverId, installationId);
+  const pushCleanupError = await invalidateStalePushBindings(
+    auth.userId,
+    auth.driverId,
+    installationId,
+    auth.sessionId,
+  );
   if (pushCleanupError) {
     return NextResponse.json({ error: 'Mobile push session reconciliation failed.' }, { status: 503 });
   }
