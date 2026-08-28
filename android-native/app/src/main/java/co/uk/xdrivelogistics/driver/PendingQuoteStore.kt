@@ -17,6 +17,10 @@ data class PendingQuoteSubmission(
     val jobId: String,
     val amount: Double,
     val note: String,
+    val collectWithinMinutes: Int? = null,
+    val additionalExtrasGbp: Double = 0.0,
+    val vehicleId: String? = null,
+    val vehicleLabel: String? = null,
     val createdAtEpochMs: Long,
 )
 
@@ -25,6 +29,9 @@ private data class QuoteSyncFailure(
     val jobId: String,
     val amount: Double,
     val note: String,
+    val collectWithinMinutes: Int? = null,
+    val additionalExtrasGbp: Double = 0.0,
+    val vehicleId: String? = null,
     val message: String,
     val createdAtEpochMs: Long,
 )
@@ -54,16 +61,28 @@ class PendingQuoteStore(context: Context) {
         jobId: String,
         amount: Double,
         note: String,
+        collectWithinMinutes: Int? = null,
+        additionalExtrasGbp: Double = 0.0,
+        vehicleId: String? = null,
+        vehicleLabel: String? = null,
     ): PendingQuoteSubmission {
         require(amount.isFinite() && amount > 0.0 && amount <= 1_000_000.0) { "Enter a valid quote amount." }
         require(note.length <= 1_000) { "Quote message is too long." }
+        require(additionalExtrasGbp.isFinite() && additionalExtrasGbp >= 0.0 && additionalExtrasGbp <= 1_000_000.0) { "Enter a valid extras amount." }
+        require(collectWithinMinutes == null || collectWithinMinutes in 5..240) { "Collection time must be between 5 and 240 minutes." }
 
+        val cleanNote = note.trim()
+        val cleanVehicleId = vehicleId?.trim()?.takeIf { it.isNotBlank() }
         val current = readQueue().toMutableList()
         val sameJob = current.firstOrNull { it.userId == userId && it.driverId == driverId && it.jobId == jobId }
         if (sameJob != null) {
-            require(sameJob.amount == amount && sameJob.note == note.trim()) {
-                "A quote for this job is already pending. Wait for it to sync before changing the amount."
-            }
+            require(
+                sameJob.amount == amount &&
+                    sameJob.note == cleanNote &&
+                    sameJob.collectWithinMinutes == collectWithinMinutes &&
+                    sameJob.additionalExtrasGbp == additionalExtrasGbp &&
+                    sameJob.vehicleId == cleanVehicleId
+            ) { "A quote for this job is already pending. Wait for it to sync before changing the quote." }
             return sameJob
         }
 
@@ -73,7 +92,11 @@ class PendingQuoteStore(context: Context) {
             driverId = driverId,
             jobId = jobId,
             amount = amount,
-            note = note.trim(),
+            note = cleanNote,
+            collectWithinMinutes = collectWithinMinutes,
+            additionalExtrasGbp = additionalExtrasGbp,
+            vehicleId = cleanVehicleId,
+            vehicleLabel = vehicleLabel?.trim()?.takeIf { it.isNotBlank() },
             createdAtEpochMs = System.currentTimeMillis(),
         )
         current += action
@@ -104,6 +127,9 @@ class PendingQuoteStore(context: Context) {
             jobId = action.jobId,
             amount = action.amount,
             note = action.note,
+            collectWithinMinutes = action.collectWithinMinutes,
+            additionalExtrasGbp = action.additionalExtrasGbp,
+            vehicleId = action.vehicleId,
             message = message.take(500),
             createdAtEpochMs = System.currentTimeMillis(),
         )
@@ -129,7 +155,7 @@ class PendingQuoteStore(context: Context) {
                 DriverBid(
                     id = "pending-${action.id}",
                     jobId = action.jobId,
-                    amount = action.amount,
+                    amount = action.amount + action.additionalExtrasGbp,
                     currency = "GBP",
                     status = "pending",
                     message = action.note,
@@ -138,6 +164,11 @@ class PendingQuoteStore(context: Context) {
                     deliveryLocation = job?.deliveryLocation ?: "Delivery area",
                     pickupDatetime = job?.pickupDatetime,
                     clientName = job?.clientName.orEmpty(),
+                    baseAmount = action.amount,
+                    additionalExtrasGbp = action.additionalExtrasGbp,
+                    collectWithinMinutes = action.collectWithinMinutes,
+                    quotedVehicleId = action.vehicleId,
+                    quotedVehicleLabel = action.vehicleLabel,
                 )
             }
         return pending + serverBids
