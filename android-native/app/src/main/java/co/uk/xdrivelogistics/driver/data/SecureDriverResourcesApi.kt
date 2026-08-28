@@ -17,9 +17,12 @@ data class DriverResourceBundle(
     val documents: List<DriverDocument>,
     val notifications: List<DriverNotification>,
     val returnJourney: DriverReturnJourney?,
+    val returnJourneys: List<DriverReturnJourney>,
     val invoices: List<DriverInvoice>,
     val nearbyDrivers: List<NearbyDriver>,
     val jobSearchPreferences: Map<String, String>,
+    val alertPreferences: DriverAlertPreferences,
+    val searchDefaults: DriverSearchDefaults,
 )
 
 class SecureDriverResourcesApi(
@@ -46,8 +49,30 @@ class SecureDriverResourcesApi(
             email = profileRow.string("email").ifBlank { session.email },
             vehicleLabel = profileRow.string("vehicle_label"),
             vehicleRegistration = profileRow.string("vehicle_registration"),
+            payloadKg = profileRow.doubleOrNull("payload_kg"),
+            palletsCapacity = profileRow.intOrNull("pallets_capacity"),
         )
         require(profile.driverId.isNotBlank() && profile.companyId.isNotBlank()) { "Driver profile fields are incomplete." }
+
+        fun parseJourney(row: JsonObject): DriverReturnJourney = DriverReturnJourney(
+            id = row.string("id"),
+            fromLocation = row.string("from_postcode").ifBlank { row.string("from_location") },
+            toLocation = row.string("to_postcode").ifBlank { row.string("to_location") },
+            availableDate = row.nullableString("available_from") ?: row.nullableString("available_date"),
+            mode = row.string("journey_mode").ifBlank { "going_home" },
+            goAnywhere = row.booleanOrNull("go_anywhere") == true,
+            viaLocation = row.string("via_location"),
+            journeyEta = row.nullableString("journey_eta"),
+            capacityStatus = row.string("capacity_status"),
+            weightAvailableKg = row.doubleOrNull("weight_available_kg"),
+            palletSpaceAvailable = row.intOrNull("pallet_space_available"),
+            status = row.string("status").ifBlank { "available" },
+        )
+
+        val journeys = resources.array("return_journeys").mapObjects(::parseJourney)
+        val activeJourney = resources.get("return_journey")?.takeUnless { it.isJsonNull }?.asJsonObject?.let(::parseJourney)
+        val alertRow = resources.getAsJsonObject("alert_preferences") ?: JsonObject()
+        val searchDefaultsRow = resources.getAsJsonObject("search_filter_defaults") ?: JsonObject()
 
         DriverResourceBundle(
             profile = profile,
@@ -71,9 +96,8 @@ class SecureDriverResourcesApi(
                     createdAt = row.nullableString("created_at"),
                 )
             },
-            returnJourney = resources.get("return_journey")?.takeUnless { it.isJsonNull }?.asJsonObject?.let { row ->
-                DriverReturnJourney(row.string("id"), row.string("from_location"), row.string("to_location"), row.nullableString("available_date"))
-            },
+            returnJourney = activeJourney,
+            returnJourneys = journeys,
             invoices = resources.array("invoices").mapObjects { row ->
                 DriverInvoice(
                     id = row.string("id"),
@@ -102,6 +126,22 @@ class SecureDriverResourcesApi(
                     if (jobId.isNotBlank() && state.isNotBlank()) put(jobId, state)
                 }
             },
+            alertPreferences = DriverAlertPreferences(
+                pushEnabled = alertRow.booleanOrNull("push_enabled") ?: true,
+                soundEnabled = alertRow.booleanOrNull("sound_enabled") ?: true,
+                headsUpEnabled = alertRow.booleanOrNull("heads_up_enabled") ?: true,
+                marketplaceEnabled = alertRow.booleanOrNull("marketplace_enabled") ?: true,
+                quoteEnabled = alertRow.booleanOrNull("quote_enabled") ?: true,
+                bookingEnabled = alertRow.booleanOrNull("booking_enabled") ?: true,
+                operationalEnabled = alertRow.booleanOrNull("operational_enabled") ?: true,
+            ),
+            searchDefaults = DriverSearchDefaults(
+                values = buildMap {
+                    for ((key, element) in searchDefaultsRow.entrySet()) {
+                        if (!element.isJsonNull) put(key, runCatching { element.asString }.getOrDefault(element.toString()))
+                    }
+                },
+            ),
         )
     }
 
@@ -111,12 +151,50 @@ class SecureDriverResourcesApi(
     suspend fun deleteNotification(session: DriverSession, notificationId: String): Result<Unit> =
         action(session, JsonObject().apply { addProperty("action", "delete_notification"); addProperty("notificationId", notificationId) })
 
-    suspend fun saveReturnJourney(session: DriverSession, fromLocation: String, toLocation: String, availableDate: String): Result<Unit> =
+    suspend fun saveReturnJourney(
+        session: DriverSession,
+        mode: String,
+        goAnywhere: Boolean,
+        fromLocation: String,
+        toLocation: String,
+        viaLocation: String,
+        availableDate: String,
+        journeyEta: String,
+        capacityStatus: String,
+        weightAvailableKg: Double?,
+        palletSpaceAvailable: Int?,
+    ): Result<Unit> = action(session, JsonObject().apply {
+        addProperty("action", "save_return_journey")
+        addProperty("mode", mode)
+        addProperty("goAnywhere", goAnywhere)
+        addProperty("fromLocation", fromLocation)
+        addProperty("toLocation", toLocation)
+        addProperty("viaLocation", viaLocation)
+        if (availableDate.isNotBlank()) addProperty("availableDate", availableDate)
+        if (journeyEta.isNotBlank()) addProperty("journeyEta", journeyEta)
+        addProperty("capacityStatus", capacityStatus)
+        if (weightAvailableKg != null) addProperty("weightAvailableKg", weightAvailableKg)
+        if (palletSpaceAvailable != null) addProperty("palletSpaceAvailable", palletSpaceAvailable)
+    })
+
+    suspend fun saveAlertPreferences(session: DriverSession, preferences: DriverAlertPreferences): Result<Unit> =
         action(session, JsonObject().apply {
-            addProperty("action", "save_return_journey")
-            addProperty("fromLocation", fromLocation)
-            addProperty("toLocation", toLocation)
-            if (availableDate.isNotBlank()) addProperty("availableDate", availableDate)
+            addProperty("action", "save_alert_preferences")
+            addProperty("pushEnabled", preferences.pushEnabled)
+            addProperty("soundEnabled", preferences.soundEnabled)
+            addProperty("headsUpEnabled", preferences.headsUpEnabled)
+            addProperty("marketplaceEnabled", preferences.marketplaceEnabled)
+            addProperty("quoteEnabled", preferences.quoteEnabled)
+            addProperty("bookingEnabled", preferences.bookingEnabled)
+            addProperty("operationalEnabled", preferences.operationalEnabled)
+        })
+
+    suspend fun saveSearchDefaults(session: DriverSession, values: Map<String, String>): Result<Unit> =
+        action(session, JsonObject().apply {
+            addProperty("action", "save_search_filter_defaults")
+            val filters = JsonObject()
+            values.forEach { (key, value) -> filters.addProperty(key, value) }
+            add("filters", filters)
         })
 
     suspend fun setJobSearchPreference(session: DriverSession, jobId: String, state: String?): Result<Unit> =
@@ -158,7 +236,6 @@ class SecureDriverResourcesApi(
     }
 
     private fun getRequest(accessToken: String): Request = baseRequest(accessToken).get().build()
-
     private fun baseRequest(accessToken: String): Request.Builder {
         require(xdriveBaseUrl.isNotBlank()) { "XDRIVE_BASE_URL is missing." }
         require(installationId.isNotBlank()) { "Native installation identity is missing." }
@@ -191,5 +268,6 @@ class SecureDriverResourcesApi(
     private fun JsonObject.string(name: String): String = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrDefault("") } ?: ""
     private fun JsonObject.nullableString(name: String): String? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrNull() }
     private fun JsonObject.doubleOrNull(name: String): Double? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asDouble }.getOrNull() }
+    private fun JsonObject.intOrNull(name: String): Int? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asInt }.getOrNull() }
     private fun JsonObject.booleanOrNull(name: String): Boolean? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asBoolean }.getOrNull() }
 }
