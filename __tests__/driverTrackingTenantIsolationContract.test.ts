@@ -6,23 +6,39 @@ const root = path.resolve(__dirname, '..');
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('driver tracking tenant isolation contract', () => {
-  it('fails closed when an awarded job is not bound to the driver company', () => {
+  it('uses awarded carrier first and assigned company as the fleet/legacy tenant fallback', () => {
     const trackingState = read('app/api/driver/tracking-state/route.ts');
     const location = read('app/api/driver/location/route.ts');
 
     expect(trackingState).toContain(
-      'job.awarded_carrier_company_id && job.awarded_carrier_company_id !== driver.companyId',
+      'const carrierCompanyId = job.awarded_carrier_company_id ?? job.assigned_company_id;',
     );
-    expect(location).toContain(
-      'jobRow.awarded_carrier_company_id && jobRow.awarded_carrier_company_id !== driverRow.company_id',
+    expect(trackingState).toContain(
+      'if (carrierCompanyId && carrierCompanyId !== driver.companyId) return false;',
     );
 
-    expect(trackingState).not.toContain(
-      'job.awarded_carrier_company_id && driver.companyId && job.awarded_carrier_company_id !== driver.companyId',
+    expect(location).toContain(
+      "assigned_company_id: string | null; awarded_carrier_company_id: string | null;",
     );
-    expect(location).not.toContain(
-      'jobRow.awarded_carrier_company_id && driverRow.company_id && jobRow.awarded_carrier_company_id !== driverRow.company_id',
+    expect(location).toContain(
+      'job.awarded_carrier_company_id ?? job.assigned_company_id',
     );
+    expect(location).toContain(
+      'if (carrierCompanyId && carrierCompanyId !== driverRow.company_id)',
+    );
+    expect(location).toContain(
+      'assigned_driver_id, assigned_company_id, awarded_carrier_company_id',
+    );
+  });
+
+  it('keeps individual-driver jobs valid only when no carrier company is bound', () => {
+    const trackingState = read('app/api/driver/tracking-state/route.ts');
+    const location = read('app/api/driver/location/route.ts');
+
+    expect(trackingState).toContain('if (carrierCompanyId && carrierCompanyId !== driver.companyId)');
+    expect(location).toContain('if (carrierCompanyId && carrierCompanyId !== driverRow.company_id)');
+    expect(trackingState).not.toContain('if (!carrierCompanyId) return false');
+    expect(location).not.toContain('if (!carrierCompanyId)');
   });
 
   it('stops operational tracking before clearing account-scoped data on session loss', () => {
