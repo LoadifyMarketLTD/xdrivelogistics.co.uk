@@ -21,7 +21,17 @@ describe('Driver mobile persistent POD evidence contract', () => {
     expect(evidenceRoute).toContain("category === 'photos' || category === 'damage' || category === 'documents'");
     expect(mobileJobs).toContain("'x-xdrive-evidence-kind': 'delivery'");
     expect(mobileJobs).toContain("'x-xdrive-evidence-category': kind");
-    expect(mobileJobs).toContain("persistPodFiles(jobId, metadata.damagePhotoUris, 'damage', token)");
+    expect(mobileJobs).toContain('const normalizedPhotos = normalizedPodPhotoInputs(metadata)');
+    expect(mobileJobs).toContain("persistPodFiles(jobId, normalizedPhotos.damagePhotoUris, 'damage', token)");
+  });
+
+  it('recovers pre-reconciliation queued damage photos without guessing', () => {
+    expect(mobileJobs).toContain('function normalizedPodPhotoInputs(metadata: Record<string, unknown>)');
+    expect(mobileJobs).toContain('if (Array.isArray(metadata.damagePhotoUris))');
+    expect(mobileJobs).toContain('Damage photos:');
+    expect(mobileJobs).toContain('damageCount <= combinedOrDelivery.length');
+    expect(mobileJobs).toContain('deliveryPhotoUris: combinedOrDelivery.slice(0, splitAt)');
+    expect(mobileJobs).toContain('damagePhotoUris: combinedOrDelivery.slice(splitAt)');
   });
 
   it('persists damage evidence in a dedicated JSONB field', () => {
