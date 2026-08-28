@@ -230,7 +230,28 @@ async function savePod(
   ) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
-  if (!rawSignature && photoPaths.length + damagePhotoPaths.length + documentPaths.length === 0) {
+
+  const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
+  const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
+  const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
+  const signatureData = rawSignature || job.delivery_signature_data || null;
+  const effectivePhotoCount = new Set([...existingPhotos, ...photoPaths]).size;
+  const hasAnyEvidence = Boolean(signatureData)
+    || effectivePhotoCount > 0
+    || new Set([...existingDamagePhotos, ...damagePhotoPaths]).size > 0
+    || new Set([...existingDocuments, ...documentPaths]).size > 0;
+
+  // POD capture must satisfy the same requirements enforced by the authoritative
+  // delivered transition. Otherwise the app could report "POD saved" and then
+  // fail immediately on the next lifecycle step.
+  if (job.pod_required !== false) {
+    if (effectivePhotoCount === 0) {
+      return respond(400, { error: 'At least one delivery photo is required for POD.' });
+    }
+    if (!signatureData) {
+      return respond(400, { error: 'Recipient signature is required for POD.' });
+    }
+  } else if (!hasAnyEvidence) {
     return respond(400, { error: 'A recipient signature, POD photo, damage photo or POD document is required.' });
   }
 
@@ -250,10 +271,6 @@ async function savePod(
   }
 
   const now = new Date().toISOString();
-  const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
-  const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
-  const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const signatureData = rawSignature || job.delivery_signature_data || null;
 
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
