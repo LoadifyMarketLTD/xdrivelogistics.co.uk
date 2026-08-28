@@ -37,7 +37,7 @@ internal sealed class QuoteSubmitOutcome {
     object AlreadyInFlight : QuoteSubmitOutcome()
     object NoSession : QuoteSubmitOutcome()
     object NoProfile : QuoteSubmitOutcome()
-    data class ValidationFailure(val message: String) : QuoteSubmitOutcome()
+    data class ValidationFailure(val result: QuoteValidationResult, val detail: String? = null) : QuoteSubmitOutcome()
     data class Success(
         val resolvedJobId: String,
         val amount: Double,
@@ -60,9 +60,7 @@ internal sealed class QuoteSubmitOutcome {
 
 internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
     constructor(legacySubmitFn: LegacyQuoteSubmitFn) : this(
-        submitFn = { session, profile, jobId, amount, note, _, _, _ ->
-            legacySubmitFn(session, profile, jobId, amount, note)
-        },
+        submitFn = { session, profile, jobId, amount, note, _, _, _ -> legacySubmitFn(session, profile, jobId, amount, note) },
     )
 
     private val inFlight = AtomicBoolean(false)
@@ -79,39 +77,31 @@ internal class QuoteSubmissionCoordinator(private val submitFn: QuoteSubmitFn) {
             val sess = session ?: return QuoteSubmitOutcome.NoSession
             val prof = profile ?: return QuoteSubmitOutcome.NoProfile
             val selectedJob = jobs.firstOrNull { it.id == quoteJobId }
-                ?: return QuoteSubmitOutcome.ValidationFailure("Select a posted job first.")
+                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.NO_JOB_SELECTED)
             if (selectedJob.status.lowercase() !in setOf("posted", "quoted")) {
-                return QuoteSubmitOutcome.ValidationFailure("This job is no longer open for quotation.")
+                return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.JOB_NOT_POSTED)
             }
             val amount = parseFinitePositiveAmount(input.amountText)
-                ?: return QuoteSubmitOutcome.ValidationFailure("Enter a valid quote amount.")
+                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT)
             val extras = if (input.additionalExtrasText.isBlank()) 0.0 else parseNonNegativeAmount(input.additionalExtrasText)
-                ?: return QuoteSubmitOutcome.ValidationFailure("Enter a valid extras amount.")
+                ?: return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT, "Enter a valid extras amount.")
             if (extras > 1_000_000.0 || amount + extras > 1_000_000.0) {
-                return QuoteSubmitOutcome.ValidationFailure("Quote total is too high.")
+                return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT, "Quote total is too high.")
             }
             if (input.collectWithinMinutes != null && input.collectWithinMinutes !in 5..240) {
-                return QuoteSubmitOutcome.ValidationFailure("Collection time must be between 5 and 240 minutes.")
+                return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT, "Collection time must be between 5 and 240 minutes.")
             }
             val vehicleId = input.vehicleId?.trim()?.takeIf { it.isNotBlank() }
             if (vehicleId != null && vehicleId != prof.vehicleId) {
-                return QuoteSubmitOutcome.ValidationFailure("Select the vehicle currently assigned to your driver profile.")
+                return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT, "Select the vehicle currently assigned to your driver profile.")
             }
             val note = input.note.trim()
-            if (note.length > 1_000) return QuoteSubmitOutcome.ValidationFailure("Quote message is too long.")
+            if (note.length > 1_000) return QuoteSubmitOutcome.ValidationFailure(QuoteValidationResult.INVALID_AMOUNT, "Quote message is too long.")
 
             submitFn(sess, prof, selectedJob.id, amount, note, input.collectWithinMinutes, extras, vehicleId)
                 .fold(
-                    onSuccess = {
-                        QuoteSubmitOutcome.Success(
-                            selectedJob.id, amount, extras, input.collectWithinMinutes, vehicleId, input.vehicleLabel, note,
-                        )
-                    },
-                    onFailure = {
-                        QuoteSubmitOutcome.ApiFailure(
-                            it, amount, extras, input.collectWithinMinutes, vehicleId, input.vehicleLabel, note,
-                        )
-                    },
+                    onSuccess = { QuoteSubmitOutcome.Success(selectedJob.id, amount, extras, input.collectWithinMinutes, vehicleId, input.vehicleLabel, note) },
+                    onFailure = { QuoteSubmitOutcome.ApiFailure(it, amount, extras, input.collectWithinMinutes, vehicleId, input.vehicleLabel, note) },
                 )
         } finally {
             inFlight.set(false)
