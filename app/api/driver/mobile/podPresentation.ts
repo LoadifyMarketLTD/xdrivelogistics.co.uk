@@ -23,6 +23,16 @@ type SignedUrlRow = {
   error?: unknown;
 };
 
+type ParsedPodNotes = {
+  receiverCompany?: string;
+  quantityDelivered?: string;
+  itemsMissing?: string;
+  itemsDamaged?: string;
+  receiverNotes?: string;
+  driverNotes?: string;
+  comments?: string;
+};
+
 function storedSignatureText(value: unknown) {
   if (typeof value === 'string') return value.trim() || undefined;
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -53,6 +63,46 @@ function podTimestamp(row: PodPresentationRow) {
   if (!raw) return null;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parsePodNotes(value: string | null | undefined): ParsedPodNotes {
+  const raw = value?.trim() || '';
+  if (!raw) return {};
+
+  const parsed: ParsedPodNotes = {};
+  let recognised = false;
+  for (const segment of raw.split(/\s+\|\s+/)) {
+    const text = segment.trim();
+    const mappings: Array<[RegExp, keyof ParsedPodNotes]> = [
+      [/^Receiver company:\s*(.+)$/i, 'receiverCompany'],
+      [/^Qty:\s*(.+)$/i, 'quantityDelivered'],
+      [/^Missing:\s*(.+)$/i, 'itemsMissing'],
+      [/^Damaged:\s*(.+)$/i, 'itemsDamaged'],
+      [/^Receiver:\s*(.+)$/i, 'receiverNotes'],
+      [/^Driver:\s*(.+)$/i, 'driverNotes'],
+      [/^Comments:\s*(.+)$/i, 'comments'],
+    ];
+
+    let matched = false;
+    for (const [pattern, key] of mappings) {
+      const match = text.match(pattern);
+      if (!match?.[1]?.trim()) continue;
+      parsed[key] = match[1].trim();
+      recognised = true;
+      matched = true;
+      break;
+    }
+
+    // "Damage photos: N" is a legacy replay marker, not user-facing notes.
+    if (!matched && /^Damage photos:\s*\d+$/i.test(text)) {
+      recognised = true;
+    }
+  }
+
+  // Older jobs may contain ordinary free-text driver_notes rather than the
+  // structured mobile POD encoding. Preserve that text instead of discarding it.
+  if (!recognised) parsed.comments = raw;
+  return parsed;
 }
 
 export async function buildSignedPodPresentations(rows: PodPresentationRow[], companyId: string | null) {
@@ -107,15 +157,22 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
     }
 
     const timestamp = podTimestamp(row);
+    const notes = parsePodNotes(row.driver_notes);
     presentations.set(row.id, {
       receiverName: row.client_signature_name?.trim() || 'Recipient',
+      receiverCompany: notes.receiverCompany,
       signatureData,
       date: timestamp ? timestamp.toLocaleDateString('en-GB') : 'Not available',
       time: timestamp ? timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Not available',
       deliveryPhotoUris: evidence.delivery.map((path) => signedByPath.get(path)).filter((url): url is string => Boolean(url)),
       damagePhotoUris: evidence.damage.map((path) => signedByPath.get(path)).filter((url): url is string => Boolean(url)),
       documentUris: evidence.documents.map((path) => signedByPath.get(path)).filter((url): url is string => Boolean(url)),
-      comments: row.driver_notes?.trim() || undefined,
+      quantityDelivered: notes.quantityDelivered,
+      itemsMissing: notes.itemsMissing,
+      itemsDamaged: notes.itemsDamaged,
+      receiverNotes: notes.receiverNotes,
+      driverNotes: notes.driverNotes,
+      comments: notes.comments,
       completedBy: 'Assigned driver',
       completedByRole: 'driver',
     });
