@@ -157,10 +157,49 @@ async function persistPodFiles(
   return persisted;
 }
 
+function stringUris(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
+
+function normalizedPodPhotoInputs(metadata: Record<string, unknown>) {
+  const combinedOrDelivery = stringUris(metadata.photoUris);
+
+  // New payloads always include damagePhotoUris, even when the array is empty.
+  // Its presence is therefore an explicit contract and must win over any legacy
+  // marker that may still be present inside the free-text notes field.
+  if (Array.isArray(metadata.damagePhotoUris)) {
+    return {
+      deliveryPhotoUris: combinedOrDelivery,
+      damagePhotoUris: stringUris(metadata.damagePhotoUris),
+    };
+  }
+
+  // Recovery for queues created by pre-reconciliation builds. Those builds
+  // appended damage images to the end of photoUris and recorded only the count
+  // in notes as "Damage photos: N". Split only when the marker is internally
+  // consistent; otherwise preserve every image as delivery evidence rather than
+  // guessing and silently misclassifying evidence.
+  const notes = typeof metadata.notes === 'string' ? metadata.notes : '';
+  const match = notes.match(/(?:^|\|\s*)Damage photos:\s*(\d+)(?=\s*(?:\||$))/i);
+  const damageCount = match ? Number(match[1]) : 0;
+  if (Number.isInteger(damageCount) && damageCount > 0 && damageCount <= combinedOrDelivery.length) {
+    const splitAt = combinedOrDelivery.length - damageCount;
+    return {
+      deliveryPhotoUris: combinedOrDelivery.slice(0, splitAt),
+      damagePhotoUris: combinedOrDelivery.slice(splitAt),
+    };
+  }
+
+  return { deliveryPhotoUris: combinedOrDelivery, damagePhotoUris: [] };
+}
+
 export async function uploadPod(jobId: string, token: string, metadata: Record<string, unknown>) {
+  const normalizedPhotos = normalizedPodPhotoInputs(metadata);
   const [photoUris, damagePhotoUris, documentUris] = await Promise.all([
-    persistPodFiles(jobId, metadata.photoUris, 'photos', token),
-    persistPodFiles(jobId, metadata.damagePhotoUris, 'damage', token),
+    persistPodFiles(jobId, normalizedPhotos.deliveryPhotoUris, 'photos', token),
+    persistPodFiles(jobId, normalizedPhotos.damagePhotoUris, 'damage', token),
     persistPodFiles(jobId, metadata.documentUris, 'documents', token),
   ]);
   if (photoUris.length + damagePhotoUris.length > 10) {
