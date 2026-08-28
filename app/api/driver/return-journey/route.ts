@@ -57,23 +57,6 @@ async function loadCurrentJourney(driverId: string) {
     .maybeSingle();
 }
 
-async function clearCurrentJourney(driverId: string) {
-  const admin = supabaseAdmin!;
-  const current = await admin
-    .from('return_journeys')
-    .delete()
-    .eq('driver_id', driverId)
-    .eq('status', 'available');
-
-  if (!current.error) return current;
-  if (!missingStatusColumn(current.error.message)) return current;
-
-  return admin
-    .from('return_journeys')
-    .delete()
-    .eq('driver_id', driverId);
-}
-
 export async function GET(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
@@ -102,45 +85,44 @@ export async function PUT(request: NextRequest) {
     return json(400, { error: 'Invalid return journey declaration.' });
   }
 
-  const cleared = await clearCurrentJourney(resolved.driverId);
-  if (cleared.error) {
-    return json(500, { error: 'The existing return journey could not be replaced safely.' });
+  const fromPostcode = parsed.data.from_postcode?.trim().toUpperCase() || null;
+  const toPostcode = parsed.data.to_postcode?.trim().toUpperCase() || null;
+  const vehicleType = parsed.data.vehicle_type?.trim() || null;
+  const notes = parsed.data.notes?.trim() || null;
+
+  // Replacement and clear both run inside one PostgreSQL function transaction.
+  // This removes the old API delete-first window where a rejected insert could
+  // permanently destroy the driver's previously valid declaration.
+  const { error } = await supabaseAdmin!.rpc('replace_driver_return_journey_canonical', {
+    p_driver_id: resolved.driverId,
+    p_company_id: resolved.companyId,
+    p_from_postcode: fromPostcode,
+    p_to_postcode: toPostcode,
+    p_available_from: parsed.data.available_from,
+    p_available_to: parsed.data.available_to,
+    p_vehicle_type: vehicleType,
+    p_notes: notes,
+  });
+
+  if (error) {
+    if (error.code === '22023') return json(400, { error: error.message });
+    if (error.code === '42501') return json(403, { error: 'Return journey company binding is not authorised.' });
+    return json(503, { error: 'The return journey could not be replaced atomically.' });
   }
 
-  const fromPostcode = parsed.data.from_postcode?.trim() || null;
-  if (!fromPostcode) {
-    return json(200, { journey: null });
-  }
+  if (!fromPostcode) return json(200, { journey: null });
 
-  const admin = supabaseAdmin!;
-  const baseInsert = {
-    company_id: resolved.companyId,
-    driver_id: resolved.driverId,
-    from_postcode: fromPostcode,
-    to_postcode: parsed.data.to_postcode?.trim() || null,
-    available_from: parsed.data.available_from,
-    available_to: parsed.data.available_to,
-    vehicle_type: parsed.data.vehicle_type?.trim() || null,
-    notes: parsed.data.notes?.trim() || null,
-  };
-
-  let inserted = await admin
-    .from('return_journeys')
-    .insert({ ...baseInsert, status: 'available' })
-    .select('from_postcode, to_postcode, available_from, available_to, vehicle_type, notes')
-    .maybeSingle();
-
-  if (inserted.error && missingStatusColumn(inserted.error.message)) {
-    inserted = await admin
-      .from('return_journeys')
-      .insert(baseInsert)
-      .select('from_postcode, to_postcode, available_from, available_to, vehicle_type, notes')
-      .maybeSingle();
-  }
-
-  if (inserted.error) {
-    return json(500, { error: 'The return journey could not be published.' });
-  }
-
-  return json(200, { journey: inserted.data ?? null });
+  // Return the canonical normalized declaration directly after the successful
+  // atomic write. A secondary read outage must not turn a completed write into
+  // a false 5xx that encourages the client to submit the same journey again.
+  return json(200, {
+    journey: {
+      from_postcode: fromPostcode,
+      to_postcode: toPostcode,
+      available_from: parsed.data.available_from,
+      available_to: parsed.data.available_to,
+      vehicle_type: vehicleType,
+      notes,
+    },
+  });
 }
