@@ -41,4 +41,15 @@ describe('Expo driver operational bridge contract', () => {
     expect(operations).toContain('/api/driver/availability-presence');
     expect(operations).toContain('/api/driver/return-journey');
   });
+
+  it('stops active tracking before explicit logout revokes the bound device session', () => {
+    const cleanup = read('apps/driver-mobile/src/auth/serverSessionCleanup.ts');
+    const stopTrackingIndex = cleanup.indexOf('stopOperationalTracking');
+    const unregisterPushIndex = cleanup.indexOf('unregisterPushDevice(token)');
+    const revokeDeviceIndex = cleanup.indexOf('revokeDeviceSession(getApiBaseUrl(), token)');
+
+    expect(stopTrackingIndex).toBeGreaterThan(-1);
+    expect(unregisterPushIndex).toBeGreaterThan(stopTrackingIndex);
+    expect(revokeDeviceIndex).toBeGreaterThan(unregisterPushIndex);
+  });
 });
