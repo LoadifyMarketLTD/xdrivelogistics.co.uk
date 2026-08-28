@@ -1,5 +1,6 @@
 import { apiBinaryRequest, apiRequest } from './client';
 import type { DriverJob, JobScope } from '../jobs/types';
+import { cleanupPersistedPodPayload } from '../offline/podEvidencePersistence';
 import { syncOperationalTracking } from '../tracking/operationalTracking';
 
 type JobsPage = {
@@ -83,9 +84,9 @@ function uniqueName() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function isPersistentJobPath(jobId: string, uri: string) {
+function isPersistentJobPath(jobId: string, kind: 'photos' | 'documents', uri: string) {
   const value = uri.trim();
-  return value.includes(`/${jobId}/`) && !value.includes('://') && !value.includes('..') && !value.includes('\\');
+  return value.startsWith(`${jobId}/${kind}/`) && !value.includes('://') && !value.includes('..') && !value.includes('\\');
 }
 
 function evidenceContentType(extension: string, kind: 'photos' | 'documents') {
@@ -102,7 +103,7 @@ async function uploadLocalPodFile(
   kind: 'photos' | 'documents',
   token: string,
 ) {
-  if (isPersistentJobPath(jobId, uri)) return uri.trim();
+  if (isPersistentJobPath(jobId, kind, uri)) return uri.trim();
   if (!uri.includes('://')) throw new Error('POD evidence path is invalid. Please select the file again.');
 
   const response = await fetch(uri);
@@ -122,7 +123,7 @@ async function uploadLocalPodFile(
       body: bytes,
       contentType,
       headers: {
-        'x-xdrive-evidence-kind': 'delivery',
+        'x-xdrive-evidence-kind': kind === 'documents' ? 'document' : 'delivery',
         'x-xdrive-evidence-name': objectName,
       },
     },
@@ -149,18 +150,28 @@ async function persistPodFiles(
 }
 
 export async function uploadPod(jobId: string, token: string, metadata: Record<string, unknown>) {
-  const [photoUris, documentUris] = await Promise.all([
+  const [deliveryPhotoUris, damagePhotoUris, documentUris] = await Promise.all([
     persistPodFiles(jobId, metadata.photoUris, 'photos', token),
+    persistPodFiles(jobId, metadata.damagePhotoUris, 'photos', token),
     persistPodFiles(jobId, metadata.documentUris, 'documents', token),
   ]);
+  const photoUris = [...deliveryPhotoUris, ...damagePhotoUris];
+  if (photoUris.length > 10) throw new Error('A maximum of 10 POD and damage photos can be submitted for one delivery.');
+  if (documentUris.length > 10) throw new Error('A maximum of 10 POD documents can be submitted for one delivery.');
 
-  return apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
+  const response = await apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
     method: 'POST',
     token,
     body: {
       ...metadata,
+      // The backend stores delivery and damage images in the same protected
+      // delivery-photo evidence collection; never send local damagePhotoUris.
       photoUris,
+      damagePhotoUris: [],
       documentUris,
     },
   });
+
+  await cleanupPersistedPodPayload(metadata);
+  return response;
 }
