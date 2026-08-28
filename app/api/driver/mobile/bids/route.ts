@@ -17,6 +17,25 @@ export async function GET(request: NextRequest) {
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
+  const scope = new URL(request.url).searchParams.get('scope')?.trim().toLowerCase() ?? '';
+  if (scope === 'active-company') {
+    // Quote ownership is company/job when the driver belongs to a carrier company,
+    // but a driver's full quote history remains personal. Return only job ids here
+    // so Expo can suppress duplicate quoting without exposing colleagues' amounts,
+    // messages, bid ids or other commercial activity.
+    const query = supabaseAdmin
+      .from('job_bids')
+      .select('job_id')
+      .in('status', ['submitted', 'accepted']);
+    const { data, error } = driver.companyId
+      ? await query.eq('company_id', driver.companyId)
+      : await query.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`);
+    if (error) return respond(500, { error: error.message });
+    return respond(200, {
+      activeJobIds: [...new Set((data ?? []).map((row) => String(row.job_id)).filter(Boolean))],
+    });
+  }
+
   // Driver mobile is the named driver's personal quote history. Company-wide
   // commercial bid history belongs to Fleet/Company workspace permissions and
   // must not be pulled into a driver's feed merely because company_id matches.
