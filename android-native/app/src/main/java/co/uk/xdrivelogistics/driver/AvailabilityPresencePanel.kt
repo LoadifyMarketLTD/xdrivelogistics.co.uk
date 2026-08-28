@@ -36,29 +36,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import co.uk.xdrivelogistics.driver.data.DeviceInstallationIdentity
+import co.uk.xdrivelogistics.driver.data.DriverMarketIntelligence
 import co.uk.xdrivelogistics.driver.data.DriverSession
+import co.uk.xdrivelogistics.driver.data.MarketIntelligenceApi
 import kotlinx.coroutines.launch
 
 /**
- * Explicit pre-award availability control.
- *
- * Availability data remains separate from active-job GPS on the server, while
- * the phone uses one foreground TrackingService runtime. The runtime publishes
- * availability every five minutes and can switch internally to mandatory
- * active-job tracking without starting a second location service in background.
+ * Explicit pre-award availability control plus privacy-safe Exchange intelligence.
+ * Exact availability stays private to the driver/fleet. Market intelligence only
+ * receives coarse clusters that already satisfy the server-side minimum count.
  */
 @Composable
 fun AvailabilityPresencePanel(session: DriverSession?) {
     val context = LocalContext.current
-    val controller = remember(context) {
-        AvailabilityPresenceController(context, BuildConfig.XDRIVE_BASE_URL)
-    }
+    val controller = remember(context) { AvailabilityPresenceController(context, BuildConfig.XDRIVE_BASE_URL) }
+    val marketApi = remember(context) { MarketIntelligenceApi(BuildConfig.XDRIVE_BASE_URL, DeviceInstallationIdentity(context).installationId) }
     val scope = rememberCoroutineScope()
 
     var state by remember { mutableStateOf(AvailabilityPresenceUiState()) }
     var visibility by remember { mutableStateOf("private") }
     var hours by remember { mutableStateOf(4) }
     var pendingStart by remember { mutableStateOf(false) }
+    var market by remember { mutableStateOf<DriverMarketIntelligence?>(null) }
+    var marketLoading by remember { mutableStateOf(false) }
+    var marketError by remember { mutableStateOf("") }
+    var marketRadius by remember { mutableStateOf(30) }
 
     fun hasLocationPermission(): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -67,18 +70,23 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
     }
 
     fun startLocationRuntime() {
-        if (!hasLocationPermission()) return
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, TrackingService::class.java),
-        )
+        if (hasLocationPermission()) ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java))
     }
 
     fun reconcileStopAvailability() {
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, TrackingService::class.java).setAction(TrackingService.ACTION_STOP_AVAILABILITY),
-        )
+        ContextCompat.startForegroundService(context, Intent(context, TrackingService::class.java).setAction(TrackingService.ACTION_STOP_AVAILABILITY))
+    }
+
+    fun loadMarketIntelligence() {
+        val currentSession = session ?: return
+        if (marketLoading) return
+        marketLoading = true
+        marketError = ""
+        scope.launch {
+            marketApi.load(currentSession, marketRadius)
+                .onSuccess { market = it; marketLoading = false }
+                .onFailure { marketLoading = false; marketError = it.message ?: "Market intelligence could not be loaded." }
+        }
     }
 
     fun startAvailability() {
@@ -86,29 +94,21 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
         if (state.isSaving) return
         state = state.copy(isSaving = true, message = "", error = "")
         scope.launch {
-            controller.start(
-                session = currentSession,
-                visibility = visibility,
-                hours = hours,
-                hasLocationPermission = hasLocationPermission(),
-            ).onSuccess { presence ->
-                visibility = presence.visibility.ifBlank { visibility }
-                state = AvailabilityPresenceUiState.from(presence).copy(message = "Availability sharing is active and will refresh every 5 minutes.")
-                startLocationRuntime()
-            }.onFailure { error ->
-                state = state.copy(isSaving = false, error = error.message ?: "Availability could not be started.")
-            }
+            controller.start(currentSession, visibility, hours, hasLocationPermission())
+                .onSuccess { presence ->
+                    visibility = presence.visibility.ifBlank { visibility }
+                    state = AvailabilityPresenceUiState.from(presence).copy(message = "Availability sharing is active and will refresh every 5 minutes.")
+                    startLocationRuntime()
+                    if (visibility == "exchange") loadMarketIntelligence()
+                }
+                .onFailure { error -> state = state.copy(isSaving = false, error = error.message ?: "Availability could not be started.") }
         }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-    ) { granted ->
-        val allowed = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
-            hasLocationPermission()
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        val allowed = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true || granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true || hasLocationPermission()
         if (pendingStart && allowed) startAvailability()
-        else if (pendingStart && !allowed) state = state.copy(error = "Location permission is required to share availability.")
+        else if (pendingStart) state = state.copy(error = "Location permission is required to share availability.")
         pendingStart = false
     }
 
@@ -117,6 +117,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
             context.stopService(Intent(context, TrackingService::class.java))
             state = AvailabilityPresenceUiState()
             visibility = "private"
+            market = null
             return@LaunchedEffect
         }
         controller.load(currentSession)
@@ -124,6 +125,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                 visibility = presence.visibility.ifBlank { "private" }
                 state = AvailabilityPresenceUiState.from(presence)
                 if (presence.active && hasLocationPermission()) startLocationRuntime()
+                if (presence.active && visibility == "exchange") loadMarketIntelligence()
             }
             .onFailure { error -> state = state.copy(error = error.message ?: "Availability status could not be loaded.") }
     }
@@ -138,11 +140,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
                     Text("Available for work", color = XDriveTheme.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(
-                        "Optional pre-award location sharing for Fleet and load matching. While ON, availability refreshes every 5 minutes; an allocated job switches the same phone runtime to secure job tracking.",
-                        color = XDriveTheme.TextSecondary,
-                        fontSize = 13.sp,
-                    )
+                    Text("Optional pre-award location sharing for Fleet and load matching. An allocated job switches the same runtime to secure job tracking.", color = XDriveTheme.TextSecondary, fontSize = 13.sp)
                 }
                 AvailabilityBadge(if (state.active) "ON" else "OFF", if (state.active) XDriveTheme.Success else XDriveTheme.TextSecondary)
             }
@@ -160,22 +158,15 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
             Text("Auto-off", color = XDriveTheme.TextSecondary, fontSize = 12.sp)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                listOf(1, 4, 8).forEach { option ->
-                    AvailabilityChoice("${option}h", hours == option, Modifier.weight(1f)) { hours = option }
-                }
+                listOf(1, 4, 8).forEach { option -> AvailabilityChoice("${option}h", hours == option, Modifier.weight(1f)) { hours = option } }
             }
 
             if (state.availableUntil != null) {
                 Spacer(Modifier.height(10.dp))
                 Text("Active until ${state.availableUntil}", color = XDriveTheme.TextSecondary, fontSize = 12.sp)
             }
-            if (state.error.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(state.error, color = XDriveTheme.Danger, fontSize = 12.sp)
-            } else if (state.message.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(state.message, color = XDriveTheme.Success, fontSize = 12.sp)
-            }
+            if (state.error.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(state.error, color = XDriveTheme.Danger, fontSize = 12.sp) }
+            else if (state.message.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(state.message, color = XDriveTheme.Success, fontSize = 12.sp) }
 
             Spacer(Modifier.height(12.dp))
             if (state.active) {
@@ -186,10 +177,7 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                         state = state.copy(isSaving = true, message = "", error = "")
                         scope.launch {
                             controller.stop(currentSession)
-                                .onSuccess {
-                                    reconcileStopAvailability()
-                                    state = AvailabilityPresenceUiState(message = "Availability sharing stopped.")
-                                }
+                                .onSuccess { reconcileStopAvailability(); state = AvailabilityPresenceUiState(message = "Availability sharing stopped."); market = null }
                                 .onFailure { error -> state = state.copy(isSaving = false, error = error.message ?: "Availability could not be stopped.") }
                         }
                     },
@@ -197,16 +185,12 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = XDriveTheme.Danger, contentColor = Color.White),
                     shape = RoundedCornerShape(14.dp),
-                ) {
-                    if (state.isSaving) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
-                    else Text("Stop availability", fontWeight = FontWeight.Bold)
-                }
+                ) { if (state.isSaving) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp) else Text("Stop availability", fontWeight = FontWeight.Bold) }
             } else {
                 Button(
                     onClick = {
                         if (session == null || state.isSaving) return@Button
-                        if (hasLocationPermission()) startAvailability()
-                        else {
+                        if (hasLocationPermission()) startAvailability() else {
                             pendingStart = true
                             permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                         }
@@ -215,10 +199,36 @@ fun AvailabilityPresencePanel(session: DriverSession?) {
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = XDriveTheme.Success, contentColor = XDriveTheme.Background),
                     shape = RoundedCornerShape(14.dp),
-                ) {
-                    if (state.isSaving) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
-                    else Text("Start availability", fontWeight = FontWeight.Bold)
+                ) { if (state.isSaving) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp) else Text("Start availability", fontWeight = FontWeight.Bold) }
+            }
+
+            if (state.active && visibility == "exchange") {
+                Spacer(Modifier.height(18.dp))
+                Text("Who's Nearby · privacy-safe", color = XDriveTheme.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("Other drivers are represented only as coarse clusters of at least three. No identity or exact third-party coordinates are shown.", color = XDriveTheme.TextSecondary, fontSize = 12.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf(10, 30, 50, 100, 300).forEach { option ->
+                        AvailabilityChoice("$option mi", marketRadius == option, Modifier.weight(1f)) {
+                            marketRadius = option
+                            loadMarketIntelligence()
+                        }
+                    }
                 }
+                Spacer(Modifier.height(10.dp))
+                val intelligence = market
+                if (marketLoading) CircularProgressIndicator(modifier = Modifier.height(22.dp), strokeWidth = 2.dp)
+                else if (marketError.isNotBlank()) Text(marketError, color = XDriveTheme.Danger, fontSize = 12.sp)
+                else if (intelligence != null) {
+                    val vehicles = intelligence.clusters.sumOf { it.count }
+                    Text("Competition: ${intelligence.competition.replaceFirstChar { it.uppercase() }} · $vehicles vehicles in ${intelligence.clusters.size} protected clusters", color = XDriveTheme.TextPrimary, fontSize = 13.sp)
+                    if (intelligence.ppmVisible && intelligence.ppmMedian != null) {
+                        Text("7-day market PPM: £${"%.2f".format(intelligence.ppmMedian)} · range £${"%.2f".format(intelligence.ppmLow ?: intelligence.ppmMedian)}–£${"%.2f".format(intelligence.ppmHigh ?: intelligence.ppmMedian)} · ${intelligence.ppmSampleCount} accepted jobs", color = XDriveTheme.Yellow, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    } else {
+                        Text("PPM benchmark stays hidden until the privacy minimum of accepted market samples is reached.", color = XDriveTheme.TextSecondary, fontSize = 12.sp)
+                    }
+                }
+                OutlinedButton(onClick = ::loadMarketIntelligence, enabled = !marketLoading, modifier = Modifier.fillMaxWidth()) { Text("Refresh market intelligence") }
             }
         }
     }
@@ -231,21 +241,13 @@ private fun AvailabilityChoice(label: String, active: Boolean, modifier: Modifie
         modifier = modifier,
         shape = RoundedCornerShape(999.dp),
         border = BorderStroke(1.dp, if (active) XDriveTheme.Yellow else XDriveTheme.Border),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (active) XDriveTheme.Yellow.copy(alpha = 0.16f) else Color.Transparent,
-            contentColor = if (active) XDriveTheme.Yellow else XDriveTheme.TextSecondary,
-        ),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (active) XDriveTheme.Yellow.copy(alpha = 0.16f) else Color.Transparent, contentColor = if (active) XDriveTheme.Yellow else XDriveTheme.TextSecondary),
     ) { Text(label, fontSize = 12.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal) }
 }
 
 @Composable
 private fun AvailabilityBadge(label: String, color: Color) {
-    Surface(
-        color = color.copy(alpha = 0.16f),
-        contentColor = color,
-        shape = RoundedCornerShape(999.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.45f)),
-    ) {
+    Surface(color = color.copy(alpha = 0.16f), contentColor = color, shape = RoundedCornerShape(999.dp), border = BorderStroke(1.dp, color.copy(alpha = 0.45f))) {
         Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
