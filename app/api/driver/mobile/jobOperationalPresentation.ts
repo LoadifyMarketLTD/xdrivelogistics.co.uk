@@ -31,6 +31,8 @@ type OperationalJobRow = Record<string, unknown> & {
   access_restrictions?: string | null;
   distance_miles?: number | string | null;
   job_distance_miles?: number | string | null;
+  status_history?: unknown;
+  pod_generated_at?: string | null;
 };
 
 function positiveNumber(value: unknown) {
