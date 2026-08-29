@@ -677,7 +677,7 @@ function StopFields({
             {timeOptions.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
           </select>
           {errors?.time ? <span style={validationMessageStyle}>{errors.time}</span> : null}
-          {!errors?.time && date ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>{noSlotsLeftToday ? 'No future times remain today — choose tomorrow.' : '30-minute slots only.'}</span> : null}
+          {!errors?.time && noSlotsLeftToday ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>No future times remain today — choose tomorrow.</span> : null}
         </label>
       </div>
       <label style={labelStyle}>Postcode *
