@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
+import PostcodeAddressField from './PostcodeAddressField';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
@@ -684,10 +685,7 @@ function StopFields({
         <input style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }} aria-invalid={errors?.postcode ? 'true' : undefined} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} />
         {errors?.postcode ? <span style={validationMessageStyle}>{errors.postcode}</span> : null}
       </label>
-      <label style={labelStyle}>Address *
-        <textarea style={{ ...textareaStyle, ...(errors?.address ? invalidFieldStyle : {}) }} aria-invalid={errors?.address ? 'true' : undefined} value={address} onChange={(event) => onAddress(event.target.value)} />
-        {errors?.address ? <span style={validationMessageStyle}>{errors.address}</span> : null}
-      </label>
+      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} error={errors?.address} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
         <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
