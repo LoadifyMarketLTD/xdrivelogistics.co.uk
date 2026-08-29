@@ -9,45 +9,73 @@ describe('Telematics location ingestion contract', () => {
   const migration = fs.readFileSync(migrationPath, 'utf8');
   const bindingsMigration = fs.readFileSync(bindingsMigrationPath, 'utf8');
 
-  test('requires signed, replay-bounded server-to-server ingestion', () => {
-    expect(route).toContain("process.env.TELEMATICS_INGEST_SECRET");
+  test('requires provider-scoped signed, replay-bounded server-to-server ingestion', () => {
+    expect(route).toContain('process.env.TELEMATICS_INGEST_SECRETS_JSON');
+    expect(route).toContain('process.env.TELEMATICS_INGEST_PROVIDER');
+    expect(route).toContain('process.env.TELEMATICS_INGEST_SECRET');
     expect(route).toContain("request.headers.get('x-xdrive-timestamp')");
     expect(route).toContain("request.headers.get('x-xdrive-signature')");
     expect(route).toContain("createHmac('sha256', secret)");
     expect(route).toContain('MAX_SIGNATURE_AGE_SECONDS = 5 * 60');
     expect(route).toContain('timingSafeEqual(expected, supplied)');
+    expect(route).toContain('verifySignature(rawBody, request, provider)');
+    expect(route).toContain('legacyProvider === provider');
   });
 
-  test('keeps location publishing assignment and carrier scoped', () => {
+  test('keeps location publishing assignment, carrier and canonical vehicle scoped', () => {
     expect(route).toContain(".eq('assigned_driver_id', driverRow.id)");
     expect(route).toContain('jobRow.assigned_driver_id !== driverRow.id');
-    expect(route).toContain('jobRow.awarded_carrier_company_id !== driverRow.company_id');
+    expect(route).toContain('jobRow.awarded_carrier_company_id !== binding.company_id');
+    expect(route).toContain('jobRow.vehicle_id !== vehicleRow.id');
     expect(route).toContain('ACTIVE_JOB_STATUSES.has(statusOf(jobRow))');
+    expect(route).toContain(".from('vehicles')");
+    expect(route).toContain(".eq('id', binding.vehicle_id)");
+    expect(route).toContain(".eq('company_id', binding.company_id)");
+    expect(route).toContain(".eq('status', 'active')");
   });
 
-  test('records provenance and protects provider event idempotency', () => {
+  test('records canonical provenance and protects provider event idempotency', () => {
     expect(route).toContain("source: 'telematics'");
     expect(route).toContain('source_provider: provider');
     expect(route).toContain('source_event_id: eventId');
+    expect(route).toContain('vehicle_id: vehicleRow.id');
+    expect(route).toContain('company_id: binding.company_id');
+    expect(route).toContain('job_id: jobRow.id');
     expect(migration).toContain("check (source in ('driver_app', 'telematics'))");
+    expect(migration).toContain('driver_locations_telematics_provenance_check');
+    expect(migration).toContain('and vehicle_id is not null');
+    expect(migration).toContain('and company_id is not null');
+    expect(migration).toContain('and job_id is not null');
     expect(migration).toContain('create unique index if not exists uq_driver_locations_telematics_event');
     expect(migration).toContain("where source = 'telematics'");
   });
 
-  test('maps provider-native driver identity through a fail-closed binding table', () => {
+  test('maps provider-native driver and vehicle identities through a fail-closed binding table', () => {
     expect(bindingsMigration).toContain('create table if not exists public.telematics_driver_bindings');
+    expect(bindingsMigration).toContain('external_vehicle_id text not null');
+    expect(bindingsMigration).toContain('vehicle_id uuid not null references public.vehicles(id)');
+    expect(bindingsMigration).toContain('company_id uuid not null references public.companies(id)');
     expect(bindingsMigration).toContain('unique (provider, external_driver_id)');
+    expect(bindingsMigration).toContain('unique (provider, external_vehicle_id)');
+    expect(bindingsMigration).toContain('revoked_at timestamptz');
     expect(bindingsMigration).toContain('alter table public.telematics_driver_bindings enable row level security;');
     expect(bindingsMigration).not.toMatch(/create policy[\s\S]*telematics_driver_bindings/i);
     expect(route).toContain('provider_driver_id?: string;');
+    expect(route).toContain('provider_vehicle_id?: string;');
+    expect(route).toContain("if (!providerDriverId) return json(400, { error: 'provider_driver_id is required.' })");
+    expect(route).toContain("if (!providerVehicleId) return json(400, { error: 'provider_vehicle_id is required.' })");
     expect(route).toContain(".from('telematics_driver_bindings')");
     expect(route).toContain(".eq('external_driver_id', providerDriverId)");
+    expect(route).toContain(".eq('external_vehicle_id', providerVehicleId)");
+    expect(route).toContain(".eq('enabled', true)");
+    expect(route).toContain(".is('revoked_at', null)");
     expect(route).toContain('directDriverId !== binding.driver_id');
     expect(route).toContain('driverRow.company_id !== binding.company_id');
   });
 
-  test('does not guess provider identities while hosted migrations are pending', () => {
-    expect(route).toContain("if (!directDriverId) return json(503, { error: 'Telematics provider identity mapping is not available yet.' })");
-    expect(route).toContain("return json(403, { error: 'Telematics driver identity is not bound to XDrive.' })");
+  test('does not accept canonical driver ids as a substitute for provider bindings', () => {
+    expect(route).toContain("return json(503, { error: 'Telematics provider identity mapping is not available yet.' })");
+    expect(route).toContain("return json(403, { error: 'Telematics driver and vehicle identities are not bound to XDrive.' })");
+    expect(route).not.toContain('let resolvedDriverId = directDriverId');
   });
 });
