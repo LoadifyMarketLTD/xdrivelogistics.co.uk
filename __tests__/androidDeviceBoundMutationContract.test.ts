@@ -73,14 +73,17 @@ describe('Android device-bound mutation contract', () => {
     expect(confirmationRoute).toContain(".eq('assigned_driver_id', driver.driverId)");
   });
 
-  test('server evidence endpoint preserves deterministic retry and assignment safety', () => {
+  test('server evidence endpoint preserves deterministic retry and defers delivery linking to final POD', () => {
     expect(evidenceRoute).toContain('upsert: false');
     expect(evidenceRoute).toContain("text.includes('already exists')");
-    expect(evidenceRoute).toContain('Array.from(new Set([...deliveryPhotos, storagePath]))');
-    expect(evidenceRoute).toContain('Array.from(new Set([...podPhotos, storagePath]))');
+    expect(evidenceRoute).toContain('const storagePath = `${driver.companyId}/${id}/${category}/${objectName}`');
+    expect(evidenceRoute).toContain("if (kind === 'collection')");
+    expect(evidenceRoute).toContain('collection_photo_url: storagePath');
+    expect(evidenceRoute).not.toContain('delivery_photos: Array.from');
+    expect(evidenceRoute).not.toContain('pod_photos: Array.from');
     expect(evidenceRoute).toContain(".select('id')");
     expect(evidenceRoute).toContain('.maybeSingle()');
-    expect(evidenceRoute).toContain('POD evidence could not be linked to this assignment.');
+    expect(evidenceRoute).toContain('Collection evidence could not be linked to this assignment.');
   });
 
   test('revoked device errors are typed and are never refreshed back into service', () => {

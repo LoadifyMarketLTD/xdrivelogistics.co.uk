@@ -32,10 +32,11 @@ describe('Android server-side logout revocation contract', () => {
   it('removes active phone credentials immediately while retaining only encrypted retry material', () => {
     const savePending = store.indexOf('savePendingRevocation(current)');
     const clearActive = store.indexOf('clearActiveSession()', savePending);
-    const revoke = store.indexOf('revoker.revoke(current)', clearActive);
+    const retry = store.indexOf('retryPendingRevocation()', clearActive);
     expect(savePending).toBeGreaterThan(-1);
     expect(clearActive).toBeGreaterThan(savePending);
-    expect(revoke).toBeGreaterThan(clearActive);
+    expect(retry).toBeGreaterThan(clearActive);
+    expect(store).toContain('revoker.revoke(pending)');
     expect(store).toContain('pending_logout_access_token');
     expect(store).toContain('EncryptedSharedPreferences.create');
   });
@@ -44,7 +45,7 @@ describe('Android server-side logout revocation contract', () => {
     expect(store).toContain('launch { retryPendingRevocation() }');
     expect(store).toContain('retryPendingRevocation()');
     expect(store).toContain('readPendingRevocation()');
-    expect(store).toContain('if (revoker.revoke(pending).isSuccess)');
+    expect(store).toContain('if (revoker.revoke(pending).isSuccess) clearPendingRevocation()');
     expect(store).toContain('clearPendingRevocation()');
     expect(store).not.toContain('.putString(Keys.accessToken, pending.accessToken)');
   });

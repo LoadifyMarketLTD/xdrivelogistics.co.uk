@@ -26,7 +26,9 @@ describe('Android active-job tracking lifecycle contract', () => {
 
   it('uses server-authoritative single-active-job eligibility', () => {
     expect(route).toContain('const ACTIVE_JOB_STATUSES = new Set([');
-    expect(route).toContain(".eq('assigned_driver_id', driver.id)");
+    expect(route).toContain(".eq('assigned_driver_id', driver.driverId)");
+    expect(route).toContain('awarded_carrier_company_id ?? job.assigned_company_id');
+    expect(route).toContain('if (carrierCompanyId && carrierCompanyId !== driver.companyId) return false');
     expect(route).toContain('if (activeJobs.length !== 1)');
     expect(route).toContain('should_track: true');
     expect(route).toContain("reason: activeJobs.length === 0 ? 'no_active_job' : 'multiple_active_jobs'");

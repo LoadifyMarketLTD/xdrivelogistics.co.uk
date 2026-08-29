@@ -58,7 +58,7 @@ describe('Android availability presence contract', () => {
     expect(serverRoute).toContain('NextResponse.json({ ok: true, available_until: presence.available_until })');
     expect(serverRoute).toContain('NextResponse.json({ ok: true })');
     expect(source).toContain('payload.objectOrNull("presence")');
-    expect(source).toContain('active = true');
+    expect(source).toContain('AvailabilityPresence(true,');
     expect(source).toContain('if (!payload.bool("ok"))');
   });
 
