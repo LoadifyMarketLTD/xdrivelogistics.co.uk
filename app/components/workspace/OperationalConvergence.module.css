@@ -166,6 +166,77 @@
   min-width: 0;
 }
 
+.attentionItem {
+  position: relative;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "priority copy state"
+    "priority copy action";
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+}
+
+.attentionItem:last-child {
+  border-bottom: 0;
+}
+
+.attentionItem::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--signal-tone, var(--ws-blue, #1d57d8));
+}
+
+.attentionPriority {
+  grid-area: priority;
+  align-self: start;
+  padding-top: 1px;
+}
+
+.attentionCopy {
+  grid-area: copy;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.attentionEntity {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attentionDetail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-micro, 10px);
+  line-height: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attentionState {
+  grid-area: state;
+  justify-self: end;
+  min-width: 0;
+}
+
+.attentionAction {
+  grid-area: action;
+  justify-self: end;
+}
+
 .record {
   min-height: var(--ws-operational-row-min-h, 52px);
   overflow: hidden;
@@ -289,6 +360,19 @@
 
   .signalCell:nth-last-child(-n + 2) {
     border-bottom: 0;
+  }
+
+  .attentionItem {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "priority copy"
+      "state state"
+      "action action";
+  }
+
+  .attentionState,
+  .attentionAction {
+    justify-self: stretch;
   }
 
   .recordPrimaryGrid {
