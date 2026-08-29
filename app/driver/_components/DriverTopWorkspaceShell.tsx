@@ -20,13 +20,15 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/driver' },
+  { id: 'directory', label: 'Directory', href: '/driver/directory' },
+  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
   { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
   { id: 'diary', label: 'Diary', href: '/driver/history' },
   { id: 'availability', label: 'Availability', href: '/driver/availability' },
   { id: 'nearby', label: 'Nearby', href: '/driver/nearby' },
-  { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
+  { id: 'event-log', label: 'Event Log', href: '/driver/event-log' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
 
@@ -38,7 +40,6 @@ const ACCOUNT_PREFIXES = [
   '/driver/finance',
   '/driver/messages',
   '/driver/change-password',
-  '/driver/event-log',
   '/driver/notifications',
 ] as const;
 
