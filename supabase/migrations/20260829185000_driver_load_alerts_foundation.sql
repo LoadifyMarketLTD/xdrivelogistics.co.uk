@@ -133,7 +133,10 @@ as $$
   select nullif(lower(regexp_replace(btrim(coalesce(p_value, '')), '[^a-z0-9]+', '_', 'g')), '');
 $$;
 
-create or replace function public.fn_enqueue_driver_load_alerts_for_job(p_job_id uuid)
+create or replace function public.fn_enqueue_driver_load_alerts_for_job(
+  p_job_id uuid,
+  p_recipient_user_id uuid default null
+)
 returns integer
 language plpgsql
 security definer
@@ -190,7 +193,9 @@ begin
       tj.requested_vehicle_label,
       tj.budget_amount
     from target_job tj
-    join public.driver_load_alert_preferences p on p.enabled = true
+    join public.driver_load_alert_preferences p
+      on p.enabled = true
+     and (p_recipient_user_id is null or p.user_id = p_recipient_user_id)
     join public.drivers d
       on d.id = p.driver_id
      and d.user_id = p.user_id
@@ -300,8 +305,8 @@ begin
 end;
 $$;
 
-revoke all on function public.fn_enqueue_driver_load_alerts_for_job(uuid) from public, anon, authenticated;
-grant execute on function public.fn_enqueue_driver_load_alerts_for_job(uuid) to service_role;
+revoke all on function public.fn_enqueue_driver_load_alerts_for_job(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_enqueue_driver_load_alerts_for_job(uuid, uuid) to service_role;
 
 create or replace function public.fn_notify_driver_load_alert_on_marketplace_change()
 returns trigger
@@ -317,8 +322,12 @@ begin
     return new;
   end if;
 
-  if tg_op = 'INSERT'
-     or old.exchange_posted_at is distinct from new.exchange_posted_at
+  if tg_op = 'INSERT' then
+    perform public.fn_enqueue_driver_load_alerts_for_job(new.id);
+    return new;
+  end if;
+
+  if old.exchange_posted_at is distinct from new.exchange_posted_at
      or old.exchange_visibility is distinct from new.exchange_visibility
      or old.direct_invite_company_id is distinct from new.direct_invite_company_id
      or old.status is distinct from new.status
@@ -342,8 +351,8 @@ create trigger trg_notify_driver_load_alert_on_marketplace_change
   for each row
   execute function public.fn_notify_driver_load_alert_on_marketplace_change();
 
--- New/changed preferences should also evaluate currently open recent loads so a
--- user does not need to wait for the next publication event.
+-- New/changed preferences also evaluate currently open recent loads for only the
+-- authenticated recipient. The event unique index keeps replay idempotent.
 create or replace function public.fn_enqueue_driver_load_alerts_for_user(p_user_id uuid)
 returns integer
 language plpgsql
@@ -368,9 +377,7 @@ begin
     order by j.exchange_posted_at desc
     limit 250
   loop
-    -- The job matcher still filters to enabled preferences. The unique event
-    -- index makes this safe to replay.
-    v_total := v_total + public.fn_enqueue_driver_load_alerts_for_job(v_job.id);
+    v_total := v_total + public.fn_enqueue_driver_load_alerts_for_job(v_job.id, p_user_id);
   end loop;
 
   return v_total;
@@ -382,8 +389,8 @@ grant execute on function public.fn_enqueue_driver_load_alerts_for_user(uuid) to
 
 comment on table public.driver_load_alert_preferences is
   'Opt-in Driver Smart Load Alert rules. Exact tracking coordinates remain server-side and are never emitted in alert payloads.';
-comment on function public.fn_enqueue_driver_load_alerts_for_job(uuid) is
-  'Matches one marketplace load against enabled Driver alert preferences and emits idempotent recipient-scoped load_alert events.';
+comment on function public.fn_enqueue_driver_load_alerts_for_job(uuid, uuid) is
+  'Matches one marketplace load against enabled Driver alert preferences and emits idempotent recipient-scoped load_alert events. Optional recipient restricts replay to one user.';
 
 notify pgrst, 'reload schema';
 
