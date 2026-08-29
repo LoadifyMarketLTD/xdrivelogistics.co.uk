@@ -5,7 +5,7 @@ import { getOrRefreshTrafficEta } from '../../../../lib/tracking/trafficEta';
 
 type LocationPayload = { job_id?: string; lat?: number; lng?: number; heading?: number | null; speed_mph?: number | null };
 type JobCandidate = {
-  id: string; company_id: string | null; assigned_driver_id: string | null; awarded_carrier_company_id: string | null;
+  id: string; company_id: string | null; assigned_driver_id: string | null; assigned_company_id: string | null; awarded_carrier_company_id: string | null;
   current_status: string | null; status: string | null; delivery_postcode: string | null; delivery_datetime: string | null;
 };
 
@@ -20,6 +20,8 @@ const ETA_ALERT_MIN_LATE_MINUTES = 5;
 const ETA_ALERT_COOLDOWN_MS = 15 * 60_000;
 const ETA_ALERT_CHANGE_MINUTES = 10;
 const statusOf = (job: Pick<JobCandidate, 'current_status' | 'status'>) => String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+const assignedCarrierCompanyId = (job: Pick<JobCandidate, 'awarded_carrier_company_id' | 'assigned_company_id'>) =>
+  job.awarded_carrier_company_id ?? job.assigned_company_id;
 
 async function maybeCreateEtaAlerts(job: JobCandidate, lat: number, lng: number) {
   if (!supabaseAdmin || !job.company_id || !DELIVERY_ETA_STATUSES.has(statusOf(job))) return;
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
   if (lat === null || lng === null) return NextResponse.json({ error: 'lat and lng are required.' }, { status: 400 });
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return NextResponse.json({ error: 'Invalid lat/lng values.' }, { status: 400 });
 
-  const jobSelect = 'id, company_id, assigned_driver_id, awarded_carrier_company_id, current_status, status, delivery_postcode, delivery_datetime';
+  const jobSelect = 'id, company_id, assigned_driver_id, assigned_company_id, awarded_carrier_company_id, current_status, status, delivery_postcode, delivery_datetime';
   let jobRow: JobCandidate | null = null;
   if (requestedJobId) {
     const { data, error } = await supabaseAdmin.from('jobs').select(jobSelect).eq('id', requestedJobId).maybeSingle();
@@ -119,8 +121,12 @@ export async function POST(request: NextRequest) {
   if (!jobRow || jobRow.assigned_driver_id !== driverRow.id || !ACTIVE_JOB_STATUSES.has(statusOf(jobRow))) {
     return NextResponse.json({ error: 'Location publishing is not authorised for this job state.' }, { status: 403 });
   }
-  if (jobRow.awarded_carrier_company_id && driverRow.company_id && jobRow.awarded_carrier_company_id !== driverRow.company_id) {
-    return NextResponse.json({ error: 'Driver company does not match the awarded carrier.' }, { status: 403 });
+  // Match the authoritative lifecycle RPC tenant boundary. The awarded carrier
+  // is canonical when present; assigned_company_id remains the fleet/legacy
+  // fallback. Individual-driver jobs with no carrier company remain valid.
+  const carrierCompanyId = assignedCarrierCompanyId(jobRow);
+  if (carrierCompanyId && carrierCompanyId !== driverRow.company_id) {
+    return NextResponse.json({ error: 'Driver company does not match the assigned carrier.' }, { status: 403 });
   }
 
   const heading = typeof body.heading === 'number' && Number.isFinite(body.heading) ? body.heading : null;
