@@ -46,12 +46,25 @@ describe('load posting operational contract', () => {
     expect(createApi).toContain('operationalError');
   });
 
-  it('makes centimetre storage explicit for load dimensions', () => {
-    expect(form).toContain('Stored internally in centimetres; enter operational dimensions in metres.');
-    expect(form).toContain('Math.round(metres * 100)');
-    expect(source).toContain('lengthCm');
-    expect(source).toContain('widthCm');
-    expect(source).toContain('heightCm');
+  it('uses centimetres end-to-end for load dimensions', () => {
+    expect(form).toContain('Length (cm)');
+    expect(form).toContain('Width (cm)');
+    expect(form).toContain('Height (cm)');
+    expect(form).toContain('Dimensions are entered and stored in centimetres (cm).');
+    expect(form).toContain('lengthCm: numberOrNull(form.length)');
+    expect(form).toContain('widthCm: numberOrNull(form.width)');
+    expect(form).toContain('heightCm: numberOrNull(form.height)');
+    expect(form).not.toContain('metresToCm');
+    expect(form).not.toContain('Length (m)');
+  });
+
+  it('highlights invalid required fields and focuses the first invalid field after submit', () => {
+    expect(form).toContain("setShowValidation(true)");
+    expect(form).toContain("Complete the fields highlighted in red.");
+    expect(form).toContain("aria-invalid={errors?.postcode ? 'true' : undefined}");
+    expect(form).toContain("aria-invalid={errors?.address ? 'true' : undefined}");
+    expect(form).toContain("document.querySelector<HTMLElement>('[aria-invalid=\"true\"]')");
+    expect(form).toContain("'#dc2626'");
   });
 
   it('keeps capability-labelled vehicle choices consistent with stored requirements', () => {
