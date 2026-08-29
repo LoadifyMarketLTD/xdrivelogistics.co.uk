@@ -15,8 +15,9 @@ describe('postcode address lookup contract', () => {
 
   it('keeps address lookup authenticated and the Mapbox token server-only', () => {
     expect(route).toContain('getBearerToken(request)');
-    expect(route).toContain('validator.auth.getUser(token)');
+    expect(route).toContain('supabaseValidator.auth.getUser(token)');
     expect(route).toContain('process.env.MAPBOX_ACCESS_TOKEN');
+    expect(route).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(field).not.toContain('MAPBOX_ACCESS_TOKEN');
   });
 
