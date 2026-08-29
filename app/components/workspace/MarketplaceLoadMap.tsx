@@ -9,19 +9,21 @@ import { ActionButton } from './WorkspaceUI';
 export type MarketplaceLoadMapItem = {
   id: string;
   pickupLabel: string;
-  pickupPostcode: string | null;
+  pickupPostcode?: string | null;
   deliveryLabel: string;
   vehicleLabel: string;
   posterName: string;
   pickupAt: string | null;
-  postedAt: string | null;
+  postedAt?: string | null;
+  /** Legacy field is accepted but intentionally ignored pre-award. */
+  pickupCoordinates?: { lat: number; lng: number } | null;
 };
 
 type Coordinates = { lat: number; lng: number };
 type LocatedLoad = MarketplaceLoadMapItem & { coordinates: Coordinates };
 type RadarCluster = { key: string; coordinates: Coordinates; loads: LocatedLoad[] };
 
-const normalizeOutcode = (value: string | null) => String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+const normalizeOutcode = (value: string | null | undefined) => String(value ?? '').trim().toUpperCase().replace(/\s+/g, '').match(/^[A-Z]{1,2}\d[A-Z\d]?/)?.[0] ?? '';
 
 const validCoordinates = (lat: unknown, lng: unknown): Coordinates | null => {
   const parsedLat = Number(lat);
@@ -29,7 +31,7 @@ const validCoordinates = (lat: unknown, lng: unknown): Coordinates | null => {
   return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
 };
 
-const ageMinutes = (value: string | null) => {
+const ageMinutes = (value: string | null | undefined) => {
   if (!value) return Number.POSITIVE_INFINITY;
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? Math.max(0, (Date.now() - timestamp) / 60_000) : Number.POSITIVE_INFINITY;
@@ -38,13 +40,15 @@ const ageMinutes = (value: string | null) => {
 const markerTone = (loads: LocatedLoad[]) => {
   const freshest = Math.min(...loads.map((load) => ageMinutes(load.postedAt)));
   return freshest <= 10
-    ? { stroke: '#1D57D8', fill: '#3B82F6', label: 'Posted within ~10 minutes' }
-    : { stroke: '#5B21B6', fill: '#7C3AED', label: 'Older load' };
+    ? { stroke: '#1D57D8', fill: '#3B82F6' }
+    : { stroke: '#5B21B6', fill: '#7C3AED' };
 };
 
 const when = (value: string | null) => value
   ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
   : 'Not set';
+
+const publicOutcodeFor = (load: MarketplaceLoadMapItem) => normalizeOutcode(load.pickupPostcode) || normalizeOutcode(load.pickupLabel);
 
 export default function MarketplaceLoadMap({
   loads,
@@ -63,7 +67,7 @@ export default function MarketplaceLoadMap({
   const [selectedClusterKey, setSelectedClusterKey] = useState<string | null>(null);
 
   const outcodes = useMemo(
-    () => [...new Set(loads.map((load) => normalizeOutcode(load.pickupPostcode)).filter(Boolean))],
+    () => [...new Set(loads.map(publicOutcodeFor).filter(Boolean))],
     [loads],
   );
 
@@ -101,7 +105,7 @@ export default function MarketplaceLoadMap({
   }, [coordinateByOutcode, outcodes]);
 
   const locatedLoads = useMemo<LocatedLoad[]>(() => loads.flatMap((load) => {
-    const coordinates = coordinateByOutcode[normalizeOutcode(load.pickupPostcode)];
+    const coordinates = coordinateByOutcode[publicOutcodeFor(load)];
     return coordinates ? [{ ...load, coordinates }] : [];
   }), [coordinateByOutcode, loads]);
 
@@ -189,7 +193,7 @@ export default function MarketplaceLoadMap({
       <div className="marketplace-radar-legend" aria-label="Freight Radar legend">
         <span><i data-tone="fresh" /> Posted within ~10 minutes</span>
         <span><i data-tone="older" /> Older load</span>
-        <span>Number/cluster = multiple loads in one public pickup area</span>
+        <span>Cluster = multiple loads in one public pickup area</span>
       </div>
       {providerWarning && <div className="marketplace-radar-warning" role="status">{providerWarning}</div>}
       <div ref={containerRef} className="marketplace-radar-map" aria-label="Interactive Freight Radar Map" />
