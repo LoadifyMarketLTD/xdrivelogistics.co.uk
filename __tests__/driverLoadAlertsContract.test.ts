@@ -43,6 +43,16 @@ describe('Driver Smart Load Alerts contract', () => {
     expect(api).toContain(".eq('user_id', driver.userId)");
   });
 
+  test('reconciles the marketplace expiry column before matcher functions depend on it', () => {
+    expect(migration).toContain('add column if not exists exchange_expires_at timestamptz;');
+    expect(migration).toContain('j.exchange_expires_at');
+    expect(migration).toContain('(j.exchange_expires_at is null or j.exchange_expires_at > now())');
+  });
+
+  test('normalizes outcodes case-insensitively before filtering characters', () => {
+    expect(migration).toContain("regexp_replace(upper(coalesce(p_value, '')), '[^A-Z0-9 ]', '', 'g')");
+  });
+
   test('matches server-side without exposing exact tracking coordinates in alert payloads', () => {
     expect(migration).toContain('st_dwithin(');
     expect(migration).toContain('current_location_max_age_minutes');
