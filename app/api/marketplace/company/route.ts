@@ -17,6 +17,7 @@ import {
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../../driver/_lib/marketplacePublic';
+import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeRange';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -351,8 +352,6 @@ function publicSearchProjection(
     posterPhone: company?.phone ?? null,
     posterMemberType: company?.company_type ?? null,
     posterMemberSince: company?.created_at ?? null,
-    // Exact job coordinates are never returned pre-award. A future map may use
-    // an independently derived broad-area centroid, but must not reuse site coords.
     pickupCoordinates: null,
     deliveryCoordinates: null,
     distanceFromSearchOriginMiles,
@@ -371,6 +370,8 @@ async function searchLoads(request: NextRequest, companyId: string) {
   const fromRadius = RADIUS_VALUES.has(Number(searchParams.get('fromRadius'))) ? Number(searchParams.get('fromRadius')) : 30;
   const toRadius = RADIUS_VALUES.has(Number(searchParams.get('toRadius'))) ? Number(searchParams.get('toRadius')) : 100;
   const vehicle = searchParams.get('vehicle')?.trim().toLowerCase() ?? '';
+  const minVehicle = searchParams.get('minVehicle')?.trim().toLowerCase() ?? '';
+  const maxVehicle = searchParams.get('maxVehicle')?.trim().toLowerCase() ?? '';
   const body = searchParams.get('body')?.trim().toLowerCase() ?? '';
   const freight = searchParams.get('freight')?.trim().toLowerCase() ?? '';
   const member = searchParams.get('member')?.trim().toLowerCase() ?? '';
@@ -450,6 +451,7 @@ async function searchLoads(request: NextRequest, companyId: string) {
     const deliveryText = `${row.delivery_location ?? ''} ${row.delivery_postcode ?? ''}`.toLowerCase();
     const bodyText = `${row.vehicle_type ?? ''} ${row.requested_vehicle_type ?? ''} ${row.requested_vehicle_label ?? ''} ${row.special_requirements ?? ''}`.toLowerCase();
     const memberText = `${row.posterName} ${row.posterMemberCode ?? ''} ${row.company_id ?? ''} ${row.id}`.toLowerCase();
+    const comparableVehicle = row.requested_vehicle_type ?? row.vehicle_type ?? row.requested_vehicle_label;
 
     if (fromNeedle) {
       if (fromCoordinates) {
@@ -461,6 +463,7 @@ async function searchLoads(request: NextRequest, companyId: string) {
         if (row.distanceToSearchDestinationMiles == null || row.distanceToSearchDestinationMiles > toRadius) return false;
       } else if (!deliveryText.includes(toNeedle)) return false;
     }
+    if ((minVehicle || maxVehicle) && !vehicleMatchesMarketplaceSizeRange(comparableVehicle, minVehicle, maxVehicle)) return false;
     if (body && !bodyText.includes(body)) return false;
     if (member && !memberText.includes(member)) return false;
     if (description && description !== 'any' && row.jobDescription !== description) return false;
