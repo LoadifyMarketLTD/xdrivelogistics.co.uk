@@ -15,16 +15,13 @@ const textareaStyle = { ...fieldStyle, minHeight: '72px', padding: '7px 8px', re
 const labelStyle = { display: 'grid', gap: '4px', color: '#334155', fontSize: '11px', lineHeight: '14px', fontWeight: 700 };
 const readOnlyStyle = { ...fieldStyle, display: 'flex', alignItems: 'center', background: '#f8fafc', color: '#334155' };
 const microButtonStyle = { minHeight: '26px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 7px', background: '#fff', color: '#334155', fontSize: '11px', fontWeight: 700, cursor: 'pointer' };
+const invalidFieldStyle = { border: '1px solid #dc2626', background: '#fffafa', boxShadow: '0 0 0 1px rgba(220,38,38,0.12)' };
+const validationMessageStyle = { color: '#b91c1c', fontSize: '10px', lineHeight: '13px', fontWeight: 700 };
 
 const numberOrNull = (value: string) => {
   if (!value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-};
-
-const metresToCm = (value: string) => {
-  const metres = numberOrNull(value);
-  return metres == null ? null : Math.round(metres * 100);
 };
 
 const normalizePostcode = (value: string) => {
@@ -47,6 +44,12 @@ type AdditionalStop = {
   instructions: string;
 };
 
+type StopFieldErrors = {
+  date?: string;
+  postcode?: string;
+  address?: string;
+};
+
 const createAdditionalStop = (): AdditionalStop => ({
   id: crypto.randomUUID(),
   type: 'delivery',
@@ -59,6 +62,22 @@ const createAdditionalStop = (): AdditionalStop => ({
   instructions: '',
 });
 
+const validateStop = ({ date, postcode, address, requireDate = false }: { date: string; postcode: string; address: string; requireDate?: boolean }): StopFieldErrors => ({
+  date: requireDate && !date ? 'Required' : undefined,
+  postcode: !postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : undefined,
+  address: !address.trim() ? 'Required' : undefined,
+});
+
+const hasStopErrors = (errors: StopFieldErrors) => Boolean(errors.date || errors.postcode || errors.address);
+
+const dimensionError = (value: string) => {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return 'Enter a valid dimension in cm';
+  if (parsed > 2000) return 'Check this value — it exceeds 2,000 cm';
+  return undefined;
+};
+
 export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -66,6 +85,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showValidation, setShowValidation] = useState(false);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
@@ -126,41 +146,49 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     return next;
   });
   const dateTime = (date: string, time: string) => date ? `${date}T${time === 'ASAP' ? '23:59' : time}:00` : null;
-  const dimensionsMetres = [form.length, form.width, form.height].map(numberOrNull);
-  const hasDimensionValues = dimensionsMetres.some((value) => value != null);
-  const hasImplausibleDimension = dimensionsMetres.some((value) => value != null && value > 20);
+
+  const collectionErrors = validateStop({ date: form.pickupDate, postcode: form.pickupPostcode, address: form.pickupAddress, requireDate: true });
+  const deliveryErrors = validateStop({ date: form.deliveryDate, postcode: form.deliveryPostcode, address: form.deliveryAddress });
+  const additionalStopErrors = additionalStops.map((stop) => validateStop({ date: stop.date, postcode: stop.postcode, address: stop.address }));
+  const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors);
+
+  const dimensionErrors = {
+    length: dimensionError(form.length),
+    width: dimensionError(form.width),
+    height: dimensionError(form.height),
+  };
+  const hasDimensionErrors = Boolean(dimensionErrors.length || dimensionErrors.width || dimensionErrors.height);
+  const dimensionsCm = [form.length, form.width, form.height].map(numberOrNull);
+  const hasDimensionValues = dimensionsCm.some((value) => value != null);
   const dimensionSummary = hasDimensionValues
-    ? `${dimensionsMetres.map((value) => value == null ? '—' : value.toFixed(2)).join(' × ')} m`
-    : 'Enter dimensions in metres';
+    ? `${dimensionsCm.map((value) => value == null ? '—' : value.toLocaleString('en-GB', { maximumFractionDigits: 1 })).join(' × ')} cm`
+    : 'Enter dimensions in centimetres (cm)';
+
+  const focusFirstInvalidField = () => {
+    window.setTimeout(() => {
+      const field = document.querySelector<HTMLElement>('[aria-invalid="true"]');
+      field?.focus();
+      field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  };
 
   const save = async (publish: boolean) => {
     setError('');
     setSuccess('');
-    if (!form.pickupDate || !form.pickupAddress.trim() || !form.pickupPostcode.trim() || !form.deliveryAddress.trim() || !form.deliveryPostcode.trim()) {
-      setError('Collection date, collection address, delivery address and both postcodes are required.');
-      return;
-    }
-    const pickupPostcode = normalizePostcode(form.pickupPostcode);
-    const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
-    if (!isFullUkPostcode(pickupPostcode) || !isFullUkPostcode(deliveryPostcode)) {
-      setError('Enter full UK postcodes for collection and delivery, for example BB1 1AA and DA8 1AA.');
-      return;
-    }
-    const invalidAdditionalStopIndex = additionalStops.findIndex((stop) =>
-      !stop.address.trim() || !stop.postcode.trim() || !isFullUkPostcode(stop.postcode),
-    );
-    if (invalidAdditionalStopIndex >= 0) {
-      setError(`Additional stop ${invalidAdditionalStopIndex + 2} needs an address and a full UK postcode.`);
-      return;
-    }
-    if (hasImplausibleDimension) {
-      setError('Check the cargo dimensions. Length, width and height are entered in metres.');
+    setShowValidation(true);
+
+    if (hasRequiredErrors || hasDimensionErrors) {
+      setError('Load details are incomplete or invalid. Complete the fields highlighted in red.');
+      focusFirstInvalidField();
       return;
     }
     if (!user?.id || !isSupabaseConfigured) {
       setError('Your session is not ready. Sign in again.');
       return;
     }
+
+    const pickupPostcode = normalizePostcode(form.pickupPostcode);
+    const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
 
     setSaving(true);
     try {
@@ -211,9 +239,9 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           cargoLabel: form.cargo,
           weightKg: numberOrNull(form.weight),
           pallets: numberOrNull(form.pallets),
-          lengthCm: metresToCm(form.length),
-          widthCm: metresToCm(form.width),
-          heightCm: metresToCm(form.height),
+          lengthCm: numberOrNull(form.length),
+          widthCm: numberOrNull(form.width),
+          heightCm: numberOrNull(form.height),
           cargoValueGbp: numberOrNull(form.cargoValue),
           customerReference: form.customerReference || null,
           purchaseOrder: form.purchaseOrder || null,
@@ -243,6 +271,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
       }
 
       const reference = xdriveReference(payload.job.id);
+      setShowValidation(false);
       setSuccess(publish ? `Load ${reference} published to the carrier marketplace.` : `Draft load ${reference} saved.`);
       const destination = mode === 'broker'
         ? `/broker/loads?created=${payload.job.id}`
@@ -281,8 +310,39 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
 
       <Panel title="Collection and delivery" description="Full execution addresses and site contacts are stored for the awarded job; Marketplace shows only broad route areas before award.">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: '12px' }}>
-          <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(value) => set('pickupDate', value)} onTime={(value) => set('pickupTime', value)} onPostcode={(value) => set('pickupPostcode', value.toUpperCase())} onAddress={(value) => set('pickupAddress', value)} onContact={(value) => set('collectionContact', value)} onPhone={(value) => set('collectionPhone', value)} requiredDate />
-          <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(value) => set('deliveryDate', value)} onTime={(value) => set('deliveryTime', value || 'ASAP')} onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())} onAddress={(value) => set('deliveryAddress', value)} onContact={(value) => set('deliveryContact', value)} onPhone={(value) => set('deliveryPhone', value)} />
+          <StopFields
+            title="Collection"
+            date={form.pickupDate}
+            time={form.pickupTime}
+            postcode={form.pickupPostcode}
+            address={form.pickupAddress}
+            contact={form.collectionContact}
+            phone={form.collectionPhone}
+            onDate={(value) => set('pickupDate', value)}
+            onTime={(value) => set('pickupTime', value)}
+            onPostcode={(value) => set('pickupPostcode', value.toUpperCase())}
+            onAddress={(value) => set('pickupAddress', value)}
+            onContact={(value) => set('collectionContact', value)}
+            onPhone={(value) => set('collectionPhone', value)}
+            requiredDate
+            errors={showValidation ? collectionErrors : undefined}
+          />
+          <StopFields
+            title="Delivery"
+            date={form.deliveryDate}
+            time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime}
+            postcode={form.deliveryPostcode}
+            address={form.deliveryAddress}
+            contact={form.deliveryContact}
+            phone={form.deliveryPhone}
+            onDate={(value) => set('deliveryDate', value)}
+            onTime={(value) => set('deliveryTime', value || 'ASAP')}
+            onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())}
+            onAddress={(value) => set('deliveryAddress', value)}
+            onContact={(value) => set('deliveryContact', value)}
+            onPhone={(value) => set('deliveryPhone', value)}
+            errors={showValidation ? deliveryErrors : undefined}
+          />
         </div>
 
         <div style={{ display: 'grid', gap: '8px', borderTop: '1px solid #e2e8f0', marginTop: '12px', paddingTop: '10px' }}>
@@ -300,42 +360,47 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
             <div style={{ fontSize: '11px', color: '#64748b' }}>No additional stops. This booking remains a standard collection → delivery job.</div>
           ) : (
             <div style={{ display: 'grid', gap: '10px' }}>
-              {additionalStops.map((stop, index) => (
-                <div key={stop.id} style={{ display: 'grid', gap: '8px', border: '1px solid #dbe3ee', borderRadius: '4px', padding: '10px', background: '#fbfdff' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#172033' }}>Stop {index + 2}</div>
-                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                      <button type="button" style={{ ...microButtonStyle, opacity: index === 0 ? 0.45 : 1 }} disabled={index === 0 || saving} onClick={() => moveAdditionalStop(stop.id, -1)}>Move up</button>
-                      <button type="button" style={{ ...microButtonStyle, opacity: index === additionalStops.length - 1 ? 0.45 : 1 }} disabled={index === additionalStops.length - 1 || saving} onClick={() => moveAdditionalStop(stop.id, 1)}>Move down</button>
-                      <button type="button" style={microButtonStyle} disabled={saving} onClick={() => removeAdditionalStop(stop.id)}>Remove</button>
+              {additionalStops.map((stop, index) => {
+                const stopErrors = showValidation ? additionalStopErrors[index] : undefined;
+                const stopInvalid = Boolean(stopErrors && hasStopErrors(stopErrors));
+                return (
+                  <div key={stop.id} style={{ display: 'grid', gap: '8px', border: `1px solid ${stopInvalid ? '#dc2626' : '#dbe3ee'}`, borderRadius: '4px', padding: '10px', background: stopInvalid ? '#fffafa' : '#fbfdff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: stopInvalid ? '#b91c1c' : '#172033' }}>Stop {index + 2}{stopInvalid ? ' · check required fields' : ''}</div>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                        <button type="button" style={{ ...microButtonStyle, opacity: index === 0 ? 0.45 : 1 }} disabled={index === 0 || saving} onClick={() => moveAdditionalStop(stop.id, -1)}>Move up</button>
+                        <button type="button" style={{ ...microButtonStyle, opacity: index === additionalStops.length - 1 ? 0.45 : 1 }} disabled={index === additionalStops.length - 1 || saving} onClick={() => moveAdditionalStop(stop.id, 1)}>Move down</button>
+                        <button type="button" style={microButtonStyle} disabled={saving} onClick={() => removeAdditionalStop(stop.id)}>Remove</button>
+                      </div>
                     </div>
+                    <label style={labelStyle}>Stop type
+                      <select style={fieldStyle} value={stop.type} onChange={(event) => updateAdditionalStop(stop.id, { type: event.target.value as AdditionalStop['type'] })}>
+                        <option value="collection">Collection</option>
+                        <option value="delivery">Delivery</option>
+                      </select>
+                    </label>
+                    <StopFields
+                      title={stop.type === 'collection' ? 'Collection stop' : 'Delivery stop'}
+                      date={stop.date}
+                      time={stop.time}
+                      postcode={stop.postcode}
+                      address={stop.address}
+                      contact={stop.contact}
+                      phone={stop.phone}
+                      onDate={(value) => updateAdditionalStop(stop.id, { date: value })}
+                      onTime={(value) => updateAdditionalStop(stop.id, { time: value })}
+                      onPostcode={(value) => updateAdditionalStop(stop.id, { postcode: value.toUpperCase() })}
+                      onAddress={(value) => updateAdditionalStop(stop.id, { address: value })}
+                      onContact={(value) => updateAdditionalStop(stop.id, { contact: value })}
+                      onPhone={(value) => updateAdditionalStop(stop.id, { phone: value })}
+                      errors={stopErrors}
+                    />
+                    <label style={labelStyle}>Private stop instructions
+                      <textarea style={textareaStyle} value={stop.instructions} onChange={(event) => updateAdditionalStop(stop.id, { instructions: event.target.value })} placeholder="Loading bay, access or stop-specific execution instructions. Hidden before award." />
+                    </label>
                   </div>
-                  <label style={labelStyle}>Stop type
-                    <select style={fieldStyle} value={stop.type} onChange={(event) => updateAdditionalStop(stop.id, { type: event.target.value as AdditionalStop['type'] })}>
-                      <option value="collection">Collection</option>
-                      <option value="delivery">Delivery</option>
-                    </select>
-                  </label>
-                  <StopFields
-                    title={stop.type === 'collection' ? 'Collection stop' : 'Delivery stop'}
-                    date={stop.date}
-                    time={stop.time}
-                    postcode={stop.postcode}
-                    address={stop.address}
-                    contact={stop.contact}
-                    phone={stop.phone}
-                    onDate={(value) => updateAdditionalStop(stop.id, { date: value })}
-                    onTime={(value) => updateAdditionalStop(stop.id, { time: value })}
-                    onPostcode={(value) => updateAdditionalStop(stop.id, { postcode: value.toUpperCase() })}
-                    onAddress={(value) => updateAdditionalStop(stop.id, { address: value })}
-                    onContact={(value) => updateAdditionalStop(stop.id, { contact: value })}
-                    onPhone={(value) => updateAdditionalStop(stop.id, { phone: value })}
-                  />
-                  <label style={labelStyle}>Private stop instructions
-                    <textarea style={textareaStyle} value={stop.instructions} onChange={(event) => updateAdditionalStop(stop.id, { instructions: event.target.value })} placeholder="Loading bay, access or stop-specific execution instructions. Hidden before award." />
-                  </label>
-                </div>
-              ))}
+                );
+              })}
               <div style={{ fontSize: '11px', color: '#64748b' }}>Final delivery will be stop {additionalStops.length + 2}. Reorder the additional stops above to change the execution sequence.</div>
             </div>
           )}
@@ -346,12 +411,28 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
-          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (m)'], ['width', 'Width (m)'], ['height', 'Height (m)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => (
-            <label key={key} style={labelStyle}>{label}<input style={fieldStyle} type="number" min="0" step={key === 'length' || key === 'width' || key === 'height' ? '0.01' : undefined} value={form[key]} placeholder={key === 'length' ? 'e.g. 4.00' : key === 'width' ? 'e.g. 1.85' : key === 'height' ? 'e.g. 2.00' : undefined} onChange={(event) => set(key, event.target.value)} /></label>
-          ))}
+          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => {
+            const dimensionKey = key === 'length' || key === 'width' || key === 'height';
+            const validationError = dimensionKey && showValidation ? dimensionErrors[key] : undefined;
+            return (
+              <label key={key} style={labelStyle}>{label}
+                <input
+                  style={{ ...fieldStyle, ...(validationError ? invalidFieldStyle : {}) }}
+                  aria-invalid={validationError ? 'true' : undefined}
+                  type="number"
+                  min="0"
+                  step={dimensionKey ? '1' : undefined}
+                  value={form[key]}
+                  placeholder={key === 'length' ? 'e.g. 400' : key === 'width' ? 'e.g. 185' : key === 'height' ? 'e.g. 200' : undefined}
+                  onChange={(event) => set(key, event.target.value)}
+                />
+                {validationError ? <span style={validationMessageStyle}>{validationError}</span> : null}
+              </label>
+            );
+          })}
         </div>
-        <div style={{ marginTop: '6px', fontSize: '11px', color: hasImplausibleDimension ? '#b45309' : '#64748b', fontWeight: hasImplausibleDimension ? 700 : 500 }}>
-          {dimensionSummary}. {hasImplausibleDimension ? 'One or more dimensions exceed 20 m; check the values before saving.' : 'Stored internally in centimetres; enter operational dimensions in metres.'}
+        <div style={{ marginTop: '6px', fontSize: '11px', color: hasDimensionErrors && showValidation ? '#b91c1c' : '#64748b', fontWeight: hasDimensionErrors && showValidation ? 700 : 500 }}>
+          {dimensionSummary}. Dimensions are entered and stored in centimetres (cm).
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
           {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
@@ -405,20 +486,30 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   );
 }
 
-function StopFields({ title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onContact, onPhone, requiredDate = false }: {
+function StopFields({ title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onContact, onPhone, requiredDate = false, errors }: {
   title: string; date: string; time: string; postcode: string; address: string; contact: string; phone: string;
   onDate: (value: string) => void; onTime: (value: string) => void; onPostcode: (value: string) => void;
   onAddress: (value: string) => void; onContact: (value: string) => void; onPhone: (value: string) => void; requiredDate?: boolean;
+  errors?: StopFieldErrors;
 }) {
   return (
     <div style={{ display: 'grid', gap: '8px' }}>
-      <h3 style={{ margin: 0, fontSize: '13px', lineHeight: '18px', fontWeight: 600 }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: '13px', lineHeight: '18px', fontWeight: 600, color: hasStopErrors(errors ?? {}) ? '#b91c1c' : undefined }}>{title}</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        <label style={labelStyle}>Date{requiredDate ? ' *' : ''}<input style={fieldStyle} type="date" value={date} onChange={(event) => onDate(event.target.value)} /></label>
+        <label style={labelStyle}>Date{requiredDate ? ' *' : ''}
+          <input style={{ ...fieldStyle, ...(errors?.date ? invalidFieldStyle : {}) }} aria-invalid={errors?.date ? 'true' : undefined} type="date" value={date} onChange={(event) => onDate(event.target.value)} />
+          {errors?.date ? <span style={validationMessageStyle}>{errors.date}</span> : null}
+        </label>
         <label style={labelStyle}>Time<input style={fieldStyle} type="time" value={time} onChange={(event) => onTime(event.target.value)} /></label>
       </div>
-      <label style={labelStyle}>Postcode *<input style={fieldStyle} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} /></label>
-      <label style={labelStyle}>Address *<textarea style={textareaStyle} value={address} onChange={(event) => onAddress(event.target.value)} /></label>
+      <label style={labelStyle}>Postcode *
+        <input style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }} aria-invalid={errors?.postcode ? 'true' : undefined} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} />
+        {errors?.postcode ? <span style={validationMessageStyle}>{errors.postcode}</span> : null}
+      </label>
+      <label style={labelStyle}>Address *
+        <textarea style={{ ...textareaStyle, ...(errors?.address ? invalidFieldStyle : {}) }} aria-invalid={errors?.address ? 'true' : undefined} value={address} onChange={(event) => onAddress(event.target.value)} />
+        {errors?.address ? <span style={validationMessageStyle}>{errors.address}</span> : null}
+      </label>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
         <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
