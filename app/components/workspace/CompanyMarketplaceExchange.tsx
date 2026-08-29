@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
+import { OperationalExpandAllControl } from './OperationalExpandAllControl';
 import {
   ActionButton,
   AlertBanner,
@@ -211,22 +212,22 @@ const LOAD_TYPES = [
 const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
 
 const fieldStyle = {
-  height: 34,
+  height: 32,
   border: '1px solid #cbd5e1',
-  borderRadius: 5,
-  padding: '0 0.55rem',
+  borderRadius: 4,
+  padding: '0 8px',
   background: '#fff',
   color: '#0f172a',
-  fontSize: '0.75rem',
+  fontSize: '12px',
   minWidth: 0,
 } as const;
 
 const labelStyle = {
   display: 'block',
   color: '#475569',
-  fontSize: '0.66rem',
-  fontWeight: 800,
-  letterSpacing: '0.035em',
+  fontSize: '11px',
+  fontWeight: 700,
+  lineHeight: '15px',
   marginBottom: 4,
   textTransform: 'uppercase',
 } as const;
@@ -567,6 +568,11 @@ export default function CompanyMarketplaceExchange() {
     pickupAt: load.pickup_datetime,
     pickupCoordinates: load.pickupCoordinates,
   })), [loads]);
+  const allVisibleExpanded = loads.length > 0 && loads.every((load) => expanded.has(load.id));
+
+  const toggleExpandAll = () => {
+    setExpanded(allVisibleExpanded ? new Set() : new Set(loads.map((load) => load.id)));
+  };
 
   const tabButton = (id: typeof tab, label: string) => (
     <button
@@ -577,8 +583,9 @@ export default function CompanyMarketplaceExchange() {
         borderBottom: tab === id ? '2px solid #1d57d8' : '2px solid transparent',
         background: 'transparent',
         color: tab === id ? '#1d57d8' : '#64748b',
-        padding: '0.55rem 0.8rem',
-        fontSize: '0.76rem',
+        height: 28,
+        padding: '0 10px',
+        fontSize: '11px',
         fontWeight: tab === id ? 800 : 650,
         cursor: 'pointer',
       }}
@@ -616,7 +623,7 @@ export default function CompanyMarketplaceExchange() {
         <KpiCard label="Unsuccessful" value={statusCounts.unsuccessful} detail="Rejected quotes" tone={statusCounts.unsuccessful ? 'orange' : 'blue'} />
       </ExchangeKpiStrip>
 
-      <div style={{ display: 'flex', gap: '0.2rem', borderBottom: '1px solid #dbe2ea', marginBottom: '0.75rem' }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #dbe2ea', marginBottom: 8 }}>
         {tabButton('loads', 'Available Loads')}
         {tabButton('bids', 'My Quotes')}
         {tabButton('won', 'Won Work')}
@@ -672,7 +679,7 @@ export default function CompanyMarketplaceExchange() {
             </div>
           </Panel>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0.75rem 0', borderBottom: '1px solid #dbe2ea' }}>
+          <div style={{ minHeight: 36, display: 'flex', alignItems: 'center', gap: 4, margin: '8px 0', borderBottom: '1px solid #dbe2ea' }}>
             {LOAD_TYPES.map(([value, label]) => (
               <button
                 key={value}
@@ -682,20 +689,22 @@ export default function CompanyMarketplaceExchange() {
                   setTimeout(() => void loadLoads(1, true), 0);
                 }}
                 style={{
+                  height: 28,
                   border: 0,
                   borderBottom: filters.loadType === value ? '2px solid #1d57d8' : '2px solid transparent',
                   background: 'transparent',
                   color: filters.loadType === value ? '#1d57d8' : '#64748b',
-                  fontSize: '0.72rem',
+                  fontSize: '11px',
                   fontWeight: filters.loadType === value ? 800 : 650,
-                  padding: '0.48rem 0.72rem',
+                  padding: '0 10px',
                   cursor: 'pointer',
                 }}
               >
                 {label}
               </button>
             ))}
-            <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: '0.72rem' }}>{total} result{total === 1 ? '' : 's'}</span>
+            <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: '11px' }}>{total} result{total === 1 ? '' : 's'}</span>
+            {viewMode === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!loads.length} onToggle={toggleExpandAll} noun="loads" />}
             <ActionButton tone="secondary" onClick={() => setViewMode('list')}>List View</ActionButton>
             <ActionButton tone="secondary" onClick={() => setViewMode('map')}>Map View</ActionButton>
           </div>
@@ -705,11 +714,11 @@ export default function CompanyMarketplaceExchange() {
           ) : (
             <Panel title="Available Loads" description="Exchange and direct-invite work visible to your active company workspace." flush>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1020, fontSize: '0.73rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1020, fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>
                       {['Load', 'Route', 'Pickup', 'Vehicle', 'Freight', 'Member', 'Price', 'Type', 'Quote', 'Action'].map((heading) => (
-                        <th key={heading} style={{ padding: '0.52rem 0.6rem', borderBottom: '1px solid #dbe2ea', position: 'sticky', top: 0, background: '#f8fafc', whiteSpace: 'nowrap' }}>{heading}</th>
+                        <th key={heading} style={{ height: 40, padding: '0 8px', borderBottom: '1px solid #dbe2ea', position: 'sticky', top: 0, background: '#f8fafc', whiteSpace: 'nowrap', fontSize: 11 }}>{heading}</th>
                       ))}
                     </tr>
                   </thead>
@@ -719,18 +728,18 @@ export default function CompanyMarketplaceExchange() {
                       const amount = Number(load.budget_amount);
                       const hasBudget = Number.isFinite(amount) && amount > 0;
                       return [
-                        <tr key={load.id} style={{ borderBottom: '1px solid #edf2f7', background: load.exchange_visibility === 'direct' ? '#fffaf0' : '#fff' }}>
-                          <td style={{ padding: '0.55rem 0.6rem', fontWeight: 800 }}>{load.id.slice(0, 8).toUpperCase()}{load.exchange_visibility === 'direct' && <div style={{ marginTop: 3 }}><StatusBadge value="Direct invite" tone="orange" /></div>}</td>
-                          <td style={{ padding: '0.55rem 0.6rem' }}><strong>{routeLabel(load.pickup_location, load.pickup_postcode)} → {routeLabel(load.delivery_location, load.delivery_postcode)}</strong>{load.journeyDistanceMiles != null && <div style={{ color: '#64748b', marginTop: 2 }}>{load.journeyDistanceMiles.toFixed(1)} mi route</div>}</td>
-                          <td style={{ padding: '0.55rem 0.6rem', whiteSpace: 'nowrap' }}>{when(load.pickup_datetime)}{load.pickup_time_slot && <div style={{ color: '#64748b' }}>{load.pickup_time_slot}</div>}</td>
-                          <td style={{ padding: '0.55rem 0.6rem', textTransform: 'capitalize' }}>{vehicleLabel(load)}</td>
-                          <td style={{ padding: '0.55rem 0.6rem' }}>{load.requested_cargo_label || load.cargo_type?.replace(/_/g, ' ') || '—'}{load.weight_kg != null && <div style={{ color: '#64748b' }}>{Number(load.weight_kg).toLocaleString()} kg</div>}</td>
-                          <td style={{ padding: '0.55rem 0.6rem' }}>{load.posterName}{load.posterMemberCode && <div style={{ color: '#64748b' }}>ID {load.posterMemberCode}</div>}</td>
-                          <td style={{ padding: '0.55rem 0.6rem', whiteSpace: 'nowrap' }}>{hasBudget ? <><strong>{money(amount, load.currency || 'GBP')}</strong><div style={{ color: '#64748b' }}>{load.is_fixed_price ? 'Fixed' : 'Budget'}</div></> : '—'}</td>
-                          <td style={{ padding: '0.55rem 0.6rem' }}>{loadTypeLabel(load.loadType)}<div style={{ color: '#64748b' }}>{descriptionLabel(load.jobDescription)}</div></td>
-                          <td style={{ padding: '0.55rem 0.6rem' }}>{load.myBid ? <><StatusBadge value={load.myBid.status} /><div style={{ marginTop: 3 }}>{money(bidAmount(load.myBid), load.myBid.currency || 'GBP')}</div></> : <span style={{ color: '#64748b' }}>Not quoted</span>}</td>
-                          <td style={{ padding: '0.55rem 0.6rem', whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', gap: 5 }}>
+                        <tr key={load.id} style={{ minHeight: 42, borderBottom: '1px solid #edf2f7', background: load.exchange_visibility === 'direct' ? '#fffaf0' : '#fff' }}>
+                          <td style={{ padding: '8px', fontWeight: 800 }}>{load.id.slice(0, 8).toUpperCase()}{load.exchange_visibility === 'direct' && <div style={{ marginTop: 3 }}><StatusBadge value="Direct invite" tone="orange" /></div>}</td>
+                          <td style={{ padding: '8px' }}><strong>{routeLabel(load.pickup_location, load.pickup_postcode)} → {routeLabel(load.delivery_location, load.delivery_postcode)}</strong>{load.journeyDistanceMiles != null && <div style={{ color: '#64748b', marginTop: 2 }}>{load.journeyDistanceMiles.toFixed(1)} mi route</div>}</td>
+                          <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{when(load.pickup_datetime)}{load.pickup_time_slot && <div style={{ color: '#64748b' }}>{load.pickup_time_slot}</div>}</td>
+                          <td style={{ padding: '8px', textTransform: 'capitalize' }}>{vehicleLabel(load)}</td>
+                          <td style={{ padding: '8px' }}>{load.requested_cargo_label || load.cargo_type?.replace(/_/g, ' ') || '—'}{load.weight_kg != null && <div style={{ color: '#64748b' }}>{Number(load.weight_kg).toLocaleString()} kg</div>}</td>
+                          <td style={{ padding: '8px' }}>{load.posterName}{load.posterMemberCode && <div style={{ color: '#64748b' }}>ID {load.posterMemberCode}</div>}</td>
+                          <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{hasBudget ? <><strong>{money(amount, load.currency || 'GBP')}</strong><div style={{ color: '#64748b' }}>{load.is_fixed_price ? 'Fixed' : 'Budget'}</div></> : '—'}</td>
+                          <td style={{ padding: '8px' }}>{loadTypeLabel(load.loadType)}<div style={{ color: '#64748b' }}>{descriptionLabel(load.jobDescription)}</div></td>
+                          <td style={{ padding: '8px' }}>{load.myBid ? <><StatusBadge value={load.myBid.status} /><div style={{ marginTop: 3 }}>{money(bidAmount(load.myBid), load.myBid.currency || 'GBP')}</div></> : <span style={{ color: '#64748b' }}>Not quoted</span>}</td>
+                          <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', gap: 4 }}>
                               <ActionButton tone="secondary" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })}>{isExpanded ? 'Close' : 'Details'}</ActionButton>
                               {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <ActionButton tone="success" onClick={() => openQuote(load)}>Quote</ActionButton> : null}
                             </div>
@@ -738,14 +747,14 @@ export default function CompanyMarketplaceExchange() {
                         </tr>,
                         isExpanded ? (
                           <tr key={`${load.id}-details`} style={{ background: '#f8fafc' }}>
-                            <td colSpan={10} style={{ padding: '0.7rem 0.8rem', borderBottom: '1px solid #dbe2ea' }}>
+                            <td colSpan={10} style={{ padding: '8px 10px', borderBottom: '1px solid #dbe2ea' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12 }}>
                                 <div><strong>Pickup</strong><div>{load.pickup_location || load.pickup_postcode || '—'}</div><div style={{ color: '#64748b' }}>{load.distanceFromSearchOriginMiles != null ? `${load.distanceFromSearchOriginMiles.toFixed(1)} mi from FROM search` : 'Radius distance unavailable'}</div></div>
                                 <div><strong>Delivery</strong><div>{load.delivery_location || load.delivery_postcode || '—'}</div><div style={{ color: '#64748b' }}>{load.distanceToSearchDestinationMiles != null ? `${load.distanceToSearchDestinationMiles.toFixed(1)} mi from TO search` : 'Radius distance unavailable'}</div></div>
                                 <div><strong>References</strong><div>Customer: {load.customer_reference || '—'}</div><div>Booking: {load.booking_reference || '—'}</div></div>
                                 <div><strong>Requirements</strong><div>{load.special_requirements || 'None stated'}</div><div style={{ color: '#64748b' }}>{load.access_restrictions || 'No access restrictions stated'}</div></div>
                               </div>
-                              <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                              <div style={{ marginTop: 8, display: 'flex', gap: 4 }}>
                                 <ActionButton tone="secondary" onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(load.pickup_postcode || load.pickup_location || '')}&destination=${encodeURIComponent(load.delivery_postcode || load.delivery_location || '')}`, '_blank', 'noopener,noreferrer')}>Open Route</ActionButton>
                                 {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <ActionButton tone="success" onClick={() => openQuote(load)}>Submit Quote</ActionButton> : null}
                               </div>
@@ -763,9 +772,9 @@ export default function CompanyMarketplaceExchange() {
             </Panel>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, color: '#64748b', fontSize: '0.72rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, color: '#64748b', fontSize: '11px' }}>
             <span>Page {page} of {totalPages} · {total} results</span>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
               <ActionButton tone="secondary" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)}>Previous</ActionButton>
               <ActionButton tone="secondary" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)}>Next</ActionButton>
             </div>
@@ -776,18 +785,18 @@ export default function CompanyMarketplaceExchange() {
       {tab === 'bids' && (
         <Panel title="My Quotes" description="Commercial responses submitted by your company to marketplace loads." flush>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '0.74rem' }}>
-              <thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Quote', 'Load / route', 'Member', 'Amount', 'Submitted', 'Status', 'Action'].map((heading) => <th key={heading} style={{ padding: '0.52rem 0.6rem', borderBottom: '1px solid #dbe2ea' }}>{heading}</th>)}</tr></thead>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '12px' }}>
+              <thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Quote', 'Load / route', 'Member', 'Amount', 'Submitted', 'Status', 'Action'].map((heading) => <th key={heading} style={{ height: 40, padding: '0 8px', borderBottom: '1px solid #dbe2ea', fontSize: 11 }}>{heading}</th>)}</tr></thead>
               <tbody>
                 {bids.map((bid) => (
                   <tr key={bid.id} style={{ borderBottom: '1px solid #edf2f7' }}>
-                    <td style={{ padding: '0.55rem 0.6rem', fontWeight: 800 }}>{bid.id.slice(0, 8).toUpperCase()}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}><strong>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} → {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b' }}>Load {bid.job_id.slice(0, 8).toUpperCase()}</div></td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode && <div style={{ color: '#64748b' }}>ID {bid.job.posterMemberCode}</div>}</td>
-                    <td style={{ padding: '0.55rem 0.6rem', fontWeight: 800 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}>{when(bid.created_at)}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}><StatusBadge value={bid.status} /></td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}>{bid.status === 'submitted' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : '—'}</td>
+                    <td style={{ padding: '8px', fontWeight: 800 }}>{bid.id.slice(0, 8).toUpperCase()}</td>
+                    <td style={{ padding: '8px' }}><strong>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} → {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b' }}>Load {bid.job_id.slice(0, 8).toUpperCase()}</div></td>
+                    <td style={{ padding: '8px' }}>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode && <div style={{ color: '#64748b' }}>ID {bid.job.posterMemberCode}</div>}</td>
+                    <td style={{ padding: '8px', fontWeight: 800 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</td>
+                    <td style={{ padding: '8px' }}>{when(bid.created_at)}</td>
+                    <td style={{ padding: '8px' }}><StatusBadge value={bid.status} /></td>
+                    <td style={{ padding: '8px' }}>{bid.status === 'submitted' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : '—'}</td>
                   </tr>
                 ))}
                 {!loading && bids.length === 0 && <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#64748b' }}>No marketplace quotes have been submitted by this company.</td></tr>}
@@ -800,19 +809,19 @@ export default function CompanyMarketplaceExchange() {
       {tab === 'won' && (
         <Panel title="Won Work" description="Marketplace loads awarded to your company." flush>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '0.74rem' }}>
-              <thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Load', 'Route', 'Member', 'Pickup', 'Vehicle', 'Status', 'Budget', 'Action'].map((heading) => <th key={heading} style={{ padding: '0.52rem 0.6rem', borderBottom: '1px solid #dbe2ea' }}>{heading}</th>)}</tr></thead>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '12px' }}>
+              <thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Load', 'Route', 'Member', 'Pickup', 'Vehicle', 'Status', 'Budget', 'Action'].map((heading) => <th key={heading} style={{ height: 40, padding: '0 8px', borderBottom: '1px solid #dbe2ea', fontSize: 11 }}>{heading}</th>)}</tr></thead>
               <tbody>
                 {won.map((job) => (
                   <tr key={job.id} style={{ borderBottom: '1px solid #edf2f7' }}>
-                    <td style={{ padding: '0.55rem 0.6rem', fontWeight: 800 }}>{job.id.slice(0, 8).toUpperCase()}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}><strong>{routeLabel(job.pickup_location, job.pickup_postcode)} → {routeLabel(job.delivery_location, job.delivery_postcode)}</strong></td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}>{job.posterName || 'Marketplace member'}{job.posterMemberCode && <div style={{ color: '#64748b' }}>ID {job.posterMemberCode}</div>}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}>{when(job.pickup_datetime)}</td>
-                    <td style={{ padding: '0.55rem 0.6rem', textTransform: 'capitalize' }}>{job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}><StatusBadge value={job.current_status || job.status || 'awarded'} /></td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}>{money(job.budget_amount, job.currency || 'GBP')}</td>
-                    <td style={{ padding: '0.55rem 0.6rem' }}><ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton></td>
+                    <td style={{ padding: '8px', fontWeight: 800 }}>{job.id.slice(0, 8).toUpperCase()}</td>
+                    <td style={{ padding: '8px' }}><strong>{routeLabel(job.pickup_location, job.pickup_postcode)} → {routeLabel(job.delivery_location, job.delivery_postcode)}</strong></td>
+                    <td style={{ padding: '8px' }}>{job.posterName || 'Marketplace member'}{job.posterMemberCode && <div style={{ color: '#64748b' }}>ID {job.posterMemberCode}</div>}</td>
+                    <td style={{ padding: '8px' }}>{when(job.pickup_datetime)}</td>
+                    <td style={{ padding: '8px', textTransform: 'capitalize' }}>{job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || '—'}</td>
+                    <td style={{ padding: '8px' }}><StatusBadge value={job.current_status || job.status || 'awarded'} /></td>
+                    <td style={{ padding: '8px' }}>{money(job.budget_amount, job.currency || 'GBP')}</td>
+                    <td style={{ padding: '8px' }}><ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton></td>
                   </tr>
                 ))}
                 {!loading && won.length === 0 && <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#64748b' }}>No marketplace work has been awarded to this company yet.</td></tr>}
@@ -823,13 +832,13 @@ export default function CompanyMarketplaceExchange() {
       )}
 
       {bidTarget && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }} onMouseDown={(event) => { if (event.currentTarget === event.target && !working) setBidTarget(null); }}>
-          <div role="dialog" aria-modal="true" aria-label="Submit marketplace quote" style={{ width: 'min(520px,100%)', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, boxShadow: '0 20px 50px rgba(15,23,42,.25)', padding: '1rem' }}>
-            <div style={{ fontWeight: 850, color: '#0f172a', fontSize: '0.94rem' }}>Submit Quote</div>
-            <div style={{ color: '#64748b', fontSize: '0.74rem', marginTop: 3 }}>{routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)} → {routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)} · {bidTarget.posterName}</div>
-            <label style={{ display: 'block', marginTop: 14 }}><span style={labelStyle}>Quote amount (GBP)</span><input autoFocus type="number" min="0.01" step="0.01" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
-            <label style={{ display: 'block', marginTop: 10 }}><span style={labelStyle}>Message / terms</span><textarea value={quoteMessage} onChange={(e) => setQuoteMessage(e.target.value)} rows={4} placeholder="Availability, vehicle, timing or commercial notes" style={{ ...fieldStyle, width: '100%', height: 'auto', padding: '0.55rem', resize: 'vertical' }} /></label>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onMouseDown={(event) => { if (event.currentTarget === event.target && !working) setBidTarget(null); }}>
+          <div role="dialog" aria-modal="true" aria-label="Submit marketplace quote" style={{ width: 'min(520px,100%)', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, boxShadow: 'none', padding: '16px' }}>
+            <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px' }}>Submit Quote</div>
+            <div style={{ color: '#64748b', fontSize: '11px', marginTop: 4 }}>{routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)} → {routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)} · {bidTarget.posterName}</div>
+            <label style={{ display: 'block', marginTop: 12 }}><span style={labelStyle}>Quote amount (GBP)</span><input autoFocus type="number" min="0.01" step="0.01" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
+            <label style={{ display: 'block', marginTop: 8 }}><span style={labelStyle}>Message / terms</span><textarea value={quoteMessage} onChange={(e) => setQuoteMessage(e.target.value)} rows={4} placeholder="Availability, vehicle, timing or commercial notes" style={{ ...fieldStyle, width: '100%', height: 'auto', padding: '8px', resize: 'vertical' }} /></label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <ActionButton tone="secondary" disabled={working} onClick={() => setBidTarget(null)}>Cancel</ActionButton>
               <ActionButton tone="success" disabled={working} onClick={() => void submitQuote()}>{working ? 'Submitting…' : 'Submit Quote'}</ActionButton>
             </div>
