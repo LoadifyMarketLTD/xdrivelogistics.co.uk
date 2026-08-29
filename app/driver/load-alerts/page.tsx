@@ -97,7 +97,7 @@ export default function DriverLoadAlertsPage() {
       if (!response.ok) {
         if (payload.code === 'LOAD_ALERT_SCHEMA_UNAVAILABLE') {
           setSchemaUnavailable(true);
-          setError('Smart Load Alerts are prepared in this release, but the required database migration has not been enabled in this environment yet.');
+          setError('Smart Load Alerts are prepared for this release, but they are not active in this environment yet. No alert settings have been applied here.');
         } else {
           setError(payload.error ?? 'Load Alert settings could not be loaded.');
         }
@@ -216,7 +216,7 @@ export default function DriverLoadAlertsPage() {
           <section className="workspace-panel">
             <div className="workspace-panel__header"><strong>Which loads should qualify?</strong></div>
             <div className="workspace-panel__body" style={{ display: 'grid', gap: 12 }}>
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.requireVehicleMatch} onChange={(event) => patch('requireVehicleMatch', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Require vehicle match</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Only alert when the load matches your canonical active vehicle type.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.requireVehicleMatch} onChange={(event) => patch('requireVehicleMatch', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Require vehicle match</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Only alert when the load matches your active XDrive vehicle type.</span></span></label>
               <div className="workspace-record-meta"><span>Vehicle: <strong>{humanize(context?.vehicleType)}</strong></span><span>{context?.vehicleRegistration ?? 'Registration not available'}</span></div>
               <label>MINIMUM LOAD BUDGET (£)<input type="number" min="0" step="1" value={preference.minimumBudgetGbp ?? ''} onChange={(event) => patch('minimumBudgetGbp', event.target.value === '' ? null : Number(event.target.value))} placeholder="No minimum" disabled={loading || schemaUnavailable} /></label>
               <div style={{ fontSize: 12, color: '#64748b' }}>If a load has no stated budget and you set a minimum, that load will not match.</div>
@@ -237,7 +237,7 @@ export default function DriverLoadAlertsPage() {
         <section className="workspace-panel" style={{ marginTop: 8 }}>
           <div className="workspace-panel__body" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ fontSize: 12, color: '#64748b', maxWidth: 720 }}>
-              XDrive uses exact tracking coordinates only inside the protected matcher. Load Alert payloads contain public outcodes/areas, not your live coordinates or a customer's exact pre-award address.
+              XDrive uses your exact tracking coordinates only while checking whether a load is nearby. Alerts show public collection and delivery areas, never your live coordinates or a customer's exact pre-award address.
             </div>
             <ActionButton tone="primary" onClick={() => void save()} disabled={loading || saving || schemaUnavailable}>{saving ? 'Saving…' : 'Save Load Alerts'}</ActionButton>
           </div>
