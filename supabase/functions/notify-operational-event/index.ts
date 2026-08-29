@@ -161,12 +161,17 @@ async function sendEmail(
   return true;
 }
 
-async function sendAssignedJobPush(userId: string, jobId: string): Promise<boolean> {
+async function sendDriverPush(
+  userId: string,
+  title: string,
+  body: string,
+  data: Record<string, string>,
+): Promise<boolean> {
   // Push is additive. Existing email/inbox delivery must keep working before a
   // Firebase project is configured, so missing Firebase credentials are neutral.
   if (!firebaseServiceAccount) return true;
 
-  const { data, error } = await supabase.rpc('active_driver_push_devices_for_user', {
+  const { data: deviceData, error } = await supabase.rpc('active_driver_push_devices_for_user', {
     p_user_id: userId,
   });
   if (error) {
@@ -174,20 +179,16 @@ async function sendAssignedJobPush(userId: string, jobId: string): Promise<boole
     return false;
   }
 
-  const devices = (data ?? []) as PushDevice[];
+  const devices = (deviceData ?? []) as PushDevice[];
   if (!devices.length) return true;
 
   const results = await Promise.all(devices.map(async (device) => {
     const result = await sendFcmMessage({
       account: firebaseServiceAccount,
       token: device.fcm_token,
-      title: 'New Job Assigned - XDrive Logistics',
-      body: 'A new job has been assigned to you. Open XDrive to view the job details.',
-      data: {
-        event_type: 'job_assigned',
-        job_id: jobId,
-        deep_link: `xdrive://job/${jobId}`,
-      },
+      title,
+      body,
+      data,
     });
 
     if (result.unregistered) {
@@ -259,7 +260,16 @@ async function handleJobAssigned(event: NotificationEvent) {
       `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, userId),
     ),
-    sendAssignedJobPush(userId, jobIdRaw),
+    sendDriverPush(
+      userId,
+      'New Job Assigned - XDrive Logistics',
+      'A new job has been assigned to you. Open XDrive to view the job details.',
+      {
+        event_type: 'job_assigned',
+        job_id: jobIdRaw,
+        deep_link: `xdrive://job/${jobIdRaw}`,
+      },
+    ),
   ]);
   return emailOk && pushOk;
 }
@@ -293,6 +303,58 @@ async function handlePodUploaded(event: NotificationEvent) {
     (name) => `<h2>Job delivered - POD available</h2><p>Hi ${name},</p><p>Job <strong>${jobId}</strong> has been marked delivered.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p>Sign in to review the proof of delivery.</p><p>XDrive Logistics</p>`,
     event.id,
   );
+}
+
+async function handleLoadAlert(event: NotificationEvent) {
+  const userId = event.recipient_user_id;
+  if (!userId) return true;
+
+  const emailEnabled = event.payload.email_enabled === true;
+  const pushEnabled = event.payload.push_enabled === true;
+  if (!emailEnabled && !pushEnabled) return true;
+
+  const jobId = String(event.payload.job_id ?? event.entity_id);
+  const pickup = String(event.payload.pickup_outcode ?? 'Collection area TBC');
+  const delivery = String(event.payload.delivery_outcode ?? 'Delivery area TBC');
+  const vehicle = String(event.payload.vehicle_type ?? '').trim();
+  const budgetValue = event.payload.budget_amount;
+  const budget = typeof budgetValue === 'number'
+    ? budgetValue
+    : typeof budgetValue === 'string' && budgetValue.trim() ? Number(budgetValue) : null;
+  const routeSummary = `${pickup} → ${delivery}`;
+  const budgetSummary = typeof budget === 'number' && Number.isFinite(budget) && budget >= 0
+    ? ` · £${budget.toFixed(2)}`
+    : '';
+  const vehicleSummary = vehicle ? ` · ${vehicle}` : '';
+  const publicSummary = `${routeSummary}${vehicleSummary}${budgetSummary}`;
+
+  let emailOk = true;
+  if (emailEnabled) {
+    const user = await getUserEmail(userId);
+    if (user) {
+      emailOk = await sendEmail(
+        user.email,
+        'New load matches your alert - XDrive Logistics',
+        `<h2>A new load matches your alert</h2><p>Hi ${escapeHtml(user.name)},</p><p><strong>${escapeHtml(routeSummary)}</strong></p>${vehicle ? `<p>Vehicle: <strong>${escapeHtml(vehicle)}</strong></p>` : ''}${budgetSummary ? `<p>Budget: <strong>£${escapeHtml(Number(budget).toFixed(2))}</strong></p>` : ''}<p>Exact addresses remain hidden before award. Open XDrive to review the public marketplace details and quote if suitable.</p><p><a href="${escapeHtml(buildAppUrl('/driver/loads'))}">Open Load Exchange</a></p><p>XDrive Logistics</p>`,
+        notificationIdempotencyKey(event.id, userId),
+      );
+    }
+  }
+
+  const pushOk = pushEnabled
+    ? await sendDriverPush(
+      userId,
+      'New load matches your alert',
+      publicSummary,
+      {
+        event_type: 'load_alert',
+        job_id: jobId,
+        deep_link: `xdrive://loads/${jobId}`,
+      },
+    )
+    : true;
+
+  return emailOk && pushOk;
 }
 
 async function handleOnboardingInvite(event: NotificationEvent) {
@@ -398,6 +460,7 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'job_assigned': success = await handleJobAssigned(event); break;
       case 'bid_accepted': success = await handleBidAccepted(event); break;
       case 'pod_uploaded': success = await handlePodUploaded(event); break;
+      case 'load_alert': success = await handleLoadAlert(event); break;
       case 'onboarding_invite':
       case 'onboarding_invite_resent':
         success = await handleOnboardingInvite(event);
