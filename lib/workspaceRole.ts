@@ -248,6 +248,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'customer-tracking', label: 'Tracking', items: [{ id: 'tracking', label: 'Tracking', href: '/customer/tracking', icon: '⌖', capability: 'jobs.track' }] },
       { id: 'customer-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/customer/diary', icon: '□', capability: 'jobs.view' }] },
       { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network', icon: '◌' }] },
+      { id: 'customer-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/customer/disputes', icon: '!', capability: 'jobs.view' }] },
       { id: 'customer-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/customer/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
