@@ -10,7 +10,8 @@ import {
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../_lib/marketplacePublic';
-import { isDriverContext, requireDriver, respond } from '../mobile/_lib';
+import { isDriverContext, respond } from '../mobile/_lib';
+import { requireWebDriver } from '../_lib/webDriver';
 import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeRange';
 
 type Coordinates = { lat: number; lng: number };
@@ -213,7 +214,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const driver = await requireDriver(request);
+  const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
