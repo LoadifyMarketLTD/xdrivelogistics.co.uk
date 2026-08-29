@@ -28,6 +28,17 @@ vi.mock('expo-network', () => ({
   getNetworkStateAsync: async () => ({ isConnected: true, isInternetReachable: true }),
 }));
 
+// Queue cleanup imports the durable evidence persistence modules, which import
+// expo-file-system. Keep this unit test inside the Node/Vitest boundary instead
+// of loading the React Native runtime (whose distributed entrypoint contains
+// Flow syntax that Rolldown does not parse).
+vi.mock('expo-file-system', () => ({
+  documentDirectory: 'file:///xdrive-test-documents/',
+  makeDirectoryAsync: vi.fn(async () => undefined),
+  copyAsync: vi.fn(async () => undefined),
+  deleteAsync: vi.fn(async () => undefined),
+}));
+
 import {
   clearQueue,
   enqueueAction,
@@ -42,6 +53,17 @@ import { handleSessionLoss } from '../src/auth/sessionLoss';
 
 const USER_A = 'user-aaa-111';
 const USER_B = 'user-bbb-222';
+
+function loadedAction(jobId: string) {
+  return {
+    jobId,
+    endpoint: 'loaded',
+    payload: {
+      collectionPhotoUri: `persisted/${jobId}-collection.jpg`,
+      collectionEvidenceId: `collection-${jobId}-evidence`,
+    },
+  };
+}
 
 beforeEach(() => {
   // Clear storage between tests
@@ -75,13 +97,13 @@ describe('queueStorageKey', () => {
 
 describe('enqueueAction — account-scoped storage', () => {
   it('writes to the user-specific key, not the global key', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-1'));
     expect(storage[queueStorageKey(USER_A)]).toBeDefined();
     expect(storage['xdrive.driver.offlineQueue']).toBeUndefined();
   });
 
   it('user A actions do not appear in user B queue', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-1'));
     const queueB = await getQueue(USER_B);
     expect(queueB).toHaveLength(0);
   });
@@ -93,7 +115,7 @@ describe('enqueueAction — account-scoped storage', () => {
   });
 
   it('each user has an independent queue', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-1'));
     await enqueueAction(USER_B, { jobId: 'job-2', endpoint: 'delivered' });
 
     const queueA = await getQueue(USER_A);
@@ -110,14 +132,14 @@ describe('enqueueAction — account-scoped storage', () => {
 
 describe('getQueue — account isolation', () => {
   it('returns empty array for a user with no queue', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-1'));
     expect(await getQueue(USER_B)).toHaveLength(0);
   });
 
   it('returns only the requesting user\'s actions', async () => {
     await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'on-my-way-pickup' });
     await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'arrived-pickup' });
-    await enqueueAction(USER_B, { jobId: 'job-b', endpoint: 'loaded' });
+    await enqueueAction(USER_B, loadedAction('job-b'));
 
     const queueA = await getQueue(USER_A);
     expect(queueA).toHaveLength(2);
@@ -129,8 +151,8 @@ describe('getQueue — account isolation', () => {
 
 describe('duplicate prevention — cross-account independence', () => {
   it('allows both users to queue the same job+endpoint independently', async () => {
-    await enqueueAction(USER_A, { jobId: 'shared-job', endpoint: 'loaded' });
-    await enqueueAction(USER_B, { jobId: 'shared-job', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('shared-job'));
+    await enqueueAction(USER_B, loadedAction('shared-job'));
 
     const queueA = await getQueue(USER_A);
     const queueB = await getQueue(USER_B);
@@ -140,8 +162,8 @@ describe('duplicate prevention — cross-account independence', () => {
   });
 
   it('still deduplicates within the same account', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
-    await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-1'));
+    await enqueueAction(USER_A, loadedAction('job-1'));
     const queueA = await getQueue(USER_A);
     expect(queueA).toHaveLength(1);
   });
@@ -151,7 +173,7 @@ describe('duplicate prevention — cross-account independence', () => {
 
 describe('retryQueueItem — account isolation', () => {
   it('cannot retry an item belonging to a different user', async () => {
-    const item = await enqueueAction(USER_A, { jobId: 'job-1', endpoint: 'loaded' });
+    const item = await enqueueAction(USER_A, loadedAction('job-1'));
     await markQueueItemFailed(USER_A, item.id, 'network error', 0);
 
     // User B tries to retry user A's item — should not affect USER_A's queue
@@ -164,11 +186,10 @@ describe('retryQueueItem — account isolation', () => {
 });
 
 // ─── 6. clearQueue — only clears the specified user's data ──────────────────
-
 describe('clearQueue — account isolation', () => {
   it('clearing user A queue does not clear user B queue', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
-    await enqueueAction(USER_B, { jobId: 'job-b', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-a'));
+    await enqueueAction(USER_B, loadedAction('job-b'));
 
     await clearQueue(USER_A);
 
@@ -184,7 +205,7 @@ describe('clearQueue — account isolation', () => {
     storage['xdrive.driver.offlineQueue'] = JSON.stringify([
       { id: 'legacy-id', jobId: 'job-old', endpoint: 'loaded', status: 'pending', createdAt: '2025-01-01T00:00:00Z', retryCount: 0 },
     ]);
-    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-a'));
 
     await clearQueue(USER_A);
 
@@ -198,7 +219,6 @@ describe('clearQueue — account isolation', () => {
 });
 
 // ─── 7. Session loss — null session cannot leak user A data to user B ────────
-
 describe('session loss — cross-account safety', () => {
   it('user B reading the queue after user A logout sees an empty queue', async () => {
     // User A enqueues an action and then signs out (clearQueue)
@@ -211,7 +231,7 @@ describe('session loss — cross-account safety', () => {
   });
 
   it('user B cannot flush user A actions even if both have the same jobId', async () => {
-    await enqueueAction(USER_A, { jobId: 'shared-job', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('shared-job'));
 
     // User B's queue for the same job is empty
     const queueB = await getQueue(USER_B);
@@ -220,11 +240,10 @@ describe('session loss — cross-account safety', () => {
 });
 
 // ─── 8. handleSessionLoss — production session-loss decision helper ───────────
-
 describe('handleSessionLoss — production path regression', () => {
   it('clears the previously authenticated user queue when session becomes null', async () => {
     // User A had an active session and queued an action.
-    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-a'));
     expect(await getQueue(USER_A)).toHaveLength(1);
 
     // Session loss fires with null session. The app reads authenticatedUserIdRef,
@@ -241,8 +260,8 @@ describe('handleSessionLoss — production path regression', () => {
   });
 
   it('does not clear a different user\'s queue', async () => {
-    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
-    await enqueueAction(USER_B, { jobId: 'job-b', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-a'));
+    await enqueueAction(USER_B, loadedAction('job-b'));
 
     // Session loss for USER_A only
     await handleSessionLoss(USER_A);
@@ -255,7 +274,7 @@ describe('handleSessionLoss — production path regression', () => {
     storage['xdrive.driver.offlineQueue'] = JSON.stringify([
       { id: 'legacy', jobId: 'job-old', endpoint: 'loaded', status: 'pending', createdAt: '2025-01-01T00:00:00Z', retryCount: 0 },
     ]);
-    await enqueueAction(USER_A, { jobId: 'job-a', endpoint: 'loaded' });
+    await enqueueAction(USER_A, loadedAction('job-a'));
 
     await handleSessionLoss(USER_A);
 
