@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -21,6 +22,8 @@ import {
   money,
   unavailable,
 } from './AdminDashboardShared';
+
+const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 
 export default function FinanceControlDashboardHome() {
   const router = useRouter();
@@ -57,6 +60,18 @@ export default function FinanceControlDashboardHome() {
     };
   }, [data.invoices]);
 
+  const invoicedJobIds = useMemo(
+    () => new Set(data.invoices.map((invoice) => invoice.job_id).filter((jobId): jobId is string => Boolean(jobId))),
+    [data.invoices],
+  );
+
+  const readyToInvoice = useMemo(
+    () => data.jobs
+      .filter((job) => classifyWorkspaceJobStage(job) === 'completed' && !invoicedJobIds.has(job.id))
+      .sort((a, b) => String(b.updated_at ?? b.delivery_datetime ?? '').localeCompare(String(a.updated_at ?? a.delivery_datetime ?? ''))),
+    [data.jobs, invoicedJobIds],
+  );
+
   const outstandingSorted = [...totals.unpaid].sort((a, b) => {
     const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER;
     const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER;
@@ -64,6 +79,21 @@ export default function FinanceControlDashboardHome() {
   });
 
   const invoicesUnavailable = unavailable(data, ['invoices']);
+  const readyToInvoiceUnavailable = unavailable(data, ['jobs', 'invoices']);
+
+  const openInvoiceDraft = (job: (typeof data.jobs)[number]) => {
+    const params = new URLSearchParams({
+      jobId: job.id,
+      jobRef: xdriveReference(job.id),
+      pickupLocation: job.pickup_location ?? '',
+      pickupDateTime: job.pickup_datetime ?? '',
+      deliveryLocation: job.delivery_location ?? '',
+      deliveryDateTime: job.delivery_datetime ?? '',
+      clientName: job.client_name ?? '',
+      serviceDescription: `Transport job ${xdriveReference(job.id)}`,
+    });
+    router.push(`/admin/invoices/new?${params.toString()}`);
+  };
 
   return (
     <div style={{ width: '100%', padding: '12px 12px 16px' }}>
@@ -71,7 +101,7 @@ export default function FinanceControlDashboardHome() {
         eyebrow="Finance control"
         title="Finance Dashboard"
         badge="Receivables"
-        description="Invoice issuance, due dates, overdue exposure and settlement. Operational state changes are intentionally outside the finance dashboard."
+        description="Invoice readiness, issuance, due dates, overdue exposure and settlement. Operational state changes remain outside the finance dashboard."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Open Invoices</ActionButton>}
       />
 
@@ -80,6 +110,7 @@ export default function FinanceControlDashboardHome() {
       <OperationalSignalStrip
         ariaLabel="Finance operational signals"
         items={[
+          { key: 'ready-to-invoice', label: 'Ready to Invoice', value: metricValue(data, ['jobs', 'invoices'], () => readyToInvoice.length), detail: 'Completed work without invoice', tone: readyToInvoiceUnavailable ? 'blue' : readyToInvoice.length ? 'orange' : 'green' },
           { key: 'draft', label: 'Draft', value: getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length), detail: 'Requires issue', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/invoices') },
           { key: 'unpaid', label: 'Unpaid', value: metricValue(data, ['invoices'], () => totals.unpaid.length), detail: 'Awaiting payment', tone: invoicesUnavailable ? 'blue' : totals.unpaid.length ? 'orange' : 'green', onClick: () => router.push('/admin/invoices') },
           { key: 'overdue', label: 'Overdue', value: metricValue(data, ['invoices'], () => totals.overdue.length), detail: 'Past due date', tone: invoicesUnavailable ? 'blue' : totals.overdue.length ? 'red' : 'green', onClick: () => router.push('/admin/invoices') },
@@ -93,6 +124,27 @@ export default function FinanceControlDashboardHome() {
         asideLabel="Finance exposure and actions"
         main={
           <>
+            <OperationalCard
+              title="Ready to Invoice"
+              subtitle="Completed transport work with no invoice linked to the job. This is a derived finance queue, not a new job lifecycle status."
+              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Completed jobs</ActionButton>}
+              flush
+            >
+              <DataTable
+                columns={['Job', 'Route', 'Completed / updated', 'Invoice state', 'Action']}
+                rows={readyToInvoice.slice(0, 12).map((job) => [
+                  <strong key="job">{xdriveReference(job.id)}</strong>,
+                  <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
+                  job.updated_at || job.delivery_datetime
+                    ? new Date(job.updated_at ?? job.delivery_datetime ?? '').toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+                    : 'Not recorded',
+                  <StatusBadge key="state" value="Ready to Invoice" tone="orange" />,
+                  <ActionButton key="create" tone="success" onClick={() => openInvoiceDraft(job)}>Create invoice</ActionButton>,
+                ])}
+                empty={<EmptyState compact title={readyToInvoiceUnavailable ? 'Invoice readiness data unavailable' : 'No completed jobs waiting for an invoice'} />}
+              />
+            </OperationalCard>
+
             <OperationalCard
               title="Receivables requiring attention"
               subtitle="Overdue and near-due invoices are ordered by due date."
