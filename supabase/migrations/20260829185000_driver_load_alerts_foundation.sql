@@ -126,7 +126,7 @@ immutable
 security invoker
 as $$
   select nullif(
-    substring(upper(regexp_replace(coalesce(p_value, ''), '[^A-Z0-9 ]', '', 'g')) from '^\s*([A-Z]{1,2}[0-9][0-9A-Z]?)'),
+    substring(regexp_replace(upper(coalesce(p_value, '')), '[^A-Z0-9 ]', '', 'g') from '^\s*([A-Z]{1,2}[0-9][0-9A-Z]?)'),
     ''
   );
 $$;
