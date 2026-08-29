@@ -25,7 +25,10 @@ describe('CX vs XDrive Driver POD/offline contract', () => {
     expect(client).toContain('damagePhotoUris,');
     expect(client).toContain('const refreshed = await fetchJob(jobId, token)');
     expect(client).toContain('await cleanupPersistedPodPayload(metadata)');
-    expect(app).toContain('photoUris,\n      damagePhotoUris,\n      documentUris,');
+    expect(app).toContain('const payload = {');
+    expect(app).toContain('photoUris,');
+    expect(app).toContain('damagePhotoUris,');
+    expect(app).toContain('documentUris,');
   });
 
   it('requires collection evidence before Loaded and replays the queued payload', () => {
