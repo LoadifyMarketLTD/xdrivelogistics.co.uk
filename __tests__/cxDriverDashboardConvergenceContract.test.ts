@@ -4,6 +4,8 @@ import path from 'node:path';
 describe('Driver CX convergence contract', () => {
   const page = fs.readFileSync(path.join(process.cwd(), 'app/driver/page.tsx'), 'utf8');
   const css = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-dashboard-reference.css'), 'utf8');
+  const closeCss = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-dashboard-cx-close.css'), 'utf8');
+  const layout = fs.readFileSync(path.join(process.cwd(), 'app/driver/layout.tsx'), 'utf8');
 
   it('keeps current execution and the canonical next action as the primary driver workflow', () => {
     expect(page).toContain('<span>Current execution</span>');
@@ -17,6 +19,16 @@ describe('Driver CX convergence contract', () => {
     expect(css).toMatch(/\.driver-dashboard-left\s*\{[\s\S]*?grid-area:\s*context;/);
     expect(css).toMatch(/\.driver-dashboard-main\s*\{[\s\S]*?grid-area:\s*execution;/);
     expect(css).toContain('border-left: 3px solid var(--ws-blue, #1d57d8);');
+  });
+
+  it('moves desktop composition closer to CX density without replacing the XDrive execution-first contract', () => {
+    expect(layout).toContain("import './driver-dashboard-cx-close.css';");
+    expect(closeCss).toContain('grid-template-columns: minmax(0, 2.15fr) minmax(320px, 1fr);');
+    expect(closeCss).toContain('nth-child(n + 4)');
+    expect(closeCss).toContain('Latest Feedback');
+    expect(closeCss).toContain('My Documents / compliance');
+    expect(closeCss).not.toContain('border-radius: 8px');
+    expect(closeCss).not.toContain('box-shadow');
   });
 
   it('does not rewrite lifecycle authority or move desktop density into Expo mobile', () => {
