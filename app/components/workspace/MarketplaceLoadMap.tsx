@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
+import './MarketplaceLoadMap.css';
 
 import { ActionButton } from './WorkspaceUI';
 
