@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
@@ -166,8 +167,8 @@ const FILTERS: Array<{ id: HistoryFilter; label: string }> = [
   { id: 'expired', label: 'Expired' }, { id: 'feedback', label: 'Feedback' },
 ];
 const DETAIL_TABS: Array<{ id: DetailTab; label: string }> = [
-  { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History' },
-  { id: 'documents', label: 'Documents' }, { id: 'pod', label: 'POD' }, { id: 'invoice', label: 'Invoice' },
+  { id: 'pod', label: 'POD' }, { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' },
+  { id: 'history', label: 'History' }, { id: 'documents', label: 'Documents' }, { id: 'invoice', label: 'Invoice' },
 ];
 const TIME_WINDOWS: Array<{ value: TimeWindow; label: string }> = [
   { value: 'any', label: 'Any' }, { value: '2', label: '2 hours' }, { value: '4', label: '4 hours' }, { value: '8', label: '8 hours' }, { value: '24', label: '24 hours' },
@@ -242,9 +243,6 @@ function groupByJobId<T extends { job_id: string | null }>(rows: T[]) {
   return grouped;
 }
 function isDerivedExpired(job: HistoryJob) {
-  // Diary lifecycle must follow the canonical persisted job lifecycle. A past
-  // pickup/deadline is an operational exception, not permission to relabel an
-  // awarded/allocated booking as Expired in a second overlapping bucket.
   return jobStage(job) === 'expired';
 }
 function hasRecentFeedback(job: HistoryJob, reviews: ReviewRow[]) {
@@ -315,6 +313,7 @@ export default function JobHistoryPage() {
   const [page, setPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
+  const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
     if (orderSheetsByJob[jobId] !== undefined || orderLoadingByJob[jobId]) return;
@@ -335,6 +334,12 @@ export default function JobHistoryPage() {
       setOrderLoadingByJob((current) => ({ ...current, [jobId]: false }));
     }
   }, [orderLoadingByJob, orderSheetsByJob]);
+
+  const openDetail = useCallback((jobId: string, tab: DetailTab) => {
+    setExpandedIds((current) => new Set(current).add(jobId));
+    setDetailTabs((current) => ({ ...current, [jobId]: tab }));
+    if (tab === 'order' || tab === 'notes' || tab === 'invoice') void fetchOrderSheet(jobId);
+  }, [fetchOrderSheet]);
 
   const fetchHistory = useCallback(async () => {
     if (!isSupabaseConfigured || authLoading) return;
@@ -478,11 +483,28 @@ export default function JobHistoryPage() {
                         <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton></div>
                       </div>
 
+                      <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
+                        {DETAIL_TABS.map((detailItem) => (
+                          <button
+                            key={detailItem.id}
+                            type="button"
+                            data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
+                            onClick={() => {
+                              if (detailItem.id === 'invoice' && invoice?.id) {
+                                setInvoicePreview({ id: invoice.id, number: invoice.number });
+                                return;
+                              }
+                              openDetail(job.id, detailItem.id);
+                            }}
+                          >
+                            {detailItem.id === 'documents' && documents.length > 0 ? `${detailItem.label} ${documents.length}` : detailItem.id === 'invoice' && invoice?.id ? 'View invoice (£)' : detailItem.label}
+                          </button>
+                        ))}
+                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
+                      </div>
+
                       {expanded && (
                         <div className="driver-row-details driver-diary-details">
-                          <div className="driver-diary-detail-tabs" role="tablist" aria-label={`Booking ${job.id} details`}>
-                            {DETAIL_TABS.map((detailItem) => <button key={detailItem.id} type="button" role="tab" aria-selected={detailTab === detailItem.id} data-active={detailTab === detailItem.id ? 'true' : 'false'} onClick={() => { setDetailTabs((current) => ({ ...current, [job.id]: detailItem.id })); if (detailItem.id === 'order' || detailItem.id === 'notes' || detailItem.id === 'invoice') void fetchOrderSheet(job.id); }}>{detailItem.label}{detailItem.id === 'documents' && documents.length > 0 ? ` ${documents.length}` : ''}</button>)}
-                          </div>
                           <div className="driver-diary-detail-panel">
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
                               <>
@@ -523,7 +545,7 @@ export default function JobHistoryPage() {
                             {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.slice(0, 50).map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
                             {detailTab === 'documents' && (documents.length ? <div className="driver-diary-document-list">{documents.map((document) => <div key={document.id} className="driver-diary-document-row"><span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>{document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}</div>)}</div> : <EmptyState compact title="No documents attached" />)}
                             {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>{(sheet?.podRequired ?? job.pod_required) ? 'Yes' : 'No'}</strong></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
-                            {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{human(invoice.status)}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{human(invoice.paymentStatus)}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
+                            {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{human(invoice.status)}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{human(invoice.paymentStatus)}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => setInvoicePreview({ id: invoice.id as string, number: invoice.number })}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
                           </div>
 
                           {reviews.length > 0 && <div className="driver-diary-feedback-list" aria-label="Booking feedback">{reviews.map((review) => <div key={review.id} className="driver-diary-feedback-row"><strong>{review.rating != null ? `${review.rating}/5` : 'Feedback received'}</strong><span>{review.comment?.trim() || 'No written comment supplied.'}</span><small>{fmtDate(review.created_at)}</small></div>)}</div>}
@@ -538,6 +560,8 @@ export default function JobHistoryPage() {
             {visibleFiltered.length > itemsPerPage && <div className="driver-board-summary driver-diary-pagination"><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><span>Page {safePage} / {totalPages}</span><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></div>}
           </main>
         </div>
+
+        <DriverInvoicePreviewModal invoiceId={invoicePreview?.id ?? null} invoiceNumber={invoicePreview?.number ?? null} onClose={() => setInvoicePreview(null)} />
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
