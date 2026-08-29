@@ -107,6 +107,21 @@
   align-self: start;
 }
 
+.controlGrid {
+  display: grid;
+  grid-template-columns: 315px minmax(0, 1fr);
+  gap: var(--ws-gap-grid, 12px);
+  align-items: start;
+}
+
+.controlAside,
+.controlMain {
+  min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-grid, 12px);
+  align-content: start;
+}
+
 .attentionRail {
   min-width: 0;
   overflow: hidden;
@@ -322,10 +337,15 @@
   .workspaceGrid {
     grid-template-columns: minmax(0, 1fr) minmax(280px, .62fr);
   }
+
+  .controlGrid {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 1024px) {
-  .workspaceGrid {
+  .workspaceGrid,
+  .controlGrid {
     grid-template-columns: 1fr;
   }
 
