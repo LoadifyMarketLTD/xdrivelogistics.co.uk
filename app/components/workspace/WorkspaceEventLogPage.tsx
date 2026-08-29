@@ -15,6 +15,30 @@ type EventRow = {
   created_at: string | null;
 };
 
+const cellLabelStyle = {
+  display: 'block',
+  color: '#526176',
+  fontSize: 11,
+  lineHeight: '14px',
+  fontWeight: 650,
+} as const;
+
+const cellPrimaryStyle = {
+  display: 'block',
+  color: '#172033',
+  fontSize: 13,
+  lineHeight: '18px',
+  fontWeight: 650,
+  overflowWrap: 'anywhere',
+} as const;
+
+const cellMetaStyle = {
+  color: '#64748b',
+  fontSize: 11,
+  lineHeight: '15px',
+  overflowWrap: 'anywhere',
+} as const;
+
 function fmtDate(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
@@ -192,7 +216,7 @@ export function WorkspaceEventLogPage({
           </div>
         </aside>
 
-        <main style={{ minWidth: 0 }}>
+        <main className="workspace-board-main">
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
             <span><strong>Event Log</strong> · {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'}</span>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -214,10 +238,10 @@ export function WorkspaceEventLogPage({
               {visibleEvents.map((event) => (
                 <article key={event.id} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
-                    <div className="workspace-operational-cell"><span className="driver-cell-label">DATE</span><strong>{fmtDate(event.created_at)}</strong><div>Account event</div></div>
-                    <div className="workspace-operational-cell"><span className="driver-cell-label">EVENT</span><strong>{eventLabel(event.event_type)}</strong><div>{event.entity_type ?? '—'}</div></div>
-                    <div className="workspace-operational-cell"><span className="driver-cell-label">REFERENCE</span><strong>{eventReference(event)}</strong><div>Entity {event.entity_id?.slice(0, 8).toUpperCase() ?? '—'}</div></div>
-                    <div className="workspace-operational-cell"><span className="driver-cell-label">DETAILS</span><strong>{payloadSummary(event)}</strong><div>Operational activity</div></div>
+                    <div className="workspace-operational-cell"><span style={cellLabelStyle}>DATE</span><strong style={cellPrimaryStyle}>{fmtDate(event.created_at)}</strong><div style={cellMetaStyle}>Account event</div></div>
+                    <div className="workspace-operational-cell"><span style={cellLabelStyle}>EVENT</span><strong style={cellPrimaryStyle}>{eventLabel(event.event_type)}</strong><div style={cellMetaStyle}>{event.entity_type ?? '—'}</div></div>
+                    <div className="workspace-operational-cell"><span style={cellLabelStyle}>REFERENCE</span><strong style={cellPrimaryStyle}>{eventReference(event)}</strong><div style={cellMetaStyle}>Entity {event.entity_id?.slice(0, 8).toUpperCase() ?? '—'}</div></div>
+                    <div className="workspace-operational-cell"><span style={cellLabelStyle}>DETAILS</span><strong style={cellPrimaryStyle}>{payloadSummary(event)}</strong><div style={cellMetaStyle}>Operational activity</div></div>
                   </div>
                   <div className="workspace-record-meta"><span>Event #{event.id.slice(0, 8).toUpperCase()}</span></div>
                 </article>
