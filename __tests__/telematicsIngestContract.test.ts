@@ -43,11 +43,25 @@ describe('Telematics location ingestion contract', () => {
     expect(route).toContain('job_id: jobRow.id');
     expect(migration).toContain("check (source in ('driver_app', 'telematics'))");
     expect(migration).toContain('driver_locations_telematics_provenance_check');
+    expect(migration).toContain("source = 'driver_app'");
+    expect(migration).toContain('and source_provider is null');
+    expect(migration).toContain('and source_event_id is null');
+    expect(migration).toContain("source = 'telematics'");
     expect(migration).toContain('and vehicle_id is not null');
     expect(migration).toContain('and company_id is not null');
     expect(migration).toContain('and job_id is not null');
     expect(migration).toContain('create unique index if not exists uq_driver_locations_telematics_event');
     expect(migration).toContain("where source = 'telematics'");
+  });
+
+  test('reserves telematics provenance for the service-role integration boundary', () => {
+    expect(migration).toContain('drop policy if exists driver_locations_insert_self on public.driver_locations;');
+    expect(migration).toContain('create policy driver_locations_insert_self');
+    expect(migration).toContain('drop policy if exists driver_locations_update_self on public.driver_locations;');
+    expect(migration).toContain('create policy driver_locations_update_self');
+    expect(migration).toContain("source = 'driver_app'");
+    expect(migration).toContain('source_provider is null');
+    expect(migration).toContain('source_event_id is null');
   });
 
   test('reconciles numeric coordinates with the canonical geography column', () => {
