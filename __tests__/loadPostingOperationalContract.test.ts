@@ -72,8 +72,8 @@ describe('load posting operational contract', () => {
     expect(form).toContain("/^(\\d{2}):(00|30)$/");
     expect(form).toContain('minutes * 60 > currentSeconds');
     expect(form).toContain('Choose a future 30-minute slot');
-    expect(form).toContain('30-minute slots only.');
     expect(form).toContain('No future times remain today — choose tomorrow.');
+    expect(form).not.toContain('30-minute slots only.');
     expect(form).toContain('min={minDate}');
     expect(form).not.toContain('type="time"');
   });
