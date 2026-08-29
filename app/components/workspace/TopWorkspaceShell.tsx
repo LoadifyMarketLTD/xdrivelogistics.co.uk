@@ -46,6 +46,16 @@ const CARRIER_NAV_ROLES = new Set<WorkspaceRole>([
   'carrier_admin',
 ]);
 
+const MESSAGE_HREFS: Partial<Record<WorkspaceRole, string>> = {
+  company_owner: '/admin/messages',
+  company_admin: '/admin/messages',
+  carrier_admin: '/admin/messages',
+  fleet_manager: '/admin/messages',
+  dispatcher: '/admin/messages',
+  broker: '/broker/messages',
+  customer: '/customer/messages',
+};
+
 const EVENT_LOG_HREFS: Partial<Record<WorkspaceRole, string>> = {
   company_owner: '/admin/event-log',
   company_admin: '/admin/event-log',
@@ -99,6 +109,7 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   const morePreferred = [
     '/admin/jobs',
     '/admin/fleet/vehicles',
+    '/admin/messages',
     '/admin/documents',
     '/admin/event-log',
     '/admin/settings',
@@ -244,6 +255,21 @@ export default function TopWorkspaceShell({
         } else {
           base.push({ id: 'fleet', label: 'Fleet', items });
         }
+      }
+    }
+
+    const messageHref = MESSAGE_HREFS[role];
+    if (messageHref) {
+      const alreadyPresent = base.some((group) => group.items.some((candidate) => candidate.href === messageHref));
+      if (!alreadyPresent) {
+        const eventLogIndex = base.findIndex((group) => group.label === 'Event Log' || group.id.endsWith('-event-log'));
+        const accountIndex = base.findIndex((group) => group.label === 'Account' || group.id.endsWith('-account'));
+        const insertAt = eventLogIndex >= 0 ? eventLogIndex : accountIndex >= 0 ? accountIndex : base.length;
+        base.splice(insertAt, 0, {
+          id: `${role}-messages`,
+          label: 'Messages',
+          items: [{ id: 'messages', label: 'Messages', href: messageHref, icon: '◫' }],
+        });
       }
     }
 
