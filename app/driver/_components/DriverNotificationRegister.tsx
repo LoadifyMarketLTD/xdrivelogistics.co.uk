@@ -16,12 +16,22 @@ type NotificationRow = {
   created_at: string;
 };
 
-type TabId = 'all' | 'unread' | 'operational';
-const tabLabels: Array<{ id: TabId; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'operational', label: 'Operational' },
+type TabId = 'all' | 'unread' | 'load_alerts' | 'operational';
+const tabLabels: Array<{ id: TabId; label: string; detail: string }> = [
+  { id: 'all', label: 'All', detail: 'Recipient-scoped inbox' },
+  { id: 'unread', label: 'Unread', detail: 'Needs your attention' },
+  { id: 'load_alerts', label: 'Load Alerts', detail: 'Marketplace / nearby / return-journey alerts' },
+  { id: 'operational', label: 'Operational', detail: 'Jobs, bids, POD, ETA and finance' },
 ];
+
+const LOAD_ALERT_TYPES = new Set([
+  'load_alert',
+  'marketplace_load_alert',
+  'nearby_load_alert',
+  'return_journey_alert',
+  'won_load',
+  'bid_accepted',
+]);
 
 const OPERATIONAL_TYPES = new Set([
   'job_assigned',
@@ -31,6 +41,7 @@ const OPERATIONAL_TYPES = new Set([
   'tracking_eta_alert',
   'invoice_dispute',
   'invoice_created',
+  ...LOAD_ALERT_TYPES,
 ]);
 
 function formatDateTime(value: string) {
@@ -83,6 +94,7 @@ export default function DriverNotificationRegister({
 
   const visibleMessages = useMemo(() => {
     if (tab === 'unread') return messages.filter((message) => !message.read_at);
+    if (tab === 'load_alerts') return messages.filter((message) => LOAD_ALERT_TYPES.has(String(message.type ?? '')));
     if (tab === 'operational') return messages.filter((message) => OPERATIONAL_TYPES.has(String(message.type ?? '')));
     return messages;
   }, [messages, tab]);
@@ -90,6 +102,7 @@ export default function DriverNotificationRegister({
   const counts = useMemo(() => ({
     all: messages.length,
     unread: messages.filter((message) => !message.read_at).length,
+    load_alerts: messages.filter((message) => LOAD_ALERT_TYPES.has(String(message.type ?? ''))).length,
     operational: messages.filter((message) => OPERATIONAL_TYPES.has(String(message.type ?? ''))).length,
   }), [messages]);
 
@@ -156,7 +169,7 @@ export default function DriverNotificationRegister({
             <div className="driver-filter-rail__body">
               {tabLabels.map((item) => (
                 <button key={item.id} type="button" className="driver-account-link" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
-                  <span><strong>{item.label}</strong><small>{item.id === 'unread' ? 'Needs your attention' : item.id === 'operational' ? 'Jobs, bids, POD, ETA and finance' : 'Recipient-scoped inbox'}</small></span><span>{counts[item.id]}</span>
+                  <span><strong>{item.label}</strong><small>{item.detail}</small></span><span>{counts[item.id]}</span>
                 </button>
               ))}
             </div>
@@ -165,11 +178,11 @@ export default function DriverNotificationRegister({
             <div className="driver-tab-strip" role="tablist" aria-label="Notification inbox filters">
               {tabLabels.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
             </div>
-            <div className="driver-board-summary"><span>{visibleMessages.length} notification{visibleMessages.length === 1 ? '' : 's'} · {counts.unread} unread</span></div>
+            <div className="driver-board-summary"><span>{visibleMessages.length} notification{visibleMessages.length === 1 ? '' : 's'} · {counts.unread} unread · {counts.load_alerts} load alert{counts.load_alerts === 1 ? '' : 's'}</span></div>
             {loading ? (
               <div className="driver-load-row"><EmptyState compact title="Loading notifications…" /></div>
             ) : visibleMessages.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No notifications match this filter" /></div>
+              <div className="driver-load-row"><EmptyState compact title={tab === 'load_alerts' ? 'No load alerts match this view' : 'No notifications match this filter'} description={tab === 'load_alerts' ? 'Real load-alert records will appear here when generated. CX-style matching preferences remain a separate backend parity item.' : undefined} /></div>
             ) : (
               <div className="driver-load-list">
                 {visibleMessages.map((message) => (
@@ -182,6 +195,7 @@ export default function DriverNotificationRegister({
                     </div>
                     <div className="driver-load-row__meta">
                       <span>Notification #{message.id.slice(0, 8).toUpperCase()}</span>
+                      {LOAD_ALERT_TYPES.has(String(message.type ?? '')) && <StatusBadge value="Load alert" tone="blue" />}
                       <StatusBadge value={message.read_at ? 'Read' : 'Unread'} tone={message.read_at ? 'grey' : 'orange'} />
                       <div className="driver-row-actions">
                         {!message.read_at && <ActionButton tone="secondary" disabled={workingId === message.id} onClick={() => void markRead(message.id)}>Mark read</ActionButton>}
