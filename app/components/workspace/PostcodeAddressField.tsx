@@ -54,6 +54,7 @@ export default function PostcodeAddressField({
   error?: string;
 }) {
   const onAddressRef = useRef(onAddress);
+  const addressRef = useRef(address);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -61,6 +62,10 @@ export default function PostcodeAddressField({
   useEffect(() => {
     onAddressRef.current = onAddress;
   }, [onAddress]);
+
+  useEffect(() => {
+    addressRef.current = address;
+  }, [address]);
 
   useEffect(() => {
     const normalized = normalizePostcode(postcode);
@@ -78,49 +83,29 @@ export default function PostcodeAddressField({
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) {
-          if (!cancelled) {
-            setSuggestions([]);
-            setOpen(false);
-          }
-          return;
-        }
+        if (!token) return;
 
         const params = new URLSearchParams({ postcode: normalized });
-        const query = address.trim();
-        if (query.length >= 2) params.set('q', query);
         const response = await fetch(`/api/location/postcode-addresses?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         });
-        if (!response.ok) {
-          if (!cancelled) {
-            setSuggestions([]);
-            setOpen(false);
-          }
-          return;
-        }
+        if (!response.ok) return;
+
         const payload = await response.json() as { suggestions?: unknown; configured?: boolean };
-        if (payload.configured === false) {
-          if (!cancelled) {
-            setSuggestions([]);
-            setOpen(false);
-          }
-          return;
-        }
+        if (payload.configured === false) return;
+
         const next = Array.isArray(payload.suggestions)
           ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
           : [];
         if (cancelled) return;
 
         setSuggestions(next);
-        if (!address.trim() && next.length === 1) {
+        if (!addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
           setOpen(false);
-        } else if (next.length > 0) {
-          setOpen(true);
         } else {
-          setOpen(false);
+          setOpen(next.length > 0);
         }
       } catch {
         if (!cancelled) {
@@ -130,15 +115,20 @@ export default function PostcodeAddressField({
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, address.trim().length >= 2 ? 350 : 180);
+    }, 180);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [address, postcode]);
+  }, [postcode]);
 
-  const visibleSuggestions = suggestions.filter((suggestion) => suggestion.toLocaleLowerCase('en-GB') !== address.trim().toLocaleLowerCase('en-GB'));
+  const query = address.trim().toLocaleLowerCase('en-GB');
+  const visibleSuggestions = suggestions.filter((suggestion) => {
+    const normalizedSuggestion = suggestion.toLocaleLowerCase('en-GB');
+    if (normalizedSuggestion === query) return false;
+    return !query || normalizedSuggestion.includes(query);
+  });
 
   return (
     <label style={labelStyle}>Address *
@@ -146,17 +136,20 @@ export default function PostcodeAddressField({
         style={{ ...fieldStyle, ...(error ? invalidFieldStyle : {}) }}
         aria-invalid={error ? 'true' : undefined}
         value={address}
-        placeholder={loading && !address ? 'Finding address…' : undefined}
+        placeholder={loading && !address ? 'Finding addresses…' : undefined}
         onFocus={() => {
           if (visibleSuggestions.length > 0) setOpen(true);
         }}
         onBlur={() => window.setTimeout(() => setOpen(false), 120)}
-        onChange={(event) => onAddress(event.target.value)}
+        onChange={(event) => {
+          onAddress(event.target.value);
+          if (suggestions.length > 0) setOpen(true);
+        }}
       />
       {open && visibleSuggestions.length > 0 ? (
         <div
           role="listbox"
-          aria-label="Address suggestions"
+          aria-label="Addresses for postcode"
           style={{
             position: 'absolute',
             top: '100%',
@@ -164,7 +157,7 @@ export default function PostcodeAddressField({
             right: 0,
             zIndex: 40,
             marginTop: '2px',
-            maxHeight: '210px',
+            maxHeight: '240px',
             overflowY: 'auto',
             border: '1px solid #cbd5e1',
             borderRadius: '4px',
