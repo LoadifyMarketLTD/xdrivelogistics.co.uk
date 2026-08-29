@@ -14,6 +14,7 @@ type StopRow = {
 };
 
 const allowedNext = new Set(['arrived', 'completed']);
+const terminalStopStatuses = new Set(['completed', 'skipped']);
 
 function mapStop(stop: StopRow) {
   return {
@@ -24,6 +25,17 @@ function mapStop(stop: StopRow) {
     status: stop.status,
     arrivedAt: stop.arrived_at ?? undefined,
     completedAt: stop.completed_at ?? undefined,
+  };
+}
+
+function completionSummary(stops: StopRow[], updatedStop: StopRow) {
+  const projected = stops.map((stop) => stop.id === updatedStop.id ? updatedStop : stop);
+  const remainingStops = projected.filter((stop) => !terminalStopStatuses.has(stop.status)).length;
+  return {
+    allStopsCompleted: projected.length > 0 && remainingStops === 0,
+    remainingStops,
+    finalStopCompleted:
+      projected[projected.length - 1]?.id === updatedStop.id && terminalStopStatuses.has(updatedStop.status),
   };
 }
 
@@ -69,13 +81,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!target) return respond(404, { error: 'Stop not found for this assigned job.' });
 
   if (target.status === nextStatus || (nextStatus === 'arrived' && target.status === 'completed')) {
-    return respond(200, { ok: true, duplicate: true, stop: mapStop(target) });
+    return respond(200, {
+      ok: true,
+      duplicate: true,
+      stop: mapStop(target),
+      ...completionSummary(stops, target),
+    });
   }
 
   if (nextStatus === 'arrived') {
     if (target.status !== 'pending') return respond(409, { error: 'Only a pending stop can be marked arrived.' });
     const blockedByEarlierStop = stops.some((stop) =>
-      stop.sequence < target.sequence && !['completed', 'skipped'].includes(stop.status),
+      stop.sequence < target.sequence && !terminalStopStatuses.has(stop.status),
     );
     if (blockedByEarlierStop) {
       return respond(409, { error: 'Complete the earlier stops before arriving at this stop.' });
@@ -90,20 +107,50 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const update = nextStatus === 'arrived'
     ? { status: 'arrived', arrived_at: now, updated_at: now }
     : { status: 'completed', completed_at: now, updated_at: now };
+  const expectedStatus = nextStatus === 'arrived' ? 'pending' : 'arrived';
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('job_stops')
     .update(update)
     .eq('id', stopId)
     .eq('job_id', jobId)
+    .eq('status', expectedStatus)
     .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at')
     .maybeSingle();
-  if (updateError || !updated) return respond(500, { error: 'Stop status could not be updated.' });
+  if (updateError) return respond(500, { error: 'Stop status could not be updated.' });
+
+  if (!updated) {
+    const { data: refreshed, error: refreshError } = await supabaseAdmin
+      .from('job_stops')
+      .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at')
+      .eq('id', stopId)
+      .eq('job_id', jobId)
+      .maybeSingle();
+    if (refreshError) return respond(500, { error: 'Stop status could not be refreshed.' });
+    const concurrentStop = refreshed as unknown as StopRow | null;
+    if (
+      concurrentStop &&
+      (concurrentStop.status === nextStatus || (nextStatus === 'arrived' && concurrentStop.status === 'completed'))
+    ) {
+      return respond(200, {
+        ok: true,
+        duplicate: true,
+        stop: mapStop(concurrentStop),
+        ...completionSummary(stops, concurrentStop),
+      });
+    }
+    return respond(409, { error: 'Stop state changed. Refresh the job before retrying.' });
+  }
 
   const updatedStop = updated as unknown as StopRow;
   const eventType = nextStatus === 'arrived' ? 'multi_drop_stop_arrived' : 'multi_drop_stop_completed';
   const label = `${updatedStop.stop_type === 'collection' ? 'Collection' : 'Delivery'} stop ${updatedStop.sequence}`;
   await insertTrackingEvent(jobId, driver.userId, eventType, `${label} ${nextStatus}.`).catch(() => undefined);
 
-  return respond(200, { ok: true, duplicate: false, stop: mapStop(updatedStop) });
+  return respond(200, {
+    ok: true,
+    duplicate: false,
+    stop: mapStop(updatedStop),
+    ...completionSummary(stops, updatedStop),
+  });
 }
