@@ -11,6 +11,13 @@ begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '120s';
 
+-- Marketplace code on main already writes exchange_expires_at, but the legacy
+-- exchange-load migration never created the column on the hosted database.
+-- Keep it nullable so existing exchange rows preserve their current semantics;
+-- newly published loads populate the explicit expiry timestamp.
+alter table public.jobs
+  add column if not exists exchange_expires_at timestamptz;
+
 create table if not exists public.driver_load_alert_preferences (
   driver_id uuid primary key references public.drivers(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
