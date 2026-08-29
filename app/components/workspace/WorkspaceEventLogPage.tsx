@@ -39,6 +39,8 @@ const cellMetaStyle = {
   overflowWrap: 'anywhere',
 } as const;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function fmtDate(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
@@ -64,7 +66,30 @@ function eventReference(event: EventRow) {
     event.entity_id,
   ];
   const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
-  return typeof value === 'string' ? value : '—';
+  if (typeof value !== 'string') return '—';
+  return UUID_RE.test(value) ? value.slice(0, 8).toUpperCase() : value;
+}
+
+function detailKey(key: string) {
+  const labels: Record<string, string> = {
+    bid_amount: 'Quote',
+    bid_price_gbp: 'Quote',
+    amount: 'Amount',
+    status: 'Status',
+    source: 'Source',
+    email: 'Email',
+    driver_id: 'Driver',
+    driver_user_id: 'Driver user',
+    company_id: 'Company',
+    recipient_name: 'Recipient',
+    delivery_status: 'Delivery status',
+  };
+  return labels[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function detailValue(value: unknown) {
+  if (typeof value === 'string' && UUID_RE.test(value)) return value.slice(0, 8).toUpperCase();
+  return String(value);
 }
 
 function payloadSummary(event: EventRow) {
@@ -81,8 +106,8 @@ function payloadSummary(event: EventRow) {
   const parts = Object.entries(payload)
     .filter(([key, value]) => !ignored.has(key) && ['string', 'number', 'boolean'].includes(typeof value))
     .slice(0, 4)
-    .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${String(value)}`);
-  return parts.join(' · ') || '—';
+    .map(([key, value]) => `${detailKey(key)}: ${detailValue(value)}`);
+  return parts.join(' · ') || 'No additional details';
 }
 
 export function WorkspaceEventLogPage({
@@ -240,7 +265,7 @@ export function WorkspaceEventLogPage({
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>DATE</span><strong style={cellPrimaryStyle}>{fmtDate(event.created_at)}</strong><div style={cellMetaStyle}>Account event</div></div>
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>EVENT</span><strong style={cellPrimaryStyle}>{eventLabel(event.event_type)}</strong><div style={cellMetaStyle}>{event.entity_type ?? '—'}</div></div>
-                    <div className="workspace-operational-cell"><span style={cellLabelStyle}>REFERENCE</span><strong style={cellPrimaryStyle}>{eventReference(event)}</strong><div style={cellMetaStyle}>Entity {event.entity_id?.slice(0, 8).toUpperCase() ?? '—'}</div></div>
+                    <div className="workspace-operational-cell"><span style={cellLabelStyle}>REFERENCE</span><strong style={cellPrimaryStyle}>{eventReference(event)}</strong><div style={cellMetaStyle}>Entity {event.entity_id ? event.entity_id.slice(0, 8).toUpperCase() : '—'}</div></div>
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>DETAILS</span><strong style={cellPrimaryStyle}>{payloadSummary(event)}</strong><div style={cellMetaStyle}>Operational activity</div></div>
                   </div>
                   <div className="workspace-record-meta"><span>Event #{event.id.slice(0, 8).toUpperCase()}</span></div>
