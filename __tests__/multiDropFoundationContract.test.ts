@@ -29,6 +29,8 @@ describe('Multi-drop foundation contract', () => {
 
   test('keeps the new stop table fail-closed to direct clients', () => {
     expect(migration).toContain('alter table public.job_stops enable row level security;');
+    expect(migration).toContain('revoke all on table public.job_stops from public, anon, authenticated;');
+    expect(migration).toContain('grant all on table public.job_stops to service_role;');
     expect(migration).not.toMatch(/create policy[\s\S]*job_stops/i);
   });
 
