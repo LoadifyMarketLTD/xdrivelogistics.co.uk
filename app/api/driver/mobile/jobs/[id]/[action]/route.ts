@@ -23,6 +23,8 @@ const actionToCanonicalStatus: Record<string, string> = {
   delivered: 'delivered',
 };
 
+const terminalStopStatuses = new Set(['completed', 'skipped']);
+
 const userScopedSupabase = (token: string) => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -42,6 +44,42 @@ const storedSignatureText = (value: unknown) => {
   return null;
 };
 
+const isMissingJobStopsRelation = (
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+) => {
+  if (!error) return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
+};
+
+async function requireMultiDropFinalizationReady(jobId: string) {
+  const { data, error } = await supabaseAdmin!
+    .from('job_stops')
+    .select('id, status')
+    .eq('job_id', jobId);
+
+  if (error) {
+    // Draft deployments can temporarily precede the new migration. Preserve
+    // legacy two-point jobs in that specific pre-migration state, but fail
+    // closed for every other storage/query error.
+    if (isMissingJobStopsRelation(error)) return null;
+    return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
+  }
+
+  const stops = (data ?? []) as Array<{ id: string; status: string | null }>;
+  if (stops.length === 0) return null;
+
+  const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
+  if (incompleteStops.length > 0) {
+    return respond(409, {
+      error: 'Complete all multi-drop stops before capturing POD or marking the job delivered.',
+      remainingStops: incompleteStops.length,
+    });
+  }
+
+  return null;
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
@@ -54,6 +92,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
+    const stopGate = await requireMultiDropFinalizationReady(id);
+    if (stopGate) return stopGate;
     return savePod(request, id, driver.userId, driver.driverId);
   }
 
@@ -70,6 +110,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
   const job = existing as unknown as MobileJobRow;
+
+  if (action === 'delivered') {
+    const stopGate = await requireMultiDropFinalizationReady(id);
+    if (stopGate) return stopGate;
+  }
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
