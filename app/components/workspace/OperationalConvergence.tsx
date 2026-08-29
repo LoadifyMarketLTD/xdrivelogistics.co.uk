@@ -78,6 +78,23 @@ export function OperationalWorkspaceGrid({
   );
 }
 
+export function OperationalControlGrid({
+  control,
+  main,
+  controlLabel = 'Operational controls',
+}: {
+  control: ReactNode;
+  main: ReactNode;
+  controlLabel?: string;
+}) {
+  return (
+    <div className={styles.controlGrid}>
+      <aside className={styles.controlAside} aria-label={controlLabel}>{control}</aside>
+      <main className={styles.controlMain}>{main}</main>
+    </div>
+  );
+}
+
 export function OperationalAttentionRail({
   title,
   subtitle,
