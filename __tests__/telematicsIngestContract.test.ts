@@ -50,6 +50,15 @@ describe('Telematics location ingestion contract', () => {
     expect(migration).toContain("where source = 'telematics'");
   });
 
+  test('reconciles numeric coordinates with the canonical geography column', () => {
+    expect(migration).toContain('create or replace function public.fn_sync_driver_location_coordinates()');
+    expect(migration).toContain('new.location := st_setsrid(st_makepoint(new.lng, new.lat), 4326)::geography;');
+    expect(migration).toContain('new.lat := st_y(new.location::geometry);');
+    expect(migration).toContain('new.lng := st_x(new.location::geometry);');
+    expect(migration).toContain('drop trigger if exists trg_sync_driver_location_coordinates on public.driver_locations;');
+    expect(migration).toContain('before insert or update of location, lat, lng on public.driver_locations');
+  });
+
   test('maps provider-native driver and vehicle identities through a fail-closed binding table', () => {
     expect(bindingsMigration).toContain('create table if not exists public.telematics_driver_bindings');
     expect(bindingsMigration).toContain('external_vehicle_id text not null');
