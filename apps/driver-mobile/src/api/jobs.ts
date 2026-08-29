@@ -15,7 +15,14 @@ export async function postJobStatus(jobId: string, endpoint: string, token: stri
 }
 
 export async function postStopStatus(jobId: string, stopId: string, status: 'arrived' | 'completed', token: string) {
-  return apiRequest<{ ok: true; duplicate: boolean; stop: JobStop }>(`/api/driver/mobile/jobs/${jobId}/stop-status`, {
+  return apiRequest<{
+    ok: true;
+    duplicate: boolean;
+    stop: JobStop;
+    allStopsCompleted: boolean;
+    remainingStops: number;
+    finalStopCompleted: boolean;
+  }>(`/api/driver/mobile/jobs/${jobId}/stop-status`, {
     method: 'POST',
     token,
     body: { stop_id: stopId, status },
