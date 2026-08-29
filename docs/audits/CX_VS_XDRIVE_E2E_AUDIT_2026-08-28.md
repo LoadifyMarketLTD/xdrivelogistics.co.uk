@@ -37,9 +37,9 @@ Validation states:
 
 | # | Domain | CX benchmark | XDrive evidence | Verdict | Action / commit | Validation |
 |---|---|---|---|---|---|---|
-| 1 | Marketplace / Exchange | Load search, matching, quoting, member/load discovery, available vehicles | Audited; repairs below | REPAIR | `7ae684cb`, `17f8125d`, `e1f9b751`, `5eb48d96`, `94ce0c90`, `6efd39d4` + contract tests | STATIC VERIFIED; tests NEEXECUTED |
-| 2 | Fleet | Driver/vehicle management, job allocation, own-fleet map, alerts | — | PENDING | — | NEEXECUTED |
-| 3 | Driver | Search, jobs, lifecycle, availability, journeys, tracking, POD/history | — | PENDING | — | NEEXECUTED |
+| 1 | Marketplace / Exchange | Load search, matching, quoting, member/load discovery, available vehicles | Audited; repairs below | REPAIR | `7ae684cb`, `17f8125d`, `e1f9b751`, `5eb48d96`, `94ce0c90`, `6efd39d4` + contract tests | STATIC VERIFIED; Netlify web build EXECUTED PASS; tests NEEXECUTED |
+| 2 | Fleet | Driver/vehicle management, job allocation, own-fleet map, alerts | Core Fleet audited; cross-domain alerts/matching deferred | REPAIR | `5c4ec21d`, `fccd04de`, `fe6c93b2`, `2eec240c`, `f2abc68c`, `aa4034c8` | STATIC VERIFIED; latest web build gate pending; tests NEEXECUTED |
+| 3 | Driver | Search, jobs, lifecycle, availability, journeys, tracking, POD/history | In progress | PENDING | — | NEEXECUTED |
 | 4 | Customer / Load Poster | Post/manage jobs, visibility, booking/tracking handoff | — | PENDING | — | NEEXECUTED |
 | 5 | Tracking / Freight Vision equivalent | Live job visibility, ETA, operational milestones | — | PENDING | — | NEEXECUTED |
 | 6 | POD / Documents / Invoices | Evidence, POD, document and invoice retrieval | — | PENDING | — | NEEXECUTED |
@@ -89,13 +89,58 @@ Contract tests added:
 - `cxVsXdriveMarketplaceExpiryParity.test.ts`
 - `cxVsXdriveMobileActiveQuoteBoundary.test.ts`
 
+Executable evidence:
+- draft PR `#398` was opened only as a build gate;
+- both Netlify previews passed on the Domain 1 checkpoint, including `xdrivelogistics`;
+- contract tests themselves remain `NEEXECUTED` unless an actual test runner reports them.
+
 Deferred deliberately to later domains rather than duplicated here:
 - Expo `canQuote` readiness UX → Domain 3 Driver;
 - Vehicles-on-Demand / Live Availability direct-booking handoff → Domain 8 Availability;
 - broader pricing / PPM intelligence → Domain 10 Commercial.
 
-Static verdict: `REPAIR` completed for demonstrated fragmentation. Repository diff is scoped to Marketplace contracts/tests plus this ledger. Executable build/test proof is still pending.
+Static verdict: `REPAIR` completed for demonstrated fragmentation.
 
-### 2. Fleet
+### 2. Fleet — STATIC CLOSED
 
-Status: NEXT
+Current official CX Fleet benchmark:
+- manage drivers, vehicles and loads from the Fleet app;
+- allocate received work to yourself or drivers;
+- receive real-time load alerts across the fleet;
+- see load matches on a map and which own vehicles are in range;
+- securely manage the fleet from mobile/remote operations.
+
+XDrive strengths retained (`KEEP` inside this repaired domain):
+- `assign_job_driver_atomic` is the canonical assignment authority;
+- only active owner/admin/dispatcher authority of the assignable company can allocate;
+- selected drivers must belong to that company and pass `driver_operational_eligibility()`;
+- canonical active compliant vehicle is resolved server-side and persisted with the assignment;
+- optimistic concurrency protects assignment from stale operator screens;
+- active execution cannot be left without an eligible replacement driver;
+- allocation/reallocation preserves the approved lifecycle and records an audit event;
+- exact own-company Fleet visibility and coarse anonymous Exchange availability are separate privacy contracts.
+
+Gap found:
+- Fleet pages were deriving location only from `driver_locations`, which is the active-job tracking contract. A driver who had ended a job and explicitly published availability could therefore be marked `Location unavailable` even though a fresh `driver_availability_presence` existed.
+- Vehicle roster reported operational availability as `Not exposed` although an assigned driver's authorised availability presence could establish a current Fleet availability signal.
+
+Repairs completed:
+1. Added `useFleetAvailabilityPresence()` as the shared authenticated client boundary over `/api/availability/nearby` (`5c4ec21d`). It accepts only `scope='fleet'`, requires the active company id, and never reads `driver_availability_presence` directly from the browser.
+2. Live Availability now composes active-job `driver_locations` with idle published Fleet presence and refreshes the operational view every 30 seconds (`fccd04de`).
+3. Fleet Availability matrix uses the same own-Fleet presence fallback (`fe6c93b2`).
+4. Fleet Vehicles now reports `available now` only when the assigned driver is active, marked available and has a current authorised Fleet presence; unassigned never means available (`2eec240c`).
+5. Fleet Drivers uses the same location contract so idle published availability is not lost after job tracking ends (`f2abc68c`).
+6. Added `cxVsXdriveFleetPresenceContract.test.ts` to lock the server boundary, own-company scope and shared Fleet use (`aa4034c8`).
+
+Deferred deliberately to avoid duplicate audits:
+- real-time load/assignment notification behaviour → Domain 7 Alerts / Notifications;
+- load matching, available vehicles in range and Vehicles-on-Demand handoff → Domain 8 Availability / Journeys / Who's Nearby;
+- live freight/customer tracking semantics → Domain 5 Tracking.
+
+Static verdict: `REPAIR` completed for the demonstrated location/availability fragmentation. Core Fleet allocation remains `KEEP` and intentionally stronger than a client-only allocation flow.
+
+### 3. Driver
+
+Status: IN PROGRESS
+
+Current CX benchmark includes load search, live traffic/ETA, availability status, Journeys/return journeys, tracking-driven auto-match/direct booking, past bookings with POD/invoice access, configurable alerts and Who's Nearby competition context.
