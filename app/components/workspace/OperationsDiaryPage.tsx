@@ -131,7 +131,7 @@ export default function OperationsDiaryPage() {
   const [tab, setTab] = useState<DiaryTab>('all');
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
-  const [expanded, setExpanded] = useState<string | null>(deepJob);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(deepJob ? [deepJob] : []));
   const [assigning, setAssigning] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
@@ -171,7 +171,14 @@ export default function OperationsDiaryPage() {
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { if (deepJob) setExpanded(deepJob); }, [deepJob]);
+  useEffect(() => {
+    if (!deepJob) return;
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      next.add(deepJob);
+      return next;
+    });
+  }, [deepJob]);
 
   const activeAccountDrivers = useMemo(() => drivers.filter(isActiveDriverAccount), [drivers]);
   const driverById = useMemo(() => new Map(drivers.map((driver) => [driver.id, driver])), [drivers]);
@@ -206,7 +213,29 @@ export default function OperationsDiaryPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const allVisibleExpanded = visible.length > 0 && visible.every((job) => expandedIds.has(job.id));
   useEffect(() => { setPage(1); }, [tab, appliedSearch, pageSize]);
+
+  const toggleExpandAll = () => {
+    const shouldExpand = !allVisibleExpanded;
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      for (const job of visible) {
+        if (shouldExpand) next.add(job.id);
+        else next.delete(job.id);
+      }
+      return next;
+    });
+  };
+
+  const toggleJob = (jobId: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
 
   const assignDriver = async (job: JobRow) => {
     const driverId = driverSelections[job.id];
@@ -262,7 +291,21 @@ export default function OperationsDiaryPage() {
           <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
             {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
           </div>
-          <div className="workspace-record-meta"><span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span><span>Operating-company scope only · post-award execution data</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
+            <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
+            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <span>Operating-company scope only · post-award execution data</span>
+              <button
+                type="button"
+                onClick={toggleExpandAll}
+                disabled={!visible.length}
+                aria-label={allVisibleExpanded ? 'Collapse all visible Diary records' : 'Expand all visible Diary records'}
+                style={{ minHeight: 24, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff', color: '#0B2F6B', padding: '0 8px', fontSize: 11, fontWeight: 600, cursor: visible.length ? 'pointer' : 'not-allowed' }}
+              >
+                {allVisibleExpanded ? 'Collapse all' : 'Expand all'}
+              </button>
+            </span>
+          </div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
@@ -271,7 +314,7 @@ export default function OperationsDiaryPage() {
           ) : (
             <div className="workspace-record-list">
               {visible.map((job) => {
-                const open = expanded === job.id;
+                const open = expandedIds.has(job.id);
                 const stage = classifyWorkspaceJobStage(job);
                 const status = effectiveStatus(job);
                 const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
@@ -282,7 +325,7 @@ export default function OperationsDiaryPage() {
                       <div className="workspace-operational-cell"><span className="driver-cell-label">FROM</span><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong><div>{job.pickup_postcode ?? 'Postcode not supplied'} · {when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><span className="driver-cell-label">TO</span><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong><div>{job.delivery_postcode ?? 'Postcode not supplied'} · {when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><span className="driver-cell-label">JOB / DRIVER</span><strong>{(job.vehicle_type ?? 'Vehicle not supplied').replace(/_/g, ' ')}</strong><div>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')} · {job.client_name ?? 'Customer not supplied'}</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">STATUS</span><StatusBadge value={status || stage} tone={stageTone(job)} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">STATUS</span><StatusBadge value={status || stage} tone={stageTone(job)} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => toggleJob(job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta">
                       <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
