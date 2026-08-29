@@ -5,6 +5,8 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
   const advancedSearch = read('app/driver/loads/search/page.tsx');
+  const searchApi = read('app/api/driver/search-loads/route.ts');
+  const vehicleRange = read('lib/vehicleSizeRange.ts');
   const radar = read('app/driver/_components/DriverMarketplaceRadarMap.tsx');
   const quoteModal = read('app/driver/_components/MarketplaceQuoteModal.tsx');
   const invoicePreview = read('app/driver/_components/DriverInvoicePreviewModal.tsx');
@@ -20,6 +22,22 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
     expect(advancedSearch).toContain('On Demand');
     expect(advancedSearch).toContain('Regular Load');
     expect(advancedSearch).toContain('Daily Hire');
+  });
+
+  it('supports a canonical minimum/maximum vehicle range without forcing specialist capabilities into a fake size order', () => {
+    expect(advancedSearch).toContain('Minimum vehicle');
+    expect(advancedSearch).toContain('Maximum vehicle');
+    expect(advancedSearch).toContain('minVehicle: activeFilters.minVehicle');
+    expect(advancedSearch).toContain('maxVehicle: activeFilters.maxVehicle');
+    expect(advancedSearch).toContain('Minimum vehicle must not be larger than maximum vehicle.');
+    expect(searchApi).toContain("searchParams.get('minVehicle')");
+    expect(searchApi).toContain("searchParams.get('maxVehicle')");
+    expect(searchApi).toContain('vehicleMatchesMarketplaceSizeRange');
+    expect(vehicleRange).toContain('MARKETPLACE_VEHICLE_SIZE_ORDER');
+    expect(vehicleRange).toContain('Specialist capabilities');
+    expect(vehicleRange).not.toContain("'hiab',");
+    expect(vehicleRange).not.toContain("'moffett',");
+    expect(vehicleRange).not.toContain("'adr_vehicle',");
   });
 
   it('keeps the Driver radar privacy-safe by locating public outcodes rather than accepting private job coordinates', () => {
@@ -61,6 +79,7 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
 
   it('does not introduce Super Admin coupling', () => {
     expect(advancedSearch).not.toContain('/super-admin');
+    expect(searchApi).not.toContain('/super-admin');
     expect(radar).not.toContain('/super-admin');
     expect(quoteModal).not.toContain('/super-admin');
     expect(invoicePreview).not.toContain('/super-admin');
