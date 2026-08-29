@@ -96,6 +96,6 @@ describe('Driver Smart Load Alerts contract', () => {
   test('fails honestly when the hosted schema is not available', () => {
     expect(api).toContain("code: 'LOAD_ALERT_SCHEMA_UNAVAILABLE'");
     expect(page).toContain("payload.code === 'LOAD_ALERT_SCHEMA_UNAVAILABLE'");
-    expect(page).toContain('the required database migration has not been enabled in this environment yet');
+    expect(page).toContain('they are not active in this environment yet. No alert settings have been applied here.');
   });
 });
