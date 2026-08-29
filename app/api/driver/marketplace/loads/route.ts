@@ -10,7 +10,8 @@ import {
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../../_lib/marketplacePublic';
-import { isDriverContext, requireDriver, respond } from '../../mobile/_lib';
+import { isDriverContext, respond } from '../../mobile/_lib';
+import { requireWebDriver } from '../../_lib/webDriver';
 
 const LIST_LIMIT = 150;
 
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const driver = await requireDriver(request);
+  const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const requestedId = new URL(request.url).searchParams.get('id')?.trim() || null;
