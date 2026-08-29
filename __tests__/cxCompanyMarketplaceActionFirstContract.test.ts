@@ -32,6 +32,14 @@ describe('CX-close Company Marketplace composition', () => {
     expect(source).toContain('<MarketplaceLoadMap');
   });
 
+  it('keeps On Demand / Regular Load / Daily Hire deterministic without timer-based state races', () => {
+    expect(source).toContain("['on_demand', 'On Demand']");
+    expect(source).toContain("['regular_load', 'Regular Load']");
+    expect(source).toContain("['daily_hire', 'Daily Hire']");
+    expect(source).toContain("onClick={() => setFilter('loadType', value)}");
+    expect(source).not.toContain('setTimeout(() => void loadLoads');
+  });
+
   it('does not introduce Super Admin coupling', () => {
     expect(source).not.toContain('/super-admin');
   });
