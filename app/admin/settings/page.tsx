@@ -11,20 +11,31 @@ import {
   loadCompanySettings,
 } from '../../../lib/companySettings';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
+import {
+  ActionButton,
+  AlertBanner,
+  EmptyState,
+  PageFrame,
+  PageHeader,
+  Panel,
+} from '../../components/workspace/WorkspaceUI';
+import './settings-exchange.css';
 
-const TABS = [
-  { id: 'memberCompany', label: 'Member / Company Info', icon: '🏢' },
-  { id: 'help', label: 'Help', icon: '❓' },
-  { id: 'contact', label: 'Contact', icon: '☎️' },
-  { id: 'userProfile', label: 'User Profile', icon: '👤' },
-  { id: 'companyProfile', label: 'Company Profile', icon: '🏭' },
-  { id: 'other', label: 'Other', icon: '⚙️' },
+type SettingsTab = 'company' | 'user' | 'notifications' | 'system' | 'help' | 'contact';
+
+const TABS: Array<{ id: SettingsTab; label: string; detail: string }> = [
+  { id: 'company', label: 'Member / Company Info', detail: 'Identity, contact, address and reference prefixes' },
+  { id: 'user', label: 'User Profile', detail: 'Signed-in account and password' },
+  { id: 'notifications', label: 'Notifications', detail: 'Supported email event preferences and inbox' },
+  { id: 'system', label: 'Company Profile / Finance', detail: 'VAT, payment terms, currency and bank details' },
+  { id: 'help', label: 'Help', detail: 'Operational support routes' },
+  { id: 'contact', label: 'Contact', detail: 'Current company contact record' },
 ];
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
-  const [activeTab, setActiveTab] = useState('memberCompany');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('company');
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,15 +71,12 @@ export default function SettingsPage() {
     bankSortCode: DEFAULT_COMPANY_SETTINGS.bankSortCode,
     bankAccountNumber: DEFAULT_COMPANY_SETTINGS.bankAccountNumber,
   });
-  const [accountForm, setAccountForm] = useState({
-    newPassword: '',
-    confirmPassword: '',
-  });
+
+  const [accountForm, setAccountForm] = useState({ newPassword: '', confirmPassword: '' });
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-
     const loadSettings = async () => {
       if (!isSupabaseConfigured || !hasSupabaseSession || !user?.id) {
         setLoading(false);
@@ -76,9 +84,7 @@ export default function SettingsPage() {
       }
 
       const resolvedCompanyId = user.companyId ?? null;
-
       if (cancelled) return;
-
       if (!resolvedCompanyId) {
         setSaveError('Company profile could not be resolved for this account.');
         setLoading(false);
@@ -86,7 +92,6 @@ export default function SettingsPage() {
       }
 
       setCompanyId(resolvedCompanyId);
-
       const settings = await loadCompanySettings(supabase, resolvedCompanyId);
       if (cancelled) return;
 
@@ -120,11 +125,8 @@ export default function SettingsPage() {
       setLoading(false);
     };
 
-    loadSettings();
-
-    return () => {
-      cancelled = true;
-    };
+    void loadSettings();
+    return () => { cancelled = true; };
   }, [hasSupabaseSession, user?.id, user?.companyId]);
 
   const handleSave = async () => {
@@ -132,7 +134,6 @@ export default function SettingsPage() {
       setSaveError('Supabase is not configured. Settings cannot be saved.');
       return;
     }
-
     if (!companyId || !user?.id) {
       setSaveError('Company profile not loaded. Settings cannot be saved yet.');
       return;
@@ -161,70 +162,49 @@ export default function SettingsPage() {
       table: 'companies',
       rlsPolicy: 'companies_update_admin',
     });
-    const { error: companyError } = await supabase
-      .from('companies')
-      .update(companyUpdatePayload)
-      .eq('id', companyId);
 
+    const { error: companyError } = await supabase.from('companies').update(companyUpdatePayload).eq('id', companyId);
     if (companyError) {
       setSaveError(`Company details could not be saved: ${companyError.message}`);
       setSaving(false);
       return;
     }
 
-    const { error: settingsError } = await supabase
-      .from('company_settings')
-      .upsert({
-        company_id: companyId,
-        legal_name: companyForm.legalName || null,
-        job_ref_prefix: companyForm.jobRefPrefix || null,
-        invoice_prefix: companyForm.invoicePrefix || null,
-        default_vat_rate: Number(systemForm.defaultVatRate),
-        default_payment_terms: systemForm.paymentTerms || null,
-        currency: systemForm.currency || null,
-        date_format: systemForm.dateFormat || null,
-        bank_account_name: systemForm.bankAccountName || null,
-        bank_sort_code: systemForm.bankSortCode || null,
-        bank_account_number: systemForm.bankAccountNumber || null,
-        paypal_email: COMPANY_CONFIG.payment.paypal.email || null,
-        notify_email_new_job: notifForm.emailNewJob,
-        notify_email_status_change: notifForm.emailStatusChange,
-        notify_email_invoice_paid: notifForm.emailInvoicePaid,
-        notify_email_bid_received: notifForm.emailBidReceived,
-        updated_by: user.id,
-      });
+    const settingsPayload = {
+      company_id: companyId,
+      legal_name: companyForm.legalName || null,
+      job_ref_prefix: companyForm.jobRefPrefix || null,
+      invoice_prefix: companyForm.invoicePrefix || null,
+      default_vat_rate: Number(systemForm.defaultVatRate),
+      default_payment_terms: systemForm.paymentTerms || null,
+      currency: systemForm.currency || null,
+      date_format: systemForm.dateFormat || null,
+      bank_account_name: systemForm.bankAccountName || null,
+      bank_sort_code: systemForm.bankSortCode || null,
+      bank_account_number: systemForm.bankAccountNumber || null,
+      paypal_email: COMPANY_CONFIG.payment.paypal.email || null,
+      notify_email_new_job: notifForm.emailNewJob,
+      notify_email_status_change: notifForm.emailStatusChange,
+      notify_email_invoice_paid: notifForm.emailInvoicePaid,
+      notify_email_bid_received: notifForm.emailBidReceived,
+      updated_by: user.id,
+    };
+
+    const { error: settingsError } = await supabase.from('company_settings').upsert(settingsPayload);
     logRuntimeProof({
       flow: 'Save Settings',
       authUid: user.id,
       membershipId: user.membershipId,
       companyId,
-      payload: {
-        company_id: companyId,
-        legal_name: companyForm.legalName || null,
-        job_ref_prefix: companyForm.jobRefPrefix || null,
-        invoice_prefix: companyForm.invoicePrefix || null,
-        default_vat_rate: Number(systemForm.defaultVatRate),
-        default_payment_terms: systemForm.paymentTerms || null,
-        currency: systemForm.currency || null,
-        date_format: systemForm.dateFormat || null,
-        bank_account_name: systemForm.bankAccountName || null,
-        bank_sort_code: systemForm.bankSortCode || null,
-        bank_account_number: systemForm.bankAccountNumber || null,
-        notify_email_new_job: notifForm.emailNewJob,
-        notify_email_status_change: notifForm.emailStatusChange,
-        notify_email_invoice_paid: notifForm.emailInvoicePaid,
-        notify_email_bid_received: notifForm.emailBidReceived,
-        updated_by: user.id,
-      },
+      payload: settingsPayload,
       table: 'company_settings',
       rlsPolicy: 'company_settings_insert_operator|company_settings_update_operator',
     });
 
     if (settingsError) {
-      const migrationHint =
-        settingsError.code === 'PGRST205'
-          ? 'Run the latest Supabase migration before using Settings.'
-          : settingsError.message;
+      const migrationHint = settingsError.code === 'PGRST205'
+        ? 'Run the latest Supabase migration before using Settings.'
+        : settingsError.message;
       setSaveError(`Settings could not be saved: ${migrationHint}`);
       setSaving(false);
       return;
@@ -232,13 +212,12 @@ export default function SettingsPage() {
 
     setSaved(true);
     setSaving(false);
-    setTimeout(() => setSaved(false), 3000);
+    window.setTimeout(() => setSaved(false), 3000);
   };
 
   const handleChangePassword = async () => {
     setSaveError('');
     setSaved(false);
-
     if (!isSupabaseConfigured) {
       setSaveError('Supabase is not configured. Password cannot be updated.');
       return;
@@ -255,543 +234,140 @@ export default function SettingsPage() {
     setChangingPassword(true);
     const { error } = await supabase.auth.updateUser({ password: accountForm.newPassword });
     setChangingPassword(false);
-
     if (error) {
       setSaveError(`Password could not be updated: ${error.message}`);
       return;
     }
-
     setAccountForm({ newPassword: '', confirmPassword: '' });
     setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    window.setTimeout(() => setSaved(false), 3000);
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.95rem',
-    boxSizing: 'border-box' as const,
-    backgroundColor: 'white',
-  };
-
-  const labelStyle = {
-    display: 'block',
-    fontSize: '0.9rem',
-    fontWeight: '500' as const,
-    color: '#374151',
-    marginBottom: '0.5rem',
-  };
-
-  const fieldGroupStyle = {
-    display: 'grid' as const,
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1.25rem',
-    marginBottom: '1.25rem',
-  };
-
-  const sectionTitleStyle = {
-    fontSize: '1rem',
-    fontWeight: '600' as const,
-    color: '#1f2937',
-    marginBottom: '1.25rem',
-    paddingBottom: '0.5rem',
-    borderBottom: '1px solid #e5e7eb',
-  };
+  const saveEnabled = activeTab === 'company' || activeTab === 'notifications' || activeTab === 'system';
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: '0 0 0.5rem 0' }}>
-              Settings
-            </h1>
-            <p style={{ color: '#6b7280', margin: 0 }}>
-              Configure system and company settings
-            </p>
-          </div>
-          <button
-            onClick={() => router.push('/admin')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'white',
-              color: '#0A2239',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f9fafb';
-              e.currentTarget.style.borderColor = '#0A2239';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'white';
-              e.currentTarget.style.borderColor = '#d1d5db';
-            }}
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
+      <PageFrame>
+        <PageHeader
+          eyebrow="Workspace configuration"
+          title="Settings"
+          description="Company identity, user account, notifications and operational finance defaults."
+          actions={(
+            <>
+              <ActionButton tone="secondary" onClick={() => router.push('/admin/notifications')}>Notification Inbox</ActionButton>
+              <ActionButton tone="secondary" onClick={() => router.push('/admin')}>Dashboard</ActionButton>
+              {saveEnabled && <ActionButton tone="primary" onClick={() => void handleSave()} disabled={saving || !isSupabaseConfigured}>{saving ? 'Saving…' : 'Save Settings'}</ActionButton>}
+            </>
+          )}
+        />
 
-        {saved && (
-          <div style={{
-            backgroundColor: '#dcfce7',
-            border: '1px solid #1F7A3D',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#14532d',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}>
-            ✅ Settings saved successfully!
-          </div>
-        )}
-
-        {saveError && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#991b1b',
-            fontWeight: '600',
-          }}>
-            {saveError}
-          </div>
-        )}
-
-        {!isSupabaseConfigured && (
-          <div style={{
-            backgroundColor: '#fef3c7',
-            border: '1px solid #f59e0b',
-            borderRadius: '8px',
-            padding: '1rem 1.5rem',
-            marginBottom: '1.5rem',
-            color: '#92400e',
-            fontWeight: '600',
-          }}>
-            Supabase is not configured. Settings are read-only until NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are available.
-          </div>
-        )}
+        {saved && <AlertBanner tone="info">Settings saved successfully.</AlertBanner>}
+        {saveError && <AlertBanner tone="danger">{saveError}</AlertBanner>}
+        {!isSupabaseConfigured && <AlertBanner tone="warning">Supabase is not configured. Settings remain read-only until the workspace connection is available.</AlertBanner>}
 
         {loading ? (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem', color: '#6b7280' }}>
-            Loading settings…
-          </div>
+          <Panel title="Settings"><EmptyState compact title="Loading settings…" /></Panel>
         ) : (
-          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-            <div style={{
-              width: '220px',
-              flexShrink: 0,
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              overflow: 'hidden',
-            }}>
+          <div className="settings-exchange-layout">
+            <aside className="settings-exchange-nav" aria-label="Settings sections">
               {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    width: '100%',
-                    padding: '1rem 1.25rem',
-                    backgroundColor: activeTab === tab.id ? '#f0fdf4' : 'transparent',
-                    color: activeTab === tab.id ? '#1F7A3D' : '#374151',
-                    border: 'none',
-                    borderLeft: activeTab === tab.id ? '4px solid #1F7A3D' : '4px solid transparent',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    fontSize: '0.95rem',
-                    fontWeight: activeTab === tab.id ? '600' : '400',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = '#f9fafb';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (activeTab !== tab.id) e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <span>{tab.icon}</span>
-                  {tab.label}
+                <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>
+                  <strong>{tab.label}</strong>
+                  <span>{tab.detail}</span>
                 </button>
               ))}
-            </div>
+            </aside>
 
-            <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '2rem' }}>
-              {activeTab === 'memberCompany' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Company Information</h2>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>Trading Name</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.name}
-                        onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Legal Name</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.legalName}
-                        onChange={(e) => setCompanyForm({ ...companyForm, legalName: e.target.value })}
-                      />
-                    </div>
+            <main className="settings-exchange-main">
+              {activeTab === 'company' && (
+                <Panel title="Member / Company Information" description="The company identity used across XDrive operational and commercial records.">
+                  <div className="settings-form-grid">
+                    <label><span>Trading Name</span><input value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} /></label>
+                    <label><span>Legal Name</span><input value={companyForm.legalName} onChange={(e) => setCompanyForm({ ...companyForm, legalName: e.target.value })} /></label>
+                    <label><span>Company Number</span><input value={companyForm.companyNumber} onChange={(e) => setCompanyForm({ ...companyForm, companyNumber: e.target.value })} /></label>
+                    <label><span>Email Address</span><input type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} /></label>
+                    <label><span>Phone Number</span><input type="tel" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} /></label>
+                    <label className="settings-field-wide"><span>Street Address</span><input value={companyForm.street} onChange={(e) => setCompanyForm({ ...companyForm, street: e.target.value })} /></label>
+                    <label><span>City</span><input value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} /></label>
+                    <label><span>Postcode</span><input value={companyForm.postcode} onChange={(e) => setCompanyForm({ ...companyForm, postcode: e.target.value })} /></label>
+                    <label><span>Job Reference Prefix</span><input value={companyForm.jobRefPrefix} onChange={(e) => setCompanyForm({ ...companyForm, jobRefPrefix: e.target.value })} /></label>
+                    <label><span>Invoice Prefix</span><input value={companyForm.invoicePrefix} onChange={(e) => setCompanyForm({ ...companyForm, invoicePrefix: e.target.value })} /></label>
                   </div>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>Company Number</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.companyNumber}
-                        onChange={(e) => setCompanyForm({ ...companyForm, companyNumber: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Email Address</label>
-                      <input
-                        type="email"
-                        style={inputStyle}
-                        value={companyForm.email}
-                        onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Phone Number</label>
-                    <input
-                      type="tel"
-                      style={inputStyle}
-                      value={companyForm.phone}
-                      onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                    />
-                  </div>
-
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Address</h2>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Street Address</label>
-                    <input
-                      style={inputStyle}
-                      value={companyForm.street}
-                      onChange={(e) => setCompanyForm({ ...companyForm, street: e.target.value })}
-                    />
-                  </div>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>City</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.city}
-                        onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Postcode</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.postcode}
-                        onChange={(e) => setCompanyForm({ ...companyForm, postcode: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Reference Prefixes</h2>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>Job Reference Prefix</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.jobRefPrefix}
-                        onChange={(e) => setCompanyForm({ ...companyForm, jobRefPrefix: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Invoice Prefix</label>
-                      <input
-                        style={inputStyle}
-                        value={companyForm.invoicePrefix}
-                        onChange={(e) => setCompanyForm({ ...companyForm, invoicePrefix: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
+                </Panel>
               )}
 
-              {activeTab === 'userProfile' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Account Details</h2>
-                  <div style={{
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '1.25rem',
-                    marginBottom: '1.5rem',
-                  }}>
-                    <div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.25rem' }}>Logged in as</div>
-                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>{user?.email}</div>
+              {activeTab === 'user' && (
+                <Panel title="User Profile" description="Signed-in account details and password control.">
+                  <div className="settings-account-summary"><span>Logged in as</span><strong>{user?.email ?? 'Account email unavailable'}</strong></div>
+                  <div className="settings-form-grid settings-form-grid--single">
+                    <label><span>Email Address</span><input type="email" value={user?.email || ''} readOnly /></label>
+                    <label><span>New Password</span><input type="password" placeholder="Enter new password" value={accountForm.newPassword} onChange={(e) => setAccountForm({ ...accountForm, newPassword: e.target.value })} /></label>
+                    <label><span>Confirm New Password</span><input type="password" placeholder="Confirm new password" value={accountForm.confirmPassword} onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })} /></label>
                   </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Email Address</label>
-                    <input
-                      type="email"
-                      style={{ ...inputStyle, backgroundColor: '#f9fafb', color: '#6b7280' }}
-                      value={user?.email || ''}
-                      readOnly
-                    />
-                    <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.25rem' }}>
-                      Contact your administrator to change your email address.
-                    </p>
-                  </div>
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Change Password</h2>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>New Password</label>
-                    <input
-                      type="password"
-                      style={inputStyle}
-                      placeholder="Enter new password"
-                      value={accountForm.newPassword}
-                      onChange={(e) => setAccountForm({ ...accountForm, newPassword: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Confirm New Password</label>
-                    <input
-                      type="password"
-                      style={inputStyle}
-                      placeholder="Confirm new password"
-                      value={accountForm.confirmPassword}
-                      onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={handleChangePassword}
-                      disabled={changingPassword || !isSupabaseConfigured}
-                      style={{
-                        padding: '0.75rem 1.5rem',
-                        backgroundColor: changingPassword || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '0.95rem',
-                        fontWeight: '600',
-                        cursor: changingPassword || !isSupabaseConfigured ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {changingPassword ? 'Updating password…' : 'Update Password'}
-                    </button>
-                  </div>
-                </div>
+                  <div className="settings-actions"><ActionButton tone="primary" onClick={() => void handleChangePassword()} disabled={changingPassword || !isSupabaseConfigured}>{changingPassword ? 'Updating…' : 'Update Password'}</ActionButton></div>
+                </Panel>
               )}
 
-              {activeTab === 'other' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Email Notifications</h2>
-                  <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                    Choose which events trigger an email notification.
-                  </p>
-                  {[
-                    { key: 'emailNewJob', label: 'New job created', description: 'Receive an email when a new job is added' },
-                    { key: 'emailStatusChange', label: 'Job status changed', description: 'Receive an email when a job status is updated' },
-                    { key: 'emailInvoicePaid', label: 'Invoice paid', description: 'Receive an email when an invoice is marked as paid' },
-                    { key: 'emailBidReceived', label: 'Bid received', description: 'Receive an email when a driver places a bid on a job' },
-                  ].map((item) => (
-                    <div
-                      key={item.key}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '1rem',
-                        borderBottom: '1px solid #f3f4f6',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '0.95rem' }}>{item.label}</div>
-                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.2rem' }}>{item.description}</div>
-                      </div>
-                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={notifForm[item.key as keyof typeof notifForm]}
-                          onChange={(e) => setNotifForm({ ...notifForm, [item.key]: e.target.checked })}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1F7A3D' }}
-                        />
+              {activeTab === 'notifications' && (
+                <Panel title="Notifications" description="Email preferences supported by the current company settings contract. Recipient-scoped in-app notifications remain available in the Notification Inbox.">
+                  <div className="settings-notification-list">
+                    {[
+                      { key: 'emailNewJob', label: 'New job created', description: 'Receive an email when a new job is added.' },
+                      { key: 'emailStatusChange', label: 'Job status changed', description: 'Receive an email when a job status is updated.' },
+                      { key: 'emailInvoicePaid', label: 'Invoice paid', description: 'Receive an email when an invoice is marked as paid.' },
+                      { key: 'emailBidReceived', label: 'Bid / quote received', description: 'Receive an email when a marketplace bid is received.' },
+                    ].map((item) => (
+                      <label key={item.key} className="settings-notification-row">
+                        <span><strong>{item.label}</strong><small>{item.description}</small></span>
+                        <input type="checkbox" checked={notifForm[item.key as keyof typeof notifForm]} onChange={(e) => setNotifForm({ ...notifForm, [item.key]: e.target.checked })} />
                       </label>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  <div className="settings-contract-note">
+                    <strong>Load-alert parity status</strong>
+                    <span>Granular CX-style location, vehicle-size, return-journey and live-position alert rules are not represented by the current company_settings schema. They remain a separate parity-ledger item rather than being fabricated as saved preferences here.</span>
+                  </div>
+                  <div className="settings-actions"><ActionButton tone="secondary" onClick={() => router.push('/admin/notifications')}>Open Notification Inbox</ActionButton></div>
+                </Panel>
               )}
 
-              {activeTab === 'companyProfile' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>System Settings</h2>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>Default VAT Rate (%)</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.defaultVatRate}
-                        onChange={(e) => setSystemForm({ ...systemForm, defaultVatRate: e.target.value })}
-                      >
-                        {COMPANY_CONFIG.vat.rates.map((r) => (
-                          <option key={r} value={String(r)}>{r}%</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Default Payment Terms</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.paymentTerms}
-                        onChange={(e) => setSystemForm({ ...systemForm, paymentTerms: e.target.value })}
-                      >
-                        {COMPANY_CONFIG.payment.terms.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    </div>
+              {activeTab === 'system' && (
+                <Panel title="Company Profile / Finance" description="Commercial defaults used by invoices and company-level operations.">
+                  <div className="settings-form-grid">
+                    <label><span>Default VAT Rate (%)</span><select value={systemForm.defaultVatRate} onChange={(e) => setSystemForm({ ...systemForm, defaultVatRate: e.target.value })}>{COMPANY_CONFIG.vat.rates.map((rate) => <option key={rate} value={String(rate)}>{rate}%</option>)}</select></label>
+                    <label><span>Default Payment Terms</span><select value={systemForm.paymentTerms} onChange={(e) => setSystemForm({ ...systemForm, paymentTerms: e.target.value })}>{COMPANY_CONFIG.payment.terms.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
+                    <label><span>Currency</span><select value={systemForm.currency} onChange={(e) => setSystemForm({ ...systemForm, currency: e.target.value })}><option value="GBP">GBP – British Pound</option><option value="EUR">EUR – Euro</option><option value="USD">USD – US Dollar</option></select></label>
+                    <label><span>Date Format</span><select value={systemForm.dateFormat} onChange={(e) => setSystemForm({ ...systemForm, dateFormat: e.target.value })}><option value="DD/MM/YYYY">DD/MM/YYYY</option><option value="MM/DD/YYYY">MM/DD/YYYY</option><option value="YYYY-MM-DD">YYYY-MM-DD</option></select></label>
+                    <label><span>Bank Account Name</span><input value={systemForm.bankAccountName} onChange={(e) => setSystemForm({ ...systemForm, bankAccountName: e.target.value })} /></label>
+                    <label><span>Sort Code</span><input value={systemForm.bankSortCode} onChange={(e) => setSystemForm({ ...systemForm, bankSortCode: e.target.value })} placeholder="XX-XX-XX" /></label>
+                    <label><span>Account Number</span><input value={systemForm.bankAccountNumber} onChange={(e) => setSystemForm({ ...systemForm, bankAccountNumber: e.target.value })} placeholder="8-digit account number" /></label>
                   </div>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>Currency</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.currency}
-                        onChange={(e) => setSystemForm({ ...systemForm, currency: e.target.value })}
-                      >
-                        <option value="GBP">GBP – British Pound</option>
-                        <option value="EUR">EUR – Euro</option>
-                        <option value="USD">USD – US Dollar</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Date Format</label>
-                      <select
-                        style={inputStyle}
-                        value={systemForm.dateFormat}
-                        onChange={(e) => setSystemForm({ ...systemForm, dateFormat: e.target.value })}
-                      >
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <h2 style={{ ...sectionTitleStyle, marginTop: '1.5rem' }}>Bank Transfer Details</h2>
-                  <div style={fieldGroupStyle}>
-                    <div>
-                      <label style={labelStyle}>Account Name</label>
-                      <input
-                        style={inputStyle}
-                        value={systemForm.bankAccountName}
-                        onChange={(e) => setSystemForm({ ...systemForm, bankAccountName: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Sort Code</label>
-                      <input
-                        style={inputStyle}
-                        value={systemForm.bankSortCode}
-                        onChange={(e) => setSystemForm({ ...systemForm, bankSortCode: e.target.value })}
-                        placeholder="XX-XX-XX"
-                      />
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <label style={labelStyle}>Account Number</label>
-                    <input
-                      style={inputStyle}
-                      value={systemForm.bankAccountNumber}
-                      onChange={(e) => setSystemForm({ ...systemForm, bankAccountNumber: e.target.value })}
-                      placeholder="8-digit account number"
-                    />
-                  </div>
-                </div>
+                </Panel>
               )}
 
               {activeTab === 'help' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Help</h2>
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Need operational help?</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Use Diary for live jobs, Fleet for locations, and Drivers & Vehicles for admin management.</div>
-                    </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>Support flow</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>Collect screen details and route, then contact your internal support owner.</div>
-                    </div>
+                <Panel title="Help" description="Routes to the main operational workspaces.">
+                  <div className="settings-link-list">
+                    <button type="button" onClick={() => router.push('/admin/diary')}><strong>Diary</strong><span>Assigned and historical bookings, POD, notes, invoices and history.</span></button>
+                    <button type="button" onClick={() => router.push('/admin/live-availability')}><strong>Live Availability</strong><span>Driver positions, availability and nearby exchange resources.</span></button>
+                    <button type="button" onClick={() => router.push('/admin/fleet/resources')}><strong>Drivers & Vehicles</strong><span>Fleet resource register and operational readiness.</span></button>
                   </div>
-                </div>
+                </Panel>
               )}
 
               {activeTab === 'contact' && (
-                <div>
-                  <h2 style={sectionTitleStyle}>Contact</h2>
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Email</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.email || 'Not set'}</div>
-                    </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Company Phone</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{companyForm.phone || 'Not set'}</div>
-                    </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Address</div>
-                      <div style={{ color: '#111827', fontWeight: 600 }}>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</div>
-                    </div>
+                <Panel title="Contact" description="Current company contact details stored in the company profile.">
+                  <div className="settings-contact-grid">
+                    <div><span>Company Email</span><strong>{companyForm.email || 'Not set'}</strong></div>
+                    <div><span>Company Phone</span><strong>{companyForm.phone || 'Not set'}</strong></div>
+                    <div><span>Address</span><strong>{[companyForm.street, companyForm.city, companyForm.postcode].filter(Boolean).join(', ') || 'Not set'}</strong></div>
                   </div>
-                </div>
+                </Panel>
               )}
-
-              {['memberCompany', 'companyProfile', 'other'].includes(activeTab) && (
-                <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !isSupabaseConfigured}
-                  style={{
-                    padding: '0.75rem 2rem',
-                    backgroundColor: saving || !isSupabaseConfigured ? '#86efac' : '#1F7A3D',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    cursor: saving || !isSupabaseConfigured ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#166534';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!saving && isSupabaseConfigured) e.currentTarget.style.backgroundColor = '#1F7A3D';
-                  }}
-                >
-                  {saving ? 'Saving…' : 'Save Settings'}
-                </button>
-                </div>
-              )}
-            </div>
+            </main>
           </div>
         )}
-      </div>
+      </PageFrame>
     </ProtectedRoute>
   );
 }
