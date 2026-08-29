@@ -35,6 +35,9 @@ create index if not exists idx_telematics_driver_bindings_company
 
 alter table public.telematics_driver_bindings enable row level security;
 
+revoke all on table public.telematics_driver_bindings from public, anon, authenticated;
+grant all on table public.telematics_driver_bindings to service_role;
+
 comment on table public.telematics_driver_bindings is
   'Maps one provider-native driver and vehicle identity pair to canonical XDrive driver, vehicle and company identities for signed telematics ingestion. Direct client access is fail-closed.';
 comment on column public.telematics_driver_bindings.external_vehicle_id is
