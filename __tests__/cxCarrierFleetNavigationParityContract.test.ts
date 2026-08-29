@@ -33,6 +33,11 @@ describe('CX-close carrier and fleet top navigation', () => {
     expect(shell).toContain("'/admin/settings'");
   });
 
+  it('keeps Fleet My Fleet and Drivers & Vehicles as separate destinations', () => {
+    expect(shell).toContain("['fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles']");
+    expect(shell).toContain("['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources']");
+  });
+
   it('does not broaden marketplace permissions for restricted fleet_manager accounts', () => {
     const fleetCapabilityBlock = roles.slice(roles.indexOf('fleet_manager: new Set'), roles.indexOf('dispatcher: new Set'));
     expect(fleetCapabilityBlock).not.toContain("'loads.view.marketplace'");
@@ -43,6 +48,13 @@ describe('CX-close carrier and fleet top navigation', () => {
   it('preserves capability gating for Driver and Vehicle links', () => {
     expect(shell).toContain("hasWorkspaceCapability(role, 'drivers.manage')");
     expect(shell).toContain("hasWorkspaceCapability(role, 'vehicles.manage')");
+  });
+
+  it('counts recipient inbox unread rows, not delivery queue failures', () => {
+    expect(shell).toContain(".from('notifications')");
+    expect(shell).toContain(".eq('user_id', user.id)");
+    expect(shell).toContain(".is('read_at', null)");
+    expect(shell).not.toContain(".from('notification_events')");
   });
 
   it('does not couple operational navigation to Super Admin', () => {
