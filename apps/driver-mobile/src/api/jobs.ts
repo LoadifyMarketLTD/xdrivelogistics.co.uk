@@ -1,6 +1,6 @@
 import { apiRequest } from './client';
 import { supabase } from '../auth/supabase';
-import type { DriverJob, JobScope } from '../jobs/types';
+import type { DriverJob, JobScope, JobStop } from '../jobs/types';
 
 export async function fetchJobs(scope: JobScope, token: string) {
   return apiRequest<{ jobs: DriverJob[] }>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
@@ -12,6 +12,14 @@ export async function fetchJob(jobId: string, token: string) {
 
 export async function postJobStatus(jobId: string, endpoint: string, token: string) {
   return apiRequest<{ ok: true; job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, { method: 'POST', token });
+}
+
+export async function postStopStatus(jobId: string, stopId: string, status: 'arrived' | 'completed', token: string) {
+  return apiRequest<{ ok: true; duplicate: boolean; stop: JobStop }>(`/api/driver/mobile/jobs/${jobId}/stop-status`, {
+    method: 'POST',
+    token,
+    body: { stop_id: stopId, status },
+  });
 }
 
 function safeExtension(uri: string, fallback: string) {
