@@ -7,6 +7,7 @@ import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverMarketplaceRadarMap from '../../_components/DriverMarketplaceRadarMap';
 import MarketplaceQuoteModal from '../../_components/MarketplaceQuoteModal';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../../lib/vehicleSizeRange';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { OperationalExpandAllControl } from '../../../components/workspace/OperationalExpandAllControl';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
@@ -56,6 +57,8 @@ type SearchFilters = {
   deliverySearch: string;
   deliveryRadius: string;
   vehicleType: string;
+  minVehicle: string;
+  maxVehicle: string;
   bodyType: string;
   cargoType: string;
   member: string;
@@ -96,12 +99,13 @@ const VEHICLE_LABELS: Record<string, string> = {
   hiab: 'Hiab', moffett: 'Moffett', adr_vehicle: 'ADR Vehicle', refrigerated_vehicle: 'Refrigerated Vehicle',
   temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
+const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const CARGO_TYPES = ['documents', 'parcels', 'pallets', 'machinery', 'furniture', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'other'];
 const RADIUS_OPTIONS = [10, 20, 30, 50, 100, 200, 300];
 const SEARCH_STORAGE_KEY = 'xdrive.driver.loads.advanced-search.v2';
 const RECENT_STORAGE_KEY = 'xdrive.driver.loads.recent-searches.v2';
 const DEFAULT_FILTERS: SearchFilters = {
-  pickupSearch: '', pickupRadius: '30', deliverySearch: '', deliveryRadius: '100', vehicleType: '', bodyType: '', cargoType: '',
+  pickupSearch: '', pickupRadius: '30', deliverySearch: '', deliveryRadius: '100', vehicleType: '', minVehicle: '', maxVehicle: '', bodyType: '', cargoType: '',
   member: '', jobDescription: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '',
 };
 
@@ -216,7 +220,8 @@ export default function SearchLoadsPage() {
     const params = new URLSearchParams({
       from: activeFilters.pickupSearch, fromRadius: activeFilters.pickupRadius,
       to: activeFilters.deliverySearch, toRadius: activeFilters.deliveryRadius,
-      vehicle: activeFilters.vehicleType, body: activeFilters.bodyType, freight: activeFilters.cargoType,
+      vehicle: activeFilters.vehicleType, minVehicle: activeFilters.minVehicle, maxVehicle: activeFilters.maxVehicle,
+      body: activeFilters.bodyType, freight: activeFilters.cargoType,
       member: activeFilters.member, description: activeFilters.jobDescription, loadType: activeFilters.loadType,
       postedWithinHours: activeFilters.postedWithinHours, dateFrom: activeFilters.dateFrom, dateTo: activeFilters.dateTo,
       minBudget: activeFilters.minBudget, maxBudget: activeFilters.maxBudget,
@@ -239,6 +244,12 @@ export default function SearchLoadsPage() {
   };
 
   const applySearch = async (requestedPage = 1) => {
+    const minRank = marketplaceVehicleSizeRank(filters.minVehicle);
+    const maxRank = marketplaceVehicleSizeRank(filters.maxVehicle);
+    if (minRank != null && maxRank != null && minRank > maxRank) {
+      setError('Minimum vehicle must not be larger than maximum vehicle.');
+      return;
+    }
     const next = { ...filters };
     setAppliedFilters(next);
     if (requestedPage === 1) rememberSearch(next);
@@ -306,7 +317,9 @@ export default function SearchLoadsPage() {
         <div className="driver-filter-field"><label>From radius</label><select value={filters.pickupRadius} onChange={(e) => setFilters((c) => ({ ...c, pickupRadius: e.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
         <div className="driver-filter-field"><label>To</label><input value={filters.deliverySearch} onChange={(e) => setFilters((c) => ({ ...c, deliverySearch: e.target.value }))} placeholder="Location / postcode" /></div>
         <div className="driver-filter-field"><label>To radius</label><select value={filters.deliveryRadius} onChange={(e) => setFilters((c) => ({ ...c, deliveryRadius: e.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
-        <div className="driver-filter-field"><label>Vehicle</label><select value={filters.vehicleType} onChange={(e) => setFilters((c) => ({ ...c, vehicleType: e.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Minimum vehicle</label><select value={filters.minVehicle} onChange={(e) => setFilters((c) => ({ ...c, minVehicle: e.target.value }))}><option value="">No minimum</option>{VEHICLE_SIZE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Maximum vehicle</label><select value={filters.maxVehicle} onChange={(e) => setFilters((c) => ({ ...c, maxVehicle: e.target.value }))}><option value="">No maximum</option>{VEHICLE_SIZE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Exact / specialist vehicle</label><select value={filters.vehicleType} onChange={(e) => setFilters((c) => ({ ...c, vehicleType: e.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
         <div className="driver-filter-field"><label>Body type</label><input value={filters.bodyType} onChange={(e) => setFilters((c) => ({ ...c, bodyType: e.target.value }))} placeholder="Panel, box, curtain side…" /></div>
         <div className="driver-filter-field"><label>Freight</label><select value={filters.cargoType} onChange={(e) => setFilters((c) => ({ ...c, cargoType: e.target.value }))}><option value="">Any freight</option>{CARGO_TYPES.map((type) => <option key={type} value={type}>{type.replaceAll('_', ' ')}</option>)}</select></div>
         <div className="driver-filter-field"><label>Member Name / ID</label><input value={filters.member} onChange={(e) => setFilters((c) => ({ ...c, member: e.target.value }))} placeholder="Company / member / load" /></div>
