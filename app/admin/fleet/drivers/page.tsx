@@ -74,7 +74,12 @@ export default function FleetDriversPage() {
         eyebrow="Fleet resources"
         title="Drivers"
         description="Driver, vehicle assignment signals, position, live work and document readiness in one dense Fleet register."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage drivers</ActionButton>}
+        actions={(
+          <>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live Positions</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage drivers</ActionButton>
+          </>
+        )}
       />
 
       <Panel title="Driver operations register" description="Operational status only; create, edit, suspend and access-management actions remain in the existing Drivers administration page. Canonical active vehicle eligibility is resolved server-side.">
@@ -96,11 +101,14 @@ export default function FleetDriversPage() {
             return [
               <span key="driver"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span>{driver.phone ?? driver.email ?? 'No contact supplied'}</span></span>,
               vehicleSignal,
-              location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} · ${when(location.recorded_at ?? location.updated_at)}` : 'Location unavailable',
+              location ? <span key="location"><strong style={{ display: 'block' }}>Position received</strong><span>{when(location.recorded_at ?? location.updated_at)}</span></span> : 'Location unavailable',
               <span key="status" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountActive ? 'active account' : (driver.status ? `account ${driver.status}` : 'account status unavailable')} tone={accountActive ? 'blue' : 'red'} /></span>,
               job ? `${job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → ${job.delivery_postcode ?? job.delivery_location ?? 'Delivery'} · ${(job.current_status ?? job.status).replace(/_/g, ' ')}` : 'No job currently in execution',
               documents > 0 ? `${documents} document(s)` : 'No documents recorded',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>,
+              <span key="action" style={{ display: 'inline-flex', gap: 4 }}>
+                {location && <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Locate</ActionButton>}
+                <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>
+              </span>,
             ];
           })}
           empty={<EmptyState title="No drivers in the Fleet roster" />}
