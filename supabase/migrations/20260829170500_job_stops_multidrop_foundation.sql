@@ -34,6 +34,9 @@ create index if not exists idx_job_stops_job_status
 
 alter table public.job_stops enable row level security;
 
+revoke all on table public.job_stops from public, anon, authenticated;
+grant all on table public.job_stops to service_role;
+
 comment on table public.job_stops is
   'Ordered collection/delivery stops for multi-drop execution. Direct client access is fail-closed; server routes must authorize through the parent job.';
 comment on column public.job_stops.sequence is
