@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { selectWithMissingColumnFallback } from '../../../../lib/supabaseSchemaCompat';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -29,6 +30,20 @@ type ReturnJourney = {
 
 type ReturnTab = 'active' | 'all' | 'closed';
 
+const RETURN_COLUMNS = [
+  'id',
+  'company_id',
+  'driver_id',
+  'vehicle_type',
+  'from_postcode',
+  'to_postcode',
+  'available_from',
+  'available_to',
+  'notes',
+  'status',
+  'created_at',
+];
+
 const ACTIVE_STATUSES = new Set(['active', 'available']);
 const CLOSED_STATUSES = new Set(['cancelled', 'closed', 'expired', 'completed']);
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
@@ -51,6 +66,7 @@ export default function CompanyReturnJourneysPage() {
   const [journeys, setJourneys] = useState<ReturnJourney[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<ReturnTab>('active');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -64,17 +80,34 @@ export default function CompanyReturnJourneysPage() {
     }
     setLoading(true);
     setError('');
-    const { data, error: queryError } = await supabase
-      .from('return_journeys')
-      .select('id, company_id, driver_id, vehicle_type, from_postcode, to_postcode, available_from, available_to, notes, status, created_at')
-      .eq('company_id', workspace.companyId)
-      .order('available_from', { ascending: true, nullsFirst: false })
-      .limit(250);
-    if (queryError) {
+    setNotice('');
+
+    const result = await selectWithMissingColumnFallback<ReturnJourney>({
+      table: 'return_journeys',
+      columns: RETURN_COLUMNS,
+      execute: async (columns) => {
+        const response = await supabase
+          .from('return_journeys')
+          .select(columns.join(', '))
+          .eq('company_id', workspace.companyId)
+          .order('available_from', { ascending: true, nullsFirst: false })
+          .limit(250);
+        return {
+          data: (response.data ?? []) as unknown as ReturnJourney[],
+          error: response.error,
+        };
+      },
+    });
+
+    if (result.error) {
       setJourneys([]);
       setError('Return journeys could not be loaded. Refresh the workspace and retry.');
     } else {
-      setJourneys((data ?? []) as ReturnJourney[]);
+      const rows = result.rows.map((row) => ({ ...row, notes: row.notes ?? null }));
+      setJourneys(rows);
+      if (result.missingColumns.has('notes')) {
+        setNotice('Return Journey notes are not available in this database build. Core route, timing, driver and position data remain available.');
+      }
     }
     setLoading(false);
   }, [workspace.companyId]);
@@ -138,6 +171,7 @@ export default function CompanyReturnJourneysPage() {
       />
 
       {workspace.error && <AlertBanner tone="warning">Some fleet context is unavailable. Return Journey records remain separated from unavailable workspace datasets.</AlertBanner>}
+      {notice && <AlertBanner tone="info">{notice}</AlertBanner>}
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
       <div className="workspace-board-layout">
