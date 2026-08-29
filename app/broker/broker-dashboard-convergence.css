@@ -1,0 +1,27 @@
+/* Broker dashboard CX-convergence responsive adapter.
+ * Desktop contract remains 315px action rail + fluid activity canvas.
+ * This file exists only because the current Broker component owns its desktop
+ * grid inline; the responsive phase must override that safely without changing
+ * commercial or data behavior.
+ */
+
+.xdrive-broker-control-grid {
+  min-width: 0;
+}
+
+.xdrive-broker-control-grid > aside,
+.xdrive-broker-control-grid > main {
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-broker-control-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .xdrive-broker-control-grid {
+    gap: 8px !important;
+  }
+}
