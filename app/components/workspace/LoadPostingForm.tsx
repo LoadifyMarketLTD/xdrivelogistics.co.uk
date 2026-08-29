@@ -9,6 +9,12 @@ import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
+const HALF_HOUR_SLOTS = Array.from({ length: 48 }, (_, index) => {
+  const totalMinutes = index * 30;
+  const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+  const minutes = (totalMinutes % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+});
 
 const fieldStyle = { width: '100%', minHeight: '32px', border: '1px solid #cfd7e3', borderRadius: '4px', padding: '0 8px', fontSize: '12px', boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
 const textareaStyle = { ...fieldStyle, minHeight: '72px', padding: '7px 8px', resize: 'vertical' as const };
@@ -31,6 +37,25 @@ const normalizePostcode = (value: string) => {
 
 const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizePostcode(value));
 const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
+const localDateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+const halfHourSlotMinutes = (value: string) => {
+  const match = /^(\d{2}):(00|30)$/.exec(value);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours <= 23 ? hours * 60 + minutes : null;
+};
+const availableHalfHourSlots = (date: string, now: Date | null) => {
+  if (!date || !now) return HALF_HOUR_SLOTS;
+  const today = localDateKey(now);
+  if (date < today) return [];
+  if (date > today) return HALF_HOUR_SLOTS;
+  const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  return HALF_HOUR_SLOTS.filter((slot) => {
+    const minutes = halfHourSlotMinutes(slot);
+    return minutes != null && minutes * 60 > currentSeconds;
+  });
+};
 
 type AdditionalStop = {
   id: string;
@@ -46,6 +71,7 @@ type AdditionalStop = {
 
 type StopFieldErrors = {
   date?: string;
+  time?: string;
   postcode?: string;
   address?: string;
 };
@@ -62,13 +88,53 @@ const createAdditionalStop = (): AdditionalStop => ({
   instructions: '',
 });
 
-const validateStop = ({ date, postcode, address, requireDate = false }: { date: string; postcode: string; address: string; requireDate?: boolean }): StopFieldErrors => ({
-  date: requireDate && !date ? 'Required' : undefined,
-  postcode: !postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : undefined,
-  address: !address.trim() ? 'Required' : undefined,
-});
+const validateStop = ({
+  date,
+  time,
+  postcode,
+  address,
+  requireDate = false,
+  requireTime = false,
+  minimumDate,
+  now,
+}: {
+  date: string;
+  time: string;
+  postcode: string;
+  address: string;
+  requireDate?: boolean;
+  requireTime?: boolean;
+  minimumDate?: string;
+  now: Date | null;
+}): StopFieldErrors => {
+  const today = now ? localDateKey(now) : '';
+  const dateIsRequired = requireDate || Boolean(time);
+  const timeIsRequired = requireTime || Boolean(date);
+  let dateError: string | undefined;
+  if (dateIsRequired && !date) dateError = 'Required';
+  else if (date && today && date < today) dateError = 'Choose today or a future date';
+  else if (date && minimumDate && date < minimumDate) dateError = 'Choose the collection date or later';
 
-const hasStopErrors = (errors: StopFieldErrors) => Boolean(errors.date || errors.postcode || errors.address);
+  let timeError: string | undefined;
+  if (timeIsRequired && !time) timeError = 'Required';
+  else if (time) {
+    const minutes = halfHourSlotMinutes(time);
+    if (minutes == null) timeError = 'Use a 30-minute time slot';
+    else if (date && now && date === today) {
+      const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      if (minutes * 60 <= currentSeconds) timeError = 'Choose a future 30-minute slot';
+    }
+  }
+
+  return {
+    date: dateError,
+    time: timeError,
+    postcode: !postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : undefined,
+    address: !address.trim() ? 'Required' : undefined,
+  };
+};
+
+const hasStopErrors = (errors: StopFieldErrors) => Boolean(errors.date || errors.time || errors.postcode || errors.address);
 
 const dimensionError = (value: string) => {
   if (!value.trim()) return undefined;
@@ -86,18 +152,26 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showValidation, setShowValidation] = useState(false);
+  const [clockNow, setClockNow] = useState<Date | null>(null);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
     clientName: '', clientEmail: '', clientPhone: '',
-    pickupDate: '', pickupTime: '08:00', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
-    deliveryDate: '', deliveryTime: 'ASAP', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
+    pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
+    deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
     vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', length: '', width: '', height: '', cargoValue: '',
     customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '',
     tailLift: false, forklift: false, handball: false, adr: false, temperatureControlled: false, fragile: false,
     publicQuoteNotes: '',
     executionInstructions: '',
   });
+
+  useEffect(() => {
+    const refreshClock = () => setClockNow(new Date());
+    refreshClock();
+    const timer = window.setInterval(refreshClock, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,11 +219,36 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     [next[index], next[target]] = [next[target], next[index]];
     return next;
   });
-  const dateTime = (date: string, time: string) => date ? `${date}T${time === 'ASAP' ? '23:59' : time}:00` : null;
+  const dateTime = (date: string, time: string) => date && time ? `${date}T${time}:00` : null;
+  const todayKey = clockNow ? localDateKey(clockNow) : '';
+  const minimumRouteDate = form.pickupDate && (!todayKey || form.pickupDate > todayKey) ? form.pickupDate : todayKey;
 
-  const collectionErrors = validateStop({ date: form.pickupDate, postcode: form.pickupPostcode, address: form.pickupAddress, requireDate: true });
-  const deliveryErrors = validateStop({ date: form.deliveryDate, postcode: form.deliveryPostcode, address: form.deliveryAddress });
-  const additionalStopErrors = additionalStops.map((stop) => validateStop({ date: stop.date, postcode: stop.postcode, address: stop.address }));
+  const collectionErrors = validateStop({
+    date: form.pickupDate,
+    time: form.pickupTime,
+    postcode: form.pickupPostcode,
+    address: form.pickupAddress,
+    requireDate: true,
+    requireTime: true,
+    minimumDate: todayKey || undefined,
+    now: clockNow,
+  });
+  const deliveryErrors = validateStop({
+    date: form.deliveryDate,
+    time: form.deliveryTime,
+    postcode: form.deliveryPostcode,
+    address: form.deliveryAddress,
+    minimumDate: minimumRouteDate || undefined,
+    now: clockNow,
+  });
+  const additionalStopErrors = additionalStops.map((stop) => validateStop({
+    date: stop.date,
+    time: stop.time,
+    postcode: stop.postcode,
+    address: stop.address,
+    minimumDate: minimumRouteDate || undefined,
+    now: clockNow,
+  }));
   const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors);
 
   const dimensionErrors = {
@@ -232,7 +331,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
             postcode: normalizePostcode(stop.postcode),
             contact: stop.contact || null,
             phone: stop.phone || null,
-            dateTime: stop.date ? dateTime(stop.date, stop.time || '23:59') : null,
+            dateTime: dateTime(stop.date, stop.time),
             instructions: stop.instructions || null,
           })),
           vehicleLabel: form.vehicle,
@@ -318,29 +417,42 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
             address={form.pickupAddress}
             contact={form.collectionContact}
             phone={form.collectionPhone}
-            onDate={(value) => set('pickupDate', value)}
+            onDate={(value) => setForm((current) => ({
+              ...current,
+              pickupDate: value,
+              pickupTime: availableHalfHourSlots(value, clockNow).includes(current.pickupTime) ? current.pickupTime : '',
+            }))}
             onTime={(value) => set('pickupTime', value)}
             onPostcode={(value) => set('pickupPostcode', value.toUpperCase())}
             onAddress={(value) => set('pickupAddress', value)}
             onContact={(value) => set('collectionContact', value)}
             onPhone={(value) => set('collectionPhone', value)}
             requiredDate
+            requiredTime
+            minDate={todayKey || undefined}
+            now={clockNow}
             errors={showValidation ? collectionErrors : undefined}
           />
           <StopFields
             title="Delivery"
             date={form.deliveryDate}
-            time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime}
+            time={form.deliveryTime}
             postcode={form.deliveryPostcode}
             address={form.deliveryAddress}
             contact={form.deliveryContact}
             phone={form.deliveryPhone}
-            onDate={(value) => set('deliveryDate', value)}
-            onTime={(value) => set('deliveryTime', value || 'ASAP')}
+            onDate={(value) => setForm((current) => ({
+              ...current,
+              deliveryDate: value,
+              deliveryTime: availableHalfHourSlots(value, clockNow).includes(current.deliveryTime) ? current.deliveryTime : '',
+            }))}
+            onTime={(value) => set('deliveryTime', value)}
             onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())}
             onAddress={(value) => set('deliveryAddress', value)}
             onContact={(value) => set('deliveryContact', value)}
             onPhone={(value) => set('deliveryPhone', value)}
+            minDate={minimumRouteDate || undefined}
+            now={clockNow}
             errors={showValidation ? deliveryErrors : undefined}
           />
         </div>
@@ -387,12 +499,17 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
                       address={stop.address}
                       contact={stop.contact}
                       phone={stop.phone}
-                      onDate={(value) => updateAdditionalStop(stop.id, { date: value })}
+                      onDate={(value) => updateAdditionalStop(stop.id, {
+                        date: value,
+                        time: availableHalfHourSlots(value, clockNow).includes(stop.time) ? stop.time : '',
+                      })}
                       onTime={(value) => updateAdditionalStop(stop.id, { time: value })}
                       onPostcode={(value) => updateAdditionalStop(stop.id, { postcode: value.toUpperCase() })}
                       onAddress={(value) => updateAdditionalStop(stop.id, { address: value })}
                       onContact={(value) => updateAdditionalStop(stop.id, { contact: value })}
                       onPhone={(value) => updateAdditionalStop(stop.id, { phone: value })}
+                      minDate={minimumRouteDate || undefined}
+                      now={clockNow}
                       errors={stopErrors}
                     />
                     <label style={labelStyle}>Private stop instructions
@@ -486,21 +603,79 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   );
 }
 
-function StopFields({ title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onContact, onPhone, requiredDate = false, errors }: {
-  title: string; date: string; time: string; postcode: string; address: string; contact: string; phone: string;
-  onDate: (value: string) => void; onTime: (value: string) => void; onPostcode: (value: string) => void;
-  onAddress: (value: string) => void; onContact: (value: string) => void; onPhone: (value: string) => void; requiredDate?: boolean;
+function StopFields({
+  title,
+  date,
+  time,
+  postcode,
+  address,
+  contact,
+  phone,
+  onDate,
+  onTime,
+  onPostcode,
+  onAddress,
+  onContact,
+  onPhone,
+  requiredDate = false,
+  requiredTime = false,
+  minDate,
+  now,
+  errors,
+}: {
+  title: string;
+  date: string;
+  time: string;
+  postcode: string;
+  address: string;
+  contact: string;
+  phone: string;
+  onDate: (value: string) => void;
+  onTime: (value: string) => void;
+  onPostcode: (value: string) => void;
+  onAddress: (value: string) => void;
+  onContact: (value: string) => void;
+  onPhone: (value: string) => void;
+  requiredDate?: boolean;
+  requiredTime?: boolean;
+  minDate?: string;
+  now: Date | null;
   errors?: StopFieldErrors;
 }) {
+  const timeOptions = availableHalfHourSlots(date, now);
+  const selectedTimeUnavailable = Boolean(time && !timeOptions.includes(time));
+  const noSlotsLeftToday = Boolean(date && now && date === localDateKey(now) && timeOptions.length === 0);
+
   return (
     <div style={{ display: 'grid', gap: '8px' }}>
       <h3 style={{ margin: 0, fontSize: '13px', lineHeight: '18px', fontWeight: 600, color: hasStopErrors(errors ?? {}) ? '#b91c1c' : undefined }}>{title}</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Date{requiredDate ? ' *' : ''}
-          <input style={{ ...fieldStyle, ...(errors?.date ? invalidFieldStyle : {}) }} aria-invalid={errors?.date ? 'true' : undefined} type="date" value={date} onChange={(event) => onDate(event.target.value)} />
+          <input
+            style={{ ...fieldStyle, ...(errors?.date ? invalidFieldStyle : {}) }}
+            aria-invalid={errors?.date ? 'true' : undefined}
+            type="date"
+            min={minDate}
+            value={date}
+            onChange={(event) => onDate(event.target.value)}
+          />
           {errors?.date ? <span style={validationMessageStyle}>{errors.date}</span> : null}
         </label>
-        <label style={labelStyle}>Time<input style={fieldStyle} type="time" value={time} onChange={(event) => onTime(event.target.value)} /></label>
+        <label style={labelStyle}>Time{requiredTime || date ? ' *' : ''}
+          <select
+            style={{ ...fieldStyle, ...(errors?.time ? invalidFieldStyle : {}) }}
+            aria-invalid={errors?.time ? 'true' : undefined}
+            value={time}
+            disabled={!date || noSlotsLeftToday}
+            onChange={(event) => onTime(event.target.value)}
+          >
+            <option value="">{!date ? 'Select date first' : noSlotsLeftToday ? 'No slots left today' : 'Select time'}</option>
+            {selectedTimeUnavailable ? <option value={time} disabled>{time} — no longer available</option> : null}
+            {timeOptions.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+          </select>
+          {errors?.time ? <span style={validationMessageStyle}>{errors.time}</span> : null}
+          {!errors?.time && date ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>{noSlotsLeftToday ? 'No future times remain today — choose tomorrow.' : '30-minute slots only.'}</span> : null}
+        </label>
       </div>
       <label style={labelStyle}>Postcode *
         <input style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }} aria-invalid={errors?.postcode ? 'true' : undefined} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} />
