@@ -1,7 +1,7 @@
 'use client';
 
-import { CustomerQuotesOperationalPage } from '../CustomerOperationalPages';
+import CustomerQuotesCxPage from './CustomerQuotesCxPage';
 
 export default function Page() {
-  return <CustomerQuotesOperationalPage />;
+  return <CustomerQuotesCxPage />;
 }
