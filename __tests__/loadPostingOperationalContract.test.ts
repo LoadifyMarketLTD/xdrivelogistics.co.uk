@@ -12,6 +12,7 @@ const requiredOperationalConcepts = [
   ['delivery', ['deliveryAddress', 'deliveryPostcode', 'deliveryDateTime']],
   ['collection contact', ['collectionContact', 'collectionPhone', 'collection_contact_name', 'collection_contact_phone']],
   ['delivery contact', ['deliveryContact', 'deliveryPhone', 'delivery_contact_name', 'delivery_contact_phone']],
+  ['additional stops', ['Additional stops', 'additionalStops', 'job_stops']],
   ['customer reference', ['customerReference', 'customer_reference']],
   ['purchase order', ['purchaseOrder', 'purchase_order_number']],
   ['customer booking reference', ['bookingReference', 'booking_reference']],
@@ -68,6 +69,13 @@ describe('load posting operational contract', () => {
     expect(source).toContain('publicQuoteNotes');
     expect(source).toContain('executionInstructions');
     expect(source.indexOf('publicQuoteNotes')).not.toBe(source.indexOf('executionInstructions'));
+  });
+
+  it('keeps exact multi-drop stop details private while exposing only a safe stop count to pricing context', () => {
+    expect(form).toContain('Exact stop details stay private before award.');
+    expect(createApi).toContain('additionalStopCount: input.additionalStops.length');
+    expect(createApi).toContain(".from('job_stops')");
+    expect(createApi).not.toContain('additionalStops: input.additionalStops');
   });
 
   it('does not claim unsupported POD-entry controls are part of the current Post Load form contract', () => {
