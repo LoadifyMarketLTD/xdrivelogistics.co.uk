@@ -9,14 +9,22 @@ Status: ACTIVE EXECUTION LEDGER
 ## 0. Rules
 
 Status vocabulary:
-- `KEEP` — capability exists at the correct functional depth and only regression/visual validation remains.
+- `KEEP` — capability exists at the correct functional depth and only regression/visual/runtime validation remains.
 - `PRESENT-HIDDEN` — capability exists but navigation/discoverability is weaker than the CX reference.
-- `PARTIAL` — capability exists but one or more required behaviours/states/actions are missing.
+- `PARTIAL` — capability exists but one or more required behaviours/states/actions or deployment prerequisites are missing.
 - `MISSING` — capability is not implemented in XDrive for the role where it is required.
 - `BLOCKED-BY-CONTRACT` — UI parity requires an API/DB/RLS/lifecycle/permission capability that does not yet safely exist.
 - `NOT-APPLICABLE` — CX-specific commercial/brand capability that is not part of XDrive's product model.
 
-A row may move to `KEEP` only after code audit and focused contract coverage. Runtime/browser verification remains a separate final gate.
+A row may move to `KEEP` only after code audit and focused contract coverage. Runtime/browser verification remains a separate final gate. A capability that depends on an unapplied hosted migration remains `PARTIAL` even when repository implementation and static contract coverage are complete.
+
+### 2026-08-29 PR #399 execution snapshot
+
+- Multi-drop Driver Mobile now has ordered server-backed stop progression, current-stop enforcement, Arrived → Completed actions, server refresh after mutation and POD/final-delivery gating. Stop mutations are explicitly online-only; no fake offline queue support was added.
+- Telematics ingestion now requires provider-scoped HMAC configuration plus provider driver + vehicle binding to canonical XDrive driver, vehicle and company identities, with disabled/revoked binding rejection and active-job checks.
+- Hosted production migration history currently stops at `20260827141443`. The three PR #399 migrations dated 2026-08-29 are **NOT HOSTED/APPLIED**.
+- Supabase MCP `apply_migration` is not being used to force production because it cannot preserve the repository migration version and would create remote/local migration-history drift. The repo's approved staging CLI workflow remains the version-safe deployment path.
+- `/super-admin` remains untouched; no PR #359 Workspace visual changes are imported.
 
 ## 1. Global interaction parity
 
@@ -55,21 +63,21 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Last 3 Bookings | Driver Dashboard | KEEP | Keep dashboard compact; registers contain full history | dashboard audit |
 | Invoice preview from Diary | `/driver/history` + secure PDF endpoint | KEEP | Contextual inline PDF preview implemented | Diary/Invoice contract |
 | Payment Report / Finance | `/driver/finance` | KEEP | XDrive is functionally richer than CX shortcut | finance audit |
-| Load Alerts / GPS-matched alerts | Driver | PARTIAL | Current marketplace/nearby data exists; complete alert rules, preferences, notification feed and location-based matching need full audit | Phase C/J |
-| Won-load notification | Driver | PARTIAL | Award state exists; notification delivery parity not yet fully audited | Phase D |
-| Multi-drop execution parity | Driver execution | PARTIAL | Job description classification exists; multi-stop execution contract requires dedicated audit | Phase E9 |
+| Load Alerts / GPS-matched alerts | Driver | PARTIAL | Inbox/marketplace/availability/future-position primitives exist; canonical Smart Alert rules, preferences and channels are not yet complete | Load Alerts audit + remaining contract work |
+| Won-load notification | Driver | KEEP | `bid_accepted` recipient event/inbox + email path exists; hosted notification execution remains a final runtime gate | Customer award/tracking audit |
+| Multi-drop execution parity | Driver Mobile | PARTIAL | Repository contract is now real: persisted ordered stops, current-stop enforcement, Arrived/Completed, concurrency guard, server refresh and final POD/delivery gate. Hosted `job_stops` migration is still pending | `multiDropFoundationContract` + hosted migration + physical Expo E2E |
 
 ## 3. Fleet Manager / Company Fleet
 
 | CX capability | XDrive route / component | Status | Gap / execution | Test / gate |
 |---|---|---:|---|---|
 | Fleet Dashboard | Fleet resolver/dashboard | KEEP | Role-specific queues/signals; no universal KPI count | Fleet dashboard contract |
-| Directory | company Marketplace directory / shell route | PRESENT-HIDDEN | Function exists; ensure top-level prominence matches role need | Phase B2 |
-| Live Availability | `/admin/live-availability` | PARTIAL | Live/Future/Nearby + map exist; large KPI wall still requires local SignalStrip cleanup | cleanup + availability contract |
+| Directory | company Marketplace directory / shell route | PRESENT-HIDDEN | Function exists; ensure top-level prominence matches role need | navigation pass |
+| Live Availability | `/admin/live-availability` | PARTIAL | Live/Future/Nearby + map exist; local signal-density cleanup/discoverability still requires final pass | availability contract + browser gate |
 | My Fleet / Fleet Resources | `/admin/fleet/resources` | KEEP | SignalStrip + dense operational table | Fleet resources contract |
 | Drivers | `/admin/fleet/drivers` | KEEP | Dense register + Locate → Live Positions | Fleet driver contract |
 | Vehicles | `/admin/fleet/vehicles` | KEEP | Dense register; do not fabricate unavailable state | Fleet vehicle contract |
-| Drivers & Vehicles consolidated access | Fleet shell / resources | PARTIAL | Both registers exist; consolidated discoverability/nav still needs parity decision | Phase B2/F3 |
+| Drivers & Vehicles consolidated access | Fleet shell / resources | PARTIAL | Both registers exist; consolidated discoverability/nav still needs parity decision | navigation pass |
 | Return Journeys | `/admin/fleet/returns` | KEEP | Dense register, freshness, Locate/Call/Manage | returns contract |
 | Future Positions | Live Availability / Returns | KEEP | Existing future availability surfaces | availability contract |
 | Nearby / broader permitted pool | `/admin/live-availability` Nearby Exchange | KEEP | Uses privacy-scoped existing backend | Nearby contract |
@@ -78,12 +86,12 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Quotes | Company Marketplace My Quotes | KEEP | Quote lifecycle visible | marketplace contract |
 | Won Work | Company Marketplace Won Work | KEEP | Awarded work visible | marketplace contract |
 | Diary | Admin/Company Diary | KEEP | Expand all and operational register | global expand contract |
-| Freight Vision | company tracking route | KEEP | Existing tracking surface with status buckets; Not Started added/required | Freight Vision contract |
-| Accounting / Finance | Admin Finance | KEEP | XDrive terminology may remain Finance | Finance phase |
+| Freight Vision | company tracking route | KEEP | Existing tracking surface with status buckets; Not Started present | Freight Vision contract |
+| Accounting / Finance | Admin Finance | KEEP | XDrive terminology may remain Finance | Finance audit |
 | Event Log | `/admin/event-log` | KEEP | Shared user-scoped event register | Event Log contract |
-| Messages | company/fleet | PARTIAL | Directory/network and Driver messaging exist; generic company Messenger contract not fully available | Phase J2 / possible contract gap |
-| Telematics integrations | Fleet settings | PARTIAL | Tracking data exists; credential/integration management parity requires dedicated audit | Phase F10/J9 |
-| Load Alerts | Fleet | PARTIAL | Needs full rules/preferences/channel parity audit | Phase C9/J3/J4 |
+| Messages | company/fleet | KEEP | Participant-scoped Messenger is available for Admin/Carrier/Fleet/Dispatcher paths without weakening RLS | messaging contract + runtime regression |
+| Telematics provider ingestion | signed integration endpoint | PARTIAL | Provider-bound driver + vehicle + company mapping, revocation and canonical provenance are implemented; hosted migrations and provider credential management/runtime integration remain | `telematicsIngestContract` + hosted migration/runtime provider gate |
+| Load Alerts | Fleet | PARTIAL | Canonical rules/preferences/channels still require implementation | Load Alerts audit |
 
 ## 4. Dispatcher
 
@@ -96,7 +104,7 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Drivers / Vehicles | Fleet resources | KEEP | Reuse shared registers | route audit |
 | Diary / Jobs | Admin Jobs/Diary | KEEP | Dense execution registers | contract tests |
 | Return Journeys / future positions | Fleet routes | KEEP | Reuse, role-permission check pending final gate | permissions gate |
-| Messenger/contact | Dispatcher | PARTIAL | Contact actions exist in several surfaces; unified contextual messaging not fully audited | Phase J2 |
+| Messenger/contact | Dispatcher | KEEP | Participant-scoped Messenger contract is present; contextual contact actions remain supplemental | messaging contract |
 | Event Log | `/admin/event-log` | KEEP | user-scoped | Event Log contract |
 
 ## 5. Carrier / Company Admin
@@ -105,20 +113,20 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 |---|---|---:|---|---|
 | Dashboard | Carrier Operations Dashboard | KEEP | Dashboard already workboard-first, not KPI-wall | Carrier contract |
 | Marketplace / Loads | Company Marketplace | KEEP | CX-close functional surface | marketplace contracts |
-| Directory | Marketplace directory | PRESENT-HIDDEN | Exists; top-nav promotion decision remains | Phase B4 |
+| Directory | Marketplace directory | PRESENT-HIDDEN | Exists; top-nav promotion decision remains | navigation pass |
 | Quotes | Company Marketplace / Quotes | KEEP | quote states available | marketplace audit |
 | Won Work | Company Marketplace | KEEP | awarded work available | marketplace audit |
 | Jobs | Admin Jobs | KEEP | expandable dense register | global expand contract |
 | Diary | Admin Diary | KEEP | expandable operational record | global expand contract |
 | Fleet | Fleet routes | KEEP | Drivers/Vehicles/Resources available | fleet audit |
-| Live Availability | `/admin/live-availability` | PARTIAL | Functional but KPI-wall cleanup remains | availability cleanup |
+| Live Availability | `/admin/live-availability` | PARTIAL | Functional; local signal/discoverability cleanup remains | availability cleanup |
 | Return Journeys | Fleet returns | KEEP | operational register | returns contract |
 | Freight Vision | tracking route | KEEP | tracking/exceptions | tracking contract |
 | Event Log | `/admin/event-log` | KEEP | shared event log | Event Log contract |
-| Finance | Admin Finance | KEEP | retain XDrive capability | Finance phase |
+| Finance | Admin Finance | KEEP | retain XDrive capability | Finance audit |
 | Compliance/Documents | Admin Compliance | KEEP | queue-first layout | Compliance contract |
-| Messages | Carrier | PARTIAL | No fully generic CX-style Messenger yet | Phase J2 |
-| Company Profile/Settings | Admin/account routes | KEEP | existing profile/settings; detailed parity audit still required | Phase J6/J7/J8 |
+| Messages | Carrier | KEEP | Participant-scoped cross-company Messenger exists; no arbitrary recipient injection | messaging contract |
+| Company Profile/Settings | Admin/account routes | KEEP | existing profile/settings; detailed browser parity remains final gate | account audit |
 
 ## 6. Customer / Load Poster
 
@@ -128,16 +136,17 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Post Load | customer load creation | KEEP | primary CTA exists | workflow audit |
 | Loads / transport requests | customer loads | KEEP | customer-side register exists | route audit |
 | Quotes received | customer decision surfaces | KEEP | decision queue exists | Customer contract |
-| Compare carriers | customer quote workflow | PARTIAL | Need dedicated audit for carrier identity/reputation/ETA/distance parity | Phase D2/D3 |
-| Award / Book | customer quote workflow | KEEP | award path exists; confirmation parity needs audit | Phase D5 |
+| Compare carriers | customer quote workflow | PARTIAL | Carrier/member identity, profile, price, message, quote time/state exist. Reputation aggregate and canonical ETA/distance-to-pickup remain blocked by missing unambiguous contracts | Customer award/tracking audit |
+| Award / Book | customer quote workflow | KEEP | Review & Award → Confirm Award surrounds the protected atomic award path | award contract |
 | Bookings / active deliveries | customer dashboard/register | KEEP | active delivery queue | Customer contract |
 | Live tracking | customer tracking | KEEP | role-scoped tracking exists | tracking/privacy gate |
 | POD / evidence | customer dashboard/doc surfaces | KEEP | evidence available | Customer contract |
-| Invoices / AP | customer finance | KEEP | existing commercial/document surface | Finance phase |
+| Invoices / AP | customer finance | KEEP | existing commercial/document surface | Finance audit |
 | Companies / Directory | `/customer/network` | KEEP | semantic Directory equivalent | navigation audit |
-| Messages | Customer | PARTIAL | generic contextual messaging not fully audited | Phase J2 |
+| Messages | Customer | KEEP | Contextual conversation can start from a real bid; recipient identity is resolved server-side and thread access is participant-scoped | messaging contract |
 | Event Log | `/customer/event-log` | KEEP | user-scoped | Event Log contract |
-| Feedback / dispute | Customer | PARTIAL | feedback exists in product; CX-style complaint/dispute parity needs full audit | Phase H9/J1 |
+| Booking dispute | `/customer/disputes` | KEEP | Server verifies ownership/state and rejects duplicate active disputes | Feedback/disputes audit |
+| Trading-partner reputation / reciprocal feedback | Customer/member profile | PARTIAL | Existing feedback data is not yet an unambiguous privacy-safe aggregate for carrier comparison | Feedback/disputes audit |
 
 ## 7. Broker / Freight Forwarder
 
@@ -151,27 +160,28 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Live execution | Broker dashboard | KEEP | carrier execution visibility | Broker contract |
 | POD / evidence | Broker dashboard | KEEP | evidence queue exists | Broker contract |
 | Margin / financial exposure | Broker dashboard | KEEP | XDrive-specific richer capability | Broker contract |
-| Invoice | Broker finance surface | KEEP | existing commercial flow | Finance phase |
+| Invoice | Broker finance surface | KEEP | existing commercial flow | Finance audit |
 | Event Log | `/broker/event-log` | KEEP | user-scoped | Event Log contract |
-| Messages | Broker | PARTIAL | no generic Messenger parity yet | Phase J2 |
-| Feedback / disputes | Broker | PARTIAL | dedicated parity audit required | Phase H9 |
+| Messages | Broker | KEEP | Participant-scoped Messenger contract exists | messaging contract |
+| Booking disputes | Broker dispute management | KEEP | Scoped manager resolve/escalate workflow with audit note exists | Feedback/disputes audit |
+| Broader platform complaints/reputation | Broker/member governance | BLOCKED-BY-CONTRACT | Requires explicit complaint case type/evidence/ownership/moderation semantics | Feedback/disputes audit |
 
 ## 8. Finance
 
 | CX capability | XDrive surface | Status | Gap / execution | Test / gate |
 |---|---|---:|---|---|
 | Finance dashboard | Finance control dashboard | KEEP | receivables-first, role-specific signals | Finance dashboard contract |
-| Invoice lifecycle | finance routes | KEEP | draft/unpaid/overdue/paid base exists | Phase I audit |
+| Invoice lifecycle | finance routes | KEEP | draft/unpaid/overdue/paid base exists | Finance audit |
 | Invoice preview | Driver Diary + finance | KEEP | contextual PDF preview implemented | invoice contract |
-| POD/order association | finance/job data | KEEP | available in Driver Diary/order sheet; full finance audit required | Phase I2 |
-| Ready to Invoice | Finance | PARTIAL | verify explicit queue/state vs inferred draft state | Phase I2 |
-| Awaiting payment | Finance | KEEP | receivables state exists | Phase I4 |
+| POD/order association | finance/job data | KEEP | available in Driver Diary/order sheet and invoice prefill/detail | Finance audit |
+| Ready to Invoice | Finance | KEEP | Derived completed-operated-job queue without inventing a new job status; Create Invoice uses existing prefill path | Finance audit |
+| Awaiting payment | Finance | KEEP | receivables state exists | Finance contract |
 | Overdue | Finance | KEEP | existing signal/queue | Finance contract |
-| External invoice upload | Finance | PARTIAL | requires explicit feature audit | Phase I7 |
-| Off-platform reconciliation / mark paid | Finance | PARTIAL | contract audit required | Phase I8 |
-| Batch actions | Finance | PARTIAL | only if underlying model safely supports | Phase I9 |
-| Statements/export | Finance | PARTIAL | export/reporting audit required | Phase I10 |
-| Finance roles | role resolver/permissions | KEEP | finance role exists; detailed permission verification final gate | role audit |
+| External invoice upload | Finance | BLOCKED-BY-CONTRACT | No verified storage/ownership/deduplication/invoice-binding contract; no fake upload UI | Finance audit |
+| Off-platform reconciliation / mark paid | Finance | KEEP | Role-checked idempotent payment history with method/reference/date/note and overpayment rejection | Finance audit |
+| Batch actions | Finance | BLOCKED-BY-CONTRACT | No safe atomic partial-failure/idempotency/audit contract; no fake batch mutation controls | Finance audit |
+| Statements/export | Finance | KEEP | Company-scoped date/counterparty statements + CSV and finance report exports | Finance audit |
+| Finance roles | role resolver/permissions | KEEP | finance role exists; detailed permission regression remains final gate | role audit |
 
 ## 9. Compliance
 
@@ -192,38 +202,38 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Event Log | shared Admin event log | KEEP | only own user events | permissions gate |
 | Mutable operational actions | Viewer | NOT-APPLICABLE | must remain unavailable | Viewer contract |
 
-## 11. Cross-role capabilities requiring dedicated next-pass audit
+## 11. Cross-role capabilities requiring dedicated next-pass work
 
-These are the highest-priority rows that are not yet `KEEP`:
+Highest-priority rows that remain below `KEEP` or intentionally blocked:
 
-1. **Load Alerts / Notifications** — Driver + Fleet + Carrier; notification rules, home/GPS/return-journey matching, recipients/channels, preferences.
-2. **Generic Freight Messenger parity** — Carrier/Fleet/Dispatcher/Customer/Broker; Driver has a real message contract but it is not yet a safe generic cross-role contract.
-3. **Live Availability KPI-wall cleanup** — convert local 6-card wall into role-appropriate compact signals without changing global `KpiGrid`.
-4. **Drivers & Vehicles consolidated navigation** — route discoverability and top-nav placement for Fleet/Carrier roles.
-5. **Company Marketplace load-type tab determinism** — remove stale-state risk in `On Demand / Regular Load / Daily Hire` quick tabs.
-6. **Customer carrier comparison** — feedback/reputation, ETA/distance/contact parity before award.
-7. **Multi-drop execution** — determine whether current job model is sufficient or a protected contract extension is required.
-8. **Telematics integration management** — credentials/provider/vehicle mapping UI + permission contract audit.
-9. **Finance advanced parity** — Ready to Invoice, external upload, reconciliation, batch actions, statements/export.
-10. **Feedback / complaints / disputes** — cross-role workflow and evidence model audit.
-11. **Company/Carrier generic Messages entry points** — only after a safe backend contract is proved.
-12. **Notification preferences / Smart Alert equivalent** — settings + channels + recipient model.
+1. **Hosted migration gate** — version-safe deployment/verification of `20260829165000`, `20260829170500`, `20260829173500`; never use a tool path that creates migration-history drift merely to mark them applied.
+2. **Customer carrier comparison** — privacy-safe reputation aggregate and canonical bidder ETA/distance-to-pickup contract.
+3. **Load Alerts / Smart Alerts** — rule matcher, home/GPS/return-journey/future-position inputs, recipient/channel preferences and dedupe/frequency semantics.
+4. **Driver Leave/Edit Feedback** — remains `BLOCKED-BY-CONTRACT` under current `reviews_insert_non_driver` policy; do not weaken RLS casually.
+5. **External Invoice Upload** — storage/evidence/ownership/deduplication/invoice-binding contract first.
+6. **Batch finance mutations** — atomicity, idempotency, partial failure and audit semantics first.
+7. **Telematics integration management** — safe provider credential/binding administration and runtime provider onboarding after hosted migrations.
+8. **Fleet/Carrier discoverability** — Directory, Live Availability and Drivers & Vehicles navigation placement cleanup.
+9. **Human-facing wording cleanup** — remove leaked technical contract/error terminology from normal UI without hiding actionable error meaning.
+10. **Broader complaint/reputation governance** — separate from booking-scoped `job_disputes` unless product scope explicitly says otherwise.
 
-## 12. Immediate execution order from this ledger
+## 12. Immediate execution order from current PR #399 state
 
-1. Fix Company Marketplace load-type tab stale-state bug.
-2. Refactor Live Availability local KPI wall → `OperationalSignalStrip`, preserving all real signals.
-3. Build navigation parity matrix against role registries and actual routes; promote Fleet/Carrier modules where needed.
-4. Audit Load Alerts/Notifications backend and settings surfaces.
-5. Audit Customer quote comparison and booking-confirmation depth.
-6. Audit generic messaging contract before exposing cross-role Messenger UI.
-7. Audit Finance advanced capability matrix.
-8. Audit feedback/dispute workflow.
-9. Audit telematics integrations and multi-drop contract.
-10. Continue role-by-role self-audit scorecards.
+1. Preserve hosted migration truth and use only version-safe deployment validation.
+2. Close Customer carrier comparison gaps only where a safe contract can be proved.
+3. Build/audit Smart Load Alert matching and preference contract; no fake toggles.
+4. Keep Driver reciprocal feedback blocked until reviewed-party identity + RLS semantics are explicit.
+5. Keep External Invoice Upload and batch finance mutations blocked until protected contracts exist.
+6. Finish role discoverability/navigation cleanup without importing PR #359 visuals.
+7. Sweep user-facing wording for technical leakage.
+8. Run repository CI/build/typecheck/tests, Netlify preview checks and role/browser regression.
+9. Run physical Expo/mobile E2E separately; do not infer it from static tests.
+10. Only then consider PR #399 release-ready / non-draft.
 
-## 13. Exit condition for Phase A
+## 13. Exit condition
 
-Phase A remains OPEN until every capability named in the parent plan has one explicit ledger row and one disposition.
+The convergence phase remains OPEN until every non-`KEEP` capability has either:
+- a verified implementation and focused contract evidence; or
+- an explicit `BLOCKED-BY-CONTRACT`/`NOT-APPLICABLE` disposition with no fake UI.
 
-No workspace may be called complete solely because its dashboard visually resembles CX.
+PR #399 must not be called complete solely because repository structure or screenshots look CX-close. Hosted migrations, runtime integrations, CI/build/typecheck and physical mobile execution are separate release gates.
