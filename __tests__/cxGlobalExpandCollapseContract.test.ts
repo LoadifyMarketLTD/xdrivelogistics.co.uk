@@ -43,7 +43,7 @@ describe('CX global Expand all / Collapse all operational contract', () => {
 
   it('keeps Admin Diary globally expandable', () => {
     expect(adminDiary).toContain('allVisibleExpanded');
-    expect(adminDiary).toContain('toggleAllVisible');
+    expect(adminDiary).toContain('toggleExpandAll');
     expect(adminDiary).toMatch(/Collapse all|Collapse All Entries/);
     expect(adminDiary).toMatch(/Expand all|Expand All Entries/);
   });
