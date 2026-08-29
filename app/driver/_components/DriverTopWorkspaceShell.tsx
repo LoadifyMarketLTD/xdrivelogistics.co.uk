@@ -33,17 +33,17 @@ const DRIVER_MORE_NAV = [
   { id: 'availability', label: 'Availability', href: '/driver/availability' },
   { id: 'nearby', label: "Who's Nearby?", href: '/driver/nearby' },
   { id: 'messages', label: 'Messages', href: '/driver/messages' },
+  { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles' },
+  { id: 'documents', label: 'Documents', href: '/driver/documents' },
+  { id: 'invoices', label: 'Invoices', href: '/driver/finance' },
+  { id: 'notifications', label: 'Notifications', href: '/driver/notifications' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
 
 const ACCOUNT_PREFIXES = [
   '/driver/account',
   '/driver/profile',
-  '/driver/vehicles',
-  '/driver/documents',
-  '/driver/finance',
   '/driver/change-password',
-  '/driver/notifications',
 ] as const;
 
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
@@ -60,8 +60,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   const notificationsHref = getNotificationsRoute(actionRole);
   const primaryAction =
     definition.primaryAction &&
-    (!definition.primaryAction.capability ||
-      hasWorkspaceCapability(role, definition.primaryAction.capability))
+    (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
 
@@ -83,9 +82,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
         }
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user?.companyId, user?.email]);
 
   useEffect(() => {
@@ -126,48 +123,20 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
     <div className="driver-top-shell">
       <header className="driver-top-shell__header">
         <div className="driver-top-shell__brand">
-          <button
-            type="button"
-            className="driver-top-shell__logo-button"
-            onClick={() => router.push(definition.homeHref)}
-            aria-label="Open Driver dashboard"
-          >
-            <Image
-              src="/xdrive-logo-primary.png"
-              alt="XDrive Logistics"
-              width={150}
-              height={41}
-              priority
-              className="driver-top-shell__logo"
-            />
+          <button type="button" className="driver-top-shell__logo-button" onClick={() => router.push(definition.homeHref)} aria-label="Open Driver dashboard">
+            <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={150} height={41} priority className="driver-top-shell__logo" />
           </button>
-          <div className="driver-top-shell__identity">
-            <span>{definition.label}</span>
-            <strong>{companyName}</strong>
-          </div>
+          <div className="driver-top-shell__identity"><span>{definition.label}</span><strong>{companyName}</strong></div>
         </div>
 
         <nav className="driver-top-nav" aria-label="Driver workspace navigation">
           <div className="driver-top-nav__track">
             {DRIVER_PRIMARY_NAV.map((item) => {
               const active = isActive(item.href);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="driver-top-nav__item"
-                  data-active={active ? 'true' : 'false'}
-                  onClick={() => router.push(item.href)}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  {item.label}
-                </button>
-              );
+              return <button key={item.id} type="button" className="driver-top-nav__item" data-active={active ? 'true' : 'false'} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{item.label}</button>;
             })}
             <details className="driver-top-nav__more">
-              <summary className="driver-top-nav__item driver-top-nav__more-trigger" data-active={moreActive ? 'true' : 'false'}>
-                More <span aria-hidden="true">▾</span>
-              </summary>
+              <summary className="driver-top-nav__item driver-top-nav__more-trigger" data-active={moreActive ? 'true' : 'false'}>More <span aria-hidden="true">▾</span></summary>
               <div className="driver-top-nav__more-menu" role="menu" aria-label="More Driver workspace options">
                 {DRIVER_MORE_NAV.map((item) => (
                   <button
@@ -191,49 +160,17 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
         </nav>
 
         <div className="driver-top-shell__actions">
-          {primaryAction && (
-            <button
-              type="button"
-              className="driver-shell-action driver-shell-action--primary"
-              onClick={() => router.push(primaryAction.href)}
-            >
-              + {primaryAction.label}
-            </button>
-          )}
-          <button
-            type="button"
-            className="driver-shell-action"
-            onClick={() => router.push(actionCentreHref)}
-          >
-            Action Centre
-          </button>
-          <button
-            type="button"
-            className="driver-shell-notification"
-            onClick={() => router.push(notificationsHref)}
-            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-            title="Notifications"
-          >
+          {primaryAction && <button type="button" className="driver-shell-action driver-shell-action--primary" onClick={() => router.push(primaryAction.href)}>+ {primaryAction.label}</button>}
+          <button type="button" className="driver-shell-action" onClick={() => router.push(actionCentreHref)}>Action Centre</button>
+          <button type="button" className="driver-shell-notification" onClick={() => router.push(notificationsHref)} aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} title="Notifications">
             <span aria-hidden="true">🔔</span>
-            {unreadCount > 0 && (
-              <span className="driver-shell-notification__count">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
+            {unreadCount > 0 && <span className="driver-shell-notification__count">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
-          <button
-            type="button"
-            className="driver-shell-action driver-shell-action--signout"
-            onClick={() => void logout()}
-          >
-            Sign out
-          </button>
+          <button type="button" className="driver-shell-action driver-shell-action--signout" onClick={() => void logout()}>Sign out</button>
         </div>
       </header>
 
-      <main className="driver-top-shell__content" style={{ background: workspaceTheme.page }}>
-        {children}
-      </main>
+      <main className="driver-top-shell__content" style={{ background: workspaceTheme.page }}>{children}</main>
     </div>
   );
 }
