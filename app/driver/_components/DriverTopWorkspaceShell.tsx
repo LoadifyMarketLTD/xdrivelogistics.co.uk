@@ -24,12 +24,15 @@ const DRIVER_PRIMARY_NAV = [
   { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
-  { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
   { id: 'diary', label: 'Diary', href: '/driver/history' },
-  { id: 'availability', label: 'Availability', href: '/driver/availability' },
-  { id: 'nearby', label: 'Nearby', href: '/driver/nearby' },
-  { id: 'messages', label: 'Messages', href: '/driver/messages' },
   { id: 'event-log', label: 'Event Log', href: '/driver/event-log' },
+] as const;
+
+const DRIVER_MORE_NAV = [
+  { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
+  { id: 'availability', label: 'Availability', href: '/driver/availability' },
+  { id: 'nearby', label: "Who's Nearby?", href: '/driver/nearby' },
+  { id: 'messages', label: 'Messages', href: '/driver/messages' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
 
@@ -94,10 +97,10 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
     let cancelled = false;
     const fetchUnread = async () => {
       const { count } = await supabase
-        .from('notification_events')
+        .from('notifications')
         .select('id', { count: 'exact', head: true })
-        .eq('recipient_user_id', user.id)
-        .in('status', ['pending', 'failed']);
+        .eq('user_id', user.id)
+        .is('read_at', null);
       if (!cancelled) setUnreadCount(count ?? 0);
     };
 
@@ -116,6 +119,8 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  const moreActive = DRIVER_MORE_NAV.some((item) => isActive(item.href));
 
   return (
     <div className="driver-top-shell">
@@ -159,6 +164,29 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
                 </button>
               );
             })}
+            <details className="driver-top-nav__more">
+              <summary className="driver-top-nav__item driver-top-nav__more-trigger" data-active={moreActive ? 'true' : 'false'}>
+                More <span aria-hidden="true">▾</span>
+              </summary>
+              <div className="driver-top-nav__more-menu" role="menu" aria-label="More Driver workspace options">
+                {DRIVER_MORE_NAV.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    className="driver-top-nav__more-item"
+                    data-active={isActive(item.href) ? 'true' : 'false'}
+                    onClick={(event) => {
+                      const details = event.currentTarget.closest('details');
+                      if (details) details.removeAttribute('open');
+                      router.push(item.href);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
         </nav>
 
