@@ -36,6 +36,22 @@ type JobSheet = {
   route: {
     pickup: { address: string | null; postcode: string | null; dateTime: string | null; slot: string | null; contactName: string | null; contactPhone: string | null; notes: string | null };
     delivery: { address: string | null; postcode: string | null; dateTime: string | null; slot: string | null; contactName: string | null; contactPhone: string | null; notes: string | null };
+    stops?: Array<{
+      id: string | null;
+      sequence: number | null;
+      type: string;
+      address: string | null;
+      postcode: string | null;
+      companyName: string | null;
+      contactName: string | null;
+      contactPhone: string | null;
+      windowStart: string | null;
+      windowEnd: string | null;
+      instructions: string | null;
+      status: string | null;
+      arrivedAt: string | null;
+      completedAt: string | null;
+    }>;
     distanceMiles: number | null;
   };
   load: {
@@ -98,6 +114,11 @@ function formatScheduleDetail(dateTime: string | null, slot: string | null) {
   const isClockOrWindow = /^\d{1,2}:\d{2}(?:\s*[-–]\s*\d{1,2}:\d{2})?$/.test(cleanSlot);
   if (isClockOrWindow || cleanSlot.toUpperCase() === 'ASAP') return `${rawDateLabel(dateTime)} · ${cleanSlot}`;
   return `${when(dateTime)} · ${cleanSlot}`;
+}
+
+function formatStopSchedule(windowStart: string | null, windowEnd: string | null) {
+  if (!windowEnd) return when(windowStart);
+  return `${when(windowStart)} → ${when(windowEnd)}`;
 }
 
 function availabilityCopy(value: string | null | undefined, fallback: string) {
@@ -205,6 +226,8 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
     : sheet.acceptedBidRecorded
       ? 'No named bidder driver is recorded on the accepted bid.'
       : undefined;
+  const routeStops = sheet.route.stops ?? [];
+  const hasPersistedRoute = routeStops.length >= 2;
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
@@ -242,10 +265,35 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
           </div>
 
           <div className="workspace-detail-grid">
-            <Detail label="Pickup" value={formatExecutionAddress(sheet.route.pickup.address, sheet.route.pickup.postcode)} detail={formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot)} />
-            <Detail label="Pickup contact" value={sheet.route.pickup.contactName ?? 'Not supplied'} detail={sheet.route.pickup.contactPhone ?? undefined} />
-            <Detail label="Delivery" value={formatExecutionAddress(sheet.route.delivery.address, sheet.route.delivery.postcode)} detail={formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot)} />
-            <Detail label="Delivery contact" value={sheet.route.delivery.contactName ?? 'Not supplied'} detail={sheet.route.delivery.contactPhone ?? undefined} />
+            {hasPersistedRoute ? routeStops.map((stop, index) => {
+              const sequence = stop.sequence ?? index + 1;
+              const routeDetail = [
+                formatStopSchedule(stop.windowStart, stop.windowEnd),
+                stop.status ? `Status ${human(stop.status)}` : null,
+              ].filter(Boolean).join(' · ');
+              const contactDetail = [stop.companyName, stop.contactPhone, stop.instructions].filter(Boolean).join(' · ') || undefined;
+              return [
+                <Detail
+                  key={`${stop.id ?? sequence}-route`}
+                  label={`Stop ${sequence} · ${human(stop.type)}`}
+                  value={formatExecutionAddress(stop.address, stop.postcode)}
+                  detail={routeDetail}
+                />,
+                <Detail
+                  key={`${stop.id ?? sequence}-contact`}
+                  label={`Stop ${sequence} contact`}
+                  value={stop.contactName ?? 'Not supplied'}
+                  detail={contactDetail}
+                />,
+              ];
+            }) : (
+              <>
+                <Detail label="Pickup" value={formatExecutionAddress(sheet.route.pickup.address, sheet.route.pickup.postcode)} detail={formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot)} />
+                <Detail label="Pickup contact" value={sheet.route.pickup.contactName ?? 'Not supplied'} detail={sheet.route.pickup.contactPhone ?? undefined} />
+                <Detail label="Delivery" value={formatExecutionAddress(sheet.route.delivery.address, sheet.route.delivery.postcode)} detail={formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot)} />
+                <Detail label="Delivery contact" value={sheet.route.delivery.contactName ?? 'Not supplied'} detail={sheet.route.delivery.contactPhone ?? undefined} />
+              </>
+            )}
           </div>
 
           {bookingNotes.length > 0 && (
