@@ -25,6 +25,7 @@ const DRIVER_PRIMARY_NAV = [
   { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
   { id: 'diary', label: 'Diary', href: '/driver/history' },
   { id: 'availability', label: 'Availability', href: '/driver/availability' },
+  { id: 'nearby', label: 'Nearby', href: '/driver/nearby' },
   { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
