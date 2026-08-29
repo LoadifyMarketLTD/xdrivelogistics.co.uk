@@ -52,6 +52,10 @@ describe('Telematics location ingestion contract', () => {
 
   test('reconciles numeric coordinates with the canonical geography column', () => {
     expect(migration).toContain('create or replace function public.fn_sync_driver_location_coordinates()');
+    expect(migration).toContain("if tg_op = 'UPDATE'");
+    expect(migration).toContain('new.location is distinct from old.location');
+    expect(migration).toContain('new.lat is not distinct from old.lat');
+    expect(migration).toContain('new.lng is not distinct from old.lng');
     expect(migration).toContain('new.location := st_setsrid(st_makepoint(new.lng, new.lat), 4326)::geography;');
     expect(migration).toContain('new.lat := st_y(new.location::geometry);');
     expect(migration).toContain('new.lng := st_x(new.location::geometry);');
