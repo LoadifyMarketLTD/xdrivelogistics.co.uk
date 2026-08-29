@@ -20,10 +20,15 @@ describe('Finance CX convergence contract', () => {
     expect(source.indexOf('Receivables requiring attention')).toBeLessThan(source.indexOf('Financial exposure'));
   });
 
-  it('derives invoice readiness from completed jobs without inventing a lifecycle status', () => {
+  it('derives invoice readiness from completed work operated by the current company', () => {
     expect(source).toContain("classifyWorkspaceJobStage(job) === 'completed'");
-    expect(source).toContain('!invoicedJobIds.has(job.id)');
-    expect(source).toContain('Completed transport work with no invoice linked to the job');
+    expect(source).toContain('job.awarded_carrier_company_id === data.companyId');
+    expect(source).toContain('!job.awarded_carrier_company_id && job.company_id === data.companyId');
+    expect(source).toContain('!issuedInvoiceJobIds.has(job.id)');
+    expect(source).toContain('invoice.supplier_company_id === data.companyId');
+    expect(source).toContain('invoice.company_id === data.companyId');
+    expect(source).toContain('invoice.buyer_company_id !== data.companyId');
+    expect(source).toContain('Completed transport operated by this company with no supplier-side invoice linked to the job');
     expect(source).toContain('This is a derived finance queue, not a new job lifecycle status.');
     expect(source).toContain('Create invoice');
     expect(source).toContain('/admin/invoices/new?');
