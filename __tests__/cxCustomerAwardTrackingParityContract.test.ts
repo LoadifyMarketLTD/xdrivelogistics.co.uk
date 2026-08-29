@@ -5,6 +5,7 @@ const customerOps = fs.readFileSync(path.join(process.cwd(), 'app/customer/Custo
 const customerQuotes = fs.readFileSync(path.join(process.cwd(), 'app/customer/quotes/CustomerQuotesCxPage.tsx'), 'utf8');
 const customerQuotesRoute = fs.readFileSync(path.join(process.cwd(), 'app/customer/quotes/page.tsx'), 'utf8');
 const awardRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/customer/bids/[id]/award/route.ts'), 'utf8');
+const bidderMessageRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/customer/bids/[id]/message/route.ts'), 'utf8');
 const notificationArchitecture = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/071_notification_architecture.sql'), 'utf8');
 const notificationBridge = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql'), 'utf8');
 const notificationProcessor = fs.readFileSync(path.join(process.cwd(), 'supabase/functions/notify-operational-event/index.ts'), 'utf8');
@@ -20,7 +21,7 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(customerQuotes).toContain('Review & Award');
     expect(customerQuotes).toContain('Confirm carrier award');
     expect(customerQuotes).toContain('Confirm Award');
-    expect(customerQuotes).toContain('setCandidate({ bid, job, identity, displayName, isOwnerDriverBid })');
+    expect(customerQuotes).toContain('setCandidate(participant)');
     expect(customerQuotes).toContain('onConfirm={() => void award(candidate.bid.id)}');
     expect(customerQuotes).toContain("onClick={() => void reject(bid.id)}");
   });
@@ -31,6 +32,23 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(awardRoute).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
     expect(awardRoute).toContain("'accept_job_bid_atomic'");
     expect(awardRoute).not.toContain(".from('jobs').update(");
+  });
+
+  it('starts quote messaging only from a verified bidder relationship', () => {
+    expect(customerQuotes).toContain('MessageParticipantDialog');
+    expect(customerQuotes).toContain("fetch(`/api/customer/bids/${messageCandidate.bid.id}/message`");
+    expect(customerQuotes).toContain('Message</ActionButton>');
+    expect(bidderMessageRoute).toContain(".select('id, job_id, bidder_user_id, status')");
+    expect(bidderMessageRoute).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
+    expect(bidderMessageRoute).toContain("const recipientUserId = typeof bid.bidder_user_id === 'string' ? bid.bidder_user_id : ''");
+    expect(bidderMessageRoute).not.toContain('payload.recipient');
+    expect(bidderMessageRoute).not.toContain('payload.conversation');
+  });
+
+  it('keeps cross-company bidder threads reply-symmetric under existing RLS', () => {
+    expect(bidderMessageRoute).toContain(".is('company_id', null)");
+    expect(bidderMessageRoute).toContain('company_id: null');
+    expect(bidderMessageRoute).toContain('Access remains participant-scoped');
   });
 
   it('preserves a recipient-scoped won-load event, inbox bridge and email handler', () => {
