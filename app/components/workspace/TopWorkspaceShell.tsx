@@ -44,6 +44,19 @@ const CARRIER_NAV_ROLES = new Set<WorkspaceRole>([
   'carrier_admin',
 ]);
 
+const EVENT_LOG_HREFS: Partial<Record<WorkspaceRole, string>> = {
+  company_owner: '/admin/event-log',
+  company_admin: '/admin/event-log',
+  carrier_admin: '/admin/event-log',
+  fleet_manager: '/admin/event-log',
+  dispatcher: '/admin/event-log',
+  finance: '/admin/event-log',
+  compliance: '/admin/event-log',
+  viewer: '/admin/event-log',
+  broker: '/broker/event-log',
+  customer: '/customer/event-log',
+};
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -59,6 +72,20 @@ export default function TopWorkspaceShell({
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => {
     const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
+
+    if (CARRIER_NAV_ROLES.has(role)) {
+      const directoryHref = '/admin/marketplace/directory';
+      const alreadyPresent = base.some((group) => group.items.some((candidate) => candidate.href === directoryHref));
+      if (!alreadyPresent) {
+        const marketplaceIndex = base.findIndex((group) => group.id === 'carrier-marketplace');
+        const insertAt = marketplaceIndex >= 0 ? marketplaceIndex + 1 : Math.min(1, base.length);
+        base.splice(insertAt, 0, {
+          id: 'carrier-directory',
+          label: 'Directory',
+          items: [{ id: 'directory', label: 'Directory', href: directoryHref, icon: '◌' }],
+        });
+      }
+    }
 
     if (FREIGHT_VISION_ROLES.has(role) && hasWorkspaceCapability(role, 'jobs.track')) {
       const item = {
@@ -118,6 +145,20 @@ export default function TopWorkspaceShell({
         } else {
           base.push({ id: 'fleet', label: 'Fleet', items });
         }
+      }
+    }
+
+    const eventLogHref = EVENT_LOG_HREFS[role];
+    if (eventLogHref) {
+      const alreadyPresent = base.some((group) => group.items.some((candidate) => candidate.href === eventLogHref));
+      if (!alreadyPresent) {
+        const accountIndex = base.findIndex((group) => group.label === 'Account' || group.id.endsWith('-account'));
+        const insertAt = accountIndex >= 0 ? accountIndex : base.length;
+        base.splice(insertAt, 0, {
+          id: `${role}-event-log`,
+          label: 'Event Log',
+          items: [{ id: 'event-log', label: 'Event Log', href: eventLogHref, icon: '≡' }],
+        });
       }
     }
 
