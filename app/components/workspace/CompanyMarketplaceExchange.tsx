@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
+import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../lib/vehicleSizeRange';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
 import {
@@ -137,6 +138,8 @@ type Filters = {
   to: string;
   toRadius: string;
   vehicle: string;
+  minVehicle: string;
+  maxVehicle: string;
   body: string;
   freight: string;
   member: string;
@@ -163,6 +166,8 @@ const DEFAULT_FILTERS: Filters = {
   to: '',
   toRadius: '100',
   vehicle: '',
+  minVehicle: '',
+  maxVehicle: '',
   body: '',
   freight: '',
   member: '',
@@ -190,6 +195,7 @@ const VEHICLE_OPTIONS = [
   ['truck_26t', '26T'],
   ['artic', 'Artic'],
 ] as const;
+const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 
 const DESCRIPTION_OPTIONS = [
   ['any', 'Any timing'],
@@ -328,7 +334,8 @@ export default function CompanyMarketplaceExchange() {
       description: filters.description,
     });
     const optional: Array<[string, string]> = [
-      ['from', filters.from], ['to', filters.to], ['vehicle', filters.vehicle], ['body', filters.body],
+      ['from', filters.from], ['to', filters.to], ['vehicle', filters.vehicle],
+      ['minVehicle', filters.minVehicle], ['maxVehicle', filters.maxVehicle], ['body', filters.body],
       ['freight', filters.freight], ['member', filters.member], ['postedWithinHours', filters.postedWithinHours],
       ['dateFrom', filters.dateFrom], ['dateTo', filters.dateTo], ['minBudget', filters.minBudget], ['maxBudget', filters.maxBudget],
     ];
@@ -341,6 +348,8 @@ export default function CompanyMarketplaceExchange() {
     const parts = [
       filters.from && `FROM ${filters.from}`,
       filters.to && `TO ${filters.to}`,
+      filters.minVehicle && `Min ${VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.minVehicle)?.label ?? filters.minVehicle}`,
+      filters.maxVehicle && `Max ${VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.maxVehicle)?.label ?? filters.maxVehicle}`,
       filters.vehicle && vehicleLabel({ requested_vehicle_label: null, requested_vehicle_type: filters.vehicle, vehicle_type: null }),
       filters.member && `Member ${filters.member}`,
       filters.loadType !== 'all' && loadTypeLabel(filters.loadType),
@@ -360,6 +369,12 @@ export default function CompanyMarketplaceExchange() {
 
   const loadLoads = useCallback(async (requestedPage = 1, remember = false) => {
     if (!companyId) return;
+    const minRank = marketplaceVehicleSizeRank(filters.minVehicle);
+    const maxRank = marketplaceVehicleSizeRank(filters.maxVehicle);
+    if (minRank != null && maxRank != null && minRank > maxRank) {
+      setError('Minimum vehicle must not be larger than maximum vehicle.');
+      return;
+    }
     setLoading(true);
     setError('');
     setNotice('');
@@ -396,7 +411,7 @@ export default function CompanyMarketplaceExchange() {
     } finally {
       setLoading(false);
     }
-  }, [buildSearchParams, companyId, filters.from, filters.to, getToken, rememberSearch]);
+  }, [buildSearchParams, companyId, filters.from, filters.maxVehicle, filters.minVehicle, filters.to, getToken, rememberSearch]);
 
   const loadListTab = useCallback(async (target: 'bids' | 'won') => {
     if (!companyId) return;
@@ -440,7 +455,7 @@ export default function CompanyMarketplaceExchange() {
   const applyDefault = () => {
     if (!defaultKey) return;
     try {
-      const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Filters | null;
+      const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Partial<Filters> | null;
       if (saved) {
         setFilters({ ...DEFAULT_FILTERS, ...saved });
         setPage(1);
@@ -632,28 +647,30 @@ export default function CompanyMarketplaceExchange() {
       {tab === 'loads' && (
         <>
           <Panel title="Search Loads" description="Radius search uses UK postcode/outcode geocoding where available; otherwise the search falls back to text matching.">
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px,1.3fr) 80px minmax(150px,1.3fr) 80px repeat(3,minmax(120px,1fr))', gap: 8, alignItems: 'end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px,1.3fr) 80px minmax(150px,1.3fr) 80px repeat(2,minmax(130px,1fr))', gap: 8, alignItems: 'end' }}>
               <label><span style={labelStyle}>FROM</span><input value={filters.from} onChange={(e) => setFilter('from', e.target.value)} placeholder="Postcode / area" style={{ ...fieldStyle, width: '100%' }} /></label>
               <label><span style={labelStyle}>Radius</span><select value={filters.fromRadius} onChange={(e) => setFilter('fromRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>
               <label><span style={labelStyle}>TO</span><input value={filters.to} onChange={(e) => setFilter('to', e.target.value)} placeholder="Postcode / area" style={{ ...fieldStyle, width: '100%' }} /></label>
               <label><span style={labelStyle}>Radius</span><select value={filters.toRadius} onChange={(e) => setFilter('toRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>
-              <label><span style={labelStyle}>Vehicle</span><select value={filters.vehicle} onChange={(e) => setFilter('vehicle', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{VEHICLE_OPTIONS.map(([value, label]) => <option key={value || 'any'} value={value}>{label}</option>)}</select></label>
-              <label><span style={labelStyle}>Body / equipment</span><input value={filters.body} onChange={(e) => setFilter('body', e.target.value)} placeholder="Curtain, tail lift…" style={{ ...fieldStyle, width: '100%' }} /></label>
-              <label><span style={labelStyle}>Freight</span><input value={filters.freight} onChange={(e) => setFilter('freight', e.target.value)} placeholder="Pallets, parcels…" style={{ ...fieldStyle, width: '100%' }} /></label>
+              <label><span style={labelStyle}>Minimum vehicle</span><select value={filters.minVehicle} onChange={(e) => setFilter('minVehicle', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="">No minimum</option>{VEHICLE_SIZE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label><span style={labelStyle}>Maximum vehicle</span><select value={filters.maxVehicle} onChange={(e) => setFilter('maxVehicle', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="">No maximum</option>{VEHICLE_SIZE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,minmax(120px,1fr))', gap: 8, alignItems: 'end', marginTop: 8 }}>
+              <label><span style={labelStyle}>Exact / specialist vehicle</span><select value={filters.vehicle} onChange={(e) => setFilter('vehicle', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{VEHICLE_OPTIONS.map(([value, label]) => <option key={value || 'any'} value={value}>{label}</option>)}</select></label>
+              <label><span style={labelStyle}>Body / equipment</span><input value={filters.body} onChange={(e) => setFilter('body', e.target.value)} placeholder="Curtain, tail lift…" style={{ ...fieldStyle, width: '100%' }} /></label>
+              <label><span style={labelStyle}>Freight</span><input value={filters.freight} onChange={(e) => setFilter('freight', e.target.value)} placeholder="Pallets, parcels…" style={{ ...fieldStyle, width: '100%' }} /></label>
               <label><span style={labelStyle}>Member Name / ID</span><input value={filters.member} onChange={(e) => setFilter('member', e.target.value)} placeholder="Company / member ID" style={{ ...fieldStyle, width: '100%' }} /></label>
               <label><span style={labelStyle}>Job timing</span><select value={filters.description} onChange={(e) => setFilter('description', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{DESCRIPTION_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label><span style={labelStyle}>Posted within</span><select value={filters.postedWithinHours} onChange={(e) => setFilter('postedWithinHours', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="">Any time</option><option value="1">1 hour</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option></select></label>
-              <label><span style={labelStyle}>Pickup from</span><input type="date" value={filters.dateFrom} onChange={(e) => setFilter('dateFrom', e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
-              <label><span style={labelStyle}>Pickup to</span><input type="date" value={filters.dateTo} onChange={(e) => setFilter('dateTo', e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
-              <label><span style={labelStyle}>Results</span><select value={filters.pageSize} onChange={(e) => setFilter('pageSize', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="10">10 / page</option><option value="25">25 / page</option><option value="50">50 / page</option></select></label>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '150px 150px 1fr auto auto auto', gap: 8, alignItems: 'end', marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,minmax(120px,1fr))', gap: 8, alignItems: 'end', marginTop: 8 }}>
+              <label><span style={labelStyle}>Pickup from</span><input type="date" value={filters.dateFrom} onChange={(e) => setFilter('dateFrom', e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
+              <label><span style={labelStyle}>Pickup to</span><input type="date" value={filters.dateTo} onChange={(e) => setFilter('dateTo', e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
               <label><span style={labelStyle}>Min budget</span><input type="number" min="0" value={filters.minBudget} onChange={(e) => setFilter('minBudget', e.target.value)} placeholder="£0" style={{ ...fieldStyle, width: '100%' }} /></label>
               <label><span style={labelStyle}>Max budget</span><input type="number" min="0" value={filters.maxBudget} onChange={(e) => setFilter('maxBudget', e.target.value)} placeholder="No maximum" style={{ ...fieldStyle, width: '100%' }} /></label>
+              <label><span style={labelStyle}>Results</span><select value={filters.pageSize} onChange={(e) => setFilter('pageSize', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="10">10 / page</option><option value="25">25 / page</option><option value="50">50 / page</option></select></label>
               <div>
                 <span style={labelStyle}>Recent searches</span>
                 <select
@@ -661,7 +678,7 @@ export default function CompanyMarketplaceExchange() {
                   onChange={(e) => {
                     const found = recentSearches.find((item) => item.id === e.target.value);
                     if (found) {
-                      setFilters(found.filters);
+                      setFilters({ ...DEFAULT_FILTERS, ...found.filters });
                       setPage(1);
                       setNotice(`Recent search loaded: ${found.label}. Press Search to refresh results.`);
                     }
@@ -673,6 +690,9 @@ export default function CompanyMarketplaceExchange() {
                   {recentSearches.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, alignItems: 'center', marginTop: 8 }}>
               <ActionButton tone="secondary" onClick={applyDefault}>Load Default</ActionButton>
               <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
               <ActionButton tone="success" onClick={() => void loadLoads(1, true)} disabled={loading}>{loading ? 'Searching…' : 'Search'}</ActionButton>
