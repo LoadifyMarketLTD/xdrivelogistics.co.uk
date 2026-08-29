@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
       retryable: true,
     });
   }
+  const adminClient = supabaseAdmin;
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Unauthorized.' });
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
   const verifyMultiDropReplay = async (job: { id: string; status: unknown; current_status: unknown }) => {
     if (input.additionalStops.length === 0) return null;
     const expectedStopCount = input.additionalStops.length + 2;
-    const { count, error } = await supabaseAdmin
+    const { count, error } = await adminClient
       .from('job_stops')
       .select('id', { count: 'exact', head: true })
       .eq('job_id', job.id);
