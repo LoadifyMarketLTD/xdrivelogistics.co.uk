@@ -64,9 +64,10 @@ export default function PostcodeAddressField({
 
   useEffect(() => {
     const normalized = normalizePostcode(postcode);
+    setSuggestions([]);
+    setOpen(false);
+
     if (!isSupabaseConfigured || !isFullUkPostcode(normalized)) {
-      setSuggestions([]);
-      setOpen(false);
       setLoading(false);
       return;
     }
@@ -77,7 +78,13 @@ export default function PostcodeAddressField({
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) return;
+        if (!token) {
+          if (!cancelled) {
+            setSuggestions([]);
+            setOpen(false);
+          }
+          return;
+        }
 
         const params = new URLSearchParams({ postcode: normalized });
         const query = address.trim();
@@ -86,9 +93,21 @@ export default function PostcodeAddressField({
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled) {
+            setSuggestions([]);
+            setOpen(false);
+          }
+          return;
+        }
         const payload = await response.json() as { suggestions?: unknown; configured?: boolean };
-        if (payload.configured === false) return;
+        if (payload.configured === false) {
+          if (!cancelled) {
+            setSuggestions([]);
+            setOpen(false);
+          }
+          return;
+        }
         const next = Array.isArray(payload.suggestions)
           ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
           : [];
