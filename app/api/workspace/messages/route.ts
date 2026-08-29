@@ -75,21 +75,23 @@ async function authenticatedUser(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const auth = await authenticatedUser(request);
-  if (auth.response || !auth.userId || !supabaseAdmin) return auth.response;
+  if (auth.response) return auth.response;
+  if (!auth.userId || !supabaseAdmin) return json(503, { error: 'Messages are temporarily unavailable.' });
+  const userId = auth.userId;
 
   // Reproduce messages_select_participant despite using service role here:
   // only rows where the authenticated user is sender or recipient are read.
   const { data, error } = await supabaseAdmin
     .from('messages')
     .select('id, company_id, conversation_id, sender_user_id, recipient_user_id, body, created_at')
-    .or(`sender_user_id.eq.${auth.userId},recipient_user_id.eq.${auth.userId}`)
+    .or(`sender_user_id.eq.${userId},recipient_user_id.eq.${userId}`)
     .order('created_at', { ascending: false })
     .limit(500);
 
   if (error) return json(500, { error: 'Messages could not be loaded.' });
 
   const rows = (data ?? []) as MessageRow[];
-  const names = await participantNames(counterpartIds(rows, auth.userId));
+  const names = await participantNames(counterpartIds(rows, userId));
   const groups = new Map<string, MessageRow[]>();
 
   for (const row of rows) {
@@ -106,7 +108,7 @@ export async function GET(request: NextRequest) {
       const messages = [...group].sort(
         (a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime(),
       );
-      const counterparts = counterpartIds(messages, auth.userId as string);
+      const counterparts = counterpartIds(messages, userId);
       const latest = messages[messages.length - 1];
       const singleCounterpart = counterparts.length === 1 ? counterparts[0] : null;
       return {
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
           id: message.id,
           body: message.body,
           createdAt: message.created_at,
-          direction: message.sender_user_id === auth.userId ? 'outbound' : 'inbound',
+          direction: message.sender_user_id === userId ? 'outbound' : 'inbound',
           senderUserId: message.sender_user_id,
           recipientUserId: message.recipient_user_id,
         })),
@@ -138,7 +140,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const auth = await authenticatedUser(request);
-  if (auth.response || !auth.userId || !supabaseAdmin) return auth.response;
+  if (auth.response) return auth.response;
+  if (!auth.userId || !supabaseAdmin) return json(503, { error: 'Messages are temporarily unavailable.' });
+  const userId = auth.userId;
 
   let payload: Record<string, unknown>;
   try {
@@ -159,7 +163,7 @@ export async function POST(request: NextRequest) {
     .from('messages')
     .select('id, company_id, conversation_id, sender_user_id, recipient_user_id, body, created_at')
     .eq('conversation_id', conversationId)
-    .or(`sender_user_id.eq.${auth.userId},recipient_user_id.eq.${auth.userId}`)
+    .or(`sender_user_id.eq.${userId},recipient_user_id.eq.${userId}`)
     .order('created_at', { ascending: false })
     .limit(500);
 
@@ -167,7 +171,7 @@ export async function POST(request: NextRequest) {
   const rows = (existing ?? []) as MessageRow[];
   if (rows.length === 0) return json(404, { error: 'Conversation not found for this account.' });
 
-  const counterparts = counterpartIds(rows, auth.userId);
+  const counterparts = counterpartIds(rows, userId);
   if (counterparts.length !== 1) {
     return json(409, { error: 'Reply is unavailable because this conversation does not have one verified counterpart.' });
   }
@@ -185,7 +189,7 @@ export async function POST(request: NextRequest) {
       .from('company_memberships')
       .select('id')
       .eq('company_id', companyId)
-      .eq('user_id', auth.userId)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -198,7 +202,7 @@ export async function POST(request: NextRequest) {
     .insert({
       company_id: companyId,
       conversation_id: conversationId,
-      sender_user_id: auth.userId,
+      sender_user_id: userId,
       recipient_user_id: counterparts[0],
       body: messageBody,
     })
