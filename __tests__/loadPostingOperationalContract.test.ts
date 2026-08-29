@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const form = fs.readFileSync(path.join(root, 'app/components/workspace/LoadPostingForm.tsx'), 'utf8');
 const createApi = fs.readFileSync(path.join(root, 'app/api/jobs/create/route.ts'), 'utf8');
+const publishComplianceRepair = fs.readFileSync(
+  path.join(root, 'supabase/migrations/20260829221052_repair_job_publish_compliance_and_idempotency.sql'),
+  'utf8',
+);
 const source = `${form}\n${createApi}`;
 
 const requiredOperationalConcepts = [
@@ -76,6 +80,14 @@ describe('load posting operational contract', () => {
     expect(form).not.toContain('30-minute slots only.');
     expect(form).toContain('min={minDate}');
     expect(form).not.toContain('type="time"');
+  });
+
+  it('keeps publish separate from carrier execution compliance and restores create idempotency', () => {
+    expect(publishComplianceRepair).toContain("if lower(coalesce(p_context, '')) = 'publish' then");
+    expect(publishComplianceRepair).toContain('return v_issues;');
+    expect(publishComplianceRepair).toContain('add column if not exists creation_idempotency_key text');
+    expect(publishComplianceRepair).toContain('jobs_company_creation_idempotency_uidx');
+    expect(createApi).toContain(".eq('creation_idempotency_key', input.idempotencyKey)");
   });
 
   it('keeps capability-labelled vehicle choices consistent with stored requirements', () => {
