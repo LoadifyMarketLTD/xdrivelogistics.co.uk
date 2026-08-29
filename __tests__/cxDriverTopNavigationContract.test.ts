@@ -10,10 +10,16 @@ describe('CX-close Driver top navigation', () => {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(shell).toContain('DRIVER_MORE_NAV');
-    for (const label of ['Jobs', 'Availability', "Who's Nearby?", 'Messages', 'Account']) {
+    for (const label of ['Jobs', 'Availability', "Who's Nearby?", 'Messages', 'Vehicle', 'Documents', 'Invoices', 'Notifications', 'Account']) {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(shell).toContain('More <span');
+  });
+
+  it('keeps each promoted More item on an existing Driver route', () => {
+    for (const href of ['/driver/jobs', '/driver/availability', '/driver/nearby', '/driver/messages', '/driver/vehicles', '/driver/documents', '/driver/finance', '/driver/notifications', '/driver/account']) {
+      expect(shell).toContain(`href: '${href}'`);
+    }
   });
 
   it('counts unread recipient inbox rows rather than notification delivery failures', () => {
