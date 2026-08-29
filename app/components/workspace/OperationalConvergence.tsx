@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import styles from './OperationalConvergence.module.css';
 import type { WorkspaceCardTone } from './WorkspaceUI';
 
@@ -30,8 +30,11 @@ export function OperationalSignalStrip({
   items: OperationalSignalItem[];
   ariaLabel?: string;
 }) {
+  const desktopColumns = Math.max(1, Math.min(items.length, 10));
+  const signalStyle = { '--signal-columns': desktopColumns } as CSSProperties;
+
   return (
-    <section className={styles.signalStrip} aria-label={ariaLabel}>
+    <section className={styles.signalStrip} aria-label={ariaLabel} style={signalStyle} data-signal-count={items.length}>
       {items.map((item) => {
         const content = (
           <>
