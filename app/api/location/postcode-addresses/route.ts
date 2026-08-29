@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
 
   const exactPostcodeFeatures = features.filter((feature) => {
     const candidate = featurePostcode(feature);
-    return !candidate || normalizedKey(candidate) === expectedPostcode;
+    return Boolean(candidate) && normalizedKey(candidate) === expectedPostcode;
   });
   const suggestions = dedupe(exactPostcodeFeatures.map(featureLabel)).slice(0, 10);
 
