@@ -4,12 +4,16 @@
  */
 
 .driver-reference-dashboard {
-  --driver-dashboard-left: 312px;
+  --driver-dashboard-context: 312px;
 }
 
+/* CX convergence: execution is the primary desktop canvas; driver status and
+ * vehicle context form the secondary rail. DOM order is intentionally left
+ * unchanged so existing data and lifecycle behavior are not rewritten. */
 .driver-reference-dashboard .driver-dashboard-layout {
   display: grid;
-  grid-template-columns: minmax(300px, var(--driver-dashboard-left)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, var(--driver-dashboard-context));
+  grid-template-areas: "execution context";
   gap: var(--ws-gap-grid, 12px);
   align-items: start;
 }
@@ -23,8 +27,13 @@
 }
 
 .driver-reference-dashboard .driver-dashboard-left {
+  grid-area: context;
   position: sticky;
   top: calc(var(--ws-header-h, 50px) + var(--ws-gap-grid, 12px));
+}
+
+.driver-reference-dashboard .driver-dashboard-main {
+  grid-area: execution;
 }
 
 .driver-reference-dashboard .driver-dashboard-section {
@@ -34,6 +43,15 @@
   border-radius: var(--ws-radius, 4px);
   background: #fff;
   box-shadow: none;
+}
+
+/* Current execution is the driver's primary operational answer. */
+.driver-reference-dashboard .driver-dashboard-main > .driver-dashboard-section:first-child {
+  border-left: 3px solid var(--ws-blue, #1d57d8);
+}
+
+.driver-reference-dashboard .driver-dashboard-main > .driver-dashboard-section:first-child .driver-dashboard-section__header {
+  background: #eef4ff;
 }
 
 .driver-reference-dashboard .driver-dashboard-section__header {
@@ -181,9 +199,11 @@
   justify-content: space-between;
   gap: 12px;
   margin: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--ws-border-soft, #e2e7ed);
-  background: #f8fafc;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 1px solid #b8d1ff;
+  border-left: 3px solid var(--ws-green, #31a354);
+  background: #f8fbff;
   color: var(--ws-muted, #64748b);
   font-size: 12px;
   line-height: 16px;
@@ -337,7 +357,7 @@
 
 @media (max-width: 1280px) {
   .driver-reference-dashboard {
-    --driver-dashboard-left: 300px;
+    --driver-dashboard-context: 300px;
   }
 }
 
@@ -345,6 +365,12 @@
   .driver-reference-dashboard .driver-dashboard-layout,
   .driver-reference-dashboard .driver-dashboard-lower-grid {
     grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .driver-reference-dashboard .driver-dashboard-left,
+  .driver-reference-dashboard .driver-dashboard-main {
+    grid-area: auto;
   }
 
   .driver-reference-dashboard .driver-dashboard-left {
