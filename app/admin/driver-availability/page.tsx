@@ -54,8 +54,13 @@ export default function DriverAvailabilityPage() {
         <PageHeader
           eyebrow="Fleet resources"
           title="Availability"
-          description="Scan current driver availability flags and recorded account status from one compact fleet register. Full operational eligibility is verified only by the canonical server contract when required."
-          actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
+          description="Scan current driver availability flags and recorded account status. Open Live Availability for the CX-style map/list view, future positions, return journeys and privacy-scoped nearby Exchange vehicles."
+          actions={
+            <>
+              <ActionButton tone="success" onClick={() => router.push('/admin/live-availability')}>Live / Future / Nearby</ActionButton>
+              <ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>
+            </>
+          }
         />
 
         <div className="workspace-board-layout">
@@ -67,13 +72,17 @@ export default function DriverAvailabilityPage() {
                 <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Name / email / phone" />
               </label>
               <ActionButton tone="secondary" onClick={() => setName('')}>Clear</ActionButton>
+              <div style={{ borderTop: '1px solid var(--ws-border-soft)', paddingTop: 8, color: 'var(--ws-muted)', fontSize: 11, lineHeight: '15px' }}>
+                Need a map, tracking freshness, future capacity or Exchange discovery? Use the full Live Availability workspace.
+              </div>
+              <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Open Live Availability</ActionButton>
             </div>
           </aside>
 
           <main style={{ minWidth: 0 }}>
-            <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
+            <div className="workspace-tab-strip" role="tablist" aria-label="Driver availability states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
               {tabs.map((item) => (
-                <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
+                <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
                   {item.label} {item.count}
                 </button>
               ))}
