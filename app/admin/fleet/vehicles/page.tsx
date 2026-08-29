@@ -3,7 +3,8 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
+import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 const daysUntil = (value: string | null | undefined) => value
@@ -13,6 +14,7 @@ const daysUntil = (value: string | null | undefined) => value
 export default function FleetVehiclesPage() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const presence = useFleetAvailabilityPresence(data.companyId);
   const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
 
   const documentsByVehicle = useMemo(() => {
@@ -48,15 +50,19 @@ export default function FleetVehiclesPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Vehicles"
-        description="Vehicle identity, driver assignment and recorded document signals in one dense Fleet register. Canonical operational eligibility is enforced server-side."
+        description="Vehicle identity, driver assignment, document signals and live published Fleet availability. Canonical operational eligibility is enforced server-side."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
       />
-      <Panel title="Vehicle operations register" description="Unassigned does not mean available. Document rows below are presentation signals only; the canonical server resolver separately requires the approved current operational evidence defined by the driver + vehicle contract.">
+      {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
+      <Panel title="Vehicle operations register" description="A vehicle is shown as available now only when its assigned active driver has a current published Fleet presence. Unassigned does not mean available, and allocation still revalidates canonical driver + vehicle compliance server-side.">
         <DataTable
           columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Document signal', 'MOT', 'Insurance', 'Operational availability']}
           rows={data.vehicles.map((vehicle) => {
             const documents = documentsByVehicle.get(vehicle.id) ?? [];
             const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
+            const publishedPresence = vehicle.assigned_driver_id ? presence.byDriverId.get(vehicle.assigned_driver_id) : undefined;
+            const driverAvailable = normalise(driver?.status) === 'active' && normalise(driver?.availability_status) === 'available';
+            const availableNow = Boolean(driverAvailable && publishedPresence);
             const mot = documentOfType(vehicle.id, 'mot');
             const insurance = documentOfType(vehicle.id, 'insurance');
             const signal = documentSignal(documents);
@@ -65,6 +71,13 @@ export default function FleetVehiclesPage() {
               const days = daysUntil(document.expiry_date);
               return `${document.status ?? 'status unavailable'}${document.expiry_date ? ` · ${document.expiry_date}${days !== null ? ` (${days}d)` : ''}` : ''}`;
             };
+            const availabilityLabel = availableNow
+              ? 'available now'
+              : !driver
+                ? 'unassigned'
+                : driverAvailable
+                  ? 'available · location not published'
+                  : `driver ${driver.availability_status ?? 'offline'}`;
             return [
               <strong key="vehicle">{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || (vehicle.type ?? 'Vehicle').replace(/_/g, ' ')}</strong>,
               (vehicle.type ?? 'Not specified').replace(/_/g, ' '),
@@ -73,7 +86,7 @@ export default function FleetVehiclesPage() {
               <StatusBadge key="status" value={signal.label} tone={signal.tone} />,
               docValue(mot),
               docValue(insurance),
-              <StatusBadge key="availability" value="Not exposed" tone="grey" />,
+              <StatusBadge key="availability" value={availabilityLabel} tone={availableNow ? 'green' : driverAvailable ? 'orange' : 'grey'} />,
             ];
           })}
           empty={<EmptyState title="No vehicles in the Fleet" />}
