@@ -7,13 +7,13 @@ Supersedes for current hosted-state truth: `docs/checkpoints/CX_TO_XDRIVE_PR399_
 
 ## 1. Current PR truth
 
-Re-fetched PR #399 immediately before this checkpoint:
+Re-fetched PR #399 after the Netlify-agent TypeScript repair:
 - OPEN
 - DRAFT
 - MERGEABLE
 - NOT MERGED
 - branch `fix/cx-dashboard-convergence-20260829`
-- HEAD `d452ee13f0ca26e5f975f956793a34359a69cfd1`
+- HEAD `044229ccc1d4ecef04b342cb36dc74205d85a568`
 - base `main` at `5eb2443d331de05f5b521558dc88a9772de22bd9`
 
 Do not infer later PR state from this file; re-fetch first on resume.
@@ -37,7 +37,7 @@ Per current execution decision, staging is no longer used as the authoritative m
 - project ref: `jqxlauexhkonixtjvljw`
 - URL: `https://jqxlauexhkonixtjvljw.supabase.co`
 
-The previous checkpoint statement that the Aug-29 migrations were NOT HOSTED is now obsolete.
+The previous checkpoint statement that the Aug-29 migrations were NOT HOSTED is obsolete.
 
 ### Hosted migration history now includes
 
@@ -72,7 +72,16 @@ Verified on production:
 - `service_role` is the server authority;
 - ordered stop/status constraints and parent-job FK are hosted.
 
-No production stop data was fabricated during migration; the table is currently empty until real Multi-drop execution data is created.
+The booking path is now also wired end-to-end in the PR:
+- Customer/Broker Post Load exposes optional `Additional stops` without redesigning the Workspace shell;
+- up to 8 intermediate stops can be ordered as collection/delivery stops;
+- standard two-point bookings remain unchanged when no additional stop exists;
+- for a published Multi-drop, the parent job remains draft/private until the complete `job_stops` route persists;
+- only after successful stop persistence is the job promoted to `posted/exchange`;
+- exact intermediate stop addresses are execution data, not pre-award Marketplace payload;
+- idempotency replay verifies the complete stop count before treating a previous submission as clean.
+
+Current hosted runtime inventory still has `job_stops = 0`; no production stop data was fabricated during migration or connector testing.
 
 ### Telematics provider binding
 
@@ -80,7 +89,7 @@ Verified on production:
 - `public.telematics_driver_bindings` exists;
 - RLS/fail-closed server-only boundary is active;
 - no fake provider bindings were inserted;
-- table remains empty until real provider onboarding/mapping.
+- current hosted row count is `0` until real provider onboarding/mapping.
 
 ### Driver Smart Load Alerts
 
@@ -91,6 +100,10 @@ Verified on production:
 - preferences default opt-in/off;
 - no accidental `load_alert` events were generated during migration;
 - exact coordinates are not part of public alert payload design.
+
+Current hosted runtime inventory:
+- `driver_load_alert_preferences = 0`
+- `notification_events(event_type='load_alert') = 0`
 
 Vehicle-type normalization bug found during live verification was repaired in the dedicated corrective migration `20260829193101`; e.g. uppercase `LWB 3.5T` now normalizes consistently instead of losing uppercase letters before lowercase conversion.
 
@@ -115,7 +128,7 @@ The production project still has legacy/global Supabase advisor warnings unrelat
 
 ## 6. Edge Function production truth
 
-`notify-operational-event` is now deployed on production as:
+`notify-operational-event` is deployed on production as:
 - version `12`
 - status `ACTIVE`
 - `verify_jwt=true`
@@ -124,19 +137,21 @@ The deployed version includes the PR #399 `load_alert` handler and generic Drive
 
 ## 7. Netlify truth
 
-Current HEAD `d452ee13f0ca26e5f975f956793a34359a69cfd1` has an observed canonical Netlify success:
+Current HEAD `044229ccc1d4ecef04b342cb36dc74205d85a568` has an observed canonical Netlify success after the Netlify-agent TypeScript null-narrowing repair:
 - context: `netlify/xdrivelogistics/deploy-preview`
 - state: SUCCESS
 - description: `Deploy Preview ready!`
+- deploy id: `6a93467664972b0008697ada`
 - preview: `https://deploy-preview-399--xdrivelogistics.netlify.app`
+- Lighthouse: Performance 100 / Accessibility 97 / Best Practices 83 / SEO 100 / PWA 100
 
-The duplicate `silly-faloodeh-cea857` deploy remains intentionally canceled/neutral and is not application evidence.
+The repair was limited to preserving the already-validated `supabaseAdmin` client in a narrowed local `adminClient` for the nested Multi-drop replay callback; strict TypeScript checks were not disabled and Multi-drop logic was not weakened.
 
-Therefore the old checkpoint section saying the canonical preview is failing is obsolete.
+The duplicate `silly-faloodeh-cea857` deploy is not application evidence.
 
 ## 8. GitHub Actions truth
 
-Current CI run still fails before runner startup:
+Current CI still fails before runner startup:
 - `steps: []`
 - `runner_id: 0`
 - empty runner name
@@ -167,17 +182,24 @@ Do NOT work around this by creating fake data migrations or polluting migration 
 
 Runtime proof must therefore use the real authenticated application/API/Expo path or another legitimate operational test path.
 
+The current hosted production inventory for the new runtime objects is deliberately clean:
+- `job_stops = 0`
+- `telematics_driver_bindings = 0`
+- `driver_load_alert_preferences = 0`
+- `load_alert` notification events = 0
+
 ## 10. Capability status after hosted deployment
 
 ### Multi-drop Driver Mobile
 
-Status: `PARTIAL — HOSTED DB COMPLETE / RUNTIME + PHYSICAL EXPO PENDING`
+Status: `PARTIAL — HOSTED DB + BOOKING CREATION CONTRACT COMPLETE / AUTHENTICATED RUNTIME + PHYSICAL EXPO PENDING`
 
-The remaining gate is no longer schema deployment. It is:
-- authenticated server route progression proof;
-- ordering/idempotency/concurrency behaviour against production;
-- final POD/delivered gate proof;
-- physical Expo device execution.
+The remaining gate is:
+- create one authenticated Multi-drop booking through the real Post Load path so the hosted route exists;
+- prove Driver server route progression against that route;
+- prove ordering/idempotency/concurrency behaviour;
+- prove final POD/delivered gate;
+- execute on physical Expo device.
 
 ### Telematics
 
@@ -218,11 +240,11 @@ Do not fabricate these as complete.
 
 1. Re-fetch PR #399 / HEAD before any new write.
 2. Use production `jqxlauexhkonixtjvljw` as hosted database truth; do not regress to stale staging verdicts.
-3. Runtime Multi-drop through the authenticated Driver API/app, then physical Expo.
-4. Runtime Telematics with a real mapped provider driver+vehicle and signed ingestion.
-5. Runtime Driver Smart Alerts preference -> matcher -> dedupe event -> inbox/email/push according to enabled channels.
-6. Reconcile parity ledger statuses so they no longer say hosted migrations are pending.
-7. Continue only the remaining CX gaps that have safe canonical contracts.
+3. Create one authenticated Multi-drop booking through the real Customer/Broker Post Load path.
+4. Verify the resulting `job_stops` route read-only in production, then execute Driver stop progression through authenticated API/app and physical Expo.
+5. Runtime Telematics with a real mapped provider driver+vehicle and signed ingestion.
+6. Runtime Driver Smart Alerts preference -> matcher -> dedupe event -> inbox/email/push according to enabled channels.
+7. Continue only remaining CX gaps that have safe canonical contracts.
 8. Browser role/discoverability regression.
 9. Re-check GitHub Actions runner health and execute real gates if runners become available.
 10. Keep PR #399 Draft until all applicable release gates have factual evidence.
@@ -233,13 +255,15 @@ Do not fabricate these as complete.
 - [x] PR-specific hosted security hardening verified
 - [x] PR-specific FK/RLS performance hardening applied
 - [x] `notify-operational-event` v12 ACTIVE with JWT verification
-- [x] canonical Netlify preview observed SUCCESS on current HEAD
+- [x] Multi-drop booking creation path wired without changing standard two-point booking semantics
+- [x] canonical Netlify preview observed SUCCESS on current code HEAD
 - [ ] GitHub Actions runner starts jobs
 - [ ] web CI build/test gates actually execute
 - [ ] unit/contract tests execute successfully
 - [ ] Public E2E executes successfully
 - [ ] Expo Driver typecheck executes successfully
-- [ ] Multi-drop authenticated runtime E2E
+- [ ] authenticated Multi-drop booking creates hosted `job_stops`
+- [ ] Multi-drop authenticated Driver runtime E2E
 - [ ] physical Expo Multi-drop E2E
 - [ ] Telematics real-provider runtime E2E
 - [ ] Driver Smart Alerts authenticated runtime E2E
