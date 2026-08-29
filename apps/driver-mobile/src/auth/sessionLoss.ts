@@ -1,17 +1,22 @@
 import { clearQueue } from '../offline/queue';
 
 /**
- * Clears the account-scoped queue for the user who was previously authenticated
- * when a session-loss event (null session) is detected.
+ * Fail-closed cleanup when the authenticated mobile session disappears.
  *
- * This helper is the production decision point used by `onAuthStateChange`
- * and is exported so it can be tested independently of the React component.
+ * Tracking is stopped even when the previous user id is unknown (for example a
+ * cold start after a remote logout). Account-scoped offline data is cleared only
+ * when the previously authenticated user is known, so another account is never
+ * touched.
  *
  * @param previousUserId - The user ID that was active before the session was lost.
- *   Obtained from `authenticatedUserIdRef.current` in `DriverMobileApp`.
- *   If null (no previous session), this is a no-op.
+ *   Obtained from `authenticatedUserIdRef.current` in `DriverMobileApp` when
+ *   available. A null value still stops operational tracking.
  */
 export async function handleSessionLoss(previousUserId: string | null): Promise<void> {
+  await import('../tracking/operationalTracking')
+    .then(({ stopOperationalTracking }) => stopOperationalTracking())
+    .catch(() => undefined);
+
   if (!previousUserId) return;
   await clearQueue(previousUserId).catch(() => undefined);
 }
