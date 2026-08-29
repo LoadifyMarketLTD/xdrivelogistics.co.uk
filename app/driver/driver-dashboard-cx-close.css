@@ -1,0 +1,35 @@
+/* Driver Dashboard — CX-close composition override.
+ * Loaded after driver-dashboard-reference.css.
+ * Purpose: keep the execution-first XDrive contract while moving desktop
+ * proportions and visible-record density closer to Courier Exchange.
+ */
+
+@media (min-width: 1025px) {
+  .driver-reference-dashboard .driver-dashboard-layout {
+    grid-template-columns: minmax(0, 2.15fr) minmax(320px, 1fr);
+  }
+
+  /* CX dashboard exposes only the most recent bookings on the home screen.
+   * Keep the full dataset in Jobs/Diary; limit only Dashboard presentation. */
+  .driver-reference-dashboard .driver-dashboard-main > .driver-dashboard-section:nth-child(2) .driver-load-list > .driver-load-row:nth-child(n + 4) {
+    display: none;
+  }
+
+  /* Latest Feedback is a compact dashboard signal, not a long register. */
+  .driver-reference-dashboard .driver-dashboard-feedback-list > .driver-dashboard-feedback-row:nth-child(n + 4) {
+    display: none;
+  }
+
+  /* My Documents / compliance stays actionable but bounded above the fold. */
+  .driver-reference-dashboard .driver-dashboard-alert-list > .driver-dashboard-alert-row:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* Preserve the 12/8/4 spacing contract while making dashboard signal rows
+ * visually closer to CX's compact home-screen summaries. */
+.driver-reference-dashboard .driver-dashboard-main > .driver-dashboard-section:nth-child(2) .driver-load-row,
+.driver-reference-dashboard .driver-dashboard-feedback-row,
+.driver-reference-dashboard .driver-dashboard-alert-row {
+  min-height: 42px;
+}
