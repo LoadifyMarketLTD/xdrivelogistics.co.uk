@@ -3,11 +3,11 @@ import path from 'node:path';
 
 describe('Driver Smart Load Alerts contract', () => {
   const migration = fs.readFileSync(
-    path.join(process.cwd(), 'supabase/migrations/20260829185000_driver_load_alerts_foundation.sql'),
+    path.join(process.cwd(), 'supabase/migrations/20260829193038_driver_load_alerts_foundation.sql'),
     'utf8',
   );
   const delivery = fs.readFileSync(
-    path.join(process.cwd(), 'supabase/migrations/20260829185200_load_alert_notification_delivery_contract.sql'),
+    path.join(process.cwd(), 'supabase/migrations/20260829193123_load_alert_notification_delivery_contract.sql'),
     'utf8',
   );
   const api = fs.readFileSync(
