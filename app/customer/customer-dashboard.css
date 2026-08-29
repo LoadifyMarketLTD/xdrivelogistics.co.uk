@@ -9,11 +9,7 @@
   align-content: start;
 }
 
-/* CX convergence: keep summary metrics available, but place the operational
- * action/activity canvas before them in visual priority. Header/alerts retain
- * their natural order because only the two dashboard sections declare order. */
 .customer-dash-metrics {
-  order: 2;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
@@ -68,7 +64,6 @@
 }
 
 .customer-exchange-dashboard {
-  order: 1;
   display: grid;
   grid-template-columns: 315px minmax(0, 1fr);
   gap: 12px;
