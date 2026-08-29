@@ -11,6 +11,7 @@ import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { canonicalExecutionStatus, matchesDriverJobView, type DriverJobView } from '../../../lib/jobs/jobLifecyclePresentation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
+import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
@@ -113,7 +114,7 @@ export default function DriverJobsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<DriverJobView>('all');
-  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(() => new Set());
 
   const loadJobs = useCallback(async () => {
     if (!isSupabaseConfigured || !driverId) { setJobs([]); setLoading(false); return; }
@@ -153,6 +154,28 @@ export default function DriverJobsPage() {
   const filteredJobs = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)), [filter, jobs]);
   const countFor = (target: DriverJobView) => jobs.filter((job) => matchesFilter(job, target)).length;
   const driverStatus = driver?.availability_status ?? driver?.status ?? 'active';
+  const allVisibleExpanded = filteredJobs.length > 0 && filteredJobs.every((job) => expandedJobIds.has(job.id));
+
+  const toggleExpandAll = () => {
+    const expanding = !allVisibleExpanded;
+    setExpandedJobIds((current) => {
+      const next = new Set(current);
+      for (const job of filteredJobs) {
+        if (expanding) next.add(job.id);
+        else next.delete(job.id);
+      }
+      return next;
+    });
+  };
+
+  const toggleJob = (jobId: string) => {
+    setExpandedJobIds((current) => {
+      const next = new Set(current);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -183,18 +206,24 @@ export default function DriverJobsPage() {
                   role="tab"
                   aria-selected={filter === item.id}
                   data-active={filter === item.id ? 'true' : 'false'}
-                  onClick={() => { setFilter(item.id); setExpandedJobId(null); }}
+                  onClick={() => setFilter(item.id)}
                 >
                   {item.label} <span>{countFor(item.id)}</span>
                 </button>
               ))}
             </div>
-            <div className="driver-board-summary"><span>{loading ? 'Loading assigned work…' : `${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} · ${activeJob ? '1 active execution' : 'no active execution'}`}</span><span>Vehicle: {activeJob ? vehicleLabel(activeJob) : 'No job currently in execution'}</span></div>
+            <div className="driver-board-summary">
+              <span>{loading ? 'Loading assigned work…' : `${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} · ${activeJob ? '1 active execution' : 'no active execution'}`}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span>Vehicle: {activeJob ? vehicleLabel(activeJob) : 'No job currently in execution'}</span>
+                <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!filteredJobs.length} onToggle={toggleExpandAll} noun="jobs" />
+              </span>
+            </div>
 
             {loading ? <div className="driver-load-row"><EmptyState compact title="Loading jobs…" /></div>
               : filteredJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No jobs in this status" /></div>
               : <div className="driver-load-list">{filteredJobs.map((job) => {
-                  const expanded = expandedJobId === job.id;
+                  const expanded = expandedJobIds.has(job.id);
                   const status = effectiveStatus(job);
                   const stage = driverJobStage(job);
                   const hasPod = Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0;
@@ -207,7 +236,7 @@ export default function DriverJobsPage() {
                       <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(job)}</strong><span className="driver-cell-secondary">{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{STATUS_LABELS[status] ?? status.replace(/_/g, ' ')}</strong><span className="driver-cell-secondary">{hasPod ? 'Delivery photo evidence captured' : inExecution ? 'Execution in progress' : complete ? 'Execution complete' : stage === 'allocated' || stage === 'awarded' ? 'Assigned / awaiting execution' : 'Job record'}</span></div>
                     </div>
-                    <div className="driver-load-row__meta"><span>Job #{job.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={STATUS_LABELS[status] ?? status} tone={stageTone(job)} />{hasPod && <StatusBadge value="Delivery evidence" tone="green" />}<div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setExpandedJobId(expanded ? null : job.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue job' : 'Open job'}</ActionButton></div></div>
+                    <div className="driver-load-row__meta"><span>Job #{job.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={STATUS_LABELS[status] ?? status} tone={stageTone(job)} />{hasPod && <StatusBadge value="Delivery evidence" tone="green" />}<div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => toggleJob(job.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue job' : 'Open job'}</ActionButton></div></div>
                     {expanded && <div className="driver-row-details"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Pickup</span><strong>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</strong></div><div className="driver-detail-item"><span>Delivery</span><strong>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</strong></div><div className="driver-detail-item"><span>Vehicle</span><strong>{vehicleLabel(job)}</strong></div><div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'Delivery photos captured' : complete ? 'Open job / Diary for full POD state' : 'Pending execution'}</strong></div></div><div className="driver-inline-quote driver-job-actions"><span style={{ color: '#64748b', fontSize: '11px', lineHeight: '15px', flex: '1 1 260px' }}>Journey status, loading evidence and POD are updated only from the full execution screen so every transition follows the canonical driver state machine.</span><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue execution' : 'Open details'}</ActionButton></div></div>}
                   </article>;
                 })}</div>}
