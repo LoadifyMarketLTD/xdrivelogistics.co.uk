@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 
@@ -58,14 +56,13 @@ const mapboxFeatures = async (url: URL) => {
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+  if (!supabaseValidator) {
     return NextResponse.json({ error: 'Address lookup is temporarily unavailable.' }, { status: 503 });
   }
 
   const token = getBearerToken(request);
   if (!token) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
+  const { data: authData, error: authError } = await supabaseValidator.auth.getUser(token);
   if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   const postcode = normalizePostcode(request.nextUrl.searchParams.get('postcode') ?? '');
