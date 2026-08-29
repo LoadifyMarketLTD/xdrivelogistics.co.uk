@@ -11,6 +11,67 @@ function validIsoDate(value: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+type JobStopRow = {
+  id: string;
+  job_id: string;
+  sequence: number;
+  stop_type: 'collection' | 'delivery';
+  address: string;
+  postcode: string | null;
+  company_name: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  window_start: string | null;
+  window_end: string | null;
+  instructions: string | null;
+  status: string | null;
+  arrived_at: string | null;
+  completed_at: string | null;
+};
+
+function mapStop(stop: JobStopRow) {
+  return {
+    id: stop.id,
+    type: stop.stop_type,
+    sequence: stop.sequence,
+    address: [stop.address, stop.postcode].filter(Boolean).join(', '),
+    company: stop.company_name ?? undefined,
+    contactPerson: stop.contact_name ?? undefined,
+    telephone: stop.contact_phone ?? undefined,
+    timeWindowFrom: stop.window_start ?? undefined,
+    timeWindowTo: stop.window_end ?? undefined,
+    status: stop.status ?? 'pending',
+    notes: stop.instructions ?? undefined,
+    arrivedAt: stop.arrived_at ?? undefined,
+    completedAt: stop.completed_at ?? undefined,
+  };
+}
+
+async function loadStops(jobIds: string[]) {
+  const stopsByJob = new Map<string, ReturnType<typeof mapStop>[]>();
+  if (!supabaseAdmin || jobIds.length === 0) return { stopsByJob, partial: false };
+
+  const { data, error } = await supabaseAdmin
+    .from('job_stops')
+    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at')
+    .in('job_id', jobIds)
+    .order('sequence', { ascending: true });
+
+  if (error) {
+    // Hosted environments may temporarily lag the migration while a Draft PR is
+    // under validation. Preserve the existing two-point job experience rather
+    // than breaking Driver Mobile; `multiDropPartial` exposes that degradation.
+    return { stopsByJob, partial: true };
+  }
+
+  for (const row of (data ?? []) as unknown as JobStopRow[]) {
+    const list = stopsByJob.get(row.job_id) ?? [];
+    list.push(mapStop(row));
+    stopsByJob.set(row.job_id, list);
+  }
+  return { stopsByJob, partial: false };
+}
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
@@ -61,7 +122,10 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
 
   const rows = (data ?? []) as unknown as MobileJobRow[];
-  const commercial = await loadDriverAgreedRates(supabaseAdmin, rows);
+  const [commercial, stopData] = await Promise.all([
+    loadDriverAgreedRates(supabaseAdmin, rows),
+    loadStops(rows.map((row) => row.id)),
+  ]);
   const nextCursor = completedHistory && rows.length === limit
     ? rows[rows.length - 1]?.updated_at ?? null
     : null;
@@ -73,6 +137,7 @@ export async function GET(request: NextRequest) {
       const agreedRate = commercial.rates.get(row.id) ?? null;
       return {
         ...mapJob(row),
+        stops: stopData.stopsByJob.get(row.id) ?? [],
         price: toMoney(agreedRate),
         agreedRateAmount: agreedRate,
         // Android keeps this legacy field name for assigned jobs. Its value is
@@ -81,5 +146,6 @@ export async function GET(request: NextRequest) {
       };
     }),
     commercialRatePartial: commercial.partial,
+    multiDropPartial: stopData.partial,
   });
 }
