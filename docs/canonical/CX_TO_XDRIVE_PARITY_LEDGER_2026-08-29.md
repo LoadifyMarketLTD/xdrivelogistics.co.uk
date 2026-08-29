@@ -22,7 +22,8 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 
 - Multi-drop Driver Mobile now has ordered server-backed stop progression, current-stop enforcement, Arrived → Completed actions, server refresh after mutation and POD/final-delivery gating. Stop mutations are explicitly online-only; no fake offline queue support was added.
 - Telematics ingestion now requires provider-scoped HMAC configuration plus provider driver + vehicle binding to canonical XDrive driver, vehicle and company identities, with disabled/revoked binding rejection and active-job checks.
-- Hosted production migration history currently stops at `20260827141443`. The three PR #399 migrations dated 2026-08-29 are **NOT HOSTED/APPLIED**.
+- Driver Smart Load Alerts now have an opt-in persisted preference contract, current/home/future-position matching, vehicle/budget filters, recipient dedupe, in-app/email/push channel semantics, a Driver settings API and a discoverable Driver Account settings surface. Exact tracking coordinates remain server-side and alert payloads expose public outcodes only.
+- Hosted production migration history currently stops at `20260827141443`. PR #399 migrations `20260829165000`, `20260829170500`, `20260829173500`, `20260829185000` and `20260829185200` are **NOT HOSTED/APPLIED**.
 - Supabase MCP `apply_migration` is not being used to force production because it cannot preserve the repository migration version and would create remote/local migration-history drift. The repo's approved staging CLI workflow remains the version-safe deployment path.
 - `/super-admin` remains untouched; no PR #359 Workspace visual changes are imported.
 
@@ -63,7 +64,7 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Last 3 Bookings | Driver Dashboard | KEEP | Keep dashboard compact; registers contain full history | dashboard audit |
 | Invoice preview from Diary | `/driver/history` + secure PDF endpoint | KEEP | Contextual inline PDF preview implemented | Diary/Invoice contract |
 | Payment Report / Finance | `/driver/finance` | KEEP | XDrive is functionally richer than CX shortcut | finance audit |
-| Load Alerts / GPS-matched alerts | Driver | PARTIAL | Inbox/marketplace/availability/future-position primitives exist; canonical Smart Alert rules, preferences and channels are not yet complete | Load Alerts audit + remaining contract work |
+| Load Alerts / GPS-matched alerts | `/driver/load-alerts` + notification pipeline | PARTIAL | Repository contract is real: opt-in persisted preferences, current/home/future matching, vehicle/budget filters, recipient dedupe and in-app/email/push delivery are implemented. Hosted alert migrations and runtime delivery remain pending | `driverLoadAlertsContract` + hosted migrations + runtime notification gate |
 | Won-load notification | Driver | KEEP | `bid_accepted` recipient event/inbox + email path exists; hosted notification execution remains a final runtime gate | Customer award/tracking audit |
 | Multi-drop execution parity | Driver Mobile | PARTIAL | Repository contract is now real: persisted ordered stops, current-stop enforcement, Arrived/Completed, concurrency guard, server refresh and final POD/delivery gate. Hosted `job_stops` migration is still pending | `multiDropFoundationContract` + hosted migration + physical Expo E2E |
 
@@ -91,7 +92,7 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Event Log | `/admin/event-log` | KEEP | Shared user-scoped event register | Event Log contract |
 | Messages | company/fleet | KEEP | Participant-scoped Messenger is available for Admin/Carrier/Fleet/Dispatcher paths without weakening RLS | messaging contract + runtime regression |
 | Telematics provider ingestion | signed integration endpoint | PARTIAL | Provider-bound driver + vehicle + company mapping, revocation and canonical provenance are implemented; hosted migrations and provider credential management/runtime integration remain | `telematicsIngestContract` + hosted migration/runtime provider gate |
-| Load Alerts | Fleet | PARTIAL | Canonical rules/preferences/channels still require implementation | Load Alerts audit |
+| Load Alerts | Fleet / Carrier | PARTIAL | Driver Smart Alert contract now exists, but Fleet/Carrier recipient, preference and operational ownership semantics have not been implemented or faked | dedicated Fleet/Carrier alert contract |
 
 ## 4. Dispatcher
 
@@ -115,7 +116,7 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 | Marketplace / Loads | Company Marketplace | KEEP | CX-close functional surface | marketplace contracts |
 | Directory | Marketplace directory | PRESENT-HIDDEN | Exists; top-nav promotion decision remains | navigation pass |
 | Quotes | Company Marketplace / Quotes | KEEP | quote states available | marketplace audit |
-| Won Work | Company Marketplace | KEEP | awarded work available | marketplace audit |
+| Won Work | Company Marketplace Won Work | KEEP | awarded work available | marketplace audit |
 | Jobs | Admin Jobs | KEEP | expandable dense register | global expand contract |
 | Diary | Admin Diary | KEEP | expandable operational record | global expand contract |
 | Fleet | Fleet routes | KEEP | Drivers/Vehicles/Resources available | fleet audit |
@@ -206,9 +207,9 @@ A row may move to `KEEP` only after code audit and focused contract coverage. Ru
 
 Highest-priority rows that remain below `KEEP` or intentionally blocked:
 
-1. **Hosted migration gate** — version-safe deployment/verification of `20260829165000`, `20260829170500`, `20260829173500`; never use a tool path that creates migration-history drift merely to mark them applied.
+1. **Hosted migration gate** — version-safe deployment/verification of `20260829165000`, `20260829170500`, `20260829173500`, `20260829185000` and `20260829185200`; never use a tool path that creates migration-history drift merely to mark them applied.
 2. **Customer carrier comparison** — privacy-safe reputation aggregate and canonical bidder ETA/distance-to-pickup contract.
-3. **Load Alerts / Smart Alerts** — rule matcher, home/GPS/return-journey/future-position inputs, recipient/channel preferences and dedupe/frequency semantics.
+3. **Driver Smart Alerts runtime gate + Fleet/Carrier alerts** — Driver matcher/preferences/channels now exist in repository but still need hosted migrations and live delivery proof. Fleet/Carrier alert ownership, recipients and preferences remain a separate contract gap.
 4. **Driver Leave/Edit Feedback** — remains `BLOCKED-BY-CONTRACT` under current `reviews_insert_non_driver` policy; do not weaken RLS casually.
 5. **External Invoice Upload** — storage/evidence/ownership/deduplication/invoice-binding contract first.
 6. **Batch finance mutations** — atomicity, idempotency, partial failure and audit semantics first.
@@ -221,7 +222,7 @@ Highest-priority rows that remain below `KEEP` or intentionally blocked:
 
 1. Preserve hosted migration truth and use only version-safe deployment validation.
 2. Close Customer carrier comparison gaps only where a safe contract can be proved.
-3. Build/audit Smart Load Alert matching and preference contract; no fake toggles.
+3. Hosted/runtime validate Driver Smart Alerts; keep Fleet/Carrier alerts separate until their recipient/preference contract exists.
 4. Keep Driver reciprocal feedback blocked until reviewed-party identity + RLS semantics are explicit.
 5. Keep External Invoice Upload and batch finance mutations blocked until protected contracts exist.
 6. Finish role discoverability/navigation cleanup without importing PR #359 visuals.
