@@ -123,14 +123,13 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
   const direct: Array<[string, string, string]> = [
     ['fleet-dashboard', 'Dashboard', '/admin/fleet'],
     ['fleet-live-availability', 'Live Availability', '/admin/live-availability'],
-    ['fleet-my-fleet', 'My Fleet', '/admin/fleet/resources'],
+    ['fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
     ['fleet-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
     ['fleet-jobs', 'Jobs', '/admin/fleet/jobs'],
     ['fleet-diary', 'Diary', '/admin/diary'],
     ['fleet-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
     ['fleet-drivers', 'Drivers', '/admin/fleet/drivers'],
-    ['fleet-vehicles', 'Vehicles', '/admin/fleet/vehicles'],
   ];
 
   const used = new Set<string>();
@@ -344,10 +343,10 @@ export default function TopWorkspaceShell({
     let cancelled = false;
     const fetchUnread = async () => {
       const { count } = await supabase
-        .from('notification_events')
+        .from('notifications')
         .select('id', { count: 'exact', head: true })
-        .eq('recipient_user_id', user.id)
-        .in('status', ['pending', 'failed']);
+        .eq('user_id', user.id)
+        .is('read_at', null);
       if (!cancelled) setUnreadCount(count ?? 0);
     };
 
