@@ -1,6 +1,6 @@
 .signalStrip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--signal-columns, 6), minmax(0, 1fr));
   min-height: 52px;
   margin: 0 0 var(--ws-gap-grid, 12px);
   overflow: hidden;
@@ -326,12 +326,12 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .signalCell:nth-child(3n) {
-    border-right: 0;
+  .signalCell {
+    border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
   }
 
-  .signalCell:nth-child(-n + 3) {
-    border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  .signalCell:nth-child(3n) {
+    border-right: 0;
   }
 
   .workspaceGrid {
@@ -376,10 +376,6 @@
 
   .signalCell:nth-child(2n) {
     border-right: 0;
-  }
-
-  .signalCell:nth-last-child(-n + 2) {
-    border-bottom: 0;
   }
 
   .attentionItem {
