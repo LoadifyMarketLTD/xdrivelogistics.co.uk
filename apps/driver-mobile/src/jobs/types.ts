@@ -45,7 +45,9 @@ export type JobStop = {
   telephone?: string;
   timeWindowFrom?: string;
   timeWindowTo?: string;
-  status?: string;
+  status?: 'pending' | 'arrived' | 'completed' | 'skipped';
+  arrivedAt?: string;
+  completedAt?: string;
   notes?: string;
   gpsCoordinates?: string;
   photos?: string[];
