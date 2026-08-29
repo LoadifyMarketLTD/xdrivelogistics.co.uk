@@ -14,6 +14,7 @@ const fieldStyle = { width: '100%', minHeight: '32px', border: '1px solid #cfd7e
 const textareaStyle = { ...fieldStyle, minHeight: '72px', padding: '7px 8px', resize: 'vertical' as const };
 const labelStyle = { display: 'grid', gap: '4px', color: '#334155', fontSize: '11px', lineHeight: '14px', fontWeight: 700 };
 const readOnlyStyle = { ...fieldStyle, display: 'flex', alignItems: 'center', background: '#f8fafc', color: '#334155' };
+const microButtonStyle = { minHeight: '26px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 7px', background: '#fff', color: '#334155', fontSize: '11px', fontWeight: 700, cursor: 'pointer' };
 
 const numberOrNull = (value: string) => {
   if (!value.trim()) return null;
@@ -34,6 +35,30 @@ const normalizePostcode = (value: string) => {
 const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizePostcode(value));
 const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 
+type AdditionalStop = {
+  id: string;
+  type: 'collection' | 'delivery';
+  date: string;
+  time: string;
+  postcode: string;
+  address: string;
+  contact: string;
+  phone: string;
+  instructions: string;
+};
+
+const createAdditionalStop = (): AdditionalStop => ({
+  id: crypto.randomUUID(),
+  type: 'delivery',
+  date: '',
+  time: '',
+  postcode: '',
+  address: '',
+  contact: '',
+  phone: '',
+  instructions: '',
+});
+
 export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -42,6 +67,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
+  const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
     clientName: '', clientEmail: '', clientPhone: '',
     pickupDate: '', pickupTime: '08:00', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
@@ -86,6 +112,19 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
       ? true
       : current.temperatureControlled,
   }));
+  const addAdditionalStop = () => setAdditionalStops((current) => current.length >= 8 ? current : [...current, createAdditionalStop()]);
+  const updateAdditionalStop = (id: string, patch: Partial<AdditionalStop>) => setAdditionalStops((current) =>
+    current.map((stop) => stop.id === id ? { ...stop, ...patch } : stop),
+  );
+  const removeAdditionalStop = (id: string) => setAdditionalStops((current) => current.filter((stop) => stop.id !== id));
+  const moveAdditionalStop = (id: string, delta: -1 | 1) => setAdditionalStops((current) => {
+    const index = current.findIndex((stop) => stop.id === id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= current.length) return current;
+    const next = [...current];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
   const dateTime = (date: string, time: string) => date ? `${date}T${time === 'ASAP' ? '23:59' : time}:00` : null;
   const dimensionsMetres = [form.length, form.width, form.height].map(numberOrNull);
   const hasDimensionValues = dimensionsMetres.some((value) => value != null);
@@ -105,6 +144,13 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
     if (!isFullUkPostcode(pickupPostcode) || !isFullUkPostcode(deliveryPostcode)) {
       setError('Enter full UK postcodes for collection and delivery, for example BB1 1AA and DA8 1AA.');
+      return;
+    }
+    const invalidAdditionalStopIndex = additionalStops.findIndex((stop) =>
+      !stop.address.trim() || !stop.postcode.trim() || !isFullUkPostcode(stop.postcode),
+    );
+    if (invalidAdditionalStopIndex >= 0) {
+      setError(`Additional stop ${invalidAdditionalStopIndex + 2} needs an address and a full UK postcode.`);
       return;
     }
     if (hasImplausibleDimension) {
@@ -152,6 +198,15 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           deliveryPostcode,
           deliveryContact: form.deliveryContact || null,
           deliveryPhone: form.deliveryPhone || null,
+          additionalStops: additionalStops.map((stop) => ({
+            type: stop.type,
+            address: stop.address.trim(),
+            postcode: normalizePostcode(stop.postcode),
+            contact: stop.contact || null,
+            phone: stop.phone || null,
+            dateTime: stop.date ? dateTime(stop.date, stop.time || '23:59') : null,
+            instructions: stop.instructions || null,
+          })),
           vehicleLabel: form.vehicle,
           cargoLabel: form.cargo,
           weightKg: numberOrNull(form.weight),
@@ -228,6 +283,62 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: '12px' }}>
           <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(value) => set('pickupDate', value)} onTime={(value) => set('pickupTime', value)} onPostcode={(value) => set('pickupPostcode', value.toUpperCase())} onAddress={(value) => set('pickupAddress', value)} onContact={(value) => set('collectionContact', value)} onPhone={(value) => set('collectionPhone', value)} requiredDate />
           <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime === 'ASAP' ? '' : form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(value) => set('deliveryDate', value)} onTime={(value) => set('deliveryTime', value || 'ASAP')} onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())} onAddress={(value) => set('deliveryAddress', value)} onContact={(value) => set('deliveryContact', value)} onPhone={(value) => set('deliveryPhone', value)} />
+        </div>
+
+        <div style={{ display: 'grid', gap: '8px', borderTop: '1px solid #e2e8f0', marginTop: '12px', paddingTop: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#172033' }}>Additional stops</div>
+              <div style={{ fontSize: '11px', lineHeight: '16px', color: '#64748b' }}>Optional collection or delivery stops are executed in this order between the main collection and final delivery. Exact stop details stay private before award.</div>
+            </div>
+            <ActionButton tone="secondary" disabled={saving || additionalStops.length >= 8} onClick={addAdditionalStop}>
+              {additionalStops.length >= 8 ? 'Maximum 8 stops' : 'Add stop'}
+            </ActionButton>
+          </div>
+
+          {additionalStops.length === 0 ? (
+            <div style={{ fontSize: '11px', color: '#64748b' }}>No additional stops. This booking remains a standard collection → delivery job.</div>
+          ) : (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {additionalStops.map((stop, index) => (
+                <div key={stop.id} style={{ display: 'grid', gap: '8px', border: '1px solid #dbe3ee', borderRadius: '4px', padding: '10px', background: '#fbfdff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#172033' }}>Stop {index + 2}</div>
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                      <button type="button" style={{ ...microButtonStyle, opacity: index === 0 ? 0.45 : 1 }} disabled={index === 0 || saving} onClick={() => moveAdditionalStop(stop.id, -1)}>Move up</button>
+                      <button type="button" style={{ ...microButtonStyle, opacity: index === additionalStops.length - 1 ? 0.45 : 1 }} disabled={index === additionalStops.length - 1 || saving} onClick={() => moveAdditionalStop(stop.id, 1)}>Move down</button>
+                      <button type="button" style={microButtonStyle} disabled={saving} onClick={() => removeAdditionalStop(stop.id)}>Remove</button>
+                    </div>
+                  </div>
+                  <label style={labelStyle}>Stop type
+                    <select style={fieldStyle} value={stop.type} onChange={(event) => updateAdditionalStop(stop.id, { type: event.target.value as AdditionalStop['type'] })}>
+                      <option value="collection">Collection</option>
+                      <option value="delivery">Delivery</option>
+                    </select>
+                  </label>
+                  <StopFields
+                    title={stop.type === 'collection' ? 'Collection stop' : 'Delivery stop'}
+                    date={stop.date}
+                    time={stop.time}
+                    postcode={stop.postcode}
+                    address={stop.address}
+                    contact={stop.contact}
+                    phone={stop.phone}
+                    onDate={(value) => updateAdditionalStop(stop.id, { date: value })}
+                    onTime={(value) => updateAdditionalStop(stop.id, { time: value })}
+                    onPostcode={(value) => updateAdditionalStop(stop.id, { postcode: value.toUpperCase() })}
+                    onAddress={(value) => updateAdditionalStop(stop.id, { address: value })}
+                    onContact={(value) => updateAdditionalStop(stop.id, { contact: value })}
+                    onPhone={(value) => updateAdditionalStop(stop.id, { phone: value })}
+                  />
+                  <label style={labelStyle}>Private stop instructions
+                    <textarea style={textareaStyle} value={stop.instructions} onChange={(event) => updateAdditionalStop(stop.id, { instructions: event.target.value })} placeholder="Loading bay, access or stop-specific execution instructions. Hidden before award." />
+                  </label>
+                </div>
+              ))}
+              <div style={{ fontSize: '11px', color: '#64748b' }}>Final delivery will be stop {additionalStops.length + 2}. Reorder the additional stops above to change the execution sequence.</div>
+            </div>
+          )}
         </div>
       </Panel>
 
