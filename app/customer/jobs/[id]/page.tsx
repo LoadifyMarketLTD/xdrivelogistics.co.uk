@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../../lib/supabaseClient';
@@ -8,6 +8,7 @@ import JobLiveTrackingPanel from '../../../components/tracking/JobLiveTrackingPa
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import type { OwnerEditCapabilities } from '../../../components/workspace/JobOwnerEditForm';
 import {
   ActionButton,
   AlertBanner,
@@ -38,6 +39,8 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   const data = useCompanyWorkspaceData();
   const [working, setWorking] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [ownerCapabilities, setOwnerCapabilities] = useState<OwnerEditCapabilities | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
 
   const job = data.jobs.find((row) => row.id === id) ?? null;
   const quotes = useMemo(
@@ -48,6 +51,28 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   );
   const lowestQuote = useMemo(() => quotes.map(quoteAmount).filter((value): value is number => value != null)[0] ?? null, [quotes]);
   const invoice = data.invoices.find((row) => row.job_id === id) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCapabilities = async () => {
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        if (!token) return;
+        const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(id)}/owner`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => ({})) as { job?: { capabilities?: OwnerEditCapabilities } };
+        if (!cancelled) setOwnerCapabilities(payload.job?.capabilities ?? null);
+      } catch {
+        if (!cancelled) setOwnerCapabilities(null);
+      }
+    };
+    void loadCapabilities();
+    return () => { cancelled = true; };
+  }, [id]);
 
   const award = async (bidId: string) => {
     setWorking(bidId);
@@ -63,9 +88,33 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'The quote could not be awarded.');
       setMessage('Carrier quote awarded successfully.');
+      setDeleteArmed(false);
       await data.refresh();
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'The quote could not be awarded.');
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const deleteLoad = async () => {
+    setWorking('delete');
+    setMessage('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(id)}/owner`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'The load could not be deleted.');
+      router.push('/customer/loads');
+      router.refresh();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : 'The load could not be deleted.');
+      setDeleteArmed(false);
     } finally {
       setWorking(null);
     }
@@ -82,6 +131,8 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
         actions={
           <>
             <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton>
+            {ownerCapabilities?.canEdit && job && <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}/edit`)}>Edit Load</ActionButton>}
+            {ownerCapabilities?.canDelete && job && <ActionButton tone="danger" disabled={working === 'delete'} onClick={() => setDeleteArmed(true)}>Delete Load</ActionButton>}
             {quotes.length > 0 && <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>Quotes awaiting decision ({quotes.length})</ActionButton>}
             {invoice && <ActionButton tone="primary" onClick={() => router.push(`/customer/invoices/${invoice.id}`)}>Open invoice</ActionButton>}
           </>
@@ -90,6 +141,16 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
 
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
+
+      {deleteArmed && job && (
+        <div style={{ border: '1px solid #fecaca', background: '#fff7f7', borderRadius: 5, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: '#991b1b', fontSize: 12 }}>
+          <div><strong>Delete XDL-{job.id.slice(0, 8).toUpperCase()} permanently?</strong><div style={{ marginTop: 2 }}>This is allowed only while the load is unawarded, unallocated and has no protected quote, POD, invoice or execution history.</div></div>
+          <div style={{ display: 'flex', gap: 7 }}>
+            <ActionButton tone="secondary" disabled={working === 'delete'} onClick={() => setDeleteArmed(false)}>Keep Load</ActionButton>
+            <ActionButton tone="danger" disabled={working === 'delete'} onClick={() => void deleteLoad()}>{working === 'delete' ? 'Deleting…' : 'Confirm Delete'}</ActionButton>
+          </div>
+        </div>
+      )}
 
       {data.loading && !job ? (
         <Panel><EmptyState compact title="Loading booking…" /></Panel>
