@@ -60,16 +60,33 @@ export default function FinanceControlDashboardHome() {
     };
   }, [data.invoices]);
 
-  const invoicedJobIds = useMemo(
-    () => new Set(data.invoices.map((invoice) => invoice.job_id).filter((jobId): jobId is string => Boolean(jobId))),
-    [data.invoices],
+  const issuedInvoiceJobIds = useMemo(
+    () => new Set(
+      data.invoices
+        .filter((invoice) =>
+          invoice.supplier_company_id === data.companyId
+          || (
+            invoice.company_id === data.companyId
+            && invoice.buyer_company_id !== data.companyId
+          ),
+        )
+        .map((invoice) => invoice.job_id)
+        .filter((jobId): jobId is string => Boolean(jobId)),
+    ),
+    [data.companyId, data.invoices],
   );
 
   const readyToInvoice = useMemo(
     () => data.jobs
-      .filter((job) => classifyWorkspaceJobStage(job) === 'completed' && !invoicedJobIds.has(job.id))
+      .filter((job) => {
+        const operatedByCurrentCompany = job.awarded_carrier_company_id === data.companyId
+          || (!job.awarded_carrier_company_id && job.company_id === data.companyId);
+        return operatedByCurrentCompany
+          && classifyWorkspaceJobStage(job) === 'completed'
+          && !issuedInvoiceJobIds.has(job.id);
+      })
       .sort((a, b) => String(b.updated_at ?? b.delivery_datetime ?? '').localeCompare(String(a.updated_at ?? a.delivery_datetime ?? ''))),
-    [data.jobs, invoicedJobIds],
+    [data.companyId, data.jobs, issuedInvoiceJobIds],
   );
 
   const outstandingSorted = [...totals.unpaid].sort((a, b) => {
@@ -126,7 +143,7 @@ export default function FinanceControlDashboardHome() {
           <>
             <OperationalCard
               title="Ready to Invoice"
-              subtitle="Completed transport work with no invoice linked to the job. This is a derived finance queue, not a new job lifecycle status."
+              subtitle="Completed transport operated by this company with no supplier-side invoice linked to the job. This is a derived finance queue, not a new job lifecycle status."
               actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Completed jobs</ActionButton>}
               flush
             >
