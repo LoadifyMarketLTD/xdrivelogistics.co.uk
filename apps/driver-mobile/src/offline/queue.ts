@@ -2,6 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
 
 import type { QueuedActionStatus } from '../jobs/types';
+import {
+  clearPersistedCollectionEvidenceForUser,
+  persistQueuedCollectionPayload,
+} from './collectionEvidencePersistence';
+import { clearPersistedPodEvidenceForUser, persistQueuedPodPayload } from './podEvidencePersistence';
 
 export type QueuedAction = {
   id: string;
@@ -14,6 +19,7 @@ export type QueuedAction = {
   retryCount: number;
   lastAttemptAt?: string;
   nextRetryAt?: string;
+  retryMode?: 'automatic' | 'manual';
 };
 
 /**
@@ -33,6 +39,8 @@ const legacyQueueKey = 'xdrive.driver.offlineQueue';
 
 const maxRetryDelayMs = 15 * 60 * 1000;
 const initialRetryDelayMs = 15 * 1000;
+const retryableHttpStatuses = new Set([408, 425, 429]);
+const persistedHttpStatusPattern = /\(HTTP\s+(\d{3})\)\s*$/i;
 
 function normalizeQueueItem(item: Partial<QueuedAction>) {
   return {
@@ -46,6 +54,7 @@ function normalizeQueueItem(item: Partial<QueuedAction>) {
     retryCount: Number.isFinite(item.retryCount) ? Number(item.retryCount) : 0,
     lastAttemptAt: typeof item.lastAttemptAt === 'string' ? item.lastAttemptAt : undefined,
     nextRetryAt: typeof item.nextRetryAt === 'string' ? item.nextRetryAt : undefined,
+    retryMode: item.retryMode === 'manual' ? 'manual' : item.retryMode === 'automatic' ? 'automatic' : undefined,
   } satisfies QueuedAction;
 }
 
@@ -63,7 +72,7 @@ export async function saveQueue(userId: string, queue: QueuedAction[]) {
   await AsyncStorage.setItem(queueStorageKey(userId), JSON.stringify(queue));
 }
 
-export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError'>) {
+export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError' | 'retryMode'>) {
   const queue = await getQueue(userId);
   // Prevent duplicate: if a pending/syncing/failed item for the same job and
   // endpoint already exists, return the existing item rather than adding another.
@@ -74,12 +83,26 @@ export async function enqueueAction(userId: string, action: Omit<QueuedAction, '
       item.status !== 'synced',
   );
   if (existing) return existing;
+
+  // Evidence-bearing queue entries must never point only at ImagePicker or
+  // DocumentPicker cache. Persist them before committing the AsyncStorage item so
+  // replay remains valid after process restart or cache eviction.
+  let payload = action.payload;
+  if (action.endpoint === 'pod' && action.payload) {
+    payload = await persistQueuedPodPayload(userId, action.jobId, action.payload);
+  } else if (action.endpoint === 'loaded') {
+    if (!action.payload) throw new Error('A collection photo is required before Loaded can be queued.');
+    payload = await persistQueuedCollectionPayload(userId, action.jobId, action.payload);
+  }
+
   const queued: QueuedAction = {
     ...action,
+    payload,
     id: `${action.jobId}-${action.endpoint}-${Date.now()}`,
     status: 'pending',
     createdAt: new Date().toISOString(),
     retryCount: 0,
+    retryMode: 'automatic',
   };
   await saveQueue(userId, [...queue, queued]);
   return queued;
@@ -96,8 +119,25 @@ export function calculateRetryDelayMs(retryCount: number) {
   return Math.min(initialRetryDelayMs * Math.max(1, 2 ** Math.max(0, retryCount)), maxRetryDelayMs);
 }
 
+/**
+ * Queue replay persists only an error string, not the ApiRequestError instance.
+ * ApiRequestError therefore appends `(HTTP NNN)` to its message. Reconstruct the
+ * retry classification here so a permanent 4xx stays terminal even after an app
+ * restart. Unknown/network/5xx errors remain automatically retryable.
+ */
+export function isPersistedQueueFailureRetryable(lastError: string) {
+  const match = persistedHttpStatusPattern.exec(lastError.trim());
+  if (!match) return true;
+  const status = Number(match[1]);
+  return !(status >= 400 && status < 500 && !retryableHttpStatuses.has(status));
+}
+
 export function isQueueItemReady(item: QueuedAction, now = Date.now()) {
   if (item.status === 'syncing' || item.status === 'synced') return false;
+  // A permanent client-side/API contract failure must remain visible but must
+  // never be replayed automatically. The driver can explicitly choose Retry
+  // after the underlying assignment/POD/validation issue has been corrected.
+  if (item.retryMode === 'manual') return false;
   if (!item.nextRetryAt) return true;
   const retryAt = new Date(item.nextRetryAt).getTime();
   return Number.isNaN(retryAt) || retryAt <= now;
@@ -116,18 +156,29 @@ export async function markQueueItemSynced(userId: string, id: string) {
     lastError: undefined,
     lastAttemptAt: new Date().toISOString(),
     nextRetryAt: undefined,
+    retryMode: undefined,
   });
 }
 
-export async function markQueueItemFailed(userId: string, id: string, lastError: string, previousRetryCount: number) {
+export async function markQueueItemFailed(
+  userId: string,
+  id: string,
+  lastError: string,
+  previousRetryCount: number,
+  options: { retryable?: boolean } = {},
+) {
   const now = new Date();
   const retryCount = previousRetryCount + 1;
+  const retryable = options.retryable ?? isPersistedQueueFailureRetryable(lastError);
   return updateQueueItem(userId, id, {
     status: 'failed',
     retryCount,
     lastError,
     lastAttemptAt: now.toISOString(),
-    nextRetryAt: new Date(now.getTime() + calculateRetryDelayMs(previousRetryCount)).toISOString(),
+    nextRetryAt: retryable
+      ? new Date(now.getTime() + calculateRetryDelayMs(previousRetryCount)).toISOString()
+      : undefined,
+    retryMode: retryable ? 'automatic' : 'manual',
   });
 }
 
@@ -136,6 +187,7 @@ export async function retryQueueItem(userId: string, id: string) {
     status: 'pending',
     nextRetryAt: undefined,
     lastError: undefined,
+    retryMode: 'automatic',
   });
 }
 
@@ -146,11 +198,15 @@ export async function isOnline() {
 
 /**
  * Clear the account-scoped queue for the given user.
- * Also removes the legacy unscoped key to prevent data leakage across app upgrades.
- * Call on sign-out, token expiry, failed auth and any session-loss path.
+ * Also removes the legacy unscoped key and all durable queued evidence so
+ * sign-out cannot leave another driver's POD or collection photos behind.
  */
 export async function clearQueue(userId: string) {
   await AsyncStorage.multiRemove([queueStorageKey(userId), legacyQueueKey]);
+  await Promise.all([
+    clearPersistedPodEvidenceForUser(userId),
+    clearPersistedCollectionEvidenceForUser(userId),
+  ]);
 }
 
 /**
@@ -181,4 +237,3 @@ export function reconcileQueueState(current: QueuedAction[], incoming: QueuedAct
   next[idx] = incoming;
   return next;
 }
-
