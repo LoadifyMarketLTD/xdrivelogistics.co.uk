@@ -4,8 +4,10 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
 import {
   ActionButton,
+  AlertBanner,
   DataTable,
   EmptyState,
   PageFrame,
@@ -27,6 +29,7 @@ const isDriverAccountActive = (status: string | null | undefined) => normalise(s
 export default function FleetDriversPage() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const presence = useFleetAvailabilityPresence(data.companyId);
 
   const vehiclesByDriver = useMemo(() => {
     const map = new Map<string, (typeof data.vehicles)>();
@@ -47,8 +50,24 @@ export default function FleetDriversPage() {
       const nextAt = location.recorded_at ?? location.updated_at ?? '';
       if (!current || nextAt > currentAt) map.set(location.driver_id, location);
     }
+    for (const point of presence.points) {
+      const current = map.get(point.driverId);
+      const currentAt = current?.recorded_at ?? current?.updated_at ?? '';
+      const nextAt = point.recordedAt ?? '';
+      if (!current || nextAt > currentAt) {
+        map.set(point.driverId, {
+          id: `availability:${point.driverId}`,
+          driver_id: point.driverId,
+          job_id: null,
+          lat: point.lat,
+          lng: point.lng,
+          recorded_at: point.recordedAt,
+          updated_at: null,
+        });
+      }
+    }
     return map;
-  }, [data.locations]);
+  }, [data.locations, presence.points]);
 
   const jobByDriver = useMemo(() => {
     const map = new Map<string, (typeof data.jobs)[number]>();
@@ -73,11 +92,12 @@ export default function FleetDriversPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Drivers"
-        description="Driver, vehicle assignment signals, position, live work and document readiness in one dense Fleet register."
+        description="Driver, vehicle assignment signals, active-job tracking or published idle position, live work and document readiness in one Fleet register."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage drivers</ActionButton>}
       />
 
-      <Panel title="Driver operations register" description="Operational status only; create, edit, suspend and access-management actions remain in the existing Drivers administration page. Canonical active vehicle eligibility is resolved server-side.">
+      {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
+      <Panel title="Driver operations register" description="Own-Fleet location combines active-job tracking with explicitly published idle availability. Create, edit, suspend and access-management actions remain in the existing Drivers administration page; canonical active vehicle eligibility is resolved server-side.">
         <DataTable
           columns={['Driver', 'Vehicle', 'Location', 'Status', 'Current job', 'Documents', 'Action']}
           rows={data.drivers.map((driver) => {
