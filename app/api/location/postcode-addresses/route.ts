@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     forward.searchParams.set('q', `${query}, ${postcode}`);
     forward.searchParams.set('country', 'gb');
     forward.searchParams.set('types', 'address,street');
-    forward.searchParams.set('limit', '10');
+    forward.searchParams.set('limit', '5');
     forward.searchParams.set('access_token', accessToken);
     features = await mapboxFeatures(forward);
   } else {
