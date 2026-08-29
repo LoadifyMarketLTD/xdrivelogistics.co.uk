@@ -55,7 +55,6 @@ function AwardConfirmation({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const amount = Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0);
   return (
     <div
       role="presentation"
