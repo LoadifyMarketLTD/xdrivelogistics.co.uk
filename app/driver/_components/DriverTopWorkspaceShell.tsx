@@ -28,6 +28,7 @@ const DRIVER_PRIMARY_NAV = [
   { id: 'diary', label: 'Diary', href: '/driver/history' },
   { id: 'availability', label: 'Availability', href: '/driver/availability' },
   { id: 'nearby', label: 'Nearby', href: '/driver/nearby' },
+  { id: 'messages', label: 'Messages', href: '/driver/messages' },
   { id: 'event-log', label: 'Event Log', href: '/driver/event-log' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
@@ -38,7 +39,6 @@ const ACCOUNT_PREFIXES = [
   '/driver/vehicles',
   '/driver/documents',
   '/driver/finance',
-  '/driver/messages',
   '/driver/change-password',
   '/driver/notifications',
 ] as const;
