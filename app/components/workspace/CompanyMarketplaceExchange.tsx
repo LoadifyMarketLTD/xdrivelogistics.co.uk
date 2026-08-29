@@ -7,12 +7,11 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
 import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../lib/vehicleSizeRange';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
+import { OperationalSignalStrip } from './OperationalConvergence';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
 import {
   ActionButton,
   AlertBanner,
-  ExchangeKpiStrip,
-  KpiCard,
   PageFrame,
   PageHeader,
   Panel,
@@ -20,175 +19,33 @@ import {
 } from './WorkspaceUI';
 
 type LoadRow = {
-  id: string;
-  company_id: string | null;
-  pickup_location: string | null;
-  pickup_postcode: string | null;
-  pickup_datetime: string | null;
-  pickup_time_slot: string | null;
-  delivery_location: string | null;
-  delivery_postcode: string | null;
-  delivery_datetime: string | null;
-  delivery_time_slot: string | null;
-  vehicle_type: string | null;
-  requested_vehicle_type: string | null;
-  requested_vehicle_label: string | null;
-  cargo_type: string | null;
-  requested_cargo_label: string | null;
-  pallets: number | null;
-  weight_kg: number | string | null;
-  budget_amount: number | string | null;
-  currency: string | null;
-  is_fixed_price: boolean | null;
-  customer_reference: string | null;
-  booking_reference: string | null;
-  special_requirements: string | null;
-  access_restrictions: string | null;
-  exchange_posted_at: string | null;
-  exchange_visibility: string | null;
-  direct_invite_company_id: string | null;
-  posterName: string;
-  posterMemberCode: string | null;
-  pickupCoordinates: { lat: number; lng: number } | null;
-  deliveryCoordinates: { lat: number; lng: number } | null;
-  distanceFromSearchOriginMiles: number | null;
-  distanceToSearchDestinationMiles: number | null;
-  journeyDistanceMiles: number | null;
-  jobDescription: string;
-  loadType: string;
-  myBid: BidRow | null;
+  id: string; company_id: string | null; pickup_location: string | null; pickup_postcode: string | null; pickup_datetime: string | null; pickup_time_slot: string | null;
+  delivery_location: string | null; delivery_postcode: string | null; delivery_datetime: string | null; delivery_time_slot: string | null;
+  vehicle_type: string | null; requested_vehicle_type: string | null; requested_vehicle_label: string | null; cargo_type: string | null; requested_cargo_label: string | null;
+  pallets: number | null; weight_kg: number | string | null; budget_amount: number | string | null; currency: string | null; is_fixed_price: boolean | null;
+  customer_reference: string | null; booking_reference: string | null; special_requirements: string | null; access_restrictions: string | null;
+  exchange_posted_at: string | null; exchange_visibility: string | null; direct_invite_company_id: string | null; posterName: string; posterMemberCode: string | null;
+  pickupCoordinates: { lat: number; lng: number } | null; deliveryCoordinates: { lat: number; lng: number } | null;
+  distanceFromSearchOriginMiles: number | null; distanceToSearchDestinationMiles: number | null; journeyDistanceMiles: number | null; jobDescription: string; loadType: string; myBid: BidRow | null;
 };
 
-type BidJob = {
-  id?: string;
-  pickup_location?: string | null;
-  pickup_postcode?: string | null;
-  delivery_location?: string | null;
-  delivery_postcode?: string | null;
-  pickup_datetime?: string | null;
-  vehicle_type?: string | null;
-  requested_vehicle_label?: string | null;
-  status?: string | null;
-  current_status?: string | null;
-  budget_amount?: number | string | null;
-  currency?: string | null;
-  posterName?: string;
-  posterMemberCode?: string | null;
-};
+type BidJob = { id?: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
+type BidRow = { id: string; job_id: string; company_id: string | null; amount: number | string | null; bid_price_gbp: number | string | null; currency: string | null; message: string | null; status: string; created_at: string; job?: BidJob | null; };
+type WonRow = { id: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; delivery_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
+type SearchResponse = { rows?: LoadRow[]; total?: number; page?: number; pageSize?: number; totalPages?: number; radiusSearch?: { fromResolved?: boolean; toResolved?: boolean; fromRadius?: number; toRadius?: number; }; generatedAt?: string; error?: string; referenceId?: string; };
+type ListResponse<T> = { rows?: T[]; total?: number; generatedAt?: string; error?: string; referenceId?: string; };
+type Filters = { from: string; fromRadius: string; to: string; toRadius: string; vehicle: string; minVehicle: string; maxVehicle: string; body: string; freight: string; member: string; description: string; loadType: string; postedWithinHours: string; dateFrom: string; dateTo: string; minBudget: string; maxBudget: string; pageSize: string; };
+type RecentSearch = { id: string; label: string; filters: Filters; createdAt: string; };
 
-type BidRow = {
-  id: string;
-  job_id: string;
-  company_id: string | null;
-  amount: number | string | null;
-  bid_price_gbp: number | string | null;
-  currency: string | null;
-  message: string | null;
-  status: string;
-  created_at: string;
-  job?: BidJob | null;
-};
-
-type WonRow = {
-  id: string;
-  pickup_location?: string | null;
-  pickup_postcode?: string | null;
-  delivery_location?: string | null;
-  delivery_postcode?: string | null;
-  pickup_datetime?: string | null;
-  delivery_datetime?: string | null;
-  vehicle_type?: string | null;
-  requested_vehicle_label?: string | null;
-  status?: string | null;
-  current_status?: string | null;
-  budget_amount?: number | string | null;
-  currency?: string | null;
-  posterName?: string;
-  posterMemberCode?: string | null;
-};
-
-type SearchResponse = {
-  rows?: LoadRow[];
-  total?: number;
-  page?: number;
-  pageSize?: number;
-  totalPages?: number;
-  radiusSearch?: {
-    fromResolved?: boolean;
-    toResolved?: boolean;
-    fromRadius?: number;
-    toRadius?: number;
-  };
-  generatedAt?: string;
-  error?: string;
-  referenceId?: string;
-};
-
-type ListResponse<T> = {
-  rows?: T[];
-  total?: number;
-  generatedAt?: string;
-  error?: string;
-  referenceId?: string;
-};
-
-type Filters = {
-  from: string;
-  fromRadius: string;
-  to: string;
-  toRadius: string;
-  vehicle: string;
-  minVehicle: string;
-  maxVehicle: string;
-  body: string;
-  freight: string;
-  member: string;
-  description: string;
-  loadType: string;
-  postedWithinHours: string;
-  dateFrom: string;
-  dateTo: string;
-  minBudget: string;
-  maxBudget: string;
-  pageSize: string;
-};
-
-type RecentSearch = {
-  id: string;
-  label: string;
-  filters: Filters;
-  createdAt: string;
-};
-
-const DEFAULT_FILTERS: Filters = {
-  from: '', fromRadius: '30', to: '', toRadius: '100', vehicle: '', minVehicle: '', maxVehicle: '', body: '', freight: '', member: '',
-  description: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '', pageSize: '25',
-};
-
-const VEHICLE_OPTIONS = [
-  ['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van', 'MWB Van'], ['lwb_van', 'LWB Van'], ['xlwb_van', 'XLWB Van'],
-  ['luton', 'Luton'], ['luton_tail_lift', 'Luton Tail Lift'], ['curtainside_van', 'Curtainside Van'], ['truck_7_5t', '7.5T'],
-  ['truck_18t', '18T'], ['truck_26t', '26T'], ['artic', 'Artic'],
-] as const;
+const DEFAULT_FILTERS: Filters = { from: '', fromRadius: '30', to: '', toRadius: '100', vehicle: '', minVehicle: '', maxVehicle: '', body: '', freight: '', member: '', description: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '', pageSize: '25' };
+const VEHICLE_OPTIONS = [['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van', 'MWB Van'], ['lwb_van', 'LWB Van'], ['xlwb_van', 'XLWB Van'], ['luton', 'Luton'], ['luton_tail_lift', 'Luton Tail Lift'], ['curtainside_van', 'Curtainside Van'], ['truck_7_5t', '7.5T'], ['truck_18t', '18T'], ['truck_26t', '26T'], ['artic', 'Artic']] as const;
 const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
-
-const DESCRIPTION_OPTIONS = [
-  ['any', 'Any timing'], ['same_day_non_timed', 'Same Day — non timed'], ['same_day_timed', 'Same Day — timed'],
-  ['next_day_non_timed', 'Next Day — non timed'], ['next_day_timed', 'Next Day — timed'], ['3_5_days', '3–5 Days'],
-  ['multi_drop', 'Multi-Drop'], ['deliver_direct', 'Deliver Direct'],
-] as const;
+const DESCRIPTION_OPTIONS = [['any', 'Any timing'], ['same_day_non_timed', 'Same Day — non timed'], ['same_day_timed', 'Same Day — timed'], ['next_day_non_timed', 'Next Day — non timed'], ['next_day_timed', 'Next Day — timed'], ['3_5_days', '3–5 Days'], ['multi_drop', 'Multi-Drop'], ['deliver_direct', 'Deliver Direct']] as const;
 const LOAD_TYPES = [['all', 'All Live'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
 const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
-
 const fieldStyle = { height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#0f172a', fontSize: '12px', minWidth: 0 } as const;
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 700, lineHeight: '15px', marginBottom: 4, textTransform: 'uppercase' } as const;
-
-const money = (value: unknown, currency = 'GBP') => {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return '—';
-  try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); }
-  catch { return `£${amount.toFixed(2)}`; }
-};
+const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return '—'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `£${amount.toFixed(2)}`; } };
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
 const vehicleLabel = (row: Pick<LoadRow, 'requested_vehicle_label' | 'requested_vehicle_type' | 'vehicle_type'>) => row.requested_vehicle_label || row.requested_vehicle_type?.replace(/_/g, ' ') || row.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not specified';
 const routeLabel = (location: string | null | undefined, postcode: string | null | undefined) => postcode || location || 'Not set';
@@ -224,8 +81,8 @@ export default function CompanyMarketplaceExchange() {
   const recentKey = companyId ? `xdrive:company-marketplace:recent:${companyId}` : null;
   const defaultKey = companyId ? `xdrive:company-marketplace:default:${companyId}` : null;
   useEffect(() => { if (!recentKey) return; try { const parsed = JSON.parse(localStorage.getItem(recentKey) ?? '[]') as RecentSearch[]; setRecentSearches(Array.isArray(parsed) ? parsed.slice(0, 6) : []); } catch { setRecentSearches([]); } }, [recentKey]);
-
   const getToken = useCallback(async () => { const { data } = await supabase.auth.getSession(); return data.session?.access_token ?? null; }, []);
+
   const buildSearchParams = useCallback((requestedPage: number) => {
     const params = new URLSearchParams({ view: 'loads', companyId: companyId ?? '', page: String(requestedPage), pageSize: filters.pageSize, fromRadius: filters.fromRadius, toRadius: filters.toRadius, loadType: filters.loadType, description: filters.description });
     const optional: Array<[string, string]> = [['from', filters.from], ['to', filters.to], ['vehicle', filters.vehicle], ['minVehicle', filters.minVehicle], ['maxVehicle', filters.maxVehicle], ['body', filters.body], ['freight', filters.freight], ['member', filters.member], ['postedWithinHours', filters.postedWithinHours], ['dateFrom', filters.dateFrom], ['dateTo', filters.dateTo], ['minBudget', filters.minBudget], ['maxBudget', filters.maxBudget]];
@@ -291,12 +148,20 @@ export default function CompanyMarketplaceExchange() {
   const toggleExpandAll = () => setExpanded(allVisibleExpanded ? new Set() : new Set(loads.map((load) => load.id)));
   const tabButton = (id: typeof tab, label: string) => <button type="button" onClick={() => setTab(id)} style={{ border: 0, borderBottom: tab === id ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: tab === id ? '#1d57d8' : '#64748b', height: 28, padding: '0 10px', fontSize: '11px', fontWeight: tab === id ? 800 : 650, cursor: 'pointer' }}>{label}</button>;
 
+  const signals = [
+    { key: 'live', label: 'Live results', value: tab === 'loads' ? total : loads.length, detail: 'Current search', tone: 'blue' as const, onClick: () => setTab('loads') },
+    { key: 'submitted', label: 'Submitted', value: statusCounts.submitted, detail: 'Awaiting decision', tone: 'purple' as const, onClick: () => setTab('bids') },
+    { key: 'accepted', label: 'Accepted', value: statusCounts.accepted, detail: 'Awarded commercially', tone: 'green' as const, onClick: () => setTab('bids') },
+    { key: 'won', label: 'Won work', value: won.length, detail: 'Marketplace awards', tone: 'green' as const, onClick: () => setTab('won') },
+    { key: 'unsuccessful', label: 'Unsuccessful', value: statusCounts.unsuccessful, detail: 'Rejected quotes', tone: statusCounts.unsuccessful ? 'orange' as const : 'blue' as const, onClick: () => setTab('bids') },
+  ];
+
   return (
     <PageFrame>
       <PageHeader eyebrow="Carrier exchange" title="Marketplace" description="Search live loads, quote available work and monitor your marketplace awards from one operational workspace." actions={<><ActionButton tone="secondary" onClick={() => tab === 'loads' ? void loadLoads(page, false) : void loadListTab(tab)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton><ActionButton tone="secondary" onClick={saveDefault}>Save Default</ActionButton></>} meta={<span>{generatedAt ? `Updated ${when(generatedAt)}` : 'Live exchange data'}</span>} />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace…</AlertBanner>}
-      <ExchangeKpiStrip><KpiCard label="Live results" value={tab === 'loads' ? total : loads.length} detail="Current search" tone="blue" /><KpiCard label="Submitted quotes" value={statusCounts.submitted} detail="Awaiting decision" tone="purple" /><KpiCard label="Accepted quotes" value={statusCounts.accepted} detail="Awarded commercially" tone="green" /><KpiCard label="Won work" value={won.length} detail="Marketplace awards" tone="green" /><KpiCard label="Unsuccessful" value={statusCounts.unsuccessful} detail="Rejected quotes" tone={statusCounts.unsuccessful ? 'orange' : 'blue'} /></ExchangeKpiStrip>
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #dbe2ea', marginBottom: 8 }}>{tabButton('loads', 'Available Loads')}{tabButton('bids', 'My Quotes')}{tabButton('won', 'Won Work')}</div>
+      <OperationalSignalStrip items={signals} ariaLabel="Marketplace operational signals" />
 
       {tab === 'loads' && <>
         <Panel title="Search Loads" description="Radius search uses UK postcode/outcode geocoding where available; otherwise the search falls back to text matching.">
