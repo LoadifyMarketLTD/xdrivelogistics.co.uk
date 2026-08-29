@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Alert, Image, Linking, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
-import { fetchJob, fetchJobs, postJobStatus, uploadPod } from '../api/jobs';
+import { fetchJob, fetchJobs, postJobStatus, postStopStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { handleSessionLoss } from '../auth/sessionLoss';
@@ -171,6 +171,21 @@ function getQueueCounts(queue: QueuedAction[]): QueueCounts {
   }, { pending: 0, syncing: 0, synced: 0, failed: 0 });
 }
 
+function getPersistentStops(job: DriverJob) {
+  return job.stops && job.stops.length > 0
+    ? [...job.stops].sort((a, b) => a.sequence - b.sequence)
+    : [];
+}
+
+function isStopTerminal(stop: JobStop) {
+  return stop.status === 'completed' || stop.status === 'skipped';
+}
+
+function hasIncompletePersistentStops(job: DriverJob) {
+  const stops = getPersistentStops(job);
+  return stops.length > 0 && stops.some((stop) => !isStopTerminal(stop));
+}
+
 export default function DriverMobileApp() {
   const [screen, setScreen] = useState<Screen>('login');
   const [token, setToken] = useState<string | null>(null);
@@ -183,6 +198,7 @@ export default function DriverMobileApp() {
   const [notificationsSeenAt, setNotificationsSeenAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [stopActionId, setStopActionId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const queueSyncInFlightRef = useRef(false);
   /**
@@ -482,10 +498,38 @@ export default function DriverMobileApp() {
     await flushQueue(authUserId, token, { force: true });
   }
 
+  async function submitStopStatus(stopId: string, status: 'arrived' | 'completed') {
+    if (!job || !token || stopActionId) return;
+    if (!(await isOnline())) {
+      setMessage('Multi-drop stop updates require an internet connection and are not queued offline yet.');
+      return;
+    }
+
+    setStopActionId(stopId);
+    setMessage('');
+    try {
+      await postStopStatus(job.id, stopId, status, token);
+      // Stop mutations remain server-authoritative. Always refresh the whole job
+      // instead of projecting a local optimistic state after the mutation.
+      const refreshed = await fetchJob(job.id, token);
+      setJob(refreshed.job);
+      setJobs((items) => items.map((item) => item.id === refreshed.job.id ? refreshed.job : item));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to update this stop. Refresh and retry.');
+    } finally {
+      setStopActionId(null);
+    }
+  }
+
   async function submitStatus() {
     if (!job) return;
     if (!nextStep) {
       setMessage('Job status is already up to date.');
+      return;
+    }
+    if (nextStep.status === 'delivered' && hasIncompletePersistentStops(job)) {
+      setMessage('Complete all multi-drop stops before final delivery and POD.');
+      setScreen('detail');
       return;
     }
     // Gate on POD before delivering — but only when POD has not yet been captured.
@@ -543,6 +587,11 @@ export default function DriverMobileApp() {
       setScreen('jobs');
       return;
     }
+    if (nextScreen === 'pod' && job && hasIncompletePersistentStops(job)) {
+      setMessage('Complete all multi-drop stops before capturing POD.');
+      setScreen('detail');
+      return;
+    }
     setScreen(nextScreen);
   }
 
@@ -569,7 +618,14 @@ export default function DriverMobileApp() {
                 nextLabel={nextStep?.label ?? 'Delivered'}
                 onPrimary={() => void submitStatus()}
                 onDetail={() => setScreen('detail')}
-                onPod={() => setScreen('pod')}
+                onPod={() => {
+                  if (hasIncompletePersistentStops(job)) {
+                    setMessage('Complete all multi-drop stops before capturing POD.');
+                    setScreen('detail');
+                    return;
+                  }
+                  setScreen('pod');
+                }}
                 onRetryFailed={() => void retryFailedQueueItems()}
                 onSyncNow={() => authUserId && token && void flushQueue(authUserId, token, { force: true })}
               />
@@ -589,7 +645,15 @@ export default function DriverMobileApp() {
                 }}
               />
             )}
-            {screen === 'detail' && job && <JobDetailScreen job={job} onPrimary={() => setScreen('active')} onViewPod={() => setScreen('viewPod')} />}
+            {screen === 'detail' && job && (
+              <JobDetailScreen
+                job={job}
+                onPrimary={() => setScreen('active')}
+                onViewPod={() => setScreen('viewPod')}
+                onStopStatus={(stopId, status) => void submitStopStatus(stopId, status)}
+                stopActionId={stopActionId}
+              />
+            )}
             {screen === 'pod' && job && authUserId && (
               <PodScreen
                 job={job}
@@ -684,12 +748,16 @@ function ActiveJobScreen({
   onSyncNow: () => void;
 }) {
   const recentQueue = queue.slice(0, 5);
+  const persistentStops = getPersistentStops(job);
+  const completedStops = persistentStops.filter(isStopTerminal).length;
   const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
   const isPodQueued = queue.some((item) => item.jobId === job.id && item.endpoint === 'pod' && item.status !== 'synced');
-  // Show "Capture POD" only at arrived_delivery (or delivered, for retry) and
-  // only when POD has not already been captured or queued offline.
+  // Show "Capture POD" only at arrived_delivery (or delivered, for retry), after
+  // every persisted multi-drop stop is complete, and only when POD has not
+  // already been captured or queued offline.
   const showCapturePod =
     (job.status === 'arrived_delivery' || job.status === 'delivered') &&
+    !hasIncompletePersistentStops(job) &&
     !isPodDone &&
     !isPodQueued;
   return (
@@ -709,6 +777,7 @@ function ActiveJobScreen({
         <Info label="Delivery time" value={job.deliveryTime} />
         <Info label="Cargo" value={job.cargoType} />
         <Info label="Vehicle" value={job.vehicleRequirement} />
+        {persistentStops.length > 0 ? <Info label="Stops" value={`${completedStops}/${persistentStops.length} complete`} /> : null}
         <Info label="POD" value={job.podGenerated ? 'Captured' : job.podRequired ? 'Required' : 'Not required'} />
         {job.price ? <Info label="Price" value={job.price} /> : null}
       </Panel>
@@ -738,7 +807,19 @@ function JobsScreen({ scope, onScope, jobs, onOpen }: { scope: JobScope; onScope
   );
 }
 
-function JobDetailScreen({ job, onPrimary, onViewPod }: { job: DriverJob; onPrimary: () => void; onViewPod: () => void }) {
+function JobDetailScreen({
+  job,
+  onPrimary,
+  onViewPod,
+  onStopStatus,
+  stopActionId,
+}: {
+  job: DriverJob;
+  onPrimary: () => void;
+  onViewPod: () => void;
+  onStopStatus: (stopId: string, status: 'arrived' | 'completed') => void;
+  stopActionId: string | null;
+}) {
   const [tab, setTab] = useState<DetailTab>('summary');
   const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
   const tabs: Array<[DetailTab, string]> = [['summary', 'Summary'], ['stops', 'Stops'], ['status', 'Status']];
@@ -755,7 +836,15 @@ function JobDetailScreen({ job, onPrimary, onViewPod }: { job: DriverJob; onPrim
       </View>
 
       {tab === 'summary' && <SummaryTab job={job} />}
-      {tab === 'stops' && <StopsTab job={job} onViewPod={onViewPod} isPodDone={isPodDone} />}
+      {tab === 'stops' && (
+        <StopsTab
+          job={job}
+          onViewPod={onViewPod}
+          isPodDone={isPodDone}
+          onStopStatus={onStopStatus}
+          stopActionId={stopActionId}
+        />
+      )}
       {tab === 'status' && <StatusTab job={job} />}
 
       <PrimaryButton label="Back to active" onPress={onPrimary} />
@@ -853,41 +942,85 @@ function SummaryTab({ job }: { job: DriverJob }) {
   );
 }
 
-function StopsTab({ job, onViewPod, isPodDone }: { job: DriverJob; onViewPod: () => void; isPodDone: boolean }) {
-  const stops: JobStop[] = job.stops && job.stops.length > 0
-    ? [...job.stops].sort((a, b) => a.sequence - b.sequence)
+function StopsTab({
+  job,
+  onViewPod,
+  isPodDone,
+  onStopStatus,
+  stopActionId,
+}: {
+  job: DriverJob;
+  onViewPod: () => void;
+  isPodDone: boolean;
+  onStopStatus: (stopId: string, status: 'arrived' | 'completed') => void;
+  stopActionId: string | null;
+}) {
+  const persistentStops = getPersistentStops(job);
+  const hasPersistentStops = persistentStops.length > 0;
+  const stops: JobStop[] = hasPersistentStops
+    ? persistentStops
     : [
         { id: 'pickup', type: 'collection', sequence: 0, address: job.pickupLocation, timeWindowFrom: job.pickupTime },
         { id: 'delivery', type: 'delivery', sequence: 1, address: job.deliveryLocation, timeWindowFrom: job.deliveryTime },
       ];
+  const currentStop = persistentStops.find((stop) => !isStopTerminal(stop));
+  const completedStops = persistentStops.filter(isStopTerminal).length;
 
   return (
     <View style={styles.stack}>
-      {stops.map((stop) => (
-        <Panel key={stop.id}>
-          <View style={styles.stopTypeRow}>
-            <Text style={[styles.stopTypeLabel, stop.type === 'collection' ? styles.stopCollection : styles.stopDelivery]}>
-              {stop.type === 'collection' ? 'COLLECTION' : 'DELIVERY'}
-            </Text>
-            {stop.status ? <StatusPill label={stop.status} tone="primary" /> : null}
-          </View>
-          <Info label="Address" value={stop.address} />
-          {stop.company ? <Info label="Company" value={stop.company} /> : null}
-          {stop.contactPerson ? <Info label="Contact" value={stop.contactPerson} /> : null}
-          {stop.telephone ? (
-            <TouchableOpacity onPress={() => void Linking.openURL(`tel:${stop.telephone}`)}>
-              <Info label="Telephone" value={stop.telephone ?? ''} />
-            </TouchableOpacity>
-          ) : null}
-          {stop.timeWindowFrom ? (
-            <Info label="Time Window" value={stop.timeWindowTo ? `${formatDateTime(stop.timeWindowFrom)} – ${formatDateTime(stop.timeWindowTo)}` : formatDateTime(stop.timeWindowFrom)} />
-          ) : null}
-          {stop.collectionDetails ? <Info label="Collection Details" value={stop.collectionDetails} /> : null}
-          {stop.deliveryDetails ? <Info label="Delivery Details" value={stop.deliveryDetails} /> : null}
-          {stop.notes ? <Info label="Notes" value={stop.notes} /> : null}
-          {stop.gpsCoordinates ? <Info label="GPS" value={stop.gpsCoordinates} /> : null}
+      {hasPersistentStops ? (
+        <Panel>
+          <Info label="Stop progress" value={`${completedStops}/${persistentStops.length} complete`} />
+          {currentStop ? <Info label="Current stop" value={`${currentStop.sequence} · ${currentStop.type === 'collection' ? 'Collection' : 'Delivery'}`} /> : null}
+          <Text style={styles.copy}>Stop Arrived/Completed updates require an internet connection and are confirmed by the server before the next stop unlocks.</Text>
         </Panel>
-      ))}
+      ) : null}
+      {stops.map((stop) => {
+        const status = stop.status ?? 'pending';
+        const isActionable = hasPersistentStops && currentStop?.id === stop.id;
+        const actionBusy = stopActionId !== null;
+        return (
+          <Panel key={stop.id}>
+            <View style={styles.stopTypeRow}>
+              <Text style={[styles.stopTypeLabel, stop.type === 'collection' ? styles.stopCollection : styles.stopDelivery]}>
+                {stop.type === 'collection' ? 'COLLECTION' : 'DELIVERY'}
+              </Text>
+              {stop.status ? <StatusPill label={stop.status} tone={isStopTerminal(stop) ? 'success' : status === 'arrived' ? 'warning' : 'primary'} /> : null}
+            </View>
+            <Info label="Address" value={stop.address} />
+            {stop.company ? <Info label="Company" value={stop.company} /> : null}
+            {stop.contactPerson ? <Info label="Contact" value={stop.contactPerson} /> : null}
+            {stop.telephone ? (
+              <TouchableOpacity onPress={() => void Linking.openURL(`tel:${stop.telephone}`)}>
+                <Info label="Telephone" value={stop.telephone ?? ''} />
+              </TouchableOpacity>
+            ) : null}
+            {stop.timeWindowFrom ? (
+              <Info label="Time Window" value={stop.timeWindowTo ? `${formatDateTime(stop.timeWindowFrom)} – ${formatDateTime(stop.timeWindowTo)}` : formatDateTime(stop.timeWindowFrom)} />
+            ) : null}
+            {stop.arrivedAt ? <Info label="Arrived" value={formatDateTime(stop.arrivedAt)} /> : null}
+            {stop.completedAt ? <Info label="Completed" value={formatDateTime(stop.completedAt)} /> : null}
+            {stop.collectionDetails ? <Info label="Collection Details" value={stop.collectionDetails} /> : null}
+            {stop.deliveryDetails ? <Info label="Delivery Details" value={stop.deliveryDetails} /> : null}
+            {stop.notes ? <Info label="Notes" value={stop.notes} /> : null}
+            {stop.gpsCoordinates ? <Info label="GPS" value={stop.gpsCoordinates} /> : null}
+            {hasPersistentStops && isActionable && status === 'pending' ? (
+              <PrimaryButton label={stopActionId === stop.id ? 'Updating...' : 'Mark arrived'} onPress={() => onStopStatus(stop.id, 'arrived')} disabled={actionBusy} />
+            ) : null}
+            {hasPersistentStops && isActionable && status === 'arrived' ? (
+              <PrimaryButton label={stopActionId === stop.id ? 'Updating...' : 'Mark completed'} onPress={() => onStopStatus(stop.id, 'completed')} disabled={actionBusy} />
+            ) : null}
+            {hasPersistentStops && !isActionable && !isStopTerminal(stop) ? (
+              <Text style={styles.subtle}>Complete the earlier stop before this stop becomes actionable.</Text>
+            ) : null}
+          </Panel>
+        );
+      })}
+      {hasPersistentStops && !currentStop && !isPodDone ? (
+        <Panel>
+          <Text style={styles.copy}>All persisted stops are complete. Final delivery/POD can now continue through the parent job workflow.</Text>
+        </Panel>
+      ) : null}
       {isPodDone && (
         <TouchableOpacity style={styles.viewPodButton} onPress={onViewPod} accessibilityRole="button">
           <Text style={styles.viewPodButtonText}>VIEW POD</Text>
