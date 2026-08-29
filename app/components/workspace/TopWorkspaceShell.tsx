@@ -13,6 +13,8 @@ import {
   hasWorkspaceCapability,
   resolveWorkspaceRole,
   resolveWorkspaceSurfaceRole,
+  type WorkspaceNavGroup,
+  type WorkspaceNavItem,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
 import SharedContextControls from './SharedContextControls';
@@ -57,6 +59,97 @@ const EVENT_LOG_HREFS: Partial<Record<WorkspaceRole, string>> = {
   customer: '/customer/event-log',
 };
 
+function uniqueNavItems(groups: WorkspaceNavGroup[]) {
+  const byHref = new Map<string, WorkspaceNavItem>();
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (!byHref.has(item.href)) byHref.set(item.href, item);
+    }
+  }
+  return byHref;
+}
+
+function singleGroup(id: string, label: string, item: WorkspaceNavItem): WorkspaceNavGroup {
+  return { id, label, items: [{ ...item, label }] };
+}
+
+function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
+  const items = uniqueNavItems(groups);
+  const direct: Array<[string, string, string]> = [
+    ['carrier-dashboard', 'Dashboard', '/admin'],
+    ['carrier-directory', 'Directory', '/admin/marketplace/directory'],
+    ['carrier-live-availability', 'Live Availability', '/admin/live-availability'],
+    ['carrier-my-fleet', 'My Fleet', '/admin/fleet'],
+    ['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
+    ['carrier-loads', 'Loads', '/admin/marketplace'],
+    ['carrier-quotes', 'Quotes', '/admin/quotes'],
+    ['carrier-diary', 'Diary', '/admin/diary'],
+    ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
+    ['carrier-finance', 'Finance', '/admin/invoices'],
+    ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
+    ['carrier-drivers', 'Drivers', '/admin/fleet/drivers'],
+  ];
+
+  const directHrefs = new Set(direct.map(([, , href]) => href));
+  const primary = direct.flatMap(([id, label, href]) => {
+    const item = items.get(href);
+    return item ? [singleGroup(id, label, item)] : [];
+  });
+
+  const morePreferred = [
+    '/admin/jobs',
+    '/admin/fleet/vehicles',
+    '/admin/documents',
+    '/admin/event-log',
+    '/admin/settings',
+  ];
+  const more = morePreferred.flatMap((href) => {
+    const item = items.get(href);
+    return item && !directHrefs.has(href) ? [item] : [];
+  });
+  const seenMore = new Set(more.map((item) => item.href));
+  for (const [href, item] of items.entries()) {
+    if (!directHrefs.has(href) && !seenMore.has(href)) {
+      more.push(item);
+      seenMore.add(href);
+    }
+  }
+
+  return more.length ? [...primary, { id: 'carrier-more', label: 'More', items: more }] : primary;
+}
+
+function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
+  const items = uniqueNavItems(groups);
+  const direct: Array<[string, string, string]> = [
+    ['fleet-dashboard', 'Dashboard', '/admin/fleet'],
+    ['fleet-live-availability', 'Live Availability', '/admin/live-availability'],
+    ['fleet-my-fleet', 'My Fleet', '/admin/fleet/resources'],
+    ['fleet-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
+    ['fleet-jobs', 'Jobs', '/admin/fleet/jobs'],
+    ['fleet-diary', 'Diary', '/admin/diary'],
+    ['fleet-freight-vision', 'Freight Vision', '/admin/freight-vision'],
+    ['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
+    ['fleet-drivers', 'Drivers', '/admin/fleet/drivers'],
+    ['fleet-vehicles', 'Vehicles', '/admin/fleet/vehicles'],
+  ];
+
+  const used = new Set<string>();
+  const primary: WorkspaceNavGroup[] = [];
+  for (const [id, label, href] of direct) {
+    if (used.has(href)) continue;
+    const item = items.get(href);
+    if (!item) continue;
+    used.add(href);
+    primary.push(singleGroup(id, label, item));
+  }
+
+  const more: WorkspaceNavItem[] = [];
+  for (const [href, item] of items.entries()) {
+    if (!used.has(href)) more.push(item);
+  }
+  return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
+}
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -71,7 +164,7 @@ export default function TopWorkspaceShell({
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => {
-    const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
+    let base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
 
     if (CARRIER_NAV_ROLES.has(role)) {
       const directoryHref = '/admin/marketplace/directory';
@@ -110,22 +203,29 @@ export default function TopWorkspaceShell({
     }
 
     if (FLEET_OPERATION_ROLES.has(role) && hasWorkspaceCapability(role, 'fleet.positions.view')) {
-      const items = [
+      const items: WorkspaceNavItem[] = [
         {
           id: 'live-availability',
           label: 'Live Availability',
           href: '/admin/live-availability',
           icon: '◷',
-          capability: 'fleet.positions.view' as const,
+          capability: 'fleet.positions.view',
         },
         {
           id: 'fleet-resources',
           label: 'Fleet Resources',
           href: '/admin/fleet/resources',
           icon: '▦',
-          capability: 'fleet.positions.view' as const,
+          capability: 'fleet.positions.view',
         },
       ];
+
+      if (hasWorkspaceCapability(role, 'drivers.manage')) {
+        items.push({ id: 'fleet-drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: '◉', capability: 'drivers.manage' });
+      }
+      if (hasWorkspaceCapability(role, 'vehicles.manage')) {
+        items.push({ id: 'fleet-vehicles', label: 'Vehicles', href: '/admin/fleet/vehicles', icon: '▰', capability: 'vehicles.manage' });
+      }
 
       if (CARRIER_NAV_ROLES.has(role)) {
         const carrierFleet = base.find((group) => group.id === 'carrier-fleet');
@@ -161,6 +261,9 @@ export default function TopWorkspaceShell({
         });
       }
     }
+
+    if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
+    else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
 
     return base;
   }, [role]);
