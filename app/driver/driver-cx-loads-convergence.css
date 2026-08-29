@@ -1,0 +1,86 @@
+/* Driver Loads CX-close interaction layer.
+ * Presentation only: no marketplace, quote, award, privacy or lifecycle contract changes.
+ * Canonical dimensions come from workspace-measured-cx-baseline.css.
+ */
+
+body:has(.driver-inline-quote)::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1390;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.driver-inline-quote {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1400;
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ws-gap-internal, 8px);
+  margin: 0;
+  padding: 48px 12px 12px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: #fff;
+}
+
+.driver-inline-quote::before {
+  content: 'Quote Now';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: var(--ws-panel-head-h, 36px);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: var(--ws-panel-head, #f2f4f7);
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-panel-title, 13px);
+  line-height: 18px;
+  font-weight: 750;
+}
+
+.driver-inline-quote .driver-filter-field {
+  grid-column: 1 / -1;
+}
+
+.driver-inline-quote input,
+.driver-inline-quote textarea {
+  width: 100%;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: #fff;
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+}
+
+.driver-inline-quote input {
+  min-height: var(--ws-control-h, 32px);
+  padding: 0 9px;
+}
+
+.driver-inline-quote textarea {
+  min-height: 76px;
+  padding: 7px 9px;
+  resize: vertical;
+}
+
+@media (max-width: 640px) {
+  .driver-inline-quote {
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-height: calc(100vh - 32px);
+    transform: none;
+    grid-template-columns: 1fr;
+  }
+}
