@@ -106,6 +106,34 @@ export function OperationalAttentionRail({
   );
 }
 
+export function OperationalAttentionItem({
+  priority,
+  entity,
+  detail,
+  state,
+  tone = 'blue',
+  action,
+}: {
+  priority: ReactNode;
+  entity: ReactNode;
+  detail?: ReactNode;
+  state: ReactNode;
+  tone?: WorkspaceCardTone;
+  action?: ReactNode;
+}) {
+  return (
+    <div className={`${styles.attentionItem} ${toneClass[tone]}`}>
+      <div className={styles.attentionPriority}>{priority}</div>
+      <div className={styles.attentionCopy}>
+        <strong className={styles.attentionEntity}>{entity}</strong>
+        {detail ? <span className={styles.attentionDetail}>{detail}</span> : null}
+      </div>
+      <div className={styles.attentionState}>{state}</div>
+      {action ? <div className={styles.attentionAction}>{action}</div> : null}
+    </div>
+  );
+}
+
 export function OperationalRecord({
   primary,
   secondary,
