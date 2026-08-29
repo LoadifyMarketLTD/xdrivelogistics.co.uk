@@ -3,8 +3,8 @@ import path from 'node:path';
 
 describe('Telematics location ingestion contract', () => {
   const routePath = path.join(process.cwd(), 'app/api/integrations/telematics/location/route.ts');
-  const migrationPath = path.join(process.cwd(), 'supabase/migrations/20260829165000_telematics_location_source_foundation.sql');
-  const bindingsMigrationPath = path.join(process.cwd(), 'supabase/migrations/20260829173500_telematics_driver_bindings.sql');
+  const migrationPath = path.join(process.cwd(), 'supabase/migrations/20260829192805_telematics_location_source_foundation.sql');
+  const bindingsMigrationPath = path.join(process.cwd(), 'supabase/migrations/20260829192952_telematics_driver_bindings.sql');
   const route = fs.readFileSync(routePath, 'utf8');
   const migration = fs.readFileSync(migrationPath, 'utf8');
   const bindingsMigration = fs.readFileSync(bindingsMigrationPath, 'utf8');
