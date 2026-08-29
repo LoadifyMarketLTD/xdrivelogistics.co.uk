@@ -28,7 +28,16 @@ type NotificationRow = {
   created_at: string;
 };
 
-type InboxTab = 'all' | 'unread' | 'operational';
+type InboxTab = 'all' | 'unread' | 'load_alerts' | 'operational';
+
+const LOAD_ALERT_TYPES = new Set([
+  'load_alert',
+  'marketplace_load_alert',
+  'nearby_load_alert',
+  'return_journey_alert',
+  'won_load',
+  'bid_accepted',
+]);
 
 const OPERATIONAL_TYPES = new Set([
   'job_assigned',
@@ -41,6 +50,7 @@ const OPERATIONAL_TYPES = new Set([
   'carrier_invited',
   'carrier_accepted',
   'carrier_rejected',
+  ...LOAD_ALERT_TYPES,
 ]);
 
 function human(value: string | null) {
@@ -57,7 +67,7 @@ function entityTypeFromNotification(type: string | null) {
   if (value.includes('bid') || value.includes('quote')) return 'quote';
   if (value.includes('job') || value.includes('pod') || value.includes('tracking')) return 'job';
   if (value.includes('document')) return 'document';
-  if (value.includes('carrier')) return 'load';
+  if (value.includes('carrier') || value.includes('load_alert') || value.includes('won_load') || value.includes('return_journey')) return 'load';
   return '';
 }
 
@@ -65,7 +75,7 @@ export default function WorkspaceNotificationInbox({
   role,
   eyebrow = 'Workspace notifications',
   title = 'Notifications',
-  description = 'Recipient-scoped operational and commercial notifications for the current account.',
+  description = 'Recipient-scoped operational, marketplace and commercial notifications for the current account.',
 }: {
   role: Exclude<ActionCentreRole, 'platform_owner' | 'driver'>;
   eyebrow?: string;
@@ -108,11 +118,13 @@ export default function WorkspaceNotificationInbox({
   const counts = useMemo(() => ({
     all: rows.length,
     unread: rows.filter((row) => !row.read_at).length,
+    load_alerts: rows.filter((row) => LOAD_ALERT_TYPES.has(String(row.type ?? ''))).length,
     operational: rows.filter((row) => OPERATIONAL_TYPES.has(String(row.type ?? ''))).length,
   }), [rows]);
 
   const visible = useMemo(() => {
     if (tab === 'unread') return rows.filter((row) => !row.read_at);
+    if (tab === 'load_alerts') return rows.filter((row) => LOAD_ALERT_TYPES.has(String(row.type ?? '')));
     if (tab === 'operational') return rows.filter((row) => OPERATIONAL_TYPES.has(String(row.type ?? '')));
     return rows;
   }, [rows, tab]);
@@ -170,6 +182,7 @@ export default function WorkspaceNotificationInbox({
   const tabs: Array<{ id: InboxTab; label: string }> = [
     { id: 'all', label: 'All' },
     { id: 'unread', label: 'Unread' },
+    { id: 'load_alerts', label: 'Load Alerts' },
     { id: 'operational', label: 'Operational' },
   ];
 
@@ -197,13 +210,13 @@ export default function WorkspaceNotificationInbox({
       </div>
       <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
         <span><strong>{visible.length}</strong> notification{visible.length === 1 ? '' : 's'} in this view</span>
-        <span>{counts.unread} unread</span>
+        <span>{counts.unread} unread · {counts.load_alerts} load alert{counts.load_alerts === 1 ? '' : 's'}</span>
       </div>
 
       {loading ? (
         <div className="workspace-panel"><EmptyState compact title="Loading notifications…" /></div>
       ) : visible.length === 0 ? (
-        <div className="workspace-panel"><EmptyState title="No notifications in this view" /></div>
+        <div className="workspace-panel"><EmptyState title={tab === 'load_alerts' ? 'No load alerts in this view' : 'No notifications in this view'} description={tab === 'load_alerts' ? 'CX-style matching preferences and alert generation remain a separate backend parity item; this tab displays real alert records when they exist.' : undefined} /></div>
       ) : (
         <div className="workspace-record-list">
           {visible.map((row) => (
@@ -214,7 +227,7 @@ export default function WorkspaceNotificationInbox({
                 <div className="workspace-operational-cell"><span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>CREATED</span><strong>{when(row.created_at)}</strong></div>
                 <div className="workspace-operational-cell"><span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>STATE / ACTION</span><StatusBadge value={row.read_at ? 'Read' : 'Unread'} tone={row.read_at ? 'grey' : 'orange'} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" disabled={working === row.id} onClick={() => void openNotification(row)}>Open</ActionButton>{!row.read_at && <ActionButton tone="secondary" disabled={working === row.id} onClick={() => void markRead(row.id)}>Mark read</ActionButton>}<ActionButton tone="secondary" disabled={working === row.id} onClick={() => void remove(row.id)}>Remove</ActionButton></div></div>
               </div>
-              <div className="workspace-record-meta"><span>Notification #{row.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={row.read_at ? 'Read' : 'Unread'} tone={row.read_at ? 'grey' : 'orange'} /></div>
+              <div className="workspace-record-meta"><span>Notification #{row.id.slice(0, 8).toUpperCase()}</span>{LOAD_ALERT_TYPES.has(String(row.type ?? '')) && <StatusBadge value="Load alert" tone="blue" />}<StatusBadge value={row.read_at ? 'Read' : 'Unread'} tone={row.read_at ? 'grey' : 'orange'} /></div>
             </article>
           ))}
         </div>
