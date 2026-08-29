@@ -78,7 +78,7 @@ describe('Driver Smart Load Alerts contract', () => {
 
   test('keeps catch-up matching recipient-scoped', () => {
     expect(migration).toContain('create or replace function public.fn_enqueue_driver_load_alerts_for_user(p_user_id uuid)');
-    expect(migration).toContain('p_user_id is not null');
+    expect(migration).toContain('if p_user_id is null then return 0; end if;');
     expect(migration).toContain('p.user_id = p_recipient_user_id');
     expect(api).toContain("supabaseAdmin.rpc('fn_enqueue_driver_load_alerts_for_user', { p_user_id: driver.userId })");
   });
