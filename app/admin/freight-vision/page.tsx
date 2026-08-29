@@ -19,7 +19,7 @@ import {
   TwoColumn,
 } from '../../components/workspace/WorkspaceUI';
 
-type TrackingState = 'on_time' | 'behind_eta' | 'late' | 'not_tracking';
+type TrackingState = 'on_time' | 'behind_eta' | 'late' | 'not_tracking' | 'not_started';
 
 const ACTIVE = new Set([
   'awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded',
@@ -37,6 +37,7 @@ const stateLabel: Record<TrackingState, string> = {
   behind_eta: 'Behind ETA',
   late: 'Late',
   not_tracking: 'Not tracking',
+  not_started: 'Not started',
 };
 
 function timeValue(value: string | null | undefined) {
@@ -47,24 +48,31 @@ function timeValue(value: string | null | undefined) {
 
 function operationalState(job: WorkspaceJob, locationTimestamp: string | null): TrackingState {
   const now = Date.now();
+  const status = String(job.current_status ?? job.status ?? '').toLowerCase();
+  const pickupTime = timeValue(job.pickup_datetime);
+  const deliveryTime = timeValue(job.delivery_datetime);
+  const pickupStarted = PICKUP_PROGRESS.has(status);
+
+  // CX distinguishes work that has not started from work that started but has
+  // stopped reporting a fresh position. Once the pickup target is at risk,
+  // schedule risk takes precedence over the informational not-started state.
+  if (!pickupStarted) {
+    if (Number.isFinite(pickupTime)) {
+      const minutesToPickup = (pickupTime - now) / 60_000;
+      if (pickupTime <= now || (minutesToPickup >= 0 && minutesToPickup <= 30)) return 'behind_eta';
+    }
+    return 'not_started';
+  }
+
   const locationTime = timeValue(locationTimestamp);
   const fresh = Number.isFinite(locationTime) && now - locationTime <= 20 * 60_000;
   if (!fresh) return 'not_tracking';
 
-  const status = String(job.current_status ?? job.status ?? '').toLowerCase();
-  const pickupTime = timeValue(job.pickup_datetime);
-  const deliveryTime = timeValue(job.delivery_datetime);
-
   if (Number.isFinite(deliveryTime) && now > deliveryTime && status !== 'on_site_delivery') return 'late';
-  if (Number.isFinite(pickupTime) && now > pickupTime && !PICKUP_PROGRESS.has(status)) return 'behind_eta';
 
   if (Number.isFinite(deliveryTime)) {
     const minutesToDelivery = (deliveryTime - now) / 60_000;
     if (minutesToDelivery <= 30 && minutesToDelivery >= 0 && !DELIVERY_PROGRESS.has(status)) return 'behind_eta';
-  }
-  if (Number.isFinite(pickupTime)) {
-    const minutesToPickup = (pickupTime - now) / 60_000;
-    if (minutesToPickup <= 30 && minutesToPickup >= 0 && !PICKUP_PROGRESS.has(status)) return 'behind_eta';
   }
 
   return 'on_time';
@@ -76,7 +84,12 @@ function exceptionReason(job: WorkspaceJob, state: TrackingState) {
   const pickupTime = timeValue(job.pickup_datetime);
   const deliveryTime = timeValue(job.delivery_datetime);
 
-  if (state === 'not_tracking') return 'No fresh driver location has been received in the last 20 minutes.';
+  if (state === 'not_started') {
+    return Number.isFinite(pickupTime)
+      ? `Execution has not started. Planned pickup is ${when(job.pickup_datetime)}.`
+      : 'Execution has not started and no pickup target is recorded.';
+  }
+  if (state === 'not_tracking') return 'Execution has started but no fresh driver location has been received in the last 20 minutes.';
   if (state === 'late') return `Delivery target passed ${when(job.delivery_datetime)} while the job remains ${status.replaceAll('_', ' ')}.`;
   if (state === 'behind_eta') {
     if (Number.isFinite(pickupTime) && !PICKUP_PROGRESS.has(status)) {
@@ -92,10 +105,11 @@ function exceptionReason(job: WorkspaceJob, state: TrackingState) {
   return 'Fresh tracking received and no schedule-risk rule is currently triggered.';
 }
 
-function toneForState(state: TrackingState): 'green' | 'orange' | 'red' | 'grey' {
+function toneForState(state: TrackingState): 'green' | 'orange' | 'red' | 'grey' | 'blue' {
   if (state === 'on_time') return 'green';
   if (state === 'behind_eta') return 'orange';
   if (state === 'late') return 'red';
+  if (state === 'not_started') return 'blue';
   return 'grey';
 }
 
@@ -199,13 +213,14 @@ export default function FreightVisionPage() {
         <KpiCard label="Behind ETA" value={count('behind_eta')} tone="orange" />
         <KpiCard label="Late" value={count('late')} tone="red" />
         <KpiCard label="Not tracking" value={count('not_tracking')} tone="orange" />
+        <KpiCard label="Not started" value={count('not_started')} tone="blue" />
       </KpiGrid>
 
       <Panel title="Tracking filters" description="Filter by route, live-risk state or job status before acting on an exception." style={{ marginBottom: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
           <label style={labelStyle}>Pickup<input style={inputStyle} value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Town / postcode" /></label>
           <label style={labelStyle}>Delivery<input style={inputStyle} value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Town / postcode" /></label>
-          <label style={labelStyle}>ETA / tracking state<select style={inputStyle} value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'all' | TrackingState)}><option value="all">All states</option><option value="on_time">On time</option><option value="behind_eta">Behind ETA</option><option value="late">Late</option><option value="not_tracking">Not tracking</option></select></label>
+          <label style={labelStyle}>ETA / tracking state<select style={inputStyle} value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'all' | TrackingState)}><option value="all">All states</option><option value="on_time">On time</option><option value="behind_eta">Behind ETA</option><option value="late">Late</option><option value="not_tracking">Not tracking</option><option value="not_started">Not started</option></select></label>
           <label style={labelStyle}>Job status<select style={inputStyle} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All active statuses</option>{statuses.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}</select></label>
         </div>
       </Panel>
@@ -263,7 +278,7 @@ export default function FreightVisionPage() {
   );
 }
 
-const inputStyle = { width: '100%', minHeight: 36, border: '1px solid #cbd5e1', borderRadius: 6, padding: '6px 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
+const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '4px 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
 const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
 const detailCardStyle = { border: '1px solid #dbe2ea', background: '#f8fafc', padding: 10, borderRadius: 4, color: '#0f172a', fontSize: 12 } as const;
 const detailTextStyle = { marginTop: 6, color: '#475569', lineHeight: 1.5 } as const;
