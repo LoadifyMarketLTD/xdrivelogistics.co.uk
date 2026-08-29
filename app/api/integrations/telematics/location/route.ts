@@ -17,6 +17,8 @@ type TelematicsLocationPayload = {
   provider?: string;
   event_id?: string;
   driver_id?: string;
+  provider_driver_id?: string;
+  provider_vehicle_id?: string;
   job_id?: string;
   lat?: number;
   lng?: number;
@@ -29,6 +31,12 @@ type DriverRow = {
   id: string;
   company_id: string | null;
   status: string | null;
+};
+
+type BindingRow = {
+  driver_id: string;
+  company_id: string | null;
+  external_vehicle_id: string | null;
 };
 
 type JobRow = {
@@ -98,7 +106,9 @@ export async function POST(request: NextRequest) {
 
   const provider = typeof body.provider === 'string' ? body.provider.trim().toLowerCase() : '';
   const eventId = typeof body.event_id === 'string' ? body.event_id.trim() : '';
-  const driverId = typeof body.driver_id === 'string' ? body.driver_id.trim() : '';
+  const directDriverId = typeof body.driver_id === 'string' ? body.driver_id.trim() : '';
+  const providerDriverId = typeof body.provider_driver_id === 'string' ? body.provider_driver_id.trim() : '';
+  const providerVehicleId = typeof body.provider_vehicle_id === 'string' ? body.provider_vehicle_id.trim() : '';
   const requestedJobId = typeof body.job_id === 'string' && body.job_id.trim() ? body.job_id.trim() : null;
   const lat = typeof body.lat === 'number' && Number.isFinite(body.lat) ? body.lat : null;
   const lng = typeof body.lng === 'number' && Number.isFinite(body.lng) ? body.lng : null;
@@ -106,7 +116,8 @@ export async function POST(request: NextRequest) {
 
   if (!PROVIDER_PATTERN.test(provider)) return json(400, { error: 'A valid provider slug is required.' });
   if (!eventId || eventId.length > 160) return json(400, { error: 'A valid event_id is required.' });
-  if (!driverId) return json(400, { error: 'driver_id is required.' });
+  if (!directDriverId && !providerDriverId) return json(400, { error: 'driver_id or provider_driver_id is required.' });
+  if (providerDriverId.length > 200 || providerVehicleId.length > 200) return json(400, { error: 'Provider identity is too long.' });
   if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return json(400, { error: 'Valid lat and lng values are required.' });
   }
@@ -121,14 +132,49 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (duplicate) return json(200, { ok: true, duplicate: true, job_id: duplicate.job_id ?? null });
 
+  let resolvedDriverId = directDriverId;
+  let binding: BindingRow | null = null;
+  if (providerDriverId) {
+    const { data: bindingData, error: bindingError } = await supabaseAdmin
+      .from('telematics_driver_bindings')
+      .select('driver_id, company_id, external_vehicle_id')
+      .eq('provider', provider)
+      .eq('external_driver_id', providerDriverId)
+      .eq('enabled', true)
+      .maybeSingle();
+
+    if (bindingError) {
+      // During Draft-PR migration rollout, controlled integrations may continue
+      // using canonical driver_id. Provider-native identifiers fail closed until
+      // the binding table is available rather than guessing an identity.
+      if (!directDriverId) return json(503, { error: 'Telematics provider identity mapping is not available yet.' });
+    } else if (!bindingData) {
+      return json(403, { error: 'Telematics driver identity is not bound to XDrive.' });
+    } else {
+      binding = bindingData as unknown as BindingRow;
+      if (directDriverId && directDriverId !== binding.driver_id) {
+        return json(409, { error: 'Telematics driver identifiers do not resolve to the same XDrive driver.' });
+      }
+      if (providerVehicleId && binding.external_vehicle_id && providerVehicleId !== binding.external_vehicle_id) {
+        return json(403, { error: 'Telematics vehicle identity does not match the authorised binding.' });
+      }
+      resolvedDriverId = binding.driver_id;
+    }
+  }
+
+  if (!resolvedDriverId) return json(403, { error: 'A canonical XDrive driver could not be resolved.' });
+
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
     .select('id, company_id, status')
-    .eq('id', driverId)
+    .eq('id', resolvedDriverId)
     .eq('status', 'active')
     .maybeSingle();
   if (driverError || !driver) return json(403, { error: 'Active driver could not be resolved.' });
   const driverRow = driver as DriverRow;
+  if (binding?.company_id && driverRow.company_id !== binding.company_id) {
+    return json(403, { error: 'Telematics binding company does not match the active driver company.' });
+  }
 
   const jobSelect = 'id, assigned_driver_id, awarded_carrier_company_id, current_status, status';
   let jobRow: JobRow | null = null;
