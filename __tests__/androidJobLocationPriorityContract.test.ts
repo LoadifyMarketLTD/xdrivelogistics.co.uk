@@ -18,6 +18,6 @@ describe('Android active-job location priority contract', () => {
 
   it('passes the chosen priority explicitly to fused location', () => {
     expect(tracking).toContain('private suspend fun captureCurrentLocation(priority: Int)');
-    expect(tracking).toContain('fusedClient.getCurrentLocation(\n            priority,');
+    expect(tracking).toMatch(/fusedClient\.getCurrentLocation\(\r?\n\s*priority,/);
   });
 });

@@ -52,7 +52,7 @@ describe('Android unified location runtime contract', () => {
   });
 
   it('refreshes availability coordinates without extending the explicit auto-off window', () => {
-    expect(api).toContain('method = "PUT"');
+    expect(api).toContain('requestJson("/api/driver/availability-presence", session.accessToken, "PUT", body)');
     expect(api).toContain('suspend fun refreshLocation(');
     expect(server).toContain('export async function PUT(request: NextRequest)');
     expect(server).toContain(".select('available_until')");

@@ -86,12 +86,14 @@ describe('Android native push foundation contract', () => {
     expect(messaging).toContain('Uri.parse("xdrive://job/$jobId")');
   });
 
-  it('never blocks auth-session revocation on best-effort push cleanup', () => {
-    const cleanup = sessionStore.indexOf('unregisterPushBestEffort(current)');
-    const revoke = sessionStore.indexOf('revoker.revoke(current)', cleanup);
+  it('keeps push cleanup best-effort before auth-session revocation', () => {
+    const cleanup = sessionStore.indexOf('unregisterPushBestEffort(pending)');
+    const revoke = sessionStore.indexOf('revoker.revoke(pending)', cleanup);
     expect(cleanup).toBeGreaterThan(-1);
     expect(revoke).toBeGreaterThan(cleanup);
-    expect(sessionStore).not.toContain('if (!unregisterPush');
+    expect(sessionStore).toContain('private suspend fun unregisterPushBestEffort(session: DriverSession)');
+    expect(sessionStore).toContain('pushApi.unregister(session, installationIdentity.installationId)');
+    expect(sessionStore).not.toContain('pushApi.unregister(session, installationIdentity.installationId).getOrThrow()');
   });
 
   it('adds FCM to the canonical job_assigned queue rather than creating a parallel assignment trigger', () => {
