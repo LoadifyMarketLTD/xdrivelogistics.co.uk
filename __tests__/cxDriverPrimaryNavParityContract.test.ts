@@ -8,6 +8,7 @@ describe('CX-close Driver primary navigation parity', () => {
   const directory = read('app/driver/directory/page.tsx');
   const diary = read('app/driver/history/page.tsx');
   const eventLog = read('app/driver/event-log/page.tsx');
+  const sharedEventLog = read('app/components/workspace/WorkspaceEventLogPage.tsx');
 
   it('surfaces Directory and Event Log as first-class Driver navigation without hiding them under Account', () => {
     expect(shell).toContain("label: 'Directory', href: '/driver/directory'");
@@ -25,9 +26,11 @@ describe('CX-close Driver primary navigation parity', () => {
     expect(diary).toContain('Payment Report');
   });
 
-  it('keeps Event Log as a searchable and exportable operational register', () => {
-    expect(eventLog).toContain('Search Event Log');
-    expect(eventLog).toContain('Download CSV');
-    expect(eventLog).toContain('Print / Save PDF');
+  it('keeps Driver Event Log on the shared searchable and exportable operational register', () => {
+    expect(eventLog).toContain('WorkspaceEventLogPage');
+    expect(sharedEventLog).toContain('Search Event Log');
+    expect(sharedEventLog).toContain('Download CSV');
+    expect(sharedEventLog).toContain('Print / Save PDF');
+    expect(sharedEventLog).toContain(".eq('recipient_user_id', userId)");
   });
 });
