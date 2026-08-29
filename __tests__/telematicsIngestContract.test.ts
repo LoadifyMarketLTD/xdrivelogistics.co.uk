@@ -72,6 +72,8 @@ describe('Telematics location ingestion contract', () => {
     expect(bindingsMigration).toContain('unique (provider, external_vehicle_id)');
     expect(bindingsMigration).toContain('revoked_at timestamptz');
     expect(bindingsMigration).toContain('alter table public.telematics_driver_bindings enable row level security;');
+    expect(bindingsMigration).toContain('revoke all on table public.telematics_driver_bindings from public, anon, authenticated;');
+    expect(bindingsMigration).toContain('grant all on table public.telematics_driver_bindings to service_role;');
     expect(bindingsMigration).not.toMatch(/create policy[\s\S]*telematics_driver_bindings/i);
     expect(route).toContain('provider_driver_id?: string;');
     expect(route).toContain('provider_vehicle_id?: string;');
