@@ -7,6 +7,7 @@ describe('CX global Expand all / Collapse all operational contract', () => {
   const shared = read('app/components/workspace/OperationalExpandAllControl.tsx');
   const driverJobs = read('app/driver/jobs/page.tsx');
   const driverLoads = read('app/driver/loads/page.tsx');
+  const driverAdvancedLoads = read('app/driver/loads/search/page.tsx');
   const driverQuotes = read('app/driver/quotes/page.tsx');
   const driverDiary = read('app/driver/history/page.tsx');
   const driverReturns = read('app/driver/returns/page.tsx');
@@ -28,8 +29,11 @@ describe('CX global Expand all / Collapse all operational contract', () => {
     expect(driverJobs).toContain('filteredJobs.forEach');
   });
 
-  it('keeps Driver Loads, Quotes and Diary globally expandable', () => {
+  it('keeps Driver Loads, Advanced Search, Quotes and Diary globally expandable', () => {
     expect(driverLoads).toContain("expandAll ? 'Collapse All Entries' : 'Expand All Entries'");
+    expect(driverAdvancedLoads).toContain('OperationalExpandAllControl');
+    expect(driverAdvancedLoads).toContain('allExpanded');
+    expect(driverAdvancedLoads).toContain('new Set(loads.map');
     expect(driverQuotes).toContain("allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'");
     expect(driverDiary).toContain("allExpanded ? 'Collapse all' : 'Expand all'");
   });
