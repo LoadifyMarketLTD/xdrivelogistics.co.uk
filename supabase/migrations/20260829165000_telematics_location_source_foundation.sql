@@ -58,9 +58,14 @@ alter table public.driver_locations
     check (source in ('driver_app', 'telematics')),
   add constraint driver_locations_telematics_provenance_check
     check (
-      source <> 'telematics'
+      (
+        source = 'driver_app'
+        and source_provider is null
+        and source_event_id is null
+      )
       or (
-        source_provider is not null
+        source = 'telematics'
+        and source_provider is not null
         and length(trim(source_provider)) between 2 and 64
         and source_event_id is not null
         and length(trim(source_event_id)) between 1 and 160
@@ -69,6 +74,52 @@ alter table public.driver_locations
         and job_id is not null
       )
     );
+
+-- Direct authenticated location writes remain supported for the Driver app, but
+-- provider provenance is reserved for the service-role integration route. This
+-- prevents an authenticated Driver client from forging source='telematics'.
+drop policy if exists driver_locations_insert_self on public.driver_locations;
+create policy driver_locations_insert_self
+  on public.driver_locations
+  for insert
+  to authenticated
+  with check (
+    source = 'driver_app'
+    and source_provider is null
+    and source_event_id is null
+    and exists (
+      select 1
+      from public.drivers d
+      where d.id = driver_locations.driver_id
+        and d.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists driver_locations_update_self on public.driver_locations;
+create policy driver_locations_update_self
+  on public.driver_locations
+  for update
+  to authenticated
+  using (
+    source = 'driver_app'
+    and exists (
+      select 1
+      from public.drivers d
+      where d.id = driver_locations.driver_id
+        and d.user_id = auth.uid()
+    )
+  )
+  with check (
+    source = 'driver_app'
+    and source_provider is null
+    and source_event_id is null
+    and exists (
+      select 1
+      from public.drivers d
+      where d.id = driver_locations.driver_id
+        and d.user_id = auth.uid()
+    )
+  );
 
 create index if not exists idx_driver_locations_source_recorded
   on public.driver_locations(source, source_provider, recorded_at desc);
