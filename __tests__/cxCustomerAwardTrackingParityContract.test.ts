@@ -5,6 +5,7 @@ const customerOps = fs.readFileSync(path.join(process.cwd(), 'app/customer/Custo
 const awardRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/customer/bids/[id]/award/route.ts'), 'utf8');
 const notificationArchitecture = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/071_notification_architecture.sql'), 'utf8');
 const notificationBridge = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/20260725161000_notification_events_to_notifications_bridge.sql'), 'utf8');
+const notificationProcessor = fs.readFileSync(path.join(process.cwd(), 'supabase/functions/notify-operational-event/index.ts'), 'utf8');
 const memberProfile = fs.readFileSync(path.join(process.cwd(), 'app/api/member-profile/[companyId]/route.ts'), 'utf8');
 const workspaceData = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/useCompanyWorkspaceData.ts'), 'utf8');
 
@@ -24,19 +25,25 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(awardRoute).not.toContain(".from('jobs').update(");
   });
 
-  it('preserves a recipient-scoped won-load event and user inbox bridge', () => {
+  it('preserves a recipient-scoped won-load event, inbox bridge and email handler', () => {
     expect(notificationArchitecture).toContain("'bid_accepted'");
     expect(notificationArchitecture).toContain('NEW.bidder_user_id');
     expect(notificationBridge).toContain("WHEN 'bid_accepted'         THEN 'Your bid was accepted'");
     expect(notificationBridge).toContain('NEW.recipient_user_id');
     expect(notificationBridge).toContain('user_id = auth.uid()');
+    expect(notificationProcessor).toContain('async function handleBidAccepted');
+    expect(notificationProcessor).toContain('Bid Accepted - XDrive Logistics');
   });
 
-  it('does not pretend POD broadcast events automatically become user inbox rows', () => {
+  it('keeps POD broadcast out of personal inbox while delivering company-operator email', () => {
     expect(notificationArchitecture).toContain("'pod_uploaded'");
     expect(notificationArchitecture).toContain('NULL, -- broadcast to company admins');
     expect(notificationBridge).toContain('IF NEW.recipient_user_id IS NULL THEN');
     expect(notificationBridge).toContain('RETURN NEW;');
+    expect(notificationProcessor).toContain('async function handlePodUploaded');
+    expect(notificationProcessor).toContain('emailCompanyOperators(');
+    expect(notificationProcessor).toContain('Job Delivered - POD Ready');
+    expect(notificationProcessor).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
   });
 
   it('does not fabricate member feedback, reputation, bidder ETA or distance', () => {
