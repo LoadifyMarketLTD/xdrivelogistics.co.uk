@@ -98,9 +98,11 @@ Migration `20260725161000_notification_events_to_notifications_bridge.sql` bridg
 - title: `Your bid was accepted`;
 - accepted amount in the notification body when available.
 
-Therefore won-load notification parity is **structurally present**.
+The operational notification processor also implements `handleBidAccepted()` and sends a `Bid Accepted - XDrive Logistics` email to the winning bidder.
 
-Runtime verdict remains **HOSTED VERIFICATION REQUIRED** until the relevant migrations/triggers and downstream delivery path are verified in the hosted database.
+Therefore won-load notification parity is **structurally present for inbox + email**.
+
+Runtime verdict remains **HOSTED VERIFICATION REQUIRED** until the relevant migrations, triggers, deployed Edge Function and provider configuration are verified in the hosted environment.
 
 ## 4. Driver execution / tracking
 
@@ -123,23 +125,23 @@ Migration `071_notification_architecture.sql` creates `pod_uploaded` when a job 
 
 Important distinction:
 
-- `pod_uploaded` currently uses `recipient_user_id = NULL` and is described as a broadcast to company admins;
-- the `notification_events -> notifications` bridge explicitly skips rows with `recipient_user_id IS NULL` because the user-facing inbox requires a concrete user id.
+- `pod_uploaded` uses `recipient_user_id = NULL` and is broadcast at company level;
+- the `notification_events -> notifications` bridge intentionally skips rows with `recipient_user_id IS NULL`, so this event does **not** create a personal inbox row automatically;
+- `supabase/functions/notify-operational-event/index.ts` explicitly implements `handlePodUploaded()`;
+- that handler resolves the job-owning `company_id`, finds active `owner`, `admin` and `dispatcher` memberships, resolves their user emails, and sends `Job Delivered - POD Ready` using the shared idempotent Resend path.
 
-Therefore the existence of a POD event **does not by itself prove** that the Customer/load-poster receives the CX-like inbox/email notification shown in the reference material.
+This matches the important CX behaviour from the supplied reference: the load-poster side receives an email alert that the POD is ready, even though XDrive's user-facing inbox model remains recipient-scoped and does not duplicate company broadcast rows.
 
-Verdict: **PARTIAL / DELIVERY-PATH AUDIT REQUIRED**.
-
-Next audit must verify the operational notification processor / email path for broadcast `pod_uploaded` events before any migration change is proposed.
+Verdict: **KEEP — STATIC CONTRACT**, with **HOSTED VERIFICATION REQUIRED** for deployed function/webhook/provider execution.
 
 ## 6. Safe next execution order
 
 1. Add Customer Award confirmation UX around the existing atomic endpoint; do not alter the RPC.
-2. Audit the deployed/declared operational notification processor for broadcast `pod_uploaded` delivery.
-3. If broadcast delivery is absent, design recipient resolution for the job-owning Customer company without weakening recipient isolation.
-4. Keep member reputation BLOCKED until `reviews` has an unambiguous reviewed-member contract.
-5. Keep quote ETA/distance BLOCKED until a canonical bidder-position/ETA contract exists.
-6. Runtime-validate customer Tracking / Freight Vision against an actually allocated job.
+2. Runtime-verify `bid_accepted` and `pod_uploaded` in the hosted notification pipeline when Supabase project access is available.
+3. Keep member reputation BLOCKED until `reviews` has an unambiguous reviewed-member contract.
+4. Keep quote ETA/distance BLOCKED until a canonical bidder-position/ETA contract exists.
+5. Runtime-validate customer Tracking / Freight Vision against an actually allocated job.
+6. Continue into contextual Customer/Carrier messaging only after the existing message authorization contract is audited.
 
 ## Non-negotiable safety conclusions
 
@@ -147,4 +149,4 @@ Next audit must verify the operational notification processor / email path for b
 - Do not infer rating/reputation from ambiguous `reviews.company_id` semantics.
 - Do not calculate a bidder ETA from unrelated fleet location data.
 - Do not bypass `accept_job_bid_atomic`.
-- Do not mark POD notification PASS solely because `pod_uploaded` exists in `notification_events`.
+- Do not confuse company-broadcast POD email with a recipient-scoped inbox notification.
