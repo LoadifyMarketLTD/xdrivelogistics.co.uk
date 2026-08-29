@@ -255,7 +255,7 @@ export default function CustomerQuotesCxPage() {
         eyebrow="Customer commercial"
         title="Quotes"
         description="Compare carrier responses by load, inspect Fleet or Owner Driver member profiles, then review the selected commercial terms before awarding."
-        actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
+        actions={<><ActionButton tone="secondary" onClick={() => router.push('/customer/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></>}
       />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') ? 'success' : 'danger'}>{message}</AlertBanner>}
