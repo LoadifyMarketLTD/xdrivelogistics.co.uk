@@ -17,8 +17,8 @@ describe('Branch Guardian post-merge security closure', () => {
     );
     expect(source).toContain('FROM PUBLIC, anon, service_role;');
     expect(source).toContain('TO authenticated;');
-    expect(source).toContain(
-      "'service_role',\n    'public.set_vehicle_advertising_state(uuid,text,text,jsonb)',",
+    expect(source).toMatch(
+      /'service_role',\r?\n\s+'public\.set_vehicle_advertising_state\(uuid,text,text,jsonb\)',/,
     );
   });
 

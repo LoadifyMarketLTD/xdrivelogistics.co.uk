@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 
 const COLLECTION_QUEUE_FOLDER = 'xdrive-collection-offline';
 const EVIDENCE_ID_RE = /^[A-Za-z0-9._-]{8,96}$/;

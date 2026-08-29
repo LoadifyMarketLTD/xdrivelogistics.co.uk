@@ -45,3 +45,6 @@ apk_output.txt
 
 # Local Netlify folder
 .netlify
+
+# Supabase CLI local runtime metadata
+/supabase/.temp/

@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 
 const POD_QUEUE_FOLDER = 'xdrive-pod-offline';
 const uriFields = ['photoUris', 'damagePhotoUris', 'documentUris'] as const;

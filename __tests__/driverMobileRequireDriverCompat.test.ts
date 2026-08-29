@@ -82,6 +82,7 @@ beforeEach(() => {
       const selectChain: any = {};
       selectChain.eq = () => selectChain;
       selectChain.is = () => selectChain;
+      selectChain.limit = () => selectChain;
       selectChain.maybeSingle = async () => mocks.deviceBindingResult;
       const updateChain: any = {};
       updateChain.eq = () => updateChain;
