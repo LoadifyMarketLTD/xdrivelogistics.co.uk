@@ -48,6 +48,15 @@ const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number) => {
   return value;
 };
 
+const combinedMetricState = (
+  datasets: Array<{ availability: string; partialData: boolean; limitedData: boolean }>,
+  value: number,
+) => {
+  if (datasets.some((dataset) => dataset.availability !== 'available')) return '—';
+  if (datasets.some((dataset) => dataset.partialData || dataset.limitedData)) return 'Partial';
+  return value;
+};
+
 export default function CustomerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
@@ -129,6 +138,7 @@ export default function CustomerDashboardHome() {
   const invoiceAmount = (value: number) => invoiceDataState ?? money(value);
   const jobsDataset = data.datasets.jobs;
   const bidsDataset = data.datasets.bids;
+  const awaitingAwardMetric = combinedMetricState([jobsDataset, bidsDataset], metrics.awaitingAward.length);
 
   return (
     <PageFrame>
@@ -150,7 +160,7 @@ export default function CustomerDashboardHome() {
             <section className="customer-dash-box">
               <div className="customer-dash-box__head"><strong>Action Centre</strong><span>Needs attention</span></div>
               <div className="customer-dash-box__body"><div className="customer-attention-list">
-                <button className="customer-attention-row" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span className="customer-attention-row__copy"><strong>Quotes awaiting decision</strong><span>Compare carrier price and member profile</span></span><span className="customer-attention-row__count">{metricState(bidsDataset, metrics.awaitingAward.length)}</span></button>
+                <button className="customer-attention-row" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span className="customer-attention-row__copy"><strong>Quotes awaiting decision</strong><span>Compare carrier price and member profile</span></span><span className="customer-attention-row__count">{awaitingAwardMetric}</span></button>
                 <button className="customer-attention-row" data-tone="red" type="button" onClick={() => router.push('/customer/tracking')}><span className="customer-attention-row__copy"><strong>Delivery exceptions</strong><span>Past recorded delivery time</span></span><span className="customer-attention-row__count">{metricState(jobsDataset, metrics.delayed.length)}</span></button>
                 <button className="customer-attention-row" data-tone="green" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Delivery photo evidence</strong><span>Photos available for review; open the booking for full POD state</span></span><span className="customer-attention-row__count">{metricState(jobsDataset, metrics.deliveryPhotoJobs.length)}</span></button>
                 <button className="customer-attention-row" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Document alerts</strong><span>Open Bookings for job documents and POD evidence</span></span><span className="customer-attention-row__count">—</span></button>
@@ -188,7 +198,7 @@ export default function CustomerDashboardHome() {
           items={[
             { key: 'open-loads', label: 'Open Loads', value: metricState(jobsDataset, metrics.openLoads.length), detail: 'Waiting for carrier response', tone: 'blue', onClick: () => router.push('/customer/loads') },
             { key: 'quotes', label: 'Quotes Received', value: metricState(bidsDataset, metrics.quoteHistory.length), detail: 'Carrier responses recorded', tone: 'purple', onClick: () => router.push('/customer/quotes') },
-            { key: 'awaiting', label: 'Awaiting Award', value: bidsDataset.availability === 'available' && jobsDataset.availability === 'available' ? metrics.awaitingAward.length : '—', detail: 'Customer decision needed', tone: metrics.awaitingAward.length ? 'orange' : 'green', onClick: () => router.push('/customer/quotes') },
+            { key: 'awaiting', label: 'Awaiting Award', value: awaitingAwardMetric, detail: 'Customer decision needed', tone: metrics.awaitingAward.length ? 'orange' : 'green', onClick: () => router.push('/customer/quotes') },
             { key: 'active', label: 'Active Deliveries', value: metricState(jobsDataset, metrics.activeDeliveries.length), detail: 'Execution currently moving', tone: metrics.activeDeliveries.length ? 'green' : 'navy', onClick: () => router.push('/customer/tracking') },
             { key: 'delayed', label: 'Delayed', value: metricState(jobsDataset, metrics.delayed.length), detail: 'Past recorded delivery time', tone: metrics.delayed.length ? 'red' : 'green', onClick: () => router.push('/customer/tracking') },
             { key: 'photos', label: 'Delivery Photos', value: metricState(jobsDataset, metrics.deliveryPhotoJobs.length), detail: 'Evidence available to review', tone: 'navy', onClick: () => router.push('/customer/bookings') },
