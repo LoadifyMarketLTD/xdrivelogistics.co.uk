@@ -59,12 +59,23 @@ describe('load posting operational contract', () => {
   });
 
   it('highlights invalid required fields and focuses the first invalid field after submit', () => {
-    expect(form).toContain("setShowValidation(true)");
-    expect(form).toContain("Complete the fields highlighted in red.");
+    expect(form).toContain('setShowValidation(true)');
+    expect(form).toContain('Complete the fields highlighted in red.');
     expect(form).toContain("aria-invalid={errors?.postcode ? 'true' : undefined}");
     expect(form).toContain("aria-invalid={errors?.address ? 'true' : undefined}");
     expect(form).toContain("document.querySelector<HTMLElement>('[aria-invalid=\"true\"]')");
     expect(form).toContain("'#dc2626'");
+  });
+
+  it('uses only future half-hour booking slots instead of arbitrary native time input', () => {
+    expect(form).toContain('const HALF_HOUR_SLOTS = Array.from({ length: 48 }');
+    expect(form).toContain("/^(\\d{2}):(00|30)$/");
+    expect(form).toContain('minutes * 60 > currentSeconds');
+    expect(form).toContain('Choose a future 30-minute slot');
+    expect(form).toContain('30-minute slots only.');
+    expect(form).toContain('No future times remain today — choose tomorrow.');
+    expect(form).toContain('min={minDate}');
+    expect(form).not.toContain('type="time"');
   });
 
   it('keeps capability-labelled vehicle choices consistent with stored requirements', () => {
