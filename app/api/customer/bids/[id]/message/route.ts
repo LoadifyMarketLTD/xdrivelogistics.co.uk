@@ -82,12 +82,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(403, { error: 'An active owner, admin or dispatcher of the load-owning company is required to message a bidder.' });
   }
 
-  // Reuse a verified existing two-party conversation where one exists. The
-  // client cannot provide a conversation id or recipient id for initiation.
+  // Cross-company Messenger threads deliberately use company_id = NULL. This
+  // preserves the existing messages_insert_sender policy for both parties:
+  // each participant may reply as themselves without being falsely required to
+  // join the other participant's company. Access remains participant-scoped by
+  // sender_user_id / recipient_user_id.
   const { data: priorRows, error: priorError } = await supabaseAdmin
     .from('messages')
     .select('conversation_id, sender_user_id, recipient_user_id, created_at')
-    .eq('company_id', job.company_id as string)
+    .is('company_id', null)
     .or(`and(sender_user_id.eq.${user.id},recipient_user_id.eq.${recipientUserId}),and(sender_user_id.eq.${recipientUserId},recipient_user_id.eq.${user.id})`)
     .not('conversation_id', 'is', null)
     .order('created_at', { ascending: false })
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('messages')
     .insert({
-      company_id: job.company_id,
+      company_id: null,
       conversation_id: conversationId,
       sender_user_id: user.id,
       recipient_user_id: recipientUserId,
