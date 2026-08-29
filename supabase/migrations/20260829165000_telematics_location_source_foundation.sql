@@ -9,6 +9,34 @@ alter table public.driver_locations
   add column if not exists source_provider text,
   add column if not exists source_event_id text;
 
+-- Hosted driver_locations still requires geography location NOT NULL, while the
+-- current Driver and Telematics routes publish numeric lat/lng. Keep both
+-- representations canonical at the database boundary so either client shape is
+-- safe and downstream spatial matching always has a geography value.
+create or replace function public.fn_sync_driver_location_coordinates()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public, pg_temp
+as $$
+begin
+  if new.lat is not null and new.lng is not null then
+    new.location := st_setsrid(st_makepoint(new.lng, new.lat), 4326)::geography;
+  elsif new.location is not null then
+    new.lat := st_y(new.location::geometry);
+    new.lng := st_x(new.location::geometry);
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_driver_location_coordinates on public.driver_locations;
+create trigger trg_sync_driver_location_coordinates
+  before insert or update of location, lat, lng on public.driver_locations
+  for each row
+  execute function public.fn_sync_driver_location_coordinates();
+
 alter table public.driver_locations
   drop constraint if exists driver_locations_source_check,
   drop constraint if exists driver_locations_telematics_provenance_check;
