@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../../components/workspace/useOperationsIntelligence';
+import { OperationalSignalStrip } from '../../../components/workspace/OperationalConvergence';
 import {
   ActionButton,
   AlertBanner,
   DataTable,
   EmptyState,
-  KpiCard,
-  KpiGrid,
   PageFrame,
   PageHeader,
   Panel,
@@ -115,6 +114,19 @@ export default function FleetResourcesPage() {
   const attentionCount = resources.filter((row) => row.flags.length > 0).length + unassignedVehicles.length;
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
 
+  const driversAvailable = data.datasets.drivers.availability === 'available';
+  const vehiclesAvailable = data.datasets.vehicles.availability === 'available';
+  const locationsAvailable = data.datasets.locations.availability === 'available';
+  const intelligenceAvailable = !intelligence.error;
+  const fleetSignals = [
+    { key: 'drivers', label: 'Drivers', value: driversAvailable ? data.drivers.length : 'Unavailable', detail: 'Fleet roster', tone: 'blue' as const },
+    { key: 'vehicles', label: 'Vehicles', value: vehiclesAvailable ? data.vehicles.length : 'Unavailable', detail: 'Fleet register', tone: 'blue' as const },
+    { key: 'tracking', label: 'Live tracking', value: driversAvailable && locationsAvailable ? liveTracking : 'Unavailable', detail: 'Fresh positions', tone: 'green' as const },
+    { key: 'advertised', label: 'Advertised', value: vehiclesAvailable && intelligenceAvailable ? advertised : 'Unavailable', detail: 'Exchange / partner', tone: 'purple' as const },
+    { key: 'future', label: 'Future declared', value: driversAvailable && intelligenceAvailable ? futureDeclared : 'Unavailable', detail: 'Position / return journey', tone: 'orange' as const },
+    { key: 'attention', label: 'Needs attention', value: driversAvailable && vehiclesAvailable && locationsAvailable ? attentionCount : 'Unavailable', detail: 'Local resource exceptions', tone: attentionCount ? 'red' as const : 'green' as const },
+  ];
+
   return (
     <PageFrame>
       <PageHeader
@@ -131,21 +143,14 @@ export default function FleetResourcesPage() {
         <AlertBanner tone="warning">Some future-position, return-journey, advertising or timeline metadata is temporarily unavailable. Core fleet and tracking data remains visible.</AlertBanner>
       )}
 
-      <KpiGrid>
-        <KpiCard label="Drivers" value={data.drivers.length} tone="blue" />
-        <KpiCard label="Vehicles" value={data.vehicles.length} tone="blue" />
-        <KpiCard label="Live tracking" value={liveTracking} tone="green" />
-        <KpiCard label="Advertised" value={advertised} tone="purple" />
-        <KpiCard label="Future declared" value={futureDeclared} tone="orange" />
-        <KpiCard label="Needs attention" value={attentionCount} tone={attentionCount ? 'red' : 'green'} />
-      </KpiGrid>
+      <OperationalSignalStrip items={fleetSignals} ariaLabel="Fleet resource signals" />
 
       <Panel title="Resource filters" description="Search the resource register without changing operational records." style={{ marginBottom: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) repeat(2,minmax(150px,1fr)) auto', gap: 8, alignItems: 'end' }}>
           <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Driver, registration, vehicle, route or future position" /></label>
           <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
           <label style={labelStyle}>Tracking<select style={inputStyle} value={tracking} onChange={(event) => setTracking(event.target.value as 'all' | 'live' | 'stale' | 'missing')}><option value="all">All tracking</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>
-          <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 7, minHeight: 36, flexDirection: 'row' }}><input type="checkbox" checked={attentionOnly} onChange={(event) => setAttentionOnly(event.target.checked)} /> Needs attention only</label>
+          <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 7, minHeight: 32, flexDirection: 'row' }}><input type="checkbox" checked={attentionOnly} onChange={(event) => setAttentionOnly(event.target.checked)} /> Needs attention only</label>
         </div>
       </Panel>
 
@@ -185,5 +190,5 @@ export default function FleetResourcesPage() {
   );
 }
 
-const inputStyle = { width: '100%', minHeight: 36, border: '1px solid #cbd5e1', borderRadius: 6, padding: '6px 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
+const inputStyle = { width: '100%', minHeight: 32, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, padding: '5px 8px', background: '#fff', color: 'var(--ws-text, #172033)', fontSize: 12, boxSizing: 'border-box' as const };
+const labelStyle = { display: 'grid', gap: 4, color: 'var(--ws-muted, #64748b)', fontSize: 11, fontWeight: 700 } as const;
