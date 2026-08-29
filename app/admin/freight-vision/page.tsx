@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence, type OperationsJobDetail } from '../../components/workspace/useOperationsIntelligence';
+import { OperationalSignalStrip } from '../../components/workspace/OperationalConvergence';
 import {
   ActionButton,
   AlertBanner,
   DataTable,
   EmptyState,
-  KpiCard,
-  KpiGrid,
   PageFrame,
   PageHeader,
   Panel,
@@ -53,9 +52,6 @@ function operationalState(job: WorkspaceJob, locationTimestamp: string | null): 
   const deliveryTime = timeValue(job.delivery_datetime);
   const pickupStarted = PICKUP_PROGRESS.has(status);
 
-  // CX distinguishes work that has not started from work that started but has
-  // stopped reporting a fresh position. Once the pickup target is at risk,
-  // schedule risk takes precedence over the informational not-started state.
   if (!pickupStarted) {
     if (Number.isFinite(pickupTime)) {
       const minutesToPickup = (pickupTime - now) / 60_000;
@@ -192,6 +188,14 @@ export default function FreightVisionPage() {
   const statuses = useMemo(() => [...new Set(activeJobs.map((job) => String(job.current_status ?? job.status ?? '').toLowerCase()).filter(Boolean))].sort(), [activeJobs]);
   const count = (state: TrackingState) => rows.filter((row) => row.state === state).length;
   const selected = selectedJobId ? rows.find((row) => row.job.id === selectedJobId) ?? null : null;
+  const trackingSignals = [
+    { key: 'active', label: 'Active jobs', value: rows.length, detail: 'All execution work', tone: 'blue' as const, onClick: () => setStateFilter('all') },
+    { key: 'on-time', label: 'On time', value: count('on_time'), detail: 'Fresh / no risk', tone: 'green' as const, onClick: () => setStateFilter('on_time') },
+    { key: 'behind', label: 'Behind ETA', value: count('behind_eta'), detail: 'Schedule risk', tone: 'orange' as const, onClick: () => setStateFilter('behind_eta') },
+    { key: 'late', label: 'Late', value: count('late'), detail: 'Target passed', tone: 'red' as const, onClick: () => setStateFilter('late') },
+    { key: 'tracking', label: 'Not tracking', value: count('not_tracking'), detail: '>20m position gap', tone: 'orange' as const, onClick: () => setStateFilter('not_tracking') },
+    { key: 'not-started', label: 'Not started', value: count('not_started'), detail: 'Execution pending', tone: 'blue' as const, onClick: () => setStateFilter('not_started') },
+  ];
 
   return (
     <PageFrame>
@@ -207,14 +211,7 @@ export default function FreightVisionPage() {
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
       {intelligence.partial && <AlertBanner tone="warning">Some timeline or contact intelligence is temporarily unavailable. Core jobs and live tracking remain visible.</AlertBanner>}
 
-      <KpiGrid>
-        <KpiCard label="Active jobs" value={rows.length} tone="blue" />
-        <KpiCard label="On time" value={count('on_time')} tone="green" />
-        <KpiCard label="Behind ETA" value={count('behind_eta')} tone="orange" />
-        <KpiCard label="Late" value={count('late')} tone="red" />
-        <KpiCard label="Not tracking" value={count('not_tracking')} tone="orange" />
-        <KpiCard label="Not started" value={count('not_started')} tone="blue" />
-      </KpiGrid>
+      <OperationalSignalStrip items={trackingSignals} ariaLabel="Freight Vision operational states" />
 
       <Panel title="Tracking filters" description="Filter by route, live-risk state or job status before acting on an exception." style={{ marginBottom: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
