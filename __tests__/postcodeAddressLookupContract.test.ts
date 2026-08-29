@@ -28,6 +28,18 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain("forward.searchParams.set('country', 'gb')");
   });
 
+  it('accepts only provider results explicitly tied to the requested postcode', () => {
+    expect(route).toContain('Boolean(candidate) && normalizedKey(candidate) === expectedPostcode');
+    expect(route).not.toContain('return !candidate || normalizedKey(candidate) === expectedPostcode');
+  });
+
+  it('clears stale suggestions when postcode or provider state changes', () => {
+    expect(field).toContain('const normalized = normalizePostcode(postcode);\n    setSuggestions([]);\n    setOpen(false);');
+    expect(field).toContain('if (!response.ok)');
+    expect(field).toContain('if (payload.configured === false)');
+    expect(field).toContain('setSuggestions([]);');
+  });
+
   it('does not add another normal-state helper row beneath the address control', () => {
     expect(field).toContain("position: 'absolute'");
     expect(field).toContain('Address suggestions');
