@@ -41,13 +41,11 @@ describe('driver tracking tenant isolation contract', () => {
     expect(location).not.toContain('if (!carrierCompanyId)');
   });
 
-  it('stops operational tracking before clearing account-scoped data on session loss', () => {
+  it('keeps account-scoped offline cleanup safe before Expo background tracking is introduced', () => {
     const sessionLoss = read('apps/driver-mobile/src/auth/sessionLoss.ts');
-    const stopTrackingIndex = sessionLoss.indexOf('stopOperationalTracking');
-    const clearQueueIndex = sessionLoss.indexOf('clearQueue(previousUserId)');
 
-    expect(stopTrackingIndex).toBeGreaterThan(-1);
-    expect(clearQueueIndex).toBeGreaterThan(stopTrackingIndex);
     expect(sessionLoss).toContain('if (!previousUserId) return;');
+    expect(sessionLoss).toContain('clearQueue(previousUserId)');
+    expect(sessionLoss).not.toContain("import('../tracking/operationalTracking')");
   });
 });
