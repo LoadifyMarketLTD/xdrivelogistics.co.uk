@@ -20,7 +20,19 @@ security invoker
 set search_path = public, pg_temp
 as $$
 begin
-  if new.lat is not null and new.lng is not null then
+  if tg_op = 'UPDATE'
+     and new.location is distinct from old.location
+     and new.lat is not distinct from old.lat
+     and new.lng is not distinct from old.lng then
+    -- A legacy/geography writer changed only location. Preserve that update and
+    -- derive the numeric representation from the new geography value.
+    if new.location is not null then
+      new.lat := st_y(new.location::geometry);
+      new.lng := st_x(new.location::geometry);
+    end if;
+  elsif new.lat is not null and new.lng is not null then
+    -- Current Driver/Telematics writers use numeric coordinates. They are the
+    -- source of truth when either numeric coordinate is supplied/changed.
     new.location := st_setsrid(st_makepoint(new.lng, new.lat), 4326)::geography;
   elsif new.location is not null then
     new.lat := st_y(new.location::geometry);
