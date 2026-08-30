@@ -1,251 +1,321 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { supabase } from '../../../lib/supabaseClient';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
-interface DriverDoc {
+type IdentityDocument = {
   id: string;
   doc_type: string;
   file_path: string | null;
+  upload_status: string;
+  verification_status: string;
   issued_date: string | null;
   expiry_date: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+};
+
+type LegacyDocument = {
+  id: string;
+  doc_type: string;
+  status: string;
+  file_path: string | null;
+  issued_date: string | null;
+  expiry_date: string | null;
+  verified_at: string | null;
   rejection_reason: string | null;
   created_at: string;
-}
-
-const DOC_TYPES = [
-  { value: 'Driving Licence', label: 'Driving Licence' },
-  { value: 'Insurance', label: 'Insurance Certificate' },
-  { value: 'DBS Certificate', label: 'DBS Certificate' },
-  { value: 'CPC Card', label: 'CPC Card' },
-  { value: 'Tacho Card', label: 'Tacho Card' },
-  { value: 'Medical Certificate', label: 'Medical Certificate' },
-  { value: 'Other', label: 'Other' },
-];
-
-const STATUS_TONES: Record<DriverDoc['status'], 'orange' | 'green' | 'red' | 'grey'> = {
-  pending: 'orange', approved: 'green', rejected: 'red', expired: 'grey',
+  canonical_doc_type: string | null;
+  reconcile_eligible: boolean;
 };
 
-const MIME_EXTENSIONS: Record<string, string> = {
-  'application/pdf': 'pdf',
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
+type Vehicle = {
+  id: string;
+  registration: string | null;
+  status: string | null;
+  type: string | null;
+  make: string | null;
+  model: string | null;
 };
 
-function fmtDate(value: string | null) {
+type VehicleDocument = {
+  id: string;
+  vehicle_id: string;
+  doc_type: string | null;
+  status: string | null;
+  file_path: string | null;
+  issued_date: string | null;
+  expiry_date: string | null;
+  verified_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+};
+
+type RemediationPayload = {
+  driver?: {
+    id: string;
+    companyId: string;
+    driverType: 'owner_driver' | 'company_driver';
+    appAccess: boolean;
+    canCommercialBid: boolean;
+  };
+  application?: {
+    id: string;
+    account_type: string;
+    status: string;
+    current_step: string | null;
+    risk_status: string;
+  } | null;
+  identityDocuments?: IdentityDocument[];
+  requiredIdentityDocs?: string[];
+  missingRequiredIdentityDocs?: string[];
+  legacyDocuments?: LegacyDocument[];
+  vehicles?: Vehicle[];
+  vehicleDocuments?: VehicleDocument[];
+  operational?: {
+    eligible: boolean;
+    canonicalVehicleId: string | null;
+    blockers: string[];
+    checks: Record<string, boolean> | null;
+  };
+  error?: string;
+};
+
+const IDENTITY_LABELS: Record<string, string> = {
+  driving_licence: 'Driving Licence',
+  proof_of_address: 'Proof of Address',
+  right_to_work: 'Right to Work',
+  insurance: 'Personal / Driver Insurance',
+  cpc: 'CPC Card',
+  visa_document: 'Visa Document',
+};
+
+const BLOCKER_LABELS: Record<string, string> = {
+  driver_account_not_active: 'Driver account is not active.',
+  driver_app_access_disabled: 'Driver app access is still pending.',
+  commercial_bidding_not_permitted: 'Commercial bidding is not enabled.',
+  verified_driver_identity_missing: 'Platform identity approval is still pending.',
+  driver_onboarding_not_approved: 'Canonical onboarding remediation is awaiting approval.',
+  driver_personal_compliance_not_current: 'Required personal compliance documents are missing, unverified or expired.',
+  driver_company_not_active: 'Driver company is not active.',
+  driver_company_membership_not_active: 'Active company membership is required.',
+  canonical_vehicle_missing: 'Assign one active vehicle to the Driver profile.',
+  canonical_vehicle_ambiguous: 'More than one active vehicle is assigned to the Driver profile.',
+  canonical_vehicle_company_mismatch: 'The canonical vehicle company does not match the Driver company.',
+  operational_eligibility_unavailable: 'Operational eligibility is temporarily unavailable.',
+};
+
+const MIME_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
+
+function fmtDate(value: string | null | undefined) {
   if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-GB');
 }
 
-function daysUntil(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+function humanBlocker(value: string) {
+  if (value.startsWith('vehicle_document_missing_or_invalid:')) {
+    const type = value.split(':')[1];
+    return type === 'mot'
+      ? 'A current approved MOT is required for the canonical vehicle.'
+      : 'Current approved Vehicle Insurance is required for the canonical vehicle.';
+  }
+  return BLOCKER_LABELS[value] ?? value.replace(/_/g, ' ');
+}
+
+function documentTone(status: string | null | undefined): 'green' | 'orange' | 'red' | 'grey' {
+  const normalized = String(status ?? '').toLowerCase();
+  if (['approved', 'verified'].includes(normalized)) return 'green';
+  if (['rejected', 'expired'].includes(normalized)) return 'red';
+  if (['pending', 'under_review', 'unverified', 'uploaded'].includes(normalized)) return 'orange';
+  return 'grey';
 }
 
 export default function DriverDocumentsPage() {
   const { user } = useAuth();
-  const [driverId, setDriverId] = useState<string | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [docs, setDocs] = useState<DriverDoc[]>([]);
+  const identityFileRef = useRef<HTMLInputElement>(null);
+  const vehicleFileRef = useRef<HTMLInputElement>(null);
+  const [snapshot, setSnapshot] = useState<RemediationPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showUpload, setShowUpload] = useState(false);
-  const [docType, setDocType] = useState(DOC_TYPES[0].value);
-  const [issuedDate, setIssuedDate] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState('');
-  const [loadError, setLoadError] = useState('');
-  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [showIdentityUpload, setShowIdentityUpload] = useState(false);
+  const [identityDocType, setIdentityDocType] = useState('driving_licence');
+  const [identityFile, setIdentityFile] = useState<File | null>(null);
+  const [showVehicleUpload, setShowVehicleUpload] = useState(false);
+  const [vehicleId, setVehicleId] = useState('');
+  const [vehicleDocType, setVehicleDocType] = useState<'mot' | 'insurance'>('mot');
+  const [vehicleIssuedDate, setVehicleIssuedDate] = useState('');
+  const [vehicleExpiryDate, setVehicleExpiryDate] = useState('');
+  const [vehicleFile, setVehicleFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const loadDocs = async (currentDriverId: string) => {
-    const { data, error } = await supabase
-      .from('driver_documents')
-      .select('id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, created_at')
-      .eq('driver_id', currentDriverId)
-      .order('created_at', { ascending: false });
+  const authHeader = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token?.trim();
+    return token ? `Bearer ${token}` : null;
+  }, []);
 
-    if (error) {
-      setLoadError('Your compliance documents could not be loaded.');
-      setDocs([]);
-    } else {
-      setLoadError('');
-      setDocs((data ?? []) as DriverDoc[]);
-    }
-  };
-
-  const loadDriver = async () => {
-    if (!isSupabaseConfigured || !user?.id) {
-      setLoading(false);
-      return;
-    }
-
+  const load = useCallback(async () => {
     setLoading(true);
-    setLoadError('');
-    const { data, error } = await supabase
-      .from('drivers')
-      .select('id, company_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (error || !data) {
-      setLoadError('Your driver profile could not be resolved for document management.');
+    setError('');
+    const authorization = await authHeader();
+    if (!authorization) {
+      setSnapshot(null);
+      setError('Your session has expired. Sign in again to manage compliance.');
       setLoading(false);
       return;
     }
 
-    setDriverId(data.id as string);
-    setCompanyId((data as { id: string; company_id: string | null }).company_id);
-    await loadDocs(data.id as string);
+    const response = await fetch('/api/driver/compliance/remediation', {
+      headers: { Authorization: authorization },
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({})) as RemediationPayload;
+    if (!response.ok) {
+      setSnapshot(null);
+      setError(payload.error || 'Compliance remediation could not be loaded.');
+    } else {
+      setSnapshot(payload);
+      const firstVehicle = payload.vehicles?.[0]?.id ?? '';
+      setVehicleId((current) => current || firstVehicle);
+      const firstMissing = payload.missingRequiredIdentityDocs?.[0];
+      if (firstMissing) setIdentityDocType(firstMissing);
+    }
     setLoading(false);
-  };
+  }, [authHeader]);
 
   useEffect(() => {
-    void loadDriver();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    if (user) void load();
+  }, [load, user]);
 
-  const approved = useMemo(() => docs.filter((doc) => doc.status === 'approved').length, [docs]);
-  const pending = useMemo(() => docs.filter((doc) => doc.status === 'pending').length, [docs]);
-  const rejected = useMemo(() => docs.filter((doc) => doc.status === 'rejected').length, [docs]);
-  const expiringSoon = useMemo(() => docs.filter((doc) => {
-    const days = daysUntil(doc.expiry_date);
-    return days != null && days >= 0 && days <= 30;
-  }).length, [docs]);
-  const expired = useMemo(() => docs.filter((doc) => {
-    const days = daysUntil(doc.expiry_date);
-    return doc.status === 'expired' || (days != null && days < 0);
-  }).length, [docs]);
+  const requiredIdentityDocs = snapshot?.requiredIdentityDocs ?? [];
+  const identityDocuments = snapshot?.identityDocuments ?? [];
+  const legacyDocuments = snapshot?.legacyDocuments ?? [];
+  const vehicles = snapshot?.vehicles ?? [];
+  const vehicleDocuments = snapshot?.vehicleDocuments ?? [];
+  const blockers = snapshot?.operational?.blockers ?? [];
+  const eligible = snapshot?.operational?.eligible === true;
 
-  const handleUpload = async () => {
-    setUploadError('');
-    setUploadSuccess('');
-    if (!file) return setUploadError('Select a PDF or image before submitting.');
-    if (!driverId) return setUploadError('Driver profile not found.');
-    if (file.size <= 0 || file.size > 10 * 1024 * 1024) return setUploadError('File must be 10 MB or smaller.');
+  const verifiedIdentityCount = useMemo(
+    () => requiredIdentityDocs.filter((docType) => identityDocuments.some((document) =>
+      document.doc_type === docType
+      && document.verification_status === 'verified'
+      && Boolean(document.file_path),
+    )).length,
+    [identityDocuments, requiredIdentityDocs],
+  );
 
-    const extension = MIME_EXTENSIONS[file.type.toLowerCase()];
-    if (!extension) return setUploadError('Use a PDF, JPG, PNG or WEBP document.');
-    if (issuedDate && expiryDate && expiryDate < issuedDate) {
-      return setUploadError('Expiry date cannot be before the issue date.');
+  const approvedVehicleDocCount = useMemo(
+    () => vehicleDocuments.filter((document) => document.status === 'approved').length,
+    [vehicleDocuments],
+  );
+
+  const reconcileCount = useMemo(
+    () => legacyDocuments.filter((document) => document.reconcile_eligible).length,
+    [legacyDocuments],
+  );
+
+  const reconcileLegacy = async () => {
+    setSaving(true); setError(''); setNotice('');
+    const authorization = await authHeader();
+    if (!authorization) {
+      setSaving(false); setError('Your session has expired.'); return;
     }
-
-    setUploading(true);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token?.trim();
-    if (!accessToken) {
-      setUploading(false);
-      setUploadError('Your session has expired. Please sign in again.');
-      return;
-    }
-
-    const tenantAnchor = companyId ?? driverId;
-    const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const storagePath = `${tenantAnchor}/${driverId}/${uploadId}.${extension}`;
-    const { error: storageError } = await supabase.storage
-      .from('driver-docs')
-      .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-    if (storageError) {
-      setUploading(false);
-      setUploadError('The file upload failed. Please try again.');
-      return;
-    }
-
-    const response = await fetch('/api/driver/documents', {
+    const response = await fetch('/api/driver/compliance/remediation', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        storagePath,
-        docType,
-        issuedDate,
-        expiryDate,
-        mimeType: file.type,
-      }),
-    }).catch(() => null);
-
-    const recoverPersistedRecord = async () => {
-      const { data, error } = await supabase
-        .from('driver_documents')
-        .select('id')
-        .eq('driver_id', driverId)
-        .eq('file_path', storagePath)
-        .maybeSingle();
-      return !error && Boolean(data?.id);
-    };
-
-    if (!response) {
-      const persisted = await recoverPersistedRecord();
-      if (!persisted) await supabase.storage.from('driver-docs').remove([storagePath]);
-      setUploading(false);
-      if (!persisted) {
-        setUploadError('The document record could not be confirmed. The uploaded file was removed safely.');
-        return;
-      }
-    } else {
-      const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) {
-        const persisted = await recoverPersistedRecord();
-        if (!persisted) await supabase.storage.from('driver-docs').remove([storagePath]);
-        setUploading(false);
-        if (!persisted) {
-          setUploadError(payload.error || 'The document could not be submitted. Please try again.');
-          return;
-        }
-      } else {
-        setUploading(false);
-      }
+      headers: { Authorization: authorization, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reconcile_legacy_identity_documents' }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string; reconciled?: string[] };
+    setSaving(false);
+    if (!response.ok) {
+      setError(payload.error || 'Approved legacy documents could not be reconciled safely.');
+      return;
     }
-
-    setUploadSuccess(`${docType} submitted for review.`);
-    setFile(null);
-    setIssuedDate('');
-    setExpiryDate('');
-    setDocType(DOC_TYPES[0].value);
-    if (fileRef.current) fileRef.current.value = '';
-    await loadDocs(driverId);
+    const labels = (payload.reconciled ?? []).map((type) => IDENTITY_LABELS[type] ?? type);
+    setNotice(labels.length
+      ? `Approved legacy evidence reconciled: ${labels.join(', ')}.`
+      : 'No additional approved legacy evidence required reconciliation.');
+    await load();
   };
 
-  const getSignedUrl = async (filePath: string, docId: string) => {
-    if (signedUrls[docId]) {
-      window.open(signedUrls[docId], '_blank', 'noopener,noreferrer');
+  const uploadIdentityDocument = async () => {
+    if (!identityFile) { setError('Choose a personal compliance document.'); return; }
+    setSaving(true); setError(''); setNotice('');
+    const authorization = await authHeader();
+    if (!authorization) { setSaving(false); setError('Your session has expired.'); return; }
+
+    const formData = new FormData();
+    formData.append('file', identityFile);
+    formData.append('docType', identityDocType);
+    const response = await fetch('/api/onboarding/documents', {
+      method: 'POST',
+      headers: { Authorization: authorization },
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setSaving(false);
+    if (!response.ok) {
+      setError(payload.error || 'Personal compliance document could not be submitted.');
       return;
     }
-    const { data, error } = await supabase.storage.from('driver-docs').createSignedUrl(filePath, 3600);
-    if (error || !data?.signedUrl) {
-      setLoadError('That document could not be opened.');
+    setNotice(`${IDENTITY_LABELS[identityDocType] ?? identityDocType} submitted for Platform review.`);
+    setIdentityFile(null);
+    setShowIdentityUpload(false);
+    if (identityFileRef.current) identityFileRef.current.value = '';
+    await load();
+  };
+
+  const uploadVehicleDocument = async () => {
+    if (!vehicleId) { setError('No active assigned vehicle is available.'); return; }
+    if (!vehicleFile) { setError('Choose a vehicle compliance document.'); return; }
+    if (!vehicleExpiryDate) { setError('Enter the document expiry date.'); return; }
+    setSaving(true); setError(''); setNotice('');
+    const authorization = await authHeader();
+    if (!authorization) { setSaving(false); setError('Your session has expired.'); return; }
+
+    const formData = new FormData();
+    formData.append('file', vehicleFile);
+    formData.append('vehicleId', vehicleId);
+    formData.append('docType', vehicleDocType);
+    formData.append('issuedDate', vehicleIssuedDate);
+    formData.append('expiryDate', vehicleExpiryDate);
+    const response = await fetch('/api/driver/compliance/vehicle-documents', {
+      method: 'POST',
+      headers: { Authorization: authorization },
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setSaving(false);
+    if (!response.ok) {
+      setError(payload.error || 'Vehicle compliance document could not be submitted.');
       return;
     }
-    setSignedUrls((previous) => ({ ...previous, [docId]: data.signedUrl }));
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    setNotice(`${vehicleDocType === 'mot' ? 'MOT' : 'Vehicle Insurance'} submitted for Platform review.`);
+    setVehicleFile(null);
+    setVehicleIssuedDate('');
+    setVehicleExpiryDate('');
+    setShowVehicleUpload(false);
+    if (vehicleFileRef.current) vehicleFileRef.current.value = '';
+    await load();
   };
 
   const complianceRail = (
-    <aside className="driver-filter-rail" aria-label="Compliance document summary">
-      <div className="driver-filter-rail__header">Compliance Documents</div>
+    <aside className="driver-filter-rail" aria-label="Canonical compliance summary">
+      <div className="driver-filter-rail__header">Compliance Status</div>
       <div className="driver-filter-rail__body">
-        <div className="driver-detail-item"><span>Documents</span><strong>{docs.length}</strong></div>
-        <div className="driver-detail-item"><span>Approved records</span><strong>{approved}</strong></div>
-        <div className="driver-detail-item"><span>Pending review</span><strong>{pending}</strong></div>
-        <div className="driver-detail-item"><span>Expiring ≤30d</span><strong>{expiringSoon}</strong></div>
-        <div className="driver-detail-item"><span>Rejected</span><strong>{rejected}</strong></div>
-        <div className="driver-detail-item"><span>Expired</span><strong>{expired}</strong></div>
-        <ActionButton tone="success" onClick={() => { setShowUpload(true); setUploadError(''); setUploadSuccess(''); }}>+ Upload document</ActionButton>
+        <div className="driver-detail-item"><span>Operational eligibility</span><strong>{eligible ? 'Eligible' : 'Blocked'}</strong></div>
+        <div className="driver-detail-item"><span>Onboarding</span><strong>{snapshot?.application?.status ?? 'Missing'}</strong></div>
+        <div className="driver-detail-item"><span>Identity verified</span><strong>{verifiedIdentityCount}/{requiredIdentityDocs.length}</strong></div>
+        <div className="driver-detail-item"><span>Vehicle approvals</span><strong>{approvedVehicleDocCount}/2 required</strong></div>
+        <div className="driver-detail-item"><span>Canonical vehicle</span><strong>{snapshot?.operational?.canonicalVehicleId ? 'Assigned' : 'Missing'}</strong></div>
+        <ActionButton tone="primary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>
       </div>
     </aside>
   );
@@ -253,71 +323,163 @@ export default function DriverDocumentsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Driver compliance document review, expiry attention and upload. Operational eligibility is resolved separately by the canonical eligibility contract."
-        headerActions={<ActionButton tone="primary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
+        subtitle="Canonical Driver identity, personal compliance and vehicle evidence used by operational eligibility."
+        headerActions={<ActionButton tone="primary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
       >
-        {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
-        {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}
-        {uploadSuccess && <AlertBanner tone="success">{uploadSuccess}</AlertBanner>}
+        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
+        {!loading && snapshot && !eligible && (
+          <AlertBanner tone="warning">
+            <strong>Operational eligibility is not complete.</strong>{' '}
+            Finish the items below and wait for required Platform review before quoting.
+          </AlertBanner>
+        )}
 
         <div className="driver-board-layout driver-documents-board">
           {complianceRail}
           <main className="driver-board-main">
-            {showUpload && (
-              <section className="driver-row-details">
-                <div className="driver-detail-tabs"><strong>Upload document</strong></div>
-                <div className="driver-detail-grid">
-                  <label className="driver-filter-field">Document type<select value={docType} onChange={(event) => setDocType(event.target.value)}>{DOC_TYPES.map((doc) => <option key={doc.value} value={doc.value}>{doc.label}</option>)}</select></label>
-                  <label className="driver-filter-field">Issue date<input type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} /></label>
-                  <label className="driver-filter-field">Expiry date<input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} /></label>
-                  <label className="driver-filter-field">File<input ref={fileRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
-                </div>
-                <div className="driver-row-actions" style={{ marginTop: 5 }}>
-                  <ActionButton tone="secondary" onClick={() => { setShowUpload(false); setUploadError(''); }}>Cancel</ActionButton>
-                  <ActionButton tone="success" onClick={() => void handleUpload()} disabled={uploading || !file}>{uploading ? 'Uploading…' : 'Submit document'}</ActionButton>
-                </div>
-              </section>
-            )}
-
-            <div className="driver-board-summary">
-              <span><strong>Compliance documents</strong> · {docs.length} record{docs.length === 1 ? '' : 's'}</span>
-              {!showUpload && <ActionButton tone="success" onClick={() => { setShowUpload(true); setUploadError(''); setUploadSuccess(''); }}>+ Upload document</ActionButton>}
-            </div>
-
             {loading ? (
-              <div className="driver-load-row"><EmptyState compact title="Loading documents…" /></div>
-            ) : docs.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No compliance documents uploaded" description="Upload the documents required for your driver record. Eligibility is assessed separately from this document register." /></div>
+              <div className="driver-load-row"><EmptyState compact title="Loading canonical compliance…" /></div>
+            ) : !snapshot ? (
+              <div className="driver-load-row"><EmptyState compact title="Compliance status unavailable" /></div>
             ) : (
-              <div className="driver-load-list">
-                {docs.map((doc) => {
-                  const days = daysUntil(doc.expiry_date);
-                  const expiryLabel = days == null ? 'No expiry recorded' : days < 0 ? 'Past expiry date' : days <= 30 ? `${days} days to expiry` : 'In date';
-                  const expiryTone: 'green' | 'orange' | 'red' | 'grey' = days == null ? 'grey' : days < 0 ? 'red' : days <= 30 ? 'orange' : 'green';
-                  const recordSignal = doc.status === 'approved'
-                    ? (days != null && days < 0 ? 'Approved record · expiry attention' : 'Approved record')
-                    : doc.status === 'pending'
-                      ? 'Pending review'
-                      : doc.status === 'rejected'
-                        ? 'Rejected record'
-                        : 'Expired record';
-                  return (
-                    <article key={doc.id} className="driver-load-row" data-state={doc.status}>
-                      <div className="driver-load-row__top">
-                        <div className="driver-load-cell"><span className="driver-cell-label">Document</span><strong className="driver-cell-primary">{doc.doc_type}</strong><span className="driver-cell-secondary">Uploaded {fmtDate(doc.created_at)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Dates</span><strong className="driver-cell-primary">{fmtDate(doc.issued_date)} → {fmtDate(doc.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={expiryLabel} tone={expiryTone} /></span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{doc.status}</strong><span className="driver-cell-secondary">{doc.rejection_reason ?? 'No review note'}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Record signal</span><strong className="driver-cell-primary">{recordSignal}</strong><span className="driver-cell-secondary">Document status only · not full eligibility</span></div>
+              <>
+                <section className="driver-row-details">
+                  <div className="driver-detail-tabs"><strong>Why quoting is {eligible ? 'available' : 'blocked'}</strong></div>
+                  {eligible ? (
+                    <AlertBanner tone="success">Driver identity, personal compliance and canonical vehicle checks are currently satisfied.</AlertBanner>
+                  ) : blockers.length ? (
+                    <div className="driver-detail-grid">
+                      {blockers.map((blocker) => (
+                        <div className="driver-detail-item" key={blocker}>
+                          <span>Required action</span>
+                          <strong>{humanBlocker(blocker)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <EmptyState compact title="Eligibility is blocked" description="Refresh the page to load the latest compliance reasons." />}
+                </section>
+
+                <div className="driver-board-summary">
+                  <span><strong>Personal identity & compliance</strong> · {verifiedIdentityCount}/{requiredIdentityDocs.length} required verified</span>
+                  <ActionButton tone="success" onClick={() => setShowIdentityUpload(true)}>+ Upload required document</ActionButton>
+                </div>
+
+                {showIdentityUpload && (
+                  <section className="driver-row-details">
+                    <div className="driver-detail-grid">
+                      <label className="driver-filter-field">Document type
+                        <select value={identityDocType} onChange={(event) => setIdentityDocType(event.target.value)}>
+                          {Array.from(new Set([...requiredIdentityDocs, 'cpc', 'visa_document'])).map((type) => (
+                            <option key={type} value={type}>{IDENTITY_LABELS[type] ?? type}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="driver-filter-field">File
+                        <input ref={identityFileRef} type="file" accept={MIME_ACCEPT} onChange={(event) => setIdentityFile(event.target.files?.[0] ?? null)} />
+                      </label>
+                    </div>
+                    <div className="driver-row-actions" style={{ marginTop: 5 }}>
+                      <ActionButton tone="secondary" onClick={() => setShowIdentityUpload(false)}>Cancel</ActionButton>
+                      <ActionButton tone="success" onClick={() => void uploadIdentityDocument()} disabled={saving || !identityFile}>{saving ? 'Submitting…' : 'Submit for review'}</ActionButton>
+                    </div>
+                  </section>
+                )}
+
+                <div className="driver-load-list">
+                  {requiredIdentityDocs.map((docType) => {
+                    const matches = identityDocuments.filter((document) => document.doc_type === docType);
+                    const preferred = matches.find((document) => document.verification_status === 'verified') ?? matches[0] ?? null;
+                    return (
+                      <article className="driver-load-row" key={docType} data-state={preferred?.verification_status ?? 'missing'}>
+                        <div className="driver-load-row__top">
+                          <div className="driver-load-cell"><span className="driver-cell-label">Required document</span><strong className="driver-cell-primary">{IDENTITY_LABELS[docType] ?? docType}</strong><span className="driver-cell-secondary">Canonical onboarding evidence</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Upload</span><strong className="driver-cell-primary">{preferred?.upload_status ?? 'missing'}</strong><span className="driver-cell-secondary">{preferred?.file_path ? 'Secure file recorded' : 'No canonical file yet'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{preferred?.verification_status ?? 'missing'}</strong><span className="driver-cell-secondary">{preferred?.review_notes ?? 'Platform verification required'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Expiry</span><strong className="driver-cell-primary">{fmtDate(preferred?.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={preferred?.verification_status ?? 'missing'} tone={documentTone(preferred?.verification_status)} /></span></div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {legacyDocuments.length > 0 && (
+                  <section className="driver-row-details">
+                    <div className="driver-detail-tabs"><strong>Approved legacy evidence</strong></div>
+                    <p style={{ margin: '6px 0', fontSize: 12, color: '#475569' }}>
+                      Older approved Driver documents are preserved. Only unambiguous, currently valid evidence with an existing review can be copied into the canonical onboarding registry; nothing is silently re-approved.
+                    </p>
+                    <div className="driver-detail-grid">
+                      {legacyDocuments.map((document) => (
+                        <div className="driver-detail-item" key={document.id}>
+                          <span>{document.doc_type}</span>
+                          <strong>{document.status}</strong>
+                          <small>{document.reconcile_eligible ? 'Eligible for canonical reconciliation' : `Preserved legacy record · expiry ${fmtDate(document.expiry_date)}`}</small>
+                        </div>
+                      ))}
+                    </div>
+                    {reconcileCount > 0 && (
+                      <div className="driver-row-actions" style={{ marginTop: 6 }}>
+                        <ActionButton tone="primary" onClick={() => void reconcileLegacy()} disabled={saving}>{saving ? 'Reconciling…' : `Reconcile ${reconcileCount} approved legacy record${reconcileCount === 1 ? '' : 's'}`}</ActionButton>
                       </div>
-                      <div className="driver-load-row__meta">
-                        <span>Document #{doc.id.slice(0, 8).toUpperCase()}</span>
-                        <StatusBadge value={doc.status} tone={STATUS_TONES[doc.status]} />
-                        <div className="driver-row-actions">{doc.file_path ? <ActionButton tone="secondary" onClick={() => void getSignedUrl(doc.file_path as string, doc.id)}>View document</ActionButton> : <span>File unavailable</span>}</div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                    )}
+                  </section>
+                )}
+
+                <div className="driver-board-summary">
+                  <span><strong>Canonical vehicle compliance</strong> · MOT + Vehicle Insurance must both be approved and current</span>
+                  {vehicles.length > 0 && <ActionButton tone="success" onClick={() => setShowVehicleUpload(true)}>+ Upload vehicle document</ActionButton>}
+                </div>
+
+                {showVehicleUpload && vehicles.length > 0 && (
+                  <section className="driver-row-details">
+                    <div className="driver-detail-grid">
+                      <label className="driver-filter-field">Vehicle
+                        <select value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
+                          {vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration ?? vehicle.id.slice(0, 8)}</option>)}
+                        </select>
+                      </label>
+                      <label className="driver-filter-field">Document type
+                        <select value={vehicleDocType} onChange={(event) => setVehicleDocType(event.target.value as 'mot' | 'insurance')}>
+                          <option value="mot">MOT</option>
+                          <option value="insurance">Vehicle Insurance</option>
+                        </select>
+                      </label>
+                      <label className="driver-filter-field">Issue date<input type="date" value={vehicleIssuedDate} onChange={(event) => setVehicleIssuedDate(event.target.value)} /></label>
+                      <label className="driver-filter-field">Expiry date<input type="date" value={vehicleExpiryDate} onChange={(event) => setVehicleExpiryDate(event.target.value)} /></label>
+                      <label className="driver-filter-field">File<input ref={vehicleFileRef} type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => setVehicleFile(event.target.files?.[0] ?? null)} /></label>
+                    </div>
+                    <div className="driver-row-actions" style={{ marginTop: 5 }}>
+                      <ActionButton tone="secondary" onClick={() => setShowVehicleUpload(false)}>Cancel</ActionButton>
+                      <ActionButton tone="success" onClick={() => void uploadVehicleDocument()} disabled={saving || !vehicleFile || !vehicleExpiryDate}>{saving ? 'Submitting…' : 'Submit for review'}</ActionButton>
+                    </div>
+                  </section>
+                )}
+
+                {vehicles.length === 0 ? (
+                  <div className="driver-load-row"><EmptyState compact title="No active vehicle assigned" description="Assign exactly one active vehicle from Vehicle before submitting vehicle compliance evidence." /></div>
+                ) : (
+                  <div className="driver-load-list">
+                    {vehicles.map((vehicle) => {
+                      const docs = vehicleDocuments.filter((document) => document.vehicle_id === vehicle.id);
+                      return ['mot', 'insurance'].map((docType) => {
+                        const matches = docs.filter((document) => String(document.doc_type ?? '').toLowerCase() === docType);
+                        const preferred = matches.find((document) => document.status === 'approved') ?? matches[0] ?? null;
+                        return (
+                          <article className="driver-load-row" key={`${vehicle.id}-${docType}`} data-state={preferred?.status ?? 'missing'}>
+                            <div className="driver-load-row__top">
+                              <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicle.registration ?? 'Vehicle'}</strong><span className="driver-cell-secondary">{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.type || 'Assigned vehicle'}</span></div>
+                              <div className="driver-load-cell"><span className="driver-cell-label">Required evidence</span><strong className="driver-cell-primary">{docType === 'mot' ? 'MOT' : 'Vehicle Insurance'}</strong><span className="driver-cell-secondary">Canonical vehicle compliance</span></div>
+                              <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{preferred?.status ?? 'missing'}</strong><span className="driver-cell-secondary">{preferred?.rejection_reason ?? 'Platform approval required'}</span></div>
+                              <div className="driver-load-cell"><span className="driver-cell-label">Expiry</span><strong className="driver-cell-primary">{fmtDate(preferred?.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={preferred?.status ?? 'missing'} tone={documentTone(preferred?.status)} /></span></div>
+                            </div>
+                          </article>
+                        );
+                      });
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </main>
         </div>
