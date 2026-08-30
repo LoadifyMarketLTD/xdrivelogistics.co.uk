@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
+  const admin = supabaseAdmin;
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: platform owner role required.' });
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await admin
     .from('onboarding_applications')
     .select('id, user_id, email, account_type, status, current_step, completion_percentage, risk_status, risk_reason, company_id, payload, created_at, submitted_at, last_activity_at')
     .in('status', ['submitted', 'under_review', 'request_changes'])
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   let companies: Array<{ id: string; name: string | null; status: string | null }> = [];
   if (companyIds.length > 0) {
-    const { data: companyData, error: companyError } = await supabaseAdmin
+    const { data: companyData, error: companyError } = await admin
       .from('companies')
       .select('id, name, status')
       .in('id', companyIds);
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   const compliance = await Promise.all(
     rows.map(async (row) => {
-      const { data: missingData, error: missingError } = await supabaseAdmin.rpc(
+      const { data: missingData, error: missingError } = await admin.rpc(
         'get_missing_onboarding_documents',
         { p_application_id: row.id },
       );
