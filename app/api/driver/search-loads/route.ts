@@ -65,6 +65,7 @@ type SearchLoadRow = Record<string, unknown> & {
   distance_miles: number | string | null;
   job_distance_miles: number | string | null;
   exchange_posted_at: string | null;
+  exchange_expires_at: string | null;
   exchange_visibility: string | null;
   direct_invite_company_id: string | null;
   companies: CompanyRef;
@@ -84,7 +85,7 @@ const SEARCH_SELECT = [
   'load_details', 'special_requirements',
   'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
-  'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at',
+  'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at', 'exchange_expires_at',
   'exchange_visibility', 'direct_invite_company_id',
   'companies!jobs_company_id_fkey(name,company_number,phone,company_type,created_at)',
 ].join(',');
@@ -104,6 +105,12 @@ function postcodeKey(value: unknown) {
 
 function companyInfo(value: CompanyRef) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function exchangePostActive(row: SearchLoadRow, nowMs = Date.now()) {
+  if (!row.exchange_expires_at) return true;
+  const expires = new Date(row.exchange_expires_at).getTime();
+  return Number.isFinite(expires) && expires > nowMs;
 }
 
 function distanceMiles(from: Coordinates, to: Coordinates) {
@@ -276,7 +283,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const rows = (data ?? []) as unknown as SearchLoadRow[];
+  const rows = ((data ?? []) as unknown as SearchLoadRow[]).filter((row) => exchangePostActive(row));
   const geocoded = await postcodeCoordinates([
     ...rows.map((row) => row.pickup_postcode),
     ...rows.map((row) => row.delivery_postcode),
