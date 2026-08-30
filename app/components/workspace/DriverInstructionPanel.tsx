@@ -45,6 +45,11 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({})) as Partial<InstructionState> & { error?: string };
+      if (response.status === 403 || response.status === 404) {
+        setState(null);
+        setError('');
+        return;
+      }
       if (!response.ok) throw new Error(payload.error || 'Driver instructions are unavailable.');
       setState({
         canAdd: payload.canAdd === true,
