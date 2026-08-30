@@ -45,7 +45,7 @@ describe('Driver operational instructions contract', () => {
     expect(instructionRoute).toContain('const executionBound = Boolean(');
     expect(instructionRoute).toContain('job.awarded_carrier_company_id');
     expect(instructionRoute).toContain('job.assigned_driver_id');
-    expect(instructionRoute).toContain('TERMINAL_STATUSES.has(status)');
+    expect(instructionRoute).toContain('terminalJobStatus(job)');
     expect(instructionRoute).toContain('New Driver instructions can no longer be added.');
   });
 
@@ -78,10 +78,10 @@ describe('Driver operational instructions contract', () => {
   });
 
   test('reconciles the Driver inbox backend with the Expo alerts contract', () => {
-    expect(driverResourcesRoute).toContain('const alerts = notifications.map((row) => ({');
-    expect(driverResourcesRoute).toContain('event_type: String(row.type || \'notification\')');
+    expect(driverResourcesRoute).toContain('const alerts = [...operationalAlerts, ...inboxAlerts]');
+    expect(driverResourcesRoute).toContain("event_type: String(row.type || 'notification')");
     expect(driverResourcesRoute).toContain('payload: {');
     expect(driverResourcesRoute).toContain('alerts,');
-    expect(driverResourcesRoute).toContain('notifications,');
+    expect(driverResourcesRoute).toContain('notifications: inboxNotifications');
   });
 });
