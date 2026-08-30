@@ -31,14 +31,21 @@ const LEGACY_MAP: Record<string, string> = {
   Insurance: 'insurance',
 };
 
+type LegacyDriverDocument = {
+  id: string;
+  doc_type: string | null;
+  status: string | null;
+  file_path: string | null;
+  issued_date: string | null;
+  expiry_date: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  created_at: string;
+};
+
 const today = () => new Date().toISOString().slice(0, 10);
 
-const isCurrentLegacyEvidence = (row: {
-  issued_date?: string | null;
-  expiry_date?: string | null;
-  verified_by?: string | null;
-  verified_at?: string | null;
-}) => {
+const isCurrentLegacyEvidence = (row: Pick<LegacyDriverDocument, 'issued_date' | 'expiry_date' | 'verified_by' | 'verified_at'>) => {
   const current = today();
   if (!row.verified_by || !row.verified_at) return false;
   if (row.issued_date && row.issued_date > current) return false;
@@ -47,12 +54,11 @@ const isCurrentLegacyEvidence = (row: {
 };
 
 async function loadApplication(context: ComplianceDriverContext) {
-  const { data, error } = await supabaseAdmin!
+  return supabaseAdmin!
     .from('onboarding_applications')
     .select('id,user_id,company_id,account_type,workspace_mode,owner_driver_workspace,status,current_step,risk_status,submitted_at,payload')
     .eq('user_id', context.userId)
     .maybeSingle();
-  return { data, error };
 }
 
 async function loadRemediationSnapshot(context: ComplianceDriverContext) {
@@ -98,9 +104,20 @@ async function loadRemediationSnapshot(context: ComplianceDriverContext) {
     : { data: [], error: null };
   if (vehicleDocumentsResult.error) throw new Error(vehicleDocumentsResult.error.message);
 
-  let operational;
+  let operational: {
+    eligible: boolean;
+    canonicalVehicleId: string | null;
+    blockers: string[];
+    checks: Record<string, boolean> | null;
+  };
   try {
-    operational = await resolveDriverOperationalEligibility(supabaseAdmin!, context.driverId);
+    const resolved = await resolveDriverOperationalEligibility(supabaseAdmin!, context.driverId);
+    operational = {
+      eligible: resolved.eligible,
+      canonicalVehicleId: resolved.canonicalVehicleId,
+      blockers: resolved.blockers,
+      checks: resolved.checks,
+    };
   } catch {
     operational = {
       eligible: false,
@@ -113,7 +130,6 @@ async function loadRemediationSnapshot(context: ComplianceDriverContext) {
   const requiredIdentityDocs = context.driverType === 'owner_driver'
     ? [...OWNER_REQUIRED_IDENTITY_DOCS]
     : [...COMPANY_DRIVER_REQUIRED_IDENTITY_DOCS];
-
   const identityDocuments = identityResult.data ?? [];
   const missingRequiredIdentityDocs = requiredIdentityDocs.filter((docType) =>
     !identityDocuments.some((document) =>
@@ -124,7 +140,7 @@ async function loadRemediationSnapshot(context: ComplianceDriverContext) {
     ),
   );
 
-  const legacyDocuments = (legacyResult.data ?? []).map((document) => {
+  const legacyDocuments = ((legacyResult.data ?? []) as LegacyDriverDocument[]).map((document) => {
     const canonicalDocType = LEGACY_MAP[String(document.doc_type ?? '')] ?? null;
     const supportedForDriver = Boolean(
       canonicalDocType
@@ -158,7 +174,6 @@ export async function GET(request: NextRequest) {
   if (!isComplianceDriverContext(resolved)) return resolved;
 
   try {
-    const snapshot = await loadRemediationSnapshot(resolved);
     return json(200, {
       driver: {
         id: resolved.driverId,
@@ -167,7 +182,7 @@ export async function GET(request: NextRequest) {
         appAccess: resolved.appAccess,
         canCommercialBid: resolved.canCommercialBid,
       },
-      ...snapshot,
+      ...(await loadRemediationSnapshot(resolved)),
     });
   } catch {
     return json(500, { error: 'Compliance remediation status could not be loaded.' });
@@ -196,8 +211,7 @@ export async function POST(request: NextRequest) {
   const permittedLegacyTypes = resolved.driverType === 'owner_driver'
     ? ['Driving Licence', 'CPC Card', 'Insurance']
     : ['Driving Licence', 'CPC Card'];
-
-  const { data: legacyRows, error: legacyError } = await supabaseAdmin!
+  const { data: rawLegacyRows, error: legacyError } = await supabaseAdmin!
     .from('driver_documents')
     .select('id,doc_type,status,file_path,issued_date,expiry_date,verified_by,verified_at,created_at')
     .eq('driver_id', resolved.driverId)
@@ -208,8 +222,8 @@ export async function POST(request: NextRequest) {
     .order('created_at', { ascending: false });
   if (legacyError) return json(500, { error: 'Approved legacy Driver documents could not be loaded.' });
 
-  const latestByCanonicalType = new Map<string, (typeof legacyRows)[number]>();
-  for (const row of legacyRows ?? []) {
+  const latestByCanonicalType = new Map<string, LegacyDriverDocument>();
+  for (const row of (rawLegacyRows ?? []) as LegacyDriverDocument[]) {
     const canonicalType = LEGACY_MAP[String(row.doc_type ?? '')];
     if (!canonicalType || latestByCanonicalType.has(canonicalType)) continue;
     if (!isCurrentLegacyEvidence(row)) continue;
@@ -267,11 +281,9 @@ export async function POST(request: NextRequest) {
     const sourceExtension = path.extname(sourcePath).toLowerCase();
     const safeExtension = /^\.(pdf|jpe?g|png|webp)$/.test(sourceExtension) ? sourceExtension : '.bin';
     const targetPath = `${resolved.userId}/${application.id}/legacy-${legacy.id}-${canonicalType}${safeExtension}`;
-    const contentType = storedFile.type || undefined;
-
     const { error: uploadError } = await supabaseAdmin!.storage
       .from('onboarding-documents')
-      .upload(targetPath, bytes, { contentType, upsert: true });
+      .upload(targetPath, bytes, { contentType: storedFile.type || undefined, upsert: true });
     if (uploadError) return json(500, { error: `Approved legacy ${legacy.doc_type} could not be copied into canonical secure storage.` });
 
     const { data: inserted, error: insertError } = await supabaseAdmin!
@@ -318,12 +330,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const snapshot = await loadRemediationSnapshot(resolved);
     return json(200, {
       ok: true,
       reconciled,
       alreadyCanonical,
-      ...snapshot,
+      ...(await loadRemediationSnapshot(resolved)),
     });
   } catch {
     return json(200, { ok: true, reconciled, alreadyCanonical });
