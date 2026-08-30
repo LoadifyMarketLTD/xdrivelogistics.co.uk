@@ -8,64 +8,86 @@ Source PRs: #395 (`feat/cx-parity-complete-20260828`), #398 (`audit/cx-vs-xdrive
 
 - `ALREADY IN 399`: equivalent or stronger current contract exists in PR #399.
 - `PORTED TO 399`: source contained a useful missing contract and it has been selectively moved into PR #399.
-- `PORT TO 399`: useful source contract remains missing or weaker in PR #399.
-- `OBSOLETE / SUPERSEDED`: a newer canonical implementation exists or production makes the old migration unnecessary.
-- `DO NOT PORT`: conflicts with the current architecture/security boundary.
+- `OBSOLETE / SUPERSEDED`: a newer canonical implementation exists or production makes the old implementation unnecessary.
+- `DO NOT PORT`: conflicts with the current architecture/security boundary, creates dead schema, or represents an incomplete foundation that must not be exposed as a finished feature.
 - Never merge #395 or #398 wholesale. Their branches diverged from #399 and contain stale/overlapping implementations.
 - `apps/driver-mobile` Expo/React Native is the canonical Driver application. `android-native` Kotlin is not a source application to resurrect.
 
-## PR #398 -> #399
+## PR #398 -> #399 — final disposition
 
-| Capability | Verdict | Evidence / reason | Action |
-|---|---|---|---|
-| Strict Exchange visibility | PORTED TO 399 | #399 previously treated missing `exchange_visibility` as public Exchange. | Ported fail-closed visibility guard in `2589cab3`. |
-| Exchange expiry on Driver Marketplace | PORTED TO 399 | #399 previously returned expired Exchange posts. | Ported `exchange_expires_at` gate in `2589cab3`. |
-| Active quote identity at carrier-company level | PORTED TO 399 | #399 web Marketplace previously queried `myBid` only by `bidder_user_id`. | Ported company-first bid projection in `2589cab3`; preserved #399 `requireWebDriver`. |
-| Pre-award coordinate privacy | ALREADY IN 399 | Current Marketplace projection exposes broad route areas, not exact coordinates. | Contract test retained in `dc259976`. |
-| Canonical atomic Return Journey replacement | PORTED TO 399 | #399 API used delete-before-insert. | Production RPC hosted as `20260830004421`; repo migration `6e1e63d1`; API port `3822f803`; test `26286d53`. |
-| `pod-photos` PDF MIME migration | OBSOLETE / NO HOSTED CHANGE | Production bucket has `allowed_mime_types = NULL`, so PDF is already permitted. | Do not create a no-op production migration. |
-| First-class POD damage evidence | PORT TO 399 | Production currently lacks `jobs.damage_photos`; #398 keeps damage separate from delivery photos. | Add nullable JSONB field and preserve category end-to-end. |
-| Server-mediated binary POD/collection upload | PORT TO 399 | #399 Expo client still uploads directly to Supabase storage. | Move Expo evidence through authenticated device-bound `/evidence` API. |
-| Tenant/category evidence paths | PORT TO 399 | #398 uses `company/job/category/object`; #399 evidence path is less structured. | Port while preserving existing storage tenant boundary. |
-| Do not link delivery evidence until final POD | PORT TO 399 | #399 `/evidence` immediately mutates POD arrays. | Port staged upload + final verified POD linking. |
-| Durable offline POD evidence | PORT TO 399 | #399 queue can retain picker/cache URIs that may disappear after restart. | Port `podEvidencePersistence.ts`. |
-| Durable offline collection evidence | PORT TO 399 | #399 queued Loaded transition has no durable collection-photo payload. | Port `collectionEvidencePersistence.ts`. |
-| Offline permanent-4xx retry classification | PORT TO 399 | #399 failed queue entries can remain automatic regardless of permanent client error. | Port manual-vs-automatic retry mode. |
-| Server-authoritative physical evidence during lifecycle transitions | PORT TO 399 | #399 lifecycle still accepts evidence values in status body. | Port NULL physical-evidence RPC parameters while preserving Multi-drop gates. |
-| Multi-drop stop progression / finalization | ALREADY IN 399, NEWER | #399 has ordered persisted stops and POD/delivered all-stops gate not present in #398 baseline. | Preserve #399 implementation during POD merge. |
-| Device-bound mobile auth/session | REVIEW NEXT | #398 contains additional session/logout hardening. | Compare against current #399 before any port. |
-| Availability/tracking lifecycle | REVIEW NEXT | #398 contains several tenant/active-job corrections. | Compare current #399 server + Expo contracts. |
+| Capability | Final verdict | Evidence / reason |
+|---|---|---|
+| Strict Exchange visibility | PORTED TO 399 | Missing visibility no longer defaults to public Exchange. |
+| Exchange expiry on Driver Marketplace | PORTED TO 399 | Expiry is enforced across Driver Marketplace, Driver search and Company Marketplace quote entry points. |
+| Active quote identity at carrier-company level | PORTED TO 399 | Company-bound drivers now share the one-active-company-quote boundary; colleague amounts/messages remain private. |
+| Pre-award coordinate privacy | ALREADY IN 399 | Public Marketplace DTOs expose broad route areas/outcodes, not exact coordinates/addresses. |
+| Canonical atomic Return Journey replacement | PORTED TO 399 | Hosted server-only RPC `replace_driver_return_journey_canonical`; migration `20260830004421_port_driver_return_journey_canonical_atomic_replace`. |
+| `pod-photos` PDF MIME migration | OBSOLETE / NO HOSTED CHANGE | Production bucket already permits PDF because `allowed_mime_types` is NULL. |
+| First-class POD damage evidence | PORTED TO 399 | Hosted nullable `jobs.damage_photos`; migration `20260830004958_port_driver_pod_damage_evidence`. |
+| Server-mediated binary POD/collection upload | PORTED TO 399 | Expo evidence now goes through authenticated device-bound `/evidence` API rather than direct Storage mutation. |
+| Tenant/category evidence paths | PORTED TO 399 | Evidence paths are company/job/category scoped while preserving existing storage tenant policy. |
+| Do not link delivery evidence until final POD | PORTED TO 399 | Delivery/damage/document evidence is staged and linked only through final verified POD flow. |
+| Durable offline POD evidence | PORTED TO 399 | Picker/cache files are persisted before queue storage. |
+| Durable offline collection evidence | PORTED TO 399 | Collection evidence is persisted for queued Loaded transitions. |
+| Offline permanent-4xx retry classification | PORTED TO 399 | Permanent client errors are not silently replayed forever. |
+| Server-authoritative physical evidence during lifecycle transitions | PORTED TO 399 | Lifecycle transitions no longer trust client-supplied physical evidence as authority. |
+| Multi-drop stop progression / finalization | ALREADY IN 399, NEWER | #399 retains ordered `job_stops`, current-stop guards and final POD/delivery all-stops gate. |
+| Device-bound mobile auth/session | PORTED TO 399 | Expo client now sends installation identity consistently; explicit sign-out revokes server binding before local auth cleanup on best effort. |
+| Live Loads / quote request device binding | PORTED TO 399 | Live-load and bid calls now use the shared device-bound API client instead of raw fetch/Supabase reads. |
+| Company-level active quote suppression in Expo | PORTED TO 399 | Mobile API exposes only active job IDs for the carrier company, without exposing colleagues' commercial quote data. |
+| Availability/tracking tenant isolation | PORTED TO 399 | Active-job tracking honours awarded/assigned carrier-company boundary; Fleet availability keeps privacy-safe presence semantics. |
+| Fleet availability presence | ALREADY / CONSOLIDATED IN 399 | Current #399 Availability/Drivers/Vehicles surfaces are newer and preserve the server-safe presence contract. |
+| Driver resources partial-failure tolerance | PORTED TO 399 | Identity/auth remains fail-closed while peripheral document/invoice/notification failures return partial resources rather than false access denial. |
+| Notification feed compatibility | PORTED TO 399 | Expo alerts combine operational `notification_events` with user inbox instructions while retaining compatibility fields. |
+| Signed POD and job attachments in list/detail/history | PORTED TO 399 | Signed temporary URLs and audit/operational presentation are available while real Multi-drop stops remain authoritative. |
+| Old Android-native runtime/tests | DO NOT PORT | Kotlin app path is non-canonical; only independently justified server/security concepts were retained. |
+| Supabase `.temp` metadata | DO NOT PORT | Local CLI metadata is not application source and must not be merged. |
 
-## PR #395 -> #399
+**PR #398 final verdict: SUPERSEDED BY #399 — CLOSE, DO NOT MERGE.**
 
-| Capability | Verdict | Evidence / reason | Action |
-|---|---|---|---|
-| Structured rich quote: base amount | PORT TO 399 | #399 quote contract currently stores only total amount + free-text message. | Design new production-safe migration/API/UI. |
-| Quote collect-within minutes | PORT TO 399 | Missing from current #399 quote form/API/schema. | Port semantics, not old native UI. |
-| Explicit quoted extras | PORT TO 399 | Missing as structured field in #399. | Port semantics with deterministic total/idempotency. |
-| Quoted vehicle identity + immutable label | PORT TO 399 | Missing from #399; #395 validates assigned Driver/vehicle ownership. | Port server validation and Expo/web presentation. |
-| Offline rich quote replay in `android-native` | DO NOT PORT implementation | Kotlin app is not canonical. | Reimplement any needed replay semantics in Expo only. |
-| `replace_driver_return_journey_v2` | OBSOLETE / SUPERSEDED | #398 canonical atomic RPC matches current production schema and is now hosted/ported. | Do not add v2 RPC. |
-| Rich Going Home / Going To / Future Journey schema | REVIEW / PORT SELECTIVELY | Current XDrive Return Journeys already has a richer web workflow and canonical postcode/time fields; #395 migration mixes another model. | Audit semantic gaps before schema mutation. |
-| `driver_alert_preferences` | LIKELY SUPERSEDED, VERIFY | #399 has Driver Smart Load Alert preferences and notification contracts. | Compare field semantics before closing. |
-| `driver_search_filter_defaults` | REVIEW | #399 has job search preferences and some local defaults, but not necessarily identical server persistence. | Decide after Driver search audit. |
-| Who's Nearby / privacy-safe market intelligence | ALREADY/PARTIAL, VERIFY | #399 has Nearby/availability/Radar work with privacy boundaries. | Compare remaining PPM/aggregation semantics only. |
-| Structured POD confirmation | SUPERSEDED BY #398 | #398 contains later Expo-focused evidence reconciliation. | Port #398 version, not #395 version. |
-| Timestamped lifecycle history | ALREADY/PARTIAL, VERIFY | #399 has Event Log/history projections. | Confirm Driver detail parity before closing. |
-| XDrive Collection Pass | PORT TO 399 | No production `driver_collection_passes` table observed and no canonical Expo flow in #399. | Build server-owned + Expo contract after POD/session consolidation. |
-| All `android-native/**/*.kt` feature UI/runtime | DO NOT PORT | Conflicts with canonical Expo/React Native app. | Extract concepts only where independently justified. |
+## PR #395 -> #399 — final disposition
+
+| Capability | Final verdict | Evidence / reason |
+|---|---|---|
+| Structured rich quote: base amount | PORTED TO 399 | Hosted structured quote metadata preserves total amount semantics while storing base separately. |
+| Quote collect-within minutes | PORTED TO 399 | Expo/API/schema accept optional collect-within metadata with server validation. |
+| Explicit quoted extras | PORTED TO 399 | Extras are stored structurally instead of relying only on free text. |
+| Quoted vehicle identity / immutable vehicle snapshot | PORTED TO 399 | #399 uses the canonical server-validated eligible vehicle and snapshots vehicle details into the quote contract; no arbitrary client vehicle trust. |
+| Rich quote production schema | PORTED TO 399 | Hosted migration `20260830011635_port_driver_rich_quote_structure`. |
+| Offline rich-quote replay in `android-native` | DO NOT PORT | Native-Kotlin queue is non-canonical. Delayed marketplace bids are also time-sensitive; the canonical Expo path remains server-authoritative and revalidates availability at submission time. |
+| `replace_driver_return_journey_v2` | OBSOLETE / SUPERSEDED | Current canonical postcode/time RPC matches production and is already hosted atomically. A second competing journey RPC is not introduced. |
+| Rich Going Home / Going To / Future Journey v2 columns | DO NOT PORT AS PARALLEL MODEL | #395 mixes a second journey model (`journey_mode`, capacity fields, history semantics) into the same table without a completed canonical Expo workflow. Current Return Journey + ReturnIQ remain the authoritative flow; a future multi-mode journey product should be designed separately, not hidden inside this convergence PR. |
+| `driver_alert_preferences` table | DO NOT PORT AS DEAD FOUNDATION | #395 creates a global preference table but does not provide a complete canonical Expo/provider workflow. #399 already has real Driver Smart Load Alert preferences and operational notification contracts. |
+| `driver_search_filter_defaults` table | DO NOT PORT AS DEAD FOUNDATION | #395 creates storage without a complete canonical API/UI lifecycle. Current search/job preferences remain authoritative; persistent filter defaults can be a separate product change if required. |
+| Who's Nearby / privacy-safe market intelligence | ALREADY / NEWER IN 399 | Nearby/availability/Radar contracts in #399 preserve privacy and are more integrated with current workspaces. |
+| Structured POD confirmation | SUPERSEDED BY PORTED #398 CONTRACT | The later #398 Expo evidence model was selectively ported and coexists with #399 Multi-drop. |
+| Timestamped lifecycle history | ALREADY / STRENGTHENED IN 399 | Event Log, job audit trail, POD history and append-only Driver instructions provide the current history contract. |
+| XDrive Collection Pass foundation | DO NOT PORT AS INCOMPLETE SECURITY FEATURE | #395 can issue/display a pass but does not provide a complete canonical verifier/site workflow. Exposing a code without end-to-end verification would create fake security parity. Build separately only with issuer + verifier + expiry/revocation + audit + operational UX. |
+| Payment terms / security hardening migrations carried on #395 | ALREADY IN CURRENT 399 BASE/HISTORY | The canonical payment-term migration and server-trigger/security migrations already exist on the current branch; no duplicate port is needed. |
+| All `android-native/**/*.kt` feature UI/runtime | DO NOT PORT | Conflicts with canonical Expo/React Native application architecture. |
+
+**PR #395 final verdict: SUPERSEDED BY #399 — CLOSE, DO NOT MERGE.**
 
 ## Production facts verified during consolidation
 
 - Production project: `jqxlauexhkonixtjvljw` (`xdrivelogistics`).
-- #395 rich-quote columns/tables/RPC are not currently hosted.
-- Production `return_journeys` includes legacy compatibility columns and canonical `from_postcode`, `to_postcode`, `available_from`, `available_to`, `vehicle_type`, `notes`, `status` fields.
-- Production `pod-photos.allowed_mime_types` is `NULL` (unrestricted); the #398 PDF MIME migration would therefore make no change.
-- `replace_driver_return_journey_canonical` is hosted through migration `20260830004421_port_driver_return_journey_canonical_atomic_replace` and is server-only.
+- `replace_driver_return_journey_canonical` is hosted and server-only through `20260830004421_port_driver_return_journey_canonical_atomic_replace`.
+- `jobs.damage_photos` is hosted through `20260830004958_port_driver_pod_damage_evidence`.
+- Rich quote structure is hosted through `20260830011635_port_driver_rich_quote_structure`.
+- Production `pod-photos.allowed_mime_types` is NULL, therefore the old PDF MIME migration is unnecessary.
+- PR #399 preserves the real production Multi-drop route already observed with four ordered `job_stops`.
+
+## Validation / CI truth
+
+- GitHub Actions is currently unavailable because the account/repository has no Actions credits. Observed jobs terminate before runner startup with `steps: []`, `runner_id: 0`, empty runner name. These are `NOT EXECUTED — BILLING/CREDITS UNAVAILABLE`, not application-test failures.
+- GitHub Actions is therefore not used as a factual release gate for this consolidation while credits remain unavailable.
+- Canonical Netlify `netlify/xdrivelogistics/deploy-preview` is the executable web build/typecheck gate.
+- Supabase production schema/migration truth, static contract review and observed authenticated runtime evidence remain separate gates; no unobserved runtime scenario is relabelled PASS.
 
 ## Merge disposition
 
-- PR #399 remains the only canonical merge candidate.
-- PR #395 must not be merged wholesale because it contains the superseded native-Kotlin application path and mixed schema contracts.
-- PR #398 must not be merged wholesale because it diverged from #399 and would overwrite newer Multi-drop/workspace work; its security/E2E fixes are selectively ported.
-- Close #395/#398 as superseded only after every `PORT TO 399` / `REVIEW` row has a factual final verdict and the corresponding #399 gates are validated.
+- PR #395: CLOSE as superseded; DO NOT MERGE.
+- PR #398: CLOSE as superseded; DO NOT MERGE.
+- PR #399: only canonical merge candidate.
+- Closing #395/#398 does not imply every future CX-inspired idea is implemented; it means their safe, relevant changes are either absorbed into #399, superseded by newer #399 contracts, or deliberately rejected as stale/incomplete/non-canonical foundations.
+- PR #399 must still satisfy the final release gate appropriate to the current environment before merge. GitHub Actions cannot be required while credits are unavailable, but untested runtime features must remain explicitly labelled unproven rather than falsely PASS.
