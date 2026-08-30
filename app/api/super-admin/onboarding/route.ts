@@ -38,14 +38,24 @@ export async function GET(request: NextRequest) {
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: platform owner role required.' });
 
+  const { data, error } = await supabaseAdmin
+    .from('onboarding_applications')
+    .select('id, user_id, email, account_type, status, current_step, completion_percentage, risk_status, risk_reason, company_id, payload, created_at, submitted_at, last_activity_at')
+    .in('status', ['submitted', 'under_review', 'request_changes'])
+    .order('last_activity_at', { ascending: false })
+    .limit(250);
+
+  if (error) return respond(500, { error: error.message });
+
+  const rows = Array.isArray(data) ? data : [];
   return respond(200, {
-    rows: [],
+    rows,
     summary: {
-      total: 0,
+      total: rows.length,
       ready: 0,
-      blocked: 0,
-      under_review: 0,
-      request_changes: 0,
+      blocked: rows.length,
+      under_review: rows.filter((row) => row.status === 'under_review').length,
+      request_changes: rows.filter((row) => row.status === 'request_changes').length,
     },
   });
 }
