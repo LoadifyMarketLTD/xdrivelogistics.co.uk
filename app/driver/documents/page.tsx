@@ -275,7 +275,7 @@ export default function DriverDocumentsPage() {
     const formData = new FormData();
     formData.append('file', identityFile);
     formData.append('docType', identityDocType);
-    const response = await fetch('/api/onboarding/documents', {
+    const response = await fetch('/api/driver/compliance/identity-documents', {
       method: 'POST',
       headers: { Authorization: authorization },
       body: formData,
