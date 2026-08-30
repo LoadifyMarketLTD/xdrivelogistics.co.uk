@@ -18,7 +18,13 @@ describe('posting-company owner edit/delete contract', () => {
   it('locks edit/delete after commercial award or execution allocation', () => {
     expect(route).toContain('job.awarded_carrier_company_id || job.assigned_company_id || job.assigned_driver_id || job.vehicle_id');
     expect(route).toContain(".is('awarded_carrier_company_id', null).is('assigned_company_id', null).is('assigned_driver_id', null).is('vehicle_id', null)");
-    expect(route).toContain("['draft', 'received', 'posted'].includes(status)");
+    expect(route).toContain('hasOnlyPreExecutionJobStatuses(job)');
+  });
+
+  it('fails closed on divergent lifecycle status fields', () => {
+    expect(route).toContain('preferredJobLifecycleStatus(job)');
+    expect(route).toContain('hasOnlyPreExecutionJobStatuses(job)');
+    expect(route).not.toContain("const status = String(job.current_status ?? job.status ?? '').toLowerCase()");
   });
 
   it('does not silently mutate a posted load after carrier quotes exist', () => {
@@ -31,6 +37,12 @@ describe('posting-company owner edit/delete contract', () => {
       expect(route).toContain(`'${table}'`);
     }
     expect(route).toContain('This load has stored documents. Remove or archive the load instead of deleting its audit evidence.');
+  });
+
+  it('uses the server-only atomic delete guard so a concurrent bid cannot be cascaded away', () => {
+    expect(route).toContain("client.rpc('delete_unbid_exchange_job_atomic'");
+    expect(route).toContain('p_actor_user_id: auth.userId');
+    expect(route).not.toMatch(/client\.from\('jobs'\)\.delete\(\)/);
   });
 
   it('stages edits private before replacing multi-drop stops and restores on failure', () => {
