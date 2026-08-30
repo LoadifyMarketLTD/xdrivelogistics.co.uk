@@ -20,7 +20,6 @@ type ApiLoad = {
   quoteWarning?: string | null;
   hasProposedPrice?: boolean;
   proposedPriceGbp?: number | null;
-  // Extended fields
   distanceMiles?: number | null;
   estimatedDrivingMinutes?: number | null;
   weightKg?: number | null;
@@ -70,7 +69,6 @@ export type LiveLoad = {
   distanceFromCurrentDeliveryMiles?: number;
   hasProposedPrice: boolean;
   proposedPriceGbp?: number;
-  // Extended display fields
   distanceMiles?: number;
   estimatedDrivingMinutes?: number;
   weightKg?: number;
@@ -80,6 +78,14 @@ export type LiveLoad = {
   tailLift?: boolean;
   temperatureControlled?: boolean;
   badges?: string[];
+};
+
+export type StructuredLiveLoadQuote = {
+  totalAmount: number;
+  baseAmount: number;
+  additionalExtrasGbp: number;
+  collectWithinMinutes: number | null;
+  message?: string;
 };
 
 function money(amount: number | null, currency = 'GBP') {
@@ -167,7 +173,7 @@ export async function fetchActiveQuotedJobIds() {
   return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
 }
 
-export async function submitLiveLoadQuote(jobId: string, amount: number | null, message?: string) {
+export async function submitLiveLoadQuote(jobId: string, quote: StructuredLiveLoadQuote) {
   const token = await accessToken();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20_000);
@@ -178,7 +184,14 @@ export async function submitLiveLoadQuote(jobId: string, amount: number | null, 
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ jobId, amount, message: message?.trim() || null }),
+    body: JSON.stringify({
+      jobId,
+      amount: quote.totalAmount,
+      baseAmount: quote.baseAmount,
+      additionalExtrasGbp: quote.additionalExtrasGbp,
+      collectWithinMinutes: quote.collectWithinMinutes,
+      message: quote.message?.trim() || null,
+    }),
     signal: controller.signal,
   }).catch((error) => {
     if (error instanceof Error && error.name === 'AbortError') {
