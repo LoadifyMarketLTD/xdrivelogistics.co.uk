@@ -137,13 +137,12 @@ BEGIN
 END;
 $$;
 
--- Hosted production retains the historical membership_status enum type, but the
--- authoritative company_memberships.status column is TEXT with the canonical
--- active/invited/disabled vocabulary. Fresh replay historically left the column
--- bound to membership_status, which cannot represent `disabled` and breaks the
--- later company-governance fail-close migration. Converge the physical contract
--- here, after the identity proof has completed and before governance requires
--- the disabled state. Never map or coerce unsupported row values.
+-- Hosted production retains the historical membership_status enum object, but
+-- company_memberships.status itself is TEXT. Clean replay now creates that
+-- column as text from migration 001 so policies/functions bind to the final
+-- physical type from the beginning. At this point only finalize and verify the
+-- hosted NOT NULL/default/check contract; never perform a late ALTER TYPE that
+-- would invalidate already-compiled RLS policy dependencies.
 DO $$
 DECLARE
   v_data_type text;
@@ -158,31 +157,25 @@ BEGIN
     AND c.table_name = 'company_memberships'
     AND c.column_name = 'status';
 
-  IF v_data_type IS NULL THEN
-    RAISE EXCEPTION 'company_memberships.status is missing during canonical membership reconstruction.';
-  END IF;
-
-  SELECT array_agg(DISTINCT cm.status::text ORDER BY cm.status::text)
-  INTO v_invalid_statuses
-  FROM public.company_memberships cm
-  WHERE cm.status IS NOT NULL
-    AND cm.status::text NOT IN ('active', 'invited', 'disabled');
-
-  IF coalesce(array_length(v_invalid_statuses, 1), 0) > 0 THEN
-    RAISE EXCEPTION
-      'Unsupported membership status values prevent canonical text reconstruction: %.',
-      array_to_string(v_invalid_statuses, ', ');
-  END IF;
-
   IF v_data_type IS DISTINCT FROM 'text'
      OR v_udt_schema IS DISTINCT FROM 'pg_catalog'
      OR v_udt_name IS DISTINCT FROM 'text' THEN
-    ALTER TABLE public.company_memberships
-      ALTER COLUMN status DROP DEFAULT;
+    RAISE EXCEPTION
+      'company_memberships.status must already be text before governance hardening; found %.%.',
+      coalesce(v_udt_schema, '<missing>'),
+      coalesce(v_udt_name, '<missing>');
+  END IF;
 
-    ALTER TABLE public.company_memberships
-      ALTER COLUMN status TYPE text
-      USING status::text;
+  SELECT array_agg(DISTINCT cm.status ORDER BY cm.status)
+  INTO v_invalid_statuses
+  FROM public.company_memberships cm
+  WHERE cm.status IS NOT NULL
+    AND cm.status NOT IN ('active', 'invited', 'disabled');
+
+  IF coalesce(array_length(v_invalid_statuses, 1), 0) > 0 THEN
+    RAISE EXCEPTION
+      'Unsupported membership status values prevent canonical text finalization: %.',
+      array_to_string(v_invalid_statuses, ', ');
   END IF;
 
   ALTER TABLE public.company_memberships
