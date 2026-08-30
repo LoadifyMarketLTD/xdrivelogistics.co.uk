@@ -6,6 +6,15 @@ BEGIN;
 -- storage.objects reads before bucket-specific RLS could succeed. Preserve the
 -- intended reviewer access through a narrow SECURITY DEFINER predicate instead
 -- of granting raw table access.
+--
+-- Fresh Supabase projects grant table privileges to anon/authenticated through
+-- the platform default ACL. Hosted production has already converged these raw
+-- evidence tables to postgres + service_role only, so reconstruct that exact
+-- privilege boundary before installing/verifying the reviewer helper.
+REVOKE ALL ON TABLE public.driver_identity_documents FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.company_documents FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.driver_identity_documents TO service_role;
+GRANT ALL ON TABLE public.company_documents TO service_role;
 
 CREATE OR REPLACE FUNCTION public.can_review_onboarding_storage_object(
   p_bucket_id text,
@@ -69,6 +78,16 @@ BEGIN
   IF has_table_privilege('authenticated', 'public.driver_identity_documents', 'SELECT')
      OR has_table_privilege('authenticated', 'public.company_documents', 'SELECT') THEN
     RAISE EXCEPTION 'P0-06 must not grant authenticated raw onboarding evidence table access.';
+  END IF;
+
+  IF has_table_privilege('anon', 'public.driver_identity_documents', 'SELECT')
+     OR has_table_privilege('anon', 'public.company_documents', 'SELECT') THEN
+    RAISE EXCEPTION 'P0-06 must not grant anonymous raw onboarding evidence table access.';
+  END IF;
+
+  IF NOT has_table_privilege('service_role', 'public.driver_identity_documents', 'SELECT')
+     OR NOT has_table_privilege('service_role', 'public.company_documents', 'SELECT') THEN
+    RAISE EXCEPTION 'P0-06 server evidence access is missing after privilege reconstruction.';
   END IF;
 
   SELECT qual INTO v_expr
