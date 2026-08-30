@@ -5,7 +5,9 @@ BEGIN;
 DO $$
 DECLARE
   v_creator_def text;
+  v_creator_norm text;
   v_registration_def text;
+  v_registration_norm text;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -70,9 +72,17 @@ BEGIN
           FROM public.company_registration_claims claim
           WHERE claim.company_id = c.id
         )
+        OR NOT EXISTS (
+          SELECT 1
+          FROM public.owner_audit_log oal
+          WHERE oal.target_company_id = c.id
+            AND oal.action_type = 'status_change'
+            AND oal.new_status = 'suspended'
+            AND oal.reason LIKE 'P0-12 legacy Fleet shell quarantine%'
+        )
       )
   ) THEN
-    RAISE EXCEPTION 'A quarantined legacy Fleet company shell still carries company authority.';
+    RAISE EXCEPTION 'A quarantined legacy Fleet company shell still carries company authority or lacks governance audit.';
   END IF;
 
   IF EXISTS (
@@ -92,9 +102,10 @@ BEGIN
 
   SELECT pg_get_functiondef('public.is_company_creator(uuid)'::regprocedure)
   INTO v_creator_def;
+  v_creator_norm := regexp_replace(v_creator_def, '[[:space:]]+', '', 'g');
 
-  IF v_creator_def NOT ILIKE '%pending_approval%'
-     OR v_creator_def NOT ILIKE '%c.created_by = auth.uid()%'
+  IF position('c.created_by=auth.uid()' in v_creator_norm) = 0
+     OR position("c.status::text='pending_approval'" in v_creator_norm) = 0
   THEN
     RAISE EXCEPTION 'Creator membership bootstrap is not restricted to pending-approval companies.';
   END IF;
@@ -106,10 +117,11 @@ BEGIN
   SELECT pg_get_functiondef(
     'public.register_validated_company_atomic(uuid,text,text,text,text)'::regprocedure
   ) INTO v_registration_def;
+  v_registration_norm := regexp_replace(v_registration_def, '[[:space:]]+', '', 'g');
 
-  IF v_registration_def NOT ILIKE '%legacy_fleet_onboarding_resolutions%'
-     OR v_registration_def NOT ILIKE '%quarantine_legacy_active_shell%'
-     OR v_registration_def NOT ILIKE '%v_company.status::text = ''pending_approval''%'
+  IF position('legacy_fleet_onboarding_resolutions' in v_registration_norm) = 0
+     OR position("resolution_code='quarantine_legacy_active_shell'" in v_registration_norm) = 0
+     OR position("v_company.status::text='pending_approval'ANDv_company.created_by=p_actor_user_id" in v_registration_norm) = 0
   THEN
     RAISE EXCEPTION 'Verified company registration does not exclude quarantined Fleet shells or still trusts active created_by authority.';
   END IF;
