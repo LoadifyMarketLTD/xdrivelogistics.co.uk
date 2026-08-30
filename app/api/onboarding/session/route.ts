@@ -6,7 +6,10 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
-import { ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE } from '../../_lib/onboarding';
+import {
+  ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE,
+  normalizeOnboardingAccountType,
+} from '../../_lib/onboarding';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -38,10 +41,21 @@ export async function GET(request: NextRequest) {
   if (error) return json(500, { error: error.message });
   if (!app) return json(404, { error: 'Onboarding application not found.' });
 
-  const routeSegment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[app.account_type as keyof typeof ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE];
+  const accountType = normalizeOnboardingAccountType(app.account_type);
+  if (!accountType) {
+    return json(409, {
+      error: 'The saved onboarding application has an unsupported account type. Contact XDrive support before continuing.',
+      code: 'unsupported_saved_account_type',
+    });
+  }
+
+  const routeSegment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[accountType];
 
   return json(200, {
-    application: app,
+    application: {
+      ...app,
+      account_type: accountType,
+    },
     routeSegment,
     resumePath: `/onboarding/${routeSegment}/resume`,
   });
