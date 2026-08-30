@@ -73,25 +73,33 @@ describe('canonical onboarding contract', () => {
 
     expect(migration).toContain("doc_type = 'motor_fleet_insurance'");
     expect(migration).toContain("NEW.doc_type := 'vehicle_insurance'");
-    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.assert_company_compliance_ready');
-    expect(migration).toContain('v_has_required_company_documents');
-    expect(migration).toContain('IF v_has_required_company_documents THEN');
-    expect(migration).toContain('PERFORM public.assert_onboarding_compliance_ready(v_application_id);');
   });
 
-  it('includes rollback-only runtime proof for owner-driver and fleet company compliance', () => {
-    const runtimeProof = readRepoFile(
-      'supabase/migrations/20260830201600_verify_company_compliance_contract_runtime.sql',
+  it('keeps company activation fail-closed through the full onboarding compliance assertion', () => {
+    const hardening = readRepoFile(
+      'supabase/migrations/20260830202500_harden_company_compliance_identity_gate.sql',
     );
 
-    expect(runtimeProof).toContain('Visual Audit');
-    expect(runtimeProof).toContain('example.test');
-    expect(runtimeProof).toContain('rollback company document alias probe');
-    expect(runtimeProof).toContain('rollback owner driver company readiness probe');
-    expect(runtimeProof).toContain('rollback fleet company readiness probe');
+    expect(hardening).toContain('CREATE OR REPLACE FUNCTION public.assert_company_compliance_ready');
+    expect(hardening).toContain('PERFORM public.assert_onboarding_compliance_ready(v_application_id);');
+    expect(hardening).not.toContain('v_has_required_company_documents');
+    expect(hardening).toContain("REVOKE ALL ON FUNCTION public.assert_company_compliance_ready(uuid) FROM authenticated");
+  });
+
+  it('includes rollback-only final runtime proof for owner-driver and fleet compliance', () => {
+    const runtimeProof = readRepoFile(
+      'supabase/migrations/20260830202600_verify_company_compliance_identity_gate_runtime.sql',
+    );
+
+    expect(runtimeProof).toContain('Visual Audit P0-10 Final');
+    expect(runtimeProof).toContain('@example.test');
+    expect(runtimeProof).toContain('Owner Driver company activation bypassed missing identity compliance');
+    expect(runtimeProof).toContain('Fleet company activation bypassed missing company compliance');
     expect(runtimeProof).toContain("ARRAY['driving_licence','proof_of_address','right_to_work']::text[]");
-    expect(runtimeProof).toContain("ARRAY['company_registration','goods_in_transit','public_liability','vehicle_insurance']::text[]");
-    expect(runtimeProof).toContain('Fleet company readiness did not fail closed');
+    expect(runtimeProof).toContain("'driving_licence', 'p010/licence.pdf', 'uploaded', 'verified'");
+    expect(runtimeProof).toContain("'vehicle_insurance', 'p010/vehicle-insurance.pdf', 'approved'");
+    expect(runtimeProof).toContain('rollback final synthetic company compliance fixture');
+    expect(runtimeProof).toContain('Final synthetic auth fixture did not roll back cleanly');
   });
 
   it('forces invited drivers into pending verification until a reviewed approval activates them', () => {
