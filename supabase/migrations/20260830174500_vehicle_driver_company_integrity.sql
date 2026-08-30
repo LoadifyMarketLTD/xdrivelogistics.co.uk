@@ -1,5 +1,29 @@
 BEGIN;
 
+-- Hosted production contains canonical quote-to-vehicle attribution on job_bids,
+-- but the clean migration chain did not reconstruct it before this integrity
+-- migration first checks quote dependencies. Restore only the observed contract:
+-- nullable UUID + FK to vehicles(id) ON DELETE SET NULL; no backfill or index.
+ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS quote_vehicle_id uuid;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.job_bids'::regclass
+      AND conname = 'job_bids_quote_vehicle_id_fkey'
+  ) THEN
+    ALTER TABLE public.job_bids
+      ADD CONSTRAINT job_bids_quote_vehicle_id_fkey
+      FOREIGN KEY (quote_vehicle_id)
+      REFERENCES public.vehicles(id)
+      ON DELETE SET NULL;
+  END IF;
+END;
+$$;
+
 -- Reconcile only the narrow legacy shape proven by the production audit:
 -- an ACTIVE vehicle references a company row that no longer exists, is assigned
 -- to a valid driver, has no dependent operational/compliance records, and the
