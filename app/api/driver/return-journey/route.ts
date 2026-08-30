@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isDriverContext, requireDriver } from '../mobile/_lib';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status });
@@ -29,39 +26,11 @@ function missingStatusColumn(message: string | null | undefined) {
 }
 
 async function resolveDriver(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return { error: json(503, { error: 'Service not configured.' }) } as const;
-  }
-
-  const token = getBearerToken(request);
-  if (!token) {
-    return { error: json(401, { error: 'Unauthorized — missing bearer token.' }) } as const;
-  }
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) {
-    return { error: json(401, { error: 'Unauthorized — invalid or expired token.' }) } as const;
-  }
-
-  const { data: driver, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-
-  if (driverError || !driver) {
-    return { error: json(403, { error: 'Driver profile required.' }) } as const;
-  }
-
-  const status = String(driver.status ?? '').trim().toLowerCase();
-  if (['suspended', 'inactive', 'blocked', 'rejected'].includes(status)) {
-    return { error: json(403, { error: 'Active driver profile required.' }) } as const;
-  }
-
+  const context = await requireDriver(request);
+  if (!isDriverContext(context)) return { error: context } as const;
   return {
-    driverId: driver.id as string,
-    companyId: driver.company_id as string,
+    driverId: context.driverId,
+    companyId: context.companyId,
   } as const;
 }
 
@@ -86,23 +55,6 @@ async function loadCurrentJourney(driverId: string) {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-}
-
-async function clearCurrentJourney(driverId: string) {
-  const admin = supabaseAdmin!;
-  const current = await admin
-    .from('return_journeys')
-    .delete()
-    .eq('driver_id', driverId)
-    .eq('status', 'available');
-
-  if (!current.error) return current;
-  if (!missingStatusColumn(current.error.message)) return current;
-
-  return admin
-    .from('return_journeys')
-    .delete()
-    .eq('driver_id', driverId);
 }
 
 export async function GET(request: NextRequest) {
@@ -133,45 +85,38 @@ export async function PUT(request: NextRequest) {
     return json(400, { error: 'Invalid return journey declaration.' });
   }
 
-  const cleared = await clearCurrentJourney(resolved.driverId);
-  if (cleared.error) {
-    return json(500, { error: 'The existing return journey could not be replaced safely.' });
+  const fromPostcode = parsed.data.from_postcode?.trim().toUpperCase() || null;
+  const toPostcode = parsed.data.to_postcode?.trim().toUpperCase() || null;
+  const vehicleType = parsed.data.vehicle_type?.trim() || null;
+  const notes = parsed.data.notes?.trim() || null;
+
+  const { error } = await supabaseAdmin!.rpc('replace_driver_return_journey_canonical', {
+    p_driver_id: resolved.driverId,
+    p_company_id: resolved.companyId,
+    p_from_postcode: fromPostcode,
+    p_to_postcode: toPostcode,
+    p_available_from: parsed.data.available_from,
+    p_available_to: parsed.data.available_to,
+    p_vehicle_type: vehicleType,
+    p_notes: notes,
+  });
+
+  if (error) {
+    if (error.code === '22023') return json(400, { error: error.message });
+    if (error.code === '42501') return json(403, { error: 'Return journey company binding is not authorised.' });
+    return json(503, { error: 'The return journey could not be replaced atomically.' });
   }
 
-  const fromPostcode = parsed.data.from_postcode?.trim() || null;
-  if (!fromPostcode) {
-    return json(200, { journey: null });
-  }
+  if (!fromPostcode) return json(200, { journey: null });
 
-  const admin = supabaseAdmin!;
-  const baseInsert = {
-    company_id: resolved.companyId,
-    driver_id: resolved.driverId,
-    from_postcode: fromPostcode,
-    to_postcode: parsed.data.to_postcode?.trim() || null,
-    available_from: parsed.data.available_from,
-    available_to: parsed.data.available_to,
-    vehicle_type: parsed.data.vehicle_type?.trim() || null,
-    notes: parsed.data.notes?.trim() || null,
-  };
-
-  let inserted = await admin
-    .from('return_journeys')
-    .insert({ ...baseInsert, status: 'available' })
-    .select('from_postcode, to_postcode, available_from, available_to, vehicle_type, notes')
-    .maybeSingle();
-
-  if (inserted.error && missingStatusColumn(inserted.error.message)) {
-    inserted = await admin
-      .from('return_journeys')
-      .insert(baseInsert)
-      .select('from_postcode, to_postcode, available_from, available_to, vehicle_type, notes')
-      .maybeSingle();
-  }
-
-  if (inserted.error) {
-    return json(500, { error: 'The return journey could not be published.' });
-  }
-
-  return json(200, { journey: inserted.data ?? null });
+  return json(200, {
+    journey: {
+      from_postcode: fromPostcode,
+      to_postcode: toPostcode,
+      available_from: parsed.data.available_from,
+      available_to: parsed.data.available_to,
+      vehicle_type: vehicleType,
+      notes,
+    },
+  });
 }
