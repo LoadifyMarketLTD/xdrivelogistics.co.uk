@@ -68,6 +68,8 @@ describe('Owner Driver remediation contract', () => {
     expect(onboardingQueueApi).toContain("'get_missing_onboarding_documents'");
     expect(onboardingQueueApi).toContain("riskStatus === 'clear'");
     expect(onboardingQueueApi).toContain('missingDocuments.length === 0');
+    expect(onboardingQueueApi).toContain("['rejected', 'suspended'].includes(companyStatus)");
+    expect(onboardingQueueApi).toContain('!companyGovernanceBlocked');
 
     expect(onboardingReviewApi).toContain("profile.role !== 'owner'");
     expect(onboardingReviewApi).toContain("z.enum(['approve', 'reject', 'request_changes'])");
@@ -79,6 +81,7 @@ describe('Owner Driver remediation contract', () => {
     expect(onboardingReviewQueue).toContain('Request changes');
     expect(onboardingReviewQueue).toContain('Reject onboarding');
     expect(onboardingReviewQueue).toContain('disabled={busy || !row.ready_for_approval}');
+    expect(onboardingReviewQueue).toContain('row.company_governance_blocked');
     expect(onboardingReviewQueue).toContain("fetch(`/api/super-admin/onboarding/${row.id}`");
   });
 });
