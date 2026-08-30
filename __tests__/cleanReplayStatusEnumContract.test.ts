@@ -7,6 +7,7 @@ const readMigration = (name: string) =>
 
 const initialSchema = readMigration('001_initial_schema.sql');
 const availabilitySplit = readMigration('048_split_driver_availability_from_employment_status.sql');
+const exchangeRlsRepair = readMigration('091_fix_driver_exchange_rls.sql');
 const vehicleReadiness = readMigration('20260819154500_reconcile_vehicle_readiness_physical_contract.sql');
 const integrity = readMigration('20260830174500_vehicle_driver_company_integrity.sql');
 
@@ -20,8 +21,17 @@ describe('clean replay canonical status enum contract', () => {
 
   it('keeps the historical availability split compatible with both text drift and the canonical enum', () => {
     expect(availabilitySplit).toContain("status::text IN ('available', 'busy', 'offline')");
-    expect(availabilitySplit).toContain("THEN status::text");
+    expect(availabilitySplit).toContain('THEN status::text');
     expect(availabilitySplit).toContain("SET status = 'active'");
+  });
+
+  it('keeps legacy rejected-status exchange checks textual without widening status_enum', () => {
+    expect(exchangeRlsRepair).toContain(
+      "d.status::text NOT IN ('suspended', 'inactive', 'rejected')",
+    );
+    expect(exchangeRlsRepair).not.toContain(
+      "d.status NOT IN ('suspended', 'inactive', 'rejected')",
+    );
   });
 
   it('materializes Vehicle lifecycle status directly with the hosted canonical type', () => {
