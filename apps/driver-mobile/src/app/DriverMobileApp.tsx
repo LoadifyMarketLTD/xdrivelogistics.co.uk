@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Alert, Image, Linking, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-canvas';
 
+import { isPermanentClientError } from '../api/client';
 import { fetchJob, fetchJobs, postJobStatus, postStopStatus, uploadPod } from '../api/jobs';
 import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
@@ -12,6 +13,7 @@ import { supabase } from '../auth/supabase';
 import { FULL_TIMELINE, getNextStep, statusIndex } from '../jobs/statusFlow';
 import type { AuditEntry, DriverJob, JobScope, JobStop, PodRecord, QueuedActionStatus } from '../jobs/types';
 import { LiveLoadsScreen } from '../live-loads/LiveLoadsScreen';
+import { createCollectionEvidenceId } from '../offline/collectionEvidencePersistence';
 import {
   enqueueAction,
   getQueue,
@@ -41,6 +43,7 @@ const notificationEventTitles: Record<string, string> = {
   job_cancelled: 'Job cancelled',
   job_updated: 'Job updated',
   dispatcher_message: 'Dispatcher update',
+  driver_instruction: 'Driver instruction',
 };
 
 function getAccessToken(session: { access_token?: string | null } | null | undefined) {
@@ -186,6 +189,22 @@ function hasIncompletePersistentStops(job: DriverJob) {
   return stops.length > 0 && stops.some((stop) => !isStopTerminal(stop));
 }
 
+async function captureCollectionPhotoPayload(): Promise<Record<string, unknown> | null> {
+  const ImagePicker = await import('expo-image-picker');
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    Alert.alert('Camera required', 'A loading photo is required before the job can be marked Loaded.');
+    return null;
+  }
+  const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+  const uri = !result.canceled ? result.assets[0]?.uri?.trim() : '';
+  if (!uri) return null;
+  return {
+    collectionPhotoUri: uri,
+    collectionEvidenceId: createCollectionEvidenceId(),
+  };
+}
+
 export default function DriverMobileApp() {
   const [screen, setScreen] = useState<Screen>('login');
   const [token, setToken] = useState<string | null>(null);
@@ -276,7 +295,6 @@ export default function DriverMobileApp() {
         return;
       }
 
-      // Track which jobs had a failure this pass so later actions are blocked.
       const failedJobIds = new Set<string>();
       for (const item of readyItems) {
         if (failedJobIds.has(item.jobId)) continue;
@@ -284,10 +302,16 @@ export default function DriverMobileApp() {
         setQueue(nextQueue);
         try {
           if (item.endpoint === 'pod') await uploadPod(item.jobId, sessionToken, item.payload ?? {});
-          else await postJobStatus(item.jobId, item.endpoint, sessionToken);
+          else await postJobStatus(item.jobId, item.endpoint, sessionToken, item.payload ?? {});
           nextQueue = await markQueueItemSynced(userId, item.id);
         } catch (error) {
-          nextQueue = await markQueueItemFailed(userId, item.id, error instanceof Error ? error.message : 'Sync failed.', item.retryCount);
+          nextQueue = await markQueueItemFailed(
+            userId,
+            item.id,
+            error instanceof Error ? error.message : 'Sync failed.',
+            item.retryCount,
+            { retryable: !isPermanentClientError(error) },
+          );
           failedJobIds.add(item.jobId);
         }
         setQueue(nextQueue);
@@ -338,7 +362,6 @@ export default function DriverMobileApp() {
           return;
         }
 
-        // Load the account-scoped queue now that the userId is confirmed.
         authenticatedUserIdRef.current = userId;
         void getQueue(userId).then(setQueue).catch(() => setQueue([]));
         setToken(sessionToken);
@@ -361,15 +384,9 @@ export default function DriverMobileApp() {
       if (nextToken) void saveSessionToken(nextToken);
       else void clearSessionToken();
       if (nextUserId) {
-        // Update the ref whenever a valid authenticated session is established so
-        // that session-loss events (where session/userId are null) can still
-        // identify whose queue must be cleared.
         authenticatedUserIdRef.current = nextUserId;
       }
       if (!session) {
-        // Session lost (sign-out, token expiry, remote logout). Clear persistent
-        // user data before resetting React state to prevent cross-account leakage.
-        // Read the previous user ID from the ref — nextUserId is always null here.
         const previousUserId = authenticatedUserIdRef.current;
         authenticatedUserIdRef.current = null;
         void handleSessionLoss(previousUserId);
@@ -470,7 +487,6 @@ export default function DriverMobileApp() {
   }
 
   async function signOut() {
-    // Capture userId before clearing state so the correct account-scoped queue is removed.
     const userId = authUserId;
     authenticatedUserIdRef.current = null;
     await supabase.auth.signOut();
@@ -509,8 +525,6 @@ export default function DriverMobileApp() {
     setMessage('');
     try {
       await postStopStatus(job.id, stopId, status, token);
-      // Stop mutations remain server-authoritative. Always refresh the whole job
-      // instead of projecting a local optimistic state after the mutation.
       const refreshed = await fetchJob(job.id, token);
       setJob(refreshed.job);
       setJobs((items) => items.map((item) => item.id === refreshed.job.id ? refreshed.job : item));
@@ -532,9 +546,6 @@ export default function DriverMobileApp() {
       setScreen('detail');
       return;
     }
-    // Gate on POD before delivering — but only when POD has not yet been captured.
-    // If POD is already confirmed by the server (podCompleted/podGenerated/pod), proceed
-    // directly to the delivered endpoint instead of re-opening the POD screen.
     if (nextStep.status === 'delivered') {
       const podAlreadyCaptured = job.podCompleted === true || job.podGenerated === true || job.pod != null;
       if (!podAlreadyCaptured) {
@@ -544,29 +555,39 @@ export default function DriverMobileApp() {
     }
 
     const apply = async () => {
+      let actionPayload: Record<string, unknown> | undefined;
+      if (nextStep.endpoint === 'loaded') {
+        actionPayload = await captureCollectionPhotoPayload() ?? undefined;
+        if (!actionPayload) {
+          setMessage('A loading photo is required before the job can be marked Loaded.');
+          return;
+        }
+      }
+
       if (!token || !authUserId || !(await isOnline())) {
         if (!authUserId) return;
-        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint, payload: actionPayload });
         setQueue((items) => reconcileQueueState(items, queued));
-        // Do NOT update the local job status — the server has not confirmed the transition.
-        // The pending badge in the queue UI communicates the pending state to the driver.
         setMessage('Action saved offline. It will sync automatically when connectivity returns.');
         return;
       }
       try {
-        const response = await postJobStatus(job.id, nextStep.endpoint, token);
+        const response = await postJobStatus(job.id, nextStep.endpoint, token, actionPayload ?? {});
         if ('job' in response) setJob(response.job as DriverJob);
         await loadJobs(token, scope, { navigate: false });
       } catch (error) {
         const text = error instanceof Error ? error.message : 'Unable to update job status. Please retry.';
-        if (/pod is required/i.test(text)) {
+        if (/pod is required|delivery photo|recipient signature/i.test(text)) {
           setMessage(text);
           setScreen('pod');
           return;
         }
-        // Online failure — keep the server-confirmed status; do NOT advance it locally.
-        // Queue the action for automatic retry.
-        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint });
+        if (isPermanentClientError(error)) {
+          setMessage(text);
+          await loadJobs(token, scope, { navigate: false }).catch(() => undefined);
+          return;
+        }
+        const queued = await enqueueAction(authUserId, { jobId: job.id, endpoint: nextStep.endpoint, payload: actionPayload });
         setQueue((items) => reconcileQueueState(items, queued));
         setMessage(text);
       }
@@ -752,9 +773,6 @@ function ActiveJobScreen({
   const completedStops = persistentStops.filter(isStopTerminal).length;
   const isPodDone = job.podCompleted === true || job.podGenerated === true || job.pod != null;
   const isPodQueued = queue.some((item) => item.jobId === job.id && item.endpoint === 'pod' && item.status !== 'synced');
-  // Show "Capture POD" only at arrived_delivery (or delivered, for retry), after
-  // every persisted multi-drop stop is complete, and only when POD has not
-  // already been captured or queued offline.
   const showCapturePod =
     (job.status === 'arrived_delivery' || job.status === 'delivered') &&
     !hasIncompletePersistentStops(job) &&
@@ -826,7 +844,6 @@ function JobDetailScreen({
 
   return (
     <View style={styles.stack}>
-      {/* Tab bar */}
       <View style={styles.detailTabs}>
         {tabs.map(([key, label]) => (
           <TouchableOpacity key={key} style={[styles.detailTab, tab === key && styles.detailTabActive]} onPress={() => setTab(key)}>
@@ -862,7 +879,6 @@ function SummaryTab({ job }: { job: DriverJob }) {
 
   return (
     <View style={styles.stack}>
-      {/* Client & Contact */}
       <Panel>
         <Text style={styles.title}>{job.reference}</Text>
         {job.client ? <Info label="Customer" value={job.client} /> : null}
@@ -879,7 +895,6 @@ function SummaryTab({ job }: { job: DriverJob }) {
         {job.contactAllowed && job.contactName ? <Info label="Contact" value={job.contactName} /> : null}
       </Panel>
 
-      {/* Route */}
       <Panel>
         <Info label="Pickup Address" value={job.pickupLocation} />
         <Info label="Delivery Address" value={job.deliveryLocation} />
@@ -891,7 +906,6 @@ function SummaryTab({ job }: { job: DriverJob }) {
         <Info label="Vehicle" value={job.vehicleRequirement} />
       </Panel>
 
-      {/* Load Details */}
       <Panel>
         <Text style={styles.infoLabel}>Load Details</Text>
         <Info label="Freight Type" value={job.cargoType} />
@@ -903,7 +917,6 @@ function SummaryTab({ job }: { job: DriverJob }) {
         {job.temperatureControlled ? <Info label="Temperature Controlled" value="Required" /> : null}
       </Panel>
 
-      {/* Notes & Instructions */}
       {(job.customerNotes || job.dispatcherNotes || job.specialInstructions || job.requirements) ? (
         <Panel>
           {job.customerNotes ? <Info label="Customer Notes" value={job.customerNotes} /> : null}
@@ -913,7 +926,6 @@ function SummaryTab({ job }: { job: DriverJob }) {
         </Panel>
       ) : null}
 
-      {/* References & Terms */}
       <Panel>
         {job.customerReference ? <Info label="Customer Reference" value={job.customerReference} /> : null}
         {job.internalReference ? <Info label="Internal Reference" value={job.internalReference} /> : null}
@@ -923,7 +935,6 @@ function SummaryTab({ job }: { job: DriverJob }) {
         {job.updatedAt ? <Info label="Last Updated" value={formatDateTime(job.updatedAt)} /> : null}
       </Panel>
 
-      {/* Attachments */}
       {job.attachments && job.attachments.length > 0 ? (
         <Panel>
           <Text style={styles.infoLabel}>Attachments</Text>
@@ -1050,7 +1061,6 @@ function StatusTab({ job }: { job: DriverJob }) {
             accessibilityRole="button"
           >
             <View style={styles.timelineRow}>
-              {/* connector line */}
               <View style={styles.timelineConnectorCol}>
                 {i > 0 && <View style={[styles.timelineLine, isDone ? styles.timelineLineDone : styles.timelineLinePending]} />}
                 <View style={[styles.timelineDot, isDone ? styles.timelineDotDone : styles.timelineDotPending, isCurrent && styles.timelineDotCurrent]}>
@@ -1058,7 +1068,6 @@ function StatusTab({ job }: { job: DriverJob }) {
                 </View>
                 {i < FULL_TIMELINE.length - 1 && <View style={[styles.timelineLineBottom, isDone ? styles.timelineLineDone : styles.timelineLinePending]} />}
               </View>
-              {/* content */}
               <View style={styles.timelineContent}>
                 <Text style={[styles.timelineLabel, isDone ? styles.timelineLabelDone : styles.timelineLabelPending]}>{step.label}</Text>
                 {audit ? (
@@ -1128,12 +1137,20 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
       Alert.alert('Recipient required', 'Enter the recipient name before saving POD.');
       return;
     }
-    if (photoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
-      Alert.alert('Evidence required', 'Capture a signature, photo or document before saving POD.');
+    if (job.podRequired && photoUris.length === 0) {
+      Alert.alert('Delivery photo required', 'Capture at least one delivery photo before saving POD.');
       return;
     }
-    if (photoUris.length > 10) {
-      Alert.alert('Too many photos', 'A maximum of 10 delivery photos are allowed.');
+    if (job.podRequired && !signatureData.trim()) {
+      Alert.alert('Signature required', 'Capture the recipient signature before saving POD.');
+      return;
+    }
+    if (!job.podRequired && photoUris.length === 0 && damagePhotoUris.length === 0 && documentUris.length === 0 && !signatureData.trim()) {
+      Alert.alert('Evidence required', 'Capture a signature, photo, damage photo or document before saving POD.');
+      return;
+    }
+    if (photoUris.length + damagePhotoUris.length > 10) {
+      Alert.alert('Too many photos', 'A maximum of 10 delivery and damage photos are allowed in total.');
       return;
     }
     if (documentUris.length > 10) {
@@ -1143,23 +1160,18 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
 
     setSubmitting(true);
 
-    // Encode extra UI fields into the supported `notes` field so the backend
-    // persists them without requiring a schema change.
     const noteParts: string[] = [];
     if (quantityDelivered.trim()) noteParts.push(`Qty: ${quantityDelivered.trim()}`);
     if (itemsMissing.trim()) noteParts.push(`Missing: ${itemsMissing.trim()}`);
     if (itemsDamaged.trim()) noteParts.push(`Damaged: ${itemsDamaged.trim()}`);
-    if (damagePhotoUris.length > 0) noteParts.push(`Damage photos: ${damagePhotoUris.length}`);
     if (receiverNotes.trim()) noteParts.push(`Receiver: ${receiverNotes.trim()}`);
     if (driverNotes.trim()) noteParts.push(`Driver: ${driverNotes.trim()}`);
     if (comments.trim()) noteParts.push(`Comments: ${comments.trim()}`);
     const notes = noteParts.join(' | ').slice(0, 2000) || undefined;
 
-    // Combine delivery and damage photos into photoUris for the backend.
-    const allPhotoUris = [...photoUris, ...damagePhotoUris].slice(0, 10);
-
     const payload = {
-      photoUris: allPhotoUris,
+      photoUris,
+      damagePhotoUris,
       documentUris,
       recipientName: recipientName.trim(),
       signatureData: signatureData.trim() || undefined,
@@ -1178,10 +1190,15 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
       const response = await uploadPod(job.id, token, payload);
       setSubmitting(false);
       onSaved('job' in response ? response.job as DriverJob : undefined);
-    } catch {
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'The POD could not be saved.';
+      setSubmitting(false);
+      if (isPermanentClientError(error)) {
+        Alert.alert('POD not saved', text);
+        return;
+      }
       const queued = await enqueueAction(userId, { jobId: job.id, endpoint: 'pod', payload });
       onQueued(queued);
-      setSubmitting(false);
       Alert.alert('POD queued for retry', 'The upload failed. Your POD evidence has been saved and will retry automatically.', [
         { text: 'OK', onPress: () => onSaved() },
       ]);
@@ -1198,78 +1215,20 @@ function PodScreen({ job, token, userId, onSaved, onQueued }: { job: DriverJob; 
         <Info label="Time" value={podTime} />
       </Panel>
 
-      {/* Recipient */}
-      <TextInput
-        placeholder="Receiver Name *"
-        placeholderTextColor={colors.muted}
-        style={styles.input}
-        value={recipientName}
-        onChangeText={setRecipientName}
-      />
-      <TextInput
-        placeholder="Receiver Company"
-        placeholderTextColor={colors.muted}
-        style={styles.input}
-        value={recipientCompany}
-        onChangeText={setRecipientCompany}
-      />
+      <TextInput placeholder="Receiver Name *" placeholderTextColor={colors.muted} style={styles.input} value={recipientName} onChangeText={setRecipientName} />
+      <TextInput placeholder="Receiver Company" placeholderTextColor={colors.muted} style={styles.input} value={recipientCompany} onChangeText={setRecipientCompany} />
+      <TextInput placeholder="Quantity Delivered" placeholderTextColor={colors.muted} style={styles.input} value={quantityDelivered} onChangeText={setQuantityDelivered} keyboardType="numeric" />
+      <TextInput placeholder="Items Missing" placeholderTextColor={colors.muted} style={styles.input} value={itemsMissing} onChangeText={setItemsMissing} />
+      <TextInput placeholder="Items Damaged" placeholderTextColor={colors.muted} style={styles.input} value={itemsDamaged} onChangeText={setItemsDamaged} />
 
-      {/* Quantity & Exceptions */}
-      <TextInput
-        placeholder="Quantity Delivered"
-        placeholderTextColor={colors.muted}
-        style={styles.input}
-        value={quantityDelivered}
-        onChangeText={setQuantityDelivered}
-        keyboardType="numeric"
-      />
-      <TextInput
-        placeholder="Items Missing"
-        placeholderTextColor={colors.muted}
-        style={styles.input}
-        value={itemsMissing}
-        onChangeText={setItemsMissing}
-      />
-      <TextInput
-        placeholder="Items Damaged"
-        placeholderTextColor={colors.muted}
-        style={styles.input}
-        value={itemsDamaged}
-        onChangeText={setItemsDamaged}
-      />
-
-      {/* Photos */}
       <SecondaryButton label={photoUris.length > 0 ? `Delivery Photos (${photoUris.length}) – add more` : 'Add Delivery Photo'} onPress={() => void addDeliveryPhoto()} />
       <SecondaryButton label={damagePhotoUris.length > 0 ? `Damage Photos (${damagePhotoUris.length}) – add more` : 'Add Damage Photo'} onPress={() => void addDamagePhoto()} />
       <SecondaryButton label={documentUris.length > 0 ? `Documents (${documentUris.length}) – add more` : 'Add Document'} onPress={() => void addDocument()} />
 
-      {/* Notes */}
-      <TextInput
-        placeholder="Receiver Notes"
-        placeholderTextColor={colors.muted}
-        style={[styles.input, styles.notesInput]}
-        value={receiverNotes}
-        onChangeText={setReceiverNotes}
-        multiline
-      />
-      <TextInput
-        placeholder="Driver Notes (optional)"
-        placeholderTextColor={colors.muted}
-        style={[styles.input, styles.notesInput]}
-        value={driverNotes}
-        onChangeText={setDriverNotes}
-        multiline
-      />
-      <TextInput
-        placeholder="Comments (optional)"
-        placeholderTextColor={colors.muted}
-        style={[styles.input, styles.notesInput]}
-        value={comments}
-        onChangeText={setComments}
-        multiline
-      />
+      <TextInput placeholder="Receiver Notes" placeholderTextColor={colors.muted} style={[styles.input, styles.notesInput]} value={receiverNotes} onChangeText={setReceiverNotes} multiline />
+      <TextInput placeholder="Driver Notes (optional)" placeholderTextColor={colors.muted} style={[styles.input, styles.notesInput]} value={driverNotes} onChangeText={setDriverNotes} multiline />
+      <TextInput placeholder="Comments (optional)" placeholderTextColor={colors.muted} style={[styles.input, styles.notesInput]} value={comments} onChangeText={setComments} multiline />
 
-      {/* Signature */}
       <Panel>
         <Text style={styles.infoLabel}>Recipient Signature *</Text>
         <View style={styles.signatureWrap}>
@@ -1617,13 +1576,11 @@ const styles = StyleSheet.create({
   queueRowTitle: { color: colors.text, fontWeight: '700', textTransform: 'capitalize', flex: 1 },
   queueActions: { gap: spacing.sm },
   queueError: { color: colors.danger, fontWeight: '600' },
-  // Job Detail tabs
   detailTabs: { flexDirection: 'row', backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 4 },
   detailTab: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   detailTabActive: { backgroundColor: colors.primary },
   detailTabText: { color: colors.muted, fontWeight: '800', fontSize: 13 },
   detailTabTextActive: { color: '#fff' },
-  // Summary tab
   contactRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   contactButton: { flex: 1, minHeight: 44, backgroundColor: colors.panelSoft, borderColor: colors.border, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   contactButtonText: { color: colors.text, fontWeight: '800', fontSize: 13 },
@@ -1634,14 +1591,12 @@ const styles = StyleSheet.create({
   attachmentName: { color: colors.text, fontWeight: '700', fontSize: 14 },
   attachmentMeta: { color: colors.muted, fontSize: 11 },
   attachmentAction: { color: colors.primary, fontWeight: '900', fontSize: 20, paddingLeft: spacing.sm },
-  // Stops tab
   stopTypeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs },
   stopTypeLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   stopCollection: { color: '#22c55e' },
   stopDelivery: { color: '#ef4444' },
   viewPodButton: { minHeight: 52, backgroundColor: '#16a34a', borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   viewPodButtonText: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 0.6 },
-  // Status tab timeline
   timelineRow: { flexDirection: 'row', gap: spacing.sm },
   timelineConnectorCol: { alignItems: 'center', width: 28 },
   timelineLine: { width: 2, flex: 1, minHeight: 14 },
@@ -1659,10 +1614,8 @@ const styles = StyleSheet.create({
   timelineLabelPending: { color: colors.muted },
   timelineMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
   timelineExpanded: { marginTop: spacing.sm, gap: spacing.xs },
-  // POD photo grid
   podPhotoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   podPhotoThumb: { width: 80, height: 80, borderRadius: 8, backgroundColor: colors.panelSoft },
-  // Audit
   auditRow: { paddingVertical: spacing.xs, borderBottomColor: colors.border, borderBottomWidth: 1 },
   auditStatus: { color: colors.text, fontWeight: '700', fontSize: 13 },
   auditMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
