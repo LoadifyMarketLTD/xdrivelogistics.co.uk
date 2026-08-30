@@ -48,8 +48,22 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
 
   const rows = Array.isArray(data) ? data : [];
+  const companyIds = Array.from(new Set(rows.map((row) => row.company_id).filter(Boolean))) as string[];
+
+  let companies: Array<{ id: string; name: string | null; status: string | null }> = [];
+  if (companyIds.length > 0) {
+    const { data: companyData, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('id, name, status')
+      .in('id', companyIds);
+
+    if (companyError) return respond(500, { error: companyError.message });
+    companies = Array.isArray(companyData) ? companyData : [];
+  }
+
   return respond(200, {
     rows,
+    companies,
     summary: {
       total: rows.length,
       ready: 0,
