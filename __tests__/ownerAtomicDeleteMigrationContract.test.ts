@@ -58,4 +58,10 @@ describe('atomic owner delete migration contract', () => {
     expect(runtimeValidation).toContain("ERRCODE = 'PZ001'");
     expect(runtimeValidation).toContain('Synthetic audit record remained after validation rollback.');
   });
+
+  it('does not block clean migration replay before account seed data exists', () => {
+    expect(runtimeValidation).toContain('IF v_actor_user_id IS NULL OR v_company_id IS NULL THEN');
+    expect(runtimeValidation).toContain('RETURN;');
+    expect(runtimeValidation).not.toContain('validation requires an active posting-company operator');
+  });
 });
