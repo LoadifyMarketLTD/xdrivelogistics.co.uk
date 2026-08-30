@@ -136,6 +136,13 @@ function documentTone(status: string | null | undefined): 'green' | 'orange' | '
   return 'grey';
 }
 
+function isCurrentVerifiedIdentityDocument(document: IdentityDocument) {
+  const currentDate = new Date().toISOString().slice(0, 10);
+  return document.verification_status === 'verified'
+    && Boolean(document.file_path)
+    && (!document.expiry_date || document.expiry_date >= currentDate);
+}
+
 export default function DriverDocumentsPage() {
   const { user } = useAuth();
   const identityFileRef = useRef<HTMLInputElement>(null);
@@ -202,13 +209,21 @@ export default function DriverDocumentsPage() {
   const blockers = snapshot?.operational?.blockers ?? [];
   const eligible = snapshot?.operational?.eligible === true;
 
+  const canonicalVerifiedIdentityTypes = useMemo(
+    () => new Set(
+      identityDocuments
+        .filter(isCurrentVerifiedIdentityDocument)
+        .map((document) => document.doc_type),
+    ),
+    [identityDocuments],
+  );
+
   const verifiedIdentityCount = useMemo(
-    () => requiredIdentityDocs.filter((docType) => identityDocuments.some((document) =>
-      document.doc_type === docType
-      && document.verification_status === 'verified'
-      && Boolean(document.file_path),
-    )).length,
-    [identityDocuments, requiredIdentityDocs],
+    () => requiredIdentityDocs.filter((docType) =>
+      canonicalVerifiedIdentityTypes.has(docType)
+      || (docType === 'proof_of_address' && canonicalVerifiedIdentityTypes.has('driving_licence')),
+    ).length,
+    [canonicalVerifiedIdentityTypes, requiredIdentityDocs],
   );
 
   const approvedVehicleDocCount = useMemo(
@@ -216,9 +231,15 @@ export default function DriverDocumentsPage() {
     [vehicleDocuments],
   );
 
+  const legacyNeedsReconciliation = useCallback((document: LegacyDocument) => Boolean(
+    document.reconcile_eligible
+    && document.canonical_doc_type
+    && !canonicalVerifiedIdentityTypes.has(document.canonical_doc_type)
+  ), [canonicalVerifiedIdentityTypes]);
+
   const reconcileCount = useMemo(
-    () => legacyDocuments.filter((document) => document.reconcile_eligible).length,
-    [legacyDocuments],
+    () => legacyDocuments.filter(legacyNeedsReconciliation).length,
+    [legacyDocuments, legacyNeedsReconciliation],
   );
 
   const reconcileLegacy = async () => {
@@ -389,14 +410,20 @@ export default function DriverDocumentsPage() {
                 <div className="driver-load-list">
                   {requiredIdentityDocs.map((docType) => {
                     const matches = identityDocuments.filter((document) => document.doc_type === docType);
-                    const preferred = matches.find((document) => document.verification_status === 'verified') ?? matches[0] ?? null;
+                    const verifiedDirect = matches.find(isCurrentVerifiedIdentityDocument) ?? null;
+                    const verifiedLicence = docType === 'proof_of_address'
+                      ? identityDocuments.find((document) => document.doc_type === 'driving_licence' && isCurrentVerifiedIdentityDocument(document)) ?? null
+                      : null;
+                    const satisfiedByLicence = !verifiedDirect && Boolean(verifiedLicence);
+                    const preferred = verifiedDirect ?? verifiedLicence ?? matches[0] ?? null;
+                    const effectiveStatus = satisfiedByLicence ? 'verified' : (preferred?.verification_status ?? 'missing');
                     return (
-                      <article className="driver-load-row" key={docType} data-state={preferred?.verification_status ?? 'missing'}>
+                      <article className="driver-load-row" key={docType} data-state={effectiveStatus}>
                         <div className="driver-load-row__top">
-                          <div className="driver-load-cell"><span className="driver-cell-label">Required document</span><strong className="driver-cell-primary">{IDENTITY_LABELS[docType] ?? docType}</strong><span className="driver-cell-secondary">Canonical onboarding evidence</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Upload</span><strong className="driver-cell-primary">{preferred?.upload_status ?? 'missing'}</strong><span className="driver-cell-secondary">{preferred?.file_path ? 'Secure file recorded' : 'No canonical file yet'}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{preferred?.verification_status ?? 'missing'}</strong><span className="driver-cell-secondary">{preferred?.review_notes ?? 'Platform verification required'}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Expiry</span><strong className="driver-cell-primary">{fmtDate(preferred?.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={preferred?.verification_status ?? 'missing'} tone={documentTone(preferred?.verification_status)} /></span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Required document</span><strong className="driver-cell-primary">{IDENTITY_LABELS[docType] ?? docType}</strong><span className="driver-cell-secondary">{satisfiedByLicence ? 'Verified Driving Licence accepted as address evidence' : 'Canonical onboarding evidence'}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Upload</span><strong className="driver-cell-primary">{satisfiedByLicence ? 'accepted' : (preferred?.upload_status ?? 'missing')}</strong><span className="driver-cell-secondary">{satisfiedByLicence ? 'Verified Driving Licence already on file' : (preferred?.file_path ? 'Secure file recorded' : 'No canonical file yet')}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Review</span><strong className="driver-cell-primary">{effectiveStatus}</strong><span className="driver-cell-secondary">{satisfiedByLicence ? 'Driving Licence satisfies Proof of Address' : (preferred?.review_notes ?? 'Platform verification required')}</span></div>
+                          <div className="driver-load-cell"><span className="driver-cell-label">Expiry</span><strong className="driver-cell-primary">{fmtDate(preferred?.expiry_date)}</strong><span className="driver-cell-secondary"><StatusBadge value={effectiveStatus} tone={documentTone(effectiveStatus)} /></span></div>
                         </div>
                       </article>
                     );
@@ -410,13 +437,24 @@ export default function DriverDocumentsPage() {
                       Older approved Driver documents are preserved. Only unambiguous, currently valid evidence with an existing review can be copied into the canonical onboarding registry; nothing is silently re-approved.
                     </p>
                     <div className="driver-detail-grid">
-                      {legacyDocuments.map((document) => (
-                        <div className="driver-detail-item" key={document.id}>
-                          <span>{document.doc_type}</span>
-                          <strong>{document.status}</strong>
-                          <small>{document.reconcile_eligible ? 'Eligible for canonical reconciliation' : `Preserved legacy record · expiry ${fmtDate(document.expiry_date)}`}</small>
-                        </div>
-                      ))}
+                      {legacyDocuments.map((document) => {
+                        const needsReconciliation = legacyNeedsReconciliation(document);
+                        const alreadyCanonical = Boolean(
+                          document.canonical_doc_type
+                          && canonicalVerifiedIdentityTypes.has(document.canonical_doc_type)
+                        );
+                        return (
+                          <div className="driver-detail-item" key={document.id}>
+                            <span>{document.doc_type}</span>
+                            <strong>{document.status}</strong>
+                            <small>{needsReconciliation
+                              ? 'Eligible for canonical reconciliation'
+                              : alreadyCanonical
+                                ? 'Already represented in canonical onboarding'
+                                : `Preserved legacy record · expiry ${fmtDate(document.expiry_date)}`}</small>
+                          </div>
+                        );
+                      })}
                     </div>
                     {reconcileCount > 0 && (
                       <div className="driver-row-actions" style={{ marginTop: 6 }}>
