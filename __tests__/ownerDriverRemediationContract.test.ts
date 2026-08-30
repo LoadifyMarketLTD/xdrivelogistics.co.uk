@@ -18,6 +18,22 @@ describe('Owner Driver remediation contract', () => {
     path.join(process.cwd(), 'supabase/migrations/20260830020916_repair_owner_driver_document_storage_contract.sql'),
     'utf8',
   );
+  const onboardingQueueApi = fs.readFileSync(
+    path.join(process.cwd(), 'app/api/super-admin/onboarding/route.ts'),
+    'utf8',
+  );
+  const onboardingReviewApi = fs.readFileSync(
+    path.join(process.cwd(), 'app/api/super-admin/onboarding/[id]/route.ts'),
+    'utf8',
+  );
+  const onboardingReviewQueue = fs.readFileSync(
+    path.join(process.cwd(), 'app/super-admin/compliance/documents/OnboardingReviewQueue.tsx'),
+    'utf8',
+  );
+  const documentReviewPage = fs.readFileSync(
+    path.join(process.cwd(), 'app/super-admin/compliance/documents/page.tsx'),
+    'utf8',
+  );
 
   test('provides controlled same-company Assign to me without silent reassignment', () => {
     expect(vehiclesApi).toContain("action: z.literal('assign_to_me')");
@@ -44,5 +60,25 @@ describe('Owner Driver remediation contract', () => {
     expect(migration).toContain("o.bucket_id = 'driver-docs'");
     expect(migration).toContain('o.name = c.object_path');
     expect(migration).not.toMatch(/DELETE\s+FROM\s+storage\.objects/i);
+  });
+
+  test('exposes Platform Owner onboarding approval without bypassing canonical review guards', () => {
+    expect(onboardingQueueApi).toContain("profile?.role !== 'owner'");
+    expect(onboardingQueueApi).toContain(".in('status', ['submitted', 'under_review', 'request_changes'])");
+    expect(onboardingQueueApi).toContain("'get_missing_onboarding_documents'");
+    expect(onboardingQueueApi).toContain("riskStatus === 'clear'");
+    expect(onboardingQueueApi).toContain('missingDocuments.length === 0');
+
+    expect(onboardingReviewApi).toContain("profile.role !== 'owner'");
+    expect(onboardingReviewApi).toContain("z.enum(['approve', 'reject', 'request_changes'])");
+    expect(onboardingReviewApi).toContain(".rpc('review_onboarding_application_atomic'");
+
+    expect(documentReviewPage).toContain('OnboardingReviewQueue');
+    expect(onboardingReviewQueue).toContain('Onboarding approval queue');
+    expect(onboardingReviewQueue).toContain('Approve onboarding');
+    expect(onboardingReviewQueue).toContain('Request changes');
+    expect(onboardingReviewQueue).toContain('Reject onboarding');
+    expect(onboardingReviewQueue).toContain('disabled={busy || !row.ready_for_approval}');
+    expect(onboardingReviewQueue).toContain("fetch(`/api/super-admin/onboarding/${row.id}`");
   });
 });
