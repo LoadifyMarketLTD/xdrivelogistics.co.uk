@@ -50,7 +50,7 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
         setError('');
         return;
       }
-      if (!response.ok) throw new Error(payload.error || 'Driver instructions are unavailable.');
+      if (!response.ok) throw new Error(payload.error || 'Driver messages are unavailable.');
       setState({
         canAdd: payload.canAdd === true,
         reason: typeof payload.reason === 'string' ? payload.reason : null,
@@ -59,7 +59,7 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
       });
     } catch (reason) {
       setState(null);
-      setError(reason instanceof Error ? reason.message : 'Driver instructions are unavailable.');
+      setError(reason instanceof Error ? reason.message : 'Driver messages are unavailable.');
     } finally {
       setLoading(false);
     }
@@ -90,16 +90,16 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
         assignedDriver?: boolean;
         driverInboxNotified?: boolean;
       };
-      if (!response.ok) throw new Error(payload.error || 'The Driver instruction could not be saved.');
+      if (!response.ok) throw new Error(payload.error || 'The Driver message could not be saved.');
       setInstruction('');
       setMessage(payload.assignedDriver
         ? payload.driverInboxNotified
-          ? 'Instruction saved and added to the assigned Driver’s XDrive inbox.'
-          : 'Instruction saved. It is attached to the job and visible to the assigned Driver.'
-        : 'Instruction saved. It will be visible to the Driver when one is assigned to this job.');
+          ? 'Message saved and added to the assigned Driver’s XDrive inbox.'
+          : 'Message saved. It is attached to the job and visible to the assigned Driver.'
+        : 'Message saved. It will be shown to the Driver when one is assigned to this job.');
       await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The Driver instruction could not be saved.');
+      setError(reason instanceof Error ? reason.message : 'The Driver message could not be saved.');
     } finally {
       setSending(false);
     }
@@ -111,8 +111,8 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
 
   return (
     <Panel
-      title="Driver instructions"
-      description="Append-only operational updates for the awarded Driver. These instructions do not change the route, rate, cargo, timing, vehicle or awarded terms."
+      title="Messages / changes for Driver"
+      description="Use this for any change or new instruction after the load has been posted. The original load record is not edited; every message is kept in the permanent job history and shown to the Driver."
     >
       <div style={{ display: 'grid', gap: 8 }}>
         {message && <AlertBanner tone="success">{message}</AlertBanner>}
@@ -122,36 +122,36 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
           <div style={{ display: 'grid', gap: 6 }}>
             {state.instructions.map((item, index) => (
               <div key={item.id} className="workspace-detail-item">
-                <strong>Instruction {index + 1}</strong>
+                <strong>Message {index + 1}</strong>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{item.instruction}</div>
                 <small>{item.createdBy} · {formatWhen(item.createdAt)}</small>
               </div>
             ))}
           </div>
         ) : (
-          <EmptyState compact title="No additional Driver instructions" description="Use this only when new operational information becomes available after award." />
+          <EmptyState compact title="No Driver messages yet" description="If anything changes after posting, add the update here instead of editing the original load." />
         )}
 
         {state.canAdd ? (
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, display: 'grid', gap: 6 }}>
             <label style={{ display: 'grid', gap: 4, color: '#334155', fontSize: 11, fontWeight: 700 }}>
-              Add new instruction
+              Add change / message
               <textarea
                 value={instruction}
                 maxLength={2000}
                 onChange={(event) => setInstruction(event.target.value)}
-                placeholder="For example: Delivery gate is at the rear of the building. Call the site contact 15 minutes before arrival."
+                placeholder="For example: Delivery address update: use the rear gate. Call the site contact 15 minutes before arrival."
                 style={{ width: '100%', minHeight: 72, border: '1px solid #cfd7e3', borderRadius: 4, padding: '7px 8px', fontSize: 12, boxSizing: 'border-box', resize: 'vertical', background: '#fff', color: '#172033' }}
               />
             </label>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <small style={{ color: '#64748b' }}>
                 {state.assignedDriver
-                  ? 'This is added to the permanent job history and shown to the assigned Driver.'
-                  : 'This is added to the permanent job history and will be shown once a Driver is assigned.'}
+                  ? 'This message is added to the permanent job history and shown to the assigned Driver.'
+                  : 'This message is saved now and will be shown when a Driver is assigned.'}
               </small>
               <ActionButton tone="primary" disabled={sending || !instruction.trim()} onClick={() => void send()}>
-                {sending ? 'Sending…' : 'Send instruction to Driver'}
+                {sending ? 'Sending…' : 'Send message to Driver'}
               </ActionButton>
             </div>
           </div>
