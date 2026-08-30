@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
@@ -16,24 +16,39 @@ import {
   toCanonicalPaymentStatus,
   type CanonicalInvoiceStatus,
 } from '../../../lib/invoiceStatus';
+import { OperationalSignalStrip } from '../../components/workspace/OperationalConvergence';
+import {
+  ActionButton,
+  AlertBanner,
+  DataTable,
+  EmptyState,
+  PageFrame,
+  PageHeader,
+  Panel,
+  StatusBadge,
+} from '../../components/workspace/WorkspaceUI';
+import './invoice-register-exchange.css';
 
 type InvoiceListItem = InvoiceData & { jobId: string | null; paymentStatus: string | null };
+type InvoiceFilter = 'All' | CanonicalInvoiceStatus;
+
+const FILTERS: InvoiceFilter[] = ['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled'];
+const INVOICES_PER_PAGE = 25;
 
 function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): InvoiceListItem {
-  const invoiceDate =
-    typeof row.invoice_date === 'string'
-      ? row.invoice_date
-      : typeof row.created_at === 'string'
-        ? row.created_at
-        : new Date().toISOString();
+  const invoiceDate = typeof row.invoice_date === 'string'
+    ? row.invoice_date
+    : typeof row.created_at === 'string'
+      ? row.created_at
+      : new Date().toISOString();
   const dueDate = typeof row.due_date === 'string' ? row.due_date : invoiceDate;
   const paymentTerms = row.payment_terms === 'Pay now' || row.payment_terms === '30 days' ? row.payment_terms : '14 days';
-  const status =
-    toCanonicalInvoiceDisplayStatus(
-      typeof row.status === 'string' ? row.status : null,
-      dueDate,
-      typeof row.payment_status === 'string' ? row.payment_status : null
-    );
+  const status = toCanonicalInvoiceDisplayStatus(
+    typeof row.status === 'string' ? row.status : null,
+    dueDate,
+    typeof row.payment_status === 'string' ? row.payment_status : null,
+  );
+
   return {
     id: typeof row.id === 'string' ? row.id : fallbackId,
     invoiceNumber: typeof row.invoice_number === 'string' ? row.invoice_number : `Invoice-${fallbackId.slice(0, 8)}`,
@@ -64,6 +79,24 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
   };
 }
 
+function money(value: number) {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number.isFinite(value) ? value : 0);
+}
+
+function date(value: string) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Not set' : parsed.toLocaleDateString('en-GB');
+}
+
+function statusTone(status: CanonicalInvoiceStatus): 'green' | 'orange' | 'red' | 'purple' | 'blue' | 'grey' {
+  if (status === 'Paid') return 'green';
+  if (status === 'Overdue') return 'red';
+  if (status === 'Disputed') return 'purple';
+  if (status === 'Draft') return 'orange';
+  if (status === 'Sent') return 'blue';
+  return 'grey';
+}
+
 export default function InvoicesPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -72,13 +105,9 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | CanonicalInvoiceStatus>('All');
-  const INVOICES_PER_PAGE = 12;
+  const [statusFilter, setStatusFilter] = useState<InvoiceFilter>('All');
   const [invoicePage, setInvoicePage] = useState(0);
   const loadRequestRef = useRef(0);
-
-  const calculateStatus = (dueDate: string, currentStatus: string): CanonicalInvoiceStatus =>
-    toCanonicalInvoiceStatusWithDueDate(currentStatus, dueDate);
 
   const loadInvoices = async () => {
     const requestId = ++loadRequestRef.current;
@@ -92,372 +121,155 @@ export default function InvoicesPage() {
       }
       return;
     }
+
     const activeColumns = [
       'id', 'company_id', 'created_by', 'invoice_number', 'job_ref', 'job_id', 'invoice_date', 'due_date', 'status', 'payment_status',
       'client_name', 'client_address', 'client_email', 'pickup_location', 'pickup_datetime', 'delivery_location',
       'delivery_datetime', 'delivery_recipient', 'service_description', 'amount', 'net_amount', 'vat_amount',
-      'vat_rate', 'currency', 'payment_terms', 'late_fee', 'pod_photos', 'signature', 'recipient_name', 'created_at',
-      'updated_at',
+      'vat_rate', 'currency', 'payment_terms', 'late_fee', 'pod_photos', 'signature', 'recipient_name', 'created_at', 'updated_at',
     ];
     const { rows, error: queryError } = await loadInvoicesWithSchemaCompat(supabase, companyId, activeColumns);
-
     if (requestId !== loadRequestRef.current) return;
 
     if (!queryError) {
-      const mapped = rows.map((row, index) => {
-        const inv = dbToInvoiceData(row, `invoice-${index}`);
-        return { ...inv, status: calculateStatus(inv.dueDate, inv.status) };
-      });
-      setInvoices(mapped);
-      setLoadError('');
+      setInvoices(rows.map((row, index) => {
+        const invoice = dbToInvoiceData(row, `invoice-${index}`);
+        return { ...invoice, status: toCanonicalInvoiceStatusWithDueDate(invoice.status, invoice.dueDate) };
+      }));
     } else {
-      console.error('Failed to load invoices from Supabase:', queryError.message);
+      setInvoices([]);
       setLoadError(queryError.message ?? 'Failed to load invoices.');
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    loadInvoices();
+    void loadInvoices();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  const filteredInvoices = invoices.filter((invoice) => {
-    const matchesSearch =
-      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.jobRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map((filter) => [
+    filter,
+    filter === 'All' ? invoices.length : invoices.filter((invoice) => invoice.status === filter).length,
+  ])) as Record<InvoiceFilter, number>, [invoices]);
 
-    const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter;
+  const totals = useMemo(() => {
+    const unpaid = invoices.filter((invoice) => toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && !['Cancelled', 'Paid'].includes(invoice.status));
+    const overdue = invoices.filter((invoice) => invoice.status === 'Overdue');
+    const paid = invoices.filter((invoice) => invoice.status === 'Paid' || toCanonicalPaymentStatus(invoice.paymentStatus) === 'paid');
+    return {
+      outstanding: unpaid.reduce((sum, invoice) => sum + invoice.amount, 0),
+      overdue: overdue.reduce((sum, invoice) => sum + invoice.amount, 0),
+      paid: paid.reduce((sum, invoice) => sum + invoice.amount, 0),
+    };
+  }, [invoices]);
 
-    return matchesSearch && matchesStatus;
-  });
+  const filteredInvoices = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+    return invoices.filter((invoice) => {
+      const matchesSearch = !needle || [invoice.invoiceNumber, invoice.jobRef, invoice.clientName].join(' ').toLowerCase().includes(needle);
+      const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, searchTerm, statusFilter]);
 
-  useEffect(() => {
-    setInvoicePage(0);
-  }, [searchTerm, statusFilter, invoices.length]);
+  useEffect(() => { setInvoicePage(0); }, [searchTerm, statusFilter, invoices.length]);
 
   const totalInvoicePages = Math.max(1, Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE));
   const safeInvoicePage = Math.min(invoicePage, totalInvoicePages - 1);
-  const paginatedInvoices = filteredInvoices.slice(
-    safeInvoicePage * INVOICES_PER_PAGE,
-    (safeInvoicePage + 1) * INVOICES_PER_PAGE,
-  );
-
-  const getStatusStyle = (status: string) => {
-    const baseStyle: React.CSSProperties = {
-      padding: '0.375rem 0.75rem',
-      borderRadius: '9999px',
-      fontSize: '0.875rem',
-      fontWeight: '600',
-      display: 'inline-block',
-    };
-
-    switch (status) {
-      case 'Paid':
-        return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' };
-      case 'Draft':
-        return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' };
-      case 'Sent':
-        return { ...baseStyle, backgroundColor: '#e0e7ff', color: '#3730a3' };
-      case 'Overdue':
-        return { ...baseStyle, backgroundColor: '#fee2e2', color: '#991b1b' };
-      case 'Disputed':
-        return { ...baseStyle, backgroundColor: '#fce7f3', color: '#9d174d' };
-      case 'Cancelled':
-        return { ...baseStyle, backgroundColor: '#e2e8f0', color: '#475569' };
-      default:
-        return { ...baseStyle, backgroundColor: '#f3f4f6', color: '#374151' };
-    }
-  };
+  const paginatedInvoices = filteredInvoices.slice(safeInvoicePage * INVOICES_PER_PAGE, (safeInvoicePage + 1) * INVOICES_PER_PAGE);
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', minHeight: 'calc(100vh - 89px)' }}>
+      <PageFrame>
+        <PageHeader
+          eyebrow="Accounting / receivables"
+          title="Invoices"
+          description="Draft, issued, overdue, disputed and settled invoices in one dense accounting register. Payment recording remains in the authoritative invoice detail screen."
+          actions={(
+            <>
+              <ActionButton tone="secondary" disabled={loading} onClick={() => void loadInvoices()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+              <ActionButton tone="success" onClick={() => router.push('/admin/invoices/new')}>Create Invoice</ActionButton>
+            </>
+          )}
+        />
 
-        {/* SmartPay-style tab bar + create button */}
-        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 0 }}>
-            {(['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled'] as const).map((s) => {
-              const active = statusFilter === s;
-              const count = s === 'All' ? invoices.length : invoices.filter(i => i.status === s).length;
-              return (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  style={{
-                    padding: '0.65rem 0.85rem',
-                    border: 'none',
-                    borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
-                    background: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.73rem',
-                    fontWeight: 700,
-                    color: active ? '#1d4ed8' : '#64748b',
-                    marginBottom: '-1px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {s}
-                  {count > 0 && (
-                    <span style={{ marginLeft: '0.3rem', background: active ? '#dbeafe' : '#f1f5f9', color: active ? '#1d4ed8' : '#64748b', borderRadius: '8px', padding: '0.05rem 0.38rem', fontSize: '0.68rem' }}>
-                      {count}
-                    </span>
+        {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
+
+        <OperationalSignalStrip
+          ariaLabel="Invoice lifecycle signals"
+          items={[
+            { key: 'all', label: 'All invoices', value: counts.All, detail: 'Current company', tone: 'navy', onClick: () => setStatusFilter('All') },
+            { key: 'draft', label: 'Draft', value: counts.Draft, detail: 'Not yet issued', tone: counts.Draft ? 'orange' : 'blue', onClick: () => setStatusFilter('Draft') },
+            { key: 'sent', label: 'Awaiting payment', value: counts.Sent, detail: 'Issued / sent', tone: counts.Sent ? 'orange' : 'blue', onClick: () => setStatusFilter('Sent') },
+            { key: 'overdue', label: 'Overdue', value: counts.Overdue, detail: money(totals.overdue), tone: counts.Overdue ? 'red' : 'green', onClick: () => setStatusFilter('Overdue') },
+            { key: 'disputed', label: 'Disputed', value: counts.Disputed, detail: 'Requires review', tone: counts.Disputed ? 'purple' : 'blue', onClick: () => setStatusFilter('Disputed') },
+            { key: 'paid', label: 'Paid', value: counts.Paid, detail: money(totals.paid), tone: 'green', onClick: () => setStatusFilter('Paid') },
+            { key: 'outstanding', label: 'Outstanding', value: money(totals.outstanding), detail: 'Unpaid value', tone: totals.outstanding > 0 ? 'navy' : 'green' },
+          ]}
+        />
+
+        <div className="invoice-register-tabs" role="tablist" aria-label="Invoice lifecycle filters">
+          {FILTERS.map((filter) => (
+            <button key={filter} type="button" role="tab" aria-selected={statusFilter === filter} data-active={statusFilter === filter ? 'true' : 'false'} onClick={() => setStatusFilter(filter)}>
+              {filter === 'Sent' ? 'Awaiting Payment' : filter} <span>{counts[filter]}</span>
+            </button>
+          ))}
+        </div>
+
+        <Panel
+          title="Invoice register"
+          description={`${filteredInvoices.length} invoice${filteredInvoices.length === 1 ? '' : 's'} in the current view.`}
+          actions={(
+            <div className="invoice-register-search">
+              <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Invoice, job ref or client" aria-label="Search invoices" />
+              {searchTerm && <ActionButton tone="secondary" onClick={() => setSearchTerm('')}>Clear</ActionButton>}
+            </div>
+          )}
+          flush
+        >
+          {loading ? (
+            <EmptyState compact title="Loading invoices…" />
+          ) : paginatedInvoices.length === 0 ? (
+            <EmptyState title="No invoices in this view" description={searchTerm ? 'Clear or adjust the search.' : 'No invoice records match this lifecycle state.'} />
+          ) : (
+            <DataTable
+              columns={['Invoice', 'Job ref', 'Client', 'Issued', 'Due', 'Amount', 'Status', 'Action']}
+              rows={paginatedInvoices.map((invoice) => [
+                <strong key="invoice">{invoice.invoiceNumber}</strong>,
+                invoice.jobRef || '—',
+                invoice.clientName,
+                date(invoice.date),
+                date(invoice.dueDate),
+                <strong key="amount">{money(invoice.amount)}</strong>,
+                <StatusBadge key="status" value={invoice.status} tone={statusTone(invoice.status)} />,
+                <span key="actions" className="invoice-register-actions">
+                  <ActionButton tone="secondary" onClick={() => router.push(`/admin/invoices/${invoice.id}`)}>View</ActionButton>
+                  {toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && !['Cancelled', 'Draft'].includes(invoice.status) && (
+                    <ActionButton tone="secondary" onClick={() => router.push(`/admin/invoices/${invoice.id}`)}>Record Payment</ActionButton>
                   )}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => router.push('/admin/invoices/new')}
-            style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.38rem 0.85rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            + Create Invoice
-          </button>
-        </div>
-
-        {/* Main Content */}
-        <div style={{ padding: '0.85rem', maxWidth: '1400px', margin: '0 auto' }}>
-          {loadError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.65rem 1rem', marginBottom: '0.85rem', color: '#b91c1c', fontSize: '0.85rem' }}>
-              {loadError}
-            </div>
-          )}
-
-          {/* Search bar */}
-          <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '0.75rem', marginBottom: '0.85rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ flex: 1, minWidth: '200px', padding: '0.45rem 0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                </span>,
+              ])}
             />
-            <button onClick={() => void loadInvoices()} style={{ padding: '0.45rem 0.75rem', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
-          </div>
-
-          {/* Invoices Table */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            border: '1px solid #e5e7eb',
-            overflow: 'hidden'
-          }}>
-            {loading ? (
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2.5rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
-                Loading invoices...
-              </div>
-            ) : filteredInvoices.length === 0 ? (
-              <div style={{
-                padding: '3rem 2rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}></div>
-                <h3 style={{ fontSize: '1.25rem', color: '#1f2937', marginBottom: '0.5rem' }}>
-                  No invoices found
-                </h3>
-                <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
-                  {searchTerm || statusFilter !== 'All'
-                    ? 'Try adjusting your search or filters'
-                    : 'Get started by creating your first invoice'}
-                </p>
-                {!searchTerm && statusFilter === 'All' && (
-                  <button
-                    onClick={() => router.push('/admin/invoices/new')}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      backgroundColor: '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
-                  >
-                    Create First Invoice
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
-                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Invoice #
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Job Ref
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Client
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Date
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Due Date
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'right', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Amount
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Status
-                      </th>
-                      <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedInvoices.map((invoice) => (
-                      <tr
-                        key={invoice.id}
-                        style={{
-                          borderBottom: '1px solid #e5e7eb',
-                          transition: 'background-color 0.2s',
-                          cursor: 'pointer'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                        onClick={() => router.push(`/admin/invoices/${invoice.id}`)}
-                      >
-                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '500' }}>
-                          {invoice.invoiceNumber}
-                        </td>
-                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
-                          {invoice.jobRef}
-                        </td>
-                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937' }}>
-                          {invoice.clientName}
-                        </td>
-                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
-                          {new Date(invoice.date).toLocaleDateString('en-GB')}
-                        </td>
-                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#6b7280' }}>
-                          {new Date(invoice.dueDate).toLocaleDateString('en-GB')}
-                        </td>
-                        <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
-                          GBP {invoice.amount.toFixed(2)}
-                        </td>
-                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                          <span style={getStatusStyle(invoice.status)}>
-                            {invoice.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: '0.45rem' }}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/admin/invoices/${invoice.id}`);
-                              }}
-                              style={{
-                                padding: '0.4rem 0.8rem',
-                                backgroundColor: '#eff6ff',
-                                color: '#2563eb',
-                                border: '1px solid #bfdbfe',
-                                borderRadius: '6px',
-                                fontSize: '0.8rem',
-                                fontWeight: '500',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              View
-                            </button>
-                            {toCanonicalPaymentStatus(invoice.paymentStatus) !== 'paid' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/admin/invoices/${invoice.id}`);
-                                }}
-                                style={{
-                                  padding: '0.4rem 0.8rem',
-                                  backgroundColor: '#dcfce7',
-                                  color: '#166534',
-                                  border: '1px solid #bbf7d0',
-                                  borderRadius: '6px',
-                                  fontSize: '0.8rem',
-                                  fontWeight: '600',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                Record Payment
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
-            <div style={{ marginTop: '0.65rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-              <span>
-                Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}-{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length} invoices
-              </span>
-              <div style={{ display: 'flex', gap: '0.45rem' }}>
-                <button
-                  onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}
-                  disabled={safeInvoicePage === 0}
-                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage === 0 ? '#f9fafb' : '#fff', cursor: safeInvoicePage === 0 ? 'not-allowed' : 'pointer' }}
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setInvoicePage((prev) => Math.min(prev + 1, totalInvoicePages - 1))}
-                  disabled={safeInvoicePage >= totalInvoicePages - 1}
-                  style={{ padding: '0.32rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', background: safeInvoicePage >= totalInvoicePages - 1 ? '#f9fafb' : '#fff', cursor: safeInvoicePage >= totalInvoicePages - 1 ? 'not-allowed' : 'pointer' }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
           )}
+        </Panel>
 
-          {/* Summary Stats */}
-          {filteredInvoices.length > 0 && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem',
-              marginTop: '1.5rem'
-            }}>
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb',
-                borderLeft: '4px solid #3b82f6'
-              }}>
-                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Invoices</div>
-                <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
-                  {filteredInvoices.length}
-                </div>
-              </div>
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb',
-                borderLeft: '4px solid #10b981'
-              }}>
-                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Total Amount</div>
-                <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937' }}>
-                  GBP {filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)}
-                </div>
-              </div>
-            </div>
-          )}
+        {!loading && filteredInvoices.length > INVOICES_PER_PAGE && (
+          <div className="invoice-register-pagination">
+            <span>Showing {safeInvoicePage * INVOICES_PER_PAGE + 1}-{Math.min((safeInvoicePage + 1) * INVOICES_PER_PAGE, filteredInvoices.length)} of {filteredInvoices.length}</span>
+            <span>
+              <ActionButton tone="secondary" disabled={safeInvoicePage === 0} onClick={() => setInvoicePage((current) => Math.max(0, current - 1))}>Previous</ActionButton>
+              <strong>Page {safeInvoicePage + 1} / {totalInvoicePages}</strong>
+              <ActionButton tone="secondary" disabled={safeInvoicePage >= totalInvoicePages - 1} onClick={() => setInvoicePage((current) => Math.min(totalInvoicePages - 1, current + 1))}>Next</ActionButton>
+            </span>
+          </div>
+        )}
+
+        <div className="invoice-register-contract-note">
+          <strong>Ready to Invoice / external invoice parity</strong>
+          <span>The current invoice schema supports draft/issued/payment/dispute lifecycle and payment history. A distinct CX-style Ready to Invoice queue, external invoice upload, batch invoicing and statements/export are not represented as verified register actions here and remain separate parity-ledger items rather than being fabricated.</span>
         </div>
-      </div>
+      </PageFrame>
     </ProtectedRoute>
   );
 }

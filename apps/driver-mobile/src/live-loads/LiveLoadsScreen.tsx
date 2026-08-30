@@ -6,6 +6,7 @@ import { supabase } from '../auth/supabase';
 import { loadMarketplacePreferences, saveMarketplacePreferences, type MarketplacePreferences } from '../jobs/marketplacePreferences';
 import {
   buildQuoteMessage,
+  computeStructuredExtras,
   computeSubtotal,
   computeTotal,
   DEFAULT_LINE_ITEMS,
@@ -71,7 +72,6 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         </>
       )}
 
-      {/* Currency — GBP only as required by backend contract */}
       <View style={styles.lineRow}>
         <Text style={styles.lineLabel}>Currency</Text>
         <Text style={styles.currencyFixed}>{SUPPORTED_CURRENCY}</Text>
@@ -85,6 +85,19 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
       {numericInput('Overnight Charges', items.overnight, (v) => set('overnight', v), submitting)}
       {numericInput('Parking Charges', items.parking, (v) => set('parking', v), submitting)}
       {numericInput('Congestion Charges', items.congestion, (v) => set('congestion', v), submitting)}
+
+      <View style={styles.lineRow}>
+        <Text style={styles.lineLabel}>Collect within (min)</Text>
+        <TextInput
+          value={items.collectWithinMinutes}
+          onChangeText={(v) => set('collectWithinMinutes', v)}
+          keyboardType="number-pad"
+          placeholder="e.g. 30"
+          placeholderTextColor="#6b7280"
+          style={[styles.lineInput, submitting && styles.inputDisabled]}
+          editable={!submitting}
+        />
+      </View>
 
       <View style={styles.lineRow}>
         <Text style={styles.lineLabel}>Est. Collection Time</Text>
@@ -108,7 +121,6 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         editable={!submitting}
       />
 
-      {/* VAT toggle */}
       <TouchableOpacity style={styles.vatRow} onPress={() => set('vatEnabled', !items.vatEnabled)} disabled={submitting}>
         <View style={[styles.vatCheck, items.vatEnabled && styles.vatCheckActive]}>
           {items.vatEnabled ? <Text style={styles.vatCheckMark}>✓</Text> : null}
@@ -116,7 +128,6 @@ function QuotePanel({ job, onCancel, onSubmit, submitting }: {
         <Text style={styles.vatLabel}>Apply VAT (20%)</Text>
       </TouchableOpacity>
 
-      {/* Subtotal / VAT / Total breakdown */}
       {items.vatEnabled && (
         <>
           <View style={styles.totalRow}>
@@ -272,11 +283,22 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
       return;
     }
     const total = computeTotal(items);
+    const baseAmount = parseNum(items.amount);
+    const additionalExtrasGbp = computeStructuredExtras(items);
+    const collectWithinMinutes = items.collectWithinMinutes.trim()
+      ? Number(items.collectWithinMinutes)
+      : null;
     const message = buildQuoteMessage(items);
     setSubmitting(true);
     setError('');
     try {
-      await submitLiveLoadQuote(quoteJob.id, total, message || undefined);
+      await submitLiveLoadQuote(quoteJob.id, {
+        totalAmount: total,
+        baseAmount,
+        additionalExtrasGbp,
+        collectWithinMinutes,
+        message: message || undefined,
+      });
       setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
       setQuoteJob(null);
       Alert.alert('Quote sent', 'Your quote was submitted successfully.');

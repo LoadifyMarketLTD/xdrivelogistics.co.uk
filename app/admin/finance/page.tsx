@@ -1,5 +1,18 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
 import FinanceControlDashboardHome from '../../components/workspace/FinanceControlDashboardHome';
+import { ActionButton } from '../../components/workspace/WorkspaceUI';
 
 export default function FinanceWorkspacePage() {
-  return <FinanceControlDashboardHome />;
+  const router = useRouter();
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, padding: '8px 12px 0', flexWrap: 'wrap' }}>
+        <ActionButton tone="secondary" onClick={() => router.push('/admin/finance/statements')}>Statements</ActionButton>
+        <ActionButton tone="secondary" onClick={() => router.push('/admin/finance/reports')}>Reports & Exports</ActionButton>
+      </div>
+      <FinanceControlDashboardHome />
+    </>
+  );
 }

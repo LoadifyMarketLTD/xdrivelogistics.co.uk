@@ -10,7 +10,8 @@ import {
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../../_lib/marketplacePublic';
-import { isDriverContext, requireDriver, respond } from '../../mobile/_lib';
+import { isDriverContext, respond } from '../../mobile/_lib';
+import { requireWebDriver } from '../../_lib/webDriver';
 
 const LIST_LIMIT = 150;
 
@@ -22,6 +23,7 @@ type JobRow = Record<string, unknown> & {
   current_status?: unknown;
   awarded_carrier_company_id?: unknown;
   exchange_posted_at?: unknown;
+  exchange_expires_at?: unknown;
   exchange_visibility?: unknown;
   direct_invite_company_id?: unknown;
 };
@@ -50,10 +52,17 @@ type BidRow = {
 
 function visibilityAllows(job: JobRow, driverCompanyId: string | null) {
   const visibility = marketplaceText(job.exchange_visibility)?.toLowerCase();
-  if (!visibility || visibility === 'exchange') return true;
+  if (visibility === 'exchange') return true;
   if (visibility !== 'direct') return false;
   const inviteCompanyId = marketplaceText(job.direct_invite_company_id);
   return Boolean(driverCompanyId && inviteCompanyId === driverCompanyId);
+}
+
+function exchangePostActive(job: JobRow, nowMs = Date.now()) {
+  const expiresAt = marketplaceText(job.exchange_expires_at);
+  if (!expiresAt) return true;
+  const expires = new Date(expiresAt).getTime();
+  return Number.isFinite(expires) && expires > nowMs;
 }
 
 function publicLoad(
@@ -105,8 +114,6 @@ function publicLoad(
     service_mode: marketplaceText(job.service_mode),
     direct_delivery_required: job.direct_delivery_required === true,
     distance_miles: marketplaceNumber(job.job_distance_miles ?? job.distance_miles),
-    // Preserve this legacy metadata for compatibility, but do not use it as the
-    // visibility gate for XDrive proposed prices.
     is_fixed_price: job.is_fixed_price === true,
     budget_amount: proposedPriceAmount(job.budget_amount),
     currency: marketplaceText(job.currency) ?? 'GBP',
@@ -142,7 +149,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const driver = await requireDriver(request);
+  const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const requestedId = new URL(request.url).searchParams.get('id')?.trim() || null;
@@ -172,6 +179,7 @@ export async function GET(request: NextRequest) {
     const companyId = marketplaceText(job.company_id);
     if (!companyId) return false;
     if (driver.companyId && companyId === driver.companyId) return false;
+    if (!exchangePostActive(job)) return false;
     return visibilityAllows(job, driver.companyId);
   });
 
@@ -191,6 +199,14 @@ export async function GET(request: NextRequest) {
       .filter((value): value is string => Boolean(value)),
   )];
 
+  const bidQuery = jobIds.length
+    ? supabaseAdmin
+        .from('job_bids')
+        .select('job_id, status, bid_price_gbp, amount, message')
+        .in('job_id', jobIds)
+        .order('created_at', { ascending: false })
+    : null;
+
   const [companiesResult, profilesResult, bidsResult] = await Promise.all([
     companyIds.length
       ? supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type, created_at').in('id', companyIds)
@@ -198,13 +214,10 @@ export async function GET(request: NextRequest) {
     createdByIds.length
       ? supabaseAdmin.from('profiles').select('user_id, full_name').in('user_id', createdByIds)
       : Promise.resolve({ data: [], error: null }),
-    jobIds.length
-      ? supabaseAdmin
-          .from('job_bids')
-          .select('job_id, status, bid_price_gbp, amount, message')
-          .eq('bidder_user_id', driver.userId)
-          .in('job_id', jobIds)
-          .order('created_at', { ascending: false })
+    bidQuery
+      ? driver.companyId
+        ? bidQuery.eq('company_id', driver.companyId)
+        : bidQuery.eq('bidder_user_id', driver.userId)
       : Promise.resolve({ data: [], error: null }),
   ]);
 

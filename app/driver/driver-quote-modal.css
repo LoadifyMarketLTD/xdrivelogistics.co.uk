@@ -1,0 +1,82 @@
+/* Driver Loads — CX-close Quote Now presentation.
+ * Presentation only: the existing quote mutation remains authoritative and
+ * continues to submit only jobId + amount + message.
+ */
+
+.driver-inline-quote {
+  position: fixed;
+  z-index: 2200;
+  top: 50%;
+  left: 50%;
+  width: min(500px, calc(100vw - 24px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--ws-gap-internal, 8px);
+  align-items: end;
+  margin: 0;
+  padding: 48px 12px 12px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: #fff;
+  box-shadow: 0 0 0 100vmax rgb(15 23 42 / 48%), 0 12px 28px rgb(15 23 42 / 18%);
+}
+
+.driver-inline-quote::before {
+  content: 'Quote Now';
+  position: absolute;
+  inset: 0 0 auto;
+  min-height: var(--ws-panel-head-h, 36px);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: var(--ws-panel-head, #f2f4f7);
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-panel-title, 13px);
+  line-height: 18px;
+  font-weight: 700;
+}
+
+.driver-inline-quote > .driver-filter-field {
+  grid-column: 1 / -1;
+}
+
+.driver-inline-quote > .driver-filter-field input {
+  height: var(--ws-control-h, 32px);
+  min-height: var(--ws-control-h, 32px);
+}
+
+.driver-inline-quote > .driver-filter-field textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.driver-inline-quote > button:nth-last-child(2) {
+  grid-column: 2;
+}
+
+.driver-inline-quote > button:last-child {
+  grid-column: 3;
+}
+
+.driver-inline-quote input,
+.driver-inline-quote textarea {
+  border-radius: var(--ws-radius, 4px);
+}
+
+@media (max-width: 520px) {
+  .driver-inline-quote {
+    grid-template-columns: 1fr 1fr;
+    width: calc(100vw - 16px);
+    padding: 46px 8px 8px;
+  }
+
+  .driver-inline-quote > button:nth-last-child(2),
+  .driver-inline-quote > button:last-child {
+    grid-column: auto;
+    min-height: 44px;
+  }
+}

@@ -15,6 +15,7 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver/availability/live': 'Live Availability',
   '/driver/returns': 'Return Journeys',
   '/driver/account': 'Account',
+  '/driver/load-alerts': 'Load Alerts',
 };
 
 const DRIVER_ACCOUNT_PREFIXES = [
@@ -26,6 +27,7 @@ const DRIVER_ACCOUNT_PREFIXES = [
   '/driver/change-password',
   '/driver/event-log',
   '/driver/notifications',
+  '/driver/load-alerts',
 ] as const;
 
 function isDriverAccountPath(pathname: string | null) {

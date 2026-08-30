@@ -25,6 +25,8 @@ export type QuoteLineItems = {
   congestion: string;
   driverNotes: string;
   estimatedCollectionTime: string;
+  /** Minutes after acceptance in which the Driver expects to reach collection. */
+  collectWithinMinutes: string;
   vatEnabled: boolean;
 };
 
@@ -40,6 +42,7 @@ export const DEFAULT_LINE_ITEMS: QuoteLineItems = {
   congestion: '',
   driverNotes: '',
   estimatedCollectionTime: '',
+  collectWithinMinutes: '',
   vatEnabled: false,
 };
 
@@ -67,6 +70,11 @@ export function computeSubtotal(items: Pick<QuoteLineItems, 'amount' | 'extras' 
     + parseNum(items.parking)
     + parseNum(items.congestion)
   );
+}
+
+/** Structured extras before VAT, excluding the base transport amount. */
+export function computeStructuredExtras(items: Pick<QuoteLineItems, 'amount' | 'extras' | 'waitingTime' | 'tolls' | 'ferry' | 'overnight' | 'parking' | 'congestion'>): number {
+  return Math.max(0, Number((computeSubtotal(items) - parseNum(items.amount)).toFixed(2)));
 }
 
 /**
@@ -104,6 +112,11 @@ export function buildQuoteMessage(items: QuoteLineItems): string {
 
   lines.push(`Total: £${total.toFixed(2)}`);
 
+  const collectWithin = Math.round(parseNum(items.collectWithinMinutes));
+  if (collectWithin >= 5 && collectWithin <= 240) {
+    lines.push(`Collect within: ${collectWithin} min`);
+  }
+
   if (items.estimatedCollectionTime.trim()) {
     lines.push(`Est. collection: ${items.estimatedCollectionTime.trim()}`);
   }
@@ -125,6 +138,12 @@ export function validateQuote(items: QuoteLineItems): string | null {
   if (!Number.isFinite(amount)) return 'Quote amount must be a valid number.';
   if (amount > 999_999) return 'Quote amount is unreasonably large.';
   const total = computeTotal(items);
-  if (!Number.isFinite(total) || total <= 0) return 'Computed total is invalid.';
+  if (!Number.isFinite(total) || total <= 0 || total > 1_000_000) return 'Computed total is invalid.';
+  if (items.collectWithinMinutes.trim()) {
+    const collectWithin = Number(items.collectWithinMinutes.replace(',', '.'));
+    if (!Number.isInteger(collectWithin) || collectWithin < 5 || collectWithin > 240) {
+      return 'Collect within must be a whole number between 5 and 240 minutes.';
+    }
+  }
   return null;
 }

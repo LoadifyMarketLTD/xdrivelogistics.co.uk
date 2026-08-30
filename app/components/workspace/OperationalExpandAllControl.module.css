@@ -1,0 +1,32 @@
+.control {
+  min-height: var(--ws-micro-action-h, 24px);
+  height: var(--ws-micro-action-h, 24px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1px solid var(--ws-border, #D8DEE8);
+  border-radius: var(--ws-radius, 4px);
+  background: #FFFFFF;
+  color: var(--ws-blue, #1D57D8);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.control:hover:not(:disabled) {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--ws-blue, #1D57D8);
+  outline-offset: 2px;
+}
+
+.control:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}

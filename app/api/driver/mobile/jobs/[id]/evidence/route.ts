@@ -3,11 +3,12 @@ import { NextRequest } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
-import { isDriverContext, requireDriver, respond, safeArray } from '../../../_lib';
+import { isDriverContext, requireDriver, respond } from '../../../_lib';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,180}$/;
+type DeliveryEvidenceCategory = 'photos' | 'damage' | 'documents';
 
 function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
   if (contentType === 'application/pdf') return payload.subarray(0, 5).toString('ascii') === '%PDF-';
@@ -17,6 +18,11 @@ function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
     return payload.length >= signature.length && signature.every((value, index) => payload[index] === value);
   }
   return false;
+}
+
+function deliveryEvidenceCategory(request: NextRequest): DeliveryEvidenceCategory | null {
+  const category = request.headers.get('x-xdrive-evidence-category')?.trim().toLowerCase() ?? '';
+  return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -39,10 +45,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (kind !== 'collection' && kind !== 'delivery') {
     return respond(400, { error: 'Unsupported evidence kind.' });
   }
+  const category = kind === 'delivery' ? deliveryEvidenceCategory(request) : 'collection';
+  if (!category) {
+    return respond(400, { error: 'Delivery evidence category must be photos, damage or documents.' });
+  }
 
   const contentType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
   if (!ALLOWED_TYPES.has(contentType)) {
     return respond(415, { error: 'POD must be a PDF, JPEG or PNG file.' });
+  }
+  if ((category === 'photos' || category === 'damage' || category === 'collection') && contentType === 'application/pdf') {
+    return respond(415, { error: 'Photo evidence must be a JPEG or PNG image.' });
   }
 
   const objectName = request.headers.get('x-xdrive-evidence-name')?.trim() ?? '';
@@ -50,7 +63,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: job, error: loadError } = await supabaseAdmin
     .from('jobs')
-    .select('id,assigned_driver_id,delivery_photos,pod_photos,collection_photo_url')
+    .select('id,assigned_driver_id')
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -64,7 +77,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(415, { error: 'POD file content does not match its declared file type.' });
   }
 
-  const storagePath = `${driver.companyId}/${id}/${objectName}`;
+  // Storage RLS scopes segment 1 to the carrier company and segment 2 to the
+  // authorised job. Segment 3 preserves evidence meaning without weakening RLS.
+  const storagePath = `${driver.companyId}/${id}/${category}/${objectName}`;
   const upload = await supabaseAdmin.storage
     .from('pod-photos')
     .upload(storagePath, payload, { contentType, upsert: false });
@@ -75,6 +90,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!duplicate) return respond(500, { error: upload.error.message });
   }
 
+  // Collection evidence gates Loaded and is therefore linked immediately.
+  // Delivery evidence remains staged in private storage until final POD verifies
+  // every object and persists the complete evidence set atomically on the job.
   if (kind === 'collection') {
     const { data: updated, error } = await supabaseAdmin
       .from('jobs')
@@ -85,22 +103,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .maybeSingle();
     if (error) return respond(500, { error: error.message });
     if (!updated) return respond(409, { error: 'Collection evidence could not be linked to this assignment.' });
-  } else {
-    const deliveryPhotos = safeArray(job.delivery_photos).filter((value): value is string => typeof value === 'string');
-    const podPhotos = safeArray(job.pod_photos).filter((value): value is string => typeof value === 'string');
-    const { data: updated, error } = await supabaseAdmin
-      .from('jobs')
-      .update({
-        delivery_photos: Array.from(new Set([...deliveryPhotos, storagePath])),
-        pod_photos: Array.from(new Set([...podPhotos, storagePath])),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('assigned_driver_id', driver.driverId)
-      .select('id')
-      .maybeSingle();
-    if (error) return respond(500, { error: error.message });
-    if (!updated) return respond(409, { error: 'POD evidence could not be linked to this assignment.' });
   }
 
   return respond(200, { ok: true, storagePath });

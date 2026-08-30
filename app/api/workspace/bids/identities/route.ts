@@ -8,11 +8,10 @@ import {
 
 type BidIdentityRow = {
   id: string;
-  company_id: string | null;
+  bidder_company_id: string | null;
   bidder_driver_id: string | null;
   bidder_user_id: string | null;
   bidder_id: string | null;
-  jobs: { company_id: string } | { company_id: string }[] | null;
 };
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
@@ -46,13 +45,13 @@ export async function GET(request: NextRequest) {
     .filter(Boolean))];
   if (!companyIds.length) return json(200, { identities: [] });
 
-  // Only bidder identities attached to jobs owned by a company where the caller
-  // has an approved quote-decision membership role are visible. Read-only
-  // company membership alone is not a bidder-identity visibility grant.
+  // Resolve identities through the existing owner-scoped compatibility view.
+  // This avoids depending on PostgREST relationship inference for jobs while
+  // preserving the same company ownership boundary used by quote management.
   const { data: bidData, error: bidError } = await supabaseAdmin
-    .from('job_bids')
-    .select('id, company_id, bidder_driver_id, bidder_user_id, bidder_id, jobs!inner(company_id)')
-    .in('jobs.company_id', companyIds);
+    .from('job_bids_with_job_owner')
+    .select('id, bidder_company_id, bidder_driver_id, bidder_user_id, bidder_id, owner_company_id')
+    .in('owner_company_id', companyIds);
 
   if (bidError) return json(500, { error: 'Unable to load bidder identities.' });
   const bids = (bidData ?? []) as unknown as BidIdentityRow[];
@@ -79,7 +78,7 @@ export async function GET(request: NextRequest) {
   const resolvedCompanyIds = [...new Set(bids.map((bid) => {
     const driver = bid.bidder_driver_id ? drivers.get(bid.bidder_driver_id) : null;
     const profile = profiles.get(bid.bidder_user_id ?? bid.bidder_id ?? '') ?? null;
-    return bid.company_id ?? driver?.company_id ?? profile?.company_id ?? null;
+    return bid.bidder_company_id ?? driver?.company_id ?? profile?.company_id ?? null;
   }).filter((id): id is string => Boolean(id)))];
 
   const companiesResult = resolvedCompanyIds.length
@@ -91,7 +90,7 @@ export async function GET(request: NextRequest) {
   const identities = bids.map((bid) => {
     const driver = bid.bidder_driver_id ? drivers.get(bid.bidder_driver_id) : null;
     const profile = profiles.get(bid.bidder_user_id ?? bid.bidder_id ?? '') ?? null;
-    const companyId = bid.company_id ?? driver?.company_id ?? profile?.company_id ?? null;
+    const companyId = bid.bidder_company_id ?? driver?.company_id ?? profile?.company_id ?? null;
     const company = companyId ? companies.get(companyId) : null;
     const companyName = company?.name?.trim() || null;
     const personName = driver?.display_name?.trim() || profile?.full_name?.trim() || null;

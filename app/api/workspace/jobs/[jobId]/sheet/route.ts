@@ -190,6 +190,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     agreementResult,
     driverResult,
     vehicleResult,
+    stopsResult,
     trackingResult,
     documentsResult,
     invoicesResult,
@@ -203,6 +204,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     assignedDriverId ? supabaseAdmin.from('drivers').select('id, display_name, user_id').eq('id', assignedDriverId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     assignedVehicleId ? supabaseAdmin.from('vehicles').select('id, reg_plate, type, make, model, body_type, payload_kg, pallets_capacity, has_tail_lift').eq('id', assignedVehicleId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin.from('job_stops')
+      .select('id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at')
+      .eq('job_id', jobId)
+      .order('sequence', { ascending: true }),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin.from('invoices').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(20),
@@ -221,6 +226,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const vehicle = (vehicleResult.data ?? {}) as Record<string, unknown>;
   const details = parseLoadDetails(job.load_details);
   const viewerWorkspace = workspaceKind(viewerCompany.company_type);
+
+  const routeStops = stopsResult.error ? [] : ((stopsResult.data ?? []) as Record<string, unknown>[]).map((stop) => ({
+    id: text(stop.id),
+    sequence: numberValue(stop.sequence),
+    type: text(stop.stop_type) ?? 'stop',
+    address: text(stop.address),
+    postcode: text(stop.postcode),
+    companyName: text(stop.company_name),
+    contactName: text(stop.contact_name),
+    contactPhone: text(stop.contact_phone),
+    windowStart: text(stop.window_start),
+    windowEnd: text(stop.window_end),
+    instructions: text(stop.instructions),
+    status: text(stop.status),
+    arrivedAt: text(stop.arrived_at),
+    completedAt: text(stop.completed_at),
+  }));
 
   const acceptedBidderDriverId = text(acceptedBid.bidder_driver_id);
   const acceptedBidderDriverResult = acceptedBidderDriverId
@@ -362,6 +384,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           dateTime: text(job.delivery_datetime) ?? text(job.delivery_window_start), slot: text(job.delivery_time_slot),
           contactName: text(job.delivery_contact_name), contactPhone: text(job.delivery_contact_phone), notes: text(job.delivery_notes),
         },
+        stops: routeStops,
         distanceMiles: numberValue(job.job_distance_miles) ?? numberValue(job.distance_miles),
       },
       load: {
@@ -420,6 +443,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || driverResult.error
         || vehicleResult.error
         || acceptedBidderDriverResult.error
+        || stopsResult.error
         || trackingResult.error
         || documentsResult.error
         || invoicesResult.error

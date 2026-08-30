@@ -152,7 +152,20 @@ export const supabase: any = {
     },
     async signOut() {
       try {
-        return await (await ensureSupabaseClient()).auth.signOut();
+        const activeClient = await ensureSupabaseClient();
+        const { data } = await activeClient.auth.getSession();
+        const accessToken = data.session?.access_token?.trim() || '';
+
+        if (accessToken) {
+          try {
+            const { cleanupDriverServerSession } = await import('./serverSessionCleanup');
+            await cleanupDriverServerSession(accessToken);
+          } catch {
+            // Explicit logout must still clear local auth if remote cleanup is unavailable.
+          }
+        }
+
+        return await activeClient.auth.signOut();
       } catch {
         return { error: null };
       }

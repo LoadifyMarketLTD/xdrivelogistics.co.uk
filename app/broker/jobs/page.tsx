@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
+import DriverInstructionPanel from '../../components/workspace/DriverInstructionPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -143,6 +144,7 @@ export default function BrokerJobsPage() {
                     {open && (
                       <div className="workspace-record-details" style={{ display: 'grid', gap: 8 }}>
                         {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id} />}
+                        <DriverInstructionPanel jobId={job.id} />
                         <div className="workspace-detail-grid">
                           <div className="workspace-detail-item"><strong>Customer</strong><div>{job.client_name || '—'}</div></div>
                           <div className="workspace-detail-item"><strong>Pickup</strong><div>{job.pickup_location || job.pickup_postcode || '—'}</div></div>
