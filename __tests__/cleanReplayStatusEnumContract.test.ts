@@ -34,11 +34,13 @@ describe('clean replay canonical status enum contract', () => {
     );
   });
 
-  it('materializes Vehicle lifecycle status directly with the hosted canonical type', () => {
+  it('materializes the hosted Vehicle physical contract before later integrity reconciliation', () => {
     expect(vehicleReadiness).toContain("to_regtype('public.status_enum')");
     expect(vehicleReadiness).toContain(
       "ADD COLUMN status public.status_enum DEFAULT 'active'::public.status_enum",
     );
+    expect(vehicleReadiness).toContain('ADD COLUMN notes text');
+    expect(vehicleReadiness).toContain('ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now()');
     expect(vehicleReadiness).not.toContain("ADD COLUMN status text DEFAULT 'active'");
   });
 
