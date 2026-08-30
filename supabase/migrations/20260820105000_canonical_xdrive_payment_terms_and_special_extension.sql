@@ -41,7 +41,7 @@ BEGIN
   END IF;
 
   RAISE EXCEPTION 'Unsupported XDrive payment terms: %. Allowed base terms are Pay now, 14 days, or 30 days.',
-    COALESCE(NULLIF(btrim(p_payment_terms, ''), '<empty>'), '<empty>')
+    COALESCE(NULLIF(btrim(p_payment_terms), ''), '<empty>')
     USING ERRCODE = '23514';
 END;
 $$;
