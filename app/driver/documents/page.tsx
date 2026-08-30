@@ -32,6 +32,13 @@ const STATUS_TONES: Record<DriverDoc['status'], 'orange' | 'green' | 'red' | 'gr
   pending: 'orange', approved: 'green', rejected: 'red', expired: 'grey',
 };
 
+const MIME_EXTENSIONS: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
 function fmtDate(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
@@ -127,7 +134,13 @@ export default function DriverDocumentsPage() {
     setUploadSuccess('');
     if (!file) return setUploadError('Select a PDF or image before submitting.');
     if (!driverId) return setUploadError('Driver profile not found.');
-    if (file.size > 10 * 1024 * 1024) return setUploadError('File must be under 10 MB.');
+    if (file.size <= 0 || file.size > 10 * 1024 * 1024) return setUploadError('File must be 10 MB or smaller.');
+
+    const extension = MIME_EXTENSIONS[file.type.toLowerCase()];
+    if (!extension) return setUploadError('Use a PDF, JPG, PNG or WEBP document.');
+    if (issuedDate && expiryDate && expiryDate < issuedDate) {
+      return setUploadError('Expiry date cannot be before the issue date.');
+    }
 
     setUploading(true);
     const { data: sessionData } = await supabase.auth.getSession();
@@ -138,29 +151,65 @@ export default function DriverDocumentsPage() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('docType', docType);
-    formData.append('issuedDate', issuedDate);
-    formData.append('expiryDate', expiryDate);
-    if (companyId) formData.append('workspaceCompanyId', companyId);
+    const tenantAnchor = companyId ?? driverId;
+    const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const storagePath = `${tenantAnchor}/${driverId}/${uploadId}.${extension}`;
+    const { error: storageError } = await supabase.storage
+      .from('driver-docs')
+      .upload(storagePath, file, { contentType: file.type, upsert: false });
 
-    const response = await fetch('/api/driver/documents', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: formData,
-    }).catch(() => null);
-
-    setUploading(false);
-    if (!response) {
-      setUploadError('The document upload could not reach XDrive. Please try again.');
+    if (storageError) {
+      setUploading(false);
+      setUploadError('The file upload failed. Please try again.');
       return;
     }
 
-    const payload = await response.json().catch(() => ({})) as { error?: string };
-    if (!response.ok) {
-      setUploadError(payload.error || 'The document could not be submitted. Please try again.');
-      return;
+    const response = await fetch('/api/driver/documents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        storagePath,
+        docType,
+        issuedDate,
+        expiryDate,
+        mimeType: file.type,
+      }),
+    }).catch(() => null);
+
+    const recoverPersistedRecord = async () => {
+      const { data, error } = await supabase
+        .from('driver_documents')
+        .select('id')
+        .eq('driver_id', driverId)
+        .eq('file_path', storagePath)
+        .maybeSingle();
+      return !error && Boolean(data?.id);
+    };
+
+    if (!response) {
+      const persisted = await recoverPersistedRecord();
+      if (!persisted) await supabase.storage.from('driver-docs').remove([storagePath]);
+      setUploading(false);
+      if (!persisted) {
+        setUploadError('The document record could not be confirmed. The uploaded file was removed safely.');
+        return;
+      }
+    } else {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        const persisted = await recoverPersistedRecord();
+        if (!persisted) await supabase.storage.from('driver-docs').remove([storagePath]);
+        setUploading(false);
+        if (!persisted) {
+          setUploadError(payload.error || 'The document could not be submitted. Please try again.');
+          return;
+        }
+      } else {
+        setUploading(false);
+      }
     }
 
     setUploadSuccess(`${docType} submitted for review.`);
