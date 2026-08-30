@@ -48,7 +48,6 @@ function daysUntil(value: string | null) {
 export default function DriverDocumentsPage() {
   const { user } = useAuth();
   const [driverId, setDriverId] = useState<string | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [docs, setDocs] = useState<DriverDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
@@ -89,7 +88,7 @@ export default function DriverDocumentsPage() {
     setLoadError('');
     const { data, error } = await supabase
       .from('drivers')
-      .select('id, company_id')
+      .select('id')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -100,7 +99,6 @@ export default function DriverDocumentsPage() {
     }
 
     setDriverId(data.id as string);
-    setCompanyId((data as { id: string; company_id: string | null }).company_id);
     await loadDocs(data.id as string);
     setLoading(false);
   };
@@ -130,41 +128,43 @@ export default function DriverDocumentsPage() {
     if (file.size > 10 * 1024 * 1024) return setUploadError('File must be under 10 MB.');
 
     setUploading(true);
-    const extension = file.name.split('.').pop() ?? 'bin';
-    const timestamp = Date.now();
-    const safeType = docType.toLowerCase().replace(/\s+/g, '_');
-    const storagePath = `${companyId ?? 'no-company'}/${driverId}/${safeType}_${timestamp}.${extension}`;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token?.trim();
+      if (sessionError || !token) {
+        setUploadError('Your session has expired. Sign in again before uploading a document.');
+        return;
+      }
 
-    const { error: storageError } = await supabase.storage.from('driver-docs').upload(storagePath, file, { upsert: false });
-    if (storageError) {
+      const formData = new FormData();
+      formData.set('docType', docType);
+      formData.set('issuedDate', issuedDate);
+      formData.set('expiryDate', expiryDate);
+      formData.set('file', file, file.name);
+
+      const response = await fetch('/api/driver/documents', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        setUploadError(payload.error || 'The document could not be uploaded. Please try again.');
+        return;
+      }
+
+      setUploadSuccess(`${docType} submitted for review.`);
+      setFile(null);
+      setIssuedDate('');
+      setExpiryDate('');
+      setDocType(DOC_TYPES[0].value);
+      if (fileRef.current) fileRef.current.value = '';
+      await loadDocs(driverId);
+    } catch {
+      setUploadError('The document upload could not be completed. Check your connection and try again.');
+    } finally {
       setUploading(false);
-      setUploadError('The file upload failed. Please try again.');
-      return;
     }
-
-    const { error: recordError } = await supabase.from('driver_documents').insert({
-      driver_id: driverId,
-      doc_type: docType,
-      file_path: storagePath,
-      issued_date: issuedDate || null,
-      expiry_date: expiryDate || null,
-      status: 'pending',
-    });
-
-    setUploading(false);
-    if (recordError) {
-      await supabase.storage.from('driver-docs').remove([storagePath]);
-      setUploadError('The document record could not be created. The uploaded file was removed safely.');
-      return;
-    }
-
-    setUploadSuccess(`${docType} submitted for review.`);
-    setFile(null);
-    setIssuedDate('');
-    setExpiryDate('');
-    setDocType(DOC_TYPES[0].value);
-    if (fileRef.current) fileRef.current.value = '';
-    await loadDocs(driverId);
   };
 
   const getSignedUrl = async (filePath: string, docId: string) => {
