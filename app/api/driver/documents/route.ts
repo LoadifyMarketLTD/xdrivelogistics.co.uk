@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
@@ -23,11 +22,19 @@ const MIME_EXTENSION: Record<string, string> = {
   'image/webp': 'webp',
 };
 
+type UploadRecordRequest = {
+  storagePath?: unknown;
+  docType?: unknown;
+  issuedDate?: unknown;
+  expiryDate?: unknown;
+  mimeType?: unknown;
+};
+
 function json(status: number, body: Record<string, unknown>) {
   return NextResponse.json(body, { status });
 }
 
-function cleanText(value: FormDataEntryValue | null, max = 200) {
+function cleanText(value: unknown, max = 300) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
@@ -53,6 +60,10 @@ function hasExpectedMagicBytes(bytes: Buffer, mimeType: string) {
   return false;
 }
 
+async function removeStoredObject(storagePath: string) {
+  await supabaseAdmin!.storage.from('driver-docs').remove([storagePath]);
+}
+
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return json(503, { error: 'Document upload is temporarily unavailable.' });
@@ -61,17 +72,15 @@ export async function POST(request: NextRequest) {
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
-    return json(400, { error: 'The document upload request is invalid.' });
-  }
+  const body = await request.json().catch(() => null) as UploadRecordRequest | null;
+  if (!body) return json(400, { error: 'The document upload request is invalid.' });
 
-  const docType = cleanText(form.get('docType'), 100);
-  const issuedDate = cleanText(form.get('issuedDate'), 10);
-  const expiryDate = cleanText(form.get('expiryDate'), 10);
-  const file = form.get('file');
+  const storagePath = cleanText(body.storagePath, 500);
+  const docType = cleanText(body.docType, 100);
+  const issuedDate = cleanText(body.issuedDate, 10);
+  const expiryDate = cleanText(body.expiryDate, 10);
+  const mimeType = cleanText(body.mimeType, 100).toLowerCase();
+  const extension = MIME_EXTENSION[mimeType];
 
   if (!ALLOWED_DOCUMENT_TYPES.has(docType)) {
     return json(400, { error: 'Choose a supported document type.' });
@@ -82,36 +91,52 @@ export async function POST(request: NextRequest) {
   if (issuedDate && expiryDate && expiryDate < issuedDate) {
     return json(400, { error: 'Expiry date cannot be before the issue date.' });
   }
-  if (!(file instanceof File)) {
-    return json(400, { error: 'Select a PDF or image before submitting.' });
-  }
-  if (file.size <= 0 || file.size > MAX_DOCUMENT_BYTES) {
-    return json(413, { error: 'File must be 10 MB or smaller.' });
-  }
-
-  const mimeType = String(file.type || '').toLowerCase();
-  const extension = MIME_EXTENSION[mimeType];
   if (!extension) {
     return json(415, { error: 'Use a PDF, JPG, PNG or WEBP document.' });
   }
 
-  const bytes = Buffer.from(await file.arrayBuffer());
-  if (!hasExpectedMagicBytes(bytes, mimeType)) {
-    return json(415, { error: 'Document content does not match its declared file type.' });
+  const tenantAnchor = driver.companyId ?? driver.driverId;
+  const segments = storagePath.split('/');
+  const expectedPrefix = `${tenantAnchor}/${driver.driverId}/`;
+  if (
+    segments.length !== 3
+    || !storagePath.startsWith(expectedPrefix)
+    || segments.some((segment) => !segment || segment === '.' || segment === '..')
+    || !storagePath.toLowerCase().endsWith(`.${extension}`)
+  ) {
+    return json(403, { error: 'The uploaded document does not belong to this Driver account.' });
   }
 
-  // Keep the existing driver-docs tenant path contract: segment 1 is a UUID
-  // tenant anchor and segment 2 is always the authenticated Driver id. This
-  // preserves the existing storage SELECT policy for the Driver after upload.
-  const tenantAnchor = driver.companyId ?? driver.driverId;
-  const storagePath = `${tenantAnchor}/${driver.driverId}/${randomUUID()}.${extension}`;
+  // Retry-safe: a network interruption after a successful insert must not create
+  // a duplicate record or tempt the browser to delete a file already in use.
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('driver_documents')
+    .select('id, doc_type, status, created_at')
+    .eq('driver_id', driver.driverId)
+    .eq('file_path', storagePath)
+    .maybeSingle();
+  if (existingError) {
+    return json(500, { error: 'The existing document record could not be checked.' });
+  }
+  if (existing) {
+    return json(200, { ok: true, document: existing, idempotent: true });
+  }
 
-  const { error: storageError } = await supabaseAdmin.storage
+  const { data: storedFile, error: downloadError } = await supabaseAdmin.storage
     .from('driver-docs')
-    .upload(storagePath, bytes, { contentType: mimeType, upsert: false });
+    .download(storagePath);
+  if (downloadError || !storedFile) {
+    return json(404, { error: 'The uploaded file could not be found in secure storage.' });
+  }
 
-  if (storageError) {
-    return json(500, { error: 'The file upload failed. Please try again.' });
+  const bytes = Buffer.from(await storedFile.arrayBuffer());
+  if (bytes.length <= 0 || bytes.length > MAX_DOCUMENT_BYTES) {
+    await removeStoredObject(storagePath);
+    return json(413, { error: 'File must be 10 MB or smaller.' });
+  }
+  if (!hasExpectedMagicBytes(bytes, mimeType)) {
+    await removeStoredObject(storagePath);
+    return json(415, { error: 'Document content does not match its declared file type.' });
   }
 
   const { data: record, error: recordError } = await supabaseAdmin
@@ -128,11 +153,11 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (recordError) {
-    await supabaseAdmin.storage.from('driver-docs').remove([storagePath]);
+    await removeStoredObject(storagePath);
     return json(500, {
       error: 'The document record could not be created. The uploaded file was removed safely.',
     });
   }
 
-  return json(201, { ok: true, document: record });
+  return json(201, { ok: true, document: record, idempotent: false });
 }
