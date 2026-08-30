@@ -11,6 +11,7 @@ const availabilitySplit = readMigration('048_split_driver_availability_from_empl
 const exchangeRlsRepair = readMigration('091_fix_driver_exchange_rls.sql');
 const vehicleReadiness = readMigration('20260819154500_reconcile_vehicle_readiness_physical_contract.sql');
 const integrity = readMigration('20260830174500_vehicle_driver_company_integrity.sql');
+const identityRuntime = readMigration('20260830175600_verify_canonical_driver_identity_runtime.sql');
 
 describe('clean replay canonical status enum contracts', () => {
   it('reconstructs the hosted Driver lifecycle type before Driver RLS policies bind to status', () => {
@@ -73,6 +74,21 @@ describe('clean replay canonical status enum contracts', () => {
     );
     expect(integrity).toContain(
       'Unsupported vehicle status values prevent canonical status_enum reconstruction',
+    );
+  });
+
+  it('converges company membership status to the hosted text contract before disabled governance state is required', () => {
+    expect(identityRuntime).toContain('ALTER COLUMN status TYPE text');
+    expect(identityRuntime).toContain('USING status::text');
+    expect(identityRuntime).toContain("status::text NOT IN ('active', 'invited', 'disabled')");
+    expect(identityRuntime).toContain(
+      "ALTER COLUMN status SET DEFAULT 'active'::text",
+    );
+    expect(identityRuntime).toContain(
+      "CHECK (status IN ('active', 'invited', 'disabled')) NOT VALID",
+    );
+    expect(identityRuntime).toContain(
+      'Unsupported membership status values prevent canonical text reconstruction',
     );
   });
 });
