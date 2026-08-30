@@ -77,18 +77,23 @@ describe('clean replay canonical status enum contracts', () => {
     );
   });
 
-  it('converges company membership status to the hosted text contract before disabled governance state is required', () => {
-    expect(identityRuntime).toContain('ALTER COLUMN status TYPE text');
-    expect(identityRuntime).toContain('USING status::text');
-    expect(identityRuntime).toContain("status::text NOT IN ('active', 'invited', 'disabled')");
-    expect(identityRuntime).toContain(
-      "ALTER COLUMN status SET DEFAULT 'active'::text",
+  it('binds company membership policies to text from the initial schema and finalizes the hosted vocabulary before governance', () => {
+    expect(initialSchema).toContain(
+      "CREATE TYPE public.membership_status AS ENUM ('invited', 'active', 'suspended')",
     );
+    expect(initialSchema).toContain("status text DEFAULT 'invited'");
+    expect(initialSchema).not.toContain("status public.membership_status DEFAULT 'invited'");
+    expect(identityRuntime).toContain(
+      "company_memberships.status must already be text before governance hardening",
+    );
+    expect(identityRuntime).not.toContain('ALTER COLUMN status TYPE text');
+    expect(identityRuntime).toContain("cm.status NOT IN ('active', 'invited', 'disabled')");
+    expect(identityRuntime).toContain("ALTER COLUMN status SET DEFAULT 'active'::text");
     expect(identityRuntime).toContain(
       "CHECK (status IN ('active', 'invited', 'disabled')) NOT VALID",
     );
     expect(identityRuntime).toContain(
-      'Unsupported membership status values prevent canonical text reconstruction',
+      'Unsupported membership status values prevent canonical text finalization',
     );
   });
 });
