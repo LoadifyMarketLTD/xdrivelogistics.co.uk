@@ -6,12 +6,16 @@ describe('Driver operational instructions contract', () => {
     path.join(process.cwd(), 'app/api/workspace/jobs/[jobId]/instructions/route.ts'),
     'utf8',
   );
-  const customerPanel = fs.readFileSync(
+  const instructionPanel = fs.readFileSync(
     path.join(process.cwd(), 'app/components/workspace/DriverInstructionPanel.tsx'),
     'utf8',
   );
   const customerJobPage = fs.readFileSync(
     path.join(process.cwd(), 'app/customer/jobs/[id]/page.tsx'),
+    'utf8',
+  );
+  const brokerJobsPage = fs.readFileSync(
+    path.join(process.cwd(), 'app/broker/jobs/page.tsx'),
     'utf8',
   );
   const driverDetailRoute = fs.readFileSync(
@@ -53,12 +57,15 @@ describe('Driver operational instructions contract', () => {
     expect(instructionRoute).toContain('driverInboxNotified');
   });
 
-  test('exposes append-only wording in the Customer booking without reusing Edit Load', () => {
+  test('exposes the same posting-company control in Customer and Broker workspaces', () => {
     expect(customerJobPage).toContain('DriverInstructionPanel');
     expect(customerJobPage).toContain('<DriverInstructionPanel jobId={job.id} />');
-    expect(customerPanel).toContain('Append-only operational updates for the awarded Driver.');
-    expect(customerPanel).toContain('do not change the route, rate, cargo, timing, vehicle or awarded terms');
-    expect(customerPanel).toContain('Send instruction to Driver');
+    expect(brokerJobsPage).toContain('DriverInstructionPanel');
+    expect(brokerJobsPage).toContain('<DriverInstructionPanel jobId={job.id} />');
+    expect(instructionPanel).toContain('Append-only operational updates for the awarded Driver.');
+    expect(instructionPanel).toContain('do not change the route, rate, cargo, timing, vehicle or awarded terms');
+    expect(instructionPanel).toContain('Send instruction to Driver');
+    expect(instructionPanel).toContain('response.status === 403 || response.status === 404');
   });
 
   test('projects instruction history into the assigned Driver job detail', () => {
