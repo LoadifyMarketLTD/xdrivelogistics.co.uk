@@ -88,6 +88,7 @@ type OwnerContext = {
 };
 
 const parseLoadDetails = (value: unknown) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
   const raw = text(value)?.trim();
   if (!raw) return {} as Record<string, unknown>;
   try {
@@ -301,8 +302,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const parsed = updateSchema.safeParse(rawBody);
   if (!parsed.success) return respond(400, { error: 'Load details are incomplete or invalid.', fields: parsed.error.flatten().fieldErrors });
   const input = parsed.data;
-  const { job: originalJob, stops: originalStops, ownerCompanyId } = checked.context;
-  const now = new Date().toISOString();
   const specialRequirements = [
     input.tailLift && 'Tail lift required',
     input.forklift && 'Forklift available at collection',
@@ -312,7 +311,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     input.fragile && 'Fragile goods',
     input.additionalStops.length > 0 && `${input.additionalStops.length} additional stop${input.additionalStops.length === 1 ? '' : 's'}`,
   ].filter(Boolean).join(', ');
-  const loadDetails = JSON.stringify({
+
+  const loadDetails = {
     schema: 'xdrive_load_details_v2',
     source: 'customer_workspace_v3_edit',
     targetCarrierCost: input.targetCarrierCost ?? null,
@@ -321,46 +321,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     additionalStopCount: input.additionalStops.length,
     notes: input.executionInstructions || null,
     executionInstructions: input.executionInstructions || null,
-  });
-
-  const mutableColumns = [
-    'status','current_status','pickup_location','pickup_postcode','pickup_datetime','pickup_time_slot','delivery_location','delivery_postcode','delivery_datetime','delivery_time_slot',
-    'collection_contact_name','collection_contact_phone','delivery_contact_name','delivery_contact_phone','client_name','client_email','client_phone','customer_reference','purchase_order_number','booking_reference',
-    'vehicle_type','requested_vehicle_label','cargo_type','requested_cargo_label','weight_kg','pallets','length_cm','width_cm','height_cm','cargo_value_gbp','budget_amount',
-    'collection_tail_lift_required','collection_forklift_available','collection_handball_required','special_requirements','load_details','exchange_visibility','exchange_posted_at','exchange_expires_at','updated_at',
-  ] as const;
-  const originalMutable = Object.fromEntries(mutableColumns.map((key) => [key, originalJob[key]]));
-
-  const rollback = async () => {
-    const jobRestore = await client.from('jobs').update(originalMutable).eq('id', jobId).eq('company_id', ownerCompanyId);
-    const stopDelete = await client.from('job_stops').delete().eq('job_id', jobId);
-    let stopRestoreError = null;
-    if (!stopDelete.error && originalStops.length > 0) {
-      const restoreRows = originalStops.map((stop) => ({
-        id: stop.id,
-        job_id: jobId,
-        sequence: stop.sequence,
-        stop_type: stop.stop_type,
-        address: stop.address,
-        postcode: stop.postcode,
-        company_name: stop.company_name,
-        contact_name: stop.contact_name,
-        contact_phone: stop.contact_phone,
-        window_start: stop.window_start,
-        window_end: stop.window_end,
-        instructions: stop.instructions,
-        status: stop.status,
-        arrived_at: stop.arrived_at,
-        completed_at: stop.completed_at,
-      }));
-      stopRestoreError = (await client.from('job_stops').insert(restoreRows)).error;
-    }
-    return jobRestore.error ?? stopDelete.error ?? stopRestoreError;
   };
 
-  const stagedRow: Record<string, unknown> = {
-    status: 'draft',
-    current_status: 'draft',
+  const patch = {
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
     pickup_postcode: input.pickupPostcode.toUpperCase(),
     pickup_datetime: input.pickupDateTime,
@@ -395,54 +358,34 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     collection_handball_required: input.handball,
     special_requirements: specialRequirements || null,
     load_details: loadDetails,
-    exchange_visibility: 'private',
-    exchange_posted_at: null,
-    exchange_expires_at: null,
-    updated_at: now,
   };
 
-  const staged = await client.from('jobs').update(stagedRow)
-    .eq('id', jobId).eq('company_id', ownerCompanyId)
-    .is('awarded_carrier_company_id', null).is('assigned_company_id', null).is('assigned_driver_id', null).is('vehicle_id', null)
-    .select('id').maybeSingle();
-  if (staged.error || !staged.data) return operationalError({ status: 409, message: 'The load changed while you were editing it. Refresh and try again.', context: `workspace.job-owner.stage:${jobId}`, cause: staged.error ?? new Error('Owner edit guard rejected the job.'), retryable: false });
-
-  const deleteStops = await client.from('job_stops').delete().eq('job_id', jobId);
-  if (deleteStops.error) {
-    const rollbackError = await rollback();
-    return operationalError({ status: 500, message: rollbackError ? 'The load could not be edited cleanly. Please contact support before retrying.' : 'The route could not be updated. Your previous load details were restored.', context: `workspace.job-owner.replace-stops:${jobId}`, cause: deleteStops.error, retryable: !rollbackError });
-  }
-
-  if (input.additionalStops.length > 0) {
-    const stopRows = [
-      { job_id: jobId, sequence: 1, stop_type: 'collection', address: input.pickupAddress, postcode: input.pickupPostcode.toUpperCase(), contact_name: input.collectionContact || null, contact_phone: input.collectionPhone || null, window_start: input.pickupDateTime, instructions: null },
-      ...input.additionalStops.map((stop, index) => ({ job_id: jobId, sequence: index + 2, stop_type: stop.type, address: stop.address, postcode: stop.postcode.toUpperCase(), contact_name: stop.contact || null, contact_phone: stop.phone || null, window_start: stop.dateTime || null, instructions: stop.instructions || null })),
-      { job_id: jobId, sequence: input.additionalStops.length + 2, stop_type: 'delivery', address: input.deliveryAddress, postcode: input.deliveryPostcode.toUpperCase(), contact_name: input.deliveryContact || null, contact_phone: input.deliveryPhone || null, window_start: input.deliveryDateTime || null, instructions: null },
-    ];
-    const insertedStops = await client.from('job_stops').insert(stopRows);
-    if (insertedStops.error) {
-      const rollbackError = await rollback();
-      return operationalError({ status: 500, message: rollbackError ? 'The multi-drop route could not be edited cleanly. Please contact support before retrying.' : 'The multi-drop route could not be updated. Your previous load details were restored.', context: `workspace.job-owner.insert-stops:${jobId}`, cause: insertedStops.error, retryable: !rollbackError });
-    }
-  }
+  const stopRows = input.additionalStops.length > 0 ? [
+    { sequence: 1, stop_type: 'collection', address: input.pickupAddress, postcode: input.pickupPostcode.toUpperCase(), contact_name: input.collectionContact || null, contact_phone: input.collectionPhone || null, window_start: input.pickupDateTime, instructions: null },
+    ...input.additionalStops.map((stop, index) => ({ sequence: index + 2, stop_type: stop.type, address: stop.address, postcode: stop.postcode.toUpperCase(), contact_name: stop.contact || null, contact_phone: stop.phone || null, window_start: stop.dateTime || null, instructions: stop.instructions || null })),
+    { sequence: input.additionalStops.length + 2, stop_type: 'delivery', address: input.deliveryAddress, postcode: input.deliveryPostcode.toUpperCase(), contact_name: input.deliveryContact || null, contact_phone: input.deliveryPhone || null, window_start: input.deliveryDateTime || null, instructions: null },
+  ] : [];
 
   const expireHoursRaw = input.publish ? await getGlobalSettingNumber(client, 'exchange_auto_expire_hours') : 72;
-  const expireHours = Number.isFinite(expireHoursRaw) && expireHoursRaw > 0 ? expireHoursRaw : 72;
-  const finalStatus = input.publish ? 'posted' : 'draft';
-  const finalResult = await client.from('jobs').update({
-    status: finalStatus,
-    current_status: finalStatus,
-    exchange_visibility: input.publish ? 'exchange' : 'private',
-    exchange_posted_at: input.publish ? now : null,
-    exchange_expires_at: input.publish ? new Date(Date.now() + expireHours * 60 * 60 * 1000).toISOString() : null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', jobId).eq('company_id', ownerCompanyId).eq('status', 'draft').select('id, status, current_status').maybeSingle();
-  if (finalResult.error || !finalResult.data) {
-    const rollbackError = await rollback();
-    return operationalError({ status: 500, message: rollbackError ? 'The load edit could not be finalised cleanly. Please contact support.' : 'The load edit could not be finalised. Your previous details were restored.', context: `workspace.job-owner.finalise:${jobId}`, cause: finalResult.error ?? new Error('Final owner update returned no row.'), retryable: !rollbackError });
+  const expireHours = Number.isFinite(expireHoursRaw) && expireHoursRaw > 0 ? Math.max(1, Math.round(expireHoursRaw)) : 72;
+  const edited = await client.rpc('update_unbid_exchange_job_atomic', {
+    p_job_id: jobId,
+    p_actor_user_id: auth.userId,
+    p_patch: patch,
+    p_stops: stopRows,
+    p_publish: input.publish,
+    p_expire_hours: expireHours,
+  });
+
+  if (edited.error) {
+    if (edited.error.code === 'P0002') return respond(404, { error: 'Load not found.' });
+    if (edited.error.code === '42501') return respond(403, { error: edited.error.message });
+    if (edited.error.code === '22023') return respond(400, { error: edited.error.message });
+    if (edited.error.code === '23514' || edited.error.code === '23503') return respond(409, { error: edited.error.message });
+    return operationalError({ status: 409, message: 'The load could not be edited safely. Refresh and try again.', context: `workspace.job-owner.edit:${jobId}`, cause: edited.error, retryable: false });
   }
 
-  return respond(200, { job: finalResult.data });
+  return respond(200, { job: edited.data });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
