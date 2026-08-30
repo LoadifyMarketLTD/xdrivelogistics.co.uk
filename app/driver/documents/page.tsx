@@ -130,31 +130,36 @@ export default function DriverDocumentsPage() {
     if (file.size > 10 * 1024 * 1024) return setUploadError('File must be under 10 MB.');
 
     setUploading(true);
-    const extension = file.name.split('.').pop() ?? 'bin';
-    const timestamp = Date.now();
-    const safeType = docType.toLowerCase().replace(/\s+/g, '_');
-    const storagePath = `${companyId ?? 'no-company'}/${driverId}/${safeType}_${timestamp}.${extension}`;
-
-    const { error: storageError } = await supabase.storage.from('driver-docs').upload(storagePath, file, { upsert: false });
-    if (storageError) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token?.trim();
+    if (!accessToken) {
       setUploading(false);
-      setUploadError('The file upload failed. Please try again.');
+      setUploadError('Your session has expired. Please sign in again.');
       return;
     }
 
-    const { error: recordError } = await supabase.from('driver_documents').insert({
-      driver_id: driverId,
-      doc_type: docType,
-      file_path: storagePath,
-      issued_date: issuedDate || null,
-      expiry_date: expiryDate || null,
-      status: 'pending',
-    });
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('docType', docType);
+    formData.append('issuedDate', issuedDate);
+    formData.append('expiryDate', expiryDate);
+    if (companyId) formData.append('workspaceCompanyId', companyId);
+
+    const response = await fetch('/api/driver/documents', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: formData,
+    }).catch(() => null);
 
     setUploading(false);
-    if (recordError) {
-      await supabase.storage.from('driver-docs').remove([storagePath]);
-      setUploadError('The document record could not be created. The uploaded file was removed safely.');
+    if (!response) {
+      setUploadError('The document upload could not reach XDrive. Please try again.');
+      return;
+    }
+
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    if (!response.ok) {
+      setUploadError(payload.error || 'The document could not be submitted. Please try again.');
       return;
     }
 
