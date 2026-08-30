@@ -3,7 +3,11 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = fs.readFileSync(
-  path.join(process.cwd(), 'supabase/migrations/20260830122500_repair_owner_job_delete_atomic_guard.sql'),
+  path.join(process.cwd(), 'supabase/migrations/20260830122049_repair_owner_job_delete_atomic_guard.sql'),
+  'utf8',
+);
+const runtimeValidation = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/20260830122404_verify_owner_job_delete_atomic_guard_runtime.sql'),
   'utf8',
 );
 
@@ -44,5 +48,14 @@ describe('atomic owner delete migration contract', () => {
     expect(migration).toContain("'workspace_owner_delete'");
     expect(migration).toContain('REVOKE ALL ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid) FROM authenticated');
     expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.delete_unbid_exchange_job_atomic(uuid, uuid) TO service_role');
+  });
+
+  it('retains the hosted synthetic success-path validation without leaving test data', () => {
+    expect(runtimeValidation).toContain("exchange_visibility,\n      is_test,\n      customer_ref");
+    expect(runtimeValidation).toContain("'private',\n      true,");
+    expect(runtimeValidation).toContain('delete_unbid_exchange_job_atomic(v_job_id, v_actor_user_id)');
+    expect(runtimeValidation).toContain("action_type = 'exchange_load_deleted_without_bids'");
+    expect(runtimeValidation).toContain("ERRCODE = 'PZ001'");
+    expect(runtimeValidation).toContain('Synthetic audit record remained after validation rollback.');
   });
 });
