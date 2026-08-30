@@ -137,4 +137,68 @@ BEGIN
 END;
 $$;
 
+-- Hosted production retains the historical membership_status enum type, but the
+-- authoritative company_memberships.status column is TEXT with the canonical
+-- active/invited/disabled vocabulary. Fresh replay historically left the column
+-- bound to membership_status, which cannot represent `disabled` and breaks the
+-- later company-governance fail-close migration. Converge the physical contract
+-- here, after the identity proof has completed and before governance requires
+-- the disabled state. Never map or coerce unsupported row values.
+DO $$
+DECLARE
+  v_data_type text;
+  v_udt_schema text;
+  v_udt_name text;
+  v_invalid_statuses text[];
+BEGIN
+  SELECT c.data_type, c.udt_schema, c.udt_name
+  INTO v_data_type, v_udt_schema, v_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'company_memberships'
+    AND c.column_name = 'status';
+
+  IF v_data_type IS NULL THEN
+    RAISE EXCEPTION 'company_memberships.status is missing during canonical membership reconstruction.';
+  END IF;
+
+  SELECT array_agg(DISTINCT cm.status::text ORDER BY cm.status::text)
+  INTO v_invalid_statuses
+  FROM public.company_memberships cm
+  WHERE cm.status IS NOT NULL
+    AND cm.status::text NOT IN ('active', 'invited', 'disabled');
+
+  IF coalesce(array_length(v_invalid_statuses, 1), 0) > 0 THEN
+    RAISE EXCEPTION
+      'Unsupported membership status values prevent canonical text reconstruction: %.',
+      array_to_string(v_invalid_statuses, ', ');
+  END IF;
+
+  IF v_data_type IS DISTINCT FROM 'text'
+     OR v_udt_schema IS DISTINCT FROM 'pg_catalog'
+     OR v_udt_name IS DISTINCT FROM 'text' THEN
+    ALTER TABLE public.company_memberships
+      ALTER COLUMN status DROP DEFAULT;
+
+    ALTER TABLE public.company_memberships
+      ALTER COLUMN status TYPE text
+      USING status::text;
+  END IF;
+
+  ALTER TABLE public.company_memberships
+    ALTER COLUMN status SET NOT NULL,
+    ALTER COLUMN status SET DEFAULT 'active'::text;
+
+  ALTER TABLE public.company_memberships
+    DROP CONSTRAINT IF EXISTS company_memberships_status_check;
+
+  ALTER TABLE public.company_memberships
+    ADD CONSTRAINT company_memberships_status_check
+    CHECK (status IN ('active', 'invited', 'disabled')) NOT VALID;
+
+  ALTER TABLE public.company_memberships
+    VALIDATE CONSTRAINT company_memberships_status_check;
+END;
+$$;
+
 COMMIT;
