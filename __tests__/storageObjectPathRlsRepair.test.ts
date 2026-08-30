@@ -70,7 +70,13 @@ describe('Storage object-path RLS repair', () => {
     expect(reviewerRepair).toContain("has_table_privilege('anon', 'public.driver_identity_documents', 'SELECT')");
     expect(reviewerRepair).toContain("has_table_privilege('anon', 'public.company_documents', 'SELECT')");
     expect(invoiceRepair).toContain('can_read_invoice_storage_object');
+    expect(invoiceRepair).toContain(
+      'REVOKE ALL ON TABLE public.invoice_documents FROM PUBLIC, anon, authenticated',
+    );
+    expect(invoiceRepair).toContain('GRANT ALL ON TABLE public.invoice_documents TO service_role');
     expect(invoiceRepair).toContain("has_table_privilege('authenticated', 'public.invoice_documents', 'SELECT')");
+    expect(invoiceRepair).toContain("has_table_privilege('anon', 'public.invoice_documents', 'SELECT')");
+    expect(invoiceRepair).toContain("has_table_privilege('service_role', 'public.invoice_documents', 'SELECT')");
   });
 
   it('proves real authenticated RLS visibility for an assigned Driver and denial for an outsider', () => {
