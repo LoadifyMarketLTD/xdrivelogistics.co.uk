@@ -6,6 +6,7 @@ import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJo
 import { supabase } from '../../../../lib/supabaseClient';
 import JobLiveTrackingPanel from '../../../components/tracking/JobLiveTrackingPanel';
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
+import DriverInstructionPanel from '../../../components/workspace/DriverInstructionPanel';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import type { OwnerEditCapabilities } from '../../../components/workspace/JobOwnerEditForm';
@@ -195,6 +196,8 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
           {!job.awarded_carrier_company_id && quotes.length === 0 && (
             <AlertBanner tone="warning">This load has not been awarded yet. The full customer-owned job record remains visible here, while carriers see only the quote-safe Marketplace projection.</AlertBanner>
           )}
+
+          <DriverInstructionPanel jobId={job.id} />
 
           <Panel title={job.awarded_carrier_company_id ? 'Booking / Order' : 'Customer job record'} description={job.awarded_carrier_company_id ? 'Awarded booking details and execution evidence.' : 'Customer-owned job details before carrier award.'}>
             <CompanyJobSheetPanel jobId={job.id} mode="customer" />
