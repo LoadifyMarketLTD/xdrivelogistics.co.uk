@@ -23,6 +23,7 @@ type BidEligibilityJob = {
   company_id: string | null;
   status: string | null;
   exchange_visibility: string | null;
+  exchange_expires_at: string | null;
   direct_invite_company_id: string | null;
   assigned_company_id: string | null;
   assigned_driver_id: string | null;
@@ -53,6 +54,7 @@ export type DriverBidEligibility = {
     ownCompanyJob: boolean;
     assigned: boolean;
     awarded: boolean;
+    expired: boolean;
     hasProposedPrice: boolean;
     proposedPriceGbp: number | null;
   };
@@ -65,6 +67,12 @@ const toAmount = (value: number | string | null | undefined) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
+const exchangeExpired = (value: string | null | undefined, nowMs = Date.now()) => {
+  if (!value) return false;
+  const expires = new Date(value).getTime();
+  return !Number.isFinite(expires) || expires <= nowMs;
+};
+
 export async function resolveDriverBidEligibility(
   supabaseAdmin: AdminClient,
   driver: DriverBidContext,
@@ -74,7 +82,7 @@ export async function resolveDriverBidEligibility(
     resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId),
     supabaseAdmin
       .from('jobs')
-      .select('id,company_id,status,exchange_visibility,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
+      .select('id,company_id,status,exchange_visibility,exchange_expires_at,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
       .eq('id', jobId)
       .maybeSingle(),
   ]);
@@ -95,6 +103,7 @@ export async function resolveDriverBidEligibility(
   const ownCompanyJob = !!job && Boolean(driver.companyId) && job.company_id === driver.companyId;
   const assigned = !!job && (Boolean(job.assigned_company_id) || Boolean(job.assigned_driver_id));
   const awarded = !!job && Boolean(job.awarded_carrier_company_id);
+  const expired = !!job && exchangeExpired(job.exchange_expires_at);
 
   let hasActiveBid = false;
   if (job) {
@@ -105,8 +114,11 @@ export async function resolveDriverBidEligibility(
       .in('status', activeBidStatuses)
       .limit(1);
 
+    // One active quote per carrier company/job. A second Driver belonging to the
+    // same carrier must see the same gate instead of reaching the DB uniqueness
+    // boundary only at insert time. Independent Drivers remain driver-scoped.
     const { data: existing, error: existingError } = driver.companyId
-      ? await query.eq('company_id', driver.companyId).eq('bidder_driver_id', driver.driverId)
+      ? await query.eq('company_id', driver.companyId)
       : await query.eq('bidder_driver_id', driver.driverId);
 
     if (existingError) {
@@ -120,6 +132,7 @@ export async function resolveDriverBidEligibility(
   if (!job) denialReasons.push('job_not_found');
   if (job && !['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase())) denialReasons.push('job_not_posted');
   if (job && !visibleToDriver) denialReasons.push('job_not_visible_to_driver');
+  if (expired) denialReasons.push('job_exchange_expired');
   if (ownCompanyJob) denialReasons.push('own_company_job');
   if (assigned) denialReasons.push('job_already_assigned');
   if (awarded) denialReasons.push('job_already_awarded');
@@ -151,6 +164,7 @@ export async function resolveDriverBidEligibility(
         ownCompanyJob,
         assigned,
         awarded,
+        expired,
         hasProposedPrice: proposedPriceGbp !== null,
         proposedPriceGbp,
       },
