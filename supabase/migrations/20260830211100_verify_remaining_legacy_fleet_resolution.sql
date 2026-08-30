@@ -105,7 +105,7 @@ BEGIN
   v_creator_norm := regexp_replace(v_creator_def, '[[:space:]]+', '', 'g');
 
   IF position('c.created_by=auth.uid()' in v_creator_norm) = 0
-     OR position("c.status::text='pending_approval'" in v_creator_norm) = 0
+     OR position($needle$c.status::text='pending_approval'$needle$ in v_creator_norm) = 0
   THEN
     RAISE EXCEPTION 'Creator membership bootstrap is not restricted to pending-approval companies.';
   END IF;
@@ -120,8 +120,8 @@ BEGIN
   v_registration_norm := regexp_replace(v_registration_def, '[[:space:]]+', '', 'g');
 
   IF position('legacy_fleet_onboarding_resolutions' in v_registration_norm) = 0
-     OR position("resolution_code='quarantine_legacy_active_shell'" in v_registration_norm) = 0
-     OR position("v_company.status::text='pending_approval'ANDv_company.created_by=p_actor_user_id" in v_registration_norm) = 0
+     OR position($needle$resolution_code='quarantine_legacy_active_shell'$needle$ in v_registration_norm) = 0
+     OR position($needle$v_company.status::text='pending_approval'ANDv_company.created_by=p_actor_user_id$needle$ in v_registration_norm) = 0
   THEN
     RAISE EXCEPTION 'Verified company registration does not exclude quarantined Fleet shells or still trusts active created_by authority.';
   END IF;
