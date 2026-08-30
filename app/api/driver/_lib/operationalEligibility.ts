@@ -220,8 +220,13 @@ export async function resolveDriverOperationalEligibility(
   );
   if (!onboardingApproved) blockers.push('driver_onboarding_not_approved');
 
+  // Personal compliance is a document-state check, not an onboarding-approval
+  // proxy. Evaluate it whenever a canonical application exists so the UI can
+  // distinguish "documents complete, awaiting Platform review" from genuinely
+  // missing/invalid evidence. Overall eligibility remains fail-closed because
+  // onboardingApproved and identityVerified are independent blockers above.
   let personalComplianceValid = false;
-  if (onboardingApproved && onboarding?.id) {
+  if (onboarding?.id) {
     const { data: missingDocs, error: missingDocsError } = await supabaseAdmin.rpc(
       'get_missing_onboarding_documents',
       { p_application_id: onboarding.id },
