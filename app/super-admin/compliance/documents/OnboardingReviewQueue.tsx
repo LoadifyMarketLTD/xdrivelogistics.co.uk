@@ -19,6 +19,7 @@ type OnboardingRow = {
   risk_reason: string | null;
   company_name: string;
   company_status: string | null;
+  company_governance_blocked: boolean;
   last_activity_at: string;
   missing_documents: string[];
   compliance_check_available: boolean;
@@ -38,7 +39,7 @@ const statusStyle = (value: string) => {
   if (['clear', 'ready', 'approved', 'active'].includes(normalized)) {
     return { backgroundColor: '#DCFCE7', borderColor: '#86EFAC', color: '#166534' };
   }
-  if (['rejected', 'on_hold', 'confirmed_fraud'].includes(normalized)) {
+  if (['rejected', 'on_hold', 'confirmed_fraud', 'suspended'].includes(normalized)) {
     return { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', color: '#991B1B' };
   }
   return { backgroundColor: '#FEF3C7', borderColor: '#FCD34D', color: '#92400E' };
@@ -119,7 +120,7 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
 
   const openAction = (row: OnboardingRow, action: ReviewAction) => {
     if (action === 'approve' && !row.ready_for_approval) {
-      setError('This onboarding is not ready for approval. Resolve the listed compliance or risk blockers first.');
+      setError('This onboarding is not ready for approval. Resolve the listed compliance, governance or risk blockers first.');
       return;
     }
     setPendingAction({ row, action });
@@ -223,7 +224,11 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
                     </td>
                     <td style={{ padding: '9px 10px', color: '#1A1F2B' }}>
                       <div style={{ fontWeight: 700 }}>{row.company_name}</div>
-                      <div style={{ color: '#64748B', marginTop: '2px' }}>{row.company_status ? label(row.company_status) : '—'}</div>
+                      <div style={{ marginTop: '3px' }}>
+                        <span style={{ ...statusStyle(row.company_status ?? 'unknown'), display: 'inline-block', borderWidth: '1px', borderStyle: 'solid', borderRadius: '999px', padding: '2px 7px', fontWeight: 800 }}>
+                          {row.company_status ? label(row.company_status) : 'not linked'}
+                        </span>
+                      </div>
                     </td>
                     <td style={{ padding: '9px 10px', color: '#1A1F2B', textTransform: 'capitalize' }}>{label(row.account_type)}</td>
                     <td style={{ padding: '9px 10px' }}>
@@ -243,11 +248,13 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
                             Blocked
                           </span>
                           <div style={{ color: '#991B1B', marginTop: '4px', maxWidth: '240px' }}>
-                            {!row.compliance_check_available
-                              ? row.compliance_error ?? 'Compliance check unavailable.'
-                              : row.missing_documents.length
-                                ? `Missing: ${row.missing_documents.map(label).join(', ')}`
-                                : 'Compliance or risk review is not clear.'}
+                            {row.company_governance_blocked
+                              ? `Company governance status is ${label(row.company_status ?? 'blocked')}.`
+                              : !row.compliance_check_available
+                                ? row.compliance_error ?? 'Compliance check unavailable.'
+                                : row.missing_documents.length
+                                  ? `Missing: ${row.missing_documents.map(label).join(', ')}`
+                                  : 'Compliance or risk review is not clear.'}
                           </div>
                         </>
                       )}
@@ -264,7 +271,7 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
                           type="button"
                           disabled={busy || !row.ready_for_approval}
                           onClick={() => openAction(row, 'approve')}
-                          title={row.ready_for_approval ? 'Approve through the canonical atomic onboarding review' : 'Resolve compliance/risk blockers first'}
+                          title={row.ready_for_approval ? 'Approve through the canonical atomic onboarding review' : 'Resolve compliance/governance/risk blockers first'}
                           style={{ fontSize: '10px', fontWeight: 800 }}
                         >
                           Approve onboarding
