@@ -17,7 +17,6 @@ const OWNER_REQUIRED_IDENTITY_DOCS = [
   'driving_licence',
   'proof_of_address',
   'right_to_work',
-  'insurance',
 ] as const;
 const COMPANY_DRIVER_REQUIRED_IDENTITY_DOCS = [
   'driving_licence',
@@ -131,13 +130,17 @@ async function loadRemediationSnapshot(context: ComplianceDriverContext) {
     ? [...OWNER_REQUIRED_IDENTITY_DOCS]
     : [...COMPANY_DRIVER_REQUIRED_IDENTITY_DOCS];
   const identityDocuments = identityResult.data ?? [];
+  const currentVerifiedIdentityDocument = (docType: string) => identityDocuments.some((document) =>
+    document.doc_type === docType
+    && document.verification_status === 'verified'
+    && Boolean(document.file_path)
+    && (!document.expiry_date || document.expiry_date >= today()),
+  );
+  const identityRequirementSatisfied = (docType: string) =>
+    currentVerifiedIdentityDocument(docType)
+    || (docType === 'proof_of_address' && currentVerifiedIdentityDocument('driving_licence'));
   const missingRequiredIdentityDocs = requiredIdentityDocs.filter((docType) =>
-    !identityDocuments.some((document) =>
-      document.doc_type === docType
-      && document.verification_status === 'verified'
-      && Boolean(document.file_path)
-      && (!document.expiry_date || document.expiry_date >= today()),
-    ),
+    !identityRequirementSatisfied(docType),
   );
 
   const legacyDocuments = ((legacyResult.data ?? []) as LegacyDriverDocument[]).map((document) => {
