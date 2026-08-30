@@ -6,7 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import { ActionButton, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -73,6 +73,12 @@ type MarketplaceLoad = {
   } | null;
 };
 
+type QuoteEligibility = {
+  eligible: boolean;
+  blockers: string[];
+  canonicalVehicleId: string | null;
+};
+
 type SortMode = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc';
 type RegionFilter = 'any' | 'uk_roi' | 'euro';
 type PostedWithinFilter = 'any' | '15m' | '30m' | '1h' | '2h' | '4h' | '8h' | '24h';
@@ -111,10 +117,12 @@ function fmtDate(value: string | null) {
   if (Number.isNaN(date.getTime())) return 'TBC';
   return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
+
 function money(value: number | null, currency = 'GBP') {
   if (value == null) return 'Open quote';
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 }
+
 function postedWithinMs(filter: PostedWithinFilter) {
   const values: Record<Exclude<PostedWithinFilter, 'any'>, number> = {
     '15m': 15 * 60 * 1000, '30m': 30 * 60 * 1000, '1h': 60 * 60 * 1000, '2h': 2 * 60 * 60 * 1000,
@@ -122,30 +130,40 @@ function postedWithinMs(filter: PostedWithinFilter) {
   };
   return filter === 'any' ? null : values[filter];
 }
+
 function isTimedLoad(load: MarketplaceLoad) {
-  const values = [load.pickup_time_slot, load.delivery_time_slot].map((value) => String(value ?? '').trim().toUpperCase()).filter(Boolean);
+  const values = [load.pickup_time_slot, load.delivery_time_slot]
+    .map((value) => String(value ?? '').trim().toUpperCase())
+    .filter(Boolean);
   return values.some((value) => value !== 'ASAP');
 }
+
 function dateRelation(load: MarketplaceLoad) {
   if (!load.pickup_datetime || !load.delivery_datetime) return 'unknown';
-  const pickup = new Date(load.pickup_datetime); const delivery = new Date(load.delivery_datetime);
+  const pickup = new Date(load.pickup_datetime);
+  const delivery = new Date(load.delivery_datetime);
   if (Number.isNaN(pickup.getTime()) || Number.isNaN(delivery.getTime())) return 'unknown';
   const pickupDate = `${pickup.getFullYear()}-${pickup.getMonth()}-${pickup.getDate()}`;
   const deliveryDate = `${delivery.getFullYear()}-${delivery.getMonth()}-${delivery.getDate()}`;
   return pickupDate === deliveryDate ? 'same_day' : 'next_day';
 }
+
 function matchesTiming(load: MarketplaceLoad, filter: JobTimingFilter) {
   if (filter === 'any') return true;
-  const relation = dateRelation(load); const timed = isTimedLoad(load);
+  const relation = dateRelation(load);
+  const timed = isTimedLoad(load);
   if (filter === 'same_day_timed') return relation === 'same_day' && timed;
   if (filter === 'same_day_non_timed') return relation === 'same_day' && !timed;
   if (filter === 'next_day_timed') return relation === 'next_day' && timed;
   return relation === 'next_day' && !timed;
 }
+
 function isEuroLoad(load: MarketplaceLoad) {
-  const pickup = String(load.pickup_country_code ?? 'GB').toUpperCase(); const delivery = String(load.delivery_country_code ?? 'GB').toUpperCase();
+  const pickup = String(load.pickup_country_code ?? 'GB').toUpperCase();
+  const delivery = String(load.delivery_country_code ?? 'GB').toUpperCase();
   return !['GB', 'IE'].includes(pickup) || !['GB', 'IE'].includes(delivery);
 }
+
 function dimensions(load: MarketplaceLoad) {
   const values = [load.length_cm, load.width_cm, load.height_cm];
   if (values.every((value) => value == null)) return null;
@@ -155,6 +173,7 @@ function dimensions(load: MarketplaceLoad) {
 export default function AvailableLoadsPage() {
   const router = useRouter();
   const [loads, setLoads] = useState<MarketplaceLoad[]>([]);
+  const [quoteEligibility, setQuoteEligibility] = useState<QuoteEligibility | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -181,6 +200,8 @@ export default function AvailableLoadsPage() {
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [visibleCount, setVisibleCount] = useState(25);
 
+  const quoteAllowed = quoteEligibility?.eligible === true;
+
   const getAuthHeader = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
@@ -188,38 +209,69 @@ export default function AvailableLoadsPage() {
   }, []);
 
   const fetchLoads = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
-    if (!isSupabaseConfigured) { setLoads([]); setLoading(false); setRefreshing(false); return; }
+    if (!isSupabaseConfigured) {
+      setLoads([]); setQuoteEligibility(null); setLoading(false); setRefreshing(false); return;
+    }
     if (background) setRefreshing(true); else setLoading(true);
     setError('');
     try {
       const auth = await getAuthHeader();
       if (!auth) throw new Error('Your session has expired. Sign in again.');
-      const response = await fetch('/api/driver/marketplace/loads', { headers: { Authorization: auth }, cache: 'no-store' });
-      const payload = (await response.json().catch(() => ({}))) as { loads?: MarketplaceLoad[]; error?: string };
-      if (!response.ok) throw new Error(payload.error || 'The live load board could not be loaded.');
-      setLoads(payload.loads ?? []);
+      const [loadsResponse, eligibilityResponse] = await Promise.all([
+        fetch('/api/driver/marketplace/loads', { headers: { Authorization: auth }, cache: 'no-store' }),
+        fetch('/api/driver/compliance/eligibility', { headers: { Authorization: auth }, cache: 'no-store' }),
+      ]);
+      const loadsPayload = (await loadsResponse.json().catch(() => ({}))) as { loads?: MarketplaceLoad[]; error?: string };
+      const eligibilityPayload = (await eligibilityResponse.json().catch(() => ({}))) as Partial<QuoteEligibility> & { error?: string };
+      if (!loadsResponse.ok) throw new Error(loadsPayload.error || 'The live load board could not be loaded.');
+      setLoads(loadsPayload.loads ?? []);
+      setQuoteEligibility({
+        eligible: eligibilityResponse.ok && eligibilityPayload.eligible === true,
+        blockers: Array.isArray(eligibilityPayload.blockers) ? eligibilityPayload.blockers : ['operational_eligibility_unavailable'],
+        canonicalVehicleId: typeof eligibilityPayload.canonicalVehicleId === 'string' ? eligibilityPayload.canonicalVehicleId : null,
+      });
     } catch (reason) {
-      setLoads([]); setError(reason instanceof Error ? reason.message : 'The live load board could not be loaded. Please refresh and try again.');
-    } finally { setLoading(false); setRefreshing(false); }
+      setLoads([]);
+      setQuoteEligibility({ eligible: false, blockers: ['operational_eligibility_unavailable'], canonicalVehicleId: null });
+      setError(reason instanceof Error ? reason.message : 'The live load board could not be loaded. Please refresh and try again.');
+    } finally {
+      setLoading(false); setRefreshing(false);
+    }
   }, [getAuthHeader]);
 
   useEffect(() => { void fetchLoads(); }, [fetchLoads]);
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;
+      const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY);
+      if (!raw) return;
       const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
-      setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
-      setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
-      setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
-      setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
-    } catch { window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); }
+      setVehicleFilter(saved.vehicleFilter ?? 'any');
+      setPickupFilter(saved.pickupFilter ?? '');
+      setDeliveryFilter(saved.deliveryFilter ?? '');
+      setCargoFilter(saved.cargoFilter ?? '');
+      setWeightMinFilter(saved.weightMinFilter ?? '');
+      setDateFromFilter(saved.dateFromFilter ?? '');
+      setDateToFilter(saved.dateToFilter ?? '');
+      setMemberFilter(saved.memberFilter ?? '');
+      setRegionFilter(saved.regionFilter ?? 'any');
+      setPostedWithinFilter(saved.postedWithinFilter ?? 'any');
+      setJobTimingFilter(saved.jobTimingFilter ?? 'any');
+      setSortBy(saved.sortBy ?? 'date_desc');
+      setSaveAsDefault(true);
+    } catch {
+      window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    }
   }, []);
 
   const filteredLoads = useMemo(() => {
-    const pickupNeedle = pickupFilter.trim().toLowerCase(); const deliveryNeedle = deliveryFilter.trim().toLowerCase();
-    const cargoNeedle = cargoFilter.trim().toLowerCase(); const memberNeedle = memberFilter.trim().toLowerCase(); const minWeight = Number(weightMinFilter);
+    const pickupNeedle = pickupFilter.trim().toLowerCase();
+    const deliveryNeedle = deliveryFilter.trim().toLowerCase();
+    const cargoNeedle = cargoFilter.trim().toLowerCase();
+    const memberNeedle = memberFilter.trim().toLowerCase();
+    const minWeight = Number(weightMinFilter);
     const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
-    const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null; const postedWindow = postedWithinMs(postedWithinFilter);
+    const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null;
+    const postedWindow = postedWithinMs(postedWithinFilter);
     const filtered = loads.filter((load) => {
       if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
       const pickupSearch = `${load.pickup_area} ${load.pickup_postcode_area ?? ''}`.toLowerCase();
@@ -248,23 +300,52 @@ export default function AvailableLoadsPage() {
       return true;
     });
     return filtered.sort((a, b) => {
-      const dateA = new Date(a.exchange_posted_at ?? a.pickup_datetime ?? 0).getTime(); const dateB = new Date(b.exchange_posted_at ?? b.pickup_datetime ?? 0).getTime();
-      const priceA = a.budget_amount ?? 0; const priceB = b.budget_amount ?? 0;
-      switch (sortBy) { case 'date_asc': return dateA - dateB; case 'price_desc': return priceB - priceA; case 'price_asc': return priceA - priceB; default: return dateB - dateA; }
+      const dateA = new Date(a.exchange_posted_at ?? a.pickup_datetime ?? 0).getTime();
+      const dateB = new Date(b.exchange_posted_at ?? b.pickup_datetime ?? 0).getTime();
+      const priceA = a.budget_amount ?? 0;
+      const priceB = b.budget_amount ?? 0;
+      switch (sortBy) {
+        case 'date_asc': return dateA - dateB;
+        case 'price_desc': return priceB - priceA;
+        case 'price_asc': return priceA - priceB;
+        default: return dateB - dateA;
+      }
     });
   }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, sortBy, pageSize]);
-  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, sortBy });
-  const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
-  const clearFilters = () => {
-    setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
-    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+  useEffect(() => {
+    setVisibleCount(pageSize); setExpandAll(false);
+  }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, sortBy, pageSize]);
+
+  const captureFilters = (): SavedLoadFilters => ({
+    vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter,
+    dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter,
+    jobTimingFilter, sortBy,
+  });
+
+  const applySearch = () => {
+    setVisibleCount(pageSize);
+    if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters()));
+    else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
+
+  const clearFilters = () => {
+    setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter('');
+    setDateFromFilter(''); setDateToFilter(''); setMemberFilter(''); setRegionFilter('any'); setPostedWithinFilter('any');
+    setJobTimingFilter('any'); setSortBy('date_desc'); setSaveAsDefault(false);
+    window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+  };
+
   const handleBidSubmit = async (loadId: string) => {
+    if (!quoteAllowed) {
+      setError('Complete Driver identity, personal compliance and vehicle compliance before submitting a quote.');
+      return;
+    }
     if (!bidAmount || bidLoading) return;
     const amount = Number.parseFloat(bidAmount);
-    if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a valid quote amount greater than £0.'); return; }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a valid quote amount greater than £0.'); return;
+    }
     setBidLoading(true); setError('');
     try {
       const auth = await getAuthHeader();
@@ -276,7 +357,9 @@ export default function AvailableLoadsPage() {
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
       if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
-      setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
+      setBidLoadId(null); setBidAmount(''); setBidMessage('');
+      setSuccessMsg('Quote submitted successfully.');
+      window.setTimeout(() => setSuccessMsg(''), 3500);
       await fetchLoads({ background: true });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
@@ -285,7 +368,9 @@ export default function AvailableLoadsPage() {
     }
   };
 
-  const visibleLoads = filteredLoads.slice(0, visibleCount); const canLoadMore = visibleCount < filteredLoads.length;
+  const visibleLoads = filteredLoads.slice(0, visibleCount);
+  const canLoadMore = visibleCount < filteredLoads.length;
+
   const filterRail = (
     <aside className="driver-filter-rail" aria-label="Load search filters">
       <div className="driver-filter-rail__header">Search Loads</div>
@@ -310,9 +395,19 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Quote from broad route, freight and member information; exact execution details unlock only after award." headerActions={<ActionButton tone="primary" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</ActionButton>}>
+      <DriverWorkspaceShell
+        subtitle="Quote from broad route, freight and member information; exact execution details unlock only after award."
+        headerActions={<ActionButton tone="primary" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+      >
         {successMsg && <div style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #bbf7d0', borderRadius: 4, background: '#ecfdf3', color: '#166534', fontSize: 12, fontWeight: 700 }}>{successMsg}</div>}
         {error && <div role="alert" style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>{error}</div>}
+        {!loading && quoteEligibility && !quoteAllowed && (
+          <AlertBanner tone="warning">
+            <strong>Quoting is locked until Driver compliance is complete.</strong>{' '}
+            You can still browse live loads. Open Documents to complete identity and vehicle requirements.{' '}
+            <button type="button" onClick={() => router.push('/driver/documents')} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>Open Documents</button>
+          </AlertBanner>
+        )}
         <div className="driver-board-layout">
           {filterRail}
           <main className="driver-board-main">
@@ -325,32 +420,81 @@ export default function AvailableLoadsPage() {
             </div>
             <div className="driver-board-summary">
               <span>{loading ? 'Loading live exchange…' : `${filteredLoads.length} live result${filteredLoads.length === 1 ? '' : 's'} · showing ${Math.min(visibleCount, filteredLoads.length)}`}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><button type="button" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700 }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button><label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page:<select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label></span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700 }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page:<select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              </span>
             </div>
-            {loading ? <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState compact title="Loading exchange loads…" /></div>
-              : loads.length === 0 ? <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState title="No exchange loads available right now" description="Refresh the board or keep your availability and return journey current while new work is posted." action={<ActionButton tone="primary" onClick={() => void fetchLoads()}>Retry board</ActionButton>} /></div>
-              : filteredLoads.length === 0 ? <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState title="No loads match these filters" description="Broaden the route, vehicle, freight or date criteria." action={<ActionButton tone="secondary" onClick={clearFilters}>Clear filters</ActionButton>} /></div>
-              : <div className="driver-load-list">{visibleLoads.map((load) => {
-                  const expanded = expandAll || expandedLoadId === load.id; const quoted = Boolean(load.myBid?.status);
+            {loading ? (
+              <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState compact title="Loading exchange loads…" /></div>
+            ) : loads.length === 0 ? (
+              <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState title="No exchange loads available right now" description="Refresh the board or keep your availability and return journey current while new work is posted." action={<ActionButton tone="primary" onClick={() => void fetchLoads()}>Retry board</ActionButton>} /></div>
+            ) : filteredLoads.length === 0 ? (
+              <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState title="No loads match these filters" description="Broaden the route, vehicle, freight or date criteria." action={<ActionButton tone="secondary" onClick={clearFilters}>Clear filters</ActionButton>} /></div>
+            ) : (
+              <div className="driver-load-list">
+                {visibleLoads.map((load) => {
+                  const expanded = expandAll || expandedLoadId === load.id;
+                  const quoted = Boolean(load.myBid?.status);
                   const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle');
-                  const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight'; const dim = dimensions(load);
-                  const detailSummary = [load.distance_miles != null ? ['Distance', `${load.distance_miles.toFixed(1)} miles`] : null, dim ? ['Dimensions', dim] : null, load.cargo_value_gbp != null ? ['Cargo value', money(load.cargo_value_gbp)] : null, load.pallet_stackable != null ? ['Stackable', load.pallet_stackable ? 'Yes' : 'No'] : null, load.payment_terms ? ['Payment terms', load.payment_terms] : null, load.hard_copy_pod ? ['Hard-copy POD', load.hard_copy_pod] : load.pod_required != null ? ['POD required', load.pod_required ? 'Yes' : 'No'] : null].filter((item): item is [string, string] => Boolean(item));
+                  const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight';
+                  const dim = dimensions(load);
+                  const detailSummary = [
+                    load.distance_miles != null ? ['Distance', `${load.distance_miles.toFixed(1)} miles`] : null,
+                    dim ? ['Dimensions', dim] : null,
+                    load.cargo_value_gbp != null ? ['Cargo value', money(load.cargo_value_gbp)] : null,
+                    load.pallet_stackable != null ? ['Stackable', load.pallet_stackable ? 'Yes' : 'No'] : null,
+                    load.payment_terms ? ['Payment terms', load.payment_terms] : null,
+                    load.hard_copy_pod ? ['Hard-copy POD', load.hard_copy_pod] : load.pod_required != null ? ['POD required', load.pod_required ? 'Yes' : 'No'] : null,
+                  ].filter((item): item is [string, string] => Boolean(item));
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
-                  return <article key={load.id} className="driver-load-row" data-state={quoted ? 'quoted' : 'open'}>
-                    <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{load.pickup_area}</strong><span className="driver-cell-secondary">Area only · {fmtDate(load.pickup_datetime)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{load.delivery_area}</strong><span className="driver-cell-secondary">Area only · {fmtDate(load.delivery_datetime)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Load</span><strong className="driver-cell-primary">{selectedVehicleLabel}</strong><span className="driver-cell-secondary">{cargoLabel}{load.weight_kg ? ` · ${load.weight_kg} kg` : ''}{load.pallets ? ` · ${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : ''}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink>{load.member.memberId ? ` · ${load.member.memberId}` : ''} · posted {fmtDate(load.exchange_posted_at)}</span></div>
-                    </div>
-                    <div className="driver-load-row__meta"><span>Load #{load.id.slice(0, 8).toUpperCase()}</span>{load.member.postedBy && <span>Posted by: {load.member.postedBy}</span>}{isEuroLoad(load) && <StatusBadge value="International" tone="blue" />}{load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}{hasProposedPrice && <StatusBadge value="Proposed price" tone="orange" />}{load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}{load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}<div className="driver-row-actions">{!quoted && <ActionButton tone="success" onClick={() => { setExpandAll(false); setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</ActionButton>}<ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpandedLoadId(null); } else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton></div></div>
-                    {expanded && <div className="driver-row-details"><div className="driver-detail-grid">{detailSummary.map(([label, value]) => <div key={`${load.id}-${label}`} className="driver-detail-item"><span>{label}</span><strong>{value}</strong></div>)}<div className="driver-detail-item"><span>Posting member</span><strong><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink></strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity available'}</small></div><div className="driver-detail-item"><span>Quote contact</span><strong>{load.member.phone ?? 'Business phone not supplied'}</strong><small>{load.member.postedBy ? `Posted by ${load.member.postedBy}` : 'Posted by name not supplied'}</small></div></div>
-                      {load.handling_requirements.length > 0 && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.handling_requirements.join(' · ')}</div>}
-                      <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Pre-award privacy:</strong> exact addresses, site contacts, customer/PO/booking references and private execution notes are released only after an authorised award/allocation.</div>
-                      {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label htmlFor={`bid-${load.id}`}>Your quote (£)</label><input id={`bid-${load.id}`} type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="Amount" /></div><div className="driver-filter-field"><label htmlFor={`message-${load.id}`}>Message</label><textarea id={`message-${load.id}`} rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => { setBidLoadId(null); setBidAmount(''); setBidMessage(''); }}>Cancel</ActionButton></div>}
-                    </div>}
-                  </article>;
-                })}</div>}
+                  return (
+                    <article key={load.id} className="driver-load-row" data-state={quoted ? 'quoted' : 'open'}>
+                      <div className="driver-load-row__top">
+                        <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{load.pickup_area}</strong><span className="driver-cell-secondary">Area only · {fmtDate(load.pickup_datetime)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{load.delivery_area}</strong><span className="driver-cell-secondary">Area only · {fmtDate(load.delivery_datetime)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Load</span><strong className="driver-cell-primary">{selectedVehicleLabel}</strong><span className="driver-cell-secondary">{cargoLabel}{load.weight_kg ? ` · ${load.weight_kg} kg` : ''}{load.pallets ? ` · ${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : ''}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink>{load.member.memberId ? ` · ${load.member.memberId}` : ''} · posted {fmtDate(load.exchange_posted_at)}</span></div>
+                      </div>
+                      <div className="driver-load-row__meta">
+                        <span>Load #{load.id.slice(0, 8).toUpperCase()}</span>
+                        {load.member.postedBy && <span>Posted by: {load.member.postedBy}</span>}
+                        {isEuroLoad(load) && <StatusBadge value="International" tone="blue" />}
+                        {load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}
+                        {hasProposedPrice && <StatusBadge value="Proposed price" tone="orange" />}
+                        {load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}
+                        {load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}
+                        <div className="driver-row-actions">
+                          {!quoted && quoteAllowed && <ActionButton tone="success" onClick={() => { setExpandAll(false); setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</ActionButton>}
+                          {!quoted && !quoteAllowed && <ActionButton tone="secondary" disabled>Complete compliance to quote</ActionButton>}
+                          <ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpandedLoadId(null); } else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
+                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
+                        </div>
+                      </div>
+                      {expanded && (
+                        <div className="driver-row-details">
+                          <div className="driver-detail-grid">
+                            {detailSummary.map(([label, value]) => <div key={`${load.id}-${label}`} className="driver-detail-item"><span>{label}</span><strong>{value}</strong></div>)}
+                            <div className="driver-detail-item"><span>Posting member</span><strong><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink></strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity available'}</small></div>
+                            <div className="driver-detail-item"><span>Quote contact</span><strong>{load.member.phone ?? 'Business phone not supplied'}</strong><small>{load.member.postedBy ? `Posted by ${load.member.postedBy}` : 'Posted by name not supplied'}</small></div>
+                          </div>
+                          {load.handling_requirements.length > 0 && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.handling_requirements.join(' · ')}</div>}
+                          <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Pre-award privacy:</strong> exact addresses, site contacts, customer/PO/booking references and private execution notes are released only after an authorised award/allocation.</div>
+                          {bidLoadId === load.id && !quoted && quoteAllowed && (
+                            <div className="driver-inline-quote">
+                              <div className="driver-filter-field"><label htmlFor={`bid-${load.id}`}>Your quote (£)</label><input id={`bid-${load.id}`} type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="Amount" /></div>
+                              <div className="driver-filter-field"><label htmlFor={`message-${load.id}`}>Message</label><textarea id={`message-${load.id}`} rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div>
+                              <ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton>
+                              <ActionButton tone="secondary" onClick={() => { setBidLoadId(null); setBidAmount(''); setBidMessage(''); }}>Cancel</ActionButton>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
             {canLoadMore && <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}><ActionButton tone="secondary" onClick={() => setVisibleCount((current) => current + pageSize)}>Load more results</ActionButton></div>}
           </main>
         </div>
