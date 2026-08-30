@@ -24,6 +24,30 @@ BEGIN
 END;
 $$;
 
+-- vehicle_tracking_history is hosted legacy drift with no current runtime caller
+-- and zero production rows. Preserve it as a dependency guard where it exists,
+-- without forcing a clean repository replay to recreate the retired table.
+CREATE OR REPLACE FUNCTION public.p0_vehicle_tracking_history_dependency_exists(p_vehicle_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_exists boolean := false;
+BEGIN
+  IF to_regclass('public.vehicle_tracking_history') IS NULL THEN
+    RETURN false;
+  END IF;
+
+  EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.vehicle_tracking_history WHERE vehicle_id = $1)'
+    INTO v_exists
+    USING p_vehicle_id;
+
+  RETURN COALESCE(v_exists, false);
+END;
+$$;
+
 -- Reconcile only the narrow legacy shape proven by the production audit:
 -- an ACTIVE vehicle references a company row that no longer exists, is assigned
 -- to a valid driver, has no dependent operational/compliance records, and the
@@ -69,7 +93,7 @@ BEGIN
       AND NOT EXISTS (SELECT 1 FROM public.jobs x WHERE x.vehicle_id = orphan.id)
       AND NOT EXISTS (SELECT 1 FROM public.job_bids x WHERE x.quote_vehicle_id = orphan.id)
       AND NOT EXISTS (SELECT 1 FROM public.telematics_driver_bindings x WHERE x.vehicle_id = orphan.id)
-      AND NOT EXISTS (SELECT 1 FROM public.vehicle_tracking_history x WHERE x.vehicle_id = orphan.id)
+      AND NOT public.p0_vehicle_tracking_history_dependency_exists(orphan.id)
   )
   SELECT count(*) INTO v_candidate_count FROM candidates;
 
@@ -107,7 +131,7 @@ BEGIN
       AND NOT EXISTS (SELECT 1 FROM public.jobs x WHERE x.vehicle_id = orphan.id)
       AND NOT EXISTS (SELECT 1 FROM public.job_bids x WHERE x.quote_vehicle_id = orphan.id)
       AND NOT EXISTS (SELECT 1 FROM public.telematics_driver_bindings x WHERE x.vehicle_id = orphan.id)
-      AND NOT EXISTS (SELECT 1 FROM public.vehicle_tracking_history x WHERE x.vehicle_id = orphan.id)
+      AND NOT public.p0_vehicle_tracking_history_dependency_exists(orphan.id)
   )
   UPDATE public.vehicles v
   SET
@@ -292,5 +316,7 @@ BEGIN
   END IF;
 END;
 $$;
+
+DROP FUNCTION IF EXISTS public.p0_vehicle_tracking_history_dependency_exists(uuid);
 
 COMMIT;
