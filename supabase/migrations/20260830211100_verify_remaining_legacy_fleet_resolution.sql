@@ -56,7 +56,7 @@ BEGIN
         r.legacy_company_id IS NULL
         OR c.id IS NULL
         OR c.created_by <> r.user_id
-        OR c.status::text <> 'inactive'
+        OR c.status::text <> 'suspended'
         OR p.company_id IS NOT NULL
         OR EXISTS (
           SELECT 1
