@@ -33,7 +33,7 @@ describe('remaining legacy Fleet resolution', () => {
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.drivers');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.job_commercial_agreements');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.company_registration_claims');
-    expect(migration).toContain("SET status = 'inactive'");
+    expect(migration).toContain("SET status = 'suspended'");
     expect(migration).toContain("'owner_audit_rows'");
   });
 
