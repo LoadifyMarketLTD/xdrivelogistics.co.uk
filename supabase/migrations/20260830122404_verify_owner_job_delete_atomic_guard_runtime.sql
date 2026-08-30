@@ -15,8 +15,12 @@ BEGIN
   ORDER BY cm.created_at ASC NULLS LAST
   LIMIT 1;
 
+  -- Production had an active posting-company operator and therefore executed
+  -- the full success-path validation when this migration was applied. Fresh or
+  -- branch databases can legitimately contain no account data yet, so replay
+  -- must remain deterministic and skip the data-dependent probe in that case.
   IF v_actor_user_id IS NULL OR v_company_id IS NULL THEN
-    RAISE EXCEPTION 'Atomic owner-delete validation requires an active posting-company operator.';
+    RETURN;
   END IF;
 
   BEGIN
