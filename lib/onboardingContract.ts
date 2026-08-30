@@ -146,7 +146,13 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
       document('driving_licence', 'Driving licence', 'identity', 'required'),
       document('proof_of_address', 'Proof of address', 'identity', 'required'),
       document('right_to_work', 'Right-to-work evidence', 'identity', 'required'),
-      document('insurance', 'Carrier or vehicle insurance evidence', 'identity', 'required'),
+      document(
+        'insurance',
+        'Personal / Driver Insurance (optional)',
+        'identity',
+        'conditional',
+        'Optional personal insurance evidence. It never blocks onboarding; Vehicle Insurance is enforced separately for the canonical vehicle.',
+      ),
       document(
         'cpc',
         'Driver CPC',
