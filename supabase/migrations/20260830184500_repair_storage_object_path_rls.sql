@@ -1,11 +1,13 @@
 BEGIN;
 
 -- P0-06: repair Storage RLS policies that accidentally parsed the Driver name
--- (`d.name`) as if it were the Storage object path. Canonical path contracts:
+-- (`d.name`) as if it were the Storage object path. The root cause is SQL name
+-- resolution inside correlated EXISTS subqueries: unqualified `name` bound to
+-- the inner drivers.name column. Always qualify the outer Storage row explicitly.
+-- Canonical path contracts:
 --   load-documents/{company_id}/{job_id}/{filename}
 --   pod-photos/{carrier_company_id}/{job_id}/{category}/{filename}
 --   vehicle-docs/{company_id}/{vehicle_id}/{filename}
--- Every path comparison below therefore uses storage.objects.name.
 
 DROP POLICY IF EXISTS "load_documents_select_creator_operator_or_driver" ON storage.objects;
 CREATE POLICY "load_documents_select_creator_operator_or_driver"
@@ -17,8 +19,8 @@ USING (
     SELECT 1
     FROM public.jobs j
     LEFT JOIN public.drivers d ON d.id = j.assigned_driver_id
-    WHERE j.id::text = (storage.foldername(name))[2]
-      AND j.company_id::text = (storage.foldername(name))[1]
+    WHERE j.id::text = (storage.foldername(storage.objects.name))[2]
+      AND j.company_id::text = (storage.foldername(storage.objects.name))[1]
       AND (
         j.created_by = auth.uid()
         OR public.is_company_non_driver(j.company_id)
@@ -40,8 +42,8 @@ WITH CHECK (
     WHERE d.user_id = auth.uid()
       AND d.app_access = true
       AND d.company_id = v.company_id
-      AND v.company_id::text = (storage.foldername(name))[1]
-      AND v.id::text = (storage.foldername(name))[2]
+      AND v.company_id::text = (storage.foldername(storage.objects.name))[1]
+      AND v.id::text = (storage.foldername(storage.objects.name))[2]
   )
 );
 
@@ -58,8 +60,8 @@ USING (
     WHERE d.user_id = auth.uid()
       AND d.app_access = true
       AND d.company_id = v.company_id
-      AND v.company_id::text = (storage.foldername(name))[1]
-      AND v.id::text = (storage.foldername(name))[2]
+      AND v.company_id::text = (storage.foldername(storage.objects.name))[1]
+      AND v.id::text = (storage.foldername(storage.objects.name))[2]
   )
 );
 
@@ -72,12 +74,12 @@ ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'pod-photos'
-  AND (storage.foldername(name))[1] = public.auth_company_id()::text
+  AND (storage.foldername(storage.objects.name))[1] = public.auth_company_id()::text
   AND EXISTS (
     SELECT 1
     FROM public.jobs j
     JOIN public.drivers d ON d.id = j.assigned_driver_id
-    WHERE j.id::text = (storage.foldername(name))[2]
+    WHERE j.id::text = (storage.foldername(storage.objects.name))[2]
       AND d.user_id = auth.uid()
       AND d.app_access = true
       AND d.company_id = public.auth_company_id()
@@ -95,12 +97,12 @@ ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'pod-photos'
-  AND (storage.foldername(name))[1] = public.auth_company_id()::text
+  AND (storage.foldername(storage.objects.name))[1] = public.auth_company_id()::text
   AND EXISTS (
     SELECT 1
     FROM public.jobs j
     LEFT JOIN public.drivers d ON d.id = j.assigned_driver_id
-    WHERE j.id::text = (storage.foldername(name))[2]
+    WHERE j.id::text = (storage.foldername(storage.objects.name))[2]
       AND (
         j.company_id = public.auth_company_id()
         OR j.assigned_company_id = public.auth_company_id()
@@ -116,12 +118,12 @@ ON storage.objects FOR SELECT
 TO authenticated
 USING (
   bucket_id = 'pod-photos'
-  AND (storage.foldername(name))[1] = public.auth_company_id()::text
+  AND (storage.foldername(storage.objects.name))[1] = public.auth_company_id()::text
   AND EXISTS (
     SELECT 1
     FROM public.jobs j
     JOIN public.drivers d ON d.id = j.assigned_driver_id
-    WHERE j.id::text = (storage.foldername(name))[2]
+    WHERE j.id::text = (storage.foldername(storage.objects.name))[2]
       AND d.user_id = auth.uid()
       AND d.app_access = true
       AND d.company_id = public.auth_company_id()
@@ -138,8 +140,8 @@ USING (
     SELECT 1
     FROM public.jobs j
     LEFT JOIN public.drivers d ON d.id = j.assigned_driver_id
-    WHERE j.id::text = (storage.foldername(name))[2]
-      AND (storage.foldername(name))[1] IN (
+    WHERE j.id::text = (storage.foldername(storage.objects.name))[2]
+      AND (storage.foldername(storage.objects.name))[1] IN (
         j.company_id::text,
         COALESCE(j.assigned_company_id::text, ''),
         COALESCE(j.awarded_carrier_company_id::text, '')
