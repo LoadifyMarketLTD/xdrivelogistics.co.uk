@@ -7,6 +7,7 @@ const route = fs.readFileSync(path.join(root, 'app/api/workspace/jobs/[jobId]/ow
 const page = fs.readFileSync(path.join(root, 'app/customer/jobs/[id]/page.tsx'), 'utf8');
 const editForm = fs.readFileSync(path.join(root, 'app/components/workspace/JobOwnerEditForm.tsx'), 'utf8');
 const atomicEditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260830124705_add_atomic_owner_job_edit_guard.sql'), 'utf8');
+const hardenedAtomicEditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260830125211_harden_atomic_owner_job_edit_compliance.sql'), 'utf8');
 
 describe('posting-company owner edit/delete contract', () => {
   it('authorises mutations server-side against the posting company membership', () => {
@@ -64,12 +65,18 @@ describe('posting-company owner edit/delete contract', () => {
     expect(atomicEditMigration).toContain('exchange_load_edited_without_bids');
   });
 
+  it('keeps publish compliance fail-closed when a posted load is edited in place', () => {
+    expect(hardenedAtomicEditMigration).toContain("public.company_compliance_issues(v_job.company_id, 'publish')");
+    expect(hardenedAtomicEditMigration).toContain('Compliance blocked publish action: %');
+    expect(hardenedAtomicEditMigration).toContain("USING ERRCODE = '42501'");
+  });
+
   it('keeps the edit RPC server-only', () => {
-    expect(atomicEditMigration).toContain('SECURITY DEFINER');
-    expect(atomicEditMigration).toContain('REVOKE ALL ON FUNCTION public.update_unbid_exchange_job_atomic');
-    expect(atomicEditMigration).toContain('FROM authenticated');
-    expect(atomicEditMigration).toContain('GRANT EXECUTE ON FUNCTION public.update_unbid_exchange_job_atomic');
-    expect(atomicEditMigration).toContain('TO service_role');
+    expect(hardenedAtomicEditMigration).toContain('SECURITY DEFINER');
+    expect(hardenedAtomicEditMigration).toContain('REVOKE ALL ON FUNCTION public.update_unbid_exchange_job_atomic');
+    expect(hardenedAtomicEditMigration).toContain('FROM authenticated');
+    expect(hardenedAtomicEditMigration).toContain('GRANT EXECUTE ON FUNCTION public.update_unbid_exchange_job_atomic');
+    expect(hardenedAtomicEditMigration).toContain('TO service_role');
   });
 
   it('exposes explicit customer Edit Load and confirmed Delete Load controls', () => {
