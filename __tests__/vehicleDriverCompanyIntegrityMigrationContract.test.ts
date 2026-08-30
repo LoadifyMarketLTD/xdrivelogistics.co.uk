@@ -6,6 +6,10 @@ const migration = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/20260830174500_vehicle_driver_company_integrity.sql'),
   'utf8',
 );
+const runtimeValidation = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/20260830174600_verify_vehicle_driver_company_integrity_runtime.sql'),
+  'utf8',
+);
 
 describe('vehicle driver company integrity migration contract', () => {
   it('retires only an unreferenced orphan duplicate instead of deleting vehicle history', () => {
@@ -61,5 +65,22 @@ describe('vehicle driver company integrity migration contract', () => {
 
   it('contains no production-generated UUID fixture', () => {
     expect(migration).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  });
+
+  it('proves the live DB rejects cross-company, duplicate-active and orphan-company writes', () => {
+    expect(runtimeValidation).toContain('Cross-company vehicle assignment was unexpectedly accepted.');
+    expect(runtimeValidation).toContain('WHEN check_violation');
+    expect(runtimeValidation).toContain('Second ACTIVE vehicle assignment was unexpectedly accepted.');
+    expect(runtimeValidation).toContain('WHEN unique_violation');
+    expect(runtimeValidation).toContain('Orphan vehicle company reference was unexpectedly accepted.');
+    expect(runtimeValidation).toContain('WHEN foreign_key_violation');
+  });
+
+  it('keeps the transactional runtime proof non-destructive and replay-safe', () => {
+    expect(runtimeValidation).toContain('IF v_driver_id IS NULL');
+    expect(runtimeValidation).toContain('RETURN;');
+    expect(runtimeValidation).toContain('Active vehicle changed during runtime verification.');
+    expect(runtimeValidation).toContain('Retired vehicle changed during runtime verification.');
+    expect(runtimeValidation).not.toContain('DELETE FROM public.vehicles');
   });
 });
