@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('Driver operational instructions contract', () => {
+describe('Driver operational message contract', () => {
   const instructionRoute = fs.readFileSync(
     path.join(process.cwd(), 'app/api/workspace/jobs/[jobId]/instructions/route.ts'),
     'utf8',
@@ -31,7 +31,7 @@ describe('Driver operational instructions contract', () => {
     'utf8',
   );
 
-  test('keeps post-award instructions separate from core job mutation', () => {
+  test('keeps Driver messages separate from core job mutation', () => {
     expect(instructionRoute).toContain("event_type: 'driver_instruction_added'");
     expect(instructionRoute).toContain("visibility: 'execution'");
     expect(instructionRoute).toContain('immutable: true');
@@ -39,36 +39,36 @@ describe('Driver operational instructions contract', () => {
     expect(instructionRoute).not.toMatch(/\.from\('jobs'\)[\s\S]*\.delete\(/);
   });
 
-  test('allows only posting-company operators and only after execution binding', () => {
+  test('allows posting-company operators to append messages on any non-terminal load', () => {
     expect(instructionRoute).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
-    expect(instructionRoute).toContain('Only the posting company can add Driver instructions.');
-    expect(instructionRoute).toContain('const executionBound = Boolean(');
-    expect(instructionRoute).toContain('job.awarded_carrier_company_id');
-    expect(instructionRoute).toContain('job.assigned_driver_id');
+    expect(instructionRoute).toContain('Only the posting company can add Driver messages.');
     expect(instructionRoute).toContain('terminalJobStatus(job)');
-    expect(instructionRoute).toContain('New Driver instructions can no longer be added.');
+    expect(instructionRoute).not.toContain('const executionBound = Boolean(');
+    expect(instructionRoute).toContain('New Driver messages can no longer be added.');
   });
 
-  test('appends permanent job history and notifies an assigned Driver inbox', () => {
+  test('queues the permanent history before assignment and notifies the assigned Driver inbox when available', () => {
     expect(instructionRoute).toContain(".from('job_tracking_events')");
     expect(instructionRoute).toContain('.insert({');
     expect(instructionRoute).toContain(".from('notifications').insert({");
     expect(instructionRoute).toContain("type: 'driver_instruction'");
+    expect(instructionRoute).toContain('assignedDriver: Boolean(checked.context.assignedDriverId)');
     expect(instructionRoute).toContain('driverInboxNotified');
+    expect(instructionPanel).toContain('will be shown when a Driver is assigned');
   });
 
-  test('exposes the same posting-company control in Customer and Broker workspaces', () => {
+  test('exposes posting-company Driver messages in Customer and Broker workspaces', () => {
     expect(customerJobPage).toContain('DriverInstructionPanel');
     expect(customerJobPage).toContain('<DriverInstructionPanel jobId={job.id} />');
     expect(brokerJobsPage).toContain('DriverInstructionPanel');
     expect(brokerJobsPage).toContain('<DriverInstructionPanel jobId={job.id} />');
-    expect(instructionPanel).toContain('Append-only operational updates for the awarded Driver.');
-    expect(instructionPanel).toContain('do not change the route, rate, cargo, timing, vehicle or awarded terms');
-    expect(instructionPanel).toContain('Send instruction to Driver');
+    expect(instructionPanel).toContain('Messages / changes for Driver');
+    expect(instructionPanel).toContain('The original load record is not edited');
+    expect(instructionPanel).toContain('Send message to Driver');
     expect(instructionPanel).toContain('response.status === 403 || response.status === 404');
   });
 
-  test('projects instruction history into the assigned Driver job detail', () => {
+  test('projects message history into the assigned Driver job detail', () => {
     expect(driverDetailRoute).toContain(".eq('event_type', 'driver_instruction_added')");
     expect(driverDetailRoute).toContain('mapDriverInstructions');
     expect(driverDetailRoute).toContain('specialInstructions,');
