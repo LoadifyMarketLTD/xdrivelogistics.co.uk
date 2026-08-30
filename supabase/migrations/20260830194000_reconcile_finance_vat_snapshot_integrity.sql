@@ -32,9 +32,10 @@ UPDATE public.job_commercial_agreements a
 SET vat_rate = 0,
     vat_amount = 0,
     agreed_gross_amount = a.agreed_amount
-FROM public.jobs j
-JOIN public.companies supplier ON supplier.id = a.supplier_company_id
+FROM public.jobs j,
+     public.companies supplier
 WHERE j.id = a.job_id
+  AND supplier.id = a.supplier_company_id
   AND COALESCE(j.is_test, false) = true
   AND NULLIF(btrim(COALESCE(supplier.vat_number, '')), '') IS NULL
   AND a.vat_treatment = 'not_registered'
