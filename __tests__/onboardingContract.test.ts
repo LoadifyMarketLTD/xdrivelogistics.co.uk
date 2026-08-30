@@ -38,7 +38,6 @@ describe('canonical onboarding contract', () => {
       'driving_licence',
       'proof_of_address',
       'right_to_work',
-      'insurance',
     ]);
     expect(getRequiredOnboardingDocuments('fleet_courier').map((item) => item.type)).toEqual([
       'company_registration',
@@ -50,11 +49,17 @@ describe('canonical onboarding contract', () => {
       'company_registration',
       'public_liability',
     ]);
+
+    const ownerInsurance = ONBOARDING_CONTRACT.owner_driver.documents.find(
+      (item) => item.type === 'insurance',
+    );
+    expect(ownerInsurance?.requirement).toBe('conditional');
+    expect(ownerInsurance?.condition).toContain('never blocks onboarding');
   });
 
-  it('keeps the SQL compliance matrix aligned with the TypeScript contract', () => {
+  it('keeps the current SQL compliance matrix aligned with the TypeScript contract', () => {
     const migration = readRepoFile(
-      'supabase/migrations/20260729170000_unified_onboarding_contract_and_activation_gate.sql',
+      'supabase/migrations/20260830201500_reconcile_company_compliance_contract.sql',
     );
 
     for (const contract of Object.values(ONBOARDING_CONTRACT)) {
@@ -65,6 +70,28 @@ describe('canonical onboarding contract', () => {
         );
       }
     }
+
+    expect(migration).toContain("doc_type = 'motor_fleet_insurance'");
+    expect(migration).toContain("NEW.doc_type := 'vehicle_insurance'");
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.assert_company_compliance_ready');
+    expect(migration).toContain('v_has_required_company_documents');
+    expect(migration).toContain('IF v_has_required_company_documents THEN');
+    expect(migration).toContain('PERFORM public.assert_onboarding_compliance_ready(v_application_id);');
+  });
+
+  it('includes rollback-only runtime proof for owner-driver and fleet company compliance', () => {
+    const runtimeProof = readRepoFile(
+      'supabase/migrations/20260830201600_verify_company_compliance_contract_runtime.sql',
+    );
+
+    expect(runtimeProof).toContain('Visual Audit');
+    expect(runtimeProof).toContain('example.test');
+    expect(runtimeProof).toContain('rollback company document alias probe');
+    expect(runtimeProof).toContain('rollback owner driver company readiness probe');
+    expect(runtimeProof).toContain('rollback fleet company readiness probe');
+    expect(runtimeProof).toContain("ARRAY['driving_licence','proof_of_address','right_to_work']::text[]");
+    expect(runtimeProof).toContain("ARRAY['company_registration','goods_in_transit','public_liability','vehicle_insurance']::text[]");
+    expect(runtimeProof).toContain('Fleet company readiness did not fail closed');
   });
 
   it('forces invited drivers into pending verification until a reviewed approval activates them', () => {
