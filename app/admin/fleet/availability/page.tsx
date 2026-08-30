@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
+import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 // Presentation-only account-state signal. Full operational eligibility is
@@ -21,6 +22,7 @@ const WORK_STAGE_RANK: Record<FleetDriverWorkStage, number> = {
 export default function FleetAvailabilityPage() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const presence = useFleetAvailabilityPresence(data.companyId);
 
   const vehiclesByDriver = useMemo(() => {
     const map = new Map<string, (typeof data.vehicles)>();
@@ -41,8 +43,24 @@ export default function FleetAvailabilityPage() {
       const nextAt = location.recorded_at ?? location.updated_at ?? '';
       if (!current || nextAt > currentAt) map.set(location.driver_id, location);
     }
+    for (const point of presence.points) {
+      const current = map.get(point.driverId);
+      const currentAt = current?.recorded_at ?? current?.updated_at ?? '';
+      const nextAt = point.recordedAt ?? '';
+      if (!current || nextAt > currentAt) {
+        map.set(point.driverId, {
+          id: `availability:${point.driverId}`,
+          driver_id: point.driverId,
+          job_id: null,
+          lat: point.lat,
+          lng: point.lng,
+          recorded_at: point.recordedAt,
+          updated_at: null,
+        });
+      }
+    }
     return map;
-  }, [data.locations]);
+  }, [data.locations, presence.points]);
 
   const workByDriver = useMemo(() => {
     const map = new Map<string, { job: (typeof data.jobs)[number]; stage: FleetDriverWorkStage }>();
@@ -66,7 +84,8 @@ export default function FleetAvailabilityPage() {
         description="Current driver availability, vehicle assignment signals, latest position and Fleet workload in one operational matrix."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/driver-availability')}>Manage availability</ActionButton>}
       />
-      <Panel title="Fleet availability matrix" description="This view reports existing status and assignment data; full driver + canonical active vehicle eligibility is revalidated server-side before allocation.">
+      {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
+      <Panel title="Fleet availability matrix" description="Active-job tracking and explicitly published idle availability are combined for your own Fleet only; full driver + canonical active vehicle eligibility is revalidated server-side before allocation.">
         <DataTable
           columns={['Driver', 'Availability', 'Vehicle', 'Location', 'Current / assigned job', 'Documents', 'Action']}
           rows={data.drivers.map((driver) => {

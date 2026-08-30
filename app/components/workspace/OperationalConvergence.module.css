@@ -1,0 +1,407 @@
+.signalStrip {
+  display: grid;
+  grid-template-columns: repeat(var(--signal-columns, 6), minmax(0, 1fr));
+  min-height: 52px;
+  margin: 0 0 var(--ws-gap-grid, 12px);
+  overflow: hidden;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: var(--ws-panel, #fff);
+}
+
+.signalCell {
+  position: relative;
+  min-width: 0;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label value"
+    "detail detail";
+  align-content: center;
+  gap: 1px 8px;
+  padding: 6px 9px;
+  border: 0;
+  border-right: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: var(--ws-panel, #fff);
+  color: var(--ws-text, #172033);
+  text-align: left;
+}
+
+.signalCell:last-child {
+  border-right: 0;
+}
+
+.signalCell::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--signal-tone, var(--ws-blue, #1d57d8));
+}
+
+.signalButton {
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+}
+
+.signalButton:hover {
+  background: #f8fafc;
+}
+
+.signalButton:focus-visible {
+  z-index: 1;
+  outline: 2px solid var(--ws-blue, #1d57d8);
+  outline-offset: -2px;
+}
+
+.signalLabel {
+  grid-area: label;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-label, 11px);
+  font-weight: 650;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signalValue {
+  grid-area: value;
+  color: var(--ws-text, #172033);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.signalDetail {
+  grid-area: detail;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-micro, 10px);
+  line-height: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(300px, .75fr);
+  gap: var(--ws-gap-grid, 12px);
+  align-items: start;
+}
+
+.workspaceMain {
+  min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-grid, 12px);
+  align-content: start;
+}
+
+.workspaceAside {
+  min-width: 0;
+  align-self: start;
+}
+
+.controlGrid {
+  display: grid;
+  grid-template-columns: 315px minmax(0, 1fr);
+  gap: var(--ws-gap-grid, 12px);
+  align-items: start;
+}
+
+.controlAside,
+.controlMain {
+  min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-grid, 12px);
+  align-content: start;
+}
+
+.attentionRail {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: var(--ws-panel, #fff);
+}
+
+.attentionHeader {
+  min-height: var(--ws-panel-head-h, 36px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-gap-internal, 8px);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: var(--ws-panel-head, #f2f4f7);
+}
+
+.attentionTitleWrap {
+  min-width: 0;
+}
+
+.attentionTitle {
+  margin: 0;
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-panel-title, 13px);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.attentionSubtitle {
+  margin: 1px 0 0;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-micro, 10px);
+  line-height: 13px;
+}
+
+.attentionMeta {
+  flex: 0 0 auto;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  font-weight: 700;
+}
+
+.attentionControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+}
+
+.attentionBody {
+  min-width: 0;
+}
+
+.attentionItem {
+  position: relative;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "priority copy state"
+    "priority copy action";
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #fff;
+}
+
+.attentionItem:last-child {
+  border-bottom: 0;
+}
+
+.attentionItem::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--signal-tone, var(--ws-blue, #1d57d8));
+}
+
+.attentionPriority {
+  grid-area: priority;
+  align-self: start;
+  padding-top: 1px;
+}
+
+.attentionCopy {
+  grid-area: copy;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.attentionEntity {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attentionDetail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-micro, 10px);
+  line-height: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attentionState {
+  grid-area: state;
+  justify-self: end;
+  min-width: 0;
+}
+
+.attentionAction {
+  grid-area: action;
+  justify-self: end;
+}
+
+.record {
+  min-height: var(--ws-operational-row-min-h, 52px);
+  overflow: hidden;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-left: 3px solid var(--signal-tone, var(--ws-blue, #1d57d8));
+  border-radius: var(--ws-radius, 4px);
+  background: var(--ws-panel, #fff);
+}
+
+.recordPrimaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.35fr) minmax(220px, 1fr);
+  min-height: var(--ws-operational-row-min-h, 52px);
+}
+
+.recordCell {
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid var(--ws-border-soft, #e2e7ed);
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-body, 13px);
+}
+
+.recordCell:last-child {
+  border-right: 0;
+}
+
+.recordStatus {
+  background: #fbfcfe;
+}
+
+.recordDetail {
+  padding: 8px 10px;
+  border-top: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: #f8fafc;
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-body, 13px);
+}
+
+.record[data-expanded='false'] .recordDetail {
+  display: none;
+}
+
+.actionRail {
+  min-height: var(--ws-meta-h, 22px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 2px 6px;
+  border-top: 1px solid var(--ws-border-soft, #e2e7ed);
+  background: var(--ws-panel-head, #f2f4f7);
+}
+
+.toneBlue { --signal-tone: var(--ws-blue, #1d57d8); }
+.toneGreen { --signal-tone: var(--ws-green, #31a354); }
+.toneOrange { --signal-tone: var(--ws-orange, #f5a300); }
+.toneRed { --signal-tone: var(--ws-red, #c62828); }
+.tonePurple { --signal-tone: #7c3aed; }
+.toneNavy { --signal-tone: var(--ws-navy, #0b2f6b); }
+
+@media (min-width: 1440px) {
+  .workspaceAside {
+    position: sticky;
+    top: calc(var(--ws-header-h, 50px) + var(--ws-page-y, 12px));
+  }
+}
+
+@media (max-width: 1279px) {
+  .signalStrip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .signalCell {
+    border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  }
+
+  .signalCell:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .workspaceGrid {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, .62fr);
+  }
+
+  .controlGrid {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .workspaceGrid,
+  .controlGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceAside {
+    position: static;
+  }
+
+  .recordPrimaryGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .recordStatus {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--ws-border-soft, #e2e7ed);
+  }
+}
+
+@media (max-width: 768px) {
+  .signalStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signalCell,
+  .signalCell:nth-child(3n) {
+    border-right: 1px solid var(--ws-border-soft, #e2e7ed);
+    border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  }
+
+  .signalCell:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .attentionItem {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "priority copy"
+      "state state"
+      "action action";
+  }
+
+  .attentionState,
+  .attentionAction {
+    justify-self: stretch;
+  }
+
+  .recordPrimaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .recordCell,
+  .recordStatus {
+    border-right: 0;
+    border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
+  }
+
+  .recordCell:last-child {
+    border-bottom: 0;
+  }
+}

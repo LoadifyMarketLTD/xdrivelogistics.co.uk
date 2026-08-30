@@ -23,6 +23,10 @@ const actionToCanonicalStatus: Record<string, string> = {
   delivered: 'delivered',
 };
 
+const terminalStopStatuses = new Set(['completed', 'skipped']);
+type PodEvidenceKind = 'photos' | 'damage' | 'documents';
+type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
+
 const userScopedSupabase = (token: string) => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || '';
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -33,14 +37,38 @@ const userScopedSupabase = (token: string) => {
   });
 };
 
-const storedSignatureText = (value: unknown) => {
-  if (typeof value === 'string') return value.trim() || null;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const candidate = (value as Record<string, unknown>).value;
-    return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
-  }
-  return null;
+const isMissingJobStopsRelation = (
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+) => {
+  if (!error) return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
+  return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
 };
+
+async function requireMultiDropFinalizationReady(jobId: string) {
+  const { data, error } = await supabaseAdmin!
+    .from('job_stops')
+    .select('id, status')
+    .eq('job_id', jobId);
+
+  if (error) {
+    if (isMissingJobStopsRelation(error)) return null;
+    return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
+  }
+
+  const stops = (data ?? []) as Array<{ id: string; status: string | null }>;
+  if (stops.length === 0) return null;
+
+  const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
+  if (incompleteStops.length > 0) {
+    return respond(409, {
+      error: 'Complete all multi-drop stops before capturing POD or marking the job delivered.',
+      remainingStops: incompleteStops.length,
+    });
+  }
+
+  return null;
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -54,7 +82,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    return savePod(request, id, driver.userId, driver.driverId);
+    const stopGate = await requireMultiDropFinalizationReady(id);
+    if (stopGate) return stopGate;
+    return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
   }
 
   const nextStatus = actionToCanonicalStatus[action];
@@ -69,7 +99,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
-  const job = existing as unknown as MobileJobRow;
+
+  if (action === 'delivered') {
+    const stopGate = await requireMultiDropFinalizationReady(id);
+    if (stopGate) return stopGate;
+  }
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
@@ -77,27 +111,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!scoped) return respond(503, { error: 'Authenticated lifecycle client is not configured.' });
 
   const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
-  const collectionPhotoUrl = typeof body.collectionPhotoUrl === 'string' ? body.collectionPhotoUrl.trim() || null : null;
   const driverNotes = typeof body.driverNotes === 'string' ? body.driverNotes.trim().slice(0, 5000) || null : null;
-  const signature = typeof body.deliverySignatureData === 'string' && body.deliverySignatureData.trim()
-    ? body.deliverySignatureData.trim()
-    : storedSignatureText(job.delivery_signature_data);
-  const recipient = typeof body.clientSignatureName === 'string' && body.clientSignatureName.trim()
-    ? body.clientSignatureName.trim()
-    : job.client_signature_name;
-  const deliveryPhotos = Array.isArray(body.deliveryPhotos)
-    ? body.deliveryPhotos.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    : null;
 
+  // Physical evidence is server-authoritative. Collection evidence is linked by
+  // /evidence before Loaded; final POD links verified delivery evidence before
+  // Delivered. The lifecycle request itself never injects storage paths or a
+  // signature/recipient identity supplied by the client.
   const { error: lifecycleError } = await scoped.rpc('driver_update_job_status_atomic', {
     p_driver_id: driver.driverId,
     p_job_id: id,
     p_next_status: nextStatus,
-    p_collection_photo_url: collectionPhotoUrl,
+    p_collection_photo_url: null,
     p_driver_notes: driverNotes,
-    p_delivery_photos: deliveryPhotos,
-    p_delivery_signature_data: signature,
-    p_client_signature_name: recipient,
+    p_delivery_photos: null,
+    p_delivery_signature_data: null,
+    p_client_signature_name: null,
   });
 
   if (lifecycleError) {
@@ -140,16 +168,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 const persistentPodPath = (
+  companyId: string | null,
   jobId: string,
-  kind: 'photos' | 'documents',
+  kind: PodEvidenceKind,
   value: unknown
 ): value is string => {
-  if (typeof value !== 'string') return false;
+  if (!companyId || typeof value !== 'string') return false;
   const path = value.trim();
   return (
     path.length > 0 &&
     path.length <= 1024 &&
-    path.startsWith(`${jobId}/${kind}/`) &&
+    path.startsWith(`${companyId}/${jobId}/${kind}/`) &&
     !path.includes('://') &&
     !path.includes('..') &&
     !path.includes('\\') &&
@@ -170,7 +199,13 @@ const storageObjectExists = async (path: string) => {
   return (data ?? []).some((entry) => entry.name === fileName);
 };
 
-async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
+async function savePod(
+  request: NextRequest,
+  jobId: string,
+  userId: string,
+  driverId: string,
+  companyId: string | null,
+) {
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -180,7 +215,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
 
   const { data: existing, error: loadError } = await supabaseAdmin!
     .from('jobs')
-    .select(jobSelect)
+    .select(`${jobSelect},damage_photos`)
     .eq('id', jobId)
     .eq('assigned_driver_id', driverId)
     .maybeSingle();
@@ -188,16 +223,17 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
 
-  const job = existing as unknown as MobileJobRow;
+  const job = existing as unknown as MobileJobWithDamageEvidence;
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
   const rawPhotoUris = safeArray(body.photoUris);
+  const rawDamagePhotoUris = safeArray(body.damagePhotoUris);
   const rawDocumentUris = safeArray(body.documentUris);
 
   if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
   if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
-  if (rawPhotoUris.length > 10 || rawDocumentUris.length > 10) {
-    return respond(400, { error: 'A maximum of 10 POD photos and 10 documents is allowed.' });
+  if (rawPhotoUris.length + rawDamagePhotoUris.length > 10 || rawDocumentUris.length > 10) {
+    return respond(400, { error: 'A maximum of 10 delivery/damage photos and 10 documents is allowed.' });
   }
   if (rawSignature && !/^data:image\/(png|jpeg);base64,/i.test(rawSignature)) {
     return respond(400, { error: 'Recipient signature format is invalid.' });
@@ -206,18 +242,41 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     return respond(413, { error: 'Recipient signature is too large.' });
   }
 
-  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(jobId, 'photos', value));
-  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(jobId, 'documents', value));
-  if (photoPaths.length !== rawPhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
+  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'photos', value));
+  const damagePhotoPaths = rawDamagePhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'damage', value));
+  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(companyId, jobId, 'documents', value));
+  if (
+    photoPaths.length !== rawPhotoUris.length ||
+    damagePhotoPaths.length !== rawDamagePhotoUris.length ||
+    documentPaths.length !== rawDocumentUris.length
+  ) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
-  if (!rawSignature && photoPaths.length + documentPaths.length === 0) {
-    return respond(400, { error: 'A recipient signature, POD photo or POD document is required.' });
+
+  const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
+  const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
+  const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
+  const signatureData = rawSignature || job.delivery_signature_data || null;
+  const effectivePhotoCount = new Set([...existingPhotos, ...photoPaths]).size;
+  const hasAnyEvidence = Boolean(signatureData)
+    || effectivePhotoCount > 0
+    || new Set([...existingDamagePhotos, ...damagePhotoPaths]).size > 0
+    || new Set([...existingDocuments, ...documentPaths]).size > 0;
+
+  if (job.pod_required !== false) {
+    if (effectivePhotoCount === 0) {
+      return respond(400, { error: 'At least one delivery photo is required for POD.' });
+    }
+    if (!signatureData) {
+      return respond(400, { error: 'Recipient signature is required for POD.' });
+    }
+  } else if (!hasAnyEvidence) {
+    return respond(400, { error: 'A recipient signature, POD photo, damage photo or POD document is required.' });
   }
 
   try {
     const existenceChecks = await Promise.all(
-      [...photoPaths, ...documentPaths].map((path) => storageObjectExists(path))
+      [...photoPaths, ...damagePhotoPaths, ...documentPaths].map((path) => storageObjectExists(path))
     );
     if (existenceChecks.some((exists) => !exists)) {
       return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });
@@ -231,18 +290,15 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   }
 
   const now = new Date().toISOString();
-  const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
-  const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const signatureData = rawSignature || job.delivery_signature_data || null;
-
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
-      delivery_photos: [...existingPhotos, ...photoPaths],
-      pod_photos: [...existingDocuments, ...documentPaths],
+      delivery_photos: Array.from(new Set([...existingPhotos, ...photoPaths])),
+      damage_photos: Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths])),
+      pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
       delivery_signature_data: signatureData,
       client_signature_name: recipientName,
-      delivery_notes: typeof body.notes === 'string' && body.notes.trim()
+      driver_notes: typeof body.notes === 'string' && body.notes.trim()
         ? body.notes.trim().slice(0, 5000)
         : null,
       pod_generated: true,

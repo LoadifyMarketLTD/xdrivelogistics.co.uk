@@ -4,6 +4,7 @@ import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import './broker-dashboard-convergence.css';
 
 export const metadata: Metadata = {
   title: 'Broker Workspace | XDrive Logistics',

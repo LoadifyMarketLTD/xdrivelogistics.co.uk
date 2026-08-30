@@ -1,17 +1,17 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
+import { OperationalSignalStrip } from '../../components/workspace/OperationalConvergence';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../components/workspace/useOperationsIntelligence';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   ActionButton,
   AlertBanner,
   DataTable,
   EmptyState,
-  KpiCard,
-  KpiGrid,
   PageFrame,
   PageHeader,
   Panel,
@@ -19,8 +19,30 @@ import {
   TwoColumn,
 } from '../../components/workspace/WorkspaceUI';
 
-type Tab = 'live' | 'future';
+type Tab = 'live' | 'future' | 'nearby';
 type FreshnessFilter = 'all' | 'live' | 'stale' | 'missing';
+
+type NearbyAvailabilityPosition = {
+  driver_id?: string | null;
+  company_id: string | null;
+  member_name?: string | null;
+  member_code?: string | null;
+  member_type?: string | null;
+  scope: 'fleet' | 'exchange';
+  lat: number;
+  lng: number;
+  vehicle_type?: string | null;
+  payload_kg?: number | null;
+  pallets_capacity?: number | null;
+  has_tail_lift?: boolean | null;
+  available_until?: string | null;
+  recorded_at?: string | null;
+};
+
+type NearbyAvailabilityResponse = {
+  positions?: NearbyAvailabilityPosition[];
+  error?: string;
+};
 
 const IN_PROGRESS = new Set([
   'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected',
@@ -31,6 +53,23 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
 
+const nearbyPointKey = (position: NearbyAvailabilityPosition, index: number) =>
+  `exchange:${position.company_id ?? 'unknown'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? 'time'}:${index}`;
+
+const isStale = (timestamp: string | null | undefined) => {
+  if (!timestamp) return true;
+  const parsed = new Date(timestamp).getTime();
+  return !Number.isFinite(parsed) || Date.now() - parsed > 20 * 60_000;
+};
+
+const capacityLabel = (position: NearbyAvailabilityPosition) => {
+  const parts = [
+    Number.isFinite(Number(position.payload_kg)) ? `${Number(position.payload_kg).toLocaleString()} kg` : null,
+    Number.isFinite(Number(position.pallets_capacity)) ? `${Number(position.pallets_capacity)} pallet(s)` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Capacity not published';
+};
+
 export default function LiveAvailabilityPage() {
   const data = useCompanyWorkspaceData();
   const intelligence = useOperationsIntelligence(data.companyId);
@@ -39,10 +78,50 @@ export default function LiveAvailabilityPage() {
   const [search, setSearch] = useState('');
   const [availability, setAvailability] = useState('all');
   const [freshness, setFreshness] = useState<FreshnessFilter>('all');
+  const [nearbyVehicle, setNearbyVehicle] = useState('all');
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(true);
+  const [nearbyError, setNearbyError] = useState('');
+
+  const loadNearby = useCallback(async () => {
+    setNearbyLoading(true);
+    setNearbyError('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setNearbyPositions([]);
+      setNearbyError('Nearby Exchange availability could not be verified because the session is unavailable.');
+      setNearbyLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/availability/nearby', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({})) as NearbyAvailabilityResponse;
+      if (!response.ok) {
+        setNearbyPositions([]);
+        setNearbyError(payload.error ?? 'Nearby Exchange availability could not be loaded.');
+      } else {
+        setNearbyPositions((payload.positions ?? []).filter((position) => position.scope === 'exchange'));
+      }
+    } catch {
+      setNearbyPositions([]);
+      setNearbyError('Nearby Exchange availability could not be loaded. Check the connection and retry.');
+    } finally {
+      setNearbyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNearby();
+  }, [loadNearby]);
 
   const refreshAll = async () => {
-    await Promise.all([data.refresh(), intelligence.refresh()]);
+    await Promise.all([data.refresh(), intelligence.refresh(), loadNearby()]);
   };
 
   const latestLocations = useMemo(() => {
@@ -88,6 +167,16 @@ export default function LiveAvailabilityPage() {
     });
   }, [availability, driverRows, freshness, search, tab]);
 
+  const filteredNearby = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return nearbyPositions.filter((position) => {
+      const text = `${position.member_name ?? ''} ${position.member_code ?? ''} ${position.member_type ?? ''} ${position.vehicle_type ?? ''}`.toLowerCase();
+      if (needle && !text.includes(needle)) return false;
+      if (nearbyVehicle !== 'all' && position.vehicle_type !== nearbyVehicle) return false;
+      return true;
+    });
+  }, [nearbyPositions, nearbyVehicle, search]);
+
   const livePoints = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ driver, location, stale }) => {
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return [];
     return [{
@@ -115,17 +204,38 @@ export default function LiveAvailabilityPage() {
     }];
   }), [filtered]);
 
+  const nearbyPoints = useMemo<FleetMapPoint[]>(() => filteredNearby.flatMap((position, index) => {
+    if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return [];
+    return [{
+      driverId: nearbyPointKey(position, index),
+      driverName: position.member_name ?? position.member_code ?? 'Exchange member',
+      lat: position.lat,
+      lng: position.lng,
+      timestamp: position.recorded_at,
+      stale: isStale(position.recorded_at),
+    }];
+  }), [filteredNearby]);
+
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
+  const nearbyVehicleTypes = useMemo(() => [...new Set(nearbyPositions.map((position) => position.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [nearbyPositions]);
   const futurePublished = driverRows.filter((row) => Boolean(row.future?.futurePosition || row.returnJourney)).length;
   const availabilityConflicts = driverRows.filter((row) => row.driver.availability_status === 'available' && row.currentJob).length;
+  const signals = [
+    { key: 'available', label: 'Available', value: data.drivers.filter((driver) => driver.availability_status === 'available').length, detail: 'Fleet drivers', tone: 'green' as const, onClick: () => { setTab('live'); setAvailability('available'); } },
+    { key: 'busy', label: 'Busy', value: data.drivers.filter((driver) => driver.availability_status === 'busy').length, detail: 'Fleet drivers', tone: 'purple' as const, onClick: () => { setTab('live'); setAvailability('busy'); } },
+    { key: 'fresh', label: 'Fresh locations', value: driverRows.filter((row) => row.freshnessState === 'live').length, detail: 'Within 20 min', tone: 'blue' as const, onClick: () => { setTab('live'); setFreshness('live'); } },
+    { key: 'stale', label: 'Stale / missing', value: driverRows.filter((row) => row.freshnessState === 'stale' || row.freshnessState === 'missing').length, detail: 'Needs attention', tone: 'orange' as const, onClick: () => { setTab('live'); setFreshness('all'); } },
+    { key: 'future', label: 'Future positions', value: futurePublished, detail: 'Published capacity', tone: 'blue' as const, onClick: () => setTab('future') },
+    { key: 'conflicts', label: 'Availability conflicts', value: availabilityConflicts, detail: 'Available + active job', tone: availabilityConflicts ? 'red' as const : 'green' as const, onClick: () => setTab('live') },
+  ];
 
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Fleet resources"
         title="Live Availability"
-        description="Live and future driver capacity with tracking freshness, assigned resources, next work and declared future-position visibility."
-        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        description="Live and future driver capacity, tracking freshness and privacy-safe nearby Exchange vehicle discovery in one operational workspace."
+        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>{data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational availability'}</span>}
       />
 
@@ -134,26 +244,22 @@ export default function LiveAvailabilityPage() {
       {intelligence.partial && (
         <AlertBanner tone="warning">Some future-position, return-journey or advertising intelligence is temporarily unavailable. Live driver availability and tracking remain available.</AlertBanner>
       )}
+      {nearbyError && <AlertBanner tone="warning">{nearbyError}</AlertBanner>}
 
-      <KpiGrid>
-        <KpiCard label="Available" value={data.drivers.filter((driver) => driver.availability_status === 'available').length} tone="green" />
-        <KpiCard label="Busy" value={data.drivers.filter((driver) => driver.availability_status === 'busy').length} tone="purple" />
-        <KpiCard label="Fresh locations" value={driverRows.filter((row) => row.freshnessState === 'live').length} tone="blue" />
-        <KpiCard label="Stale / missing" value={driverRows.filter((row) => row.freshnessState === 'stale' || row.freshnessState === 'missing').length} tone="orange" />
-        <KpiCard label="Future positions" value={futurePublished} tone="blue" />
-        <KpiCard label="Availability conflicts" value={availabilityConflicts} tone={availabilityConflicts ? 'red' : 'green'} />
-      </KpiGrid>
-
-      <div style={{ display: 'flex', border: '1px solid #dbe2ea', background: '#fff', marginBottom: 10, overflowX: 'auto' }}>
-        <button type="button" style={tabStyle(tab === 'live')} onClick={() => setTab('live')}>Live</button>
-        <button type="button" style={tabStyle(tab === 'future')} onClick={() => setTab('future')}>Future</button>
+      <div style={{ display: 'flex', border: '1px solid #dbe2ea', background: '#fff', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
+        <button type="button" role="tab" aria-selected={tab === 'live'} style={tabStyle(tab === 'live')} onClick={() => setTab('live')}>Live Fleet</button>
+        <button type="button" role="tab" aria-selected={tab === 'future'} style={tabStyle(tab === 'future')} onClick={() => setTab('future')}>Future</button>
+        <button type="button" role="tab" aria-selected={tab === 'nearby'} style={tabStyle(tab === 'nearby')} onClick={() => setTab('nearby')}>Nearby Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
       </div>
 
-      <Panel title="Availability filters" description="Filter the operational register without changing saved driver data." style={{ marginBottom: 12 }}>
+      <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
+
+      <Panel title="Availability filters" description={tab === 'nearby' ? 'Search privacy-scoped Exchange availability by member or vehicle type.' : 'Filter the operational register without changing saved driver data.'} style={{ marginBottom: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: tab === 'live' ? 'minmax(220px,2fr) repeat(2,minmax(150px,1fr))' : 'minmax(220px,2fr) minmax(150px,1fr)', gap: 8 }}>
-          <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Driver, registration, route or future position" /></label>
-          <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
+          <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration, route or future position'} /></label>
+          {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
           {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
+          {tab === 'nearby' && <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
         </div>
       </Panel>
 
@@ -178,7 +284,7 @@ export default function LiveAvailabilityPage() {
             />
           </Panel>
         </TwoColumn>
-      ) : (
+      ) : tab === 'future' ? (
         <TwoColumn rightWidth="minmax(440px,1fr)">
           <Panel title="Future position map" description="Blue markers are declared future positions or geocoded return-journey origins. Only postcode-based declarations can be mapped reliably.">
             {futurePoints.length > 0 ? <FleetPositionMap points={futurePoints} selectedDriverId={selectedDriverId} mode="future" /> : <EmptyState title="No geocoded future positions match the current filters" description="Future declarations remain visible in the register even when they cannot be converted to map coordinates." />}
@@ -199,11 +305,38 @@ export default function LiveAvailabilityPage() {
             />
           </Panel>
         </TwoColumn>
+      ) : (
+        <TwoColumn rightWidth="minmax(480px,1.08fr)">
+          <Panel title="Nearby Exchange map" description="Other companies are shown only at the rounded Exchange area supplied by the privacy boundary; exact driver identity and exact coordinates are never exposed.">
+            {nearbyLoading ? <EmptyState title="Loading nearby Exchange availability…" /> : nearbyPoints.length > 0 ? <FleetPositionMap points={nearbyPoints} selectedDriverId={selectedDriverId} /> : <EmptyState title="No nearby Exchange vehicles match the current filters" description="Only opt-in, currently available resources without an active job appear here." />}
+          </Panel>
+          <Panel title="Who's nearby" description={`${filteredNearby.length} privacy-scoped Exchange vehicle(s) visible to this company.`}>
+            <DataTable
+              columns={['Member', 'Vehicle', 'Capacity', 'Equipment', 'Available until', 'Freshness', 'Action']}
+              rows={filteredNearby.map((position, index) => {
+                const pointId = nearbyPointKey(position, index);
+                return [
+                  <div key="member"><strong style={{ display: 'block' }}>{position.member_name ?? 'Exchange member'}</strong><span style={{ color: '#64748b' }}>{position.member_code ? `ID ${position.member_code}` : position.member_type ?? 'Member profile'}</span></div>,
+                  (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
+                  capacityLabel(position),
+                  position.has_tail_lift === true ? <StatusBadge key="equipment" value="Tail lift" tone="blue" /> : position.has_tail_lift === false ? 'No tail lift' : 'Equipment not published',
+                  when(position.available_until),
+                  <button key="freshness" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{isStale(position.recorded_at) ? 'Stale' : 'Fresh'} · {when(position.recorded_at)}</button>,
+                  <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(pointId)}>Locate</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/companies')}>Companies</ActionButton><ActionButton tone="success" onClick={() => router.push('/admin/marketplace')}>Find work</ActionButton></div>,
+                ];
+              })}
+              empty={<EmptyState title={nearbyLoading ? 'Loading nearby Exchange availability…' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
+            />
+            <div style={{ marginTop: 8, padding: '8px 10px', border: '1px solid #dbe2ea', background: '#f8fafc', color: '#475569', fontSize: 11, lineHeight: '15px' }}>
+              <strong style={{ color: '#0b2f6b' }}>Privacy boundary:</strong> own-fleet availability may use exact coordinates. Exchange discovery intentionally exposes only a rounded area, member identity and coarse vehicle/capacity information; driver identity is not disclosed.
+            </div>
+          </Panel>
+        </TwoColumn>
       )}
     </PageFrame>
   );
 }
 
-const inputStyle = { width: '100%', minHeight: 36, border: '1px solid #cbd5e1', borderRadius: 6, padding: '6px 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
+const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
 const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
-const tabStyle = (active: boolean) => ({ minHeight: 38, padding: '0 12px', border: 0, borderRight: '1px solid #dbe2ea', background: active ? '#eef4ff' : '#fff', color: active ? '#0b2f6b' : '#475569', fontSize: 11, fontWeight: 800, cursor: 'pointer' }) as const;
+const tabStyle = (active: boolean) => ({ minHeight: 28, padding: '0 10px', border: 0, borderRight: '1px solid #dbe2ea', background: active ? '#eef4ff' : '#fff', color: active ? '#0b2f6b' : '#475569', fontSize: 11, fontWeight: 800, cursor: 'pointer' }) as const;

@@ -10,6 +10,7 @@ const ACCOUNT_SECTIONS = [
   { label: 'Finance', href: '/driver/finance' },
   { label: 'Messages', href: '/driver/messages' },
   { label: 'Notifications', href: '/driver/notifications' },
+  { label: 'Load Alerts', href: '/driver/load-alerts' },
   { label: 'Security', href: '/driver/change-password' },
   { label: 'Event Log', href: '/driver/event-log' },
 ] as const;

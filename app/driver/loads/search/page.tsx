@@ -4,8 +4,12 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
+import DriverMarketplaceRadarMap from '../../_components/DriverMarketplaceRadarMap';
+import MarketplaceQuoteModal from '../../_components/MarketplaceQuoteModal';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../../lib/vehicleSizeRange';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
+import { OperationalExpandAllControl } from '../../../components/workspace/OperationalExpandAllControl';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
 type SearchLoad = {
@@ -53,6 +57,8 @@ type SearchFilters = {
   deliverySearch: string;
   deliveryRadius: string;
   vehicleType: string;
+  minVehicle: string;
+  maxVehicle: string;
   bodyType: string;
   cargoType: string;
   member: string;
@@ -82,6 +88,8 @@ type SearchResponse = {
   referenceId?: string;
 };
 
+type SearchView = 'list' | 'map';
+
 const VEHICLE_LABELS: Record<string, string> = {
   car: 'Car', van_small: 'Small Van', van_large: 'Large Van', swb_van: 'SWB Van', mwb_van: 'MWB Van', lwb_van: 'LWB Van',
   xlwb_van: 'XLWB Van', luton: 'Luton', luton_tail_lift: 'Luton Tail Lift', curtainside_van: 'Curtainside Van',
@@ -91,12 +99,13 @@ const VEHICLE_LABELS: Record<string, string> = {
   hiab: 'Hiab', moffett: 'Moffett', adr_vehicle: 'ADR Vehicle', refrigerated_vehicle: 'Refrigerated Vehicle',
   temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
+const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const CARGO_TYPES = ['documents', 'parcels', 'pallets', 'machinery', 'furniture', 'retail_goods', 'mixed_freight', 'adr_goods', 'temperature_controlled_freight', 'other'];
 const RADIUS_OPTIONS = [10, 20, 30, 50, 100, 200, 300];
 const SEARCH_STORAGE_KEY = 'xdrive.driver.loads.advanced-search.v2';
 const RECENT_STORAGE_KEY = 'xdrive.driver.loads.recent-searches.v2';
 const DEFAULT_FILTERS: SearchFilters = {
-  pickupSearch: '', pickupRadius: '30', deliverySearch: '', deliveryRadius: '100', vehicleType: '', bodyType: '', cargoType: '',
+  pickupSearch: '', pickupRadius: '30', deliverySearch: '', deliveryRadius: '100', vehicleType: '', minVehicle: '', maxVehicle: '', bodyType: '', cargoType: '',
   member: '', jobDescription: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '',
 };
 
@@ -133,6 +142,9 @@ function vehicleLabel(load: SearchLoad) {
 function cargoLabel(load: SearchLoad) {
   return load.requested_cargo_label ?? load.cargo_type?.replaceAll('_', ' ') ?? 'Freight not specified';
 }
+function routeLabel(location: string | null, postcode: string | null, fallback: string) {
+  return location ?? postcode ?? fallback;
+}
 
 export default function SearchLoadsPage() {
   const router = useRouter();
@@ -141,6 +153,7 @@ export default function SearchLoadsPage() {
   const [loads, setLoads] = useState<SearchLoad[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [referenceId, setReferenceId] = useState('');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [page, setPage] = useState(1);
@@ -151,6 +164,11 @@ export default function SearchLoadsPage() {
   const [radiusStatus, setRadiusStatus] = useState<SearchResponse['radiusSearch'] | null>(null);
   const [recentSearches, setRecentSearches] = useState<SearchFilters[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<SearchView>('list');
+  const [quoteTarget, setQuoteTarget] = useState<SearchLoad | null>(null);
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteMessage, setQuoteMessage] = useState('');
+  const [quoteWorking, setQuoteWorking] = useState(false);
 
   useEffect(() => {
     try {
@@ -168,6 +186,17 @@ export default function SearchLoadsPage() {
   }, []);
 
   const proposedPriceCount = useMemo(() => loads.filter((load) => (load.budget_amount ?? 0) > 0).length, [loads]);
+  const allExpanded = loads.length > 0 && loads.every((load) => expandedIds.has(load.id));
+  const radarLoads = useMemo(() => loads.map((load) => ({
+    id: load.id,
+    pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode, 'Collection area TBC'),
+    pickupPostcode: load.pickup_postcode,
+    deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode, 'Delivery area TBC'),
+    vehicleLabel: vehicleLabel(load),
+    posterName: load.posterName,
+    pickupAt: load.pickup_datetime,
+    postedAt: load.exchange_posted_at,
+  })), [loads]);
 
   const getAuthHeader = async () => {
     const { data } = await supabase.auth.getSession();
@@ -184,14 +213,15 @@ export default function SearchLoadsPage() {
 
   const runSearch = async (activeFilters: SearchFilters, requestedPage = 1) => {
     if (!isSupabaseConfigured) { setError('Marketplace search is temporarily unavailable.'); return; }
-    setLoading(true); setError(''); setReferenceId('');
+    setLoading(true); setError(''); setNotice(''); setReferenceId('');
     const auth = await getAuthHeader();
     if (!auth) { setError('Your session has expired. Sign in again to search marketplace work.'); setLoading(false); return; }
 
     const params = new URLSearchParams({
       from: activeFilters.pickupSearch, fromRadius: activeFilters.pickupRadius,
       to: activeFilters.deliverySearch, toRadius: activeFilters.deliveryRadius,
-      vehicle: activeFilters.vehicleType, body: activeFilters.bodyType, freight: activeFilters.cargoType,
+      vehicle: activeFilters.vehicleType, minVehicle: activeFilters.minVehicle, maxVehicle: activeFilters.maxVehicle,
+      body: activeFilters.bodyType, freight: activeFilters.cargoType,
       member: activeFilters.member, description: activeFilters.jobDescription, loadType: activeFilters.loadType,
       postedWithinHours: activeFilters.postedWithinHours, dateFrom: activeFilters.dateFrom, dateTo: activeFilters.dateTo,
       minBudget: activeFilters.minBudget, maxBudget: activeFilters.maxBudget,
@@ -214,6 +244,12 @@ export default function SearchLoadsPage() {
   };
 
   const applySearch = async (requestedPage = 1) => {
+    const minRank = marketplaceVehicleSizeRank(filters.minVehicle);
+    const maxRank = marketplaceVehicleSizeRank(filters.maxVehicle);
+    if (minRank != null && maxRank != null && minRank > maxRank) {
+      setError('Minimum vehicle must not be larger than maximum vehicle.');
+      return;
+    }
     const next = { ...filters };
     setAppliedFilters(next);
     if (requestedPage === 1) rememberSearch(next);
@@ -222,7 +258,8 @@ export default function SearchLoadsPage() {
   const handleSubmit = async (event: FormEvent) => { event.preventDefault(); await applySearch(1); };
   const reset = () => {
     setFilters(DEFAULT_FILTERS); setAppliedFilters(null); setLoads([]); setTotal(0); setPage(1); setTotalPages(1);
-    setError(''); setReferenceId(''); setRadiusStatus(null); setSaveAsDefault(false); setExpandedIds(new Set());
+    setError(''); setNotice(''); setReferenceId(''); setRadiusStatus(null); setSaveAsDefault(false); setExpandedIds(new Set());
+    setViewMode('list'); setQuoteTarget(null); setQuoteAmount(''); setQuoteMessage('');
     window.localStorage.removeItem(SEARCH_STORAGE_KEY);
   };
   const toggleExpanded = (id: string) => setExpandedIds((current) => {
@@ -230,6 +267,47 @@ export default function SearchLoadsPage() {
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const toggleExpandAll = () => setExpandedIds(allExpanded ? new Set() : new Set(loads.map((load) => load.id)));
+
+  const openQuote = (load: SearchLoad) => {
+    setQuoteTarget(load);
+    setQuoteAmount((load.budget_amount ?? 0) > 0 ? String(load.budget_amount) : '');
+    setQuoteMessage('');
+    setError('');
+  };
+
+  const submitQuote = async () => {
+    if (!quoteTarget || quoteWorking) return;
+    const amount = Number.parseFloat(quoteAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a valid quote amount greater than £0.');
+      return;
+    }
+    setQuoteWorking(true);
+    setError('');
+    const auth = await getAuthHeader();
+    if (!auth) {
+      setError('Your session has expired. Sign in again.');
+      setQuoteWorking(false);
+      return;
+    }
+    try {
+      const response = await fetch('/api/driver/bids', {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: quoteTarget.id, amount, message: quoteMessage.trim() }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      setNotice('Quote submitted successfully.');
+      setQuoteTarget(null); setQuoteAmount(''); setQuoteMessage('');
+      if (appliedFilters) await runSearch(appliedFilters, page);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
+    } finally {
+      setQuoteWorking(false);
+    }
+  };
 
   const filterRail = (
     <aside className="driver-filter-rail" aria-label="Advanced load search filters">
@@ -239,7 +317,9 @@ export default function SearchLoadsPage() {
         <div className="driver-filter-field"><label>From radius</label><select value={filters.pickupRadius} onChange={(e) => setFilters((c) => ({ ...c, pickupRadius: e.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
         <div className="driver-filter-field"><label>To</label><input value={filters.deliverySearch} onChange={(e) => setFilters((c) => ({ ...c, deliverySearch: e.target.value }))} placeholder="Location / postcode" /></div>
         <div className="driver-filter-field"><label>To radius</label><select value={filters.deliveryRadius} onChange={(e) => setFilters((c) => ({ ...c, deliveryRadius: e.target.value }))}>{RADIUS_OPTIONS.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
-        <div className="driver-filter-field"><label>Vehicle</label><select value={filters.vehicleType} onChange={(e) => setFilters((c) => ({ ...c, vehicleType: e.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Minimum vehicle</label><select value={filters.minVehicle} onChange={(e) => setFilters((c) => ({ ...c, minVehicle: e.target.value }))}><option value="">No minimum</option>{VEHICLE_SIZE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Maximum vehicle</label><select value={filters.maxVehicle} onChange={(e) => setFilters((c) => ({ ...c, maxVehicle: e.target.value }))}><option value="">No maximum</option>{VEHICLE_SIZE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+        <div className="driver-filter-field"><label>Exact / specialist vehicle</label><select value={filters.vehicleType} onChange={(e) => setFilters((c) => ({ ...c, vehicleType: e.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
         <div className="driver-filter-field"><label>Body type</label><input value={filters.bodyType} onChange={(e) => setFilters((c) => ({ ...c, bodyType: e.target.value }))} placeholder="Panel, box, curtain side…" /></div>
         <div className="driver-filter-field"><label>Freight</label><select value={filters.cargoType} onChange={(e) => setFilters((c) => ({ ...c, cargoType: e.target.value }))}><option value="">Any freight</option>{CARGO_TYPES.map((type) => <option key={type} value={type}>{type.replaceAll('_', ' ')}</option>)}</select></div>
         <div className="driver-filter-field"><label>Member Name / ID</label><input value={filters.member} onChange={(e) => setFilters((c) => ({ ...c, member: e.target.value }))} placeholder="Company / member / load" /></div>
@@ -264,6 +344,7 @@ export default function SearchLoadsPage() {
         headerActions={<ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>All live loads</ActionButton>}
       >
         {error && <AlertBanner tone="danger">{error}{referenceId ? ` Reference: ${referenceId}` : ''}</AlertBanner>}
+        {notice && <AlertBanner tone="info">{notice}</AlertBanner>}
         <div className="driver-board-layout driver-load-search-board">
           {filterRail}
           <main className="driver-board-main">
@@ -272,11 +353,19 @@ export default function SearchLoadsPage() {
               <button type="button" data-active="true">Advanced Search <span>{total}</span></button>
               <button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button>
               <button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button>
+              <button type="button" onClick={() => router.push('/driver/returns')}>Return Journeys</button>
+            </div>
+
+            <div className="driver-load-view-toggle" role="tablist" aria-label="Load result presentation">
+              <button type="button" role="tab" aria-selected={viewMode === 'list'} data-active={viewMode === 'list' ? 'true' : 'false'} onClick={() => setViewMode('list')}>List View</button>
+              <button type="button" role="tab" aria-selected={viewMode === 'map'} data-active={viewMode === 'map' ? 'true' : 'false'} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button>
+              <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: 11 }}>{loading ? 'Searching marketplace…' : appliedFilters ? `${total} matching load${total === 1 ? '' : 's'} · ${loads.length} shown` : 'Set filters and search the live Marketplace'}</span>
+              {viewMode === 'list' && <OperationalExpandAllControl expanded={allExpanded} disabled={!loads.length} onToggle={toggleExpandAll} noun="loads" />}
             </div>
 
             <div className="driver-board-summary">
-              <span>{loading ? 'Searching marketplace…' : appliedFilters ? `${total} matching load${total === 1 ? '' : 's'} · ${loads.length} shown` : 'Set filters and search the live Marketplace'}</span>
               <span>{proposedPriceCount} proposed price{proposedPriceCount === 1 ? '' : 's'}{generatedAt ? ` · updated ${new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+              <span>Pre-award public-area view · exact execution details remain protected</span>
             </div>
 
             {appliedFilters && (appliedFilters.pickupSearch || appliedFilters.deliverySearch) && (
@@ -292,6 +381,8 @@ export default function SearchLoadsPage() {
               <div className="driver-load-row"><EmptyState compact title="Searching marketplace…" /></div>
             ) : loads.length === 0 ? (
               <div className="driver-load-row"><EmptyState compact title="No loads match the current search" description="Adjust route, radius, vehicle, freight, member, timing or commercial filters and search again." /></div>
+            ) : viewMode === 'map' ? (
+              <DriverMarketplaceRadarMap loads={radarLoads} />
             ) : (
               <div className="driver-load-list">
                 {loads.map((load) => {
@@ -313,7 +404,11 @@ export default function SearchLoadsPage() {
                         <StatusBadge value={describeJob(load.jobDescription)} tone="grey" />
                         {load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}
                         {hasProposedPrice && <StatusBadge value="Proposed price" tone="orange" />}
-                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => toggleExpanded(load.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="success" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open / quote</ActionButton></div>
+                        <div className="driver-row-actions">
+                          <ActionButton tone="success" onClick={() => openQuote(load)}>Quote Now</ActionButton>
+                          <ActionButton tone="secondary" onClick={() => toggleExpanded(load.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
+                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
+                        </div>
                       </div>
                       {expanded && (
                         <div className="driver-row-details">
@@ -327,7 +422,7 @@ export default function SearchLoadsPage() {
                           </div>
                           {load.special_requirements && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.special_requirements}</div>}
                           {load.load_details && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Public quote notes: </strong>{load.load_details}</div>}
-                          <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Pre-award privacy:</strong> these search rows use the server's quote-safe projection. Exact addresses, site contacts, private execution instructions and booking references are not delivered here.</div>
+                          <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Pre-award privacy:</strong> these search rows use the server&apos;s quote-safe projection. Exact addresses, site contacts, private execution instructions and booking references are not delivered here.</div>
                         </div>
                       )}
                     </article>
@@ -339,11 +434,35 @@ export default function SearchLoadsPage() {
             {appliedFilters && total > 0 && (
               <div className="driver-board-summary">
                 <span>{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}</span>
-                <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><label>Items per Page: <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={loading || page <= 1} onClick={() => void runSearch(appliedFilters, page - 1)}>Previous</ActionButton><strong>Page {page} / {totalPages}</strong><ActionButton tone="secondary" disabled={loading || page >= totalPages} onClick={() => void runSearch(appliedFilters, page + 1)}>Next</ActionButton></span>
+                <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label>Items per Page: <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+                  <ActionButton tone="secondary" disabled={loading || page <= 1} onClick={() => appliedFilters && void runSearch(appliedFilters, page - 1)}>Previous</ActionButton>
+                  <strong>Page {page} / {totalPages}</strong>
+                  <ActionButton tone="secondary" disabled={loading || page >= totalPages} onClick={() => appliedFilters && void runSearch(appliedFilters, page + 1)}>Next</ActionButton>
+                </span>
               </div>
             )}
           </main>
         </div>
+
+        <MarketplaceQuoteModal
+          target={quoteTarget ? {
+            id: quoteTarget.id,
+            memberName: quoteTarget.posterName,
+            memberCode: quoteTarget.posterMemberCode,
+            pickup: routeLabel(quoteTarget.pickup_location, quoteTarget.pickup_postcode, 'Collection area TBC'),
+            delivery: routeLabel(quoteTarget.delivery_location, quoteTarget.delivery_postcode, 'Delivery area TBC'),
+            pickupAt: quoteTarget.pickup_datetime,
+            vehicle: vehicleLabel(quoteTarget),
+          } : null}
+          amount={quoteAmount}
+          message={quoteMessage}
+          working={quoteWorking}
+          onAmountChange={setQuoteAmount}
+          onMessageChange={setQuoteMessage}
+          onSubmit={() => void submitQuote()}
+          onClose={() => { if (!quoteWorking) { setQuoteTarget(null); setQuoteAmount(''); setQuoteMessage(''); } }}
+        />
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

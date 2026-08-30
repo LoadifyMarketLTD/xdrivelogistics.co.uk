@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
+import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
@@ -326,6 +327,12 @@ export default function ReturnJourneysPage() {
     availableFrom: journey.availableFrom,
     fromCoordinates: journey.fromCoordinates,
   })), [journeys]);
+  const allVisibleExpanded = journeys.length > 0 && journeys.every((journey) => expanded[journey.id] === true);
+
+  const toggleExpandAll = () => {
+    const expanding = !allVisibleExpanded;
+    setExpanded(Object.fromEntries(journeys.map((journey) => [journey.id, expanding])));
+  };
 
   const refreshCurrent = () => {
     if (tab === 'add') void loadDriver();
@@ -431,7 +438,7 @@ export default function ReturnJourneysPage() {
                 <span className="driver-returns-summary-actions">
                   <button type="button" data-active={view === 'list' ? 'true' : 'false'} onClick={() => setView('list')}>List View</button>
                   <button type="button" data-active={view === 'map' ? 'true' : 'false'} onClick={() => setView('map')}>Map View</button>
-                  {journeys.some((journey) => expanded[journey.id] === true) && <button type="button" onClick={() => setExpanded(Object.fromEntries(journeys.map((journey) => [journey.id, false])))}>Collapse All Entries</button>}
+                  {view === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!journeys.length} onToggle={toggleExpandAll} noun="return journeys" />}
                 </span>
               </div>
 

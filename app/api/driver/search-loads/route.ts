@@ -10,7 +10,9 @@ import {
   publicQuoteNotes,
   quoteSafeRequirementFlags,
 } from '../_lib/marketplacePublic';
-import { isDriverContext, requireDriver, respond } from '../mobile/_lib';
+import { isDriverContext, respond } from '../mobile/_lib';
+import { requireWebDriver } from '../_lib/webDriver';
+import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeRange';
 
 type Coordinates = { lat: number; lng: number };
 type CompanyRef = {
@@ -63,6 +65,7 @@ type SearchLoadRow = Record<string, unknown> & {
   distance_miles: number | string | null;
   job_distance_miles: number | string | null;
   exchange_posted_at: string | null;
+  exchange_expires_at: string | null;
   exchange_visibility: string | null;
   direct_invite_company_id: string | null;
   companies: CompanyRef;
@@ -82,7 +85,7 @@ const SEARCH_SELECT = [
   'load_details', 'special_requirements',
   'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
-  'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at',
+  'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at', 'exchange_expires_at',
   'exchange_visibility', 'direct_invite_company_id',
   'companies!jobs_company_id_fkey(name,company_number,phone,company_type,created_at)',
 ].join(',');
@@ -102,6 +105,12 @@ function postcodeKey(value: unknown) {
 
 function companyInfo(value: CompanyRef) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function exchangePostActive(row: SearchLoadRow, nowMs = Date.now()) {
+  if (!row.exchange_expires_at) return true;
+  const expires = new Date(row.exchange_expires_at).getTime();
+  return Number.isFinite(expires) && expires > nowMs;
 }
 
 function distanceMiles(from: Coordinates, to: Coordinates) {
@@ -212,7 +221,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const driver = await requireDriver(request);
+  const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
@@ -221,6 +230,8 @@ export async function GET(request: NextRequest) {
   const fromRadius = RADIUS_VALUES.has(Number(searchParams.get('fromRadius'))) ? Number(searchParams.get('fromRadius')) : 30;
   const toRadius = RADIUS_VALUES.has(Number(searchParams.get('toRadius'))) ? Number(searchParams.get('toRadius')) : 100;
   const vehicle = searchParams.get('vehicle')?.trim().toLowerCase() ?? '';
+  const minVehicle = searchParams.get('minVehicle')?.trim().toLowerCase() ?? '';
+  const maxVehicle = searchParams.get('maxVehicle')?.trim().toLowerCase() ?? '';
   const body = searchParams.get('body')?.trim().toLowerCase() ?? '';
   const freight = searchParams.get('freight')?.trim().toLowerCase() ?? '';
   const member = searchParams.get('member')?.trim().toLowerCase() ?? '';
@@ -272,7 +283,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const rows = (data ?? []) as unknown as SearchLoadRow[];
+  const rows = ((data ?? []) as unknown as SearchLoadRow[]).filter((row) => exchangePostActive(row));
   const geocoded = await postcodeCoordinates([
     ...rows.map((row) => row.pickup_postcode),
     ...rows.map((row) => row.delivery_postcode),
@@ -349,6 +360,7 @@ export async function GET(request: NextRequest) {
     const deliveryText = `${row.delivery_location ?? ''} ${row.delivery_postcode ?? ''}`.toLowerCase();
     const bodyText = `${row.vehicle_type ?? ''} ${row.requested_vehicle_type ?? ''} ${row.requested_vehicle_label ?? ''} ${row.special_requirements ?? ''}`.toLowerCase();
     const memberText = `${row.posterName} ${row.posterMemberCode ?? ''} ${row.company_id ?? ''} ${row.id}`.toLowerCase();
+    const comparableVehicle = row.requested_vehicle_type ?? row.vehicle_type ?? row.requested_vehicle_label;
 
     if (fromNeedle) {
       if (fromCoordinates) {
@@ -360,6 +372,7 @@ export async function GET(request: NextRequest) {
         if (row.distanceToSearchDestinationMiles == null || row.distanceToSearchDestinationMiles > toRadius) return false;
       } else if (!deliveryText.includes(toNeedle)) return false;
     }
+    if ((minVehicle || maxVehicle) && !vehicleMatchesMarketplaceSizeRange(comparableVehicle, minVehicle, maxVehicle)) return false;
     if (body && !bodyText.includes(body)) return false;
     if (member && !memberText.includes(member)) return false;
     if (description && description !== 'any' && row.jobDescription !== description) return false;

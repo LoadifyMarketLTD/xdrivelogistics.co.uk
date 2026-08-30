@@ -12,6 +12,15 @@ import { operationalError } from '../../_lib/operationalError';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
+const additionalStopSchema = z.object({
+  type: z.enum(['collection', 'delivery']),
+  address: z.string().trim().min(3).max(1000),
+  postcode: z.string().trim().min(2).max(20),
+  contact: optionalText,
+  phone: optionalText,
+  dateTime: z.string().trim().optional().nullable(),
+  instructions: optionalText,
+});
 
 const bodySchema = z.object({
   idempotencyKey: z.string().uuid(),
@@ -33,6 +42,7 @@ const bodySchema = z.object({
   deliveryPostcode: z.string().trim().min(2).max(20),
   deliveryContact: optionalText,
   deliveryPhone: optionalText,
+  additionalStops: z.array(additionalStopSchema).max(8).optional().default([]),
   vehicleLabel: z.string().trim().min(1).max(100),
   cargoLabel: z.string().trim().min(1).max(100),
   weightKg: optionalNumber,
@@ -82,6 +92,7 @@ export async function POST(request: NextRequest) {
       retryable: true,
     });
   }
+  const adminClient = supabaseAdmin;
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Unauthorized.' });
@@ -158,6 +169,30 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const verifyMultiDropReplay = async (job: { id: string; status: unknown; current_status: unknown }) => {
+    if (input.additionalStops.length === 0) return null;
+    const expectedStopCount = input.additionalStops.length + 2;
+    const { count, error } = await adminClient
+      .from('job_stops')
+      .select('id', { count: 'exact', head: true })
+      .eq('job_id', job.id);
+    if (error) {
+      return operationalError({
+        status: 503,
+        message: 'We could not verify the saved multi-drop route. Please try again.',
+        context: `jobs.create.multidrop-replay.job:${job.id}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (count !== expectedStopCount || (input.publish && String(job.status) !== 'posted')) {
+      return respond(409, {
+        error: 'An earlier multi-drop save did not finish cleanly. Open the draft and retry before publishing.',
+      });
+    }
+    return null;
+  };
+
   let idempotencyAvailable = true;
   const existingResult = await supabaseAdmin
     .from('jobs')
@@ -180,6 +215,8 @@ export async function POST(request: NextRequest) {
     }
   }
   if (existingResult.data) {
+    const replayBlock = await verifyMultiDropReplay(existingResult.data);
+    if (replayBlock) return replayBlock;
     return respond(200, { job: existingResult.data, replayed: true, idempotencyProtected: true });
   }
 
@@ -190,10 +227,13 @@ export async function POST(request: NextRequest) {
     input.adr && 'ADR required',
     input.temperatureControlled && 'Temperature controlled',
     input.fragile && 'Fragile goods',
+    input.additionalStops.length > 0 && `${input.additionalStops.length} additional stop${input.additionalStops.length === 1 ? '' : 's'}`,
   ].filter(Boolean).join(', ');
 
   const now = new Date().toISOString();
-  const status = input.publish ? 'posted' : 'draft';
+  const requestedStatus = input.publish ? 'posted' : 'draft';
+  const deferPublication = input.publish && input.additionalStops.length > 0;
+  const status = deferPublication ? 'draft' : requestedStatus;
   const executionInstructions = input.executionInstructions || input.notes || null;
   const loadDetails = JSON.stringify({
     schema: 'xdrive_load_details_v2',
@@ -205,6 +245,7 @@ export async function POST(request: NextRequest) {
       height: input.heightCm ?? null,
     },
     publicQuoteNotes: input.publicQuoteNotes || null,
+    additionalStopCount: input.additionalStops.length,
     // `notes` is retained as the backwards-compatible execution-private key.
     notes: executionInstructions,
     executionInstructions,
@@ -249,11 +290,13 @@ export async function POST(request: NextRequest) {
     collection_handball_required: input.handball,
     special_requirements: specialRequirements || null,
     load_details: loadDetails,
-    exchange_visibility: input.publish ? 'exchange' : 'private',
-    exchange_posted_at: input.publish ? now : null,
-    exchange_expires_at: input.publish
-      ? new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString()
-      : null,
+    exchange_visibility: deferPublication ? 'private' : (input.publish ? 'exchange' : 'private'),
+    exchange_posted_at: deferPublication ? null : (input.publish ? now : null),
+    exchange_expires_at: deferPublication
+      ? null
+      : (input.publish
+        ? new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString()
+        : null),
     updated_at: now,
   };
   if (idempotencyAvailable) row.creation_idempotency_key = input.idempotencyKey;
@@ -290,7 +333,11 @@ export async function POST(request: NextRequest) {
         retryable: true,
       });
     }
-    if (replay) return respond(200, { job: replay, replayed: true, idempotencyProtected: true });
+    if (replay) {
+      const replayBlock = await verifyMultiDropReplay(replay);
+      if (replayBlock) return replayBlock;
+      return respond(200, { job: replay, replayed: true, idempotencyProtected: true });
+    }
   }
   if (insertResult.error) {
     return operationalError({
@@ -304,8 +351,102 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  let createdJob = insertResult.data;
+  if (input.additionalStops.length > 0) {
+    const stopRows = [
+      {
+        job_id: createdJob.id,
+        sequence: 1,
+        stop_type: 'collection',
+        address: input.pickupAddress,
+        postcode: input.pickupPostcode.toUpperCase(),
+        contact_name: input.collectionContact || null,
+        contact_phone: input.collectionPhone || null,
+        window_start: input.pickupDateTime,
+        instructions: null,
+      },
+      ...input.additionalStops.map((stop, index) => ({
+        job_id: createdJob.id,
+        sequence: index + 2,
+        stop_type: stop.type,
+        address: stop.address,
+        postcode: stop.postcode.toUpperCase(),
+        contact_name: stop.contact || null,
+        contact_phone: stop.phone || null,
+        window_start: stop.dateTime || null,
+        instructions: stop.instructions || null,
+      })),
+      {
+        job_id: createdJob.id,
+        sequence: input.additionalStops.length + 2,
+        stop_type: 'delivery',
+        address: input.deliveryAddress,
+        postcode: input.deliveryPostcode.toUpperCase(),
+        contact_name: input.deliveryContact || null,
+        contact_phone: input.deliveryPhone || null,
+        window_start: input.deliveryDateTime || null,
+        instructions: null,
+      },
+    ];
+
+    const { error: stopsError } = await supabaseAdmin
+      .from('job_stops')
+      .insert(stopRows);
+    if (stopsError) {
+      const cleanup = await supabaseAdmin
+        .from('jobs')
+        .delete()
+        .eq('id', createdJob.id)
+        .eq('company_id', input.companyId);
+      return operationalError({
+        status: 500,
+        message: cleanup.error
+          ? 'The multi-drop route could not be saved cleanly. Please contact support before retrying this load.'
+          : 'We could not save the multi-drop route. The load was not published. Please try again.',
+        context: `jobs.create.multidrop-stops.job:${createdJob.id}.cleanup:${cleanup.error ? 'failed' : 'ok'}`,
+        cause: stopsError,
+        retryable: !cleanup.error,
+      });
+    }
+
+    if (deferPublication) {
+      const { data: publishedJob, error: publishError } = await supabaseAdmin
+        .from('jobs')
+        .update({
+          status: 'posted',
+          current_status: 'posted',
+          exchange_visibility: 'exchange',
+          exchange_posted_at: now,
+          exchange_expires_at: new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', createdJob.id)
+        .eq('company_id', input.companyId)
+        .eq('status', 'draft')
+        .select('id, status, current_status')
+        .single();
+      if (publishError || !publishedJob) {
+        const cleanup = await supabaseAdmin
+          .from('jobs')
+          .delete()
+          .eq('id', createdJob.id)
+          .eq('company_id', input.companyId);
+        return operationalError({
+          status: 500,
+          message: cleanup.error
+            ? 'The multi-drop load could not be published cleanly. Please contact support before retrying.'
+            : 'We could not publish the multi-drop load. The draft was removed; please try again.',
+          context: `jobs.create.multidrop-publish.job:${createdJob.id}.cleanup:${cleanup.error ? 'failed' : 'ok'}`,
+          cause: publishError ?? new Error('Multi-drop publish returned no job.'),
+          retryable: !cleanup.error,
+        });
+      }
+      createdJob = publishedJob;
+    }
+  }
+
   return respond(201, {
-    job: insertResult.data,
+    job: createdJob,
     replayed: false,
     idempotencyProtected: idempotencyAvailable,
   });

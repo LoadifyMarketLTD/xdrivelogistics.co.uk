@@ -3,7 +3,8 @@ import { NextRequest } from 'next/server';
 import { resolveDriverBidEligibility } from '../_lib/bidEligibility';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { operationalError } from '../../_lib/operationalError';
-import { isDriverContext, requireDriver, respond } from '../mobile/_lib';
+import { isDriverContext, respond } from '../mobile/_lib';
+import { requireWebDriver } from '../_lib/webDriver';
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const driver = await requireDriver(request);
+  const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);

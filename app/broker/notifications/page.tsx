@@ -1,1 +1,7 @@
-'use client'; import { NotificationsPage } from '../../admin/AdminWorkspaceModules'; export default function Page(){return <NotificationsPage/>}
+'use client';
+
+import WorkspaceNotificationInbox from '../../components/workspace/WorkspaceNotificationInbox';
+
+export default function Page() {
+  return <WorkspaceNotificationInbox role="broker" eyebrow="Broker notifications" />;
+}
