@@ -81,6 +81,8 @@ export async function GET(request: NextRequest) {
           ? (application.payload as DbRow)
           : {};
       const company = companyById.get(companyId);
+      const companyStatus = text(company?.status);
+      const companyGovernanceBlocked = ['rejected', 'suspended'].includes(companyStatus);
 
       const { data: missingData, error: missingError } = await supabaseAdmin.rpc(
         'get_missing_onboarding_documents',
@@ -94,7 +96,10 @@ export async function GET(request: NextRequest) {
       const riskStatus = text(application.risk_status, 'clear');
       const complianceCheckAvailable = !missingError;
       const readyForApproval =
-        complianceCheckAvailable && riskStatus === 'clear' && missingDocuments.length === 0;
+        complianceCheckAvailable &&
+        riskStatus === 'clear' &&
+        missingDocuments.length === 0 &&
+        !companyGovernanceBlocked;
 
       return {
         id: applicationId,
@@ -115,7 +120,8 @@ export async function GET(request: NextRequest) {
         risk_reason: text(application.risk_reason) || null,
         company_id: companyId || null,
         company_name: text(company?.name, companyId ? 'Unknown Company' : 'Not linked'),
-        company_status: text(company?.status) || null,
+        company_status: companyStatus || null,
+        company_governance_blocked: companyGovernanceBlocked,
         submitted_at: text(application.submitted_at) || null,
         last_activity_at: text(application.last_activity_at) || text(application.created_at),
         missing_documents: missingDocuments,
