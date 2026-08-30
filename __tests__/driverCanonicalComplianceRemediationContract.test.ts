@@ -6,6 +6,10 @@ describe('Canonical Driver compliance remediation contract', () => {
     path.join(process.cwd(), 'supabase/migrations/20260830135351_backfill_legacy_driver_compliance_remediation.sql'),
     'utf8',
   );
+  const ownerDriverRequirementMigration = fs.readFileSync(
+    path.join(process.cwd(), 'supabase/migrations/20260830142705_owner_driver_address_and_insurance_requirement.sql'),
+    'utf8',
+  );
   const resolver = fs.readFileSync(
     path.join(process.cwd(), 'app/api/driver/compliance/_lib.ts'),
     'utf8',
@@ -43,6 +47,18 @@ describe('Canonical Driver compliance remediation contract', () => {
     expect(resolver).toContain(".from('companies')");
     expect(resolver).toContain("String(driver.status ?? '').toLowerCase() !== 'active'");
     expect(resolver).not.toContain('app_access !== true');
+  });
+
+  test('owner driver address proof can be satisfied by a verified driving licence and personal insurance is optional', () => {
+    expect(ownerDriverRequirementMigration).toContain("doc_type = 'insurance'");
+    expect(ownerDriverRequirementMigration).toContain('required = false');
+    expect(ownerDriverRequirementMigration).toContain("requirement.doc_type = 'proof_of_address'");
+    expect(ownerDriverRequirementMigration).toContain("licence.doc_type = 'driving_licence'");
+    expect(remediationApi).toContain("'driving_licence',\n  'proof_of_address',\n  'right_to_work',");
+    expect(remediationApi).not.toContain("'right_to_work',\n  'insurance',\n] as const;");
+    expect(remediationApi).toContain("docType === 'proof_of_address' && currentVerifiedIdentityDocument('driving_licence')");
+    expect(documentsPage).toContain('Driving Licence satisfies Proof of Address');
+    expect(documentsPage).toContain('Verified Driving Licence accepted as address evidence');
   });
 
   test('approved legacy evidence is copied into canonical onboarding storage without silent re-approval', () => {
