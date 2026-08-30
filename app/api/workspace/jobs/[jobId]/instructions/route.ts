@@ -11,7 +11,7 @@ import { operationalError } from '../../../_lib/operationalError';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const instructionSchema = z.object({
-  instruction: z.string().trim().min(1, 'Instruction is required.').max(2000, 'Instruction is too long.'),
+  instruction: z.string().trim().min(1, 'Message is required.').max(2000, 'Message is too long.'),
 });
 
 type AdminClient = NonNullable<typeof supabaseAdmin>;
@@ -32,7 +32,7 @@ async function authenticate(request: NextRequest) {
     return {
       response: operationalError({
         status: 503,
-        message: 'Driver instructions are temporarily unavailable.',
+        message: 'Driver messages are temporarily unavailable.',
         context: 'workspace.driver-instructions.config',
         retryable: true,
       }),
@@ -91,22 +91,12 @@ async function loadContext(client: AdminClient, userId: string, jobId: string): 
       }),
     };
   }
-  if (!membership) return { response: respond(403, { error: 'Only the posting company can add Driver instructions.' }) };
+  if (!membership) return { response: respond(403, { error: 'Only the posting company can add Driver messages.' }) };
 
   const terminalStatus = terminalJobStatus(job);
-  const executionBound = Boolean(
-    job.awarded_carrier_company_id
-    || job.assigned_company_id
-    || job.assigned_driver_id
-    || job.vehicle_id
-  );
-
-  let reason: string | null = null;
-  if (terminalStatus) {
-    reason = 'This load is already closed. New Driver instructions can no longer be added.';
-  } else if (!executionBound) {
-    reason = 'Driver instructions become available after the load has been awarded or allocated. Before award, use Edit Load to update private execution instructions.';
-  }
+  const reason = terminalStatus
+    ? 'This load is already closed. New Driver messages can no longer be added.'
+    : null;
 
   return {
     context: {
@@ -155,7 +145,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     return operationalError({
       status: 500,
-      message: 'Driver instructions could not be loaded.',
+      message: 'Driver messages could not be loaded.',
       context: `workspace.driver-instructions.list:${jobId}`,
       cause: error,
       retryable: true,
@@ -170,13 +160,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { jobId } = await params;
 
   const parsed = instructionSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return respond(400, { error: parsed.error.issues[0]?.message ?? 'Instruction is invalid.' });
+  if (!parsed.success) return respond(400, { error: parsed.error.issues[0]?.message ?? 'Message is invalid.' });
 
-  // Re-read job state immediately before the append so an award/completion race
-  // cannot turn this endpoint into a general-purpose job mutation path.
+  // Re-read immediately before append so a completion race cannot add a message
+  // to a closed transport record. The message never mutates the canonical job.
   const checked = await loadContext(client, auth.userId, jobId);
   if (checked.response || !checked.context) return checked.response;
-  if (!checked.context.canAdd) return respond(409, { error: checked.context.reason ?? 'A Driver instruction cannot be added to this load.' });
+  if (!checked.context.canAdd) return respond(409, { error: checked.context.reason ?? 'A Driver message cannot be added to this load.' });
 
   const now = new Date().toISOString();
   const instruction = parsed.data.instruction;
@@ -203,9 +193,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (eventError || !event) {
     return operationalError({
       status: 500,
-      message: 'The Driver instruction could not be saved.',
+      message: 'The Driver message could not be saved.',
       context: `workspace.driver-instructions.append:${jobId}`,
-      cause: eventError ?? new Error('Instruction append returned no event.'),
+      cause: eventError ?? new Error('Driver message append returned no event.'),
       retryable: true,
     });
   }
@@ -221,7 +211,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const { error: notificationError } = await client.from('notifications').insert({
         company_id: checked.context.ownerCompanyId,
         user_id: driver.user_id,
-        title: `New instruction for XDL-${jobId.slice(0, 8).toUpperCase()}`,
+        title: `New message for XDL-${jobId.slice(0, 8).toUpperCase()}`,
         body: instruction,
         type: 'driver_instruction',
         created_at: now,
