@@ -20,6 +20,7 @@ type VehicleRow = {
   has_straps: boolean | null;
   has_blankets: boolean | null;
   assigned_driver_id: string | null;
+  status: string | null;
 };
 
 type VehicleForm = {
@@ -58,6 +59,7 @@ export default function DriverVehiclesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<VehicleForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
 
   const getAuthHeader = useCallback(async () => {
@@ -156,7 +158,26 @@ export default function DriverVehiclesPage() {
       setError(responsePayload.error || (isEdit ? 'Vehicle changes could not be saved.' : 'The vehicle could not be added.'));
       return;
     }
-    setNotice(isEdit ? 'Vehicle updated successfully.' : 'Vehicle added successfully.'); cancelForm(); await load();
+    setNotice(isEdit ? 'Vehicle updated successfully.' : 'Vehicle added successfully. Assign it to your Driver profile if this is the vehicle you operate.'); cancelForm(); await load();
+  };
+
+  const assignToMe = async (vehicleId: string) => {
+    if (!canManageVehicles) { setError('Assignment changes are managed by your company.'); return; }
+    setAssigningId(vehicleId); setError(''); setNotice('');
+    const auth = await getAuthHeader();
+    if (!auth) { setError('Your session has expired.'); setAssigningId(null); return; }
+    const response = await fetch('/api/driver/vehicles', {
+      method: 'PATCH', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vehicleId, action: 'assign_to_me' }),
+    });
+    setAssigningId(null);
+    if (!response.ok) {
+      const responsePayload = await response.json().catch(() => ({})) as { error?: string };
+      setError(responsePayload.error || 'The vehicle could not be assigned to your Driver profile.');
+      return;
+    }
+    setNotice('Vehicle assigned to your Driver profile. MOT and Insurance on this vehicle now contribute to canonical operational eligibility.');
+    await load();
   };
 
   const deactivate = async (vehicleId: string) => {
@@ -197,7 +218,7 @@ export default function DriverVehiclesPage() {
         <div className="driver-returns-rail-stat"><span>Canonical active vehicle</span><strong>{canonicalSummary}</strong></div>
         <div className="driver-returns-rail-stat"><span>Equipment recorded</span><strong>{equippedCount}</strong></div>
         <div className="driver-returns-rail-stat"><span>Payload recorded</span><strong>{vehicles.filter((vehicle) => Boolean(vehicle.payload_kg)).length}</strong></div>
-        <span style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Canonical active vehicle is an identity signal only. Full driver + vehicle operational eligibility is revalidated by the server where required.</span>
+        <span style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Exactly one active vehicle must be assigned to your Driver profile before it can become the canonical execution vehicle.</span>
         {canManageVehicles ? <ActionButton tone="success" onClick={startAdd}>+ Add vehicle</ActionButton> : <span style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Company drivers have read-only access to vehicle records assigned to their profile. Fleet changes are managed by the company.</span>}
       </div>
     </aside>
@@ -212,6 +233,7 @@ export default function DriverVehiclesPage() {
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
         {!canonicalVehicleSignalAvailable && <AlertBanner tone="warning">Canonical active-vehicle signal is temporarily unavailable. Vehicle records and assignment relationships remain visible.</AlertBanner>}
+        {canManageVehicles && vehicles.length > 0 && assignedVehicles.length === 0 && <AlertBanner tone="warning">Your company has vehicle records, but none is assigned to your Driver profile. Choose the vehicle you operate and select Assign to me.</AlertBanner>}
         <div className="driver-board-layout driver-vehicle-board">
           {vehicleSignalRail}
           <main className="driver-board-main">
@@ -236,6 +258,8 @@ export default function DriverVehiclesPage() {
             {loading ? <div className="driver-load-row"><EmptyState compact title="Loading vehicles…" /></div> : vehicles.length === 0 ? <div className="driver-load-row"><EmptyState compact title={canManageVehicles ? 'No vehicles in this workspace' : 'No vehicle assigned to you'} description={canManageVehicles ? 'Add a vehicle to provide capacity and equipment information for operations.' : 'Your company fleet manager can assign a vehicle to your driver profile.'} /></div> : (
               <div className="driver-load-list">{vehicles.map((vehicle) => {
                 const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
+                const assignedElsewhere = Boolean(vehicle.assigned_driver_id) && !assigned;
+                const active = String(vehicle.status ?? '').toLowerCase() === 'active';
                 const canonical = vehicle.id === canonicalVehicleId;
                 const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
                 return (
@@ -244,9 +268,16 @@ export default function DriverVehiclesPage() {
                       <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleName(vehicle)}</strong><span className="driver-cell-secondary">{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Capacity</span><strong className="driver-cell-primary">{vehicle.payload_kg ? `${vehicle.payload_kg} kg` : 'Payload not set'}</strong><span className="driver-cell-secondary">{vehicle.pallets_capacity != null ? `${vehicle.pallets_capacity} pallet positions` : 'Pallet capacity not set'}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Equipment</span><strong className="driver-cell-primary">{equipment}</strong><span className="driver-cell-secondary">Recorded equipment</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Assignment</span><strong className="driver-cell-primary">{canonical ? 'Canonical active vehicle' : assigned ? 'Assigned relationship' : 'Company fleet record'}</strong><span className="driver-cell-secondary"><StatusBadge value={canonical ? 'Canonical active' : assigned ? 'Assigned relation' : 'Fleet record'} tone={canonical ? 'blue' : 'grey'} /></span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Assignment</span><strong className="driver-cell-primary">{canonical ? 'Canonical active vehicle' : assigned ? 'Assigned relationship' : assignedElsewhere ? 'Assigned to another Driver' : 'Company fleet record'}</strong><span className="driver-cell-secondary"><StatusBadge value={canonical ? 'Canonical active' : assigned ? 'Assigned relation' : active ? 'Available' : vehicle.status || 'Recorded'} tone={canonical ? 'blue' : 'grey'} /></span></div>
                     </div>
-                    <div className="driver-load-row__meta"><span>Vehicle #{vehicle.id.slice(0, 8).toUpperCase()}</span>{canManageVehicles ? <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => startEdit(vehicle)}>Edit</ActionButton>{assigned && <ActionButton tone="danger" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</ActionButton>}</div> : <span>Read only</span>}</div>
+                    <div className="driver-load-row__meta">
+                      <span>Vehicle #{vehicle.id.slice(0, 8).toUpperCase()}</span>
+                      {canManageVehicles ? <div className="driver-row-actions">
+                        <ActionButton tone="secondary" onClick={() => startEdit(vehicle)}>Edit</ActionButton>
+                        {!assigned && !assignedElsewhere && active && <ActionButton tone="success" onClick={() => void assignToMe(vehicle.id)} disabled={assigningId === vehicle.id}>{assigningId === vehicle.id ? 'Assigning…' : 'Assign to me'}</ActionButton>}
+                        {assigned && <ActionButton tone="danger" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</ActionButton>}
+                      </div> : <span>Read only</span>}
+                    </div>
                   </article>
                 );
               })}</div>

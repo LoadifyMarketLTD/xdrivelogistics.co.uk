@@ -43,6 +43,11 @@ const deactivateSchema = z.object({
   action: z.literal('deactivate'),
 });
 
+const assignToMeSchema = z.object({
+  vehicleId: z.string().uuid(),
+  action: z.literal('assign_to_me'),
+});
+
 const resolveDriver = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return {
@@ -122,7 +127,7 @@ export async function GET(request: NextRequest) {
 
   let query = admin
     .from('vehicles')
-    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, created_at')
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, status, created_at')
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(100);
@@ -143,10 +148,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Keep the existing administrative assignment signal separate from the
-  // canonical active vehicle identity. The same-company requirement is part of
-  // the approved canonical contract; personal/document blockers do not erase an
-  // otherwise unambiguous active vehicle identity from this management view.
   let canonicalVehicleId: string | null = null;
   let canonicalVehicleSignalAvailable = true;
   try {
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
 
   return json(200, {
     vehicles: vehicles ?? [],
-    assignedVehicleId: (vehicles ?? []).find((v) => v.assigned_driver_id === driverId)?.id ?? null,
+    assignedVehicleId: (vehicles ?? []).find((v) => v.assigned_driver_id === driverId && String(v.status ?? '').toLowerCase() === 'active')?.id ?? null,
     canonicalVehicleId,
     canonicalVehicleSignalAvailable,
     canManageVehicles: canManageCompanyVehicles,
@@ -191,7 +192,7 @@ export async function POST(request: NextRequest) {
   const { data: inserted, error: insertError } = await admin
     .from('vehicles')
     .insert({ ...parsed.data, company_id: companyId })
-    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, status')
     .maybeSingle();
 
   if (insertError) {
@@ -221,6 +222,54 @@ export async function PATCH(request: NextRequest) {
     body = await request.json();
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
+  }
+
+  const assignToMe = assignToMeSchema.safeParse(body);
+  if (assignToMe.success) {
+    const { data: vehicle, error: vehicleError } = await admin
+      .from('vehicles')
+      .select('id,company_id,assigned_driver_id,status,reg_plate')
+      .eq('id', assignToMe.data.vehicleId)
+      .maybeSingle();
+    if (vehicleError) return json(500, { error: 'The vehicle assignment could not be verified.' });
+    if (!vehicle) return json(404, { error: 'Vehicle not found.' });
+    if (vehicle.company_id !== companyId) return json(403, { error: 'This vehicle does not belong to your company.' });
+    if (String(vehicle.status ?? '').trim().toLowerCase() !== 'active') {
+      return json(409, { error: 'Only an active vehicle can be assigned to your Driver profile.' });
+    }
+    if (vehicle.assigned_driver_id && vehicle.assigned_driver_id !== driverId) {
+      return json(409, { error: 'This vehicle is already assigned to another Driver.' });
+    }
+    if (vehicle.assigned_driver_id === driverId) {
+      return json(200, { vehicle, action: 'assigned_to_me', idempotent: true });
+    }
+
+    const { data: existing, error: existingError } = await admin
+      .from('vehicles')
+      .select('id,reg_plate')
+      .eq('assigned_driver_id', driverId)
+      .eq('status', 'active')
+      .neq('id', vehicle.id)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) return json(500, { error: 'Your current vehicle assignment could not be verified.' });
+    if (existing) {
+      return json(409, {
+        error: `You already have an active assigned vehicle${existing.reg_plate ? ` (${existing.reg_plate})` : ''}. Unassign it before choosing another.`,
+      });
+    }
+
+    const { data: updated, error: updateError } = await admin
+      .from('vehicles')
+      .update({ assigned_driver_id: driverId })
+      .eq('id', vehicle.id)
+      .eq('company_id', companyId)
+      .is('assigned_driver_id', null)
+      .select('id,reg_plate,assigned_driver_id,status')
+      .maybeSingle();
+    if (updateError) return json(500, { error: 'The vehicle could not be assigned to your Driver profile.' });
+    if (!updated) return json(409, { error: 'The vehicle assignment changed before your request completed. Refresh and try again.' });
+    return json(200, { vehicle: updated, action: 'assigned_to_me', idempotent: false });
   }
 
   const deactivate = deactivateSchema.safeParse(body);
@@ -258,13 +307,13 @@ export async function PATCH(request: NextRequest) {
     if (updateError) {
       return operationalError({
         status: 500,
-        message: 'We could not deactivate this vehicle. Please try again.',
+        message: 'We could not unassign this vehicle. Please try again.',
         context: `driver.vehicles.deactivate.update:${deactivate.data.vehicleId}`,
         cause: updateError,
         retryable: true,
       });
     }
-    return json(200, { vehicle: updated, action: 'deactivated' });
+    return json(200, { vehicle: updated, action: 'unassigned' });
   }
 
   const parsed = patchSchema.safeParse(body);
@@ -298,7 +347,7 @@ export async function PATCH(request: NextRequest) {
     .from('vehicles')
     .update(updateFields)
     .eq('id', vehicleId)
-    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, status')
     .maybeSingle();
 
   if (updateError) {
