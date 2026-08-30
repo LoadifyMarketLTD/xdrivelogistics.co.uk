@@ -89,7 +89,7 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
       setInstruction('');
       setMessage(payload.assignedDriver
         ? payload.driverInboxNotified
-          ? 'Instruction saved. The assigned Driver has also been notified in the XDrive app.'
+          ? 'Instruction saved and added to the assigned Driver’s XDrive inbox.'
           : 'Instruction saved. It is attached to the job and visible to the assigned Driver.'
         : 'Instruction saved. It will be visible to the Driver when one is assigned to this job.');
       await load();
