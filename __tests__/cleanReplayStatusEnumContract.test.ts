@@ -6,17 +6,31 @@ const readMigration = (name: string) =>
   fs.readFileSync(path.join(process.cwd(), `supabase/migrations/${name}`), 'utf8');
 
 const initialSchema = readMigration('001_initial_schema.sql');
+const profileStatus = readMigration('027_add_profiles_status_column.sql');
 const availabilitySplit = readMigration('048_split_driver_availability_from_employment_status.sql');
 const exchangeRlsRepair = readMigration('091_fix_driver_exchange_rls.sql');
 const vehicleReadiness = readMigration('20260819154500_reconcile_vehicle_readiness_physical_contract.sql');
 const integrity = readMigration('20260830174500_vehicle_driver_company_integrity.sql');
 
-describe('clean replay canonical status enum contract', () => {
+describe('clean replay canonical status enum contracts', () => {
   it('reconstructs the hosted Driver lifecycle type before Driver RLS policies bind to status', () => {
     expect(initialSchema).toContain(
       "CREATE TYPE public.status_enum AS ENUM ('active', 'inactive', 'suspended')",
     );
     expect(initialSchema).toContain("status public.status_enum DEFAULT 'active'");
+  });
+
+  it('reconstructs the hosted profile lifecycle enum before profile policies and identity triggers bind to status', () => {
+    expect(profileStatus).toContain(
+      "CREATE TYPE public.user_status AS ENUM (''pending'', ''active'', ''blocked'')",
+    );
+    expect(profileStatus).toContain(
+      "ADD COLUMN status public.user_status NOT NULL DEFAULT 'active'::public.user_status",
+    );
+    expect(profileStatus).toContain("ARRAY['pending', 'active', 'blocked']::text[]");
+    expect(profileStatus).toContain(
+      'Unsupported profile status values prevent canonical user_status reconstruction',
+    );
   });
 
   it('keeps the historical availability split compatible with both text drift and the canonical enum', () => {
@@ -25,12 +39,18 @@ describe('clean replay canonical status enum contract', () => {
     expect(availabilitySplit).toContain("SET status = 'active'");
   });
 
-  it('keeps legacy rejected-status exchange checks textual without widening status_enum', () => {
+  it('keeps legacy exchange status checks textual without widening canonical enums', () => {
     expect(exchangeRlsRepair).toContain(
       "d.status::text NOT IN ('suspended', 'inactive', 'rejected')",
     );
+    expect(exchangeRlsRepair).toContain(
+      "p.status::text NOT IN ('blocked', 'suspended', 'inactive', 'pending')",
+    );
     expect(exchangeRlsRepair).not.toContain(
       "d.status NOT IN ('suspended', 'inactive', 'rejected')",
+    );
+    expect(exchangeRlsRepair).not.toContain(
+      "p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')",
     );
   });
 
