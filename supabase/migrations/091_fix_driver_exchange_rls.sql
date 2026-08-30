@@ -21,9 +21,10 @@
 --    they placed (matched by bidder_user_id OR company_id in their driver row).
 --
 -- Hosted production later converged drivers.status to public.status_enum with
--- active/inactive/suspended only. Keep the historical rejected compatibility
--- check text-based so this migration can replay against that canonical enum
--- without inventing a rejected enum label.
+-- active/inactive/suspended only and profiles.status to public.user_status with
+-- pending/active/blocked only. Keep historical compatibility checks text-based
+-- so this migration can replay against those canonical enums without inventing
+-- retired labels such as rejected, suspended, or inactive in the wrong enum.
 
 -- ── 1. Exchange load board — also let active drivers view exchange posts ───────
 
@@ -64,7 +65,7 @@ CREATE POLICY jobs_exchange_select_policy ON public.jobs
         FROM public.profiles p
         WHERE p.user_id = auth.uid()
           AND p.role = 'driver'
-          AND p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')
+          AND p.status::text NOT IN ('blocked', 'suspended', 'inactive', 'pending')
       )
     )
   );
@@ -107,7 +108,7 @@ CREATE POLICY job_bids_exchange_insert
           FROM public.profiles p
           WHERE p.user_id = auth.uid()
             AND p.role = 'driver'
-            AND p.status NOT IN ('blocked', 'suspended', 'inactive', 'pending')
+            AND p.status::text NOT IN ('blocked', 'suspended', 'inactive', 'pending')
         )
       )
     )
