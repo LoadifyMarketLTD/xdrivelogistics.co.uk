@@ -47,7 +47,7 @@ CREATE TABLE public.company_memberships (
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   invited_email text,
   role_in_company public.company_role DEFAULT 'viewer',
-  status public.membership_status DEFAULT 'invited',
+  status text DEFAULT 'invited',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   UNIQUE(company_id, user_id),
