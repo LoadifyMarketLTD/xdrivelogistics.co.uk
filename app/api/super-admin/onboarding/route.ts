@@ -61,9 +61,25 @@ export async function GET(request: NextRequest) {
     companies = Array.isArray(companyData) ? companyData : [];
   }
 
+  const compliance = await Promise.all(
+    rows.map(async (row) => {
+      const { data: missingData, error: missingError } = await supabaseAdmin.rpc(
+        'get_missing_onboarding_documents',
+        { p_application_id: row.id },
+      );
+
+      return {
+        id: row.id,
+        missing: missingData,
+        missing_error: missingError?.message ?? null,
+      };
+    }),
+  );
+
   return respond(200, {
     rows,
     companies,
+    compliance,
     summary: {
       total: rows.length,
       ready: 0,
