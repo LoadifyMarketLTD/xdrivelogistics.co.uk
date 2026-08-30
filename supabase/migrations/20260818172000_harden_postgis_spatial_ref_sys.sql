@@ -3,6 +3,8 @@
 -- Context:
 -- - Existing production has PostGIS installed in public and therefore exposes
 --   public.spatial_ref_sys through the Data API schema.
+-- - Fresh repository replay must reconstruct that production dependency before
+--   later geography-based driver location migrations execute.
 -- - XDrive must preserve PostGIS until the legacy geography dependency on
 --   driver_locations.location is migrated safely.
 -- - On Supabase-hosted production, spatial_ref_sys can be extension-owned by
@@ -11,9 +13,9 @@
 --   that case.
 --
 -- This migration is intentionally non-destructive and owner-aware:
--- - it does not drop or relocate PostGIS;
+-- - it installs PostGIS in public only when absent;
+-- - it does not drop or relocate an existing PostGIS installation;
 -- - it does not modify spatial_ref_sys data;
--- - it is a no-op when PostGIS/spatial_ref_sys is absent;
 -- - when the migration role owns (or is a member of the owning role), it
 --   removes client-side write access, preserves SELECT, and enables read-only
 --   RLS;
@@ -21,13 +23,28 @@
 --   cannot act as, it emits a NOTICE and leaves the extension-owned object
 --   untouched instead of blocking unrelated XDrive forward migrations.
 
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
+
 DO $$
 DECLARE
+  v_postgis_schema name;
   v_owner name;
   v_can_act_as_owner boolean;
 BEGIN
+  SELECT n.nspname
+    INTO v_postgis_schema
+  FROM pg_extension e
+  JOIN pg_namespace n ON n.oid = e.extnamespace
+  WHERE e.extname = 'postgis';
+
+  IF v_postgis_schema IS DISTINCT FROM 'public' THEN
+    RAISE EXCEPTION
+      'PostGIS must be installed in public to match the hosted XDrive spatial contract; found schema %.',
+      COALESCE(v_postgis_schema::text, '<missing>');
+  END IF;
+
   IF to_regclass('public.spatial_ref_sys') IS NULL THEN
-    RETURN;
+    RAISE EXCEPTION 'PostGIS is installed but public.spatial_ref_sys is missing.';
   END IF;
 
   SELECT pg_get_userbyid(c.relowner)
