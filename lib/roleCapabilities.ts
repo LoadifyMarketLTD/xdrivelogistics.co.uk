@@ -350,11 +350,17 @@ export const isCapabilityAllowedForPath = (
     if (workspaceRole !== 'customer') return false;
   } else if (pathMatches(path, '/driver')) {
     const isChangePasswordRoute = path === '/driver/change-password' || path.startsWith('/driver/change-password/');
+    const isComplianceRemediationRoute =
+      path === '/driver/documents' || path.startsWith('/driver/documents/') ||
+      path === '/driver/vehicles' || path.startsWith('/driver/vehicles/');
     if (!isChangePasswordRoute && !context.driverId) return false;
     if (!isExplicitActiveStatus(context.accountStatus)) return false;
     if (!isExplicitActiveStatus(context.companyStatus)) return false;
     if (!isExplicitActiveStatus(context.driverStatus)) return false;
-    if (context.appAccess !== true) return false;
+    // A Driver must be able to repair missing documents / vehicle assignment
+    // before app_access can become true. All commercial and execution surfaces
+    // remain fail-closed behind the normal app_access gate.
+    if (!isChangePasswordRoute && !isComplianceRemediationRoute && context.appAccess !== true) return false;
 
     if (isDriverCommercialRoute(path)) {
       const isQuoteRoute = path === '/driver/quotes' || path.startsWith('/driver/quotes/');
