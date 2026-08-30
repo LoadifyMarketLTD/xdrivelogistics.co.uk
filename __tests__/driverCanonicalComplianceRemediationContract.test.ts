@@ -18,6 +18,10 @@ describe('Canonical Driver compliance remediation contract', () => {
     path.join(process.cwd(), 'app/api/driver/compliance/remediation/route.ts'),
     'utf8',
   );
+  const identityDocumentsApi = fs.readFileSync(
+    path.join(process.cwd(), 'app/api/driver/compliance/identity-documents/route.ts'),
+    'utf8',
+  );
   const vehicleDocumentsApi = fs.readFileSync(
     path.join(process.cwd(), 'app/api/driver/compliance/vehicle-documents/route.ts'),
     'utf8',
@@ -71,6 +75,15 @@ describe('Canonical Driver compliance remediation contract', () => {
     expect(remediationApi).not.toContain("LEGACY_MAP['Other']");
   });
 
+  test('identity remediation reuses canonical uploader but preserves legacy Platform review state', () => {
+    expect(identityDocumentsApi).toContain("POST as uploadOnboardingDocument");
+    expect(identityDocumentsApi).toContain("legacy_driver_compliance_remediation === true");
+    expect(identityDocumentsApi).toContain("status: 'under_review'");
+    expect(identityDocumentsApi).toContain("current_step: 'compliance_remediation'");
+    expect(documentsPage).toContain("fetch('/api/driver/compliance/identity-documents'");
+    expect(documentsPage).not.toContain("fetch('/api/onboarding/documents'");
+  });
+
   test('vehicle compliance upload is server-authoritative and bound to the assigned active vehicle', () => {
     expect(vehicleDocumentsApi).toContain("z.enum(['mot', 'insurance'])");
     expect(vehicleDocumentsApi).toContain('vehicle.company_id !== resolved.companyId');
@@ -80,8 +93,8 @@ describe('Canonical Driver compliance remediation contract', () => {
     expect(vehicleDocumentsApi).toContain("status: 'pending'");
   });
 
-  test('Driver Documents uses canonical onboarding and vehicle compliance routes', () => {
-    expect(documentsPage).toContain("fetch('/api/onboarding/documents'");
+  test('Driver Documents uses canonical compliance routes', () => {
+    expect(documentsPage).toContain("fetch('/api/driver/compliance/identity-documents'");
     expect(documentsPage).toContain("fetch('/api/driver/compliance/vehicle-documents'");
     expect(documentsPage).toContain("fetch('/api/driver/compliance/remediation'");
     expect(documentsPage).not.toContain("fetch('/api/driver/documents'");
