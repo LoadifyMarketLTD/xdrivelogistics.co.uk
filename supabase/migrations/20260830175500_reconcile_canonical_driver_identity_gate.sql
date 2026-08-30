@@ -3,7 +3,8 @@ BEGIN;
 -- P0-02: canonical Driver identity reconciliation.
 -- Approval is the only positive activation event. Missing, mismatched or
 -- non-active identity always fails closed using values that actually exist in
--- the production enums.
+-- the production enums. Legacy Driver rows whose auth user no longer exists are
+-- preserved but cannot regain operational access.
 
 CREATE OR REPLACE FUNCTION public.enforce_driver_profile_identity_gate()
 RETURNS trigger
@@ -38,9 +39,12 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  PERFORM public.ensure_company_driver_onboarding(
-    NEW.user_id, NEW.company_id, NEW.full_name, NEW.phone
-  );
+  IF EXISTS (SELECT 1 FROM auth.users u WHERE u.id = NEW.user_id) THEN
+    PERFORM public.ensure_company_driver_onboarding(
+      NEW.user_id, NEW.company_id, NEW.full_name, NEW.phone
+    );
+  END IF;
+
   NEW.status := 'pending'::public.user_status;
   RETURN NEW;
 END;
@@ -84,9 +88,12 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  PERFORM public.ensure_company_driver_onboarding(
-    NEW.user_id, NEW.company_id, NEW.display_name, NEW.phone
-  );
+  IF EXISTS (SELECT 1 FROM auth.users u WHERE u.id = NEW.user_id) THEN
+    PERFORM public.ensure_company_driver_onboarding(
+      NEW.user_id, NEW.company_id, NEW.display_name, NEW.phone
+    );
+  END IF;
+
   NEW.status := 'inactive'::public.status_enum;
   NEW.is_active := false;
   NEW.app_access := false;
@@ -101,7 +108,6 @@ ON public.drivers
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_driver_record_identity_gate();
 
--- Approval remains the sole positive activation path.
 CREATE OR REPLACE FUNCTION public.activate_approved_onboarding_identity()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -201,7 +207,6 @@ AFTER UPDATE OF status ON public.onboarding_applications
 FOR EACH ROW
 EXECUTE FUNCTION public.activate_approved_onboarding_identity();
 
--- Identity revocation / hold / ban must immediately remove runtime Driver access.
 CREATE OR REPLACE FUNCTION public.fail_close_driver_access_on_identity_change()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -273,8 +278,6 @@ AFTER DELETE ON public.platform_identity_registry
 FOR EACH ROW
 EXECUTE FUNCTION public.fail_close_driver_access_on_identity_change();
 
--- Conservative backfill: create a missing canonical Driver identity only when an
--- already-approved, risk-clear and fully compliant onboarding proves it.
 DO $$
 DECLARE
   v_app record;
@@ -338,8 +341,6 @@ BEGIN
 END;
 $$;
 
--- Historical records without an active verified identity remain stored, but are
--- not operationally active. These statements do not approve anyone.
 UPDATE public.profiles p
 SET status = 'pending'::public.user_status, updated_at = now()
 WHERE p.role = 'driver'
@@ -361,8 +362,6 @@ SET status = 'inactive'::public.status_enum,
     updated_at = now()
 WHERE NOT public.identity_registry_allows_driver_access(d.user_id, d.company_id);
 
--- Final invariant: operational Driver authority may never exist without an
--- active verified canonical Driver identity.
 DO $$
 DECLARE
   v_driver_access integer;
