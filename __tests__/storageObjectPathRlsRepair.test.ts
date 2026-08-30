@@ -57,8 +57,18 @@ describe('Storage object-path RLS repair', () => {
 
   it('does not solve restricted-table policy dependencies by granting raw evidence access', () => {
     expect(reviewerRepair).toContain('can_review_onboarding_storage_object');
+    expect(reviewerRepair).toContain(
+      'REVOKE ALL ON TABLE public.driver_identity_documents FROM PUBLIC, anon, authenticated',
+    );
+    expect(reviewerRepair).toContain(
+      'REVOKE ALL ON TABLE public.company_documents FROM PUBLIC, anon, authenticated',
+    );
+    expect(reviewerRepair).toContain('GRANT ALL ON TABLE public.driver_identity_documents TO service_role');
+    expect(reviewerRepair).toContain('GRANT ALL ON TABLE public.company_documents TO service_role');
     expect(reviewerRepair).toContain("has_table_privilege('authenticated', 'public.driver_identity_documents', 'SELECT')");
     expect(reviewerRepair).toContain("has_table_privilege('authenticated', 'public.company_documents', 'SELECT')");
+    expect(reviewerRepair).toContain("has_table_privilege('anon', 'public.driver_identity_documents', 'SELECT')");
+    expect(reviewerRepair).toContain("has_table_privilege('anon', 'public.company_documents', 'SELECT')");
     expect(invoiceRepair).toContain('can_read_invoice_storage_object');
     expect(invoiceRepair).toContain("has_table_privilege('authenticated', 'public.invoice_documents', 'SELECT')");
   });
