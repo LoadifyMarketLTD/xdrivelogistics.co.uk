@@ -5,7 +5,7 @@ import {
   isSupabaseAdminConfigured,
   supabaseAdmin,
   supabaseValidator,
-} from '../_lib/supabaseAdmin';
+} from '../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
