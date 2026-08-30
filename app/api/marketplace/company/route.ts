@@ -80,6 +80,7 @@ type SearchLoadRow = Record<string, unknown> & {
   distance_miles: number | string | null;
   job_distance_miles: number | string | null;
   exchange_posted_at: string | null;
+  exchange_expires_at: string | null;
   exchange_visibility: string | null;
   direct_invite_company_id: string | null;
   awarded_carrier_company_id?: string | null;
@@ -110,7 +111,7 @@ const SEARCH_SELECT = [
   'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
   'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles',
-  'exchange_posted_at', 'exchange_visibility', 'direct_invite_company_id',
+  'exchange_posted_at', 'exchange_expires_at', 'exchange_visibility', 'direct_invite_company_id',
   'companies!jobs_company_id_fkey(name,company_number,phone,company_type,created_at)',
 ].join(',');
 
@@ -143,6 +144,13 @@ function postcodeKey(value: unknown) {
 
 function companyInfo(value: CompanyRef) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function exchangePostActive(value: unknown, nowMs = Date.now()) {
+  const expiresAt = marketplaceText(value);
+  if (!expiresAt) return true;
+  const expires = new Date(expiresAt).getTime();
+  return Number.isFinite(expires) && expires > nowMs;
 }
 
 function distanceMiles(from: Coordinates, to: Coordinates) {
@@ -418,7 +426,8 @@ async function searchLoads(request: NextRequest, companyId: string) {
     });
   }
 
-  const rows = (data ?? []) as unknown as SearchLoadRow[];
+  const rows = ((data ?? []) as unknown as SearchLoadRow[])
+    .filter((row) => exchangePostActive(row.exchange_expires_at));
   const geocoded = await postcodeCoordinates([
     ...rows.map((row) => row.pickup_postcode),
     ...rows.map((row) => row.delivery_postcode),
@@ -687,7 +696,7 @@ export async function POST(request: NextRequest) {
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, status, exchange_visibility, direct_invite_company_id, awarded_carrier_company_id, currency')
+    .select('id, company_id, status, exchange_visibility, exchange_expires_at, direct_invite_company_id, awarded_carrier_company_id, currency')
     .eq('id', input.jobId)
     .maybeSingle();
   if (jobError) {
@@ -703,6 +712,9 @@ export async function POST(request: NextRequest) {
   const visible = job.exchange_visibility === 'exchange'
     || (job.exchange_visibility === 'direct' && job.direct_invite_company_id === input.companyId);
   if (!visible) return respond(404, { error: 'Load not found.' });
+  if (!exchangePostActive(job.exchange_expires_at)) {
+    return respond(409, { error: 'This load posting has expired and is no longer open for quotes.' });
+  }
   if (!['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase()) || job.awarded_carrier_company_id) {
     return respond(409, { error: 'This load is no longer open for quotes.' });
   }
