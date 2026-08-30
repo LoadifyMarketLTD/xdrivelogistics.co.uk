@@ -50,7 +50,10 @@ export async function GET(request: NextRequest) {
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
   const vehicleId = String(vehicleResult.data?.id ?? '');
 
-  const [driverDocsResult, vehicleDocsResult, notificationsResult, journeyResult, preferencesResult] = await Promise.all([
+  const [companyResult, driverDocsResult, vehicleDocsResult, notificationsResult, journeyResult, preferencesResult] = await Promise.all([
+    context.companyId
+      ? supabaseAdmin!.from('companies').select('id,name,company_number,company_type').eq('id', context.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     supabaseAdmin!.from('driver_documents').select('id,doc_type,status,expiry_date,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
     vehicleId
       ? supabaseAdmin!.from('vehicle_documents').select('id,doc_type,status,expiry_date,created_at').eq('vehicle_id', vehicleId).order('created_at', { ascending: false }).limit(100)
@@ -60,7 +63,7 @@ export async function GET(request: NextRequest) {
     supabaseAdmin!.from('driver_job_search_preferences').select('job_id,state').eq('driver_id', context.driverId),
   ]);
 
-  const firstError = driverDocsResult.error ?? vehicleDocsResult.error ?? notificationsResult.error ?? journeyResult.error ?? preferencesResult.error;
+  const firstError = companyResult.error ?? driverDocsResult.error ?? vehicleDocsResult.error ?? notificationsResult.error ?? journeyResult.error ?? preferencesResult.error;
   if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 });
 
   let invoices: AnyRow[] = [];
@@ -77,15 +80,47 @@ export async function GET(request: NextRequest) {
   }
 
   const driver = driverResult.data as AnyRow;
+  const company = (companyResult.data ?? null) as AnyRow | null;
   const vehicle = (vehicleResult.data ?? null) as AnyRow | null;
   const displayName = String(driver.display_name || driver.email || 'Driver');
   const vehicleLabel = vehicle
     ? [[vehicle.make, vehicle.model].filter(Boolean).join(' '), String(vehicle.type || '')].filter(Boolean).join(' - ')
     : '';
   const vehicleRegistration = vehicle ? String(vehicle.reg_plate || '') : '';
+  const documents = [
+    ...(driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })),
+    ...(vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })),
+  ];
+  const notifications = notificationsResult.data ?? [];
+  const alerts = notifications.map((row) => ({
+    id: String(row.id),
+    event_type: String(row.type || 'notification'),
+    entity_type: 'notification',
+    entity_id: String(row.id),
+    payload: {
+      message: String(row.body ?? ''),
+      title: String(row.title ?? ''),
+      read_at: row.read_at ?? null,
+    },
+    status: row.read_at ? 'sent' : 'pending',
+    created_at: String(row.created_at ?? new Date(0).toISOString()),
+  }));
 
   return NextResponse.json({
     resources: {
+      // Canonical Expo contract.
+      name: displayName,
+      email: String(driver.email ?? ''),
+      phone: String(driver.phone ?? ''),
+      driver,
+      company,
+      vehicle,
+      quotes: [],
+      documents,
+      invoices,
+      alerts,
+
+      // Backwards-compatible resource projection retained for existing web/mobile consumers.
       profile: {
         driver_id: context.driverId,
         company_id: context.companyId,
@@ -95,13 +130,8 @@ export async function GET(request: NextRequest) {
         vehicle_label: vehicleLabel,
         vehicle_registration: vehicleRegistration,
       },
-      documents: [
-        ...(driverDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: false })),
-        ...(vehicleDocsResult.data ?? []).map((row) => ({ ...row, is_vehicle_document: true })),
-      ],
-      notifications: notificationsResult.data ?? [],
+      notifications,
       return_journey: journeyResult.data ?? null,
-      invoices,
       nearby_drivers: [],
       job_search_preferences: preferencesResult.data ?? [],
     },
