@@ -1,5 +1,101 @@
 BEGIN;
 
+
+-- Hosted production uses public.status_enum for both Driver and Vehicle
+-- operational state, while the clean repository replay historically left both
+-- columns as text. Reconstruct the observed hosted contract before this
+-- migration first requires enum casts. Never coerce unknown legacy values:
+-- incompatible type labels or row values fail closed instead.
+DO $$
+DECLARE
+  v_type_kind "char";
+  v_enum_labels text[];
+  v_invalid_driver_statuses text[];
+  v_invalid_vehicle_statuses text[];
+  v_driver_uses_status_enum boolean;
+  v_vehicle_uses_status_enum boolean;
+BEGIN
+  IF to_regtype('public.status_enum') IS NULL THEN
+    EXECUTE 'CREATE TYPE public.status_enum AS ENUM (''active'', ''inactive'', ''suspended'')';
+  ELSE
+    SELECT t.typtype
+    INTO v_type_kind
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'status_enum';
+
+    IF v_type_kind IS DISTINCT FROM 'e'::"char" THEN
+      RAISE EXCEPTION 'public.status_enum exists but is not an enum type.';
+    END IF;
+
+    SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder)
+    INTO v_enum_labels
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    JOIN pg_enum e ON e.enumtypid = t.oid
+    WHERE n.nspname = 'public'
+      AND t.typname = 'status_enum';
+
+    IF v_enum_labels IS DISTINCT FROM ARRAY['active', 'inactive', 'suspended']::text[] THEN
+      RAISE EXCEPTION
+        'public.status_enum labels differ from the hosted canonical contract: %.',
+        coalesce(array_to_string(v_enum_labels, ', '), '<none>');
+    END IF;
+  END IF;
+
+  SELECT array_agg(DISTINCT d.status::text ORDER BY d.status::text)
+  INTO v_invalid_driver_statuses
+  FROM public.drivers d
+  WHERE d.status IS NOT NULL
+    AND d.status::text NOT IN ('active', 'inactive', 'suspended');
+
+  IF coalesce(array_length(v_invalid_driver_statuses, 1), 0) > 0 THEN
+    RAISE EXCEPTION
+      'Unsupported driver status values prevent canonical status_enum reconstruction: %.',
+      array_to_string(v_invalid_driver_statuses, ', ');
+  END IF;
+
+  SELECT array_agg(DISTINCT v.status::text ORDER BY v.status::text)
+  INTO v_invalid_vehicle_statuses
+  FROM public.vehicles v
+  WHERE v.status IS NOT NULL
+    AND v.status::text NOT IN ('active', 'inactive', 'suspended');
+
+  IF coalesce(array_length(v_invalid_vehicle_statuses, 1), 0) > 0 THEN
+    RAISE EXCEPTION
+      'Unsupported vehicle status values prevent canonical status_enum reconstruction: %.',
+      array_to_string(v_invalid_vehicle_statuses, ', ');
+  END IF;
+
+  SELECT c.udt_schema = 'public' AND c.udt_name = 'status_enum'
+  INTO v_driver_uses_status_enum
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'drivers'
+    AND c.column_name = 'status';
+
+  IF NOT coalesce(v_driver_uses_status_enum, false) THEN
+    EXECUTE 'ALTER TABLE public.drivers ALTER COLUMN status DROP DEFAULT';
+    EXECUTE 'ALTER TABLE public.drivers ALTER COLUMN status TYPE public.status_enum USING status::text::public.status_enum';
+    EXECUTE 'ALTER TABLE public.drivers ALTER COLUMN status SET DEFAULT ''active''::public.status_enum';
+  END IF;
+
+  SELECT c.udt_schema = 'public' AND c.udt_name = 'status_enum'
+  INTO v_vehicle_uses_status_enum
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'vehicles'
+    AND c.column_name = 'status';
+
+  IF NOT coalesce(v_vehicle_uses_status_enum, false) THEN
+    EXECUTE 'ALTER TABLE public.vehicles ALTER COLUMN status DROP DEFAULT';
+    EXECUTE 'ALTER TABLE public.vehicles ALTER COLUMN status TYPE public.status_enum USING status::text::public.status_enum';
+    EXECUTE 'ALTER TABLE public.vehicles ALTER COLUMN status SET DEFAULT ''active''::public.status_enum';
+  END IF;
+END;
+$$;
+
 -- Hosted production contains canonical quote-to-vehicle attribution on job_bids,
 -- but the clean migration chain did not reconstruct it before this integrity
 -- migration first checks quote dependencies. Restore only the observed contract:
@@ -257,7 +353,6 @@ BEGIN
   IF v_driver_company_id IS NULL OR NEW.company_id IS DISTINCT FROM v_driver_company_id THEN
     RAISE EXCEPTION 'Vehicle and assigned driver must belong to the same company.' USING ERRCODE = '23514';
   END IF;
-
   RETURN NEW;
 END;
 $$;
