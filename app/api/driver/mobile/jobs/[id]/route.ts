@@ -20,6 +20,15 @@ type JobStopRow = {
   completed_at: string | null;
 };
 
+type DriverInstructionRow = {
+  id: string;
+  message: string | null;
+  notes: string | null;
+  event_time: string | null;
+  created_at: string | null;
+  user_name: string | null;
+};
+
 function mapStop(stop: JobStopRow) {
   return {
     id: stop.id,
@@ -36,6 +45,28 @@ function mapStop(stop: JobStopRow) {
     arrivedAt: stop.arrived_at ?? undefined,
     completedAt: stop.completed_at ?? undefined,
   };
+}
+
+function formatInstructionTime(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function mapDriverInstructions(rows: DriverInstructionRow[]) {
+  const messages = rows.map((entry) => {
+    const instruction = String(entry.message ?? entry.notes ?? '').trim();
+    if (!instruction) return '';
+    const at = formatInstructionTime(entry.event_time ?? entry.created_at);
+    const author = String(entry.user_name ?? 'Posting company').trim() || 'Posting company';
+    return [at, author].filter(Boolean).join(' · ') + `\n${instruction}`;
+  }).filter(Boolean);
+  return messages.length ? messages.join('\n\n') : undefined;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -55,24 +86,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!data) return respond(404, { error: 'Job not found.' });
 
   const row = data as unknown as MobileJobRow;
-  const [commercial, stopsResult] = await Promise.all([
+  const [commercial, stopsResult, instructionsResult] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
       .select('id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at')
       .eq('job_id', id)
       .order('sequence', { ascending: true }),
+    supabaseAdmin
+      .from('job_tracking_events')
+      .select('id, message, notes, event_time, created_at, user_name')
+      .eq('job_id', id)
+      .eq('event_type', 'driver_instruction_added')
+      .order('event_time', { ascending: true })
+      .limit(200),
   ]);
   const agreedRate = commercial.rates.get(row.id) ?? null;
   const multiDropPartial = Boolean(stopsResult.error);
+  const driverInstructionsPartial = Boolean(instructionsResult.error);
   const stops = stopsResult.error
     ? []
     : ((stopsResult.data ?? []) as unknown as JobStopRow[]).map(mapStop);
+  const specialInstructions = instructionsResult.error
+    ? undefined
+    : mapDriverInstructions((instructionsResult.data ?? []) as unknown as DriverInstructionRow[]);
 
   return respond(200, {
     job: {
       ...mapJob(row),
       stops,
+      specialInstructions,
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       // Legacy Android field retained for compatibility; assigned-job value is
@@ -81,5 +124,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     },
     commercialRatePartial: commercial.partial,
     multiDropPartial,
+    driverInstructionsPartial,
   });
 }
