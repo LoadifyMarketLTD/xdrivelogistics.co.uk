@@ -22,7 +22,7 @@ describe('remaining legacy Fleet resolution', () => {
     expect(migration).not.toContain("SET status = 'approved'");
   });
 
-  it('quarantines only dependency-free legacy active shells and preserves audit history', () => {
+  it('quarantines only dependency-free legacy active shells through canonical governance', () => {
     const migration = readRepoFile(
       'supabase/migrations/20260830211000_resolve_remaining_legacy_fleet_company_shells.sql',
     );
@@ -33,21 +33,26 @@ describe('remaining legacy Fleet resolution', () => {
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.drivers');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.job_commercial_agreements');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.company_registration_claims');
-    expect(migration).toContain("SET status = 'suspended'");
-    expect(migration).toContain("'owner_audit_rows'");
+    expect(migration).toContain('public.set_company_status_governance');
+    expect(migration).toContain("'suspended'");
+    expect(migration).toContain("'owner_audit_rows_before'");
+    expect(migration).not.toContain("SET status = 'suspended'");
   });
 
-  it('restricts creator bootstrap to pending companies and excludes quarantined shells from verified registration', () => {
-    const migration = readRepoFile(
+  it('restricts creator bootstrap and excludes quarantined shells from verified registration', () => {
+    const resolution = readRepoFile(
       'supabase/migrations/20260830211000_resolve_remaining_legacy_fleet_company_shells.sql',
     );
+    const registration = readRepoFile(
+      'supabase/migrations/20260830211030_harden_verified_company_registration_after_legacy_fleet_quarantine.sql',
+    );
 
-    expect(migration).toContain("AND c.status::text = 'pending_approval'");
-    expect(migration).toContain("v_company.status::text = 'pending_approval' AND v_company.created_by = p_actor_user_id");
-    expect(migration).toContain('legacy_fleet_onboarding_resolutions');
-    expect(migration).toContain("r.resolution_code = 'quarantine_legacy_active_shell'");
-    expect(migration).toContain('REVOKE ALL ON FUNCTION public.register_validated_company_atomic');
-    expect(migration).toContain('TO service_role;');
+    expect(resolution).toContain("AND c.status::text = 'pending_approval'");
+    expect(registration).toContain("v_company.status::text = 'pending_approval' AND v_company.created_by = p_actor_user_id");
+    expect(registration).toContain('legacy_fleet_onboarding_resolutions');
+    expect(registration).toContain("r.resolution_code = 'quarantine_legacy_active_shell'");
+    expect(registration).toContain('REVOKE ALL ON FUNCTION public.register_validated_company_atomic');
+    expect(registration).toContain('TO service_role;');
   });
 
   it('keeps a read-only durable verifier for every resolved application', () => {
