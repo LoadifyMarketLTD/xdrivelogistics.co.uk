@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { terminalJobStatus } from '../../../../../../lib/jobs/jobLifecycleStatus';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -12,17 +13,6 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 const instructionSchema = z.object({
   instruction: z.string().trim().min(1, 'Instruction is required.').max(2000, 'Instruction is too long.'),
 });
-
-const TERMINAL_STATUSES = new Set([
-  'delivered',
-  'pod_completed',
-  'invoice_generated',
-  'completed',
-  'cancelled',
-  'canceled',
-  'failed',
-  'rejected',
-]);
 
 type AdminClient = NonNullable<typeof supabaseAdmin>;
 
@@ -103,7 +93,7 @@ async function loadContext(client: AdminClient, userId: string, jobId: string): 
   }
   if (!membership) return { response: respond(403, { error: 'Only the posting company can add Driver instructions.' }) };
 
-  const status = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+  const terminalStatus = terminalJobStatus(job);
   const executionBound = Boolean(
     job.awarded_carrier_company_id
     || job.assigned_company_id
@@ -112,10 +102,10 @@ async function loadContext(client: AdminClient, userId: string, jobId: string): 
   );
 
   let reason: string | null = null;
-  if (!executionBound) {
-    reason = 'Driver instructions become available after the load has been awarded or allocated. Before award, use Edit Load to update private execution instructions.';
-  } else if (TERMINAL_STATUSES.has(status)) {
+  if (terminalStatus) {
     reason = 'This load is already closed. New Driver instructions can no longer be added.';
+  } else if (!executionBound) {
+    reason = 'Driver instructions become available after the load has been awarded or allocated. Before award, use Edit Load to update private execution instructions.';
   }
 
   return {
