@@ -19,6 +19,11 @@
 --    membership upsert failed see no bids at all.
 --    Fix: add a separate permissive policy so drivers can always SELECT bids
 --    they placed (matched by bidder_user_id OR company_id in their driver row).
+--
+-- Hosted production later converged drivers.status to public.status_enum with
+-- active/inactive/suspended only. Keep the historical rejected compatibility
+-- check text-based so this migration can replay against that canonical enum
+-- without inventing a rejected enum label.
 
 -- ── 1. Exchange load board — also let active drivers view exchange posts ───────
 
@@ -50,7 +55,7 @@ CREATE POLICY jobs_exchange_select_policy ON public.jobs
         SELECT 1
         FROM public.drivers d
         WHERE d.user_id = auth.uid()
-          AND d.status NOT IN ('suspended', 'inactive', 'rejected')
+          AND d.status::text NOT IN ('suspended', 'inactive', 'rejected')
       )
       -- standalone/self-registered drivers identified only by profile role
       -- (no row in the drivers table yet, e.g. self-signup via /register)
@@ -92,7 +97,7 @@ CREATE POLICY job_bids_exchange_insert
         FROM public.drivers d
         WHERE d.user_id = auth.uid()
           AND d.company_id = job_bids.company_id
-          AND d.status NOT IN ('suspended', 'inactive', 'rejected')
+          AND d.status::text NOT IN ('suspended', 'inactive', 'rejected')
       )
       -- standalone/self-registered driver path: no company membership yet
       OR (
