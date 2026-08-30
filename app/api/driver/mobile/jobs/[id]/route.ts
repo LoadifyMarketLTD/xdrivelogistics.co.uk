@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { loadDriverAgreedRates } from '../../../_lib/commercialRate';
+import { buildJobAuditTrail } from '../../jobAuditPresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
+import { buildSignedPodPresentations } from '../../podPresentation';
 
 type JobStopRow = {
   id: string;
@@ -27,6 +29,12 @@ type DriverInstructionRow = {
   event_time: string | null;
   created_at: string | null;
   user_name: string | null;
+};
+
+type DriverDetailRow = MobileJobRow & {
+  damage_photos?: unknown;
+  pod_generated_at?: string | null;
+  driver_notes?: string | null;
 };
 
 function mapStop(stop: JobStopRow) {
@@ -77,7 +85,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from('jobs')
-    .select(jobSelect)
+    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes`)
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -85,8 +93,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (error) return respond(500, { error: error.message });
   if (!data) return respond(404, { error: 'Job not found.' });
 
-  const row = data as unknown as MobileJobRow;
-  const [commercial, stopsResult, instructionsResult] = await Promise.all([
+  const row = data as unknown as DriverDetailRow;
+  const [commercial, stopsResult, instructionsResult, podPresentations] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
@@ -100,6 +108,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .eq('event_type', 'driver_instruction_added')
       .order('event_time', { ascending: true })
       .limit(200),
+    buildSignedPodPresentations([row], driver.companyId),
   ]);
   const agreedRate = commercial.rates.get(row.id) ?? null;
   const multiDropPartial = Boolean(stopsResult.error);
@@ -110,12 +119,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const specialInstructions = instructionsResult.error
     ? undefined
     : mapDriverInstructions((instructionsResult.data ?? []) as unknown as DriverInstructionRow[]);
+  const pod = podPresentations.get(row.id) ?? null;
 
   return respond(200, {
     job: {
       ...mapJob(row),
       stops,
       specialInstructions,
+      pod,
+      podCompleted: Boolean(pod),
+      auditTrail: buildJobAuditTrail(row),
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       // Legacy Android field retained for compatibility; assigned-job value is
