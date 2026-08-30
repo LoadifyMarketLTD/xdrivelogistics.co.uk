@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { loadDriverAgreedRates } from '../../../_lib/commercialRate';
-import { buildJobAuditTrail } from '../../jobAuditPresentation';
+import { buildSignedJobAttachments } from '../../jobAttachmentPresentation';
+import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../jobOperationalPresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
 import { buildSignedPodPresentations } from '../../podPresentation';
 
@@ -31,7 +32,7 @@ type DriverInstructionRow = {
   user_name: string | null;
 };
 
-type DriverDetailRow = MobileJobRow & {
+type DriverDetailRow = MobileJobRow & Record<string, unknown> & {
   damage_photos?: unknown;
   pod_generated_at?: string | null;
   driver_notes?: string | null;
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from('jobs')
-    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes`)
+    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!data) return respond(404, { error: 'Job not found.' });
 
   const row = data as unknown as DriverDetailRow;
-  const [commercial, stopsResult, instructionsResult, podPresentations] = await Promise.all([
+  const [commercial, stopsResult, instructionsResult] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
@@ -108,35 +109,56 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .eq('event_type', 'driver_instruction_added')
       .order('event_time', { ascending: true })
       .limit(200),
-    buildSignedPodPresentations([row], driver.companyId),
   ]);
+
+  let podPresentationPartial = false;
+  let pod: Record<string, unknown> | null = null;
+  try {
+    const podPresentations = await buildSignedPodPresentations([row], driver.companyId);
+    pod = podPresentations.get(row.id) ?? null;
+  } catch {
+    podPresentationPartial = true;
+  }
+
+  let attachmentPresentationPartial = false;
+  let attachments: Array<Record<string, unknown>> = [];
+  try {
+    const attachmentsByJob = await buildSignedJobAttachments([row]);
+    attachments = attachmentsByJob.get(row.id) ?? [];
+  } catch {
+    attachmentPresentationPartial = true;
+  }
+
   const agreedRate = commercial.rates.get(row.id) ?? null;
   const multiDropPartial = Boolean(stopsResult.error);
   const driverInstructionsPartial = Boolean(instructionsResult.error);
-  const stops = stopsResult.error
+  const operational = buildJobOperationalPresentation(row);
+  const persistentStops = stopsResult.error
     ? []
     : ((stopsResult.data ?? []) as unknown as JobStopRow[]).map(mapStop);
   const specialInstructions = instructionsResult.error
-    ? undefined
-    : mapDriverInstructions((instructionsResult.data ?? []) as unknown as DriverInstructionRow[]);
-  const pod = podPresentations.get(row.id) ?? null;
+    ? operational.specialInstructions
+    : mapDriverInstructions((instructionsResult.data ?? []) as unknown as DriverInstructionRow[]) ?? operational.specialInstructions;
 
   return respond(200, {
     job: {
       ...mapJob(row),
-      stops,
+      ...operational,
+      // Persisted multi-drop remains authoritative. Legacy two-point stops from
+      // the operational helper are used only for historical jobs with no job_stops.
+      stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
       specialInstructions,
+      attachments,
       pod,
       podCompleted: Boolean(pod),
-      auditTrail: buildJobAuditTrail(row),
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
-      // Legacy Android field retained for compatibility; assigned-job value is
-      // accepted/agreed carrier rate only, never customer budget.
       budgetAmount: agreedRate,
     },
     commercialRatePartial: commercial.partial,
     multiDropPartial,
     driverInstructionsPartial,
+    podPresentationPartial,
+    attachmentPresentationPartial,
   });
 }
