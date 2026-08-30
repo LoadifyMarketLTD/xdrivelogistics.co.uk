@@ -63,6 +63,7 @@ describe('Owner Driver remediation contract', () => {
   });
 
   test('exposes Platform Owner onboarding approval without bypassing canonical review guards', () => {
+    expect(onboardingQueueApi).toContain("from '../../_lib/supabaseAdmin'");
     expect(onboardingQueueApi).toContain("profile?.role !== 'owner'");
     expect(onboardingQueueApi).toContain(".in('status', ['submitted', 'under_review', 'request_changes'])");
     expect(onboardingQueueApi).toContain("'get_missing_onboarding_documents'");
