@@ -5,6 +5,7 @@ import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiv
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
+import OnboardingReviewQueue from './OnboardingReviewQueue';
 
 type DocumentFamily = 'driver' | 'vehicle' | 'company' | 'identity';
 
@@ -36,9 +37,7 @@ const openSecureDocument = (url: string) => {
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
-  // PR-0.5: modal for rejection (requires reason)
   const [pendingReject, setPendingReject] = useState<Row | null>(null);
-  // PR-0.5: inline error replacing window.alert
   const [inlineError, setInlineError] = useState<string | null>(null);
 
   const viewDocument = async (row: Row) => {
@@ -214,7 +213,6 @@ export default function Page() {
 
   return (
     <>
-      {/* PR-0.5: rejection confirmation modal */}
       <ActionConfirmModal
         open={pendingReject !== null}
         title="❌ Reject document"
@@ -234,7 +232,6 @@ export default function Page() {
           void updateDocument(row, 'reject', reason);
         }}
       />
-      {/* PR-0.5: inline error banner replacing window.alert */}
       {inlineError && (
         <div
           style={{
@@ -250,6 +247,7 @@ export default function Page() {
           ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
         </div>
       )}
+      <OnboardingReviewQueue onReviewed={() => setReloadToken(Date.now())} />
       <SuperAdminLiveTablePage<Row>
         icon="📁"
         title="Document Review"
