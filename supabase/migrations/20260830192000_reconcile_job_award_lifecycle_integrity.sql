@@ -3,6 +3,32 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
+-- Hosted production carries this canonical marker as BOOLEAN NOT NULL DEFAULT
+-- false. Fresh replay must reconstruct it before the historical test-only
+-- reconciliation below first references jobs.is_test.
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false;
+
+DO $$
+DECLARE
+  v_nullable text;
+  v_default text;
+BEGIN
+  SELECT c.is_nullable, c.column_default
+  INTO v_nullable, v_default
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'is_test';
+
+  IF v_nullable IS DISTINCT FROM 'NO'
+     OR v_default IS NULL
+     OR lower(v_default) NOT LIKE '%false%' THEN
+    RAISE EXCEPTION 'jobs.is_test clean-replay contract is not BOOLEAN NOT NULL DEFAULT false.';
+  END IF;
+END;
+$$;
+
 -- P0-08: historical award/assignment data must never coexist with an open,
 -- pre-award job lifecycle. Preserve the two known historical test awards as
 -- cancelled audit history rather than pretending they are still Marketplace work.
