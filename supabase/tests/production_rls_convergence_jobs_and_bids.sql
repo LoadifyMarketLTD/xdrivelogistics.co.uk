@@ -218,9 +218,11 @@ WHERE user_id IN (
   '86000000-0000-0000-0000-000000000002'
 );
 
--- The driver fixture uses the canonical driver membership role, not owner/admin.
--- This keeps the positive jobs assertion isolated to jobs_select_assigned_driver
--- instead of allowing another company-operator/non-driver path to satisfy it.
+-- The driver profile remains canonically role=driver. Use the lowest ordinary
+-- company membership accepted by the current company_role enum; non-driver job
+-- access still fails because is_company_non_driver requires profile.role <> driver.
+-- The assigned job also has no awarded carrier, so jobs_awarded_carrier_select
+-- cannot satisfy the positive assertion. This isolates jobs_select_assigned_driver.
 INSERT INTO public.company_memberships (
   company_id, user_id, role_in_company, status, updated_at
 )
@@ -228,7 +230,7 @@ VALUES
   (
     '86100000-0000-0000-0000-000000000001',
     '86000000-0000-0000-0000-000000000001',
-    'driver', 'active', now()
+    'member', 'active', now()
   ),
   (
     '86100000-0000-0000-0000-000000000002',
@@ -268,7 +270,7 @@ VALUES
     'allocated',
     '86200000-0000-0000-0000-000000000001',
     '86100000-0000-0000-0000-000000000001',
-    '86100000-0000-0000-0000-000000000001'
+    NULL
   ),
   (
     '86300000-0000-0000-0000-000000000002',
