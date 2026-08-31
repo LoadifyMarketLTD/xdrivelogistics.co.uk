@@ -1,33 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
 
 type DriverRow = { id: string; display_name: string | null; company_id: string };
 type VehicleRow = { id: string; registration: string | null; company_id: string };
 type CompanyRow = { id: string; name: string };
 
-const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
-  if (!supabaseAdmin || ids.length === 0) return new Map();
-  const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
-  return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
+const companyNameMap = async (ids: string[]) => {
+  if (!supabaseAdmin || ids.length === 0) return { map: new Map<string, string>(), error: null as string | null };
+  const { data, error } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
+  if (error) return { map: new Map<string, string>(), error: error.message };
+  return { map: new Map((data as CompanyRow[] ?? []).map((company) => [company.id, company.name])), error: null as string | null };
 };
 
 const updateDocumentSchema = z.object({
@@ -36,6 +23,14 @@ const updateDocumentSchema = z.object({
   id: z.string().uuid(),
   action: z.enum(['approve', 'reject']),
   reason: z.string().trim().max(5000).optional(),
+}).superRefine((value, ctx) => {
+  if (value.action === 'reject' && (!value.reason || value.reason.trim().length < 5)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: 'A rejection reason of at least 5 characters is required.',
+    });
+  }
 });
 
 export async function GET(request: NextRequest) {
@@ -43,14 +38,13 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
   const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
 
-  // ── Driver Documents ─────────────────────────────────────────────────────────
   if (section === 'documents' || section === 'insurance' || section === 'operator-licences') {
     const docFilter: Record<string, string[]> = {
       insurance: ['insurance', 'public_liability', 'goods_in_transit'],
@@ -71,8 +65,8 @@ export async function GET(request: NextRequest) {
       .limit(limit);
     if (vdErr) return respond(500, { error: vdErr.message });
 
-    const driverIds = Array.from(new Set((driverDocs ?? []).map((d) => d.driver_id as string).filter(Boolean)));
-    const vehicleIds = Array.from(new Set((vehicleDocs ?? []).map((d) => d.vehicle_id as string).filter(Boolean)));
+    const driverIds = Array.from(new Set((driverDocs ?? []).map((document) => document.driver_id as string).filter(Boolean)));
+    const vehicleIds = Array.from(new Set((vehicleDocs ?? []).map((document) => document.vehicle_id as string).filter(Boolean)));
 
     const [driversResult, vehiclesResult] = await Promise.all([
       driverIds.length > 0
@@ -82,68 +76,60 @@ export async function GET(request: NextRequest) {
         ? supabaseAdmin.from('vehicles').select('id, registration, company_id').in('id', vehicleIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
+    if (driversResult.error) return respond(500, { error: `Failed to resolve document drivers: ${driversResult.error.message}` });
+    if (vehiclesResult.error) return respond(500, { error: `Failed to resolve document vehicles: ${vehiclesResult.error.message}` });
 
-    const driverById = new Map<string, DriverRow>(
-      (driversResult.data as DriverRow[] ?? []).map((d) => [d.id, d]),
-    );
-    const vehicleById = new Map<string, VehicleRow>(
-      (vehiclesResult.data as VehicleRow[] ?? []).map((v) => [v.id, v]),
-    );
+    const driverById = new Map<string, DriverRow>((driversResult.data as DriverRow[] ?? []).map((driver) => [driver.id, driver]));
+    const vehicleById = new Map<string, VehicleRow>((vehiclesResult.data as VehicleRow[] ?? []).map((vehicle) => [vehicle.id, vehicle]));
 
-    const allCompanyIds = Array.from(
-      new Set([
-        ...(driversResult.data as DriverRow[] ?? []).map((d) => d.company_id),
-        ...(vehiclesResult.data as VehicleRow[] ?? []).map((v) => v.company_id),
-      ].filter(Boolean)),
-    );
-    const nameById = await companyNameMap(allCompanyIds);
+    const allCompanyIds = Array.from(new Set([
+      ...(driversResult.data as DriverRow[] ?? []).map((driver) => driver.company_id),
+      ...(vehiclesResult.data as VehicleRow[] ?? []).map((vehicle) => vehicle.company_id),
+    ].filter(Boolean)));
+    const names = await companyNameMap(allCompanyIds);
+    if (names.error) return respond(500, { error: `Failed to resolve document companies: ${names.error}` });
 
     const today = new Date().toISOString().slice(0, 10);
-
     const filterByDocType = (docType: string, types: string[]): boolean =>
-      types.some((t) => docType.toLowerCase().replace(/[^a-z0-9]/g, '').includes(t.replace(/[^a-z0-9]/g, '')));
+      types.some((type) => docType.toLowerCase().replace(/[^a-z0-9]/g, '').includes(type.replace(/[^a-z0-9]/g, '')));
 
     const driverDocRows = (driverDocs ?? [])
-      .filter((d) => {
-        if (section in docFilter) return filterByDocType(d.doc_type as string, docFilter[section]);
-        return true;
-      })
-      .map((d) => {
-        const driver = driverById.get(d.driver_id as string);
+      .filter((document) => section in docFilter ? filterByDocType(document.doc_type as string, docFilter[section]) : true)
+      .map((document) => {
+        const driver = driverById.get(document.driver_id as string);
         const companyId = driver?.company_id ?? '';
         return {
-          id: d.id,
+          id: document.id,
           entity_type: 'driver',
+          entity_id: document.driver_id,
           entity_name: driver?.display_name ?? 'Unknown Driver',
-          company_name: nameById.get(companyId) ?? 'Unknown',
-          doc_type: d.doc_type,
-          status: d.status,
-          expiry_date: d.expiry_date,
-          issued_date: d.issued_date,
-          created_at: d.created_at,
-          is_expired: d.expiry_date ? d.expiry_date < today : false,
+          company_name: names.map.get(companyId) ?? 'Unknown',
+          doc_type: document.doc_type,
+          status: document.status,
+          expiry_date: document.expiry_date,
+          issued_date: document.issued_date,
+          created_at: document.created_at,
+          is_expired: document.expiry_date ? document.expiry_date < today : false,
         };
       });
 
     const vehicleDocRows = (vehicleDocs ?? [])
-      .filter((d) => {
-        if (section in docFilter) return filterByDocType(d.doc_type as string, docFilter[section]);
-        return true;
-      })
-      .map((d) => {
-        const vehicle = vehicleById.get(d.vehicle_id as string);
+      .filter((document) => section in docFilter ? filterByDocType(document.doc_type as string, docFilter[section]) : true)
+      .map((document) => {
+        const vehicle = vehicleById.get(document.vehicle_id as string);
         const companyId = vehicle?.company_id ?? '';
         return {
-          id: d.id,
+          id: document.id,
           entity_type: 'vehicle',
+          entity_id: document.vehicle_id,
           entity_name: vehicle?.registration ?? 'Unknown Vehicle',
-          company_name: nameById.get(companyId) ?? 'Unknown',
-          doc_type: d.doc_type,
-          status: d.status,
-          expiry_date: d.expiry_date,
-          issued_date: d.issued_date,
-          created_at: d.created_at,
-          is_expired: d.expiry_date ? d.expiry_date < today : false,
+          company_name: names.map.get(companyId) ?? 'Unknown',
+          doc_type: document.doc_type,
+          status: document.status,
+          expiry_date: document.expiry_date,
+          issued_date: document.issued_date,
+          created_at: document.created_at,
+          is_expired: document.expiry_date ? document.expiry_date < today : false,
         };
       });
 
@@ -156,15 +142,14 @@ export async function GET(request: NextRequest) {
       rows,
       summary: {
         total: rows.length,
-        approved: rows.filter((r) => r.status === 'approved').length,
-        pending: rows.filter((r) => r.status === 'pending').length,
-        rejected: rows.filter((r) => r.status === 'rejected').length,
-        expired: rows.filter((r) => r.is_expired).length,
+        approved: rows.filter((row) => row.status === 'approved').length,
+        pending: rows.filter((row) => row.status === 'pending').length,
+        rejected: rows.filter((row) => row.status === 'rejected').length,
+        expired: rows.filter((row) => row.is_expired).length,
       },
     });
   }
 
-  // ── Expiry Tracking ──────────────────────────────────────────────────────────
   if (section === 'expiries') {
     const thirtyDays = new Date();
     thirtyDays.setDate(thirtyDays.getDate() + 30);
@@ -189,8 +174,8 @@ export async function GET(request: NextRequest) {
     if (ddResult.error) return respond(500, { error: ddResult.error.message });
     if (vdResult.error) return respond(500, { error: vdResult.error.message });
 
-    const driverIds = Array.from(new Set((ddResult.data ?? []).map((d) => d.driver_id as string).filter(Boolean)));
-    const vehicleIds = Array.from(new Set((vdResult.data ?? []).map((d) => d.vehicle_id as string).filter(Boolean)));
+    const driverIds = Array.from(new Set((ddResult.data ?? []).map((document) => document.driver_id as string).filter(Boolean)));
+    const vehicleIds = Array.from(new Set((vdResult.data ?? []).map((document) => document.vehicle_id as string).filter(Boolean)));
 
     const [driversResult, vehiclesResult] = await Promise.all([
       driverIds.length > 0
@@ -200,46 +185,45 @@ export async function GET(request: NextRequest) {
         ? supabaseAdmin.from('vehicles').select('id, registration, company_id').in('id', vehicleIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
+    if (driversResult.error) return respond(500, { error: `Failed to resolve expiry drivers: ${driversResult.error.message}` });
+    if (vehiclesResult.error) return respond(500, { error: `Failed to resolve expiry vehicles: ${vehiclesResult.error.message}` });
 
-    const driverById = new Map<string, DriverRow>(
-      (driversResult.data as DriverRow[] ?? []).map((d) => [d.id, d]),
-    );
-    const vehicleById = new Map<string, VehicleRow>(
-      (vehiclesResult.data as VehicleRow[] ?? []).map((v) => [v.id, v]),
-    );
+    const driverById = new Map<string, DriverRow>((driversResult.data as DriverRow[] ?? []).map((driver) => [driver.id, driver]));
+    const vehicleById = new Map<string, VehicleRow>((vehiclesResult.data as VehicleRow[] ?? []).map((vehicle) => [vehicle.id, vehicle]));
 
-    const allCompanyIds = Array.from(
-      new Set([
-        ...(driversResult.data as DriverRow[] ?? []).map((d) => d.company_id),
-        ...(vehiclesResult.data as VehicleRow[] ?? []).map((v) => v.company_id),
-      ].filter(Boolean)),
-    );
-    const nameById = await companyNameMap(allCompanyIds);
+    const allCompanyIds = Array.from(new Set([
+      ...(driversResult.data as DriverRow[] ?? []).map((driver) => driver.company_id),
+      ...(vehiclesResult.data as VehicleRow[] ?? []).map((vehicle) => vehicle.company_id),
+    ].filter(Boolean)));
+    const names = await companyNameMap(allCompanyIds);
+    if (names.error) return respond(500, { error: `Failed to resolve expiry companies: ${names.error}` });
 
-    const driverExpiries = (ddResult.data ?? []).map((d) => ({
-      id: d.id,
+    const driverExpiries = (ddResult.data ?? []).map((document) => ({
+      id: document.id,
       entity_type: 'driver',
-      entity_name: driverById.get(d.driver_id as string)?.display_name ?? 'Unknown Driver',
-      company_name: nameById.get(driverById.get(d.driver_id as string)?.company_id ?? '') ?? 'Unknown',
-      doc_type: d.doc_type,
-      status: d.status,
-      expiry_date: d.expiry_date,
-      days_until_expiry: Math.round((new Date(d.expiry_date as string).getTime() - Date.now()) / 86400000),
-      is_expired: (d.expiry_date as string) < today,
-      expires_soon: (d.expiry_date as string) <= cutoff && (d.expiry_date as string) >= today,
+      entity_id: document.driver_id,
+      entity_name: driverById.get(document.driver_id as string)?.display_name ?? 'Unknown Driver',
+      company_name: names.map.get(driverById.get(document.driver_id as string)?.company_id ?? '') ?? 'Unknown',
+      doc_type: document.doc_type,
+      status: document.status,
+      expiry_date: document.expiry_date,
+      days_until_expiry: Math.round((new Date(document.expiry_date as string).getTime() - Date.now()) / 86400000),
+      is_expired: (document.expiry_date as string) < today,
+      expires_soon: (document.expiry_date as string) <= cutoff && (document.expiry_date as string) >= today,
     }));
 
-    const vehicleExpiries = (vdResult.data ?? []).map((d) => ({
-      id: d.id,
+    const vehicleExpiries = (vdResult.data ?? []).map((document) => ({
+      id: document.id,
       entity_type: 'vehicle',
-      entity_name: vehicleById.get(d.vehicle_id as string)?.registration ?? 'Unknown Vehicle',
-      company_name: nameById.get(vehicleById.get(d.vehicle_id as string)?.company_id ?? '') ?? 'Unknown',
-      doc_type: d.doc_type,
-      status: d.status,
-      expiry_date: d.expiry_date,
-      days_until_expiry: Math.round((new Date(d.expiry_date as string).getTime() - Date.now()) / 86400000),
-      is_expired: (d.expiry_date as string) < today,
-      expires_soon: (d.expiry_date as string) <= cutoff && (d.expiry_date as string) >= today,
+      entity_id: document.vehicle_id,
+      entity_name: vehicleById.get(document.vehicle_id as string)?.registration ?? 'Unknown Vehicle',
+      company_name: names.map.get(vehicleById.get(document.vehicle_id as string)?.company_id ?? '') ?? 'Unknown',
+      doc_type: document.doc_type,
+      status: document.status,
+      expiry_date: document.expiry_date,
+      days_until_expiry: Math.round((new Date(document.expiry_date as string).getTime() - Date.now()) / 86400000),
+      is_expired: (document.expiry_date as string) < today,
+      expires_soon: (document.expiry_date as string) <= cutoff && (document.expiry_date as string) >= today,
     }));
 
     const rows = [...driverExpiries, ...vehicleExpiries]
@@ -250,9 +234,9 @@ export async function GET(request: NextRequest) {
       rows,
       summary: {
         total: rows.length,
-        expired: rows.filter((r) => r.is_expired).length,
-        expiresSoon: rows.filter((r) => r.expires_soon).length,
-        valid: rows.filter((r) => !r.is_expired && !r.expires_soon).length,
+        expired: rows.filter((row) => row.is_expired).length,
+        expiresSoon: rows.filter((row) => row.expires_soon).length,
+        valid: rows.filter((row) => !row.is_expired && !row.expires_soon).length,
       },
     });
   }
@@ -265,8 +249,8 @@ export async function PATCH(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   let body: unknown;
   try {
@@ -277,52 +261,31 @@ export async function PATCH(request: NextRequest) {
 
   const parsed = updateDocumentSchema.safeParse(body);
   if (!parsed.success) {
-    return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
+    return respond(400, {
+      error: parsed.error.issues[0]?.message ?? 'Validation failed.',
+      details: parsed.error.flatten(),
+    });
   }
 
   const { entityType, id, action, reason } = parsed.data;
-  const table = entityType === 'driver' ? 'driver_documents' : 'vehicle_documents';
-  const nextStatus = action === 'approve' ? 'approved' : 'rejected';
+  const { data, error } = await supabaseAdmin.rpc('owner_review_compliance_document', {
+    p_actor_user_id: owner.id,
+    p_document_family: entityType,
+    p_document_id: id,
+    p_action: action,
+    p_reason: reason?.trim() || null,
+  });
 
-  const { data: currentDoc, error: currentError } = await supabaseAdmin
-    .from(table)
-    .select('id, status')
-    .eq('id', id)
-    .maybeSingle();
+  if (error) {
+    if (error.code === 'P0002') return respond(404, { error: error.message });
+    if (error.code === '42501') return respond(403, { error: error.message });
+    if (error.code === '23514' || error.code === '23502' || error.code === '22P02') return respond(409, { error: error.message });
+    if (error.code === 'PGRST202' || error.code === '42883') return respond(503, { error: 'Canonical compliance review RPC is not available in this environment.' });
+    return respond(500, { error: error.message });
+  }
 
-  if (currentError) return respond(500, { error: currentError.message });
-  if (!currentDoc) return respond(404, { error: 'Document not found.' });
+  const review = Array.isArray(data) ? data[0] ?? null : data;
+  if (!review) return respond(500, { error: 'Compliance review returned no authoritative result.' });
 
-  const payload: Record<string, unknown> = {
-    status: nextStatus,
-    verified_by: owner.id,
-    verified_at: new Date().toISOString(),
-    rejection_reason: action === 'reject' ? reason?.trim() || 'Rejected by super-admin compliance review.' : null,
-  };
-
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from(table)
-    .update(payload)
-    .eq('id', id)
-    .select('id, status, rejection_reason, verified_at, verified_by')
-    .maybeSingle();
-
-  if (updateError) return respond(500, { error: updateError.message });
-
-  await supabaseAdmin
-    .from('owner_audit_log')
-    .insert({
-      actor_user_id: owner.id,
-      target_type: `${entityType}_document`,
-      target_company_id: null,
-      action_type: action === 'approve' ? 'document_approved' : 'document_rejected',
-      old_status: currentDoc.status ?? null,
-      new_status: nextStatus,
-      reason: reason?.trim() || `${entityType} document ${id} ${nextStatus} by super-admin compliance.`,
-      metadata: { document_id: id, entity_type: entityType },
-    })
-    .select('id')
-    .maybeSingle();
-
-  return respond(200, { document: updated, entityType });
+  return respond(200, { review, entityType, action });
 }
