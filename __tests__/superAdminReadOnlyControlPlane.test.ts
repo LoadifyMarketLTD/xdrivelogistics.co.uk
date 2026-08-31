@@ -43,4 +43,11 @@ describe('Super Admin read-only control-plane promotion', () => {
     expect(shell).toContain('actionCentreAvailable');
     expect(shell).toContain('disabled={!actionCentreAvailable}');
   });
+
+  test('read-only inspect and copy links retain the approved light control styling', () => {
+    const hardening = read('app/super-admin/super-admin-light-hardening.css');
+    expect(hardening).toContain('.super-admin-light-root .sa-button');
+    expect(hardening).toContain('border: 1px solid #D9E1EA');
+    expect(hardening).toContain('color: #1D57D8');
+  });
 });
