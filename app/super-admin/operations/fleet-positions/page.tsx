@@ -42,6 +42,9 @@ export default function Page() {
       description="Live GPS positions for all drivers with active location data."
       endpoint="/api/super-admin/operations?section=fleet-positions&limit=500"
       emptyMessage="No driver positions recorded yet."
+      entityLink={(row) => row.driver_id
+        ? { entityType: 'driver', entityId: row.driver_id, label: 'Driver Inspector' }
+        : null}
       columns={[
         {
           key: 'driver_name',
