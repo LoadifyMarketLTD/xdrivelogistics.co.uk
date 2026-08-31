@@ -12,6 +12,12 @@ const runtimeProof = fs.readFileSync(
 );
 
 describe('job award lifecycle integrity', () => {
+  it('reconstructs the hosted canonical jobs test marker before first use', () => {
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false');
+    expect(migration).toContain("c.column_name = 'is_test'");
+    expect(migration).toContain('jobs.is_test clean-replay contract is not BOOLEAN NOT NULL DEFAULT false.');
+  });
+
   it('reconciles only historical marked test jobs with impossible posted+award state', () => {
     expect(migration).toContain('COALESCE(j.is_test, false) = true');
     expect(migration).toContain("SET status = 'cancelled'");
