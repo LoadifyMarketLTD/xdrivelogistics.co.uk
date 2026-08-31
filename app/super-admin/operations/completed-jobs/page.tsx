@@ -25,6 +25,7 @@ export default function Page() {
       description="Jobs that have been delivered, invoiced, or paid."
       endpoint="/api/super-admin/operations?section=completed-jobs&limit=250"
       emptyMessage="No completed jobs found."
+      entityLink={(row) => ({ entityType: 'job', entityId: row.id, label: 'Inspect job' })}
       columns={[
         {
           key: 'route',
