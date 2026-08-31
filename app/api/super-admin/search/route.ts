@@ -31,8 +31,6 @@ type PlatformSearchResult = {
   status?: string | null;
 };
 
-type QueryResult<T> = { data: T[] | null; error: { code?: string; message: string } | null };
-
 const normalizeTerm = (value: string) =>
   value
     .trim()

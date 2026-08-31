@@ -8,9 +8,10 @@ import { PlatformEntityLink, type PlatformEntityType } from './_components/contr
 import { getAuthHeader } from './_lib/getAuthHeader';
 
 type Severity = 'critical' | 'warning' | 'caution' | 'ok' | 'unknown';
-type AttentionIndicator =
-  | { count: number | null; label: string; severity: Severity; note?: string }
-  | { amountGbp: number; label: string; severity: Severity; invoiceCount?: number; amountPartial?: boolean };
+type AttentionIndicator = { label: string; severity: Severity; note?: string } & (
+  | { count: number | null }
+  | { amountGbp: number; invoiceCount?: number; amountPartial?: boolean }
+);
 type AttentionIndicators = { p0p1Incidents: AttentionIndicator; jobsAtRisk: AttentionIndicator; blockedAccounts: AttentionIndicator; financialExposure: AttentionIndicator; degradedServices: AttentionIndicator; };
 type ActionQueueItem = { id: string; type: string; severity: 'P0' | 'P1' | 'P2'; title: string; description: string; entityType: string; entityId: string; entityName: string; detectedAt: string; ageMinutes: number; href: string; };
 type ActionQueue = { derived: boolean; queueNote?: string; total: number; p0: number; p1: number; p2: number; items: ActionQueueItem[]; };
