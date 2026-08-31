@@ -3,28 +3,45 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
--- Hosted production carries this canonical marker as BOOLEAN NOT NULL DEFAULT
--- false. Fresh replay must reconstruct it before the historical test-only
--- reconciliation below first references jobs.is_test.
+-- Hosted production carries these job audit markers but the clean migration
+-- chain omitted them before P0-08 first use. Reconstruct only the observed
+-- physical contracts needed by this reconciliation.
 ALTER TABLE public.jobs
-  ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS cancellation_reason text;
 
 DO $$
 DECLARE
-  v_nullable text;
-  v_default text;
+  v_is_test_nullable text;
+  v_is_test_default text;
+  v_cancel_type text;
+  v_cancel_nullable text;
+  v_cancel_default text;
 BEGIN
   SELECT c.is_nullable, c.column_default
-  INTO v_nullable, v_default
+  INTO v_is_test_nullable, v_is_test_default
   FROM information_schema.columns c
   WHERE c.table_schema = 'public'
     AND c.table_name = 'jobs'
     AND c.column_name = 'is_test';
 
-  IF v_nullable IS DISTINCT FROM 'NO'
-     OR v_default IS NULL
-     OR lower(v_default) NOT LIKE '%false%' THEN
+  IF v_is_test_nullable IS DISTINCT FROM 'NO'
+     OR v_is_test_default IS NULL
+     OR lower(v_is_test_default) NOT LIKE '%false%' THEN
     RAISE EXCEPTION 'jobs.is_test clean-replay contract is not BOOLEAN NOT NULL DEFAULT false.';
+  END IF;
+
+  SELECT c.data_type, c.is_nullable, c.column_default
+  INTO v_cancel_type, v_cancel_nullable, v_cancel_default
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'cancellation_reason';
+
+  IF v_cancel_type IS DISTINCT FROM 'text'
+     OR v_cancel_nullable IS DISTINCT FROM 'YES'
+     OR v_cancel_default IS NOT NULL THEN
+    RAISE EXCEPTION 'jobs.cancellation_reason clean-replay contract is not nullable TEXT without a default.';
   END IF;
 END;
 $$;
