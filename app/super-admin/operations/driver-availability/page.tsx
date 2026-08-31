@@ -27,6 +27,7 @@ export default function Page() {
       description="Real-time availability status for all registered drivers."
       endpoint="/api/super-admin/operations?section=driver-availability&limit=500"
       emptyMessage="No drivers found."
+      entityLink={(row) => ({ entityType: 'driver', entityId: row.id, label: 'Driver Inspector' })}
       columns={[
         {
           key: 'name',
