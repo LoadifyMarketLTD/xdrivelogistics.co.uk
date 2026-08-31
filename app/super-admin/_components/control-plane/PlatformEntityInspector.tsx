@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import Company360Panel from './Company360Panel';
 import type { PlatformEntitySection, PlatformEntityType } from './types';
 
 const toneColor = {
@@ -78,6 +79,8 @@ export default function PlatformEntityInspector({
       </header>
 
       {banner ? <div style={{ marginBottom: 14 }}>{banner}</div> : null}
+
+      {entityType === 'company' && stableId ? <Company360Panel companyId={stableId} /> : null}
 
       <section style={{ marginBottom: 14, padding: 14, border: '1px solid #dfe6ef', borderRadius: 15, background: '#fff', boxShadow: '0 7px 22px rgba(8,42,97,.035)' }}>
         <div style={{ marginBottom: 11 }}>
