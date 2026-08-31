@@ -51,7 +51,11 @@ export async function GET(request: NextRequest) {
   // Normal runtime may close a durable request once the canonical requirement set is complete.
   // Deploy Preview is strictly read-only, so even this housekeeping write must fail closed there.
   if (missingDocuments.length === 0 && !isDeployPreviewReadOnly()) {
-    await supabaseAdmin.rpc('resolve_completed_document_requests', { p_application_id: application.id }).catch(() => null);
+    try {
+      await supabaseAdmin.rpc('resolve_completed_document_requests', { p_application_id: application.id });
+    } catch {
+      // Housekeeping is best-effort and must never block the read-only checklist response.
+    }
   }
 
   return json(200, {
