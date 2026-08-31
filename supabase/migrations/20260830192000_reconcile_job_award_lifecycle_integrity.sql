@@ -29,6 +29,34 @@ BEGIN
 END;
 $$;
 
+-- Hosted production still carries an empty legacy proof_of_delivery table, but
+-- the canonical repository/runtime no longer reconstructs or writes that table.
+-- Preserve the historical safety check only where the legacy table exists,
+-- without recreating retired schema solely to make this migration parse.
+CREATE OR REPLACE FUNCTION public.p0_proof_of_delivery_dependency_exists(p_job_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_exists boolean := false;
+BEGIN
+  IF to_regclass('public.proof_of_delivery') IS NULL THEN
+    RETURN false;
+  END IF;
+
+  EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.proof_of_delivery p WHERE p.job_id = $1)'
+    INTO v_exists
+    USING p_job_id;
+
+  RETURN COALESCE(v_exists, false);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.p0_proof_of_delivery_dependency_exists(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p0_proof_of_delivery_dependency_exists(uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.p0_proof_of_delivery_dependency_exists(uuid) FROM authenticated;
+
 -- P0-08: historical award/assignment data must never coexist with an open,
 -- pre-award job lifecycle. Preserve the two known historical test awards as
 -- cancelled audit history rather than pretending they are still Marketplace work.
@@ -57,7 +85,7 @@ WITH reconciled AS (
     AND j.assigned_driver_id IS NOT NULL
     AND j.pickup_datetime < now()
     AND NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.job_id = j.id)
-    AND NOT EXISTS (SELECT 1 FROM public.proof_of_delivery p WHERE p.job_id = j.id)
+    AND NOT public.p0_proof_of_delivery_dependency_exists(j.id)
   RETURNING j.id, j.created_by
 )
 INSERT INTO public.job_tracking_events (
@@ -77,6 +105,8 @@ SELECT
     'migration', '20260830192000_reconcile_job_award_lifecycle_integrity'
   )
 FROM reconciled r;
+
+DROP FUNCTION IF EXISTS public.p0_proof_of_delivery_dependency_exists(uuid);
 
 -- Database invariant: award/assignment authority cannot exist while the job is
 -- still in a pre-award/open lifecycle. Direct invites use direct_invite_company_id
