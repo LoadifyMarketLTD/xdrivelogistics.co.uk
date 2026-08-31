@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS public.invoices (
   amount              numeric     NOT NULL DEFAULT 0,
   net_amount          numeric     NOT NULL DEFAULT 0,
   vat_amount          numeric     NOT NULL DEFAULT 0,
-  vat_rate            smallint    NOT NULL DEFAULT 0 CHECK (vat_rate IN (0, 5, 20)),
+  vat_rate            numeric(5,2) NOT NULL DEFAULT 0 CHECK (vat_rate IN (0, 5, 20)),
   currency            text        NOT NULL DEFAULT 'GBP',
   payment_terms       text        NOT NULL DEFAULT '14 days',
   late_fee            text,
@@ -111,7 +111,7 @@ GROUP BY j.company_id;
 -- Returns the next invoice number for a company in the format
 -- INV-YYYYMM-NNN (three-digit zero-padded counter per month).
 -- An advisory lock on the company UUID prevents duplicate numbers
--- when multiple invoices are created concurrently.
+-- when multiple invoices are generated concurrently.
 CREATE OR REPLACE FUNCTION public.next_invoice_number(p_company_id uuid)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -150,5 +150,4 @@ BEGIN
       ADD CONSTRAINT invoices_company_invoice_number_unique
       UNIQUE (company_id, invoice_number);
   END IF;
-END;
-$$;
+END$$;
