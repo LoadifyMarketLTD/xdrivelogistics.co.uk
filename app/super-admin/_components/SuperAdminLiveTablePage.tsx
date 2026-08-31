@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { PlatformEntityLink, type PlatformEntityType } from './control-plane';
 import { getAuthHeader } from '../_lib/getAuthHeader';
 
 export type TableColumn<T extends Record<string, unknown>> = {
@@ -11,6 +12,11 @@ export type TableColumn<T extends Record<string, unknown>> = {
 };
 
 export type LiveTableNotice = { kind: 'note' | 'diagnostic'; message: string };
+export type LiveTableEntityLink<T extends Record<string, unknown>> = (row: T) => {
+  entityType: PlatformEntityType;
+  entityId: string;
+  label?: string;
+} | null;
 
 type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   icon: string;
@@ -26,6 +32,7 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   emptyMessage: string;
   pageSize?: number;
   refreshKey?: number;
+  entityLink?: LiveTableEntityLink<T>;
 };
 
 const X = {
@@ -50,12 +57,12 @@ type SuperAdminLiveTableViewProps<T extends Record<string, unknown>> = {
   icon: string; title: string; sectionLabel: string; description: string; columns: TableColumn<T>[];
   emptyMessage: string; loading: boolean; error: string | null; notices: LiveTableNotice[];
   summary: Record<string, unknown> | null; rows: T[]; page: number; hasNextPage: boolean; totalCount: number | null;
-  onPrevPage: () => void; onNextPage: () => void;
+  onPrevPage: () => void; onNextPage: () => void; entityLink?: LiveTableEntityLink<T>;
 };
 
 export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
   icon, title, sectionLabel, description, columns, emptyMessage, loading, error, notices,
-  summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage,
+  summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage, entityLink,
 }: SuperAdminLiveTableViewProps<T>) {
   const stableColumns = useMemo(() => columns, [columns]);
   return <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
@@ -78,8 +85,8 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
     {!loading && !error && notices.map((notice, index) => <div key={`${notice.kind}-${index}`} style={{ marginBottom: '12px', border: `1px solid ${notice.kind === 'diagnostic' ? '#F0D293' : '#B9CFF4'}`, borderLeft: `4px solid ${notice.kind === 'diagnostic' ? X.orange : X.blue}`, borderRadius: '4px', background: X.white, padding: '9px 12px', color: X.charcoal, fontSize: '11px' }}>{notice.message}</div>)}
 
     {summary && !loading && !error && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '12px', marginBottom: '12px' }}>
-      {Object.entries(summary).slice(0, 6).map(([key, value]) => <div key={key} style={{ minHeight: '88px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}>
-        <div style={{ color: X.navy, fontSize: '20px', lineHeight: 1.05, fontWeight: 800 }}>{formatSummaryValue(key, value)}</div>
+      {Object.entries(summary).slice(0, 6).map(([key, summaryValue]) => <div key={key} style={{ minHeight: '88px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}>
+        <div style={{ color: X.navy, fontSize: '20px', lineHeight: 1.05, fontWeight: 800 }}>{formatSummaryValue(key, summaryValue)}</div>
         <div style={{ marginTop: '8px', color: X.charcoal, fontSize: '11px', fontWeight: 700 }}>{key.replace(/_/g, ' ')}</div>
       </div>)}
     </div>}
@@ -89,10 +96,15 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '880px', fontSize: '12px' }}>
           <thead><tr style={{ height: '38px', background: X.light, borderBottom: `1px solid ${X.border}` }}>
             {stableColumns.map(column => <th key={column.key} style={{ padding: '0 12px', textAlign: 'left', color: X.navy, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>{column.label}</th>)}
+            {entityLink ? <th style={{ padding: '0 12px', textAlign: 'right', color: X.navy, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>Inspect</th> : null}
           </tr></thead>
-          <tbody>{rows.map((row, rowIndex) => <tr key={String((row as { id?: string }).id ?? rowIndex)} style={{ minHeight: '44px', borderBottom: `1px solid ${X.border}` }}>
-            {stableColumns.map(column => <td key={column.key} style={{ padding: '9px 12px', color: X.charcoal, verticalAlign: 'top' }}>{column.render(row)}</td>)}
-          </tr>)}</tbody>
+          <tbody>{rows.map((row, rowIndex) => {
+            const target = entityLink?.(row) ?? null;
+            return <tr key={String((row as { id?: string }).id ?? rowIndex)} style={{ minHeight: '44px', borderBottom: `1px solid ${X.border}` }}>
+              {stableColumns.map(column => <td key={column.key} style={{ padding: '9px 12px', color: X.charcoal, verticalAlign: 'top' }}>{column.render(row)}</td>)}
+              {entityLink ? <td style={{ padding: '9px 12px', textAlign: 'right', verticalAlign: 'top' }}>{target ? <PlatformEntityLink entityType={target.entityType} entityId={target.entityId} compact>{target.label ?? 'Inspect'}</PlatformEntityLink> : <span style={{ color: X.muted, fontSize: '10px' }}>Unavailable</span>}</td> : null}
+            </tr>;
+          })}</tbody>
         </table>
       </div>}
 
@@ -107,19 +119,19 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
   </div>;
 }
 
-function formatSummaryValue(key: string, value: unknown) {
-  if (typeof value !== 'number') return String(value ?? '—');
+function formatSummaryValue(key: string, summaryValue: unknown) {
+  if (typeof summaryValue !== 'number') return String(summaryValue ?? '—');
   const lower = key.toLowerCase();
-  if (lower.includes('amount') || lower.includes('revenue') || lower.includes('vat') || lower.includes('net')) return `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  if (lower.includes('rate')) return `${value}%`;
-  return value.toLocaleString();
+  if (lower.includes('amount') || lower.includes('revenue') || lower.includes('vat') || lower.includes('net')) return `£${summaryValue.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (lower.includes('rate')) return `${summaryValue}%`;
+  return summaryValue.toLocaleString();
 }
 
 const pagerButton = (disabled: boolean) => ({ height: '32px', padding: '0 10px', borderRadius: '4px', border: `1px solid ${X.border}`, background: disabled ? X.light : X.white, color: disabled ? '#9CA3AF' : X.navy, fontSize: '11px', fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer' } as const);
 
 export default function SuperAdminLiveTablePage<T extends Record<string, unknown>>({
   icon, title, sectionLabel, description, endpoint, rowsField = 'rows', summaryField, noteField,
-  diagnosticField, columns, emptyMessage, pageSize = 50, refreshKey = 0,
+  diagnosticField, columns, emptyMessage, pageSize = 50, refreshKey = 0, entityLink,
 }: SuperAdminLiveTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
@@ -146,8 +158,8 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         setHasNextPage(Boolean(pagination?.hasNextPage ?? false));
         setTotalCount(typeof pagination?.total === 'number' ? pagination.total : null);
         if (summaryField) {
-          const value = (body as Record<string, unknown>)[summaryField];
-          setSummary(value && typeof value === 'object' ? value as Record<string, unknown> : null);
+          const summaryValue = (body as Record<string, unknown>)[summaryField];
+          setSummary(summaryValue && typeof summaryValue === 'object' ? summaryValue as Record<string, unknown> : null);
         }
         setNotices(readLiveTableNotices(body as Record<string, unknown>, noteField, diagnosticField));
       } catch { setError('The requested service is currently unavailable.'); }
@@ -159,7 +171,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   return <ProtectedRoute allowedRoles={['owner']}><SuperAdminLiveTableView
     icon={icon} title={title} sectionLabel={sectionLabel} description={description} columns={columns}
     emptyMessage={emptyMessage} loading={loading} error={error} notices={notices} summary={summary} rows={rows}
-    page={page} hasNextPage={hasNextPage} totalCount={totalCount}
+    page={page} hasNextPage={hasNextPage} totalCount={totalCount} entityLink={entityLink}
     onPrevPage={() => setPage(p => Math.max(1, p - 1))} onNextPage={() => setPage(p => p + 1)}
   /></ProtectedRoute>;
 }
