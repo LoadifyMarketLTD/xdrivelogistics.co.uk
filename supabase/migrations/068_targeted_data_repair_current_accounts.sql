@@ -32,6 +32,16 @@ CREATE TABLE IF NOT EXISTS public.migration_068_company_snapshot (
   created_by uuid
 );
 
+-- These tables are one-off migration audit snapshots, not application API
+-- resources. Fresh replay must fail closed even though the historical repair
+-- role itself still needs to populate them inside this migration.
+ALTER TABLE public.migration_068_profile_snapshot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.migration_068_membership_snapshot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.migration_068_company_snapshot ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.migration_068_profile_snapshot FROM anon, authenticated;
+REVOKE ALL ON public.migration_068_membership_snapshot FROM anon, authenticated;
+REVOKE ALL ON public.migration_068_company_snapshot FROM anon, authenticated;
+
 INSERT INTO public.migration_068_profile_snapshot (user_id, role, company_id, is_driver)
 SELECT p.user_id, p.role, p.company_id, p.is_driver
 FROM public.profiles p
