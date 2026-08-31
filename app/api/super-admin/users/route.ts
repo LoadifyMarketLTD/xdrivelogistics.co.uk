@@ -1,24 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
 
 const SUPPORTED_ROLES = ['driver', 'owner', 'customer', 'dispatcher', 'platform_admin', 'company_admin'] as const;
 const UNSUPPORTED_ROLE_FILTERS = ['broker'] as const;
@@ -169,8 +155,8 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const roleParam = (searchParams.get('role') ?? '').toLowerCase() as RoleFilter;
@@ -191,7 +177,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Driver identity data is canonical on public.drivers in Production.
     if (roleParam === 'driver') {
       const { data: drivers, error: driversErr, count } = await supabaseAdmin
         .from('drivers')
@@ -239,7 +224,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Platform administrators are owner profiles; email remains authoritative in Supabase Auth.
     if (roleParam === 'platform_admin') {
       const { data: profiles, error: profilesErr, count } = await supabaseAdmin
         .from('profiles')
@@ -278,7 +262,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Company owners are company membership owners.
     if (roleParam === 'owner') {
       return fetchMembershipUsers({
         membershipRoles: ['owner'],
@@ -289,7 +272,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Customer is an application/profile role, not a company membership role.
     if (roleParam === 'customer') {
       const { data: profiles, error: profilesErr, count } = await supabaseAdmin
         .from('profiles')
@@ -339,7 +321,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Dispatcher remains a company membership role. Production constraint repair is separate.
     if (roleParam === 'dispatcher') {
       return fetchMembershipUsers({
         membershipRoles: ['dispatcher'],
@@ -350,7 +331,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // company_admin application surface maps to owner/admin memberships.
     if (roleParam === 'company_admin') {
       return fetchMembershipUsers({
         membershipRoles: ['owner', 'admin'],
@@ -361,7 +341,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // All-users summary is profile-authoritative for application roles.
     const [driversRes, profilesRes] = await Promise.all([
       supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
       supabaseAdmin
