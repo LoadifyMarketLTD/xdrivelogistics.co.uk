@@ -47,8 +47,7 @@ export default function Page() {
     try {
       const auth = await getAuthHeader();
       if (!auth) { setError('No active Platform Owner session.'); return; }
-      const params = new URLSearchParams({ limit: '100' });
-      if (status !== 'all' && status !== 'active') params.set('status', status);
+      const params = new URLSearchParams({ limit: '100', status });
       if (severity !== 'ALL') params.set('severity', severity);
       if (assignee !== 'all') params.set('assignee', assignee);
       const res = await fetch(`/api/super-admin/cases?${params.toString()}`, { headers: { Authorization: auth } });
@@ -56,7 +55,7 @@ export default function Page() {
       if (!res.ok) { setError(body.error ?? 'Platform Case Centre is unavailable.'); return; }
       if (body.available === false) { setCases([]); setNote(body.note ?? 'Platform Case Centre schema is unavailable.'); return; }
       const rows = body.rows ?? [];
-      const normalized = rows.map((row): PlatformCaseSummary => ({
+      setCases(rows.map((row): PlatformCaseSummary => ({
         id: row.id,
         reference: row.reference,
         title: row.title,
@@ -69,8 +68,7 @@ export default function Page() {
         assignedToLabel: row.assigned_to_label,
         detectedAt: row.detected_at,
         updatedAt: row.updated_at,
-      }));
-      setCases(status === 'active' ? normalized.filter((item) => !['resolved', 'closed'].includes(item.status)) : normalized);
+      })));
     } catch {
       setError('Platform Case Centre is unavailable.');
     } finally {
