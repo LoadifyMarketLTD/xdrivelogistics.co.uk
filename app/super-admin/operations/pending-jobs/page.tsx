@@ -25,6 +25,7 @@ export default function Page() {
       description="Jobs awaiting carrier acceptance — posted, quoted, or awarded."
       endpoint="/api/super-admin/operations?section=pending-jobs&limit=250"
       emptyMessage="No pending jobs found."
+      entityLink={(row) => ({ entityType: 'job', entityId: row.id, label: 'Inspect job' })}
       columns={[
         {
           key: 'route',
