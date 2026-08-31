@@ -1,6 +1,7 @@
 export type NotificationEventBaseRow = {
   id: string;
   event_type: string;
+  entity_type: string | null;
   entity_id: string;
   recipient_user_id: string | null;
   payload: Record<string, unknown> | null;
@@ -32,6 +33,7 @@ export function normalizeBaseRow(row: NotificationEventBaseRow): NotificationEve
   return {
     id: row.id,
     event_type: row.event_type,
+    entity_type: row.entity_type,
     entity_id: row.entity_id,
     recipient_user_id: row.recipient_user_id,
     payload: row.payload,
@@ -48,6 +50,7 @@ export function normalizeDurabilityRow(row: NotificationEventDurabilityRow): Not
   return {
     id: row.id,
     event_type: row.event_type,
+    entity_type: row.entity_type,
     entity_id: row.entity_id,
     recipient_user_id: row.recipient_user_id,
     payload: row.payload,
