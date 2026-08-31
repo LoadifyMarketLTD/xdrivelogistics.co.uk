@@ -7,11 +7,6 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
 
-const X = {
-  navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF',
-  charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626',
-} as const;
-
 interface SuperAdminModulePageProps { title: string; description: string; section: string; icon?: string; children?: ReactNode; }
 type PlatformStats = { companiesTotal: number; companiesActive: number; jobsTotal: number; jobsOpen: number; driversTotal: number; invoicesUnpaid: number; };
 type JobPreviewRow = { id: string; status: string; posting_company_name: string; pickup_location: string | null; pickup_postcode: string | null; delivery_location: string | null; delivery_postcode: string | null; created_at: string; bids_count: number; };
@@ -53,42 +48,42 @@ export default function SuperAdminModulePage({ title, description, section, icon
   ];
 
   return <ProtectedRoute allowedRoles={['owner']}>
-    <div style={{ minHeight: '100vh', background: X.light, padding: '12px', color: X.charcoal }}>
-      <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-        <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '4px', background: X.navy, color: X.white, display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: 800 }}>{icon}</span>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '20px', lineHeight: 1.2, fontWeight: 800, color: X.navy, margin: 0 }}>{title}</h1>
-            <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', color: X.blue, background: '#EEF4FF', padding: '3px 6px', borderRadius: '4px' }}>{section}</span>
+    <div className="sa-page">
+      <header className="sa-page-header">
+        <div className="sa-heading-row">
+          <span aria-hidden="true" className="sa-page-icon">{icon}</span>
+          <div className="sa-page-heading">
+            <div className="sa-eyebrow">Platform control plane <span className="sa-section-pill">{section}</span></div>
+            <h1 className="sa-page-title">{title}</h1>
+            <p className="sa-page-description">{description}</p>
           </div>
-          <p style={{ color: X.muted, margin: '4px 0 0', fontSize: '12px' }}>{description}</p>
         </div>
       </header>
 
       {children ?? <>
-        {dataError && <div role="alert" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px', color: X.danger, fontSize: '12px' }}>{dataError}</div>}
+        {dataError && <div role="alert" className="sa-notice" data-tone="danger">{dataError}</div>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '12px', marginBottom: '12px' }}>
-          {metrics.map(([label, value]) => <div key={String(label)} style={{ minHeight: '88px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}>
-            <div style={{ color: X.navy, fontSize: '22px', lineHeight: 1.05, fontWeight: 800 }}>{loading ? '—' : value}</div>
-            <div style={{ marginTop: '8px', color: X.charcoal, fontSize: '11px', fontWeight: 700 }}>{label}</div>
+        <div className="sa-metric-grid">
+          {metrics.map(([label, value]) => <div key={String(label)} className="sa-metric-card">
+            <div className="sa-metric-value">{loading ? '—' : value}</div>
+            <div className="sa-metric-label">{label}</div>
           </div>)}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1fr)', gap: '12px' }}>
-          <PreviewPanel title="Recent platform jobs" loading={loading} empty={jobsPreview.length === 0}>
-            {jobsPreview.map(job => <div key={job.id} style={rowStyle}>
-              <div style={{ color: X.navy, fontWeight: 800, fontSize: '12px' }}>{routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}</div>
-              <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{job.posting_company_name} · {job.status} · bids {job.bids_count}</div>
-              <div style={{ color: X.muted, fontSize: '10px', marginTop: '2px' }}>{formatDateTime(job.created_at)}</div>
+        <div className="sa-two-column">
+          <PreviewPanel title="Recent platform jobs" subtitle="Latest canonical work across the network" loading={loading} empty={jobsPreview.length === 0}>
+            {jobsPreview.map(job => <div key={job.id} className="sa-preview-row">
+              <div className="sa-preview-row-title">{routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}</div>
+              <div className="sa-preview-row-meta">{job.posting_company_name} · {job.status} · {job.bids_count} bids</div>
+              <div className="sa-preview-row-time">{formatDateTime(job.created_at)}</div>
             </div>)}
           </PreviewPanel>
 
-          <PreviewPanel title="Recent quote requests" loading={loading} empty={quotesPreview.length === 0}>
-            {quotesPreview.map(quote => <div key={quote.id} style={rowStyle}>
-              <div style={{ color: X.navy, fontWeight: 800, fontSize: '12px' }}>{quote.company_name} · {quote.status}</div>
-              <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}</div>
-              <div style={{ color: X.muted, fontSize: '10px', marginTop: '2px' }}>{quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}</div>
+          <PreviewPanel title="Recent quote requests" subtitle="Commercial activity requiring awareness" loading={loading} empty={quotesPreview.length === 0}>
+            {quotesPreview.map(quote => <div key={quote.id} className="sa-preview-row">
+              <div className="sa-preview-row-title">{quote.company_name} · {quote.status}</div>
+              <div className="sa-preview-row-meta">{quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}</div>
+              <div className="sa-preview-row-time">{quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}</div>
             </div>)}
           </PreviewPanel>
         </div>
@@ -97,16 +92,16 @@ export default function SuperAdminModulePage({ title, description, section, icon
   </ProtectedRoute>;
 }
 
-const rowStyle = { minHeight: '44px', padding: '9px 12px', borderBottom: `1px solid ${X.border}`, background: X.white } as const;
-
-function PreviewPanel({ title, loading, empty, children }: { title: string; loading: boolean; empty: boolean; children: ReactNode }) {
-  return <section style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, overflow: 'hidden' }}>
-    <div style={{ height: '40px', padding: '0 12px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${X.border}`, color: X.navy, fontSize: '13px', fontWeight: 800 }}>{title}</div>
-    {loading ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>Loading…</div> : empty ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>No records found.</div> : children}
+function PreviewPanel({ title, subtitle, loading, empty, children }: { title: string; subtitle: string; loading: boolean; empty: boolean; children: ReactNode }) {
+  return <section className="sa-panel">
+    <div className="sa-panel-header">
+      <div><h2 className="sa-panel-title">{title}</h2><p className="sa-panel-subtitle">{subtitle}</p></div>
+    </div>
+    {loading ? <div className="sa-loading">Loading…</div> : empty ? <div className="sa-empty">No records found.</div> : children}
   </section>;
 }
 
 export function BackToSuperAdminButton() {
   const router = useRouter();
-  return <button onClick={() => router.push('/super-admin')} style={{ height: '32px', padding: '0 12px', background: X.blue, color: X.white, border: `1px solid ${X.blue}`, borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>← Back to Dashboard</button>;
+  return <button onClick={() => router.push('/super-admin')} className="sa-button" data-variant="primary">← Back to Command Centre</button>;
 }
