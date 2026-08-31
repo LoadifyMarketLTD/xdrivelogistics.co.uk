@@ -82,6 +82,8 @@ describe('Storage object-path RLS repair', () => {
   it('proves real authenticated RLS visibility with rollback-only synthetic identities', () => {
     expect(runtimeProof).toContain('SAVEPOINT p0_06_storage_fixture');
     expect(runtimeProof).toContain('INSERT INTO auth.users');
+    expect(runtimeProof).toContain('INSERT INTO public.company_memberships');
+    expect(runtimeProof).toContain("'viewer'::public.company_role");
     expect(runtimeProof).toContain('INSERT INTO public.platform_identity_registry');
     expect(runtimeProof).toContain('INSERT INTO public.drivers');
     expect(runtimeProof).toContain('INSERT INTO public.vehicles');
