@@ -2,13 +2,6 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { PlatformEntityType } from './types';
 
-const X = {
-  blue: '#1D57D8',
-  navy: '#0B2F6B',
-  border: '#D9E1EA',
-  white: '#FFFFFF',
-} as const;
-
 export function platformEntityHref(entityType: PlatformEntityType, entityId: string) {
   return `/super-admin/inspect/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`;
 }
@@ -29,25 +22,12 @@ export default function PlatformEntityLink({
   return (
     <Link
       href={href ?? platformEntityHref(entityType, entityId)}
-      style={{
-        minHeight: compact ? '28px' : '32px',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '5px',
-        padding: compact ? '0 7px' : '0 9px',
-        border: `1px solid ${X.border}`,
-        borderRadius: '4px',
-        background: X.white,
-        color: X.blue,
-        fontSize: compact ? '10px' : '11px',
-        fontWeight: 800,
-        textDecoration: 'none',
-        whiteSpace: 'nowrap',
-      }}
+      className="sa-button"
+      style={{ minHeight: compact ? 28 : 32, padding: compact ? '0 8px' : '0 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}
       aria-label={`Inspect ${entityType}`}
     >
       <span>{children}</span>
-      <span aria-hidden="true" style={{ color: X.navy }}>→</span>
+      <span aria-hidden="true">→</span>
     </Link>
   );
 }
