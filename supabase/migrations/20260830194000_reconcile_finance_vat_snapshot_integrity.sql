@@ -3,6 +3,49 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
+-- Hosted production carries three duplicate display/snapshot money fields that
+-- fresh history omitted, and stores invoice VAT rate as NUMERIC(5,2) rather
+-- than the legacy SMALLINT created by migration 014. P0-09 owns these fields,
+-- so reconstruct the exact observed finance contract before first reference.
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS subtotal numeric(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total numeric(12,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS agreed_gross_amount numeric(12,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.invoices
+  ALTER COLUMN vat_rate TYPE numeric(5,2) USING vat_rate::numeric(5,2),
+  ALTER COLUMN vat_rate SET DEFAULT 0,
+  ALTER COLUMN vat_rate SET NOT NULL;
+
+DO $$
+DECLARE
+  v_bad integer;
+BEGIN
+  SELECT count(*)
+  INTO v_bad
+  FROM (VALUES
+    ('subtotal'::text, 12, 2),
+    ('total'::text, 12, 2),
+    ('agreed_gross_amount'::text, 12, 2),
+    ('vat_rate'::text, 5, 2)
+  ) expected(column_name, numeric_precision, numeric_scale)
+  LEFT JOIN information_schema.columns c
+    ON c.table_schema = 'public'
+   AND c.table_name = 'invoices'
+   AND c.column_name = expected.column_name
+  WHERE c.column_name IS NULL
+     OR c.data_type IS DISTINCT FROM 'numeric'
+     OR c.numeric_precision IS DISTINCT FROM expected.numeric_precision
+     OR c.numeric_scale IS DISTINCT FROM expected.numeric_scale
+     OR c.is_nullable IS DISTINCT FROM 'NO'
+     OR c.column_default IS NULL;
+
+  IF v_bad <> 0 THEN
+    RAISE EXCEPTION 'Canonical invoice monetary snapshot physical contract is incomplete.';
+  END IF;
+END;
+$$;
+
 -- P0-09: reconcile historical VAT snapshots that were classified as
 -- not_registered after their old 20% arithmetic had already been persisted.
 -- Repair only facts that are provable from canonical production data.
