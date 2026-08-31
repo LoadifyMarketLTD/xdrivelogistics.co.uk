@@ -30,6 +30,24 @@ export default function Page(){
  return <>
   {pendingModal&&<ActionConfirmModal open title={pendingModal.action==='confirm'?'Confirm fraud & block':pendingModal.action==='clear'?'Clear identity conflict':pendingModal.action==='dismiss'?'Dismiss fraud alert':'Investigate case'} description={pendingModal.action==='confirm'?<>This will confirm fraud for <strong>{pendingModal.row.applicant_email}</strong>, reject the onboarding application and block access.</>:pendingModal.action==='clear'?<>Clear the identity conflict for <strong>{pendingModal.row.applicant_email}</strong>.</>:pendingModal.action==='dismiss'?<>Dismiss this alert for <strong>{pendingModal.row.applicant_email}</strong>.</>:<>Record an investigation note for <strong>{pendingModal.row.applicant_email}</strong>.</>} confirmLabel={pendingModal.action==='confirm'?'Confirm fraud & block':pendingModal.action==='clear'?'Clear conflict':pendingModal.action==='dismiss'?'Dismiss alert':'Record investigation'} danger={pendingModal.action==='confirm'} reasonRequired reasonLabel='Decision reason (required)' reasonPlaceholder='Provide detailed reasoning for this decision…' submitting={busyCaseId!==null} onCancel={()=>setPendingModal(null)} onConfirm={reason=>{const{row,action}=pendingModal;setPendingModal(null);void reviewCase(row,action,reason);}}/>}
   {inlineError&&<div role='alert' style={{margin:'12px 12px 0',border:`1px solid ${X.danger}`,borderLeft:`4px solid ${X.danger}`,borderRadius:'4px',background:X.white,padding:'10px 12px',color:X.charcoal,fontSize:'11px',display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'center'}}><span>{inlineError}</span><button type='button' onClick={()=>setInlineError(null)} style={{height:'28px',padding:'0 8px',borderRadius:'4px',border:`1px solid ${X.border}`,background:X.white,color:X.navy,cursor:'pointer'}}>Dismiss</button></div>}
-  <SuperAdminLiveTablePage<Row> icon='🛡️' title='Identity & Fraud Review' sectionLabel='Compliance' description='Duplicate documents and identity conflicts are held automatically. A permanent block requires a recorded Platform Owner decision.' endpoint={`/api/super-admin/compliance/fraud-cases?status=all&limit=250&reload=${reloadToken}`} summaryField='summary' emptyMessage='No identity conflicts or fraud-review cases found.' columns={columns}/>
+  <SuperAdminLiveTablePage<Row>
+    icon='🛡️'
+    title='Identity & Fraud Review'
+    sectionLabel='Compliance'
+    description='Duplicate documents and identity conflicts are held automatically. A permanent block requires a recorded Platform Owner decision.'
+    endpoint={`/api/super-admin/compliance/fraud-cases?status=all&limit=250&reload=${reloadToken}`}
+    summaryField='summary'
+    emptyMessage='No identity conflicts or fraud-review cases found.'
+    entityLink={(row)=>row.subject_company_id
+      ? {entityType:'company',entityId:row.subject_company_id,label:'Company Inspector'}
+      : row.subject_user_id
+        ? {entityType:'user',entityId:row.subject_user_id,label:'User Inspector'}
+        : row.matched_company_id
+          ? {entityType:'company',entityId:row.matched_company_id,label:'Matched Company'}
+          : row.matched_user_id
+            ? {entityType:'user',entityId:row.matched_user_id,label:'Matched User'}
+            : null}
+    columns={columns}
+  />
  </>;
 }
