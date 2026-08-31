@@ -1,5 +1,14 @@
 BEGIN;
 
+-- A preview that previously replayed the historical bootstrap can already have
+-- this now-invalid alias synchronizer installed even after the canonical
+-- bidder_id -> drivers(id) FK meaning has been restored. Production does not
+-- carry the legacy object. Retire it idempotently before this still-pending
+-- runtime proof so incremental failed previews and future clean replays converge
+-- on the same canonical bid identity contract.
+DROP TRIGGER IF EXISTS trg_sync_job_bid_price ON public.job_bids;
+DROP FUNCTION IF EXISTS public.sync_job_bid_price();
+
 -- P0-09 runtime proof. Build a complete synthetic finance chain so zero-data
 -- previews exercise the same VAT/snapshot/immutability boundaries as hosted
 -- production. The fixture is deliberately rolled back inside a subtransaction.
@@ -108,7 +117,7 @@ BEGIN
 
     -- The bid row exists only to satisfy the agreement FK. Disable the two
     -- unrelated quote-authority INSERT guards for fixture setup; all FK/check
-    -- constraints and the price synchronization trigger remain active.
+    -- constraints and canonical price-fill triggers remain active.
     EXECUTE 'ALTER TABLE public.job_bids DISABLE TRIGGER trg_guard_driver_quote_mutation';
     EXECUTE 'ALTER TABLE public.job_bids DISABLE TRIGGER trg_job_bids_compliance_guard';
 

@@ -5,19 +5,21 @@
 -- trigger definitions depend on that column, and persisted partial-index
 -- predicates can retain enum-typed constants that become invalid after the
 -- column becomes text. Clean history creates dashboard_stats (014),
--- job_bids_with_job_owner (122), trg_validate_job_status_transition (079), and
+-- job_bids_with_job_owner (122), trg_validate_job_status_transition (079), the
+-- canonical Marketplace invoice trigger (20260818125500), and
 -- jobs_destination_priority_pickup_idx (124) before the PR #357 reconciliation
 -- runs, so the later 14:55 migration cannot convert jobs.status until those
 -- structural dependencies are reconciled.
 --
 -- This bridge is deliberately a no-op when jobs.status is already text (the
 -- current live contract). On enum-backed fresh databases it removes only the two
--- repo-owned dependent views, the legacy transition trigger, and the known
--- destination-priority partial index; converts the column; then recreates the
--- exact repo view contracts and the live-proven text predicate index in the same
--- transaction. The legacy trigger is intentionally NOT recreated here: 14:55
--- replaces it with the PR #357-compatible trg_jobs_mvp_guardrails. No CASCADE is
--- used and no Workspace/UI/business semantics are changed.
+-- repo-owned dependent views, the legacy transition trigger, the canonical
+-- Marketplace invoice trigger, and the known destination-priority partial index;
+-- converts the column; then recreates the exact repo view contracts, the invoice
+-- trigger, and the live-proven text predicate index in the same transaction. The
+-- legacy transition trigger is intentionally NOT recreated here: 14:55 replaces
+-- it with the PR #357-compatible trg_jobs_mvp_guardrails. No CASCADE is used and
+-- no Workspace/UI/business semantics are changed.
 
 BEGIN;
 SET LOCAL lock_timeout = '10s';
@@ -30,6 +32,8 @@ DECLARE
   v_had_dashboard_stats boolean := false;
   v_had_job_bids_owner boolean := false;
   v_had_destination_priority_index boolean := false;
+  v_had_marketplace_invoice_trigger boolean := false;
+  v_invoice_trigger_function oid;
   v_unhandled_views text;
   v_unhandled_indexes text;
   v_unhandled_constraints text;
@@ -58,10 +62,33 @@ BEGIN
   v_had_destination_priority_index :=
     to_regclass('public.jobs_destination_priority_pickup_idx') IS NOT NULL;
 
+  SELECT t.tgfoid
+    INTO v_invoice_trigger_function
+  FROM pg_trigger t
+  WHERE t.tgrelid = 'public.jobs'::regclass
+    AND t.tgname = 'trg_generate_invoice_on_job_completion'
+    AND NOT t.tgisinternal;
+
+  v_had_marketplace_invoice_trigger := v_invoice_trigger_function IS NOT NULL;
+
+  IF v_had_marketplace_invoice_trigger
+     AND v_invoice_trigger_function IS DISTINCT FROM to_regprocedure('public.fn_generate_invoice_on_job_completion()') THEN
+    RAISE EXCEPTION 'Unexpected function bound to trg_generate_invoice_on_job_completion before jobs.status bridge.'
+      USING ERRCODE = '2BP01';
+  END IF;
+
   -- Migration 079 installs this column-specific trigger. Migration 14:55 already
   -- removes it and installs the canonical PR #357 guardrail, so move that removal
   -- before the physical type conversion on fresh enum-backed databases.
   DROP TRIGGER IF EXISTS trg_validate_job_status_transition ON public.jobs;
+
+  -- The canonical Marketplace invoice trigger is UPDATE OF status and therefore
+  -- has a hard column dependency even though its function body is already
+  -- compatible with text status. Preserve its presence and recreate it after the
+  -- physical type conversion rather than weakening or removing invoice semantics.
+  IF v_had_marketplace_invoice_trigger THEN
+    DROP TRIGGER trg_generate_invoice_on_job_completion ON public.jobs;
+  END IF;
 
   -- Migration 124 creates this partial index while status is still job_status,
   -- which persists the predicate as status = 'posted'::job_status. The proven
@@ -207,6 +234,18 @@ BEGIN
 
     EXECUTE 'GRANT SELECT ON public.job_bids_with_job_owner TO authenticated';
     EXECUTE 'GRANT SELECT ON public.job_bids_with_job_owner TO service_role';
+  END IF;
+
+  IF v_had_marketplace_invoice_trigger THEN
+    IF to_regprocedure('public.fn_generate_invoice_on_job_completion()') IS NULL THEN
+      RAISE EXCEPTION 'Cannot restore trg_generate_invoice_on_job_completion: canonical function is missing.'
+        USING ERRCODE = '2BP01';
+    END IF;
+
+    CREATE TRIGGER trg_generate_invoice_on_job_completion
+      AFTER UPDATE OF status, current_status, delivered_at, completed_at ON public.jobs
+      FOR EACH ROW
+      EXECUTE FUNCTION public.fn_generate_invoice_on_job_completion();
   END IF;
 END
 $$;
