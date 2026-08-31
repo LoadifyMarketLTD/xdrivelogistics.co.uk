@@ -84,6 +84,57 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     : { data: [], available: true } as Result<AnyRow[]>;
   const profileById = new Map(profiles.data.map((row) => [String((row as AnyRow).user_id), row as AnyRow]));
 
+  const creatorProfile = company.created_by ? profileById.get(String(company.created_by)) ?? null : null;
+  const creatorProfileCompanyId = creatorProfile && typeof creatorProfile.company_id === 'string' ? creatorProfile.company_id : null;
+  const activeCurrentMemberships = members.data.filter((row) => String((row as AnyRow).status ?? '').toLowerCase() === 'active');
+  const activeCurrentProfiles = memberUserIds
+    .map((id) => profileById.get(id))
+    .filter((profile): profile is AnyRow => Boolean(profile))
+    .filter((profile) => String(profile.status ?? '').toLowerCase() === 'active' && String(profile.company_id ?? '') === entityId);
+
+  let canonicalCompany: AnyRow | null = null;
+  let canonicalMembership: AnyRow | null = null;
+  if (creatorProfileCompanyId && creatorProfileCompanyId !== entityId) {
+    const [canonicalCompanyResult, canonicalMembershipResult] = await Promise.all([
+      supabaseAdmin.from('companies').select('id, name, legal_name, trading_name, email, status, company_type, xd_id').eq('id', creatorProfileCompanyId).maybeSingle(),
+      company.created_by
+        ? supabaseAdmin.from('company_memberships').select('company_id, user_id, role_in_company, status').eq('company_id', creatorProfileCompanyId).eq('user_id', company.created_by).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (canonicalCompanyResult.error) throw new Error(`Canonical company resolution: ${canonicalCompanyResult.error.message}`);
+    if (canonicalMembershipResult.error) throw new Error(`Canonical membership resolution: ${canonicalMembershipResult.error.message}`);
+    canonicalCompany = canonicalCompanyResult.data as AnyRow | null;
+    canonicalMembership = canonicalMembershipResult.data as AnyRow | null;
+  }
+
+  const creatorAuth = company.created_by ? await supabaseAdmin.auth.admin.getUserById(String(company.created_by)) : { data: { user: null }, error: null };
+  const creatorAuthEmail = creatorAuth.error ? null : creatorAuth.data.user?.email ?? null;
+  const canonicalMembershipActive = String(canonicalMembership?.status ?? '').toLowerCase() === 'active';
+  const canonicalCompanyActive = String(canonicalCompany?.status ?? '').toLowerCase() === 'active';
+  const legacyOrphaned = Boolean(
+    creatorProfileCompanyId
+    && creatorProfileCompanyId !== entityId
+    && activeCurrentMemberships.length === 0
+    && activeCurrentProfiles.length === 0
+    && canonicalCompany
+    && canonicalCompanyActive
+    && canonicalMembershipActive
+  );
+  const identityResolution = {
+    recordState: legacyOrphaned ? 'legacy_orphaned' : 'canonical_or_current',
+    rawCompanyStatus: company.status,
+    activeMembershipCount: activeCurrentMemberships.length,
+    activeProfileCount: activeCurrentProfiles.length,
+    creatorUserId: company.created_by ?? null,
+    creatorAuthEmail,
+    creatorProfileCompanyId,
+    canonicalCompany,
+    canonicalMembership,
+    reason: legacyOrphaned
+      ? 'This company record has no active membership/profile authority, while its creator currently has an active owner membership on another active company.'
+      : null,
+  };
+
   const driverIds = drivers.data.map((row) => String((row as AnyRow).id ?? '')).filter(Boolean);
   const vehicleIds = vehicles.data.map((row) => String((row as AnyRow).id ?? '')).filter(Boolean);
   const invoiceIds = invoices.data.map((row) => String((row as AnyRow).id ?? '')).filter(Boolean);
@@ -148,6 +199,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
       created_by_profile: company.created_by ? profileById.get(String(company.created_by)) ?? null : null,
       reviewed_by_profile: company.reviewed_by ? profileById.get(String(company.reviewed_by)) ?? null : null,
     },
+    identityResolution,
     summary: {
       onboardingStatus: latestOnboarding?.status ?? null,
       onboardingStep: latestOnboarding?.current_step ?? null,
