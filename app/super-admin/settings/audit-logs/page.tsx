@@ -69,6 +69,10 @@ const actionLabel = (action: string): string => {
     notification_retry_queued: '🔁 Notification Retry Queued',
     platform_feature_flag_updated: '🚩 Feature Flag Updated',
     platform_setting_updated: '⚙️ Platform Setting Updated',
+    xdrive_enquiry_price_set: '£ XDrive Enquiry Priced',
+    xdrive_enquiry_quote_sent: '✉️ XDrive Quote Sent',
+    xdrive_enquiry_accepted: '✅ XDrive Quote Accepted',
+    xdrive_enquiry_converted: '🚚 XDrive Enquiry Converted',
     fraud_case: '🚨 Fraud Case',
     identity: '🪪 Identity Review',
   };
