@@ -83,6 +83,23 @@ SELECT
   authorised_user_id
 FROM p0_06_storage_rls_probe;
 
+-- Storage policy evaluation reaches vehicles under its own RLS. Reconstruct the
+-- same active company-membership authority an operational Driver has, otherwise
+-- the vehicle row is intentionally invisible before the Storage predicate can
+-- test the assignment. The outsider deliberately receives no membership.
+INSERT INTO public.company_memberships (
+  company_id,
+  user_id,
+  role_in_company,
+  status
+)
+SELECT
+  company_id,
+  authorised_user_id,
+  'viewer'::public.company_role,
+  'active'
+FROM p0_06_storage_rls_probe;
+
 -- The Driver record gate only permits operational access for an active,
 -- verified canonical Driver identity. Build exactly that authority chain.
 INSERT INTO public.platform_identity_registry (
