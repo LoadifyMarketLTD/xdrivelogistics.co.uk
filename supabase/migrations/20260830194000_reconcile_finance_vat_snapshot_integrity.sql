@@ -4,18 +4,14 @@ SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
 -- Hosted production carries three duplicate display/snapshot money fields that
--- fresh history omitted, and stores invoice VAT rate as NUMERIC(5,2) rather
--- than the legacy SMALLINT created by migration 014. P0-09 owns these fields,
--- so reconstruct the exact observed finance contract before first reference.
+-- fresh history omitted. The foundational invoice migration now creates
+-- vat_rate directly as the hosted NUMERIC(5,2) contract, before any trigger can
+-- depend on that column. P0-09 adds only the missing snapshot fields here and
+-- verifies the complete observed finance contract before first reference.
 ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS subtotal numeric(12,2) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS total numeric(12,2) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS agreed_gross_amount numeric(12,2) NOT NULL DEFAULT 0;
-
-ALTER TABLE public.invoices
-  ALTER COLUMN vat_rate TYPE numeric(5,2) USING vat_rate::numeric(5,2),
-  ALTER COLUMN vat_rate SET DEFAULT 0,
-  ALTER COLUMN vat_rate SET NOT NULL;
 
 DO $$
 DECLARE
