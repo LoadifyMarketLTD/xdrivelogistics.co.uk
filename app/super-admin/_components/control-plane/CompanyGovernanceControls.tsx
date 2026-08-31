@@ -85,7 +85,6 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
   }, [payload]);
   const companyXdId = String(company.xd_id ?? '').trim();
   const profileXdId = String(memberProfile?.xd_id ?? '').trim();
-  const identityMismatch = !legacy && Boolean(companyXdId && profileXdId && companyXdId !== profileXdId);
 
   const applyAction = async (action: GovernanceAction, reason = '') => {
     if (previewMode) {
@@ -166,7 +165,8 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
             <div style={{ display:'flex', gap:7, flexWrap:'wrap', alignItems:'center' }}>
               <span style={{ border:`1px solid ${legacy ? C.red : C.green}35`, borderRadius:999, background:legacy?'#fff7f7':'#f4fbf7', color:legacy?C.red:C.green, padding:'3px 8px', fontSize:9, fontWeight:850 }}>{legacy ? 'Legacy / orphaned — mutations suppressed' : `Status: ${String(company.status ?? 'unknown')}`}</span>
               <span style={{ border:`1px solid ${C.border}`, borderRadius:999, padding:'3px 8px', color:C.text, fontSize:9, fontWeight:800 }}>{approvedDocs}/{allDocs.length} compliance documents approved</span>
-              {identityMismatch ? <span style={{ border:`1px solid ${C.orange}55`, borderRadius:999, background:'#fffaf0', color:'#9a6200', padding:'3px 8px', fontSize:9, fontWeight:850 }}>Identity review: Company ID {companyXdId} ≠ Profile ID {profileXdId}</span> : null}
+              {companyXdId ? <span style={{ border:`1px solid ${C.border}`, borderRadius:999, background:'#f8faff', color:C.navy, padding:'3px 8px', fontSize:9, fontWeight:800 }}>Company XDrive ID: {companyXdId}</span> : null}
+              {profileXdId ? <span style={{ border:`1px solid ${C.border}`, borderRadius:999, background:'#f8faff', color:C.navy, padding:'3px 8px', fontSize:9, fontWeight:800 }}>Member profile XDrive ID: {profileXdId}</span> : null}
             </div>
             <div style={{ display:'flex', gap:7, flexWrap:'wrap', justifyContent:'flex-end' }}>
               {actions.map((action) => {
@@ -180,7 +180,7 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
           </div>
         ) : null}
 
-        {identityMismatch ? <div style={{ marginTop:9, color:'#806b43', fontSize:9.2, lineHeight:1.45 }}>The XDrive ID mismatch is surfaced for review only. It does not automatically block an otherwise operational company.</div> : null}
+        {!legacy && companyXdId && profileXdId ? <div style={{ marginTop:9, color:C.muted, fontSize:9.2, lineHeight:1.45 }}>Company and member profile XDrive IDs identify different entity types and are not expected to match. Company authority is determined by the canonical active membership and profile/company relationship.</div> : null}
       </section>
     </>
   );
