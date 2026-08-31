@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -16,29 +13,12 @@ const XDRIVE_COMPANY_ID =
   process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID?.trim() ||
   '';
 
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return null;
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role,status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (profileError || !profile) return null;
-  if (profile.role !== 'owner' || String(profile.status ?? '').toLowerCase() !== 'active') return null;
-  return authData.user;
-};
-
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
   if (!XDRIVE_COMPANY_ID) return respond(503, { error: 'XDrive company is not configured.' });
 
   const { searchParams } = new URL(request.url);
