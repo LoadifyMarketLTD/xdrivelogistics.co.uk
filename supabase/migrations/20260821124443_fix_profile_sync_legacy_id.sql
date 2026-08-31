@@ -4,6 +4,74 @@
 
 BEGIN;
 
+-- Hosted production has profiles.id as UUID NOT NULL, UNIQUE, with an FK to
+-- auth.users(id) ON DELETE CASCADE. The repository clean chain previously
+-- omitted that hosted column even though this migration's auth trigger writes it.
+-- Reconstruct only the demonstrated legacy-id dependency before redefining the
+-- trigger; do not invent unrelated hosted profile drift.
+DO $$
+DECLARE
+  v_udt text;
+BEGIN
+  SELECT c.udt_name
+  INTO v_udt
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'profiles'
+    AND c.column_name = 'id';
+
+  IF v_udt IS NOT NULL AND v_udt <> 'uuid' THEN
+    RAISE EXCEPTION 'public.profiles.id exists with unexpected type %, expected uuid.', v_udt;
+  END IF;
+
+  IF v_udt IS NULL THEN
+    ALTER TABLE public.profiles
+      ADD COLUMN id uuid;
+  END IF;
+END;
+$$;
+
+-- Any rows present during a replay are existing auth-backed profiles; preserve
+-- the dual identifier contract by deriving the missing legacy id from user_id.
+IF EXISTS (SELECT 1 FROM public.profiles WHERE id IS NOT NULL AND id IS DISTINCT FROM user_id) THEN
+  RAISE EXCEPTION 'Existing public.profiles.id values conflict with canonical user_id identity.';
+END IF;
+
+UPDATE public.profiles
+SET id = user_id
+WHERE id IS NULL;
+
+ALTER TABLE public.profiles
+  ALTER COLUMN id SET DEFAULT gen_random_uuid(),
+  ALTER COLUMN id SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.profiles'::regclass
+      AND conname = 'profiles_id_unique'
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT profiles_id_unique UNIQUE (id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.profiles'::regclass
+      AND conname = 'profiles_id_fkey'
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT profiles_id_fkey
+      FOREIGN KEY (id)
+      REFERENCES auth.users(id)
+      ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.handle_auth_user_profile_sync()
 RETURNS trigger
 LANGUAGE plpgsql
