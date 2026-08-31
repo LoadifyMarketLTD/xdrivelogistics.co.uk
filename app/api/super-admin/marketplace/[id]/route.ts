@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -30,29 +31,6 @@ const patchSchema = z.object({
   }
 });
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -61,9 +39,9 @@ export async function PATCH(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
+  const owner = await verifyPlatformOwner(request);
   if (!owner) {
-    return respond(403, { error: 'Forbidden: owner role required.' });
+    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
   }
 
   let body: unknown;
