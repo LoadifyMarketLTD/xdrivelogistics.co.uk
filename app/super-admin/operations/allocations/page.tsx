@@ -25,6 +25,7 @@ export default function Page() {
       description="Allocated jobs with assigned driver and company context."
       endpoint="/api/super-admin/operations?section=allocations&limit=250"
       emptyMessage="No allocated jobs found."
+      entityLink={(row) => ({ entityType: 'job', entityId: row.id, label: 'Job Inspector' })}
       columns={[
         {
           key: 'route',
