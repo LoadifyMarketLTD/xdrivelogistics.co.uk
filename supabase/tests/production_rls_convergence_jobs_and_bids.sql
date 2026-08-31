@@ -4,8 +4,16 @@
 --   #436 public.jobs cross-company driver SELECT isolation
 --   #437 public.job_bids competitor mutation isolation + own self-withdraw
 --
--- Run after the full migration chain against a disposable/local/preview database.
--- Synthetic fixtures live only inside this transaction and are always rolled back.
+-- Run only on a disposable/local/Supabase preview database after the full
+-- migration chain. Synthetic rows are created inside this transaction and the
+-- transaction is always rolled back.
+--
+-- IMPORTANT: fixture rows deliberately bypass business triggers while they are
+-- seeded. In particular, trg_drivers_identity_gate correctly converts a newly
+-- inserted, unverified driver to inactive/app_access=false/is_active=false.
+-- That production behaviour is not under test here. session_replication_role is
+-- restored to origin before any RLS assertion, so the access boundary itself is
+-- exercised with normal runtime behaviour.
 
 BEGIN;
 
@@ -38,9 +46,9 @@ BEGIN
     GET DIAGNOSTICS v_rows = ROW_COUNT;
   EXCEPTION
     WHEN insufficient_privilege THEN
-      -- A protected-column UPDATE can fail before RLS because #437 intentionally
-      -- grants authenticated UPDATE on `status` only. That is a valid fail-closed
-      -- result for a mutation that attempts any protected commercial field.
+      -- #437 intentionally grants authenticated UPDATE(status) only. Attempts
+      -- to alter protected commercial/identity columns may therefore fail at
+      -- the privilege layer before RLS, which is an acceptable fail-closed result.
       RETURN;
   END;
 
@@ -51,7 +59,7 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Catalog convergence: legacy Production-only broad policies must not reappear.
+-- Catalog / privilege convergence.
 -- ---------------------------------------------------------------------------
 
 SELECT pg_temp.assert_true(
@@ -70,7 +78,7 @@ SELECT pg_temp.assert_true(
         'jobs_driver_assigned_or_awarded_v1'
       )
   ),
-  'Legacy Production-only jobs SELECT policies are present after convergence.'
+  'Legacy Production-only broad jobs SELECT policies remain.'
 );
 
 SELECT pg_temp.assert_true(
@@ -84,7 +92,7 @@ SELECT pg_temp.assert_true(
       AND cmd = 'SELECT'
       AND 'authenticated' = ANY (roles)
   ),
-  'Canonical restrictive Marketplace pre-award privacy guard is missing or weakened.'
+  'Canonical restrictive jobs Marketplace privacy guard is missing or weakened.'
 );
 
 SELECT pg_temp.assert_true(
@@ -99,7 +107,7 @@ SELECT pg_temp.assert_true(
         'job_bids_update_bidder_or_admin'
       )
   ),
-  'Legacy broad job_bids mutation policies are present after convergence.'
+  'Legacy broad job_bids mutation policies remain.'
 );
 
 SELECT pg_temp.assert_true(
@@ -137,9 +145,6 @@ SELECT pg_temp.assert_true(
   'Canonical own submitted -> withdrawn policy is missing or weakened.'
 );
 
--- Authenticated callers must not retain table-wide UPDATE. The Driver web
--- self-withdraw path needs only the status column; commercial identity/value
--- fields remain server/RPC controlled.
 SELECT pg_temp.assert_true(
   NOT has_table_privilege('authenticated', 'public.job_bids', 'UPDATE'),
   'authenticated still has table-wide UPDATE on public.job_bids.'
@@ -147,7 +152,7 @@ SELECT pg_temp.assert_true(
 
 SELECT pg_temp.assert_true(
   has_column_privilege('authenticated', 'public.job_bids', 'status', 'UPDATE'),
-  'authenticated lost the required status-only self-withdraw privilege.'
+  'authenticated lost required status-only UPDATE on public.job_bids.'
 );
 
 SELECT pg_temp.assert_true(
@@ -162,7 +167,7 @@ SELECT pg_temp.assert_true(
 );
 
 -- ---------------------------------------------------------------------------
--- Synthetic principals.
+-- Synthetic principals and authority.
 -- ---------------------------------------------------------------------------
 
 INSERT INTO auth.users (
@@ -220,16 +225,12 @@ VALUES
   (
     '86100000-0000-0000-0000-000000000001',
     '86000000-0000-0000-0000-000000000001',
-    'owner',
-    'active',
-    now()
+    'owner', 'active', now()
   ),
   (
     '86100000-0000-0000-0000-000000000002',
     '86000000-0000-0000-0000-000000000002',
-    'owner',
-    'active',
-    now()
+    'owner', 'active', now()
   )
 ON CONFLICT (company_id, user_id)
 DO UPDATE SET
@@ -237,30 +238,20 @@ DO UPDATE SET
   status = EXCLUDED.status,
   updated_at = now();
 
+-- Privileged fixture seed only. Business triggers are restored before RLS tests.
+SET LOCAL session_replication_role = replica;
+
 INSERT INTO public.drivers (
-  id, company_id, user_id, display_name, name, full_name, status, app_access,
-  driver_type, can_commercial_bid, is_active
+  id, company_id, user_id, display_name, name, full_name,
+  status, app_access, driver_type, can_commercial_bid, is_active
 )
 VALUES (
   '86200000-0000-0000-0000-000000000001',
   '86100000-0000-0000-0000-000000000001',
   '86000000-0000-0000-0000-000000000001',
-  'RLS Driver A',
-  'RLS Driver A',
-  'RLS Driver A',
-  'active',
-  true,
-  'company_driver',
-  true,
-  true
+  'RLS Driver A', 'RLS Driver A', 'RLS Driver A',
+  'active', true, 'company_driver', true, true
 );
-
--- ---------------------------------------------------------------------------
--- #436: an app-access driver can read their own assigned job but must not read
--- an unrelated other-company row outside the pre-award Marketplace boundary.
--- The second job is deliberately `delivered`, so the RESTRICTIVE pre-award guard
--- evaluates true and cannot hide a reintroduced broad permissive driver policy.
--- ---------------------------------------------------------------------------
 
 INSERT INTO public.jobs (
   id, company_id, created_by, status, assigned_driver_id,
@@ -281,10 +272,41 @@ VALUES
     '86100000-0000-0000-0000-000000000002',
     '86000000-0000-0000-0000-000000000002',
     'delivered',
-    NULL,
-    NULL,
-    NULL
+    NULL, NULL, NULL
   );
+
+-- bidder_company_id is canonical UUID NOT NULL after P0-12 / PR #424.
+INSERT INTO public.job_bids (
+  id, job_id, bidder_company_id, company_id, bidder_user_id,
+  bid_price_gbp, amount, currency, status, message
+)
+VALUES (
+  '86400000-0000-0000-0000-000000000001',
+  '86300000-0000-0000-0000-000000000002',
+  '86100000-0000-0000-0000-000000000001',
+  '86100000-0000-0000-0000-000000000001',
+  '86000000-0000-0000-0000-000000000001',
+  250, 250, 'GBP', 'submitted', 'Original bidder message'
+);
+
+SET LOCAL session_replication_role = origin;
+
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM public.drivers d
+    WHERE d.id = '86200000-0000-0000-0000-000000000001'
+      AND d.user_id = '86000000-0000-0000-0000-000000000001'
+      AND d.status::text = 'active'
+      AND d.app_access = true
+      AND d.is_active = true
+  ),
+  'Privileged driver fixture was not seeded as active/app-access.'
+);
+
+-- ---------------------------------------------------------------------------
+-- #436 runtime: assigned driver sees own job, not unrelated company job.
+-- ---------------------------------------------------------------------------
 
 SELECT set_config(
   'request.jwt.claims',
@@ -297,59 +319,38 @@ SELECT set_config(
 SET LOCAL ROLE authenticated;
 
 SELECT pg_temp.assert_true(
-  (SELECT count(*) FROM public.jobs WHERE id = '86300000-0000-0000-0000-000000000001') = 1,
+  auth.uid() = '86000000-0000-0000-0000-000000000001'::uuid,
+  'Driver JWT fixture did not resolve through auth.uid().'
+);
+
+SELECT pg_temp.assert_true(
+  public.can_driver_access_job('86300000-0000-0000-0000-000000000001'),
+  'Canonical assigned-driver helper denied the assigned driver.'
+);
+
+SELECT pg_temp.assert_true(
+  public.can_read_marketplace_execution_job('86300000-0000-0000-0000-000000000001'),
+  'Restrictive Marketplace privacy guard denied an allocated assigned-driver job.'
+);
+
+SELECT pg_temp.assert_true(
+  (SELECT count(*) FROM public.jobs
+   WHERE id = '86300000-0000-0000-0000-000000000001') = 1,
   'Assigned driver lost access to their own assigned job.'
 );
 
 SELECT pg_temp.assert_true(
-  (SELECT count(*) FROM public.jobs WHERE id = '86300000-0000-0000-0000-000000000002') = 0,
+  (SELECT count(*) FROM public.jobs
+   WHERE id = '86300000-0000-0000-0000-000000000002') = 0,
   'App-access driver can read an unrelated other-company delivered job.'
 );
 
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------
--- #437: seed one synthetic submitted competitor bid without invoking business
--- INSERT triggers. The seed is privileged test setup only; RLS is exercised below
--- under the real `authenticated` role. session_replication_role is restored
--- immediately and the entire transaction rolls back.
---
--- bidder_company_id is canonical and NOT NULL after P0-12 / PR #424.
--- quote_amount remains a hosted compatibility column and is intentionally omitted
--- from this clean-replay fixture; canonical views derive it from bid_price_gbp/amount.
+-- #437 runtime: job owner cannot mutate competitor bid; bidder can self-withdraw.
 -- ---------------------------------------------------------------------------
 
-SET LOCAL session_replication_role = replica;
-
-INSERT INTO public.job_bids (
-  id,
-  job_id,
-  bidder_company_id,
-  company_id,
-  bidder_user_id,
-  bid_price_gbp,
-  amount,
-  currency,
-  status,
-  message
-)
-VALUES (
-  '86400000-0000-0000-0000-000000000001',
-  '86300000-0000-0000-0000-000000000002',
-  '86100000-0000-0000-0000-000000000001',
-  '86100000-0000-0000-0000-000000000001',
-  '86000000-0000-0000-0000-000000000001',
-  250,
-  250,
-  'GBP',
-  'submitted',
-  'Original bidder message'
-);
-
-SET LOCAL session_replication_role = origin;
-
--- Job owner cannot alter the competitor's commercial/identity fields. This must
--- fail at column privilege or affect zero rows; either outcome is fail-closed.
 SELECT set_config(
   'request.jwt.claims',
   json_build_object(
@@ -367,18 +368,16 @@ SELECT pg_temp.expect_no_row_update(
            message = 'Tampered by job owner'
      WHERE id = '86400000-0000-0000-0000-000000000001'
   $sql$,
-  'Job-owning company modified competitor commercial/identity fields.'
+  'Job-owning company modified protected competitor bid fields.'
 );
 
--- Even on the one client-writable column, the job owner must not be able to
--- withdraw the competitor's submitted bid. This exercises the row-level policy.
 SELECT pg_temp.expect_no_row_update(
   $sql$
     UPDATE public.job_bids
        SET status = 'withdrawn'
      WHERE id = '86400000-0000-0000-0000-000000000001'
   $sql$,
-  'Job-owning company withdrew a competitor submitted bid through raw UPDATE.'
+  'Job-owning company withdrew a competitor submitted bid.'
 );
 
 RESET ROLE;
@@ -396,8 +395,6 @@ SELECT pg_temp.assert_true(
   'Competitor bid changed despite the negative mutation boundary.'
 );
 
--- The actual bidder must retain the one explicitly supported direct mutation:
--- their own submitted bid can become withdrawn, and only through status UPDATE.
 SELECT set_config(
   'request.jwt.claims',
   json_build_object(
@@ -409,8 +406,8 @@ SELECT set_config(
 SET LOCAL ROLE authenticated;
 
 UPDATE public.job_bids
-   SET status = 'withdrawn'
- WHERE id = '86400000-0000-0000-0000-000000000001';
+SET status = 'withdrawn'
+WHERE id = '86400000-0000-0000-0000-000000000001';
 
 RESET ROLE;
 
@@ -427,7 +424,7 @@ SELECT pg_temp.assert_true(
       AND amount = 250
       AND status = 'withdrawn'
   ),
-  'Own submitted bid could not be withdrawn without mutating protected fields.'
+  'Own submitted bid could not be withdrawn or protected fields changed.'
 );
 
 ROLLBACK;
