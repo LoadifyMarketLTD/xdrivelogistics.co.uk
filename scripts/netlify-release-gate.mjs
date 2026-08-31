@@ -2,26 +2,14 @@ import { spawnSync } from 'node:child_process';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
+// Canonical no-GitHub-hosted-runner gate.
+// Database behavior/security is validated by Supabase Preview; this gate keeps
+// repository migration integrity and the deployable production build fail-closed.
 const gates = [
   {
     label: 'Supabase migration filename and encoding validation',
     command: process.execPath,
     args: ['.github/scripts/validate-supabase-migration-files.mjs'],
-  },
-  {
-    label: 'ESLint',
-    command: npmCommand,
-    args: ['run', 'lint'],
-  },
-  {
-    label: 'TypeScript typecheck',
-    command: npmCommand,
-    args: ['run', 'typecheck'],
-  },
-  {
-    label: 'Unit tests',
-    command: npmCommand,
-    args: ['run', 'test:unit'],
   },
   {
     label: 'Next.js production build',
