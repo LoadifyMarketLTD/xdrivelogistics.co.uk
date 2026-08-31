@@ -22,7 +22,7 @@ type DisputeRow = {
 type ReviewRow = {
   id: string;
   company_id: string | null;
-  reviewer_id: string | null;
+  reviewer_user_id: string | null;
   rating: number | null;
   comment: string | null;
   created_at: string;
@@ -64,14 +64,22 @@ const updateTicketSchema = z.object({
   section: z.literal('tickets'),
   ticketId: z.string().uuid(),
   action: z.enum(['investigating', 'resolve', 'close', 'reopen']),
-  note: z.preprocess((value) => typeof value === 'string' ? value : '', z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000)),
+  note: z.preprocess(
+    (value) => typeof value === 'string' ? value : '',
+    z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000),
+  ),
 });
 
 const companyNameMap = async (ids: string[]) => {
-  if (!supabaseAdmin || ids.length === 0) return { map: new Map<string, string>(), error: null as string | null };
+  if (!supabaseAdmin || ids.length === 0) {
+    return { map: new Map<string, string>(), error: null as string | null };
+  }
   const { data, error } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
   if (error) return { map: new Map<string, string>(), error: error.message };
-  return { map: new Map((data as CompanyRow[] ?? []).map((company) => [company.id, company.name])), error: null as string | null };
+  return {
+    map: new Map(((data as CompanyRow[] | null) ?? []).map((company) => [company.id, company.name])),
+    error: null as string | null,
+  };
 };
 
 export async function GET(request: NextRequest) {
@@ -92,7 +100,10 @@ export async function GET(request: NextRequest) {
       .select('id, invoice_id, company_id, reason, details, status, resolution_note, created_at, resolved_at')
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) return respond(TABLE_MISSING_CODES.has(error.code ?? '') ? 503 : 500, { error: error.message });
+
+    if (error) {
+      return respond(TABLE_MISSING_CODES.has(error.code ?? '') ? 503 : 500, { error: error.message });
+    }
 
     const rows = (data as DisputeRow[] | null) ?? [];
     const names = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id as string).filter(Boolean))));
@@ -100,10 +111,7 @@ export async function GET(request: NextRequest) {
 
     return respond(200, {
       section,
-      rows: rows.map((row) => ({
-        ...row,
-        company_name: names.map.get(row.company_id as string) ?? 'Unknown',
-      })),
+      rows: rows.map((row) => ({ ...row, company_name: names.map.get(row.company_id as string) ?? 'Unknown' })),
       summary: {
         total: rows.length,
         open: rows.filter((row) => row.status === 'open').length,
@@ -117,7 +125,7 @@ export async function GET(request: NextRequest) {
   if (section === 'complaints') {
     const { data, error } = await supabaseAdmin
       .from('reviews')
-      .select('id, company_id, reviewer_id, rating, comment, created_at')
+      .select('id, company_id, reviewer_user_id, rating, comment, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -142,6 +150,7 @@ export async function GET(request: NextRequest) {
       section,
       rows: rows.map((row) => ({
         ...row,
+        reviewer_id: row.reviewer_user_id,
         company_name: names.map.get(row.company_id as string) ?? 'Unknown',
       })),
       summary: {
@@ -300,6 +309,5 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return respond(500, { error: error.message });
-
   return respond(201, { ticket });
 }
