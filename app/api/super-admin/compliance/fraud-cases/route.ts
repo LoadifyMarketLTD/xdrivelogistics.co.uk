@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -17,33 +13,13 @@ const reviewSchema = z.object({
   reason: z.string().trim().min(5).max(5000),
 });
 
-const verifyPlatformOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-
-  const token = getBearerToken(request);
-  if (!token) return null;
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-
-  if (profileError || profile?.role !== 'owner') return null;
-  return authData.user;
-};
-
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Fraud review service is currently unavailable.' });
   }
 
   const owner = await verifyPlatformOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: platform owner role required.' });
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const status = (searchParams.get('status') ?? 'open').trim().toLowerCase();
@@ -167,7 +143,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const owner = await verifyPlatformOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: platform owner role required.' });
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const body = await request.json().catch(() => null);
   const parsed = reviewSchema.safeParse(body);
