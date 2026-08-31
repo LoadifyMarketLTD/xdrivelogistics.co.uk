@@ -5,6 +5,7 @@ import './super-admin-light.css';
 import './super-admin-light-hardening.css';
 import './super-admin-visual-preview.css';
 
+// Visual preview branch only: this layout must not be promoted without explicit design approval.
 export const metadata: Metadata = {
   title: 'Super Admin Preview | XDrive Logistics',
   description: 'Visual rebuild preview of the XDrive Logistics global platform control plane.',
