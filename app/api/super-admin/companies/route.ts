@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 import { applyCompanyStatusFilter, buildCompanySearchPattern, type CompanyStatusFilter } from '../_lib/searchFilters';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -75,10 +77,6 @@ const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | nul
     : (typeof row.new_value === 'string' ? row.new_value : undefined);
   const createdAt = typeof row.created_at === 'string' ? row.created_at : null;
 
-  // owner_audit_log also contains platform-wide events that do not target a
-  // company. Those rows are valid audit records, but they are irrelevant to
-  // this company history view and must not make the entire source appear
-  // broken. Status transitions are optional for some governance actions too.
   if (!id || !targetCompanyId || !actionType || !createdAt) return null;
 
   return {
@@ -95,8 +93,6 @@ const normalizeAuditRow = (row: RawGovernanceAuditRow): GovernanceAuditRow | nul
 const normalizeAuditRows = (rows: RawGovernanceAuditRow[]) => {
   const normalizedRows: GovernanceAuditRow[] = [];
   for (const row of rows) {
-    // Ignore non-company audit events instead of treating them as a schema
-    // failure. This route deliberately exposes only company governance history.
     if (typeof row.target_company_id !== 'string' || row.target_company_id.length === 0) continue;
 
     const normalized = normalizeAuditRow(row);
@@ -112,48 +108,13 @@ const normalizeAuditRows = (rows: RawGovernanceAuditRow[]) => {
   return { rows: normalizedRows, error: null as string | null };
 };
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
-/**
- * GET /api/super-admin/companies
- * Query params:
- *   status  — active|inactive|pending|pending_approval|rejected|suspended|all (default: pending)
- *   search  — case-insensitive search on name, company_number, email (optional)
- *   page    — 1-based page number (default: 1)
- *   limit   — results per page, 1–100 (default: 50)
- *
- * Returns companies filtered by status with server-side pagination (owner only).
- */
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) {
-    return respond(403, { error: 'Forbidden: owner role required.' });
-  }
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const requestedStatus = searchParams.get('status');
@@ -168,17 +129,13 @@ export async function GET(request: NextRequest) {
   }
   const status = normalizeCompanyStatusFilter(rawStatus);
 
-  // Pagination
   const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
   const offset = (pageParam - 1) * limitParam;
 
-  // Search
   const search = normalizeSearch(searchParams.get('search') ?? '');
   const searchMatches = search ? await findMatchingCompanyIds(search) : null;
-  if (searchMatches && 'error' in searchMatches) {
-    return respond(500, { error: searchMatches.error });
-  }
+  if (searchMatches && 'error' in searchMatches) return respond(500, { error: searchMatches.error });
   if (searchMatches && searchMatches.ids.length === 0) {
     return respond(200, {
       companies: [],
@@ -203,21 +160,13 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false });
 
   companyQuery = applyCompanyStatusFilter(companyQuery, status);
-  if (searchMatches && 'ids' in searchMatches) {
-    companyQuery = companyQuery.in('id', searchMatches.ids);
-  }
+  if (searchMatches && 'ids' in searchMatches) companyQuery = companyQuery.in('id', searchMatches.ids);
   companyQuery = companyQuery.range(offset, offset + limitParam - 1);
 
   const { data, error, count } = await companyQuery;
-
-  if (error) {
-    return respond(500, { error: error.message });
-  }
+  if (error) return respond(500, { error: error.message });
   const companies = data ?? [];
 
-  // Query governance history defensively: try the canonical column set first,
-  // then fall back only to the verified legacy old_value/new_value shape when
-  // the status columns are genuinely absent in the live schema.
   let auditRows: GovernanceAuditRow[] | null = null;
   let auditError: { message: string } | null = null;
 
