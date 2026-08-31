@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
       .order('updated_at', { ascending: false })
       .limit(perTypeLimit),
     searchAuthUsers(query, perTypeLimit),
-  ] as const;
+  ] as const);
 
   const checked = [
     ['job', jobsResult],
