@@ -40,6 +40,24 @@ describe('remaining legacy Fleet resolution', () => {
     expect(migration).not.toContain('CREATE TABLE IF NOT EXISTS public.workspace_switch_audit');
   });
 
+  it('reconstructs canonical bidder company attribution without inventing legacy bindings', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260830211000_resolve_remaining_legacy_fleet_company_shells.sql',
+    );
+
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS bidder_company_id uuid');
+    expect(migration).toContain("format_type(a.atttypid, a.atttypmod)");
+    expect(migration).toContain("v_data_type IS DISTINCT FROM 'uuid'");
+    expect(migration).toContain('ALTER COLUMN bidder_company_id DROP DEFAULT');
+    expect(migration).toContain('ALTER COLUMN bidder_company_id SET NOT NULL');
+    expect(migration).toContain('Production has no FK/unique/check constraint on this column.');
+    expect(migration).toContain('Cannot make job_bids.bidder_company_id canonical without inventing attribution');
+    expect(migration).toContain('x.company_id = c.id OR x.bidder_company_id = c.id');
+    expect(migration).not.toContain('UPDATE public.job_bids SET bidder_company_id');
+    expect(migration).not.toContain('CREATE INDEX idx_job_bids_bidder_company');
+    expect(migration).not.toContain('CREATE INDEX job_bids_bidder_company_id_idx');
+  });
+
   it('quarantines only dependency-free legacy active shells through canonical governance', () => {
     const migration = readRepoFile(
       'supabase/migrations/20260830211000_resolve_remaining_legacy_fleet_company_shells.sql',
