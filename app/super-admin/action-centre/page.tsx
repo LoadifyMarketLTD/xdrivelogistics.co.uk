@@ -12,7 +12,6 @@ import {
   type PlatformEntityType,
 } from '@/app/super-admin/_components/control-plane';
 
-const X = { navy: '#0B2F6B', blue: '#1D57D8', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', orange: '#F5A300' } as const;
 const ENTITY_TYPES = new Set<PlatformEntityType>(['job', 'company', 'user', 'driver', 'vehicle', 'invoice', 'pod', 'ticket', 'dispute', 'notification', 'health_check', 'case']);
 
 function entityType(value: string): PlatformEntityType {
@@ -20,9 +19,18 @@ function entityType(value: string): PlatformEntityType {
 }
 
 type ApiCaseRow = {
-  id: string; reference: string; severity: PlatformCaseSummary['severity']; status: PlatformCaseStatus;
-  title: string; description: string | null; entity_type: string; entity_id: string; entity_label: string;
-  assigned_to_label: string | null; detected_at: string; updated_at: string;
+  id: string;
+  reference: string;
+  severity: PlatformCaseSummary['severity'];
+  status: PlatformCaseStatus;
+  title: string;
+  description: string | null;
+  entity_type: string;
+  entity_id: string;
+  entity_label: string;
+  assigned_to_label: string | null;
+  detected_at: string;
+  updated_at: string;
 };
 
 type CasesPayload = {
@@ -44,16 +52,29 @@ export default function Page() {
   const [assignee, setAssignee] = useState('all');
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null); setNote(null); setAvailable(null);
+    setLoading(true);
+    setError(null);
+    setNote(null);
+    setAvailable(null);
     try {
       const auth = await getAuthHeader();
-      if (!auth) { setError('No active Platform Owner session.'); return; }
+      if (!auth) {
+        setError('No active Platform Owner session.');
+        return;
+      }
       const params = new URLSearchParams({ limit: '100', status });
       if (severity !== 'ALL') params.set('severity', severity);
       if (assignee !== 'all') params.set('assignee', assignee);
-      const res = await fetch(`/api/super-admin/cases?${params.toString()}`, { headers: { Authorization: auth }, cache: 'no-store' });
+      const res = await fetch(`/api/super-admin/cases?${params.toString()}`, {
+        headers: { Authorization: auth },
+        cache: 'no-store',
+      });
       const body = await res.json().catch(() => ({})) as CasesPayload & { error?: string };
-      if (!res.ok) { setCases([]); setError(body.error ?? 'Platform Case Centre is unavailable.'); return; }
+      if (!res.ok) {
+        setCases([]);
+        setError(body.error ?? 'Platform Case Centre is unavailable.');
+        return;
+      }
       if (body.available === false) {
         setCases([]);
         setAvailable(false);
@@ -61,8 +82,7 @@ export default function Page() {
         return;
       }
       setAvailable(true);
-      const rows = body.rows ?? [];
-      setCases(rows.map((row): PlatformCaseSummary => ({
+      setCases((body.rows ?? []).map((row): PlatformCaseSummary => ({
         id: row.id,
         reference: row.reference,
         title: row.title,
@@ -94,31 +114,87 @@ export default function Page() {
   }) : null, [available, cases]);
 
   return <ProtectedRoute allowedRoles={['owner']}>
-    <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
-      <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', fontWeight: 800 }}>Platform Action Centre</h1>
-          <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>Persistent cross-domain exceptions with ownership, investigation and auditable closure.</p>
+    <div className="sa-page">
+      <header className="sa-page-header">
+        <div className="sa-heading-row">
+          <span aria-hidden="true" className="sa-page-icon">⚠</span>
+          <div className="sa-page-heading">
+            <div className="sa-eyebrow">Platform control plane <span className="sa-section-pill">Support</span></div>
+            <h1 className="sa-page-title">Platform Action Centre</h1>
+            <p className="sa-page-description">Persistent cross-domain exceptions with ownership, investigation and auditable closure.</p>
+          </div>
         </div>
-        <button type="button" onClick={() => void load()} disabled={loading} style={{ height: '32px', padding: '0 10px', borderRadius: '4px', border: `1px solid ${X.blue}`, background: X.blue, color: X.white, fontSize: '11px', fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? .65 : 1 }}>Refresh</button>
+        <div className="sa-page-actions">
+          <button type="button" className="sa-primary-button" onClick={() => void load()} disabled={loading}>Refresh</button>
+        </div>
       </header>
 
-      {note ? <div style={{ marginBottom: '12px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.white, padding: '9px 12px', color: X.charcoal, fontSize: '11px' }}>{note}</div> : null}
+      {note ? <div className="sa-state-block" data-tone="warning">{note}</div> : null}
+      {error ? <div className="sa-state-block" data-tone="danger"><strong>Service temporarily unavailable</strong><div style={{ marginTop: 3 }}>{error}</div></div> : null}
 
-      {loading ? <section style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '12px', marginBottom: '12px', color: X.muted, fontSize: '11px' }}>Loading persistent case summary…</section> : available === true && summary ? <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '12px', marginBottom: '12px' }}>
-        {[['P0', summary.p0], ['P1', summary.p1], ['Unassigned', summary.unassigned], ['Investigating', summary.investigating]].map(([label, summaryValue]) => <div key={String(label)} style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '10px 12px' }}><div style={{ color: X.navy, fontSize: '20px', fontWeight: 800 }}>{summaryValue}</div><div style={{ marginTop: '5px', color: X.muted, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div></div>)}
-      </section> : <section style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.white, padding: '12px', marginBottom: '12px', color: X.muted, fontSize: '11px' }}>Persistent case counts are unavailable in this environment. No P0/P1/unassigned/investigating zeroes are inferred.</section>}
+      {loading ? (
+        <div className="sa-state-block" data-tone="info">Loading persistent case summary…</div>
+      ) : available === true && summary ? (
+        <div className="sa-metric-grid">
+          {[
+            ['P0', summary.p0],
+            ['P1', summary.p1],
+            ['Unassigned', summary.unassigned],
+            ['Investigating', summary.investigating],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="sa-metric-card">
+              <div className="sa-metric-value">{value}</div>
+              <div className="sa-metric-label">{label}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="sa-state-block" data-tone="warning">Persistent case counts are unavailable in this environment. No P0/P1/unassigned/investigating zeroes are inferred.</div>
+      )}
 
-      <section style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '12px', padding: '8px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white }}>
-        <label style={filterLabel}>Status<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={available === false} style={selectStyle}><option value="active">Active cases</option><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="waiting">Waiting</option><option value="resolved">Resolved</option><option value="closed">Closed</option><option value="all">All</option></select></label>
-        <label style={filterLabel}>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={available === false} style={selectStyle}><option value="ALL">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
-        <label style={filterLabel}>Ownership<select value={assignee} onChange={(event) => setAssignee(event.target.value)} disabled={available === false} style={selectStyle}><option value="all">All</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option></select></label>
+      <section className="sa-filter-bar" aria-label="Action Centre filters">
+        <label className="sa-filter-label">Status
+          <select className="sa-filter-select" value={status} onChange={(event) => setStatus(event.target.value)} disabled={available === false}>
+            <option value="active">Active cases</option>
+            <option value="open">Open</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="investigating">Investigating</option>
+            <option value="waiting">Waiting</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="all">All</option>
+          </select>
+        </label>
+        <label className="sa-filter-label">Severity
+          <select className="sa-filter-select" value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={available === false}>
+            <option value="ALL">All</option>
+            <option value="P0">P0</option>
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+          </select>
+        </label>
+        <label className="sa-filter-label">Ownership
+          <select className="sa-filter-select" value={assignee} onChange={(event) => setAssignee(event.target.value)} disabled={available === false}>
+            <option value="all">All</option>
+            <option value="me">Assigned to me</option>
+            <option value="unassigned">Unassigned</option>
+          </select>
+        </label>
       </section>
 
-      {available === false && !error ? <div style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '18px', textAlign: 'center', color: X.muted, fontSize: '11px' }}>Case registry is unavailable until the SA-02 schema is applied. No empty registry is fabricated.</div> : <PlatformCaseCentre cases={cases} loading={loading} error={error} onOpenCase={(caseId) => router.push(`/super-admin/action-centre/${caseId}`)} />}
+      {available === false && !error ? (
+        <section className="sa-panel">
+          <div className="sa-empty">Case registry is unavailable until the SA-02 schema is applied. No empty registry is fabricated.</div>
+        </section>
+      ) : (
+        <PlatformCaseCentre
+          cases={cases}
+          loading={loading}
+          error={error}
+          onOpenCase={(caseId) => router.push(`/super-admin/action-centre/${caseId}`)}
+        />
+      )}
     </div>
   </ProtectedRoute>;
 }
-
-const filterLabel = { display: 'flex', alignItems: 'center', gap: '5px', color: X.muted, fontSize: '10px', fontWeight: 800 } as const;
-const selectStyle = { height: '32px', borderRadius: '4px', border: `1px solid ${X.border}`, background: X.white, color: X.charcoal, padding: '0 8px', fontSize: '10px' } as const;
