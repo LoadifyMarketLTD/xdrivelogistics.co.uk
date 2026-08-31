@@ -2,7 +2,7 @@
 --
 -- Covers:
 --   #436 public.jobs cross-company driver SELECT isolation
---   #437 public.job_bids competitor mutation isolation
+--   #437 public.job_bids competitor mutation isolation + own self-withdraw
 --
 -- Run after the full migration chain against a disposable/local/preview database.
 -- Synthetic fixtures live only inside this transaction and are always rolled back.
@@ -38,8 +38,9 @@ BEGIN
     GET DIAGNOSTICS v_rows = ROW_COUNT;
   EXCEPTION
     WHEN insufficient_privilege THEN
-      -- Revoking direct authenticated UPDATE entirely is a valid fail-closed
-      -- implementation of the contract.
+      -- A protected-column UPDATE can fail before RLS because #437 intentionally
+      -- grants authenticated UPDATE on `status` only. That is a valid fail-closed
+      -- result for a mutation that attempts any protected commercial field.
       RETURN;
   END;
 
@@ -69,7 +70,7 @@ SELECT pg_temp.assert_true(
         'jobs_driver_assigned_or_awarded_v1'
       )
   ),
-  'Legacy Production-only jobs SELECT policies are present after clean replay.'
+  'Legacy Production-only jobs SELECT policies are present after convergence.'
 );
 
 SELECT pg_temp.assert_true(
@@ -94,10 +95,70 @@ SELECT pg_temp.assert_true(
       AND tablename = 'job_bids'
       AND policyname IN (
         'job_bids_insert_authenticated',
-        'job_bids_update_authenticated'
+        'job_bids_update_authenticated',
+        'job_bids_update_bidder_or_admin'
       )
   ),
-  'Legacy Production-only broad job_bids mutation policies are present after clean replay.'
+  'Legacy broad job_bids mutation policies are present after convergence.'
+);
+
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'job_bids'
+      AND policyname = 'job_bids_exchange_insert'
+      AND permissive = 'PERMISSIVE'
+      AND cmd = 'INSERT'
+      AND 'authenticated' = ANY (roles)
+      AND with_check ILIKE '%bidder_user_id = auth.uid()%'
+      AND with_check ILIKE '%bidder_driver_id IS NOT NULL%'
+      AND with_check ILIKE '%can_authenticated_driver_quote%'
+  ),
+  'Canonical own-named-driver INSERT policy is missing or weakened.'
+);
+
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'job_bids'
+      AND policyname = 'job_bids_self_withdraw'
+      AND permissive = 'PERMISSIVE'
+      AND cmd = 'UPDATE'
+      AND 'authenticated' = ANY (roles)
+      AND qual ILIKE '%bidder_user_id = auth.uid()%'
+      AND qual ILIKE '%status = ''submitted''%'
+      AND with_check ILIKE '%bidder_user_id = auth.uid()%'
+      AND with_check ILIKE '%status = ''withdrawn''%'
+  ),
+  'Canonical own submitted -> withdrawn policy is missing or weakened.'
+);
+
+-- Authenticated callers must not retain table-wide UPDATE. The Driver web
+-- self-withdraw path needs only the status column; commercial identity/value
+-- fields remain server/RPC controlled.
+SELECT pg_temp.assert_true(
+  NOT has_table_privilege('authenticated', 'public.job_bids', 'UPDATE'),
+  'authenticated still has table-wide UPDATE on public.job_bids.'
+);
+
+SELECT pg_temp.assert_true(
+  has_column_privilege('authenticated', 'public.job_bids', 'status', 'UPDATE'),
+  'authenticated lost the required status-only self-withdraw privilege.'
+);
+
+SELECT pg_temp.assert_true(
+  NOT has_column_privilege('authenticated', 'public.job_bids', 'job_id', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.job_bids', 'company_id', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.job_bids', 'bidder_user_id', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.job_bids', 'bidder_driver_id', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.job_bids', 'amount', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.job_bids', 'bid_price_gbp', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.job_bids', 'message', 'UPDATE'),
+  'authenticated retains UPDATE on protected job_bids columns.'
 );
 
 -- ---------------------------------------------------------------------------
@@ -283,6 +344,8 @@ VALUES (
 
 SET LOCAL session_replication_role = origin;
 
+-- Job owner cannot alter the competitor's commercial/identity fields. This must
+-- fail at column privilege or affect zero rows; either outcome is fail-closed.
 SELECT set_config(
   'request.jwt.claims',
   json_build_object(
@@ -300,7 +363,18 @@ SELECT pg_temp.expect_no_row_update(
            message = 'Tampered by job owner'
      WHERE id = '86400000-0000-0000-0000-000000000001'
   $sql$,
-  'Job-owning company modified a competitor submitted bid through raw UPDATE.'
+  'Job-owning company modified competitor commercial/identity fields.'
+);
+
+-- Even on the one client-writable column, the job owner must not be able to
+-- withdraw the competitor's submitted bid. This exercises the row-level policy.
+SELECT pg_temp.expect_no_row_update(
+  $sql$
+    UPDATE public.job_bids
+       SET status = 'withdrawn'
+     WHERE id = '86400000-0000-0000-0000-000000000001'
+  $sql$,
+  'Job-owning company withdrew a competitor submitted bid through raw UPDATE.'
 );
 
 RESET ROLE;
@@ -315,6 +389,39 @@ SELECT pg_temp.assert_true(
       AND status = 'submitted'
   ),
   'Competitor bid changed despite the negative mutation boundary.'
+);
+
+-- The actual bidder must retain the one explicitly supported direct mutation:
+-- their own submitted bid can become withdrawn, and only through status UPDATE.
+SELECT set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'sub', '86000000-0000-0000-0000-000000000001',
+    'role', 'authenticated'
+  )::text,
+  true
+);
+SET LOCAL ROLE authenticated;
+
+UPDATE public.job_bids
+   SET status = 'withdrawn'
+ WHERE id = '86400000-0000-0000-0000-000000000001';
+
+RESET ROLE;
+
+SELECT pg_temp.assert_true(
+  EXISTS (
+    SELECT 1
+    FROM public.job_bids
+    WHERE id = '86400000-0000-0000-0000-000000000001'
+      AND company_id = '86100000-0000-0000-0000-000000000001'
+      AND bidder_user_id = '86000000-0000-0000-0000-000000000001'
+      AND message = 'Original bidder message'
+      AND bid_price_gbp = 250
+      AND amount = 250
+      AND status = 'withdrawn'
+  ),
+  'Own submitted bid could not be withdrawn without mutating protected fields.'
 );
 
 ROLLBACK;
