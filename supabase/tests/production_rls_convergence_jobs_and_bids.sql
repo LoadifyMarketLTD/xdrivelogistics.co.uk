@@ -311,8 +311,9 @@ RESET ROLE;
 -- under the real `authenticated` role. session_replication_role is restored
 -- immediately and the entire transaction rolls back.
 --
--- quote_amount is intentionally omitted: canonical main computes that field in
--- public.job_bids_with_job_owner rather than requiring a physical job_bids column.
+-- Legacy bidder_company_id / quote_amount columns are intentionally omitted:
+-- clean main uses company_id as bidder-company authority and derives quote amount
+-- in public.job_bids_with_job_owner rather than requiring those physical columns.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL session_replication_role = replica;
@@ -320,7 +321,6 @@ SET LOCAL session_replication_role = replica;
 INSERT INTO public.job_bids (
   id,
   job_id,
-  bidder_company_id,
   company_id,
   bidder_user_id,
   bid_price_gbp,
@@ -332,7 +332,6 @@ INSERT INTO public.job_bids (
 VALUES (
   '86400000-0000-0000-0000-000000000001',
   '86300000-0000-0000-0000-000000000002',
-  '86100000-0000-0000-0000-000000000001',
   '86100000-0000-0000-0000-000000000001',
   '86000000-0000-0000-0000-000000000001',
   250,
