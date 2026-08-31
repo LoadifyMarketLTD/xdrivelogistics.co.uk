@@ -118,7 +118,10 @@ export default function SuperAdminCardNavigationShell({
   }), [definition.homeHref, navigationTargets, pathname]);
 
   const fallbackGroup = fallbackGroupId(pathname);
-  const currentGroup = useMemo(() => definition.nav.find((group) => group.id === (currentTarget?.groupId ?? fallbackGroup)) ?? definition.nav[0], [currentTarget?.groupId, definition.nav, fallbackGroup]);
+  const currentGroup = useMemo(
+    () => definition.nav.find((group) => group.id === (currentTarget?.groupId ?? fallbackGroup)) ?? definition.nav[0],
+    [currentTarget?.groupId, definition.nav, fallbackGroup],
+  );
 
   const searchResults = useMemo(() => {
     const normalized = searchValue.trim().toLowerCase();
@@ -169,30 +172,22 @@ export default function SuperAdminCardNavigationShell({
   }, [fixtureOverrides?.unreadCount, user?.id]);
 
   useEffect(() => {
-    const closeFloatingPanels = (event: MouseEvent) => {
-      if (!shellRef.current?.contains(event.target as Node)) {
-        setSearchOpen(false);
-        setAccountOpen(false);
-      }
-    };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       setSearchOpen(false);
       setAccountOpen(false);
       setExploreOpen(false);
     };
-    document.addEventListener('mousedown', closeFloatingPanels);
     document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeFloatingPanels);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
+    return () => document.removeEventListener('keydown', closeOnEscape);
   }, []);
 
   useEffect(() => {
     setSearchOpen(false);
     setAccountOpen(false);
   }, [pathname]);
+
+  const showContextBar = pathname !== definition.homeHref;
 
   return (
     <div ref={shellRef} className={styles.shell}>
@@ -263,7 +258,7 @@ export default function SuperAdminCardNavigationShell({
             {accountOpen && (
               <div className={styles.accountMenu}>
                 <div className={styles.accountMenuHeader}><strong>Platform Owner</strong><span>{user?.email ?? companyName}</span></div>
-                <button type="button" onClick={() => navigateToTarget(definition.homeHref)}>Command Centre</button>
+                <button type="button" onClick={() => navigateToTarget(definition.homeHref)}>Super Admin home</button>
                 <button type="button" onClick={() => setExploreOpen(true)}>Explore all areas</button>
                 <button type="button" className={styles.signOutMenuItem} onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
               </div>
@@ -298,19 +293,21 @@ export default function SuperAdminCardNavigationShell({
         </section>
       )}
 
-      <section className={styles.contextBar}>
-        <div className={styles.contextCopy}>
-          <span>{currentGroup?.label ?? 'Platform Owner'}</span>
-          <strong>{currentTarget?.label ?? (pathname.startsWith('/super-admin/inspect/') ? 'Entity Inspector' : 'Command Centre')}</strong>
-          <p>{currentGroup ? GROUP_DESCRIPTIONS[currentGroup.id] : 'Platform-wide administration and investigation.'}</p>
-        </div>
-        {currentGroup ? (
-          <div className={styles.contextLinks}>
-            {currentGroup.items.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={() => navigateToTarget(item.href)}>{item.label}</button>)}
-            {currentGroup.items.length > 6 ? <button type="button" onClick={() => setExploreOpen(true)}>+{currentGroup.items.length - 6} more</button> : null}
+      {showContextBar ? (
+        <section className={styles.contextBar}>
+          <div className={styles.contextCopy}>
+            <span>{currentGroup?.label ?? 'Platform Owner'}</span>
+            <strong>{currentTarget?.label ?? (pathname.startsWith('/super-admin/inspect/') ? 'Entity Inspector' : 'Control Centre')}</strong>
+            <p>{currentGroup ? GROUP_DESCRIPTIONS[currentGroup.id] : 'Platform-wide administration and investigation.'}</p>
           </div>
-        ) : null}
-      </section>
+          {currentGroup ? (
+            <div className={styles.contextLinks}>
+              {currentGroup.items.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={() => navigateToTarget(item.href)}>{item.label}</button>)}
+              {currentGroup.items.length > 6 ? <button type="button" onClick={() => setExploreOpen(true)}>+{currentGroup.items.length - 6} more</button> : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <main className={styles.main}>
         <div className={styles.content}>{children}</div>
