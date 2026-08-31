@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import {
   isMissingDurabilityColumnError,
   normalizeBaseRow,
@@ -8,24 +9,9 @@ import {
   type NotificationEventDurabilityRow,
   type NotificationEventRow,
 } from '../_lib/notificationEvents';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
 
 const getNotificationTitle = (eventType: string) => {
   switch (eventType) {
@@ -67,13 +53,12 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
 
-  // ── Analytics ─────────────────────────────────────────────────────────────────
   if (section === 'analytics') {
     const [
       companies,
@@ -102,7 +87,6 @@ export async function GET(request: NextRequest) {
     const totalInvoiced = (invoices.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const totalRevenue = (invoicesPaid.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
-    // Jobs trend: last 30 days grouped by week
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
     const { data: recentJobs } = await supabaseAdmin
       .from('jobs')
@@ -136,14 +120,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Notifications ─────────────────────────────────────────────────────────────
   if (section === 'notifications') {
-    // Attempt to select optional durability columns (last_error, attempt_count,
-    // next_attempt_at) added by migration 20260720121500. If the deployed
-    // schema predates that migration these columns will not exist.
-    // In that case fall back to the baseline column set and surface an honest
-    // diagnostic note rather than failing the whole notifications page.
-
     const primaryResult = await supabaseAdmin
       .from('notification_events')
       .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
@@ -156,7 +133,6 @@ export async function GET(request: NextRequest) {
 
     if (primaryResult.error) {
       if (isMissingDurabilityColumnError(primaryResult.error)) {
-        // Retry with baseline columns only.
         const fallbackResult = await supabaseAdmin
           .from('notification_events')
           .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
@@ -176,7 +152,6 @@ export async function GET(request: NextRequest) {
         normalizedRows = (fallbackResult.data ?? []).map(normalizeBaseRow);
         durabilityUnavailable = true;
       } else {
-        // Unrelated error — surface it, do not convert to healthy empty state.
         return respond(500, {
           section,
           error: 'Failed to load notification events.',
@@ -227,8 +202,8 @@ export async function PATCH(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string } | null;
   const section = String(body?.section ?? '').toLowerCase();
@@ -263,8 +238,6 @@ export async function PATCH(request: NextRequest) {
     })
     .eq('id', notificationId);
 
-  // If the update fails because durability columns don't exist yet
-  // (pre-migration schema), retry with the minimal column set.
   if (updateError && isMissingDurabilityColumnError(updateError)) {
     const { error: fallbackError } = await supabaseAdmin
       .from('notification_events')
