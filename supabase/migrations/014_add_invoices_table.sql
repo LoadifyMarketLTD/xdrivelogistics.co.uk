@@ -91,10 +91,13 @@ CREATE TRIGGER trg_invoices_updated_at
 -- ── Dashboard stats view ─────────────────────────────────────
 -- Returns the four key metrics shown on the admin dashboard.
 -- Filter by company_id in the WHERE clause when querying.
+-- SECURITY INVOKER preserves the caller's jobs RLS boundary on fresh replay.
 --
 -- Example:
 --   SELECT * FROM public.dashboard_stats WHERE company_id = '<your-company-id>';
-CREATE OR REPLACE VIEW public.dashboard_stats AS
+CREATE OR REPLACE VIEW public.dashboard_stats
+WITH (security_invoker = true)
+AS
 SELECT
   j.company_id,
   COUNT(*) FILTER (
