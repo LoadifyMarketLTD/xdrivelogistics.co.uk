@@ -21,6 +21,22 @@ describe('legacy Fleet onboarding convergence', () => {
     expect(route).toContain('account_type: accountType');
   });
 
+  it('reconstructs the hosted companies updated_at contract before P0-11 writes it', () => {
+    const migration = readRepoFile(
+      'supabase/migrations/20260830204000_reconcile_legacy_fleet_onboarding_bindings.sql',
+    );
+
+    expect(migration).toContain(
+      'ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()',
+    );
+    expect(migration).toContain("c.column_name = 'updated_at'");
+    expect(migration).toContain("v_data_type IS DISTINCT FROM 'timestamp with time zone'");
+    expect(migration).toContain("v_nullable IS DISTINCT FROM 'NO'");
+    expect(migration).toContain(
+      'companies.updated_at clean-replay contract is not TIMESTAMPTZ NOT NULL DEFAULT now().',
+    );
+  });
+
   it('binds only unambiguous pending legacy Fleet companies without changing approval state', () => {
     const migration = readRepoFile(
       'supabase/migrations/20260830204000_reconcile_legacy_fleet_onboarding_bindings.sql',

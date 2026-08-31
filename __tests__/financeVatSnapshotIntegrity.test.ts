@@ -2,6 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+const invoiceFoundation = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/014_add_invoices_table.sql'),
+  'utf8',
+);
+const enumRepair = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/20260723111000_add_missing_invoice_status_pending.sql'),
+  'utf8',
+);
 const reconciliation = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/20260830194000_reconcile_finance_vat_snapshot_integrity.sql'),
   'utf8',
@@ -16,6 +24,25 @@ const runtimeProof = fs.readFileSync(
 );
 
 describe('finance VAT snapshot integrity', () => {
+  it('reconstructs hosted canonical invoice lifecycle labels before void is first used', () => {
+    expect(enumRepair).toContain("'draft'");
+    expect(enumRepair).toContain("'sent'");
+    expect(enumRepair).toContain("'paid'");
+    expect(enumRepair).toContain("'void'");
+    expect(enumRepair).toContain("'overdue'");
+    expect(enumRepair).toContain('ALTER TYPE public.invoice_status ADD VALUE');
+  });
+
+  it('reconstructs the hosted invoice money snapshot physical contract', () => {
+    expect(invoiceFoundation).toContain('vat_rate            numeric(5,2) NOT NULL DEFAULT 0');
+    expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS subtotal numeric(12,2) NOT NULL DEFAULT 0');
+    expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS total numeric(12,2) NOT NULL DEFAULT 0');
+    expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS agreed_gross_amount numeric(12,2) NOT NULL DEFAULT 0');
+    expect(reconciliation).toContain("('vat_rate'::text, 5, 2)");
+    expect(reconciliation).toContain('Canonical invoice monetary snapshot physical contract is incomplete.');
+    expect(reconciliation).not.toContain('ALTER COLUMN vat_rate TYPE');
+  });
+
   it('repairs only provable non-VAT and marked test-fixture history', () => {
     expect(reconciliation).toContain("default_vat_treatment = 'not_registered'");
     expect(reconciliation).toContain('default_vat_rate = 0');
@@ -52,6 +79,17 @@ describe('finance VAT snapshot integrity', () => {
     expect(triggerCoverage).toContain('agreed_gross_amount');
     expect(triggerCoverage).toContain('issuer_vat_number_snapshot');
     expect(triggerCoverage).toContain('customer_vat_number_snapshot');
+  });
+
+  it('uses only a synthetic rollback-only finance fixture for runtime mutation proof', () => {
+    expect(runtimeProof).toContain('P0-09 Synthetic Finance');
+    expect(runtimeProof).toContain('P0-09 Synthetic Supplier');
+    expect(runtimeProof).toContain('P0-09 Synthetic Buyer');
+    expect(runtimeProof).toContain('DISABLE TRIGGER trg_guard_driver_quote_mutation');
+    expect(runtimeProof).toContain('ENABLE TRIGGER trg_guard_driver_quote_mutation');
+    expect(runtimeProof).toContain("ERRCODE = 'PZ091'");
+    expect(runtimeProof).toContain('P0-09 synthetic finance fixture did not roll back cleanly.');
+    expect(runtimeProof).not.toContain('runtime proof could not resolve the reconciled test invoice/agreement');
   });
 
   it('contains rollback-only mutation probes and zero-tolerance postconditions', () => {

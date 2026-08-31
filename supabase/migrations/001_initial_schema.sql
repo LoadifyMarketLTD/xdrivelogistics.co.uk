@@ -8,6 +8,10 @@ CREATE TYPE public.job_status AS ENUM ('draft', 'posted', 'allocated', 'in_trans
 CREATE TYPE public.cargo_type AS ENUM ('documents', 'packages', 'pallets', 'furniture', 'equipment', 'other');
 CREATE TYPE public.vehicle_type AS ENUM ('bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic');
 CREATE TYPE public.tracking_event_type AS ENUM ('created', 'allocated', 'driver_en_route', 'arrived_pickup', 'collected', 'in_transit', 'arrived_delivery', 'delivered', 'failed', 'cancelled', 'note');
+-- Hosted production uses this lifecycle enum for canonical Driver/Vehicle state.
+-- Reconstruct it from the start of a clean replay so later RLS policies, indexes,
+-- and identity triggers bind to the final physical type rather than historical text drift.
+CREATE TYPE public.status_enum AS ENUM ('active', 'inactive', 'suspended');
 
 -- Profiles (extends auth.users)
 CREATE TABLE public.profiles (
@@ -43,7 +47,7 @@ CREATE TABLE public.company_memberships (
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   invited_email text,
   role_in_company public.company_role DEFAULT 'viewer',
-  status public.membership_status DEFAULT 'invited',
+  status text DEFAULT 'invited',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   UNIQUE(company_id, user_id),
@@ -58,7 +62,7 @@ CREATE TABLE public.drivers (
   display_name text NOT NULL,
   phone text,
   email text,
-  status text DEFAULT 'active',
+  status public.status_enum DEFAULT 'active',
   created_at timestamptz DEFAULT now()
 );
 

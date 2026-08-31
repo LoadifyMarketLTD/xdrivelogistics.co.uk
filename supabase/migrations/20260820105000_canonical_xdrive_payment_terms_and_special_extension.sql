@@ -10,6 +10,15 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
+-- Hosted production contains this nullable posting-company attribution column
+-- and index from historical drift. Reconstruct that observed structural contract
+-- before this migration first references it. Do not backfill data or invent an FK.
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS posted_by_company_id uuid;
+
+CREATE INDEX IF NOT EXISTS idx_jobs_posted_by_company
+  ON public.jobs (posted_by_company_id);
+
 CREATE OR REPLACE FUNCTION public.fn_canonical_xdrive_payment_terms(p_payment_terms text)
 RETURNS text
 LANGUAGE plpgsql
