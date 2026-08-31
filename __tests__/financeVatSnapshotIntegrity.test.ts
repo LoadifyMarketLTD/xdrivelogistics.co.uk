@@ -2,6 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+const invoiceFoundation = fs.readFileSync(
+  path.join(process.cwd(), 'supabase/migrations/014_add_invoices_table.sql'),
+  'utf8',
+);
 const enumRepair = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/20260723111000_add_missing_invoice_status_pending.sql'),
   'utf8',
@@ -30,11 +34,13 @@ describe('finance VAT snapshot integrity', () => {
   });
 
   it('reconstructs the hosted invoice money snapshot physical contract', () => {
+    expect(invoiceFoundation).toContain('vat_rate            numeric(5,2) NOT NULL DEFAULT 0');
     expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS subtotal numeric(12,2) NOT NULL DEFAULT 0');
     expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS total numeric(12,2) NOT NULL DEFAULT 0');
     expect(reconciliation).toContain('ADD COLUMN IF NOT EXISTS agreed_gross_amount numeric(12,2) NOT NULL DEFAULT 0');
-    expect(reconciliation).toContain('ALTER COLUMN vat_rate TYPE numeric(5,2)');
+    expect(reconciliation).toContain("('vat_rate'::text, 5, 2)");
     expect(reconciliation).toContain('Canonical invoice monetary snapshot physical contract is incomplete.');
+    expect(reconciliation).not.toContain('ALTER COLUMN vat_rate TYPE');
   });
 
   it('repairs only provable non-VAT and marked test-fixture history', () => {
