@@ -1,29 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
-
-const resolveOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
 
 type ServiceCheck = {
   service: string;
@@ -54,8 +35,8 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await resolveOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const checks = await Promise.all([
     timed('Supabase Database', async () => {
@@ -117,9 +98,24 @@ export async function GET(request: NextRequest) {
     },
   ];
 
+  const healthyChecks = checks.filter((check) => check.status === 'healthy').length;
+  const degradedChecks = checks.filter((check) => check.status === 'degraded').length;
+  const failedChecks = checks.filter((check) => check.status === 'error').length;
+  const configuredIntegrations = integrations.filter((integration) => integration.configured).length;
+
   return respond(200, {
     checkedAt: new Date().toISOString(),
     checks,
     integrations,
+    summary: {
+      totalChecks: checks.length,
+      healthyChecks,
+      degradedChecks,
+      failedChecks,
+      degradedServices: degradedChecks + failedChecks,
+      configuredIntegrations,
+      totalIntegrations: integrations.length,
+      integrationConfigurationGaps: integrations.length - configuredIntegrations,
+    },
   });
 }
