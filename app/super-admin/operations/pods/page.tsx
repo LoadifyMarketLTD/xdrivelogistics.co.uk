@@ -26,6 +26,7 @@ export default function Page() {
       description="Proof-of-delivery evidence extracted from completed delivery jobs."
       endpoint="/api/super-admin/operations?section=pods&limit=250"
       emptyMessage="No POD evidence found."
+      entityLink={(row) => ({ entityType: 'pod', entityId: row.id, label: 'Inspect POD' })}
       columns={[
         {
           key: 'route',
