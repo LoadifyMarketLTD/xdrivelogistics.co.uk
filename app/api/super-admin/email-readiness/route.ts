@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -14,20 +11,6 @@ type EventTimestampRow = {
 };
 
 type ReadinessStatus = 'healthy' | 'degraded' | 'error';
-
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-
-  if (error || !data) return null;
-
-  return data as { role: string | null };
-};
 
 const isMissingRelation = (message: string | null | undefined) =>
   (message ?? '').toLowerCase().includes('does not exist');
@@ -47,33 +30,11 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const token = getBearerToken(request);
-
-  if (!token) {
-    return respond(401, {
-      ok: false,
-      error: 'Unauthorized.',
-    });
-  }
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-
-  const { data: authData, error: authError } =
-    await validatorClient.auth.getUser(token);
-
-  if (authError || !authData.user) {
-    return respond(401, {
-      ok: false,
-      error: 'Unauthorized: invalid or expired token.',
-    });
-  }
-
-  const profile = await resolveOwnerProfile(authData.user.id);
-
-  if (!profile || profile.role !== 'owner') {
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) {
     return respond(403, {
       ok: false,
-      error: 'Forbidden: owner role required.',
+      error: 'Forbidden: active Platform Owner required.',
     });
   }
 
