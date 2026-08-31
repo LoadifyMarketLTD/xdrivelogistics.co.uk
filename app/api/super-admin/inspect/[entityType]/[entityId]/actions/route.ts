@@ -8,7 +8,7 @@ const CASE_SCHEMA_UNAVAILABLE_CODES = new Set(['42P01', 'PGRST202', 'PGRST205'])
 const POD_REVIEW_SCHEMA_UNAVAILABLE_CODES = new Set(['42703', 'PGRST204']);
 const FINANCE_RECONCILIATION_SCHEMA_UNAVAILABLE_CODES = new Set(['42703', 'PGRST204']);
 const ACTIVE_CASE_STATUSES = ['open', 'acknowledged', 'investigating', 'waiting'] as const;
-const OPERATIONS_ENTITY_TYPES = new Set(['job', 'driver', 'vehicle', 'pod', 'dispute']);
+const CASE_CAPABLE_ENTITY_TYPES = new Set(['job', 'company', 'user', 'driver', 'vehicle', 'invoice', 'pod', 'ticket', 'dispute']);
 
 type ActionTone = 'primary' | 'secondary' | 'warning' | 'danger';
 type ActionDescriptor = {
@@ -27,6 +27,22 @@ type ActiveCaseRow = {
   status: string;
   title: string;
 };
+
+type EntityState = {
+  exists: boolean;
+  label: string;
+  companyId: string | null;
+  status: string | null;
+  exchangeVisibility: string | null;
+};
+
+const emptyEntity = (entityId: string): EntityState => ({
+  exists: false,
+  label: entityId,
+  companyId: null,
+  status: null,
+  exchangeVisibility: null,
+});
 
 const isCaseSchemaUnavailable = (error: { code?: string } | null | undefined) =>
   Boolean(error?.code && CASE_SCHEMA_UNAVAILABLE_CODES.has(error.code));
@@ -55,7 +71,7 @@ const CASE_ACTIONS: ActionDescriptor[] = [
   {
     id: 'open_case_p1',
     label: 'Open P1 case',
-    description: 'Create a high-priority operational investigation requiring urgent Platform Owner attention.',
+    description: 'Create a high-priority platform investigation requiring urgent Platform Owner attention.',
     requiresReason: true,
     tone: 'warning',
     caseSeverity: 'P1',
@@ -63,7 +79,7 @@ const CASE_ACTIONS: ActionDescriptor[] = [
   {
     id: 'open_case_p2',
     label: 'Open P2 case',
-    description: 'Create a standard operational exception investigation for this entity.',
+    description: 'Create a standard platform exception investigation for this entity.',
     requiresReason: true,
     tone: 'primary',
     caseSeverity: 'P2',
@@ -71,7 +87,7 @@ const CASE_ACTIONS: ActionDescriptor[] = [
   {
     id: 'open_case_p3',
     label: 'Open P3 case',
-    description: 'Create a lower-priority investigation for a non-urgent operational exception.',
+    description: 'Create a lower-priority investigation for a non-urgent platform exception.',
     requiresReason: true,
     tone: 'secondary',
     caseSeverity: 'P3',
@@ -128,8 +144,8 @@ const signaturePresent = (value: unknown) => {
   return Boolean(String(value).trim());
 };
 
-async function entityExists(entityType: string, entityId: string) {
-  if (!supabaseAdmin) return { exists: false, label: entityId, companyId: null as string | null, status: null as string | null, exchangeVisibility: null as string | null };
+async function entityExists(entityType: string, entityId: string): Promise<EntityState> {
+  if (!supabaseAdmin) return emptyEntity(entityId);
 
   if (entityType === 'job' || entityType === 'pod') {
     const { data, error } = await supabaseAdmin
@@ -147,26 +163,91 @@ async function entityExists(entityType: string, entityId: string) {
     };
   }
 
-  if (entityType === 'driver') {
-    const { data, error } = await supabaseAdmin.from('drivers').select('id, display_name, full_name, name, company_id, status').eq('id', entityId).maybeSingle();
+  if (entityType === 'company') {
+    const { data, error } = await supabaseAdmin
+      .from('companies')
+      .select('id, name, status')
+      .eq('id', entityId)
+      .maybeSingle();
     if (error) throw new Error(error.message);
-    return { exists: Boolean(data), label: data ? String(data.display_name ?? data.full_name ?? data.name ?? data.id) : entityId, companyId: data?.company_id ? String(data.company_id) : null, status: data?.status ? String(data.status) : null, exchangeVisibility: null };
+    return {
+      exists: Boolean(data),
+      label: data ? String(data.name ?? data.id) : entityId,
+      companyId: data ? String(data.id) : null,
+      status: data?.status ? String(data.status) : null,
+      exchangeVisibility: null,
+    };
+  }
+
+  if (entityType === 'user') {
+    const { data: profile, error } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, full_name, company_id, status, role')
+      .eq('user_id', entityId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (profile) {
+      return {
+        exists: true,
+        label: String(profile.full_name ?? profile.user_id),
+        companyId: profile.company_id ? String(profile.company_id) : null,
+        status: profile.status ? String(profile.status) : null,
+        exchangeVisibility: null,
+      };
+    }
+
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.getUserById(entityId);
+    if (authError) {
+      if (authError.status === 404) return emptyEntity(entityId);
+      throw new Error(authError.message);
+    }
+    return {
+      exists: Boolean(authUser.user),
+      label: authUser.user?.email ?? entityId,
+      companyId: null,
+      status: authUser.user ? 'auth_identity' : null,
+      exchangeVisibility: null,
+    };
+  }
+
+  if (entityType === 'driver') {
+    const { data, error } = await supabaseAdmin
+      .from('drivers')
+      .select('id, display_name, full_name, name, company_id, status')
+      .eq('id', entityId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return {
+      exists: Boolean(data),
+      label: data ? String(data.display_name ?? data.full_name ?? data.name ?? data.id) : entityId,
+      companyId: data?.company_id ? String(data.company_id) : null,
+      status: data?.status ? String(data.status) : null,
+      exchangeVisibility: null,
+    };
   }
 
   if (entityType === 'vehicle') {
-    const { data, error } = await supabaseAdmin.from('vehicles').select('id, reg, registration, reg_plate, vehicle_reference, company_id, status, current_status').eq('id', entityId).maybeSingle();
+    const { data, error } = await supabaseAdmin
+      .from('vehicles')
+      .select('id, reg, registration, reg_plate, vehicle_reference, company_id, status, current_status')
+      .eq('id', entityId)
+      .maybeSingle();
     if (error) throw new Error(error.message);
-    return { exists: Boolean(data), label: data ? String(data.registration ?? data.reg_plate ?? data.reg ?? data.vehicle_reference ?? data.id) : entityId, companyId: data?.company_id ? String(data.company_id) : null, status: data ? String(data.current_status ?? data.status ?? '') : null, exchangeVisibility: null };
-  }
-
-  if (entityType === 'dispute') {
-    const { data, error } = await supabaseAdmin.from('job_disputes').select('id, job_id, raised_by_company_id, status, description').eq('id', entityId).maybeSingle();
-    if (error) throw new Error(error.message);
-    return { exists: Boolean(data), label: data ? String(data.description ?? `Dispute ${data.id}`) : entityId, companyId: data?.raised_by_company_id ? String(data.raised_by_company_id) : null, status: data?.status ? String(data.status) : null, exchangeVisibility: null };
+    return {
+      exists: Boolean(data),
+      label: data ? String(data.registration ?? data.reg_plate ?? data.reg ?? data.vehicle_reference ?? data.id) : entityId,
+      companyId: data?.company_id ? String(data.company_id) : null,
+      status: data ? String(data.current_status ?? data.status ?? '') : null,
+      exchangeVisibility: null,
+    };
   }
 
   if (entityType === 'invoice') {
-    const { data, error } = await supabaseAdmin.from('invoices').select('id, invoice_number, company_id, status, payment_status').eq('id', entityId).maybeSingle();
+    const { data, error } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, company_id, status, payment_status')
+      .eq('id', entityId)
+      .maybeSingle();
     if (error) throw new Error(error.message);
     return {
       exists: Boolean(data),
@@ -177,22 +258,64 @@ async function entityExists(entityType: string, entityId: string) {
     };
   }
 
-  return { exists: false, label: entityId, companyId: null, status: null, exchangeVisibility: null };
+  if (entityType === 'ticket') {
+    const { data, error } = await supabaseAdmin
+      .from('support_tickets')
+      .select('id, subject, company_id, status, priority')
+      .eq('id', entityId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return {
+      exists: Boolean(data),
+      label: data ? String(data.subject ?? `Ticket ${data.id}`) : entityId,
+      companyId: data?.company_id ? String(data.company_id) : null,
+      status: data?.status ? String(data.status) : null,
+      exchangeVisibility: null,
+    };
+  }
+
+  if (entityType === 'dispute') {
+    const { data, error } = await supabaseAdmin
+      .from('job_disputes')
+      .select('id, job_id, raised_by_company_id, status, description')
+      .eq('id', entityId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return {
+      exists: Boolean(data),
+      label: data ? String(data.description ?? `Dispute ${data.id}`) : entityId,
+      companyId: data?.raised_by_company_id ? String(data.raised_by_company_id) : null,
+      status: data?.status ? String(data.status) : null,
+      exchangeVisibility: null,
+    };
+  }
+
+  return emptyEntity(entityId);
 }
 
 export async function GET(request: NextRequest, context: { params: Promise<{ entityType: string; entityId: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { entityType: rawType, entityId: rawId } = await context.params;
   const entityType = decodeURIComponent(rawType).toLowerCase();
   const entityId = decodeURIComponent(rawId).trim();
-  if (!OPERATIONS_ENTITY_TYPES.has(entityType) && entityType !== 'invoice') {
-    return respond(200, { entityType, entityId, supported: false, actions: [], activeCases: [], caseCentreAvailable: null });
+
+  if (!CASE_CAPABLE_ENTITY_TYPES.has(entityType)) {
+    return respond(200, {
+      entityType,
+      entityId,
+      supported: false,
+      actions: [],
+      activeCases: [],
+      caseCentreAvailable: null,
+      domainNotes: ['No Platform Owner semantic action registry is defined for this entity type.'],
+    });
   }
 
-  let entity;
+  let entity: EntityState;
   try {
     entity = await entityExists(entityType, entityId);
   } catch (error) {
@@ -205,7 +328,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
   let podReviewState: Record<string, unknown> | null = null;
   let financeReconciliationState: Record<string, unknown> | null = null;
 
-  if (entityType === 'job') actions.push(...marketplaceActionsFor(entity.status ?? '', entity.exchangeVisibility ?? ''));
+  if (entityType === 'job') {
+    actions.push(...marketplaceActionsFor(entity.status ?? '', entity.exchangeVisibility ?? ''));
+  }
 
   if (entityType === 'pod') {
     const podReview = await supabaseAdmin
@@ -238,8 +363,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
       };
 
       if (hasPhysicalEvidence) {
-        if (reviewStatus !== 'approved') actions.push({ id: 'pod_approve', label: 'Approve POD', description: 'Approve the physical proof-of-delivery evidence under Platform Owner authority. A review reason is required and audited.', requiresReason: true, tone: 'primary' });
-        if (reviewStatus !== 'rejected') actions.push({ id: 'pod_reject', label: 'Reject POD', description: 'Reject the submitted POD evidence as insufficient or invalid. A review reason is required and audited.', requiresReason: true, tone: 'danger' });
+        if (reviewStatus !== 'approved') {
+          actions.push({ id: 'pod_approve', label: 'Approve POD', description: 'Approve the physical proof-of-delivery evidence under Platform Owner authority. A review reason is required and audited.', requiresReason: true, tone: 'primary' });
+        }
+        if (reviewStatus !== 'rejected') {
+          actions.push({ id: 'pod_reject', label: 'Reject POD', description: 'Reject the submitted POD evidence as insufficient or invalid. A review reason is required and audited.', requiresReason: true, tone: 'danger' });
+        }
       } else if (reviewStatus !== 'missing_requested') {
         actions.push({ id: 'pod_request_missing', label: 'Request missing POD', description: 'Record that physical POD evidence is missing and requires remediation. A review reason is required and audited.', requiresReason: true, tone: 'warning' });
       }
@@ -257,11 +386,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
       if (!isFinanceReconciliationSchemaUnavailable(reconciliation.error)) return respond(500, { error: reconciliation.error.message });
       domainNotes.push('Platform finance reconciliation schema is not applied in this environment. Reconciliation actions are suppressed.');
     } else if (reconciliation.data) {
+      if (!entity.companyId) return respond(409, { error: 'Invoice has no company authority boundary for reconciliation.' });
       const paymentHistory = await supabaseAdmin
         .from('invoice_payment_history')
         .select('amount, paid_at')
         .eq('invoice_id', entityId)
-        .eq('company_id', entity.companyId as string)
+        .eq('company_id', entity.companyId)
         .order('paid_at', { ascending: false })
         .limit(500);
       if (paymentHistory.error) return respond(500, { error: paymentHistory.error.message });
