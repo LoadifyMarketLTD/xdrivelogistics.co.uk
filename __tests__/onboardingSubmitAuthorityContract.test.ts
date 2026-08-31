@@ -58,12 +58,19 @@ describe('onboarding submission authority', () => {
     );
   });
 
-  it('contains hosted proof for ACL, actor mismatch and rollback-only status normalization', () => {
+  it('proves ACL, actor mismatch and status normalization with rollback-only synthetic authority', () => {
     expect(runtimeProof).toContain('Authenticated can still execute the legacy one-argument submit RPC.');
+    expect(runtimeProof).toContain('SAVEPOINT p0_07_authority_fixture');
+    expect(runtimeProof).toContain('INSERT INTO auth.users');
+    expect(runtimeProof).toContain('INSERT INTO public.companies');
+    expect(runtimeProof).toContain('INSERT INTO public.platform_identity_registry');
+    expect(runtimeProof).toContain("'owner_driver'");
+    expect(runtimeProof).toContain('INSERT INTO public.onboarding_applications');
     expect(runtimeProof).toContain('Actor-bound submit accepted a user id that does not own the application.');
     expect(runtimeProof).toContain("SET status = 'submitted'");
     expect(runtimeProof).toContain("status = 'under_review'");
-    expect(runtimeProof).toContain('PZ071');
-    expect(runtimeProof).toContain('did not roll back cleanly');
+    expect(runtimeProof).toContain('ROLLBACK TO SAVEPOINT p0_07_authority_fixture');
+    expect(runtimeProof).toContain('synthetic authority fixture did not roll back cleanly');
+    expect(runtimeProof).not.toContain('No active verified Owner Driver application is available');
   });
 });

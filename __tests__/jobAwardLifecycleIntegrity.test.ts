@@ -12,6 +12,24 @@ const runtimeProof = fs.readFileSync(
 );
 
 describe('job award lifecycle integrity', () => {
+  it('reconstructs the hosted job audit columns before first use', () => {
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS cancellation_reason text');
+    expect(migration).toContain("c.column_name = 'is_test'");
+    expect(migration).toContain("c.column_name = 'cancellation_reason'");
+    expect(migration).toContain('jobs.is_test clean-replay contract is not BOOLEAN NOT NULL DEFAULT false.');
+    expect(migration).toContain('jobs.cancellation_reason clean-replay contract is not nullable TEXT without a default.');
+  });
+
+  it('keeps the hosted-only legacy POD dependency conditional without recreating it', () => {
+    expect(migration).toContain('p0_proof_of_delivery_dependency_exists');
+    expect(migration).toContain("to_regclass('public.proof_of_delivery') IS NULL");
+    expect(migration).toContain("EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.proof_of_delivery p WHERE p.job_id = $1)'");
+    expect(migration).toContain('NOT public.p0_proof_of_delivery_dependency_exists(j.id)');
+    expect(migration).toContain('DROP FUNCTION IF EXISTS public.p0_proof_of_delivery_dependency_exists(uuid)');
+    expect(migration).not.toContain('CREATE TABLE public.proof_of_delivery');
+  });
+
   it('reconciles only historical marked test jobs with impossible posted+award state', () => {
     expect(migration).toContain('COALESCE(j.is_test, false) = true');
     expect(migration).toContain("SET status = 'cancelled'");
@@ -19,7 +37,6 @@ describe('job award lifecycle integrity', () => {
     expect(migration).toContain('j.awarded_carrier_company_id IS NOT NULL');
     expect(migration).toContain('j.pickup_datetime < now()');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.invoices');
-    expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.proof_of_delivery');
   });
 
   it('rejects award or assignment authority while lifecycle is still pre-award', () => {

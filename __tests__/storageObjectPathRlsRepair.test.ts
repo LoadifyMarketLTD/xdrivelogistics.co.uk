@@ -57,17 +57,44 @@ describe('Storage object-path RLS repair', () => {
 
   it('does not solve restricted-table policy dependencies by granting raw evidence access', () => {
     expect(reviewerRepair).toContain('can_review_onboarding_storage_object');
+    expect(reviewerRepair).toContain(
+      'REVOKE ALL ON TABLE public.driver_identity_documents FROM PUBLIC, anon, authenticated',
+    );
+    expect(reviewerRepair).toContain(
+      'REVOKE ALL ON TABLE public.company_documents FROM PUBLIC, anon, authenticated',
+    );
+    expect(reviewerRepair).toContain('GRANT ALL ON TABLE public.driver_identity_documents TO service_role');
+    expect(reviewerRepair).toContain('GRANT ALL ON TABLE public.company_documents TO service_role');
     expect(reviewerRepair).toContain("has_table_privilege('authenticated', 'public.driver_identity_documents', 'SELECT')");
     expect(reviewerRepair).toContain("has_table_privilege('authenticated', 'public.company_documents', 'SELECT')");
+    expect(reviewerRepair).toContain("has_table_privilege('anon', 'public.driver_identity_documents', 'SELECT')");
+    expect(reviewerRepair).toContain("has_table_privilege('anon', 'public.company_documents', 'SELECT')");
     expect(invoiceRepair).toContain('can_read_invoice_storage_object');
+    expect(invoiceRepair).toContain(
+      'REVOKE ALL ON TABLE public.invoice_documents FROM PUBLIC, anon, authenticated',
+    );
+    expect(invoiceRepair).toContain('GRANT ALL ON TABLE public.invoice_documents TO service_role');
     expect(invoiceRepair).toContain("has_table_privilege('authenticated', 'public.invoice_documents', 'SELECT')");
+    expect(invoiceRepair).toContain("has_table_privilege('anon', 'public.invoice_documents', 'SELECT')");
+    expect(invoiceRepair).toContain("has_table_privilege('service_role', 'public.invoice_documents', 'SELECT')");
   });
 
-  it('proves real authenticated RLS visibility for an assigned Driver and denial for an outsider', () => {
+  it('proves real authenticated RLS visibility with rollback-only synthetic identities', () => {
+    expect(runtimeProof).toContain('SAVEPOINT p0_06_storage_fixture');
+    expect(runtimeProof).toContain('INSERT INTO auth.users');
+    expect(runtimeProof).toContain('INSERT INTO public.company_memberships');
+    expect(runtimeProof).toContain("'viewer'::public.company_role");
+    expect(runtimeProof).toContain('INSERT INTO public.platform_identity_registry');
+    expect(runtimeProof).toContain('INSERT INTO public.drivers');
+    expect(runtimeProof).toContain('INSERT INTO public.vehicles');
+    expect(runtimeProof).toContain('INSERT INTO storage.objects');
     expect(runtimeProof).toContain('SET LOCAL ROLE authenticated');
     expect(runtimeProof).toContain('request.jwt.claim.sub');
     expect(runtimeProof).toContain('Assigned Driver could not read their canonical vehicle document through RLS');
-    expect(runtimeProof).toContain('Unrelated Customer could read another company vehicle document through RLS');
+    expect(runtimeProof).toContain('Unrelated authenticated identity could read another company vehicle document through RLS');
+    expect(runtimeProof).toContain('ROLLBACK TO SAVEPOINT p0_06_storage_fixture');
+    expect(runtimeProof).not.toContain('requires one assigned active Driver vehicle document');
+    expect(runtimeProof).not.toContain('requires one unrelated active Customer identity');
   });
 
   it('contains a durable zero-tolerance postcondition for Driver-name path parsing', () => {
