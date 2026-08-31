@@ -11,8 +11,23 @@ export type VerifiedPlatformOwner = {
   email: string | null;
 };
 
+const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+export const isSuperAdminDeployPreviewReadOnly = () =>
+  process.env.CONTEXT === 'deploy-preview'
+  || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
+  || Boolean(process.env.URL?.includes('deploy-preview-'));
+
 export async function verifyPlatformOwner(request: NextRequest): Promise<VerifiedPlatformOwner | null> {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
+
+  // PR #431 is an inspectable Netlify Deploy Preview connected to live data for
+  // read-only truth checks. Fail closed before authentication/data mutation for
+  // every Super Admin write method so no forgotten UI action can write to the
+  // Production-backed environment from a preview deployment.
+  if (isSuperAdminDeployPreviewReadOnly() && !READ_ONLY_METHODS.has(request.method.toUpperCase())) {
+    return null;
+  }
 
   const token = getBearerToken(request);
   if (!token) return null;
