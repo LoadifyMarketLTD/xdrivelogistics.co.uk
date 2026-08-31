@@ -16,11 +16,21 @@ describe('Super Admin onboarding document request workflow', () => {
 
   test('API does not accept a client supplied requested-document list and Preview writes fail closed', () => {
     const route = read('app/api/super-admin/onboarding/[applicationId]/request-documents/route.ts');
+    const verifier = read('app/api/super-admin/_lib/verifyPlatformOwner.ts');
     expect(route).toContain('reason: z.string()');
     expect(route).toContain('reminder: z.boolean()');
     expect(route).not.toContain('requestedDocuments:');
     expect(route).toContain('Deploy Preview is read-only');
     expect(route).toContain("primaryChannel: 'email'");
+    expect(verifier).toContain("const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])");
+    expect(verifier).toContain('isSuperAdminDeployPreviewReadOnly()');
+  });
+
+  test('user-side missing-document GET cannot perform housekeeping writes in Deploy Preview', () => {
+    const route = read('app/api/onboarding/missing-documents/route.ts');
+    expect(route).toContain('isDeployPreviewReadOnly');
+    expect(route).toContain('missingDocuments.length === 0 && !isDeployPreviewReadOnly()');
+    expect(route).toContain("supabaseAdmin.rpc('resolve_completed_document_requests'");
   });
 
   test('document delivery uses the canonical operational notification worker', () => {
