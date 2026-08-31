@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { labelToCargoType } from '../../../../../../lib/vehicleTypes';
+import { labelToCargoType, labelToVehicleType } from '../../../../../../lib/vehicleTypes';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { verifyPlatformOwner } from '../../../_lib/verifyPlatformOwner';
@@ -25,45 +25,6 @@ const actionSchema = z.discriminatedUnion('action', [
     reason,
   }),
 ]);
-
-type LegacyJobVehicleType = 'SmallVan' | 'MediumVan' | 'LargeVan' | 'LutonVan' | 'Truck';
-
-// public.jobs.vehicle_type still uses the legacy DB enum. Public-enquiry labels and
-// modern workspace slugs must be converged at this boundary before the atomic RPC.
-const toLegacyJobVehicleType = (label: string): LegacyJobVehicleType => {
-  const normalized = label.toLowerCase().replace(/[^a-z0-9]+/g, '');
-
-  if (normalized.includes('luton')) return 'LutonVan';
-  if (normalized.includes('mwb') || normalized.includes('mediumvan')) return 'MediumVan';
-  if (
-    normalized.includes('lwb') ||
-    normalized.includes('xlwb') ||
-    normalized.includes('largevan') ||
-    normalized.includes('vanlarge') ||
-    normalized.includes('curtainside')
-  ) return 'LargeVan';
-  if (
-    normalized.includes('truck') ||
-    normalized.includes('artic') ||
-    normalized.includes('hiab') ||
-    normalized.includes('moffett') ||
-    normalized.includes('adrvehicle') ||
-    normalized.includes('refrigeratedvehicle') ||
-    normalized.includes('temperaturecontrolledvehicle') ||
-    /(?:35|5|75|12|18|26|44)t/.test(normalized)
-  ) return 'Truck';
-  if (
-    normalized.includes('smallvan') ||
-    normalized.includes('vansmall') ||
-    normalized.includes('swb') ||
-    normalized.includes('bicycle') ||
-    normalized.includes('motorbike') ||
-    normalized === 'car'
-  ) return 'SmallVan';
-
-  // Preserve the existing product fallback used by the modern mapper: large van.
-  return 'LargeVan';
-};
 
 const fieldFromNotes = (notes: string | null, label: string) => {
   if (!notes) return null;
@@ -157,7 +118,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   if (!enquiry) return respond(404, { error: 'XDrive enquiry not found.' });
 
   const action = parsed.data;
-  let vehicleType: LegacyJobVehicleType | null = null;
+  let vehicleType: string | null = null;
   let requestedVehicleLabel: string | null = null;
   let cargoType: string | null = null;
   let requestedCargoLabel: string | null = null;
@@ -173,7 +134,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const notes = enquiry.notes ?? null;
     requestedVehicleLabel = enquiry.vehicle_type || fieldFromNotes(notes, 'Vehicle requested') || 'Not sure / advise me';
     requestedCargoLabel = enquiry.cargo_type || fieldFromNotes(notes, 'Cargo') || 'Mixed Freight';
-    vehicleType = toLegacyJobVehicleType(requestedVehicleLabel);
+    // Pass the modern canonical slug. The governance RPC resolves it against the
+    // actual jobs.vehicle_type enum so legacy Production and clean-replay schemas agree.
+    vehicleType = labelToVehicleType(requestedVehicleLabel);
     cargoType = labelToCargoType(requestedCargoLabel);
     weightKg = numberFromNotes(notes, 'Weight');
     const rawPallets = numberFromNotes(notes, 'Pallets');
