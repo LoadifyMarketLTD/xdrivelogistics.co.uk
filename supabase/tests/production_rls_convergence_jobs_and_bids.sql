@@ -187,7 +187,7 @@ VALUES (
   'RLS Driver A',
   'active',
   true,
-  'owner_driver',
+  'company_driver',
   true
 );
 
@@ -249,6 +249,9 @@ RESET ROLE;
 -- INSERT triggers. The seed is privileged test setup only; RLS is exercised below
 -- under the real `authenticated` role. session_replication_role is restored
 -- immediately and the entire transaction rolls back.
+--
+-- quote_amount is intentionally omitted: canonical main computes that field in
+-- public.job_bids_with_job_owner rather than requiring a physical job_bids column.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL session_replication_role = replica;
@@ -261,7 +264,6 @@ INSERT INTO public.job_bids (
   bidder_user_id,
   bid_price_gbp,
   amount,
-  quote_amount,
   currency,
   status,
   message
@@ -272,7 +274,6 @@ VALUES (
   '86100000-0000-0000-0000-000000000001',
   '86100000-0000-0000-0000-000000000001',
   '86000000-0000-0000-0000-000000000001',
-  250,
   250,
   250,
   'GBP',
