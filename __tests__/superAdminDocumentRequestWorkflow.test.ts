@@ -8,12 +8,13 @@ describe('Super Admin onboarding document request workflow', () => {
     const migration = read('supabase/migrations/20260831235945_platform_document_completion_requests.sql');
     expect(migration).toContain('get_missing_onboarding_documents(p_application_id)');
     expect(migration).toContain('assert_platform_owner_actor(p_actor_user_id)');
+    expect(migration).toContain('INSERT INTO public.notification_events');
     expect(migration).toContain('INSERT INTO public.owner_audit_log');
     expect(migration).toContain("'email_required', true");
     expect(migration).toContain("'onboarding_url', '/onboarding/resume'");
   });
 
-  test('API does not accept a client supplied requested-document list', () => {
+  test('API does not accept a client supplied requested-document list and Preview writes fail closed', () => {
     const route = read('app/api/super-admin/onboarding/[applicationId]/request-documents/route.ts');
     expect(route).toContain('reason: z.string()');
     expect(route).toContain('reminder: z.boolean()');
@@ -22,13 +23,16 @@ describe('Super Admin onboarding document request workflow', () => {
     expect(route).toContain("primaryChannel: 'email'");
   });
 
-  test('document email enumerates canonical missing documents and deep-links to onboarding', () => {
-    const worker = read('supabase/functions/notify-document-request/index.ts');
+  test('document delivery uses the canonical operational notification worker', () => {
+    const worker = read('supabase/functions/notify-operational-event/index.ts');
+    expect(worker).toContain("case 'onboarding_documents_required'");
+    expect(worker).toContain("case 'onboarding_documents_reminder'");
     expect(worker).toContain('event.payload.missing_documents');
     expect(worker).toContain('Complete your documents');
     expect(worker).toContain("'/onboarding/resume'");
-    expect(worker).toContain('RESEND_API_KEY');
-    expect(worker).toContain('Idempotency-Key');
+    expect(worker).toContain('notificationIdempotencyKey(event.id, userId)');
+    expect(fs.existsSync(path.join(process.cwd(), 'supabase/functions/notify-document-request/index.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(process.cwd(), 'supabase/migrations/20260831235946_document_request_notification_router.sql'))).toBe(false);
   });
 
   test('all onboarding variants inherit the persistent document checklist', () => {
