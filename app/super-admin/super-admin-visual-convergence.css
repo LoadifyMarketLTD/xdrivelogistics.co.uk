@@ -1,0 +1,241 @@
+/* PR #431 visual convergence layer.
+ * Loaded after the preview styles so every Super Admin control surface shares
+ * one page rhythm, one card language and one control density.
+ */
+.super-admin-visual-root {
+  --sa-u-page-x: 22px;
+  --sa-u-page-y: 18px;
+  --sa-u-gap: 12px;
+  --sa-u-radius: 12px;
+  --sa-u-control-radius: 9px;
+  --sa-u-panel-shadow: 0 7px 22px rgba(8, 42, 97, .045);
+}
+
+/* One content width and one page rhythm. */
+.super-admin-visual-root .sa-page,
+.super-admin-visual-root .sa-inspector {
+  min-height: 100%;
+  padding: var(--sa-u-page-y) var(--sa-u-page-x) 28px;
+  color: var(--sa-preview-text);
+}
+
+/* Lists and inspectors now begin with the same visual header language. */
+.super-admin-visual-root .sa-page-header {
+  min-height: 72px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.super-admin-visual-root .sa-page-title,
+.super-admin-visual-root .sa-inspector-title {
+  color: var(--sa-preview-navy);
+  font-size: clamp(22px, 1.8vw, 26px);
+  line-height: 1.14;
+  font-weight: 850;
+  letter-spacing: -.025em;
+}
+
+.super-admin-visual-root .sa-page-description,
+.super-admin-visual-root .sa-inspector-subtitle {
+  max-width: 900px;
+  margin-top: 5px;
+  color: var(--sa-preview-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.super-admin-visual-root .sa-eyebrow,
+.super-admin-visual-root .sa-inspector-kicker {
+  margin-bottom: 5px;
+  font-size: 9px;
+  letter-spacing: .075em;
+}
+
+/* Company/Entity Inspector used to look like a separate product because the
+ * page title lived inside a large decorative hero card. Keep its information,
+ * remove the competing design system. */
+.super-admin-visual-root .sa-inspector-hero {
+  overflow: visible;
+  padding: 0 0 14px;
+  margin-bottom: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--sa-preview-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.super-admin-visual-root .sa-inspector-hero::after { display: none; }
+
+.super-admin-visual-root .sa-inspector-id { margin-top: 8px; }
+.super-admin-visual-root .sa-inspector-id code {
+  border-radius: 7px;
+  background: #fff;
+}
+
+/* One card language everywhere. */
+.super-admin-visual-root .sa-panel,
+.super-admin-visual-root .sa-inspector-section,
+.super-admin-visual-root .sa-surface {
+  overflow: hidden;
+  border: 1px solid var(--sa-preview-line);
+  border-radius: var(--sa-u-radius);
+  background: var(--sa-preview-panel);
+  box-shadow: var(--sa-u-panel-shadow);
+}
+
+.super-admin-visual-root .sa-panel-header,
+.super-admin-visual-root .sa-inspector-section-head,
+.super-admin-visual-root .sa-surface-header {
+  min-height: 48px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--sa-preview-line);
+  background: #fbfcff;
+}
+
+.super-admin-visual-root .sa-panel-title,
+.super-admin-visual-root .sa-inspector-section h2,
+.super-admin-visual-root .sa-surface-title {
+  color: var(--sa-preview-navy);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+/* One KPI card language. */
+.super-admin-visual-root .sa-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.super-admin-visual-root .sa-metric-card {
+  min-height: 88px;
+  padding: 13px;
+  border-radius: var(--sa-u-radius);
+  box-shadow: var(--sa-u-panel-shadow);
+}
+
+.super-admin-visual-root .sa-metric-card::after {
+  right: -28px;
+  top: -35px;
+  width: 82px;
+  height: 82px;
+}
+
+.super-admin-visual-root .sa-metric-value { font-size: 22px; }
+.super-admin-visual-root .sa-metric-label { margin-top: 9px; font-size: 10px; }
+
+/* Shared filter/control bar used by Action Centre, Notifications and future
+ * list surfaces. */
+.super-admin-visual-root .sa-filter-bar {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 7px 9px;
+  border: 1px solid var(--sa-preview-line);
+  border-radius: var(--sa-u-radius);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(8,42,97,.025);
+}
+
+.super-admin-visual-root .sa-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sa-preview-muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.super-admin-visual-root .sa-filter-input,
+.super-admin-visual-root .sa-filter-select {
+  height: 34px;
+  min-width: 128px;
+  border: 1px solid var(--sa-preview-line);
+  border-radius: var(--sa-u-control-radius);
+  background: #fff;
+  color: var(--sa-preview-text);
+  padding: 0 9px;
+  font-size: 10px;
+  outline: none;
+}
+
+.super-admin-visual-root .sa-filter-input { min-width: 240px; flex: 1 1 300px; }
+.super-admin-visual-root .sa-filter-input:focus,
+.super-admin-visual-root .sa-filter-select:focus {
+  border-color: #9eb6e8;
+  box-shadow: 0 0 0 3px rgba(29,87,216,.07);
+}
+
+/* One action/button language. */
+.super-admin-visual-root .sa-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.super-admin-visual-root .sa-primary-button,
+.super-admin-visual-root .sa-secondary-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 11px;
+  border-radius: var(--sa-u-control-radius);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.super-admin-visual-root .sa-primary-button {
+  border: 1px solid var(--sa-preview-blue);
+  background: var(--sa-preview-blue);
+  color: #fff;
+}
+
+.super-admin-visual-root .sa-secondary-button {
+  border: 1px solid var(--sa-preview-line);
+  background: #fff;
+  color: var(--sa-preview-navy);
+}
+
+.super-admin-visual-root .sa-primary-button:disabled,
+.super-admin-visual-root .sa-secondary-button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Notices and unavailable/empty states use the same geometry as panels. */
+.super-admin-visual-root .sa-notice,
+.super-admin-visual-root .sa-state-block {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--sa-preview-line);
+  border-radius: var(--sa-u-radius);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(8,42,97,.025);
+  color: var(--sa-preview-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.super-admin-visual-root .sa-state-block[data-tone="warning"] { border-left: 4px solid var(--sa-preview-orange); }
+.super-admin-visual-root .sa-state-block[data-tone="danger"] { border-left: 4px solid var(--sa-preview-danger); }
+.super-admin-visual-root .sa-state-block[data-tone="info"] { border-left: 4px solid var(--sa-preview-blue); }
+
+/* Tables use the same density as inspector rows rather than feeling like a
+ * separate enterprise theme. */
+.super-admin-visual-root .sa-data-table thead th {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 9px;
+}
+.super-admin-visual-root .sa-data-table tbody td { padding: 10px 12px; }
+
+@media (max-width: 900px) {
+  .super-admin-visual-root { --sa-u-page-x: 12px; --sa-u-page-y: 12px; }
+  .super-admin-visual-root .sa-page-header { min-height: 0; }
+  .super-admin-visual-root .sa-filter-input { min-width: 100%; }
+}
