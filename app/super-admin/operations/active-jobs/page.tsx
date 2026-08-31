@@ -26,6 +26,7 @@ export default function Page() {
       description="Jobs currently in progress — allocated, collected, or in transit."
       endpoint="/api/super-admin/operations?section=active-jobs&limit=250"
       emptyMessage="No active jobs found."
+      entityLink={(row) => ({ entityType: 'job', entityId: row.id, label: 'Inspect job' })}
       columns={[
         {
           key: 'route',
