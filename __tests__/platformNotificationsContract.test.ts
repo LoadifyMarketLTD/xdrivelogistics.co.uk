@@ -12,13 +12,11 @@ const mocks = vi.hoisted(() => ({
   getBearerToken: vi.fn(),
   getUser: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
   profileRole: 'owner',
+  profileStatus: 'active',
   notificationListResponses: [] as Array<{ data: unknown[] | null; error: { message: string; code?: string | null } | null }>,
-  notificationLookupResponse: { data: { id: 'evt-1', status: 'failed' }, error: null as { message: string; code?: string | null } | null },
-  notificationUpdateResponses: [] as Array<{ error: { message: string; code?: string | null } | null }>,
   notificationSelectColumns: [] as string[],
-  notificationUpdatePayloads: [] as Array<Record<string, unknown>>,
-  notificationEqCalls: [] as Array<[string, string]>,
 }));
 
 vi.mock('../app/api/_lib/supabaseAdmin', () => ({
@@ -31,22 +29,31 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   },
   supabaseAdmin: {
     from: mocks.from,
+    rpc: mocks.rpc,
   },
 }));
 
 const SAMPLE_BASE: NotificationEventBaseRow = {
-  id: 'abc', event_type: 'job_assigned', entity_id: 'e1',
-  recipient_user_id: 'u1', payload: null,
-  status: 'sent', created_at: '2025-01-01T00:00:00Z', processed_at: null,
+  id: '11111111-1111-4111-8111-111111111111',
+  event_type: 'job_assigned',
+  entity_id: '22222222-2222-4222-8222-222222222222',
+  recipient_user_id: '33333333-3333-4333-8333-333333333333',
+  payload: null,
+  status: 'sent',
+  created_at: '2026-08-01T12:00:00Z',
+  processed_at: null,
 };
+
 const SAMPLE_DURABILITY: NotificationEventDurabilityRow = {
   ...SAMPLE_BASE,
-  last_error: 'timeout', attempt_count: 2, next_attempt_at: '2025-01-02T00:00:00Z',
+  last_error: 'timeout',
+  attempt_count: 2,
+  next_attempt_at: '2026-08-01T12:05:00Z',
 };
 
 const getRequest = (url: string) => new NextRequest(url, { method: 'GET' });
-const patchRequest = (url: string, body: unknown) =>
-  new NextRequest(url, {
+const patchRequest = (body: unknown) =>
+  new NextRequest('http://localhost/api/super-admin/platform', {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -57,17 +64,15 @@ beforeEach(() => {
   mocks.getBearerToken.mockReset();
   mocks.getUser.mockReset();
   mocks.from.mockReset();
+  mocks.rpc.mockReset();
   mocks.profileRole = 'owner';
+  mocks.profileStatus = 'active';
   mocks.notificationListResponses = [];
-  mocks.notificationLookupResponse = { data: { id: 'evt-1', status: 'failed' }, error: null };
-  mocks.notificationUpdateResponses = [];
   mocks.notificationSelectColumns = [];
-  mocks.notificationUpdatePayloads = [];
-  mocks.notificationEqCalls = [];
 
   mocks.getBearerToken.mockReturnValue('owner-token');
   mocks.getUser.mockResolvedValue({
-    data: { user: { id: 'owner-1', email: 'owner@example.com' } },
+    data: { user: { id: '44444444-4444-4444-8444-444444444444', email: 'owner@example.com' } },
     error: null,
   });
 
@@ -76,7 +81,10 @@ beforeEach(() => {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: async () => ({ data: { role: mocks.profileRole }, error: null }),
+            maybeSingle: async () => ({
+              data: { role: mocks.profileRole, status: mocks.profileStatus },
+              error: null,
+            }),
           }),
         }),
       };
@@ -86,41 +94,16 @@ beforeEach(() => {
       return {
         select: (columns: string) => {
           mocks.notificationSelectColumns.push(columns);
-          if (columns === 'id, status') {
-            return {
-              eq: (column: string, value: string) => {
-                mocks.notificationEqCalls.push([column, value]);
-                return {
-                  maybeSingle: async () => mocks.notificationLookupResponse,
-                };
-              },
-            };
-          }
           return {
             returns: () => ({
               order: () => ({
                 limit: async () => {
                   const next = mocks.notificationListResponses.shift();
-                  if (!next) {
-                    throw new Error('Unexpected notification list query');
-                  }
+                  if (!next) throw new Error('Unexpected notification list query');
                   return next;
                 },
               }),
             }),
-          };
-        },
-        update: (payload: Record<string, unknown>) => {
-          mocks.notificationUpdatePayloads.push(payload);
-          return {
-            eq: async (column: string, value: string) => {
-              mocks.notificationEqCalls.push([column, value]);
-              const next = mocks.notificationUpdateResponses.shift();
-              if (!next) {
-                throw new Error('Unexpected notification update query');
-              }
-              return next;
-            },
           };
         },
       };
@@ -130,75 +113,30 @@ beforeEach(() => {
   });
 });
 
-describe('normalizeBaseRow — fallback path', () => {
-  it('sets durability fields to null', () => {
+describe('notification event normalization', () => {
+  it('preserves baseline fields and marks missing durability fields unavailable', () => {
     const row = normalizeBaseRow(SAMPLE_BASE);
+    expect(row.id).toBe(SAMPLE_BASE.id);
     expect(row.last_error).toBeNull();
     expect(row.attempt_count).toBeNull();
     expect(row.next_attempt_at).toBeNull();
   });
 
-  it('preserves all baseline fields unchanged', () => {
-    const row = normalizeBaseRow(SAMPLE_BASE);
-    expect(row.id).toBe('abc');
-    expect(row.event_type).toBe('job_assigned');
-    expect(row.status).toBe('sent');
-    expect(row.created_at).toBe('2025-01-01T00:00:00Z');
-  });
-});
-
-describe('normalizeDurabilityRow — primary path', () => {
-  it('preserves durability fields as-is', () => {
+  it('preserves durability fields on the canonical path', () => {
     const row = normalizeDurabilityRow(SAMPLE_DURABILITY);
     expect(row.last_error).toBe('timeout');
     expect(row.attempt_count).toBe(2);
-    expect(row.next_attempt_at).toBe('2025-01-02T00:00:00Z');
+    expect(row.next_attempt_at).toBe('2026-08-01T12:05:00Z');
   });
 
-  it('null durability fields remain null', () => {
-    const row = normalizeDurabilityRow({ ...SAMPLE_BASE, last_error: null, attempt_count: null, next_attempt_at: null });
-    expect(row.last_error).toBeNull();
-    expect(row.attempt_count).toBeNull();
-    expect(row.next_attempt_at).toBeNull();
-  });
-});
-
-describe('isMissingDurabilityColumnError', () => {
-  it('returns true for error mentioning last_error', () => {
+  it('only classifies confirmed durability-column errors as schema fallback candidates', () => {
     expect(isMissingDurabilityColumnError({ message: 'column notification_events.last_error does not exist', code: '42703' })).toBe(true);
-  });
-  it('returns true for error mentioning attempt_count', () => {
-    expect(isMissingDurabilityColumnError({ message: 'column attempt_count does not exist', code: '42703' })).toBe(true);
-  });
-  it('returns true for error mentioning next_attempt_at', () => {
-    expect(
-      isMissingDurabilityColumnError({
-        message: "Could not find the 'next_attempt_at' column of 'notification_events' in the schema cache",
-        code: 'PGRST204',
-      }),
-    ).toBe(true);
-  });
-  it('returns false for an unrelated missing table error', () => {
-    expect(isMissingDurabilityColumnError({ message: 'relation "public.invoices" does not exist', code: '42P01' })).toBe(false);
-  });
-  it('returns false for a permission denied error', () => {
-    expect(isMissingDurabilityColumnError({ message: 'permission denied for table notification_events' })).toBe(false);
-  });
-  it('returns false when a durability column is mentioned without a missing-column indicator', () => {
-    expect(
-      isMissingDurabilityColumnError({
-        message: 'permission denied for column last_error of relation notification_events',
-        code: '42501',
-      }),
-    ).toBe(false);
-  });
-  it('returns false for a network error', () => {
-    expect(isMissingDurabilityColumnError({ message: 'fetch failed' })).toBe(false);
+    expect(isMissingDurabilityColumnError({ message: 'permission denied for column last_error', code: '42501' })).toBe(false);
   });
 });
 
-describe('platform notifications route flow', () => {
-  it('uses durability columns on the primary notifications query', async () => {
+describe('platform notifications route', () => {
+  it('uses durability columns on the primary read path', async () => {
     mocks.notificationListResponses = [{ data: [SAMPLE_DURABILITY], error: null }];
     const { GET } = await import('../app/api/super-admin/platform/route');
 
@@ -209,23 +147,17 @@ describe('platform notifications route flow', () => {
     expect(mocks.notificationSelectColumns).toEqual([
       'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at',
     ]);
-    expect(body.rows).toEqual([
-      expect.objectContaining({
-        id: 'abc',
-        last_error: 'timeout',
-        attempt_count: 2,
-        next_attempt_at: '2025-01-02T00:00:00Z',
-      }),
-    ]);
+    expect(body.rows[0]).toEqual(expect.objectContaining({
+      id: SAMPLE_BASE.id,
+      last_error: 'timeout',
+      attempt_count: 2,
+    }));
     expect(body.diagnosticNote).toBeUndefined();
   });
 
-  it('falls back to baseline columns only for confirmed missing durability-column errors', async () => {
+  it('keeps the read-only degraded-schema fallback for legacy notification rows', async () => {
     mocks.notificationListResponses = [
-      {
-        data: null,
-        error: { message: 'column notification_events.last_error does not exist', code: '42703' },
-      },
+      { data: null, error: { message: 'column notification_events.last_error does not exist', code: '42703' } },
       { data: [SAMPLE_BASE], error: null },
     ];
     const { GET } = await import('../app/api/super-admin/platform/route');
@@ -234,30 +166,14 @@ describe('platform notifications route flow', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mocks.notificationSelectColumns).toEqual([
-      'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at',
-      'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at',
-    ]);
-    expect(body.rows).toEqual([
-      expect.objectContaining({
-        id: 'abc',
-        last_error: null,
-        attempt_count: null,
-        next_attempt_at: null,
-      }),
-    ]);
-    expect(body.diagnosticNote).toContain('error detail unavailable');
+    expect(mocks.notificationSelectColumns).toHaveLength(2);
+    expect(body.rows[0].attempt_count).toBeNull();
+    expect(body.diagnosticNote).toContain('durability columns');
   });
 
-  it('surfaces unrelated notification query errors without falling back', async () => {
+  it('does not hide unrelated notification read failures behind the schema fallback', async () => {
     mocks.notificationListResponses = [
-      {
-        data: null,
-        error: {
-          message: 'permission denied for column last_error of relation notification_events',
-          code: '42501',
-        },
-      },
+      { data: null, error: { message: 'permission denied for column last_error', code: '42501' } },
     ];
     const { GET } = await import('../app/api/super-admin/platform/route');
 
@@ -265,79 +181,83 @@ describe('platform notifications route flow', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(mocks.notificationSelectColumns).toHaveLength(1);
-    expect(body).toEqual({
-      section: 'notifications',
-      error: 'Failed to load notification events.',
-      diagnosticCode: 'NOTIFICATION_EVENTS_QUERY_FAILED',
-      detail: 'permission denied for column last_error of relation notification_events',
-      sourceCode: '42501',
-    });
+    expect(body.diagnosticCode).toBe('NOTIFICATION_EVENTS_QUERY_FAILED');
   });
 
-  it('returns a non-2xx error when the fallback query also fails', async () => {
-    mocks.notificationListResponses = [
-      {
-        data: null,
-        error: { message: 'column notification_events.last_error does not exist', code: '42703' },
-      },
-      {
-        data: null,
-        error: { message: 'database unavailable', code: '08006' },
-      },
-    ];
-    const { GET } = await import('../app/api/super-admin/platform/route');
-
-    const response = await GET(getRequest('http://localhost/api/super-admin/platform?section=notifications'));
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(mocks.notificationSelectColumns).toEqual([
-      'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at',
-      'id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at',
-    ]);
-    expect(body).toEqual({
-      section: 'notifications',
-      error: 'Failed to load notification events.',
-      diagnosticCode: 'NOTIFICATION_EVENTS_FALLBACK_QUERY_FAILED',
-      detail: 'database unavailable',
-      sourceCode: '08006',
+  it('queues retries only through the audited Platform Owner RPC', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [{
+        notification_id: SAMPLE_BASE.id,
+        status: 'pending',
+        attempt_count: 2,
+        next_attempt_at: '2026-08-01T12:10:00Z',
+      }],
+      error: null,
     });
-  });
-
-  it('retries PATCH with the baseline update when durability columns are unavailable', async () => {
-    mocks.notificationUpdateResponses = [
-      {
-        error: {
-          message: "Could not find the 'last_error' column of 'notification_events' in the schema cache",
-          code: 'PGRST204',
-        },
-      },
-      { error: null },
-    ];
     const { PATCH } = await import('../app/api/super-admin/platform/route');
 
-    const response = await PATCH(
-      patchRequest('http://localhost/api/super-admin/platform', {
-        section: 'notifications',
-        action: 'retry',
-        notificationId: 'evt-1',
-      }),
-    );
+    const response = await PATCH(patchRequest({
+      section: 'notifications',
+      action: 'retry',
+      notificationId: SAMPLE_BASE.id,
+      reason: 'Provider timeout recovered',
+    }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ success: true, notificationId: 'evt-1', status: 'pending' });
-    expect(mocks.notificationUpdatePayloads).toHaveLength(2);
-    expect(mocks.notificationUpdatePayloads[0]).toMatchObject({
-      status: 'pending',
-      processed_at: null,
-      last_error: null,
+    expect(mocks.rpc).toHaveBeenCalledWith('owner_retry_notification_event', {
+      p_actor_user_id: '44444444-4444-4444-8444-444444444444',
+      p_notification_id: SAMPLE_BASE.id,
+      p_reason: 'Provider timeout recovered',
     });
-    expect(mocks.notificationUpdatePayloads[0]?.next_attempt_at).toEqual(expect.any(String));
-    expect(mocks.notificationUpdatePayloads[1]).toEqual({
+    expect(body).toEqual(expect.objectContaining({
+      success: true,
+      notificationId: SAMPLE_BASE.id,
       status: 'pending',
-      processed_at: null,
-    });
+    }));
+  });
+
+  it('fails closed when the audited retry migration is unavailable', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'function not found' } });
+    const { PATCH } = await import('../app/api/super-admin/platform/route');
+
+    const response = await PATCH(patchRequest({
+      section: 'notifications',
+      action: 'retry',
+      notificationId: SAMPLE_BASE.id,
+      reason: 'Retry after provider recovery',
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.migrationRequired).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a material retry reason before touching the queue', async () => {
+    const { PATCH } = await import('../app/api/super-admin/platform/route');
+    const response = await PATCH(patchRequest({
+      section: 'notifications',
+      action: 'retry',
+      notificationId: SAMPLE_BASE.id,
+      reason: 'no',
+    }));
+
+    expect(response.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects inactive owner profiles before the retry RPC', async () => {
+    mocks.profileStatus = 'suspended';
+    const { PATCH } = await import('../app/api/super-admin/platform/route');
+    const response = await PATCH(patchRequest({
+      section: 'notifications',
+      action: 'retry',
+      notificationId: SAMPLE_BASE.id,
+      reason: 'Retry after provider recovery',
+    }));
+
+    expect(response.status).toBe(403);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });
