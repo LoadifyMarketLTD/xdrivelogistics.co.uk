@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import Company360Panel from './Company360Panel';
+import CompanyGovernanceControls from './CompanyGovernanceControls';
 import type { PlatformEntitySection, PlatformEntityType } from './types';
 
 const toneColor = {
@@ -79,6 +80,7 @@ export default function PlatformEntityInspector({
       <div className="sa-inspector" style={{ paddingBottom: 24 }}>
         {header}
         {banner ? <div style={{ marginBottom: 14 }}>{banner}</div> : null}
+        <CompanyGovernanceControls companyId={stableId} />
         <Company360Panel companyId={stableId} />
       </div>
     );
