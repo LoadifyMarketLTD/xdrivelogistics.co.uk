@@ -35,6 +35,128 @@ CREATE TEMP TABLE p0_12_legacy_fleet_plan (
   evidence_snapshot jsonb NOT NULL
 ) ON COMMIT DROP;
 
+-- Some production-only governance generations still carry dependency tables that
+-- were superseded by canonical company_memberships or never became part of the
+-- current repository runtime. Preserve their evidence when present, but never
+-- recreate those retired/hosted-only tables solely so P0-12 can parse on a clean DB.
+CREATE OR REPLACE FUNCTION public.p0_12_optional_dependency_exists(
+  p_relation text,
+  p_company_column text,
+  p_company_id uuid,
+  p_user_column text DEFAULT NULL,
+  p_user_id uuid DEFAULT NULL
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_exists boolean := false;
+BEGIN
+  IF to_regclass(format('public.%I', p_relation)) IS NULL THEN
+    RETURN false;
+  END IF;
+
+  IF p_user_column IS NULL OR p_user_id IS NULL THEN
+    EXECUTE format(
+      'SELECT EXISTS (SELECT 1 FROM public.%I x WHERE x.%I = $1)',
+      p_relation,
+      p_company_column
+    ) INTO v_exists USING p_company_id;
+  ELSE
+    EXECUTE format(
+      'SELECT EXISTS (SELECT 1 FROM public.%I x WHERE x.%I = $1 OR x.%I = $2)',
+      p_relation,
+      p_company_column,
+      p_user_column
+    ) INTO v_exists USING p_company_id, p_user_id;
+  END IF;
+
+  RETURN COALESCE(v_exists, false);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.p0_12_optional_dependency_exists(text, text, uuid, text, uuid)
+  FROM PUBLIC, anon, authenticated;
+
+-- Hosted Production and current runtime both require the physical bidder company
+-- attribution column. Clean history omitted it because earlier quote guards were
+-- deliberately adaptive around live drift, but P0-12 is the first later migration
+-- that requires the canonical field directly. Reconstruct only the observed
+-- Production column contract: UUID NOT NULL, no default, no FK/unique constraint.
+-- Production also carries three redundant non-unique btree indexes on this field;
+-- those duplicate hosted-history artifacts are not multiplied into clean replay.
+-- Never infer attribution for existing rows: if a replay already contains a bid
+-- without this canonical identity, fail closed instead of manufacturing a backfill.
+ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS bidder_company_id uuid;
+
+DO $$
+DECLARE
+  v_data_type text;
+  v_not_null boolean;
+  v_default_expr text;
+  v_null_rows bigint;
+  v_constraint_count integer;
+BEGIN
+  SELECT
+    format_type(a.atttypid, a.atttypmod),
+    a.attnotnull,
+    pg_get_expr(ad.adbin, ad.adrelid)
+  INTO v_data_type, v_not_null, v_default_expr
+  FROM pg_attribute a
+  LEFT JOIN pg_attrdef ad
+    ON ad.adrelid = a.attrelid
+   AND ad.adnum = a.attnum
+  WHERE a.attrelid = 'public.job_bids'::regclass
+    AND a.attname = 'bidder_company_id'
+    AND a.attnum > 0
+    AND NOT a.attisdropped;
+
+  IF v_data_type IS DISTINCT FROM 'uuid' THEN
+    RAISE EXCEPTION
+      'job_bids.bidder_company_id type differs from canonical Production contract: %.',
+      coalesce(v_data_type, '<missing>');
+  END IF;
+
+  SELECT count(*)
+  INTO v_constraint_count
+  FROM pg_constraint con
+  JOIN pg_attribute a
+    ON a.attrelid = con.conrelid
+   AND a.attnum = ANY(con.conkey)
+  WHERE con.conrelid = 'public.job_bids'::regclass
+    AND a.attname = 'bidder_company_id';
+
+  IF v_constraint_count <> 0 THEN
+    RAISE EXCEPTION
+      'job_bids.bidder_company_id has % unexpected constraint(s); Production has no FK/unique/check constraint on this column.',
+      v_constraint_count;
+  END IF;
+
+  IF v_default_expr IS NOT NULL THEN
+    ALTER TABLE public.job_bids
+      ALTER COLUMN bidder_company_id DROP DEFAULT;
+  END IF;
+
+  SELECT count(*)
+  INTO v_null_rows
+  FROM public.job_bids
+  WHERE bidder_company_id IS NULL;
+
+  IF v_null_rows <> 0 THEN
+    RAISE EXCEPTION
+      'Cannot make job_bids.bidder_company_id canonical without inventing attribution for % existing bid row(s).',
+      v_null_rows;
+  END IF;
+
+  IF NOT coalesce(v_not_null, false) THEN
+    ALTER TABLE public.job_bids
+      ALTER COLUMN bidder_company_id SET NOT NULL;
+  END IF;
+END;
+$$;
+
 -- KEEP: no company provenance exists. These incomplete Fleet applications stay
 -- unbound and must use the canonical verified registration flow later.
 INSERT INTO p0_12_legacy_fleet_plan (
@@ -116,10 +238,10 @@ WHERE oa.account_type = 'fleet_courier'
   AND oa.payload->>'legacy_persisted_account_type' = 'fleet_operator'
   AND (SELECT count(*) FROM public.companies c2 WHERE c2.created_by = oa.user_id) = 1
   AND NOT EXISTS (SELECT 1 FROM public.company_memberships x WHERE x.company_id = c.id OR x.user_id = oa.user_id)
-  AND NOT EXISTS (SELECT 1 FROM public.company_members x WHERE x.company_id = c.id OR x.user_id = oa.user_id)
+  AND NOT public.p0_12_optional_dependency_exists('company_members', 'company_id', c.id, 'user_id', oa.user_id)
   AND NOT EXISTS (SELECT 1 FROM public.profiles x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.onboarding_applications x WHERE x.company_id = c.id)
-  AND NOT EXISTS (SELECT 1 FROM public.company_business_types x WHERE x.company_id = c.id)
+  AND NOT public.p0_12_optional_dependency_exists('company_business_types', 'company_id', c.id)
   AND NOT EXISTS (SELECT 1 FROM public.company_settings x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.company_documents x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.documents x WHERE x.company_id = c.id)
@@ -155,7 +277,7 @@ WHERE oa.account_type = 'fleet_courier'
   AND NOT EXISTS (SELECT 1 FROM public.messages x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.notifications x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.notification_events x WHERE x.company_id = c.id)
-  AND NOT EXISTS (SELECT 1 FROM public.invites x WHERE x.company_id = c.id)
+  AND NOT public.p0_12_optional_dependency_exists('invites', 'company_id', c.id)
   AND NOT EXISTS (SELECT 1 FROM public.subscriptions x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.reviews x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.support_tickets x WHERE x.company_id = c.id)
@@ -165,7 +287,9 @@ WHERE oa.account_type = 'fleet_courier'
   AND NOT EXISTS (SELECT 1 FROM public.telematics_driver_bindings x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.company_registration_claims x WHERE x.company_id = c.id)
   AND NOT EXISTS (SELECT 1 FROM public.company_registration_audit x WHERE x.company_id = c.id)
-  AND NOT EXISTS (SELECT 1 FROM public.workspace_switch_audit x WHERE x.target_company_id = c.id);
+  AND NOT public.p0_12_optional_dependency_exists('workspace_switch_audit', 'target_company_id', c.id);
+
+DROP FUNCTION IF EXISTS public.p0_12_optional_dependency_exists(text, text, uuid, text, uuid);
 
 -- Fail closed if any remaining historical Fleet application cannot be classified
 -- from provenance. Clean databases have no historical rows and therefore pass.

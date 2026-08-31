@@ -137,4 +137,61 @@ BEGIN
 END;
 $$;
 
+-- Hosted production retains the historical membership_status enum object, but
+-- company_memberships.status itself is TEXT. Clean replay now creates that
+-- column as text from migration 001 so policies/functions bind to the final
+-- physical type from the beginning. At this point only finalize and verify the
+-- hosted NOT NULL/default/check contract; never perform a late ALTER TYPE that
+-- would invalidate already-compiled RLS policy dependencies.
+DO $$
+DECLARE
+  v_data_type text;
+  v_udt_schema text;
+  v_udt_name text;
+  v_invalid_statuses text[];
+BEGIN
+  SELECT c.data_type, c.udt_schema, c.udt_name
+  INTO v_data_type, v_udt_schema, v_udt_name
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'company_memberships'
+    AND c.column_name = 'status';
+
+  IF v_data_type IS DISTINCT FROM 'text'
+     OR v_udt_schema IS DISTINCT FROM 'pg_catalog'
+     OR v_udt_name IS DISTINCT FROM 'text' THEN
+    RAISE EXCEPTION
+      'company_memberships.status must already be text before governance hardening; found %.%.',
+      coalesce(v_udt_schema, '<missing>'),
+      coalesce(v_udt_name, '<missing>');
+  END IF;
+
+  SELECT array_agg(DISTINCT cm.status ORDER BY cm.status)
+  INTO v_invalid_statuses
+  FROM public.company_memberships cm
+  WHERE cm.status IS NOT NULL
+    AND cm.status NOT IN ('active', 'invited', 'disabled');
+
+  IF coalesce(array_length(v_invalid_statuses, 1), 0) > 0 THEN
+    RAISE EXCEPTION
+      'Unsupported membership status values prevent canonical text finalization: %.',
+      array_to_string(v_invalid_statuses, ', ');
+  END IF;
+
+  ALTER TABLE public.company_memberships
+    ALTER COLUMN status SET NOT NULL,
+    ALTER COLUMN status SET DEFAULT 'active'::text;
+
+  ALTER TABLE public.company_memberships
+    DROP CONSTRAINT IF EXISTS company_memberships_status_check;
+
+  ALTER TABLE public.company_memberships
+    ADD CONSTRAINT company_memberships_status_check
+    CHECK (status IN ('active', 'invited', 'disabled')) NOT VALID;
+
+  ALTER TABLE public.company_memberships
+    VALIDATE CONSTRAINT company_memberships_status_check;
+END;
+$$;
+
 COMMIT;

@@ -3,6 +3,77 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
+-- Hosted production carries these job audit markers but the clean migration
+-- chain omitted them before P0-08 first use. Reconstruct only the observed
+-- physical contracts needed by this reconciliation.
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS cancellation_reason text;
+
+DO $$
+DECLARE
+  v_is_test_nullable text;
+  v_is_test_default text;
+  v_cancel_type text;
+  v_cancel_nullable text;
+  v_cancel_default text;
+BEGIN
+  SELECT c.is_nullable, c.column_default
+  INTO v_is_test_nullable, v_is_test_default
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'is_test';
+
+  IF v_is_test_nullable IS DISTINCT FROM 'NO'
+     OR v_is_test_default IS NULL
+     OR lower(v_is_test_default) NOT LIKE '%false%' THEN
+    RAISE EXCEPTION 'jobs.is_test clean-replay contract is not BOOLEAN NOT NULL DEFAULT false.';
+  END IF;
+
+  SELECT c.data_type, c.is_nullable, c.column_default
+  INTO v_cancel_type, v_cancel_nullable, v_cancel_default
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'jobs'
+    AND c.column_name = 'cancellation_reason';
+
+  IF v_cancel_type IS DISTINCT FROM 'text'
+     OR v_cancel_nullable IS DISTINCT FROM 'YES'
+     OR v_cancel_default IS NOT NULL THEN
+    RAISE EXCEPTION 'jobs.cancellation_reason clean-replay contract is not nullable TEXT without a default.';
+  END IF;
+END;
+$$;
+
+-- Hosted production still carries an empty legacy proof_of_delivery table, but
+-- the canonical repository/runtime no longer reconstructs or writes that table.
+-- Preserve the historical safety check only where the legacy table exists,
+-- without recreating retired schema solely to make this migration parse.
+CREATE OR REPLACE FUNCTION public.p0_proof_of_delivery_dependency_exists(p_job_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_exists boolean := false;
+BEGIN
+  IF to_regclass('public.proof_of_delivery') IS NULL THEN
+    RETURN false;
+  END IF;
+
+  EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.proof_of_delivery p WHERE p.job_id = $1)'
+    INTO v_exists
+    USING p_job_id;
+
+  RETURN COALESCE(v_exists, false);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.p0_proof_of_delivery_dependency_exists(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p0_proof_of_delivery_dependency_exists(uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.p0_proof_of_delivery_dependency_exists(uuid) FROM authenticated;
+
 -- P0-08: historical award/assignment data must never coexist with an open,
 -- pre-award job lifecycle. Preserve the two known historical test awards as
 -- cancelled audit history rather than pretending they are still Marketplace work.
@@ -31,7 +102,7 @@ WITH reconciled AS (
     AND j.assigned_driver_id IS NOT NULL
     AND j.pickup_datetime < now()
     AND NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.job_id = j.id)
-    AND NOT EXISTS (SELECT 1 FROM public.proof_of_delivery p WHERE p.job_id = j.id)
+    AND NOT public.p0_proof_of_delivery_dependency_exists(j.id)
   RETURNING j.id, j.created_by
 )
 INSERT INTO public.job_tracking_events (
@@ -51,6 +122,8 @@ SELECT
     'migration', '20260830192000_reconcile_job_award_lifecycle_integrity'
   )
 FROM reconciled r;
+
+DROP FUNCTION IF EXISTS public.p0_proof_of_delivery_dependency_exists(uuid);
 
 -- Database invariant: award/assignment authority cannot exist while the job is
 -- still in a pre-award/open lifecycle. Direct invites use direct_invite_company_id
