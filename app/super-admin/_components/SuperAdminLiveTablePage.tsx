@@ -35,11 +35,6 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   entityLink?: LiveTableEntityLink<T>;
 };
 
-const X = {
-  navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF',
-  charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626',
-} as const;
-
 export function readLiveTableNotices(body: Record<string, unknown>, noteField?: string, diagnosticField?: string): LiveTableNotice[] {
   const notices: LiveTableNotice[] = [];
   if (noteField) {
@@ -65,54 +60,65 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
   summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage, entityLink,
 }: SuperAdminLiveTableViewProps<T>) {
   const stableColumns = useMemo(() => columns, [columns]);
-  return <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
-    <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-      <span aria-hidden="true" style={{ width: '28px', height: '28px', display: 'grid', placeItems: 'center', borderRadius: '4px', background: X.navy, color: X.white, fontSize: '12px', fontWeight: 800 }}>{icon}</span>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', lineHeight: 1.2, fontWeight: 800 }}>{title}</h1>
-          <span style={{ padding: '3px 6px', borderRadius: '4px', background: '#EEF4FF', color: X.blue, fontSize: '10px', fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase' }}>{sectionLabel}</span>
+
+  return <div className="sa-page">
+    <header className="sa-page-header">
+      <div className="sa-heading-row">
+        <span aria-hidden="true" className="sa-page-icon">{icon}</span>
+        <div className="sa-page-heading">
+          <div className="sa-eyebrow">Platform control plane <span className="sa-section-pill">{sectionLabel}</span></div>
+          <h1 className="sa-page-title">{title}</h1>
+          <p className="sa-page-description">{description}</p>
         </div>
-        <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>{description}</p>
       </div>
     </header>
 
-    {error && <div role="alert" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px' }}>
-      <div style={{ color: X.danger, fontSize: '12px', fontWeight: 800 }}>Service temporarily unavailable</div>
-      <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{error}</div>
+    {error && <div role="alert" className="sa-notice" data-tone="danger">
+      <strong>Service temporarily unavailable</strong>
+      <div style={{ marginTop: 3, color: '#667085' }}>{error}</div>
     </div>}
 
-    {!loading && !error && notices.map((notice, index) => <div key={`${notice.kind}-${index}`} style={{ marginBottom: '12px', border: `1px solid ${notice.kind === 'diagnostic' ? '#F0D293' : '#B9CFF4'}`, borderLeft: `4px solid ${notice.kind === 'diagnostic' ? X.orange : X.blue}`, borderRadius: '4px', background: X.white, padding: '9px 12px', color: X.charcoal, fontSize: '11px' }}>{notice.message}</div>)}
+    {!loading && !error && notices.map((notice, index) => (
+      <div key={`${notice.kind}-${index}`} className="sa-notice" data-tone={notice.kind === 'diagnostic' ? 'warning' : 'info'}>{notice.message}</div>
+    ))}
 
-    {summary && !loading && !error && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '12px', marginBottom: '12px' }}>
-      {Object.entries(summary).slice(0, 6).map(([key, summaryValue]) => <div key={key} style={{ minHeight: '88px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}>
-        <div style={{ color: X.navy, fontSize: '20px', lineHeight: 1.05, fontWeight: 800 }}>{formatSummaryValue(key, summaryValue)}</div>
-        <div style={{ marginTop: '8px', color: X.charcoal, fontSize: '11px', fontWeight: 700 }}>{key.replace(/_/g, ' ')}</div>
+    {summary && !loading && !error && <div className="sa-metric-grid">
+      {Object.entries(summary).slice(0, 6).map(([key, summaryValue]) => <div key={key} className="sa-metric-card">
+        <div className="sa-metric-value">{formatSummaryValue(key, summaryValue)}</div>
+        <div className="sa-metric-label">{key.replace(/_/g, ' ')}</div>
       </div>)}
     </div>}
 
-    {!error && <section style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, overflow: 'hidden' }}>
-      {loading ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>Loading…</div> : rows.length === 0 ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>{emptyMessage}</div> : <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '880px', fontSize: '12px' }}>
-          <thead><tr style={{ height: '38px', background: X.light, borderBottom: `1px solid ${X.border}` }}>
-            {stableColumns.map(column => <th key={column.key} style={{ padding: '0 12px', textAlign: 'left', color: X.navy, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>{column.label}</th>)}
-            {entityLink ? <th style={{ padding: '0 12px', textAlign: 'right', color: X.navy, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>Inspect</th> : null}
+    {!error && <section className="sa-panel">
+      <div className="sa-panel-header">
+        <div>
+          <h2 className="sa-panel-title">Live records</h2>
+          <p className="sa-panel-subtitle">Canonical platform data · page {page}{totalCount !== null ? ` · ${totalCount.toLocaleString()} total` : ''}</p>
+        </div>
+        {!loading && rows.length > 0 ? <span className="sa-section-pill">{rows.length} shown</span> : null}
+      </div>
+
+      {loading ? <div className="sa-loading">Loading live platform data…</div> : rows.length === 0 ? <div className="sa-empty">{emptyMessage}</div> : <div className="sa-table-scroll">
+        <table className="sa-data-table">
+          <thead><tr>
+            {stableColumns.map(column => <th key={column.key}>{column.label}</th>)}
+            {entityLink ? <th style={{ textAlign: 'right' }}>Inspect</th> : null}
           </tr></thead>
           <tbody>{rows.map((row, rowIndex) => {
             const target = entityLink?.(row) ?? null;
-            return <tr key={String((row as { id?: string }).id ?? rowIndex)} style={{ minHeight: '44px', borderBottom: `1px solid ${X.border}` }}>
-              {stableColumns.map(column => <td key={column.key} style={{ padding: '9px 12px', color: X.charcoal, verticalAlign: 'top' }}>{column.render(row)}</td>)}
-              {entityLink ? <td style={{ padding: '9px 12px', textAlign: 'right', verticalAlign: 'top' }}>{target ? <PlatformEntityLink entityType={target.entityType} entityId={target.entityId} compact>{target.label ?? 'Inspect'}</PlatformEntityLink> : <span style={{ color: X.muted, fontSize: '10px' }}>Unavailable</span>}</td> : null}
+            return <tr key={String((row as { id?: string }).id ?? rowIndex)}>
+              {stableColumns.map(column => <td key={column.key}>{column.render(row)}</td>)}
+              {entityLink ? <td style={{ textAlign: 'right' }}>{target ? <PlatformEntityLink entityType={target.entityType} entityId={target.entityId} compact>{target.label ?? 'Inspect'}</PlatformEntityLink> : <span style={{ color: '#8b97a8', fontSize: 10 }}>Unavailable</span>}</td> : null}
             </tr>;
           })}</tbody>
         </table>
       </div>}
 
-      {!loading && (page > 1 || hasNextPage) && <div style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '4px 12px', borderTop: `1px solid ${X.border}`, background: X.light }}>
-        <span style={{ color: X.muted, fontSize: '11px' }}>Page {page}{totalCount !== null ? ` · ${totalCount.toLocaleString()} total` : ''}</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={onPrevPage} disabled={page <= 1} style={pagerButton(page <= 1)}>← Prev</button>
-          <button onClick={onNextPage} disabled={!hasNextPage} style={pagerButton(!hasNextPage)}>Next →</button>
+      {!loading && (page > 1 || hasNextPage) && <div className="sa-pager">
+        <span className="sa-pager-copy">Page {page}{totalCount !== null ? ` of ${Math.max(1, Math.ceil(totalCount / Math.max(rows.length, 1)))}` : ''}</span>
+        <div className="sa-pager-actions">
+          <button className="sa-pager-button" onClick={onPrevPage} disabled={page <= 1}>← Previous</button>
+          <button className="sa-pager-button" onClick={onNextPage} disabled={!hasNextPage}>Next →</button>
         </div>
       </div>}
     </section>}
@@ -126,8 +132,6 @@ function formatSummaryValue(key: string, summaryValue: unknown) {
   if (lower.includes('rate')) return `${summaryValue}%`;
   return summaryValue.toLocaleString();
 }
-
-const pagerButton = (disabled: boolean) => ({ height: '32px', padding: '0 10px', borderRadius: '4px', border: `1px solid ${X.border}`, background: disabled ? X.light : X.white, color: disabled ? '#9CA3AF' : X.navy, fontSize: '11px', fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer' } as const);
 
 export default function SuperAdminLiveTablePage<T extends Record<string, unknown>>({
   icon, title, sectionLabel, description, endpoint, rowsField = 'rows', summaryField, noteField,
