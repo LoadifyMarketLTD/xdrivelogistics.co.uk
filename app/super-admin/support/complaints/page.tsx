@@ -5,6 +5,7 @@ import { formatDateTime } from '@/app/super-admin/_components/superAdminFormatte
 
 type Row = {
   id: string;
+  company_id: string | null;
   company_name: string;
   invoice_id: string | null;
   reviewer_id: string | null;
@@ -24,6 +25,11 @@ export default function Page() {
       summaryField="summary"
       noteField="note"
       emptyMessage="No complaints found."
+      entityLink={(row) => row.company_id
+        ? { entityType: 'company', entityId: row.company_id, label: 'Company Inspector' }
+        : row.reviewer_id
+          ? { entityType: 'user', entityId: row.reviewer_id, label: 'Reviewer Inspector' }
+          : null}
       columns={[
         {
           key: 'company',
