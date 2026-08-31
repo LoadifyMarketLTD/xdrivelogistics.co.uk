@@ -5,7 +5,8 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdm
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
+const CASE_SCHEMA_UNAVAILABLE_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
+const ACTIVE_CASE_STATUSES = ['open', 'acknowledged', 'investigating', 'waiting'] as const;
 
 const createSchema = z.object({
   source: z.string().trim().min(2).max(80),
@@ -22,8 +23,8 @@ const createSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-const isTableMissing = (error: { code?: string } | null | undefined) =>
-  Boolean(error?.code && TABLE_MISSING_CODES.has(error.code));
+const isCaseSchemaUnavailable = (error: { code?: string } | null | undefined) =>
+  Boolean(error?.code && CASE_SCHEMA_UNAVAILABLE_CODES.has(error.code));
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -50,7 +51,8 @@ export async function GET(request: NextRequest) {
     )
     .order('updated_at', { ascending: false });
 
-  if (status && status !== 'all') query = query.eq('status', status);
+  if (status === 'active') query = query.in('status', [...ACTIVE_CASE_STATUSES]);
+  else if (status && status !== 'all') query = query.eq('status', status);
   if (severity && severity !== 'ALL') query = query.eq('severity', severity);
   if (source && source !== 'all') query = query.eq('source', source);
   if (assignee === 'me') query = query.eq('assigned_to_user_id', owner.id);
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
 
-  if (isTableMissing(error)) {
+  if (isCaseSchemaUnavailable(error)) {
     return respond(200, {
       available: false,
       rows: [],
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    if (isTableMissing(error)) return respond(503, { error: 'Platform Case Centre schema is not applied in this environment.' });
+    if (isCaseSchemaUnavailable(error)) return respond(503, { error: 'Platform Case Centre schema is not applied in this environment.' });
     const code = error.code === '42501' ? 403 : error.code === '23514' ? 400 : 500;
     return respond(code, { error: error.message });
   }
