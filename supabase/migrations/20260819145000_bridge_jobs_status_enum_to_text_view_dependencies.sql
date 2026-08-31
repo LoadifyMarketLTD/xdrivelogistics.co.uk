@@ -181,7 +181,9 @@ BEGIN
 
   IF v_had_dashboard_stats THEN
     EXECUTE $view$
-      CREATE VIEW public.dashboard_stats AS
+      CREATE VIEW public.dashboard_stats
+      WITH (security_invoker = true)
+      AS
       SELECT
         j.company_id,
         COUNT(*) FILTER (
