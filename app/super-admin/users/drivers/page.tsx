@@ -22,6 +22,7 @@ export default function Page() {
       description="Platform-wide driver accounts, availability status and last known location."
       endpoint="/api/super-admin/operations?section=driver-availability&limit=500"
       emptyMessage="No drivers found."
+      entityLink={(row) => ({ entityType: 'driver', entityId: row.id, label: 'Inspect driver' })}
       columns={[
         {
           key: 'display_name',
