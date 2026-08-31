@@ -17,11 +17,6 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
-function scrollToSection(id: string | undefined) {
-  if (!id || typeof document === 'undefined') return;
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 function contextHref(entityType: PlatformEntityType, kind: 'access' | 'compliance') {
   if (kind === 'access') {
     if (entityType === 'company') return '/super-admin/companies/verification';
@@ -57,13 +52,10 @@ export default function PlatformEntityInspector({
   actions?: ReactNode;
   banner?: ReactNode;
 }) {
-  const firstSectionId = sections[0]?.id;
-  const relationshipSectionId = sections.find((section) => section.id.startsWith('relationships-'))?.id;
-  const actionSectionId = sections.find((section) => section.id === 'platform-actions')?.id;
   const requestCompletionEligible = entityType === 'company' || entityType === 'driver' || entityType === 'user';
 
   return (
-    <div className="sa-inspector">
+    <div className="sa-inspector" style={{ paddingBottom: 24 }}>
       <header className="sa-inspector-hero">
         <div className="sa-inspector-top">
           <div style={{ minWidth: 0 }}>
@@ -85,109 +77,110 @@ export default function PlatformEntityInspector({
         </div>
       </header>
 
-      <section aria-label="Inspector guide" style={{ margin: '0 0 16px', padding: '14px', border: '1px solid #dfe6ef', borderRadius: 14, background: '#fff', boxShadow: '0 6px 20px rgba(8,42,97,.035)' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ color: '#708095', fontSize: 9, fontWeight: 850, letterSpacing: '.08em', textTransform: 'uppercase' }}>What do you want to check?</div>
-            <h2 style={{ margin: '3px 0 0', color: '#082a61', fontSize: 14, fontWeight: 850 }}>Use these cards instead of hunting through menus</h2>
-          </div>
-          <span style={{ color: '#7b8ba1', fontSize: 9 }}>Visual preview · navigation only</span>
+      {banner ? <div style={{ marginBottom: 14 }}>{banner}</div> : null}
+
+      <section style={{ marginBottom: 14, padding: 14, border: '1px solid #dfe6ef', borderRadius: 15, background: '#fff', boxShadow: '0 7px 22px rgba(8,42,97,.035)' }}>
+        <div style={{ marginBottom: 11 }}>
+          <div style={{ color: '#708095', fontSize: 9, fontWeight: 850, letterSpacing: '.08em', textTransform: 'uppercase' }}>What do you want to manage?</div>
+          <h2 style={{ margin: '3px 0 0', color: '#082a61', fontSize: 15, fontWeight: 900 }}>Choose an area of this {entityType}</h2>
+          <p style={{ margin: '4px 0 0', color: '#66778e', fontSize: 10 }}>Open only the information you need instead of scrolling through the whole record.</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 10 }}>
-          <button type="button" onClick={() => scrollToSection(firstSectionId)} style={guideCardStyle}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 9 }}>
+          <div style={guideCardStyle}>
             <strong style={guideTitleStyle}>{entityType === 'company' ? 'Company profile' : 'Record overview'}</strong>
             <span style={guideTextStyle}>Identity, contact details, status and authoritative record information.</span>
-            <span style={guideLinkStyle}>Open section →</span>
-          </button>
+          </div>
 
           <Link href={contextHref(entityType, 'access')} style={{ ...guideCardStyle, textDecoration: 'none' }}>
             <strong style={guideTitleStyle}>{entityType === 'company' ? 'Onboarding & access' : 'Access & account'}</strong>
-            <span style={guideTextStyle}>Review onboarding state, verification and who should have workspace access.</span>
-            <span style={guideLinkStyle}>Review access →</span>
+            <span style={guideTextStyle}>Review onboarding, verification and workspace access.</span>
+            <span style={guideLinkStyle}>Open →</span>
           </Link>
 
           <Link href={contextHref(entityType, 'compliance')} style={{ ...guideCardStyle, textDecoration: 'none' }}>
             <strong style={guideTitleStyle}>Documents & compliance</strong>
-            <span style={guideTextStyle}>Find document review, insurance, licence, expiry and compliance information.</span>
-            <span style={guideLinkStyle}>Open compliance →</span>
+            <span style={guideTextStyle}>Review documents, insurance, licences, expiry and compliance information.</span>
+            <span style={guideLinkStyle}>Open →</span>
           </Link>
 
-          <button type="button" onClick={() => scrollToSection(relationshipSectionId ?? firstSectionId)} style={guideCardStyle}>
+          <div style={guideCardStyle}>
             <strong style={guideTitleStyle}>Related operations</strong>
-            <span style={guideTextStyle}>Jump to linked users, drivers, vehicles, jobs, invoices and other related records.</span>
-            <span style={guideLinkStyle}>View relationships →</span>
-          </button>
+            <span style={guideTextStyle}>Linked users, drivers, vehicles, jobs, invoices and operational records appear below as compact cards.</span>
+          </div>
 
-          <button type="button" onClick={() => scrollToSection(actionSectionId ?? relationshipSectionId ?? firstSectionId)} style={guideCardStyle}>
+          <div style={guideCardStyle}>
             <strong style={guideTitleStyle}>Audit & cases</strong>
-            <span style={guideTextStyle}>See authorised Platform Owner actions, active cases and investigation controls.</span>
-            <span style={guideLinkStyle}>Open controls →</span>
-          </button>
+            <span style={guideTextStyle}>Platform Owner actions, active cases and investigation controls are kept in one area.</span>
+          </div>
 
           {requestCompletionEligible ? (
             <details style={{ ...guideCardStyle, borderColor: '#f1c36b', background: '#fffaf0' }}>
               <summary style={{ listStyle: 'none', cursor: 'pointer' }}>
                 <strong style={{ ...guideTitleStyle, color: '#8a5800' }}>Request completion</strong>
-                <span style={guideTextStyle}>Preview the flow for requesting missing documents or unfinished onboarding steps.</span>
+                <span style={guideTextStyle}>Check what onboarding steps or required documents are missing before sending a request.</span>
                 <span style={{ ...guideLinkStyle, color: '#b26a00' }}>Preview workflow →</span>
               </summary>
-              <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid #f3d28e', color: '#6d5a31', fontSize: 9.5, lineHeight: 1.5 }}>
-                <strong style={{ display: 'block', color: '#8a5800', marginBottom: 4 }}>Planned workflow</strong>
-                1. Run a real-time onboarding and document preflight.<br />
-                2. Show exactly what is missing, expired or rejected.<br />
-                3. Let Platform Owner confirm the requested items and message.<br />
-                4. Send the request and track it in the audit trail.<br />
-                <span style={{ display: 'inline-block', marginTop: 6, padding: '3px 6px', borderRadius: 6, background: '#fff3d8', color: '#8a5800', fontWeight: 800 }}>Not connected to mutation logic on this visual preview</span>
+              <div style={{ marginTop: 9, paddingTop: 8, borderTop: '1px solid #f3d28e', color: '#6d5a31', fontSize: 9.5, lineHeight: 1.5 }}>
+                1. Run live onboarding/document preflight.<br />
+                2. List missing, expired or rejected requirements.<br />
+                3. Platform Owner confirms what to request.<br />
+                4. Send and record the request in audit history.<br />
+                <span style={{ display: 'inline-block', marginTop: 6, padding: '3px 6px', borderRadius: 6, background: '#fff3d8', color: '#8a5800', fontWeight: 800 }}>Visual preview only — no mutation yet</span>
               </div>
             </details>
           ) : null}
         </div>
       </section>
 
-      {banner ? <div style={{ marginBottom: 16 }}>{banner}</div> : null}
+      <section>
+        <div style={{ marginBottom: 10 }}>
+          <h2 style={{ margin: 0, color: '#082a61', fontSize: 15, fontWeight: 900 }}>Record information</h2>
+          <p style={{ margin: '3px 0 0', color: '#66778e', fontSize: 10 }}>Sections are collapsed by default. Open only what you need.</p>
+        </div>
 
-      <div className="sa-inspector-grid">
-        {sections.map((section) => (
-          <section key={section.id} id={section.id} className="sa-inspector-section">
-            <div className="sa-inspector-section-head">
-              <div>
-                <h2>{section.title}</h2>
-                {section.description ? <p>{section.description}</p> : null}
-              </div>
-            </div>
-            {section.unavailable ? (
-              <div className="sa-inspector-section-body" style={{ color: '#b26a00', fontSize: 11 }}>
-                Unavailable{section.unavailableReason ? ` — ${section.unavailableReason}` : ''}
-              </div>
-            ) : (
-              <div className="sa-inspector-section-body">
-                {section.fields?.length ? (
-                  <dl className="sa-inspector-fields">
-                    {section.fields.map((field) => (
-                      <div key={field.key} className="sa-inspector-field" style={{ minWidth: 0 }}>
-                        <dt>{field.label}</dt>
-                        <dd style={{ color: toneColor[field.tone ?? 'default'], fontWeight: field.tone && field.tone !== 'default' ? 800 : 650 }}>
-                          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{field.value}</span>
-                          {field.copyValue ? <button type="button" onClick={() => void copyText(field.copyValue as string)} className="sa-button" style={{ minHeight: 26, padding: '0 8px', marginLeft: 6 }}>Copy</button> : null}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : null}
-                {section.content ? <div style={{ marginTop: section.fields?.length ? 14 : 0 }}>{section.content}</div> : null}
-                {!section.fields?.length && !section.content ? <div style={{ color: '#667085', fontSize: 11 }}>No data available for this section.</div> : null}
-              </div>
-            )}
-          </section>
-        ))}
-      </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 10 }}>
+          {sections.map((section, index) => (
+            <details key={section.id} id={section.id} open={index === 0} style={{ border: '1px solid #dfe6ef', borderRadius: 13, background: '#fff', overflow: 'hidden', boxShadow: '0 5px 18px rgba(8,42,97,.025)' }}>
+              <summary style={{ minHeight: 54, padding: '0 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, cursor: 'pointer', listStyle: 'none', background: '#fbfcfe', borderBottom: '1px solid #edf1f6' }}>
+                <span style={{ minWidth: 0 }}>
+                  <strong style={{ display: 'block', color: '#082a61', fontSize: 11.5, fontWeight: 850 }}>{section.title}</strong>
+                  {section.description ? <span style={{ display: 'block', marginTop: 2, color: '#7b8ba1', fontSize: 9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.description}</span> : null}
+                </span>
+                <span style={{ color: '#1d57d8', fontSize: 9, fontWeight: 800 }}>Open</span>
+              </summary>
+
+              {section.unavailable ? (
+                <div style={{ padding: 12, color: '#b26a00', fontSize: 10 }}>Unavailable{section.unavailableReason ? ` — ${section.unavailableReason}` : ''}</div>
+              ) : (
+                <div style={{ padding: 12 }}>
+                  {section.fields?.length ? (
+                    <dl className="sa-inspector-fields" style={{ margin: 0 }}>
+                      {section.fields.map((field) => (
+                        <div key={field.key} className="sa-inspector-field" style={{ minWidth: 0 }}>
+                          <dt>{field.label}</dt>
+                          <dd style={{ color: toneColor[field.tone ?? 'default'], fontWeight: field.tone && field.tone !== 'default' ? 800 : 650 }}>
+                            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{field.value}</span>
+                            {field.copyValue ? <button type="button" onClick={() => void copyText(field.copyValue as string)} className="sa-button" style={{ minHeight: 26, padding: '0 8px', marginLeft: 6 }}>Copy</button> : null}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {section.content ? <div style={{ marginTop: section.fields?.length ? 12 : 0 }}>{section.content}</div> : null}
+                  {!section.fields?.length && !section.content ? <div style={{ color: '#667085', fontSize: 10 }}>No data available for this section.</div> : null}
+                </div>
+              )}
+            </details>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
 
 const guideCardStyle = {
-  minHeight: 126,
+  minHeight: 112,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'stretch',
@@ -195,12 +188,11 @@ const guideCardStyle = {
   border: '1px solid #dfe6ef',
   borderRadius: 12,
   background: '#f9fbfd',
-  padding: 12,
+  padding: 11,
   color: '#172033',
-  cursor: 'pointer',
   fontFamily: 'inherit',
 } as const;
 
 const guideTitleStyle = { display: 'block', color: '#082a61', fontSize: 11.5, fontWeight: 850 } as const;
 const guideTextStyle = { display: 'block', marginTop: 6, color: '#66778e', fontSize: 9.5, lineHeight: 1.45 } as const;
-const guideLinkStyle = { display: 'block', marginTop: 'auto', paddingTop: 10, color: '#1d57d8', fontSize: 9.5, fontWeight: 800 } as const;
+const guideLinkStyle = { display: 'block', marginTop: 'auto', paddingTop: 9, color: '#1d57d8', fontSize: 9.5, fontWeight: 800 } as const;
