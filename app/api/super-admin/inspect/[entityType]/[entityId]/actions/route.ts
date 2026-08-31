@@ -5,6 +5,7 @@ import { verifyPlatformOwner } from '../../../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const CASE_SCHEMA_UNAVAILABLE_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
+const POD_REVIEW_SCHEMA_UNAVAILABLE_CODES = new Set(['42703', 'PGRST204']);
 const ACTIVE_CASE_STATUSES = ['open', 'acknowledged', 'investigating', 'waiting'] as const;
 const OPERATIONS_ENTITY_TYPES = new Set(['job', 'driver', 'vehicle', 'pod', 'dispute']);
 
@@ -28,6 +29,12 @@ type ActiveCaseRow = {
 
 const isCaseSchemaUnavailable = (error: { code?: string } | null | undefined) =>
   Boolean(error?.code && CASE_SCHEMA_UNAVAILABLE_CODES.has(error.code));
+const isPodReviewSchemaUnavailable = (error: { code?: string; message?: string } | null | undefined) =>
+  Boolean(
+    error
+    && ((error.code && POD_REVIEW_SCHEMA_UNAVAILABLE_CODES.has(error.code))
+      || error.message?.includes('platform_pod_review_status')),
+  );
 
 const CASE_ACTIONS: ActionDescriptor[] = [
   {
@@ -106,6 +113,14 @@ const marketplaceActionsFor = (status: string, exchangeVisibility: string): Acti
   return actions;
 };
 
+const jsonArrayLength = (value: unknown) => Array.isArray(value) ? value.length : 0;
+const signaturePresent = (value: unknown) => {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0;
+  return Boolean(String(value).trim());
+};
+
 async function entityExists(entityType: string, entityId: string) {
   if (!supabaseAdmin) return { exists: false, label: entityId, companyId: null as string | null, status: null as string | null, exchangeVisibility: null as string | null };
 
@@ -167,7 +182,49 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
   if (!entity.exists) return respond(404, { error: `${entityType} entity not found.` });
 
   const actions: ActionDescriptor[] = [];
+  const domainNotes: string[] = [];
+  let podReviewState: Record<string, unknown> | null = null;
+
   if (entityType === 'job') actions.push(...marketplaceActionsFor(entity.status ?? '', entity.exchangeVisibility ?? ''));
+
+  if (entityType === 'pod') {
+    const podReview = await supabaseAdmin
+      .from('jobs')
+      .select('id, platform_pod_review_status, platform_pod_review_note, platform_pod_reviewed_at, delivery_signature_data, delivery_photos, pod_photos, hard_copy_pod')
+      .eq('id', entityId)
+      .maybeSingle();
+
+    if (podReview.error) {
+      if (!isPodReviewSchemaUnavailable(podReview.error)) return respond(500, { error: podReview.error.message });
+      domainNotes.push('Platform POD review schema is not applied in this environment. POD review actions are suppressed.');
+    } else if (podReview.data) {
+      const deliveryPhotos = jsonArrayLength(podReview.data.delivery_photos);
+      const podPhotos = jsonArrayLength(podReview.data.pod_photos);
+      const hasSignature = signaturePresent(podReview.data.delivery_signature_data);
+      const hasHardCopy = typeof podReview.data.hard_copy_pod === 'string' && podReview.data.hard_copy_pod.trim().length > 0;
+      const hasPhysicalEvidence = hasSignature || deliveryPhotos > 0 || podPhotos > 0 || hasHardCopy;
+      const reviewStatus = podReview.data.platform_pod_review_status ? String(podReview.data.platform_pod_review_status) : null;
+
+      podReviewState = {
+        available: true,
+        reviewStatus,
+        reviewNote: podReview.data.platform_pod_review_note,
+        reviewedAt: podReview.data.platform_pod_reviewed_at,
+        hasPhysicalEvidence,
+        signaturePresent: hasSignature,
+        deliveryPhotoCount: deliveryPhotos,
+        podPhotoCount: podPhotos,
+        hardCopyPresent: hasHardCopy,
+      };
+
+      if (hasPhysicalEvidence) {
+        if (reviewStatus !== 'approved') actions.push({ id: 'pod_approve', label: 'Approve POD', description: 'Approve the physical proof-of-delivery evidence under Platform Owner authority. A review reason is required and audited.', requiresReason: true, tone: 'primary' });
+        if (reviewStatus !== 'rejected') actions.push({ id: 'pod_reject', label: 'Reject POD', description: 'Reject the submitted POD evidence as insufficient or invalid. A review reason is required and audited.', requiresReason: true, tone: 'danger' });
+      } else if (reviewStatus !== 'missing_requested') {
+        actions.push({ id: 'pod_request_missing', label: 'Request missing POD', description: 'Record that physical POD evidence is missing and requires remediation. A review reason is required and audited.', requiresReason: true, tone: 'warning' });
+      }
+    }
+  }
 
   const caseResult = await supabaseAdmin
     .from('platform_cases')
@@ -204,10 +261,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     entityId,
     entityLabel: entity.label,
     companyId: entity.companyId,
-    state: { status: entity.status, exchangeVisibility: entity.exchangeVisibility },
+    state: { status: entity.status, exchangeVisibility: entity.exchangeVisibility, podReview: podReviewState },
     actions,
     activeCases,
     caseCentreAvailable,
     caseCentreNote,
+    domainNotes,
   });
 }
