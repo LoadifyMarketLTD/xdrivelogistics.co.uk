@@ -128,9 +128,7 @@ function Domain({ title, description, href, children, defaultOpen = false, warni
   );
 }
 
-function Subheading({ children }: { children: ReactNode }) {
-  return <strong style={{ display: 'block', marginBottom: 6, color: C.navy, fontSize: 10 }}>{children}</strong>;
-}
+const Subheading = ({ children }: { children: ReactNode }) => <strong style={{ display: 'block', marginBottom: 6, color: C.navy, fontSize: 10 }}>{children}</strong>;
 
 export default function Company360Panel({ companyId }: { companyId: string }) {
   const [payload, setPayload] = useState<Company360Payload | null>(null);
@@ -159,15 +157,16 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
 
   const s = payload?.summary ?? {};
   const company = payload?.company ?? {};
-  const membershipRows = payload?.people?.memberships ?? [];
-  const peopleRows = useMemo(() => membershipRows.map((row) => {
+  const peopleRows = useMemo(() => (payload?.people?.memberships ?? []).map((row) => {
     const profile = row.profile && typeof row.profile === 'object' ? row.profile as AnyRow : {};
     return { ...row, title: profile.full_name ?? row.invited_email ?? 'Company member', status: row.status ?? profile.status, reference: row.role_in_company ?? profile.role, id: row.user_id };
-  }), [membershipRows]);
+  }), [payload?.people?.memberships]);
 
   if (loading) return <div style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 14, color: C.muted, fontSize: 10 }}>Loading Company 360…</div>;
   if (error || !payload) return <div style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.red}`, borderRadius: 14, background: C.white, padding: 12, color: C.text, fontSize: 10 }}><strong>Company 360 unavailable.</strong> {error}</div>;
 
+  const hasOnboarding = Boolean(payload.onboarding?.latest?.id);
+  const onboardingCompletion = hasOnboarding ? Number(payload.onboarding?.latest?.completion_percentage ?? 0) : null;
   const missingDocs = payload.onboarding?.missingDocuments ?? [];
   const companyDocs = payload.compliance?.companyDocuments ?? [];
   const driverDocs = payload.compliance?.driverDocuments ?? [];
@@ -180,8 +179,7 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
     const expired = typeof row.expiry_date === 'string' && row.expiry_date < now;
     return status !== 'approved' || expired || !['', 'clear', 'none', 'ok'].includes(risk);
   });
-  const completionNeeded = missingDocs.length > 0 || docIssueRows.length > 0 || Number(s.onboardingCompletion ?? 0) < 100;
-
+  const completionNeeded = (hasOnboarding && Number(onboardingCompletion) < 100) || missingDocs.length > 0 || docIssueRows.length > 0;
   const createdBy = company.created_by_profile && typeof company.created_by_profile === 'object' ? company.created_by_profile as AnyRow : {};
   const reviewedBy = company.reviewed_by_profile && typeof company.reviewed_by_profile === 'object' ? company.reviewed_by_profile as AnyRow : {};
 
@@ -192,7 +190,7 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
           <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
             <StatePill>SUPER ADMIN VIEW</StatePill>
             <StatePill tone={String(company.status ?? '').toLowerCase() === 'active' ? 'success' : 'warning'}>{display(company.status)}</StatePill>
-            {completionNeeded ? <StatePill tone="warning">Completion required</StatePill> : <StatePill tone="success">No completion blocker detected</StatePill>}
+            {!hasOnboarding ? <StatePill tone="warning">No canonical onboarding record</StatePill> : completionNeeded ? <StatePill tone="warning">Completion required</StatePill> : <StatePill tone="success">Onboarding/document preflight clear</StatePill>}
           </div>
           <h2 style={{ margin: '8px 0 0', color: C.navy, fontSize: 20, fontWeight: 900 }}>Company 360</h2>
           <p style={{ margin: '5px 0 0', maxWidth: 900, color: C.muted, fontSize: 10.2, lineHeight: 1.5 }}>Platform Owner dossier: identity, governance, onboarding, company/driver/vehicle compliance, people, fleet, operations, marketplace, finance, support, disputes, cases, notifications and durable audit history in one place.</p>
@@ -201,8 +199,8 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 8, marginBottom: 12 }}>
-        <Metric label="Onboarding" value={`${display(s.onboardingCompletion, '0')}%`} note={`${display(s.onboardingStatus, 'not started')} · ${display(s.onboardingStep, 'no step')}`} tone={Number(s.onboardingCompletion ?? 0) >= 100 ? 'success' : 'warning'} />
-        <Metric label="Document issues" value={s.documentIssues} note={`${display(s.companyDocuments, '0')} company docs · ${display(s.expiredDocuments, '0')} expired`} tone={Number(s.documentIssues ?? 0) > 0 ? 'warning' : 'success'} />
+        <Metric label="Onboarding" value={hasOnboarding ? `${onboardingCompletion}%` : 'No record'} note={hasOnboarding ? `${display(s.onboardingStatus, 'unknown')} · ${display(s.onboardingStep, 'no step')}` : 'Canonical onboarding provenance not found'} tone={hasOnboarding && Number(onboardingCompletion) >= 100 ? 'success' : 'warning'} />
+        <Metric label="Document issues" value={docIssueRows.length} note={`${display(s.companyDocuments, '0')} company docs · ${display(s.expiredDocuments, '0')} expired`} tone={docIssueRows.length > 0 ? 'warning' : 'success'} />
         <Metric label="People / Drivers" value={`${display(s.members, '0')} / ${display(s.drivers, '0')}`} note="members / drivers" />
         <Metric label="Vehicles" value={s.vehicles} note="company fleet records" />
         <Metric label="Active jobs" value={s.activeJobs} note={`${display(s.postedJobs, '0')} posted · ${display(s.awardedJobs, '0')} awarded`} />
@@ -221,23 +219,27 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
         </Domain>
 
         <Domain title="2. Onboarding, verification & Request completion" description="Latest onboarding state, completion, risk assessment, missing requirements and every linked onboarding application." href="/super-admin/companies/verification" warning={payload.onboarding?.note}>
-          <Fields rows={[
-            ['Status', payload.onboarding?.latest?.status], ['Current step', payload.onboarding?.latest?.current_step], ['Completion', `${display(payload.onboarding?.latest?.completion_percentage, '0')}%`], ['Account type', payload.onboarding?.latest?.account_type], ['Workspace mode', payload.onboarding?.latest?.workspace_mode], ['Owner-driver workspace', payload.onboarding?.latest?.owner_driver_workspace], ['Risk status', payload.onboarding?.latest?.risk_status], ['Risk reason', payload.onboarding?.latest?.risk_reason], ['Review notes', payload.onboarding?.latest?.review_notes], ['Submitted', shortDate(payload.onboarding?.latest?.submitted_at)], ['Reviewed', shortDate(payload.onboarding?.latest?.reviewed_at)], ['Last activity', shortDate(payload.onboarding?.latest?.last_activity_at)],
-          ]} />
+          {hasOnboarding ? (
+            <Fields rows={[
+              ['Status', payload.onboarding?.latest?.status], ['Current step', payload.onboarding?.latest?.current_step], ['Completion', `${onboardingCompletion}%`], ['Account type', payload.onboarding?.latest?.account_type], ['Workspace mode', payload.onboarding?.latest?.workspace_mode], ['Owner-driver workspace', payload.onboarding?.latest?.owner_driver_workspace], ['Risk status', payload.onboarding?.latest?.risk_status], ['Risk reason', payload.onboarding?.latest?.risk_reason], ['Review notes', payload.onboarding?.latest?.review_notes], ['Submitted', shortDate(payload.onboarding?.latest?.submitted_at)], ['Reviewed', shortDate(payload.onboarding?.latest?.reviewed_at)], ['Last activity', shortDate(payload.onboarding?.latest?.last_activity_at)],
+            ]} />
+          ) : (
+            <div style={{ borderLeft: `4px solid ${C.orange}`, borderRadius: 9, background: '#fffaf0', padding: 10, color: '#806b43', fontSize: 9.6, lineHeight: 1.5 }}><strong>No canonical onboarding application is linked to this company.</strong> This is shown as a provenance gap, not automatically treated as an incomplete onboarding flow. Review the company history before requesting completion.</div>
+          )}
           <div style={{ marginTop: 10, border: `1px solid ${completionNeeded ? '#efc36f' : '#b7dec9'}`, borderRadius: 11, background: completionNeeded ? '#fffaf0' : '#f4fbf7', padding: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div>
-                <strong style={{ color: completionNeeded ? '#8a5800' : C.green, fontSize: 10.5 }}>{completionNeeded ? 'Request completion preflight' : 'Onboarding/document preflight clear'}</strong>
-                <div style={{ marginTop: 3, color: C.muted, fontSize: 9.2 }}>The live read model identifies incomplete onboarding plus missing, pending, rejected, expired or risky documents before a request is sent.</div>
+                <strong style={{ color: completionNeeded ? '#8a5800' : C.green, fontSize: 10.5 }}>{completionNeeded ? 'Request completion preflight' : hasOnboarding ? 'Onboarding/document preflight clear' : 'Completion request not automatically available'}</strong>
+                <div style={{ marginTop: 3, color: C.muted, fontSize: 9.2 }}>{!hasOnboarding ? 'A missing onboarding record is an investigation/provenance issue; it is not enough by itself to send a completion request.' : 'The live read model identifies incomplete onboarding plus missing, pending, rejected, expired or risky documents before a request is sent.'}</div>
               </div>
-              {completionNeeded ? <StatePill tone="warning">Visual send action only — no mutation yet</StatePill> : <StatePill tone="success">No request needed</StatePill>}
+              {completionNeeded ? <StatePill tone="warning">Visual send action only — no mutation yet</StatePill> : !hasOnboarding ? <StatePill tone="warning">Investigate provenance</StatePill> : <StatePill tone="success">No request needed</StatePill>}
             </div>
             <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {missingDocs.length ? missingDocs.map((doc) => <StatePill key={doc} tone="warning">Missing: {doc}</StatePill>) : <StatePill tone="success">No canonical missing onboarding docs returned</StatePill>}
+              {missingDocs.length ? missingDocs.map((doc) => <StatePill key={doc} tone="warning">Missing: {doc}</StatePill>) : hasOnboarding ? <StatePill tone="success">No canonical missing onboarding docs returned</StatePill> : null}
               {docIssueRows.length ? <StatePill tone="warning">{docIssueRows.length} uploaded document issue(s)</StatePill> : null}
             </div>
           </div>
-          <div style={{ marginTop: 10 }}><Subheading>Onboarding application history</Subheading><RowList rows={payload.onboarding?.applications ?? []} /></div>
+          {payload.onboarding?.applications?.length ? <div style={{ marginTop: 10 }}><Subheading>Onboarding application history</Subheading><RowList rows={payload.onboarding.applications} /></div> : null}
         </Domain>
 
         <Domain title="3. Documents, compliance, expiry & fraud" description="Company documents plus driver/vehicle document estate, expiries, review/risk status and fraud-review cases." href="/super-admin/companies/compliance" warning={payload.compliance?.note}>
