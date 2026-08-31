@@ -6,8 +6,21 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 type AnyRow = Record<string, unknown>;
+type IdentityResolution = {
+  recordState?: string;
+  rawCompanyStatus?: string | null;
+  activeMembershipCount?: number;
+  activeProfileCount?: number;
+  creatorUserId?: string | null;
+  creatorAuthEmail?: string | null;
+  creatorProfileCompanyId?: string | null;
+  canonicalCompany?: AnyRow | null;
+  canonicalMembership?: AnyRow | null;
+  reason?: string | null;
+};
 type Company360Payload = {
   company?: AnyRow;
+  identityResolution?: IdentityResolution;
   summary?: Record<string, unknown>;
   onboarding?: { available?: boolean; latest?: AnyRow | null; applications?: AnyRow[]; missingDocuments?: string[]; missingDocumentsAvailable?: boolean; note?: string | null };
   people?: { available?: boolean; memberships?: AnyRow[]; governanceProfiles?: { createdBy?: AnyRow | null; reviewedBy?: AnyRow | null }; note?: string | null };
@@ -157,6 +170,9 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
 
   const s = payload?.summary ?? {};
   const company = payload?.company ?? {};
+  const identity = payload?.identityResolution ?? {};
+  const canonicalCompany = identity.canonicalCompany && typeof identity.canonicalCompany === 'object' ? identity.canonicalCompany as AnyRow : null;
+  const legacyOrphaned = identity.recordState === 'legacy_orphaned';
   const peopleRows = useMemo(() => (payload?.people?.memberships ?? []).map((row) => {
     const profile = row.profile && typeof row.profile === 'object' ? row.profile as AnyRow : {};
     return { ...row, title: profile.full_name ?? row.invited_email ?? 'Company member', status: row.status ?? profile.status, reference: row.role_in_company ?? profile.role, id: row.user_id };
@@ -179,26 +195,49 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
     const expired = typeof row.expiry_date === 'string' && row.expiry_date < now;
     return status !== 'approved' || expired || !['', 'clear', 'none', 'ok'].includes(risk);
   });
-  const completionNeeded = (hasOnboarding && Number(onboardingCompletion) < 100) || missingDocs.length > 0 || docIssueRows.length > 0;
+  const completionNeeded = !legacyOrphaned && ((hasOnboarding && Number(onboardingCompletion) < 100) || missingDocs.length > 0 || docIssueRows.length > 0);
   const createdBy = company.created_by_profile && typeof company.created_by_profile === 'object' ? company.created_by_profile as AnyRow : {};
   const reviewedBy = company.reviewed_by_profile && typeof company.reviewed_by_profile === 'object' ? company.reviewed_by_profile as AnyRow : {};
 
   return (
-    <section style={{ marginBottom: 16, border: `1px solid ${C.border}`, borderRadius: 16, background: C.bg, padding: 13 }}>
+    <section style={{ marginBottom: 16, border: `1px solid ${legacyOrphaned ? '#f2b8b5' : C.border}`, borderRadius: 16, background: C.bg, padding: 13 }}>
+      {legacyOrphaned ? (
+        <div style={{ marginBottom: 12, border: `1px solid #f2b8b5`, borderLeft: `5px solid ${C.red}`, borderRadius: 12, background: '#fff7f7', padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 7 }}>
+                <StatePill tone="danger">LEGACY / ORPHANED RECORD</StatePill>
+                <StatePill tone="warning">Raw DB status: {display(identity.rawCompanyStatus)}</StatePill>
+              </div>
+              <strong style={{ display: 'block', color: '#9f1c16', fontSize: 12.5 }}>This is not the current active company identity for the creator account.</strong>
+              <div style={{ marginTop: 5, color: '#7a3a36', fontSize: 9.8, lineHeight: 1.5 }}>{identity.reason ?? 'The record no longer has current canonical company authority.'}</div>
+              <div style={{ marginTop: 7, color: C.text, fontSize: 10, lineHeight: 1.55 }}>
+                Current active auth email: <strong>{display(identity.creatorAuthEmail)}</strong><br />
+                Canonical active company: <strong>{display(canonicalCompany?.trading_name ?? canonicalCompany?.legal_name ?? canonicalCompany?.name)}</strong> · {display(canonicalCompany?.email)} · {display(canonicalCompany?.xd_id)}
+              </div>
+            </div>
+            {canonicalCompany?.id ? (
+              <Link href={`/super-admin/inspect/company/${encodeURIComponent(String(canonicalCompany.id))}`} style={{ minHeight: 36, display: 'inline-flex', alignItems: 'center', borderRadius: 9, background: C.red, color: C.white, padding: '0 12px', fontSize: 9.5, fontWeight: 900, textDecoration: 'none', whiteSpace: 'nowrap' }}>Open active company →</Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
             <StatePill>SUPER ADMIN VIEW</StatePill>
-            <StatePill tone={String(company.status ?? '').toLowerCase() === 'active' ? 'success' : 'warning'}>{display(company.status)}</StatePill>
+            {legacyOrphaned ? <StatePill tone="danger">Not canonically active</StatePill> : <StatePill tone={String(company.status ?? '').toLowerCase() === 'active' ? 'success' : 'warning'}>{display(company.status)}</StatePill>}
             {!hasOnboarding ? <StatePill tone="warning">No canonical onboarding record</StatePill> : completionNeeded ? <StatePill tone="warning">Completion required</StatePill> : <StatePill tone="success">Onboarding/document preflight clear</StatePill>}
           </div>
-          <h2 style={{ margin: '8px 0 0', color: C.navy, fontSize: 20, fontWeight: 900 }}>Company 360</h2>
+          <h2 style={{ margin: '8px 0 0', color: C.navy, fontSize: 20, fontWeight: 900 }}>{legacyOrphaned ? 'Legacy company record · Company 360' : 'Company 360'}</h2>
           <p style={{ margin: '5px 0 0', maxWidth: 900, color: C.muted, fontSize: 10.2, lineHeight: 1.5 }}>Platform Owner dossier: identity, governance, onboarding, company/driver/vehicle compliance, people, fleet, operations, marketplace, finance, support, disputes, cases, notifications and durable audit history in one place.</p>
         </div>
         <button type="button" onClick={() => void load()} style={{ minHeight: 34, border: `1px solid ${C.blue}`, borderRadius: 9, background: C.white, color: C.blue, padding: '0 11px', fontSize: 9.5, fontWeight: 850, cursor: 'pointer' }}>Refresh 360</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 8, marginBottom: 12 }}>
+        <Metric label="Canonical state" value={legacyOrphaned ? 'Legacy' : 'Current'} note={legacyOrphaned ? `${display(identity.activeMembershipCount, '0')} active memberships · ${display(identity.activeProfileCount, '0')} active profiles` : 'Current company authority'} tone={legacyOrphaned ? 'danger' : 'success'} />
         <Metric label="Onboarding" value={hasOnboarding ? `${onboardingCompletion}%` : 'No record'} note={hasOnboarding ? `${display(s.onboardingStatus, 'unknown')} · ${display(s.onboardingStep, 'no step')}` : 'Canonical onboarding provenance not found'} tone={hasOnboarding && Number(onboardingCompletion) >= 100 ? 'success' : 'warning'} />
         <Metric label="Document issues" value={docIssueRows.length} note={`${display(s.companyDocuments, '0')} company docs · ${display(s.expiredDocuments, '0')} expired`} tone={docIssueRows.length > 0 ? 'warning' : 'success'} />
         <Metric label="People / Drivers" value={`${display(s.members, '0')} / ${display(s.drivers, '0')}`} note="members / drivers" />
@@ -212,33 +251,38 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
       <div style={{ display: 'grid', gap: 8 }}>
         <Domain title="1. Identity, legal record & platform governance" description="Canonical identity, legal/contact data, registered address, review state and Platform Owner governance metadata." defaultOpen>
           <Fields rows={[
-            ['Stable company ID', company.id], ['XDrive ID', company.xd_id], ['Legal name', company.legal_name], ['Trading name', company.trading_name ?? company.name], ['Company number', company.company_number], ['VAT number', company.vat_number], ['Company type', company.company_type], ['Platform status', company.status],
-            ['Email', company.email], ['Phone', company.phone], ['Website', company.website], ['Address line 1', company.address_line1], ['Address line 2', company.address_line2], ['City', company.city], ['Postcode', company.postcode], ['Country', company.country],
+            ['Stable company ID', company.id], ['XDrive ID', company.xd_id], ['Canonical activity', legacyOrphaned ? 'legacy_orphaned' : 'current'], ['Raw DB status', company.status], ['Current active auth email', identity.creatorAuthEmail], ['Canonical active company', canonicalCompany ? `${display(canonicalCompany.trading_name ?? canonicalCompany.legal_name ?? canonicalCompany.name)} · ${display(canonicalCompany.email)}` : null],
+            ['Legal name', company.legal_name], ['Trading name', company.trading_name ?? company.name], ['Company number', company.company_number], ['VAT number', company.vat_number], ['Company type', company.company_type],
+            ['Email stored on this record', company.email], ['Phone', company.phone], ['Website', company.website], ['Address line 1', company.address_line1], ['Address line 2', company.address_line2], ['City', company.city], ['Postcode', company.postcode], ['Country', company.country],
             ['Description', company.description], ['International work approved', company.international_work_approved], ['Created by', createdBy.full_name ?? company.created_by], ['Created', shortDate(company.created_at)], ['Last updated', shortDate(company.updated_at)], ['Reviewed by', reviewedBy.full_name ?? company.reviewed_by], ['Reviewed at', shortDate(company.reviewed_at)], ['Review notes', company.review_notes],
           ]} />
         </Domain>
 
         <Domain title="2. Onboarding, verification & Request completion" description="Latest onboarding state, completion, risk assessment, missing requirements and every linked onboarding application." href="/super-admin/companies/verification" warning={payload.onboarding?.note}>
-          {hasOnboarding ? (
+          {legacyOrphaned ? (
+            <div style={{ borderLeft: `4px solid ${C.red}`, borderRadius: 9, background: '#fff7f7', padding: 10, color: '#7a3a36', fontSize: 9.6, lineHeight: 1.5 }}><strong>Completion workflow is suppressed for this legacy/orphaned record.</strong> Open the canonical active company first. A stale company record must not receive onboarding or document-remediation actions.</div>
+          ) : hasOnboarding ? (
             <Fields rows={[
               ['Status', payload.onboarding?.latest?.status], ['Current step', payload.onboarding?.latest?.current_step], ['Completion', `${onboardingCompletion}%`], ['Account type', payload.onboarding?.latest?.account_type], ['Workspace mode', payload.onboarding?.latest?.workspace_mode], ['Owner-driver workspace', payload.onboarding?.latest?.owner_driver_workspace], ['Risk status', payload.onboarding?.latest?.risk_status], ['Risk reason', payload.onboarding?.latest?.risk_reason], ['Review notes', payload.onboarding?.latest?.review_notes], ['Submitted', shortDate(payload.onboarding?.latest?.submitted_at)], ['Reviewed', shortDate(payload.onboarding?.latest?.reviewed_at)], ['Last activity', shortDate(payload.onboarding?.latest?.last_activity_at)],
             ]} />
           ) : (
             <div style={{ borderLeft: `4px solid ${C.orange}`, borderRadius: 9, background: '#fffaf0', padding: 10, color: '#806b43', fontSize: 9.6, lineHeight: 1.5 }}><strong>No canonical onboarding application is linked to this company.</strong> This is shown as a provenance gap, not automatically treated as an incomplete onboarding flow. Review the company history before requesting completion.</div>
           )}
-          <div style={{ marginTop: 10, border: `1px solid ${completionNeeded ? '#efc36f' : '#b7dec9'}`, borderRadius: 11, background: completionNeeded ? '#fffaf0' : '#f4fbf7', padding: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <div>
-                <strong style={{ color: completionNeeded ? '#8a5800' : C.green, fontSize: 10.5 }}>{completionNeeded ? 'Request completion preflight' : hasOnboarding ? 'Onboarding/document preflight clear' : 'Completion request not automatically available'}</strong>
-                <div style={{ marginTop: 3, color: C.muted, fontSize: 9.2 }}>{!hasOnboarding ? 'A missing onboarding record is an investigation/provenance issue; it is not enough by itself to send a completion request.' : 'The live read model identifies incomplete onboarding plus missing, pending, rejected, expired or risky documents before a request is sent.'}</div>
+          {!legacyOrphaned ? (
+            <div style={{ marginTop: 10, border: `1px solid ${completionNeeded ? '#efc36f' : '#b7dec9'}`, borderRadius: 11, background: completionNeeded ? '#fffaf0' : '#f4fbf7', padding: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <div>
+                  <strong style={{ color: completionNeeded ? '#8a5800' : C.green, fontSize: 10.5 }}>{completionNeeded ? 'Request completion preflight' : hasOnboarding ? 'Onboarding/document preflight clear' : 'Completion request not automatically available'}</strong>
+                  <div style={{ marginTop: 3, color: C.muted, fontSize: 9.2 }}>{!hasOnboarding ? 'A missing onboarding record is an investigation/provenance issue; it is not enough by itself to send a completion request.' : 'The live read model identifies incomplete onboarding plus missing, pending, rejected, expired or risky documents before a request is sent.'}</div>
+                </div>
+                {completionNeeded ? <StatePill tone="warning">Visual send action only — no mutation yet</StatePill> : !hasOnboarding ? <StatePill tone="warning">Investigate provenance</StatePill> : <StatePill tone="success">No request needed</StatePill>}
               </div>
-              {completionNeeded ? <StatePill tone="warning">Visual send action only — no mutation yet</StatePill> : !hasOnboarding ? <StatePill tone="warning">Investigate provenance</StatePill> : <StatePill tone="success">No request needed</StatePill>}
+              <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {missingDocs.length ? missingDocs.map((doc) => <StatePill key={doc} tone="warning">Missing: {doc}</StatePill>) : hasOnboarding ? <StatePill tone="success">No canonical missing onboarding docs returned</StatePill> : null}
+                {docIssueRows.length ? <StatePill tone="warning">{docIssueRows.length} uploaded document issue(s)</StatePill> : null}
+              </div>
             </div>
-            <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {missingDocs.length ? missingDocs.map((doc) => <StatePill key={doc} tone="warning">Missing: {doc}</StatePill>) : hasOnboarding ? <StatePill tone="success">No canonical missing onboarding docs returned</StatePill> : null}
-              {docIssueRows.length ? <StatePill tone="warning">{docIssueRows.length} uploaded document issue(s)</StatePill> : null}
-            </div>
-          </div>
+          ) : null}
           {payload.onboarding?.applications?.length ? <div style={{ marginTop: 10 }}><Subheading>Onboarding application history</Subheading><RowList rows={payload.onboarding.applications} /></div> : null}
         </Domain>
 
