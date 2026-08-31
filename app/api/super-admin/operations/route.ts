@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { coordinatesFromLocation } from '../../../../lib/geoLocation';
 import { buildJobSearchPattern } from '../_lib/searchFilters';
-
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
 const normalizeSearch = (raw: string) => raw.trim();
-
 
 const findMatchingJobIds = async (search: string) => {
   if (!supabaseAdmin || !search) return null;
@@ -30,29 +30,6 @@ const findMatchingJobIds = async (search: string) => {
       ),
     ),
   };
-};
-
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
 };
 
 type JobRow = {
@@ -131,24 +108,17 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) {
-    return respond(403, { error: 'Forbidden: owner role required.' });
-  }
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
-  // Pagination for sections that support it
   const pageParam = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const limitParam = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
   const offset = (pageParam - 1) * limitParam;
-  // Search filter (for jobs sections)
   const search = normalizeSearch(searchParams.get('search') ?? '');
   const searchMatches = search ? await findMatchingJobIds(search) : null;
-  if (searchMatches && 'error' in searchMatches) {
-    return respond(500, { error: searchMatches.error });
-  }
-  // Keep backward-compat legacy limit param (used by non-paginated sections)
+  if (searchMatches && 'error' in searchMatches) return respond(500, { error: searchMatches.error });
   const legacyLimit = Math.min(Number(searchParams.get('limit') ?? limitParam) || limitParam, 500);
 
   if (section === 'quotes') {
@@ -158,18 +128,14 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(legacyLimit);
 
-    if (error) {
-      return respond(500, { error: error.message });
-    }
+    if (error) return respond(500, { error: error.message });
 
     const companyIds = Array.from(new Set((quotes ?? []).map((quote) => quote.company_id).filter(Boolean)));
     const { data: companies, error: companiesError } = companyIds.length > 0
       ? await supabaseAdmin.from('companies').select('id, name').in('id', companyIds)
       : { data: [], error: null };
 
-    if (companiesError) {
-      return respond(500, { error: companiesError.message });
-    }
+    if (companiesError) return respond(500, { error: companiesError.message });
 
     const companyNameById = new Map<string, string>((companies as CompanyRow[]).map((row) => [row.id, row.name]));
 
@@ -230,13 +196,13 @@ export async function GET(request: NextRequest) {
       rows: (drivers as Array<{ id: string; display_name: string | null; company_id: string; availability_status: string | null }>).map((d) => {
         const loc = latestLocByDriver.get(d.id) ?? null;
         return {
-          id:                  d.id,
-          display_name:        d.display_name ?? 'Unknown driver',
-          company_name:        companyNameById.get(d.company_id) ?? 'Unknown company',
+          id: d.id,
+          display_name: d.display_name ?? 'Unknown driver',
+          company_name: companyNameById.get(d.company_id) ?? 'Unknown company',
           availability_status: d.availability_status ?? 'offline',
-          last_seen_at:        loc?.recorded_at ?? null,
-          last_lat:            loc?.lat ?? null,
-          last_lng:            loc?.lng ?? null,
+          last_seen_at: loc?.recorded_at ?? null,
+          last_lat: loc?.lat ?? null,
+          last_lng: loc?.lng ?? null,
         };
       }),
     });
@@ -277,15 +243,15 @@ export async function GET(request: NextRequest) {
       rows: (disputes as Array<{ id: string; job_id: string; raised_by_company_id: string; status: string; description: string | null; created_at: string }>).map((d) => {
         const job = jobById.get(d.job_id) ?? null;
         return {
-          id:                 d.id,
-          job_id:             d.job_id,
-          status:             d.status,
-          description:        d.description ?? '—',
-          raised_by:          companyNameById.get(d.raised_by_company_id) ?? 'Unknown company',
-          job_status:         job?.status ?? '—',
-          pickup_location:    job?.pickup_location ?? null,
-          delivery_location:  job?.delivery_location ?? null,
-          created_at:         d.created_at,
+          id: d.id,
+          job_id: d.job_id,
+          status: d.status,
+          description: d.description ?? '—',
+          raised_by: companyNameById.get(d.raised_by_company_id) ?? 'Unknown company',
+          job_status: job?.status ?? '—',
+          pickup_location: job?.pickup_location ?? null,
+          delivery_location: job?.delivery_location ?? null,
+          created_at: d.created_at,
         };
       }),
     });
@@ -344,16 +310,16 @@ export async function GET(request: NextRequest) {
         const drv = driverInfoById.get(loc.driver_id as string) ?? null;
         const coordinates = coordinatesFromLocation((loc as { location: unknown }).location);
         return {
-          id:                  loc.id,
-          driver_id:           loc.driver_id,
-          driver_name:         drv?.display_name ?? 'Unknown driver',
+          id: loc.id,
+          driver_id: loc.driver_id,
+          driver_name: drv?.display_name ?? 'Unknown driver',
           availability_status: drv?.availability_status ?? 'offline',
-          company_name:        drv?.company_id ? (companyNameById2.get(drv.company_id) ?? 'Unknown company') : 'Unknown company',
-          lat:                 coordinates.lat,
-          lng:                 coordinates.lng,
-          heading:             null,
-          speed_mph:           null,
-          recorded_at:         loc.recorded_at,
+          company_name: drv?.company_id ? (companyNameById2.get(drv.company_id) ?? 'Unknown company') : 'Unknown company',
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          heading: null,
+          speed_mph: null,
+          recorded_at: loc.recorded_at,
         };
       }),
     });
@@ -364,29 +330,12 @@ export async function GET(request: NextRequest) {
     .select('id, status, company_id, assigned_driver_id, created_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, awarded_carrier_company_id, delivery_photos, delivery_signature_data', { count: 'exact' })
     .order('created_at', { ascending: false });
 
-  if (section === 'allocations') {
-    query = query.not('assigned_driver_id', 'is', null);
-  }
-
-  if (section === 'deliveries') {
-    query = query.in('status', ['allocated', 'collected', 'in_transit', 'delivered']);
-  }
-
-  if (section === 'active-jobs') {
-    query = query.in('status', ['allocated', 'collected', 'in_transit']);
-  }
-
-  if (section === 'pending-jobs') {
-    query = query.in('status', ['posted', 'quoted', 'awarded']);
-  }
-
-  if (section === 'completed-jobs') {
-    query = query.in('status', ['delivered', 'invoiced', 'paid']);
-  }
-
-  if (section === 'pods') {
-    query = query.or('delivery_signature_data.not.is.null,delivery_photos.not.is.null');
-  }
+  if (section === 'allocations') query = query.not('assigned_driver_id', 'is', null);
+  if (section === 'deliveries') query = query.in('status', ['allocated', 'collected', 'in_transit', 'delivered']);
+  if (section === 'active-jobs') query = query.in('status', ['allocated', 'collected', 'in_transit']);
+  if (section === 'pending-jobs') query = query.in('status', ['posted', 'quoted', 'awarded']);
+  if (section === 'completed-jobs') query = query.in('status', ['delivered', 'invoiced', 'paid']);
+  if (section === 'pods') query = query.or('delivery_signature_data.not.is.null,delivery_photos.not.is.null');
 
   if (searchMatches && searchMatches.ids.length === 0) {
     return respond(200, {
@@ -403,24 +352,16 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (searchMatches && 'ids' in searchMatches) {
-    query = query.in('id', searchMatches.ids);
-  }
+  if (searchMatches && 'ids' in searchMatches) query = query.in('id', searchMatches.ids);
   query = query.range(offset, offset + limitParam - 1);
 
   const { data: jobs, error: jobsError, count: jobsCount } = await query;
-
-  if (jobsError) {
-    return respond(500, { error: jobsError.message });
-  }
+  if (jobsError) return respond(500, { error: jobsError.message });
 
   const mappedResources = await withCompanyAndDriverMaps((jobs ?? []) as JobRow[]);
-  if ('error' in mappedResources) {
-    return respond(500, { error: mappedResources.error });
-  }
+  if ('error' in mappedResources) return respond(500, { error: mappedResources.error });
 
   const { companyNameById, driverById, bidCountByJobId } = mappedResources;
-
   const totalCount = jobsCount ?? (jobs ?? []).length;
   const totalPages = Math.ceil(totalCount / limitParam);
 
