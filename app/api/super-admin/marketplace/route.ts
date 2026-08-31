@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -52,29 +54,6 @@ const MARKETPLACE_AUDIT_ACTION_TYPES = [
   'marketplace_job_cancelled',
 ] as const;
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 const queryMarketplaceRows = async (limit: number) =>
   supabaseAdmin!
     .from('jobs')
@@ -98,13 +77,8 @@ const enrichMarketplaceRows = async (marketplaceRows: MarketplaceRow[]) => {
     supabaseAdmin!.from('job_bids').select('job_id').in('job_id', marketplaceRows.map((job) => job.id)),
   ]);
 
-  if (companiesResult.error) {
-    return { error: companiesResult.error.message };
-  }
-
-  if (bidCountsResult.error) {
-    return { error: bidCountsResult.error.message };
-  }
+  if (companiesResult.error) return { error: companiesResult.error.message };
+  if (bidCountsResult.error) return { error: bidCountsResult.error.message };
 
   const companyNameById = new Map<string, string>((companiesResult.data as CompanyRow[]).map((row) => [row.id, row.name]));
   const bidCountByJobId = new Map<string, number>();
@@ -144,9 +118,7 @@ const getMarketplaceAuditHistory = async (limit: number) => {
         ? raw.new_status
         : (typeof raw.new_value === 'string' ? raw.new_value : null);
       const createdAt = typeof raw.created_at === 'string' ? raw.created_at : null;
-      if (!id || !actorUserId || !targetCompanyId || !actionType || !oldStatus || !newStatus || !createdAt) {
-        return null;
-      }
+      if (!id || !actorUserId || !targetCompanyId || !actionType || !oldStatus || !newStatus || !createdAt) return null;
       return {
         id,
         actor_user_id: actorUserId,
@@ -168,27 +140,19 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) {
-    return respond(403, { error: 'Forbidden: owner role required.' });
-  }
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
   const auditLimit = Math.min(Number(searchParams.get('auditLimit') ?? 120) || 120, 400);
 
   const { data: jobs, error: jobsError } = await queryMarketplaceRows(limit);
-
-  if (jobsError) {
-    return respond(500, { error: jobsError.message });
-  }
+  if (jobsError) return respond(500, { error: jobsError.message });
 
   const marketplaceRows = (jobs ?? []) as MarketplaceRow[];
   const enrichedRows = await enrichMarketplaceRows(marketplaceRows);
-
-  if ('error' in enrichedRows) {
-    return respond(500, { error: enrichedRows.error });
-  }
+  if ('error' in enrichedRows) return respond(500, { error: enrichedRows.error });
 
   const { data: auditRows, error: auditError } = await getMarketplaceAuditHistory(auditLimit);
   const governanceHistoryAvailable = !auditError;
