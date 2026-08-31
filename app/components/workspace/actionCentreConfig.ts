@@ -7,7 +7,7 @@ const ACTION_CENTRE_ROOT: Record<ActionCentreRole, string> = {
   broker: '/broker/action-centre',
   customer: '/customer/action-centre',
   driver: '/driver/action-centre',
-  platform_owner: '/super-admin',
+  platform_owner: '/super-admin/action-centre',
 };
 
 const NOTIFICATIONS_ROOT: Record<ActionCentreRole, string> = {
