@@ -26,6 +26,7 @@ export default function Page() {
       endpoint="/api/super-admin/finance?section=invoices&limit=250"
       summaryField="summary"
       emptyMessage="No invoices found."
+      entityLink={(row) => ({ entityType: 'invoice', entityId: row.id, label: 'Inspect invoice' })}
       columns={[
         {
           key: 'invoice_number',
