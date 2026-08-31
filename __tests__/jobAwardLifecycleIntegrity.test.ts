@@ -12,10 +12,13 @@ const runtimeProof = fs.readFileSync(
 );
 
 describe('job award lifecycle integrity', () => {
-  it('reconstructs the hosted canonical jobs test marker before first use', () => {
+  it('reconstructs the hosted job audit columns before first use', () => {
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS cancellation_reason text');
     expect(migration).toContain("c.column_name = 'is_test'");
+    expect(migration).toContain("c.column_name = 'cancellation_reason'");
     expect(migration).toContain('jobs.is_test clean-replay contract is not BOOLEAN NOT NULL DEFAULT false.');
+    expect(migration).toContain('jobs.cancellation_reason clean-replay contract is not nullable TEXT without a default.');
   });
 
   it('keeps the hosted-only legacy POD dependency conditional without recreating it', () => {
