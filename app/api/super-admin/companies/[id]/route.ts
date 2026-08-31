@@ -21,10 +21,15 @@ const patchSchema = z.object({ action:z.enum(['approve','reject','reinstate','su
   if(REASON_REQUIRED_ACTIONS.has(data.action as CompanyGovernanceAction)&&!data.reason?.trim())ctx.addIssue({code:z.ZodIssueCode.custom,path:['reason'],message:`A reason is required for the '${data.action}' action.`});
 });
 
+const isNetlifyDeployPreview = () => process.env.CONTEXT === 'deploy-preview'
+  || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
+  || Boolean(process.env.URL?.includes('deploy-preview-'));
+
 export async function PATCH(request:NextRequest,{params}:{params:Promise<{id:string}>}){
   if(!isSupabaseAdminConfigured||!supabaseAdmin)return respond(503,{error:'Server auth is not configured.'});
   const owner=await verifyPlatformOwner(request);
   if(!owner)return respond(403,{error:'Forbidden: active Platform Owner required.'});
+  if(isNetlifyDeployPreview())return respond(409,{error:'Preview safety guard: company governance mutations are disabled in Netlify Deploy Preview.',code:'preview_mutation_disabled'});
 
   let body:unknown;try{body=await request.json();}catch{return respond(400,{error:'Invalid JSON body.'});}
   const parsed=patchSchema.safeParse(body);
