@@ -132,12 +132,14 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
   if (action.action === 'convert_to_job') {
     const notes = enquiry.notes ?? null;
-    requestedVehicleLabel = enquiry.vehicle_type || fieldFromNotes(notes, 'Vehicle requested') || 'Not sure / advise me';
-    requestedCargoLabel = enquiry.cargo_type || fieldFromNotes(notes, 'Cargo') || 'Mixed Freight';
+    const vehicleLabel = enquiry.vehicle_type || fieldFromNotes(notes, 'Vehicle requested') || 'Not sure / advise me';
+    const cargoLabel = enquiry.cargo_type || fieldFromNotes(notes, 'Cargo') || 'Mixed Freight';
+    requestedVehicleLabel = vehicleLabel;
+    requestedCargoLabel = cargoLabel;
     // Pass the modern canonical slug. The governance RPC resolves it against the
     // actual jobs.vehicle_type enum so legacy Production and clean-replay schemas agree.
-    vehicleType = labelToVehicleType(requestedVehicleLabel);
-    cargoType = labelToCargoType(requestedCargoLabel);
+    vehicleType = labelToVehicleType(vehicleLabel);
+    cargoType = labelToCargoType(cargoLabel);
     weightKg = numberFromNotes(notes, 'Weight');
     const rawPallets = numberFromNotes(notes, 'Pallets');
     pallets = rawPallets === null ? null : Math.max(0, Math.trunc(rawPallets));
@@ -178,6 +180,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const result = (Array.isArray(data) ? data[0] ?? null : data) as Record<string, unknown> | null;
   if (!result) return respond(500, { error: 'XDrive enquiry governance returned no authoritative result.' });
 
-  const created = action.action === 'convert_to_job' && !Boolean(result.replayed);
+  const created = action.action === 'convert_to_job' && !result.replayed;
   return respond(created ? 201 : 200, result);
 }
