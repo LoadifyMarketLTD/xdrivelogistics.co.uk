@@ -79,6 +79,84 @@ $$;
 REVOKE ALL ON FUNCTION public.p0_12_optional_dependency_exists(text, text, uuid, text, uuid)
   FROM PUBLIC, anon, authenticated;
 
+-- Hosted Production and current runtime both require the physical bidder company
+-- attribution column. Clean history omitted it because earlier quote guards were
+-- deliberately adaptive around live drift, but P0-12 is the first later migration
+-- that requires the canonical field directly. Reconstruct only the observed
+-- Production column contract: UUID NOT NULL, no default, no FK/unique constraint.
+-- Production also carries three redundant non-unique btree indexes on this field;
+-- those duplicate hosted-history artifacts are not multiplied into clean replay.
+-- Never infer attribution for existing rows: if a replay already contains a bid
+-- without this canonical identity, fail closed instead of manufacturing a backfill.
+ALTER TABLE public.job_bids
+  ADD COLUMN IF NOT EXISTS bidder_company_id uuid;
+
+DO $$
+DECLARE
+  v_data_type text;
+  v_not_null boolean;
+  v_default_expr text;
+  v_null_rows bigint;
+  v_constraint_count integer;
+BEGIN
+  SELECT
+    format_type(a.atttypid, a.atttypmod),
+    a.attnotnull,
+    pg_get_expr(ad.adbin, ad.adrelid)
+  INTO v_data_type, v_not_null, v_default_expr
+  FROM pg_attribute a
+  LEFT JOIN pg_attrdef ad
+    ON ad.adrelid = a.attrelid
+   AND ad.adnum = a.attnum
+  WHERE a.attrelid = 'public.job_bids'::regclass
+    AND a.attname = 'bidder_company_id'
+    AND a.attnum > 0
+    AND NOT a.attisdropped;
+
+  IF v_data_type IS DISTINCT FROM 'uuid' THEN
+    RAISE EXCEPTION
+      'job_bids.bidder_company_id type differs from canonical Production contract: %.',
+      coalesce(v_data_type, '<missing>');
+  END IF;
+
+  SELECT count(*)
+  INTO v_constraint_count
+  FROM pg_constraint con
+  JOIN pg_attribute a
+    ON a.attrelid = con.conrelid
+   AND a.attnum = ANY(con.conkey)
+  WHERE con.conrelid = 'public.job_bids'::regclass
+    AND a.attname = 'bidder_company_id';
+
+  IF v_constraint_count <> 0 THEN
+    RAISE EXCEPTION
+      'job_bids.bidder_company_id has % unexpected constraint(s); Production has no FK/unique/check constraint on this column.',
+      v_constraint_count;
+  END IF;
+
+  IF v_default_expr IS NOT NULL THEN
+    ALTER TABLE public.job_bids
+      ALTER COLUMN bidder_company_id DROP DEFAULT;
+  END IF;
+
+  SELECT count(*)
+  INTO v_null_rows
+  FROM public.job_bids
+  WHERE bidder_company_id IS NULL;
+
+  IF v_null_rows <> 0 THEN
+    RAISE EXCEPTION
+      'Cannot make job_bids.bidder_company_id canonical without inventing attribution for % existing bid row(s).',
+      v_null_rows;
+  END IF;
+
+  IF NOT coalesce(v_not_null, false) THEN
+    ALTER TABLE public.job_bids
+      ALTER COLUMN bidder_company_id SET NOT NULL;
+  END IF;
+END;
+$$;
+
 -- KEEP: no company provenance exists. These incomplete Fleet applications stay
 -- unbound and must use the canonical verified registration flow later.
 INSERT INTO p0_12_legacy_fleet_plan (
