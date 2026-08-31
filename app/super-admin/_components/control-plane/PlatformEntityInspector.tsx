@@ -20,12 +20,10 @@ async function copyText(value: string) {
 
 function contextHref(entityType: PlatformEntityType, kind: 'access' | 'compliance') {
   if (kind === 'access') {
-    if (entityType === 'company') return '/super-admin/companies/verification';
     if (entityType === 'driver') return '/super-admin/users/drivers';
     if (entityType === 'user') return '/super-admin/users';
     return '/super-admin/search';
   }
-  if (entityType === 'company') return '/super-admin/companies/compliance';
   if (entityType === 'driver' || entityType === 'vehicle') return '/super-admin/compliance/documents';
   if (entityType === 'pod') return '/super-admin/operations/pods';
   if (entityType === 'invoice') return '/super-admin/finance/invoices';
@@ -53,34 +51,45 @@ export default function PlatformEntityInspector({
   actions?: ReactNode;
   banner?: ReactNode;
 }) {
-  const requestCompletionEligible = entityType === 'company' || entityType === 'driver' || entityType === 'user';
+  const header = (
+    <header className="sa-inspector-hero">
+      <div className="sa-inspector-top">
+        <div style={{ minWidth: 0 }}>
+          <div className="sa-inspector-kicker">
+            <span>{entityType === 'company' ? 'company · platform owner dossier' : entityType}</span>
+            <span style={{ color: '#8390a3', letterSpacing: 0, textTransform: 'none' }}>{reference}</span>
+            {status}
+          </div>
+          <h1 className="sa-inspector-title">{title}</h1>
+          {subtitle ? <p className="sa-inspector-subtitle">{subtitle}</p> : null}
+          {stableId ? (
+            <div className="sa-inspector-id">
+              <code>{stableId}</code>
+              <button type="button" onClick={() => void copyText(stableId)} className="sa-button">Copy ID</button>
+            </div>
+          ) : null}
+        </div>
+        {actions ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative', zIndex: 1 }}>{actions}</div> : null}
+      </div>
+    </header>
+  );
+
+  if (entityType === 'company' && stableId) {
+    return (
+      <div className="sa-inspector" style={{ paddingBottom: 24 }}>
+        {header}
+        {banner ? <div style={{ marginBottom: 14 }}>{banner}</div> : null}
+        <Company360Panel companyId={stableId} />
+      </div>
+    );
+  }
+
+  const requestCompletionEligible = entityType === 'driver' || entityType === 'user';
 
   return (
     <div className="sa-inspector" style={{ paddingBottom: 24 }}>
-      <header className="sa-inspector-hero">
-        <div className="sa-inspector-top">
-          <div style={{ minWidth: 0 }}>
-            <div className="sa-inspector-kicker">
-              <span>{entityType}</span>
-              <span style={{ color: '#8390a3', letterSpacing: 0, textTransform: 'none' }}>{reference}</span>
-              {status}
-            </div>
-            <h1 className="sa-inspector-title">{title}</h1>
-            {subtitle ? <p className="sa-inspector-subtitle">{subtitle}</p> : null}
-            {stableId ? (
-              <div className="sa-inspector-id">
-                <code>{stableId}</code>
-                <button type="button" onClick={() => void copyText(stableId)} className="sa-button">Copy ID</button>
-              </div>
-            ) : null}
-          </div>
-          {actions ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative', zIndex: 1 }}>{actions}</div> : null}
-        </div>
-      </header>
-
+      {header}
       {banner ? <div style={{ marginBottom: 14 }}>{banner}</div> : null}
-
-      {entityType === 'company' && stableId ? <Company360Panel companyId={stableId} /> : null}
 
       <section style={{ marginBottom: 14, padding: 14, border: '1px solid #dfe6ef', borderRadius: 15, background: '#fff', boxShadow: '0 7px 22px rgba(8,42,97,.035)' }}>
         <div style={{ marginBottom: 11 }}>
@@ -91,13 +100,13 @@ export default function PlatformEntityInspector({
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 9 }}>
           <div style={guideCardStyle}>
-            <strong style={guideTitleStyle}>{entityType === 'company' ? 'Company profile' : 'Record overview'}</strong>
+            <strong style={guideTitleStyle}>Record overview</strong>
             <span style={guideTextStyle}>Identity, contact details, status and authoritative record information.</span>
           </div>
 
           <Link href={contextHref(entityType, 'access')} style={{ ...guideCardStyle, textDecoration: 'none' }}>
-            <strong style={guideTitleStyle}>{entityType === 'company' ? 'Onboarding & access' : 'Access & account'}</strong>
-            <span style={guideTextStyle}>Review onboarding, verification and workspace access.</span>
+            <strong style={guideTitleStyle}>Access & account</strong>
+            <span style={guideTextStyle}>Review account, workspace access and related identity information.</span>
             <span style={guideLinkStyle}>Open →</span>
           </Link>
 
@@ -109,7 +118,7 @@ export default function PlatformEntityInspector({
 
           <div style={guideCardStyle}>
             <strong style={guideTitleStyle}>Related operations</strong>
-            <span style={guideTextStyle}>Linked users, drivers, vehicles, jobs, invoices and operational records appear below as compact cards.</span>
+            <span style={guideTextStyle}>Linked companies, users, drivers, vehicles, jobs and invoices appear below as compact cards.</span>
           </div>
 
           <div style={guideCardStyle}>
@@ -159,12 +168,12 @@ export default function PlatformEntityInspector({
                 <div style={{ padding: 12 }}>
                   {section.fields?.length ? (
                     <dl className="sa-inspector-fields" style={{ margin: 0 }}>
-                      {section.fields.map((field) => (
-                        <div key={field.key} className="sa-inspector-field" style={{ minWidth: 0 }}>
-                          <dt>{field.label}</dt>
-                          <dd style={{ color: toneColor[field.tone ?? 'default'], fontWeight: field.tone && field.tone !== 'default' ? 800 : 650 }}>
-                            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{field.value}</span>
-                            {field.copyValue ? <button type="button" onClick={() => void copyText(field.copyValue as string)} className="sa-button" style={{ minHeight: 26, padding: '0 8px', marginLeft: 6 }}>Copy</button> : null}
+                      {section.fields.map((entry) => (
+                        <div key={entry.key} className="sa-inspector-field" style={{ minWidth: 0 }}>
+                          <dt>{entry.label}</dt>
+                          <dd style={{ color: toneColor[entry.tone ?? 'default'], fontWeight: entry.tone && entry.tone !== 'default' ? 800 : 650 }}>
+                            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{entry.value}</span>
+                            {entry.copyValue ? <button type="button" onClick={() => void copyText(entry.copyValue as string)} className="sa-button" style={{ minHeight: 26, padding: '0 8px', marginLeft: 6 }}>Copy</button> : null}
                           </dd>
                         </div>
                       ))}
