@@ -1,24 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
+const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
 
 type CompanyRow = { id: string; name: string };
 type DisputeRow = {
@@ -80,10 +67,11 @@ const updateTicketSchema = z.object({
   note: z.preprocess((value) => typeof value === 'string' ? value : '', z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000)),
 });
 
-const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
-  if (!supabaseAdmin || ids.length === 0) return new Map();
-  const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
-  return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
+const companyNameMap = async (ids: string[]) => {
+  if (!supabaseAdmin || ids.length === 0) return { map: new Map<string, string>(), error: null as string | null };
+  const { data, error } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
+  if (error) return { map: new Map<string, string>(), error: error.message };
+  return { map: new Map((data as CompanyRow[] ?? []).map((company) => [company.id, company.name])), error: null as string | null };
 };
 
 export async function GET(request: NextRequest) {
@@ -91,44 +79,41 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
   const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
 
-  // ── Disputes ─────────────────────────────────────────────────────────────────
   if (section === 'disputes') {
     const { data, error } = await supabaseAdmin
       .from('invoice_disputes')
       .select('id, invoice_id, company_id, reason, details, status, resolution_note, created_at, resolved_at')
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) return respond(500, { error: error.message });
+    if (error) return respond(TABLE_MISSING_CODES.has(error.code ?? '') ? 503 : 500, { error: error.message });
 
     const rows = (data as DisputeRow[] | null) ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
+    const names = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id as string).filter(Boolean))));
+    if (names.error) return respond(500, { error: `Failed to resolve dispute companies: ${names.error}` });
 
     return respond(200, {
       section,
-      rows: rows.map((r) => ({
-        ...r,
-        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+      rows: rows.map((row) => ({
+        ...row,
+        company_name: names.map.get(row.company_id as string) ?? 'Unknown',
       })),
       summary: {
         total: rows.length,
-        open: rows.filter((r) => r.status === 'open').length,
-        investigating: rows.filter((r) => r.status === 'investigating').length,
-        resolved: rows.filter((r) => r.status === 'resolved').length,
-        closed: rows.filter((r) => r.status === 'closed').length,
+        open: rows.filter((row) => row.status === 'open').length,
+        investigating: rows.filter((row) => row.status === 'investigating').length,
+        resolved: rows.filter((row) => row.status === 'resolved').length,
+        closed: rows.filter((row) => row.status === 'closed').length,
       },
     });
   }
 
-  // ── Complaints (reviews) ─────────────────────────────────────────────────────
   if (section === 'complaints') {
     const { data, error } = await supabaseAdmin
       .from('reviews')
@@ -137,40 +122,36 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     if (error) {
-      // reviews table may not exist yet; return graceful empty response
-      return respond(200, {
-        section,
-        rows: [],
-        summary: { total: 0, low_rated: 0, average_rating: null },
-        note: 'No complaints data available. Reviews table may not be populated yet.',
+      return respond(TABLE_MISSING_CODES.has(error.code ?? '') ? 503 : 500, {
+        error: TABLE_MISSING_CODES.has(error.code ?? '')
+          ? 'Complaints source schema is not available in this environment.'
+          : error.message,
       });
     }
 
     const rows = (data as ReviewRow[] | null) ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
+    const names = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id as string).filter(Boolean))));
+    if (names.error) return respond(500, { error: `Failed to resolve complaint companies: ${names.error}` });
 
-    const ratings = rows.map((r) => Number(r.rating)).filter((n) => !isNaN(n));
+    const ratings = rows.map((row) => Number(row.rating)).filter((rating) => !Number.isNaN(rating));
     const avgRating = ratings.length > 0
-      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+      ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10
       : null;
 
     return respond(200, {
       section,
-      rows: rows.map((r) => ({
-        ...r,
-        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
+      rows: rows.map((row) => ({
+        ...row,
+        company_name: names.map.get(row.company_id as string) ?? 'Unknown',
       })),
       summary: {
         total: rows.length,
-        low_rated: rows.filter((r) => Number(r.rating) <= 2).length,
+        low_rated: rows.filter((row) => Number(row.rating) <= 2).length,
         average_rating: avgRating,
       },
     });
   }
 
-  // ── Tickets ───────────────────────────────────────────────────────────────────
   if (section === 'tickets') {
     const { data, error } = await supabaseAdmin
       .from('support_tickets')
@@ -179,32 +160,30 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     if (error) {
-      return respond(200, {
-        section,
-        rows: [],
-        summary: { total: 0, open: 0, investigating: 0, resolved: 0, closed: 0 },
-        note: 'No support tickets available yet.',
+      return respond(TABLE_MISSING_CODES.has(error.code ?? '') ? 503 : 500, {
+        error: TABLE_MISSING_CODES.has(error.code ?? '')
+          ? 'Support ticket schema is not available in this environment.'
+          : error.message,
       });
     }
 
     const rows = (data as SupportTicketRow[] | null) ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
+    const names = await companyNameMap(Array.from(new Set(rows.map((row) => row.company_id as string).filter(Boolean))));
+    if (names.error) return respond(500, { error: `Failed to resolve support ticket companies: ${names.error}` });
 
-    const ticketRows = rows.map((r) => ({
-      id: r.id,
-      company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-      subject: r.subject,
-      description: r.description,
-      category: r.category,
-      priority: r.priority,
-      status: r.status,
-      resolution_note: r.resolution_note,
-      created_at: r.created_at,
-      resolved_at: r.resolved_at,
-      closed_at: r.closed_at,
-      updated_at: r.updated_at,
+    const ticketRows = rows.map((row) => ({
+      id: row.id,
+      company_name: names.map.get(row.company_id as string) ?? 'Unknown',
+      subject: row.subject,
+      description: row.description,
+      category: row.category,
+      priority: row.priority,
+      status: row.status,
+      resolution_note: row.resolution_note,
+      created_at: row.created_at,
+      resolved_at: row.resolved_at,
+      closed_at: row.closed_at,
+      updated_at: row.updated_at,
     }));
 
     return respond(200, {
@@ -228,8 +207,8 @@ export async function PATCH(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   let body: unknown;
   try {
@@ -259,17 +238,9 @@ export async function PATCH(request: NextRequest) {
   );
 
   if (mutationError) {
-    if (mutationError.code === 'P0002') {
-      return respond(404, { error: mutationError.message });
-    }
-    if (mutationError.code === '42501') {
-      return respond(403, { error: mutationError.message });
-    }
-    if (
-      mutationError.code === '23514'
-      || mutationError.code === '23502'
-      || mutationError.code === '22P02'
-    ) {
+    if (mutationError.code === 'P0002') return respond(404, { error: mutationError.message });
+    if (mutationError.code === '42501') return respond(403, { error: mutationError.message });
+    if (mutationError.code === '23514' || mutationError.code === '23502' || mutationError.code === '22P02') {
       return respond(400, { error: mutationError.message });
     }
     return respond(500, { error: mutationError.message });
@@ -278,10 +249,7 @@ export async function PATCH(request: NextRequest) {
   const updatedTicket = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as
     | SupportTicketMutationRow
     | null;
-
-  if (!updatedTicket) {
-    return respond(500, { error: 'Support ticket update returned no data.' });
-  }
+  if (!updatedTicket) return respond(500, { error: 'Support ticket update returned no data.' });
 
   return respond(200, {
     ticket: {
@@ -300,8 +268,8 @@ export async function POST(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   let body: unknown;
   try {
