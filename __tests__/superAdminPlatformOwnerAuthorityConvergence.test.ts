@@ -26,8 +26,8 @@ describe('Super Admin Platform Owner authority convergence', () => {
 
   it('keeps active Platform Owner verification canonical in the shared helper', () => {
     expect(helper).toContain(".select('role, status')");
-    expect(helper).toContain("role !== 'owner'");
-    expect(helper).toContain("status !== 'active'");
+    expect(helper).toContain("String(profile.role ?? '').toLowerCase() !== 'owner'");
+    expect(helper).toContain("String(profile.status ?? 'active').toLowerCase() !== 'active'");
     expect(helper).toContain('getBearerToken(request)');
   });
 
