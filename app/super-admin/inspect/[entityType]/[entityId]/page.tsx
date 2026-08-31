@@ -53,16 +53,34 @@ type ActiveCase = {
   title: string;
 };
 
+type PodReviewState = {
+  available?: boolean;
+  reviewStatus?: string | null;
+  reviewNote?: string | null;
+  reviewedAt?: string | null;
+  hasPhysicalEvidence?: boolean;
+  signaturePresent?: boolean;
+  deliveryPhotoCount?: number;
+  podPhotoCount?: number;
+  hardCopyPresent?: boolean;
+};
+
 type ActionState = {
   supported?: boolean;
   entityType?: string;
   entityId?: string;
   entityLabel?: string;
   companyId?: string | null;
+  state?: {
+    status?: string | null;
+    exchangeVisibility?: string | null;
+    podReview?: PodReviewState | null;
+  };
   actions?: ActionDescriptor[];
   activeCases?: ActiveCase[];
   caseCentreAvailable?: boolean | null;
   caseCentreNote?: string | null;
+  domainNotes?: string[];
   error?: string;
 };
 
@@ -113,6 +131,27 @@ function ActiveCases({ rows }: { rows: ActiveCase[] }) {
           <PlatformEntityLink entityType="case" entityId={row.id} compact>Open case</PlatformEntityLink>
         </div>
       ))}
+    </div>
+  );
+}
+
+function PodReviewSummary({ state }: { state: PodReviewState }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '6px', marginBottom: '8px' }}>
+      {[
+        ['Platform review', state.reviewStatus ?? 'unreviewed'],
+        ['Physical evidence', state.hasPhysicalEvidence ? 'present' : 'missing'],
+        ['Signature', state.signaturePresent ? 'present' : 'missing'],
+        ['Delivery photos', String(state.deliveryPhotoCount ?? 0)],
+        ['POD photos', String(state.podPhotoCount ?? 0)],
+        ['Hard copy', state.hardCopyPresent ? 'present' : 'missing'],
+      ].map(([label, value]) => (
+        <div key={label} style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.light, padding: '6px 7px' }}>
+          <div style={{ color: X.muted, fontSize: '8px', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div>
+          <div style={{ marginTop: '2px', color: X.charcoal, fontSize: '10px', fontWeight: 800 }}>{value}</div>
+        </div>
+      ))}
+      {state.reviewNote ? <div style={{ gridColumn: '1 / -1', color: X.muted, fontSize: '10px' }}>Last review note: {state.reviewNote}{state.reviewedAt ? ` · ${state.reviewedAt}` : ''}</div> : null}
     </div>
   );
 }
@@ -206,7 +245,9 @@ export default function Page() {
     reasonLabel: descriptor.caseSeverity ? `${descriptor.caseSeverity} investigation reason` : 'Platform intervention reason',
     reasonPlaceholder: descriptor.caseSeverity
       ? 'Describe the exception, evidence and operational impact…'
-      : 'Describe why this platform intervention is required…',
+      : descriptor.id.startsWith('pod_')
+        ? 'Record the evidence review reason and any remediation required…'
+        : 'Describe why this platform intervention is required…',
     onExecute: async (reason) => {
       const auth = await getAuthHeader();
       if (!auth) throw new Error('No active Platform Owner session.');
@@ -240,6 +281,19 @@ export default function Page() {
           return;
         }
         await loadActions(auth);
+        return;
+      }
+
+      if (entityTypeParam === 'pod' && ['pod_approve', 'pod_reject', 'pod_request_missing'].includes(descriptor.id)) {
+        const action = descriptor.id === 'pod_approve' ? 'approve' : descriptor.id === 'pod_reject' ? 'reject' : 'request_missing';
+        const response = await fetch(`/api/super-admin/pod/${encodeURIComponent(entityIdParam)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: auth },
+          body: JSON.stringify({ action, reason }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) throw new Error(body.error ?? 'Platform POD review failed.');
+        await load();
         return;
       }
 
@@ -292,6 +346,8 @@ export default function Page() {
       description: 'Server-derived semantic actions only. Arbitrary field editing is not available.',
       content: (
         <div>
+          {(actionState.domainNotes ?? []).map((note, index) => <div key={`domain-note-${index}`} style={{ marginBottom: '8px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.light, padding: '7px 9px', color: X.charcoal, fontSize: '10px' }}>{note}</div>)}
+          {actionState.state?.podReview ? <PodReviewSummary state={actionState.state.podReview} /> : null}
           {actionState.caseCentreNote ? <div style={{ marginBottom: '8px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${actionState.caseCentreAvailable === false ? X.orange : X.blue}`, borderRadius: '4px', background: X.light, padding: '7px 9px', color: X.charcoal, fontSize: '10px' }}>{actionState.caseCentreNote}</div> : null}
           <ActiveCases rows={actionState.activeCases ?? []} />
           {actionError ? <div role="alert" style={{ marginBottom: '8px', color: X.danger, fontSize: '10px' }}>{actionError}</div> : null}
