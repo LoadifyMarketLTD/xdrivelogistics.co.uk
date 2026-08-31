@@ -238,17 +238,20 @@ DO UPDATE SET
   updated_at = now();
 
 INSERT INTO public.drivers (
-  id, company_id, user_id, display_name, status, app_access,
-  driver_type, can_commercial_bid
+  id, company_id, user_id, display_name, name, full_name, status, app_access,
+  driver_type, can_commercial_bid, is_active
 )
 VALUES (
   '86200000-0000-0000-0000-000000000001',
   '86100000-0000-0000-0000-000000000001',
   '86000000-0000-0000-0000-000000000001',
   'RLS Driver A',
+  'RLS Driver A',
+  'RLS Driver A',
   'active',
   true,
   'company_driver',
+  true,
   true
 );
 
