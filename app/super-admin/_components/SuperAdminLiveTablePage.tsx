@@ -1,6 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  Bell,
+  Building2,
+  CreditCard,
+  LayoutDashboard,
+  LifeBuoy,
+  Route,
+  Settings2,
+  ShieldCheck,
+  Store,
+  Truck,
+  UsersRound,
+  type LucideIcon,
+} from 'lucide-react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { PlatformEntityLink, type PlatformEntityType } from './control-plane';
 import { getAuthHeader } from '../_lib/getAuthHeader';
@@ -36,19 +50,6 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   toolbar?: ReactNode;
 };
 
-export function readLiveTableNotices(body: Record<string, unknown>, noteField?: string, diagnosticField?: string): LiveTableNotice[] {
-  const notices: LiveTableNotice[] = [];
-  if (noteField) {
-    const value = body[noteField];
-    if (typeof value === 'string' && value.trim()) notices.push({ kind: 'note', message: value });
-  }
-  if (diagnosticField) {
-    const value = body[diagnosticField];
-    if (typeof value === 'string' && value.trim()) notices.push({ kind: 'diagnostic', message: value });
-  }
-  return notices;
-}
-
 type SuperAdminLiveTableViewProps<T extends Record<string, unknown>> = {
   icon: string;
   title: string;
@@ -70,16 +71,56 @@ type SuperAdminLiveTableViewProps<T extends Record<string, unknown>> = {
   toolbar?: ReactNode;
 };
 
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  command: LayoutDashboard,
+  dashboard: LayoutDashboard,
+  companies: Building2,
+  company: Building2,
+  operations: Route,
+  jobs: Route,
+  fleet: Truck,
+  drivers: UsersRound,
+  users: UsersRound,
+  marketplace: Store,
+  finance: CreditCard,
+  compliance: ShieldCheck,
+  support: LifeBuoy,
+  platform: Settings2,
+  notifications: Bell,
+};
+
+function resolvePageIcon(sectionLabel: string, title: string): LucideIcon {
+  const haystack = `${sectionLabel} ${title}`.toLowerCase();
+  for (const [needle, Icon] of Object.entries(SECTION_ICONS)) {
+    if (haystack.includes(needle)) return Icon;
+  }
+  return LayoutDashboard;
+}
+
+export function readLiveTableNotices(body: Record<string, unknown>, noteField?: string, diagnosticField?: string): LiveTableNotice[] {
+  const notices: LiveTableNotice[] = [];
+  if (noteField) {
+    const value = body[noteField];
+    if (typeof value === 'string' && value.trim()) notices.push({ kind: 'note', message: value });
+  }
+  if (diagnosticField) {
+    const value = body[diagnosticField];
+    if (typeof value === 'string' && value.trim()) notices.push({ kind: 'diagnostic', message: value });
+  }
+  return notices;
+}
+
 export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
-  icon, title, sectionLabel, description, columns, emptyMessage, loading, error, notices,
+  icon: _legacyIcon, title, sectionLabel, description, columns, emptyMessage, loading, error, notices,
   summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage, entityLink, toolbar,
 }: SuperAdminLiveTableViewProps<T>) {
   const stableColumns = useMemo(() => columns, [columns]);
+  const PageIcon = resolvePageIcon(sectionLabel, title);
 
   return <div className="sa-page">
     <header className="sa-page-header">
       <div className="sa-heading-row">
-        <span aria-hidden="true" className="sa-page-icon">{icon}</span>
+        <span aria-hidden="true" className="sa-page-icon"><PageIcon size={18} strokeWidth={1.8} /></span>
         <div className="sa-page-heading">
           <div className="sa-eyebrow">Platform control plane <span className="sa-section-pill">{sectionLabel}</span></div>
           <h1 className="sa-page-title">{title}</h1>
