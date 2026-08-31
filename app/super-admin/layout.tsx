@@ -4,6 +4,7 @@ import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
 import './super-admin-light.css';
 import './super-admin-light-hardening.css';
 import './super-admin-visual-preview.css';
+import './super-admin-visual-convergence.css';
 
 // Visual preview branch only: this layout must not be promoted without explicit design approval.
 export const metadata: Metadata = {
