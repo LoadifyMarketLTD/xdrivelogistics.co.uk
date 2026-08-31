@@ -7,8 +7,7 @@ type Row = {
   id: string;
   company_id: string | null;
   company_name: string;
-  invoice_id: string | null;
-  reviewer_id: string | null;
+  reviewer_user_id: string | null;
   rating: number | null;
   comment: string | null;
   created_at: string;
@@ -27,8 +26,8 @@ export default function Page() {
       emptyMessage="No complaints found."
       entityLink={(row) => row.company_id
         ? { entityType: 'company', entityId: row.company_id, label: 'Company Inspector' }
-        : row.reviewer_id
-          ? { entityType: 'user', entityId: row.reviewer_id, label: 'Reviewer Inspector' }
+        : row.reviewer_user_id
+          ? { entityType: 'user', entityId: row.reviewer_user_id, label: 'Reviewer Inspector' }
           : null}
       columns={[
         {
@@ -49,7 +48,7 @@ export default function Page() {
           key: 'comment',
           label: 'Comment',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{row.comment ?? '—'}</span>
+            <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{row.comment ?? '—'}</span>
           ),
         },
         {
