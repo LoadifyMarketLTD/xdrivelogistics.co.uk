@@ -24,6 +24,7 @@ export default function Page() {
       description="Open and in-progress job disputes requiring resolution."
       endpoint="/api/super-admin/operations?section=disputes&limit=250"
       emptyMessage="No disputes found."
+      entityLink={(row) => ({ entityType: 'dispute', entityId: row.id, label: 'Inspect dispute' })}
       columns={[
         {
           key: 'dispute_status',
