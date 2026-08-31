@@ -65,7 +65,7 @@ export default function SuperAdminTopNavigationShell({
         item.label.toLowerCase().includes(normalized)
         || item.group.toLowerCase().includes(normalized),
       )
-      .slice(0, 7);
+      .slice(0, 6);
   }, [navigationTargets, searchValue]);
 
   const isActive = (href: string) => {
@@ -106,12 +106,9 @@ export default function SuperAdminTopNavigationShell({
   };
 
   const navigateFromSearch = () => {
-    const normalized = searchValue.trim().toLowerCase();
-    if (!normalized) return;
-    const target = navigationTargets.find((item) => item.label.toLowerCase() === normalized)
-      ?? searchResults[0]
-      ?? navigationTargets.find((item) => item.label.toLowerCase().includes(normalized));
-    if (target) navigateToTarget(target.href);
+    const query = searchValue.trim();
+    if (query.length < 2) return;
+    navigateToTarget(`/super-admin/search?q=${encodeURIComponent(query)}`);
   };
 
   useEffect(() => {
@@ -279,17 +276,28 @@ export default function SuperAdminTopNavigationShell({
                     if (event.key === 'Enter') navigateFromSearch();
                     if (event.key === 'Escape') setSearchOpen(false);
                   }}
-                  placeholder="Search navigation"
-                  aria-label="Search navigation"
-                  aria-expanded={searchOpen && searchResults.length > 0}
+                  placeholder="Search platform"
+                  aria-label="Global Platform Search"
+                  aria-expanded={searchOpen}
                   aria-controls="platform-owner-search-results"
                   autoComplete="off"
                   className={styles.searchInput}
                 />
               </div>
 
-              {searchOpen && searchResults.length > 0 && (
+              {searchOpen && searchValue.trim().length > 0 && (
                 <div id="platform-owner-search-results" className={styles.searchResults} role="listbox">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected="false"
+                    className={styles.searchResult}
+                    onClick={navigateFromSearch}
+                    disabled={searchValue.trim().length < 2}
+                  >
+                    <span className={styles.searchResultLabel}>Search platform for “{searchValue.trim()}”</span>
+                    <span className={styles.searchResultGroup}>Global Platform Search</span>
+                  </button>
                   {searchResults.map((item) => (
                     <button
                       key={item.id}
@@ -300,7 +308,7 @@ export default function SuperAdminTopNavigationShell({
                       onClick={() => navigateToTarget(item.href)}
                     >
                       <span className={styles.searchResultLabel}>{item.label}</span>
-                      <span className={styles.searchResultGroup}>{item.group}</span>
+                      <span className={styles.searchResultGroup}>{item.group} · Navigation</span>
                     </button>
                   ))}
                 </div>
@@ -396,6 +404,8 @@ export default function SuperAdminTopNavigationShell({
 function navigationDescription(groupId: string, itemId: string) {
   const descriptions: Record<string, string> = {
     'dashboard-command-centre': 'Live operational command and action queues',
+    'dashboard-global-search': 'Find and inspect canonical platform entities',
+    'dashboard-action-centre': 'Persistent cross-domain cases and investigations',
     'dashboard-analytics': 'Cross-platform KPI and trend reporting',
     'dashboard-health': 'Service health and integration readiness',
     'dashboard-notifications': 'Platform notification delivery and failures',
