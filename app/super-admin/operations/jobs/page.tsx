@@ -25,6 +25,7 @@ export default function Page() {
       description="Platform-wide jobs ledger with status, posting company, awards, and bid activity."
       endpoint="/api/super-admin/operations?section=jobs&limit=250"
       emptyMessage="No jobs found."
+      entityLink={(row) => ({ entityType: 'job', entityId: row.id, label: 'Inspect job' })}
       columns={[
         {
           key: 'route',
