@@ -103,3 +103,33 @@
 .super-admin-light-root thead {
   background: #F4F6F8;
 }
+
+/* Compact read-only control-plane links and copy actions. */
+.super-admin-light-root .sa-button {
+  min-height: 30px;
+  border: 1px solid #D9E1EA;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #1D57D8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.super-admin-light-root .sa-button:hover {
+  border-color: #B8C8E6;
+  background: #F5F8FF;
+  color: #0B2F6B;
+}
+
+.super-admin-light-root .sa-button:focus-visible {
+  outline: 2px solid #1D57D8;
+  outline-offset: 2px;
+}
