@@ -64,6 +64,15 @@ $$;
 ALTER TABLE public.job_bids
   VALIDATE CONSTRAINT job_bids_bidder_id_fkey;
 
+-- The early bootstrap also installed a generic alias synchronizer that treated
+-- bidder_id and bidder_user_id as the same identity. That contract is invalid
+-- once bidder_id is repaired to the optional drivers(id) FK above: company bids
+-- carry a user/company identity without inventing a named Driver. Production no
+-- longer carries this legacy trigger/function, so retire it here as part of the
+-- same clean-replay schema reconciliation rather than weakening the canonical FK.
+DROP TRIGGER IF EXISTS trg_sync_job_bid_price ON public.job_bids;
+DROP FUNCTION IF EXISTS public.sync_job_bid_price();
+
 -- Canonical driver tracking writes both the historical created_* fields and the
 -- runtime event_time/user_id fields. Fresh bootstrap tables only had the former.
 ALTER TABLE public.job_tracking_events
