@@ -108,6 +108,29 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.assert_platform_case_assignee(p_assigned_to_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF p_assigned_to_user_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.user_id = p_assigned_to_user_id
+      AND p.role::text = 'owner'
+      AND COALESCE(p.status::text, 'active') = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Platform case assignee must be an active Platform Owner.' USING ERRCODE = '42501';
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.owner_create_platform_case(
   p_actor_user_id uuid,
   p_source text,
@@ -132,6 +155,7 @@ DECLARE
   v_case public.platform_cases;
 BEGIN
   PERFORM public.assert_platform_owner_actor(p_actor_user_id);
+  PERFORM public.assert_platform_case_assignee(p_assigned_to_user_id);
 
   IF p_severity NOT IN ('P0', 'P1', 'P2', 'P3') THEN
     RAISE EXCEPTION 'Invalid case severity.' USING ERRCODE = '23514';
@@ -249,6 +273,19 @@ DECLARE
   v_reason text := NULLIF(btrim(COALESCE(p_reason, '')), '');
 BEGIN
   PERFORM public.assert_platform_owner_actor(p_actor_user_id);
+  PERFORM public.assert_platform_case_assignee(p_assigned_to_user_id);
+
+  IF p_action NOT IN ('assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen') THEN
+    RAISE EXCEPTION 'Unsupported platform case action: %', p_action USING ERRCODE = '23514';
+  END IF;
+
+  IF p_action <> 'acknowledge' AND (v_reason IS NULL OR length(v_reason) < 5) THEN
+    RAISE EXCEPTION 'A reason of at least 5 characters is required.' USING ERRCODE = '23514';
+  END IF;
+
+  IF p_action = 'assign' AND p_assigned_to_user_id IS NULL THEN
+    RAISE EXCEPTION 'Assignee is required.' USING ERRCODE = '23514';
+  END IF;
 
   SELECT *
   INTO v_case
@@ -264,12 +301,6 @@ BEGIN
   v_new_status := v_case.status;
 
   IF p_action = 'assign' THEN
-    IF p_assigned_to_user_id IS NULL THEN
-      RAISE EXCEPTION 'Assignee is required.' USING ERRCODE = '23514';
-    END IF;
-    IF v_reason IS NULL OR length(v_reason) < 5 THEN
-      RAISE EXCEPTION 'Assignment reason of at least 5 characters is required.' USING ERRCODE = '23514';
-    END IF;
     UPDATE public.platform_cases
     SET assigned_to_user_id = p_assigned_to_user_id
     WHERE id = p_case_id
@@ -329,12 +360,6 @@ BEGIN
         assigned_to_user_id = COALESCE(p_assigned_to_user_id, assigned_to_user_id, p_actor_user_id)
     WHERE id = p_case_id
     RETURNING * INTO v_case;
-  ELSE
-    RAISE EXCEPTION 'Unsupported platform case action: %', p_action USING ERRCODE = '23514';
-  END IF;
-
-  IF p_action <> 'acknowledge' AND (v_reason IS NULL OR length(v_reason) < 5) THEN
-    RAISE EXCEPTION 'A reason of at least 5 characters is required.' USING ERRCODE = '23514';
   END IF;
 
   INSERT INTO public.platform_case_events (
@@ -367,16 +392,18 @@ REVOKE ALL ON TABLE public.platform_cases FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.platform_case_events FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON SEQUENCE public.platform_case_reference_seq FROM PUBLIC, anon, authenticated;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.platform_cases TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.platform_case_events TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.platform_cases TO service_role;
+GRANT SELECT, INSERT ON TABLE public.platform_case_events TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE public.platform_case_reference_seq TO service_role;
 
 REVOKE ALL ON FUNCTION public.platform_case_touch_updated_at() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.assert_platform_owner_actor(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.assert_platform_case_assignee(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.owner_create_platform_case(uuid, text, text, text, text, text, text, text, text, uuid, uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.owner_mutate_platform_case(uuid, uuid, text, text, uuid, jsonb) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.assert_platform_owner_actor(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.assert_platform_case_assignee(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.owner_create_platform_case(uuid, text, text, text, text, text, text, text, text, uuid, uuid, text, jsonb) TO service_role;
 GRANT EXECUTE ON FUNCTION public.owner_mutate_platform_case(uuid, uuid, text, text, uuid, jsonb) TO service_role;
 
