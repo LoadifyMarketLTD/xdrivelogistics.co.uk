@@ -22,7 +22,6 @@ type Row = {
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyTicketId, setBusyTicketId] = useState<string | null>(null);
-  // PR-0.5: modal replacing window.prompt + window.alert
   const [pendingModal, setPendingModal] = useState<{ ticket: Row; action: 'investigating' | 'resolve' | 'close' | 'reopen' } | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
 
@@ -111,18 +110,10 @@ export default function Page() {
         label: 'Actions',
         render: (row: Row) => (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '120px' }}>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'investigating')} style={{ fontSize: '0.68rem' }}>
-              Investigate
-            </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'resolve')} style={{ fontSize: '0.68rem' }}>
-              Resolve
-            </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'close')} style={{ fontSize: '0.68rem' }}>
-              Close
-            </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'reopen')} style={{ fontSize: '0.68rem' }}>
-              Reopen
-            </button>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'investigating')} style={{ fontSize: '0.68rem' }}>Investigate</button>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'resolve')} style={{ fontSize: '0.68rem' }}>Resolve</button>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'close')} style={{ fontSize: '0.68rem' }}>Close</button>
+            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'reopen')} style={{ fontSize: '0.68rem' }}>Reopen</button>
           </div>
         ),
       },
@@ -132,31 +123,12 @@ export default function Page() {
 
   return (
     <>
-      {/* PR-0.5: action modal replacing window.prompt + window.alert */}
       {pendingModal && (
         <ActionConfirmModal
           open
-          title={
-            pendingModal.action === 'investigating'
-              ? '🔍 Mark as investigating'
-              : pendingModal.action === 'resolve'
-                ? '✅ Resolve ticket'
-                : pendingModal.action === 'close'
-                  ? '🔒 Close ticket'
-                  : '🔄 Reopen ticket'
-          }
-          description={
-            <>Update ticket <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.subject ?? pendingModal.ticket.id.slice(0, 8) + '…'}</strong> for <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.company_name}</strong>.</>
-          }
-          confirmLabel={
-            pendingModal.action === 'investigating'
-              ? 'Confirm investigation'
-              : pendingModal.action === 'resolve'
-                ? 'Confirm resolution'
-                : pendingModal.action === 'close'
-                  ? 'Confirm close'
-                  : 'Confirm reopen'
-          }
+          title={pendingModal.action === 'investigating' ? '🔍 Mark as investigating' : pendingModal.action === 'resolve' ? '✅ Resolve ticket' : pendingModal.action === 'close' ? '🔒 Close ticket' : '🔄 Reopen ticket'}
+          description={<>Update ticket <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.subject ?? pendingModal.ticket.id.slice(0, 8) + '…'}</strong> for <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.company_name}</strong>.</>}
+          confirmLabel={pendingModal.action === 'investigating' ? 'Confirm investigation' : pendingModal.action === 'resolve' ? 'Confirm resolution' : pendingModal.action === 'close' ? 'Confirm close' : 'Confirm reopen'}
           danger={pendingModal.action === 'close'}
           reasonRequired
           reasonLabel="Reason"
@@ -170,19 +142,8 @@ export default function Page() {
           }}
         />
       )}
-      {/* PR-0.5: inline error banner replacing window.alert */}
       {inlineError && (
-        <div
-          style={{
-            position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
-            backgroundColor: '#7f1d1d', border: '1px solid #ef4444',
-            borderRadius: '8px', padding: '0.75rem 1rem',
-            color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
-            cursor: 'pointer',
-          }}
-          onClick={() => setInlineError(null)}
-          role="alert"
-        >
+        <div style={{position:'fixed',top:'1rem',right:'1rem',zIndex:999,backgroundColor:'#7f1d1d',border:'1px solid #ef4444',borderRadius:'8px',padding:'0.75rem 1rem',color:'#fca5a5',fontSize:'0.82rem',maxWidth:'360px',cursor:'pointer'}} onClick={() => setInlineError(null)} role="alert">
           ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
         </div>
       )}
@@ -195,6 +156,7 @@ export default function Page() {
         summaryField="summary"
         noteField="note"
         emptyMessage="No support tickets found."
+        entityLink={(row) => ({ entityType: 'ticket', entityId: row.id, label: 'Ticket Inspector' })}
         columns={columns}
       />
     </>
