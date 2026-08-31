@@ -5,7 +5,8 @@ import { StatusChip } from '@/app/super-admin/_components/superAdminFormatters';
 
 type Row = {
   id: string;
-  entity_type: string;
+  entity_type: 'driver' | 'vehicle';
+  entity_id: string;
   entity_name: string;
   company_name: string;
   doc_type: string;
@@ -26,6 +27,9 @@ export default function Page() {
       endpoint="/api/super-admin/compliance?section=expiries&limit=250"
       summaryField="summary"
       emptyMessage="No document expiry records found."
+      entityLink={(row) => row.entity_id
+        ? { entityType: row.entity_type, entityId: row.entity_id, label: `${row.entity_type === 'driver' ? 'Driver' : 'Vehicle'} Inspector` }
+        : null}
       columns={[
         {
           key: 'entity',
