@@ -1,0 +1,205 @@
+/* Final approved visual language for PR #431.
+ * Loaded last. This file intentionally normalises every Super Admin surface.
+ */
+.super-admin-visual-root{
+  --sa-final-navy:#132746;
+  --sa-final-blue:#1456d8;
+  --sa-final-text:#24344e;
+  --sa-final-muted:#718096;
+  --sa-final-line:#e1e7ef;
+  --sa-final-soft:#fbfcfe;
+  --sa-final-bg:#f6f8fb;
+  --sa-final-shadow:0 7px 22px rgba(17,41,83,.04);
+}
+
+.super-admin-visual-root .sa-page,
+.super-admin-visual-root .sa-inspector{
+  background:transparent;
+}
+
+.super-admin-visual-root .sa-heading-row{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  min-width:0;
+}
+
+.super-admin-visual-root .sa-page-icon{
+  flex:0 0 auto;
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid #d6e2f5;
+  border-radius:10px;
+  background:linear-gradient(145deg,#f6f9ff,#edf3ff);
+  color:var(--sa-final-blue);
+  box-shadow:0 5px 14px rgba(20,86,216,.05);
+  font-size:0;
+}
+
+.super-admin-visual-root .sa-section-pill{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  margin-left:6px;
+  padding:0 7px;
+  border:1px solid #dce5f3;
+  border-radius:6px;
+  background:#f6f9ff;
+  color:#315b9b;
+  font-size:8px;
+  font-weight:850;
+  letter-spacing:.03em;
+  vertical-align:middle;
+}
+
+.super-admin-visual-root .sa-panel-subtitle{
+  margin:3px 0 0;
+  color:var(--sa-final-muted);
+  font-size:8.8px;
+  line-height:1.4;
+}
+
+.super-admin-visual-root .sa-loading{
+  padding:30px 18px;
+  color:var(--sa-final-muted);
+  text-align:center;
+  font-size:10px;
+}
+
+.super-admin-visual-root .sa-table-scroll{
+  overflow:auto;
+  width:100%;
+}
+
+.super-admin-visual-root .sa-data-table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+}
+
+.super-admin-visual-root .sa-data-table tbody tr:hover{
+  background:#fbfcff;
+}
+
+.super-admin-visual-root .sa-pager{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 12px;
+  border-top:1px solid var(--sa-final-line);
+  background:#fbfcfe;
+}
+
+.super-admin-visual-root .sa-pager-copy{
+  color:var(--sa-final-muted);
+  font-size:9px;
+}
+
+.super-admin-visual-root .sa-pager-actions{
+  display:flex;
+  gap:6px;
+}
+
+.super-admin-visual-root .sa-pager-button{
+  min-height:30px;
+  padding:0 9px;
+  border:1px solid #dfe5ee;
+  border-radius:7px;
+  background:#fff;
+  color:#244267;
+  font-size:9px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.super-admin-visual-root .sa-pager-button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+/* Remove old cartoon/oversized visual artefacts from inspector sub-surfaces. */
+.super-admin-visual-root .sa-inspector [style*="border-radius: 4px"],
+.super-admin-visual-root .sa-inspector [style*="borderRadius: '4px'"]{
+  border-radius:8px!important;
+}
+
+.super-admin-visual-root .sa-inspector details{
+  margin:0!important;
+}
+
+.super-admin-visual-root .sa-inspector details+details{
+  margin-top:9px!important;
+}
+
+.super-admin-visual-root .sa-inspector details summary strong{
+  color:var(--sa-final-navy)!important;
+  font-size:11px!important;
+  font-weight:820!important;
+}
+
+.super-admin-visual-root .sa-inspector details summary span{
+  color:var(--sa-final-muted);
+}
+
+/* Company 360 and governance surfaces no longer look like separate apps. */
+.super-admin-visual-root .sa-inspector section[style]{
+  border-radius:12px!important;
+}
+
+.super-admin-visual-root .sa-inspector section[style] > div[style]{
+  border-radius:10px;
+}
+
+/* Keep accent colours only for status, not for module identity. */
+.super-admin-visual-root .sa-directory-icon,
+.super-admin-visual-root .sa-page-icon{
+  background:linear-gradient(145deg,#1457c6,#0b409a);
+  color:#fff;
+  border-color:transparent;
+}
+
+.super-admin-visual-root .sa-directory-badge{
+  background:#f5f8fe;
+  color:#31558a;
+}
+
+/* Buttons and links share one geometry everywhere. */
+.super-admin-visual-root button,
+.super-admin-visual-root a{
+  -webkit-tap-highlight-color:transparent;
+}
+
+.super-admin-visual-root .sa-primary-button,
+.super-admin-visual-root .sa-secondary-button,
+.super-admin-visual-root .sa-pager-button,
+.super-admin-visual-root .sa-directory-links a{
+  transition:border-color .15s ease,background .15s ease,color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+
+.super-admin-visual-root .sa-primary-button:hover:not(:disabled){
+  background:#1049bd;
+  border-color:#1049bd;
+  box-shadow:0 5px 14px rgba(20,86,216,.14);
+}
+
+.super-admin-visual-root .sa-secondary-button:hover,
+.super-admin-visual-root .sa-pager-button:hover:not(:disabled){
+  border-color:#b8c8e2;
+  background:#f8faff;
+}
+
+/* Consistent responsive density. */
+@media(max-width:1100px){
+  .super-admin-visual-root .sa-page-header{flex-direction:column;align-items:stretch}
+  .super-admin-visual-root .sa-page-actions{justify-content:flex-start}
+}
+
+@media(max-width:680px){
+  .super-admin-visual-root .sa-heading-row{gap:9px}
+  .super-admin-visual-root .sa-page-icon{width:34px;height:34px;border-radius:9px}
+  .super-admin-visual-root .sa-pager{align-items:flex-start;flex-direction:column}
+}
