@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { PlatformAuditEntry } from './types';
 
 const when = (value: string) => {
@@ -34,6 +35,6 @@ export default function PlatformAuditTimeline({ entries, emptyMessage = 'No audi
   );
 }
 
-function State({ label, value }: { label: string; value: string }) {
+function State({ label, value }: { label: string; value: ReactNode }) {
   return <div style={{ border: '1px solid #e2e8f0', borderRadius: 9, padding: 8, background: '#f8faff', color: '#344054', fontSize: 10, overflowWrap: 'anywhere' }}><span style={{ display: 'block', color: '#8390a3', fontSize: 8, fontWeight: 850, textTransform: 'uppercase', marginBottom: 3 }}>{label}</span>{value}</div>;
 }
