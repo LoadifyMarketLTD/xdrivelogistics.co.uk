@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import {
   isMissingDurabilityColumnError,
   normalizeBaseRow,
@@ -8,24 +8,9 @@ import {
   type NotificationEventDurabilityRow,
   type NotificationEventRow,
 } from '../_lib/notificationEvents';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
 
 const titleFor = (eventType: string) => {
   const labels: Record<string, string> = {
@@ -45,7 +30,7 @@ const messageFor = (row: NotificationEventRow) => {
   const delivery = typeof payload.delivery_location === 'string' ? payload.delivery_location : null;
   if (row.event_type === 'job_assigned') return `${pickup ?? 'TBC'} → ${delivery ?? 'TBC'}`;
   if (row.event_type === 'bid_accepted') {
-    const amount = [payload.bid_price_gbp, payload.amount, payload.bid_amount].find((value) => typeof value === 'number');
+    const amount = [payload.bid_price_gbp, payload.amount, payload.bid_amount].find((candidate) => typeof candidate === 'number');
     return typeof amount === 'number' ? `Accepted amount: £${amount.toFixed(2)}` : 'A carrier bid has been accepted.';
   }
   if (row.event_type === 'pod_uploaded') return `${pickup ?? 'Pickup'} → ${delivery ?? 'Delivery'} marked delivered.`;
@@ -53,14 +38,14 @@ const messageFor = (row: NotificationEventRow) => {
 };
 
 const categoryFor = (eventType: string) => {
-  const value = eventType.toLowerCase();
-  if (value.includes('onboarding') || value.includes('invite')) return 'Onboarding';
-  if (value.includes('invoice') || value.includes('payment') || value.includes('finance')) return 'Finance';
-  if (value.includes('bid') || value.includes('quote') || value.includes('marketplace')) return 'Marketplace';
-  if (value.includes('compliance') || value.includes('document') || value.includes('insurance') || value.includes('licence')) return 'Compliance';
-  if (value.includes('driver') || value.includes('fleet') || value.includes('vehicle')) return 'Fleet';
-  if (value.includes('job') || value.includes('pod') || value.includes('delivery')) return 'Jobs';
-  if (value.includes('security') || value.includes('fraud')) return 'Security';
+  const normalized = eventType.toLowerCase();
+  if (normalized.includes('onboarding') || normalized.includes('invite')) return 'Onboarding';
+  if (normalized.includes('invoice') || normalized.includes('payment') || normalized.includes('finance')) return 'Finance';
+  if (normalized.includes('bid') || normalized.includes('quote') || normalized.includes('marketplace')) return 'Marketplace';
+  if (normalized.includes('compliance') || normalized.includes('document') || normalized.includes('insurance') || normalized.includes('licence')) return 'Compliance';
+  if (normalized.includes('driver') || normalized.includes('fleet') || normalized.includes('vehicle')) return 'Fleet';
+  if (normalized.includes('job') || normalized.includes('pod') || normalized.includes('delivery')) return 'Jobs';
+  if (normalized.includes('security') || normalized.includes('fraud')) return 'Security';
   return 'Platform';
 };
 
@@ -73,21 +58,43 @@ const severityFor = (status: string, eventType: string) => {
   return 'Info';
 };
 
-const viewHrefFor = (eventType: string, entityId: string) => {
-  const value = eventType.toLowerCase();
-  if (value.includes('job') || value.includes('pod') || value.includes('delivery') || value.includes('bid') || value.includes('quote')) {
-    return `/super-admin/operations/jobs?focus=${encodeURIComponent(entityId)}`;
+const inspectorHref = (entityType: string, entityId: string) =>
+  `/super-admin/inspect/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`;
+
+const DIRECT_INSPECTOR_TYPES = new Set(['company', 'user', 'driver', 'vehicle', 'job', 'invoice', 'ticket', 'dispute', 'case']);
+
+type OnboardingTarget = { entityType: 'company' | 'user'; entityId: string };
+
+const viewHrefFor = (
+  row: NotificationEventRow,
+  bidJobById: Map<string, string>,
+  onboardingTargetById: Map<string, OnboardingTarget>,
+) => {
+  const entityType = String(row.entity_type ?? '').toLowerCase();
+  if (!entityType || !row.entity_id) return null;
+
+  if (entityType === 'job' && row.event_type.toLowerCase().includes('pod')) {
+    return inspectorHref('pod', row.entity_id);
   }
-  if (value.includes('invoice') || value.includes('payment')) return '/super-admin/finance/invoices';
-  if (value.includes('onboarding') || value.includes('company')) return '/super-admin/companies/approvals';
-  if (value.includes('compliance') || value.includes('document') || value.includes('insurance') || value.includes('licence')) return '/super-admin/companies/compliance';
+  if (DIRECT_INSPECTOR_TYPES.has(entityType)) return inspectorHref(entityType, row.entity_id);
+
+  if (entityType === 'bid') {
+    const jobId = bidJobById.get(row.entity_id);
+    return jobId ? inspectorHref('job', jobId) : null;
+  }
+
+  if (entityType === 'onboarding_application') {
+    const target = onboardingTargetById.get(row.entity_id);
+    return target ? inspectorHref(target.entityType, target.entityId) : null;
+  }
+
   return null;
 };
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, Number(searchParams.get('page') ?? 1) || 1);
@@ -99,7 +106,7 @@ export async function GET(request: NextRequest) {
 
   const primaryResult = await supabaseAdmin
     .from('notification_events')
-    .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
+    .select('id, event_type, entity_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
     .returns<NotificationEventDurabilityRow[]>()
     .order('created_at', { ascending: false })
     .limit(500);
@@ -113,7 +120,7 @@ export async function GET(request: NextRequest) {
     }
     const fallbackResult = await supabaseAdmin
       .from('notification_events')
-      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
+      .select('id, event_type, entity_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
       .returns<NotificationEventBaseRow[]>()
       .order('created_at', { ascending: false })
       .limit(500);
@@ -124,6 +131,28 @@ export async function GET(request: NextRequest) {
     normalizedRows = (primaryResult.data ?? []).map(normalizeDurabilityRow);
   }
 
+  const bidIds = Array.from(new Set(normalizedRows.filter((row) => row.entity_type === 'bid').map((row) => row.entity_id).filter(Boolean)));
+  const onboardingApplicationIds = Array.from(new Set(normalizedRows.filter((row) => row.entity_type === 'onboarding_application').map((row) => row.entity_id).filter(Boolean)));
+
+  const [bidResolution, onboardingResolution] = await Promise.all([
+    bidIds.length
+      ? supabaseAdmin.from('job_bids').select('id, job_id').in('id', bidIds)
+      : Promise.resolve({ data: [], error: null }),
+    onboardingApplicationIds.length
+      ? supabaseAdmin.from('onboarding_applications').select('id, company_id, user_id').in('id', onboardingApplicationIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (bidResolution.error) return respond(500, { error: 'Failed to resolve notification bid entities.', detail: bidResolution.error.message });
+  if (onboardingResolution.error) return respond(500, { error: 'Failed to resolve onboarding notification entities.', detail: onboardingResolution.error.message });
+
+  const bidJobById = new Map((bidResolution.data ?? []).flatMap((row) => row.job_id ? [[String(row.id), String(row.job_id)] as const] : []));
+  const onboardingTargetById = new Map<string, OnboardingTarget>();
+  for (const row of onboardingResolution.data ?? []) {
+    if (row.company_id) onboardingTargetById.set(String(row.id), { entityType: 'company', entityId: String(row.company_id) });
+    else if (row.user_id) onboardingTargetById.set(String(row.id), { entityType: 'user', entityId: String(row.user_id) });
+  }
+
   const allRows = normalizedRows.map((row) => {
     const category = categoryFor(row.event_type);
     const severity = severityFor(row.status, row.event_type);
@@ -132,6 +161,7 @@ export async function GET(request: NextRequest) {
     return {
       id: row.id,
       user_id: row.recipient_user_id,
+      entity_type: row.entity_type,
       entity_id: row.entity_id,
       type: row.event_type,
       title,
@@ -144,7 +174,7 @@ export async function GET(request: NextRequest) {
       last_error: row.last_error,
       attempt_count: row.attempt_count,
       next_attempt_at: row.next_attempt_at,
-      view_href: viewHrefFor(row.event_type, row.entity_id),
+      view_href: viewHrefFor(row, bidJobById, onboardingTargetById),
     };
   });
 
@@ -153,7 +183,7 @@ export async function GET(request: NextRequest) {
     if (categoryFilter !== 'all' && row.category.toLowerCase() !== categoryFilter) return false;
     if (severityFilter !== 'all' && row.severity.toLowerCase() !== severityFilter) return false;
     if (query) {
-      const haystack = `${row.title} ${row.message} ${row.type} ${row.category} ${row.entity_id}`.toLowerCase();
+      const haystack = `${row.title} ${row.message} ${row.type} ${row.category} ${row.entity_type ?? ''} ${row.entity_id}`.toLowerCase();
       if (!haystack.includes(query)) return false;
     }
     return true;
