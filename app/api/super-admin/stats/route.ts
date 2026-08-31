@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -7,37 +9,13 @@ const PENDING_COMPANY_STATUSES = new Set(['pending', 'pending_approval']);
 const OPEN_JOB_STATUSES = new Set(['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit']);
 const MISSING_INTERNAL_ACCOUNT_COLUMN_CODES = new Set(['42703', 'PGRST204']);
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) {
-    return respond(401, { error: 'Unauthorized.' });
-  }
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) {
-    return respond(401, { error: 'Unauthorized: invalid or expired token.' });
-  }
-
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') {
-    return respond(403, { error: 'Forbidden: owner role required.' });
-  }
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const [companiesResult, driversResult, internalProfilesResult, jobsResult, invoicesResult, driverDocumentsResult, vehicleDocumentsResult] = await Promise.all([
     supabaseAdmin.from('companies').select('status', { count: 'exact' }),
