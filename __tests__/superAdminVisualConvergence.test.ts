@@ -10,6 +10,19 @@ describe('Super Admin #431 visual convergence', () => {
     expect(layout.indexOf("./super-admin-visual-convergence.css")).toBeGreaterThan(layout.indexOf("./super-admin-visual-preview.css"));
   });
 
+  it('keeps the canonical Super Admin shell header-only without a permanent sidebar', () => {
+    const shell = read('app/super-admin/_components/SuperAdminCardNavigationShell.tsx');
+    const styles = read('app/super-admin/_components/SuperAdminCardNavigationShell.module.css');
+
+    expect(shell).toContain('className={styles.topbar}');
+    expect(shell).toContain('className={styles.contextBar}');
+    expect(shell).not.toContain('className={styles.sidebar}');
+    expect(shell).not.toContain('<aside');
+    expect(styles).toContain('.contextBar');
+    expect(styles).not.toContain('.sidebar');
+    expect(styles).not.toContain('.workspace');
+  });
+
   it('gives live table pages a canonical toolbar slot below the page header', () => {
     const source = read('app/super-admin/_components/SuperAdminLiveTablePage.tsx');
     const headerEnd = source.indexOf('</header>');
@@ -29,7 +42,7 @@ describe('Super Admin #431 visual convergence', () => {
 
   it('renders Action Centre with the same page, metric, filter and panel primitives', () => {
     const source = read('app/super-admin/action-centre/page.tsx');
-    expect(source).toContain('className="sa-page"');
+    expect(source).toContain('className="sa-page sa-action-centre-premium"');
     expect(source).toContain('className="sa-page-header"');
     expect(source).toContain('className="sa-metric-grid"');
     expect(source).toContain('className="sa-filter-bar"');
