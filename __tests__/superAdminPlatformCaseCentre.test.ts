@@ -15,10 +15,8 @@ describe('Super Admin Platform Case Centre', () => {
     expect(migration).toContain('REVOKE ALL ON TABLE public.platform_cases FROM PUBLIC, anon, authenticated');
     expect(migration).toContain('REVOKE ALL ON FUNCTION public.owner_create_platform_case');
     expect(migration).toContain('REVOKE ALL ON FUNCTION public.owner_mutate_platform_case');
-    expect(migration).toContain('TO service_role');
-    expect(migration).not.toContain('GRANT EXECUTE ON FUNCTION public.owner_mutate_platform_case');
-      // client grants would appear after the function signature with authenticated/anon;
-      // the positive service_role grant is verified separately below.
+    expect(migration).not.toContain('GRANT EXECUTE ON FUNCTION public.owner_mutate_platform_case(uuid, uuid, text, text, uuid, jsonb) TO authenticated');
+    expect(migration).not.toContain('GRANT EXECUTE ON FUNCTION public.owner_mutate_platform_case(uuid, uuid, text, text, uuid, jsonb) TO anon');
     expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.owner_mutate_platform_case(uuid, uuid, text, text, uuid, jsonb) TO service_role');
   });
 
