@@ -28,6 +28,7 @@ export default function Page() {
       description="Delivery lifecycle view across allocated, in-transit, and delivered jobs."
       endpoint="/api/super-admin/operations?section=deliveries&limit=250"
       emptyMessage="No delivery records found."
+      entityLink={(row) => ({ entityType: 'job', entityId: row.id, label: 'Inspect job' })}
       columns={[
         {
           key: 'route',
