@@ -1,21 +1,3 @@
-/**
- * Processes the notification_events queue.
- *
- * Private callers may authenticate in either of two ways:
- * - the exact SUPABASE_SERVICE_ROLE_KEY as a Bearer token (the canonical DB
- *   trigger already uses this legacy path),
- * - any configured modern Supabase secret key in the apikey header, or
- * - XDRIVE_NOTIFICATION_WEBHOOK_SECRET in x-xdrive-webhook-secret for an
- *   explicitly configured Database Webhook / scheduler.
- *
- * When deployed with --no-verify-jwt this function still fails closed unless
- * one of those private credentials matches in constant time.
- *
- * Queue rows are claimed through the DB lease RPC before any provider call.
- * The lease prevents concurrent workers and the stable Resend Idempotency-Key
- * prevents a retry from duplicating email delivery. FCM shares this canonical
- * event queue and is enabled only when a valid Firebase service account exists.
- */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parseFirebaseServiceAccount, sendFcmMessage } from './fcm.ts';
 
@@ -67,10 +49,7 @@ interface PushDevice {
 const jsonResponse = (status: number, payload: Record<string, unknown>) =>
   new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 
 const constantTimeEqual = (left: string, right: string) => {
@@ -86,8 +65,7 @@ const constantTimeEqual = (left: string, right: string) => {
 };
 
 const bearerToken = (request: Request) => {
-  const authorization = request.headers.get('authorization') ?? '';
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  const match = (request.headers.get('authorization') ?? '').match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() ?? '';
 };
 
@@ -132,17 +110,11 @@ async function getUserEmail(userId: string): Promise<{ email: string; name: stri
   };
 }
 
-async function sendEmail(
-  to: string,
-  subject: string,
-  html: string,
-  idempotencyKey: string,
-): Promise<boolean> {
+async function sendEmail(to: string, subject: string, html: string, idempotencyKey: string): Promise<boolean> {
   if (!resendApiKey) {
     console.error(`[notify] RESEND_API_KEY is not configured; email not sent: ${subject}`);
     return false;
   }
-
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -152,7 +124,6 @@ async function sendEmail(
     },
     body: JSON.stringify({ from: fromEmail, to, subject, html }),
   });
-
   if (!response.ok) {
     const responseText = await response.text().catch(() => '');
     console.error(`[notify] Resend rejected email: ${response.status} ${responseText.slice(0, 500)}`);
@@ -167,21 +138,14 @@ async function sendDriverPush(
   body: string,
   data: Record<string, string>,
 ): Promise<boolean> {
-  // Push is additive. Existing email/inbox delivery must keep working before a
-  // Firebase project is configured, so missing Firebase credentials are neutral.
   if (!firebaseServiceAccount) return true;
-
-  const { data: deviceData, error } = await supabase.rpc('active_driver_push_devices_for_user', {
-    p_user_id: userId,
-  });
+  const { data: deviceData, error } = await supabase.rpc('active_driver_push_devices_for_user', { p_user_id: userId });
   if (error) {
     console.error(`[notify] Could not load active push devices for ${userId}: ${error.message}`);
     return false;
   }
-
   const devices = (deviceData ?? []) as PushDevice[];
   if (!devices.length) return true;
-
   const results = await Promise.all(devices.map(async (device) => {
     const result = await sendFcmMessage({
       account: firebaseServiceAccount,
@@ -190,7 +154,6 @@ async function sendDriverPush(
       body,
       data,
     });
-
     if (result.unregistered) {
       const { error: disableError } = await supabase
         .from('driver_push_devices')
@@ -202,13 +165,9 @@ async function sendDriverPush(
       }
       return true;
     }
-
-    if (!result.ok) {
-      console.error(`[notify] FCM delivery failed for device ${device.device_id}: ${result.error ?? 'unknown error'}`);
-    }
+    if (!result.ok) console.error(`[notify] FCM delivery failed for device ${device.device_id}: ${result.error ?? 'unknown error'}`);
     return result.ok;
   }));
-
   return results.every(Boolean);
 }
 
@@ -224,24 +183,15 @@ async function emailCompanyOperators(
     .eq('company_id', companyId)
     .in('role_in_company', ['owner', 'admin', 'dispatcher'])
     .eq('status', 'active');
-
   if (error) throw error;
   if (!members?.length) return true;
-
-  const results = await Promise.allSettled(
-    members.map(async (member: { user_id: string | null }) => {
-      if (!member.user_id) return true;
-      const user = await getUserEmail(member.user_id);
-      return user
-        ? sendEmail(
-          user.email,
-          subject,
-          htmlFor(escapeHtml(user.name)),
-          notificationIdempotencyKey(eventId, member.user_id),
-        )
-        : true;
-    }),
-  );
+  const results = await Promise.allSettled(members.map(async (member: { user_id: string | null }) => {
+    if (!member.user_id) return true;
+    const user = await getUserEmail(member.user_id);
+    return user
+      ? sendEmail(user.email, subject, htmlFor(escapeHtml(user.name)), notificationIdempotencyKey(eventId, member.user_id))
+      : true;
+  }));
   return results.every((result) => result.status === 'fulfilled' && result.value !== false);
 }
 
@@ -260,16 +210,11 @@ async function handleJobAssigned(event: NotificationEvent) {
       `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, userId),
     ),
-    sendDriverPush(
-      userId,
-      'New Job Assigned - XDrive Logistics',
-      'A new job has been assigned to you. Open XDrive to view the job details.',
-      {
-        event_type: 'job_assigned',
-        job_id: jobIdRaw,
-        deep_link: `xdrive://job/${jobIdRaw}`,
-      },
-    ),
+    sendDriverPush(userId, 'New Job Assigned - XDrive Logistics', 'A new job has been assigned to you. Open XDrive to view the job details.', {
+      event_type: 'job_assigned',
+      job_id: jobIdRaw,
+      deep_link: `xdrive://job/${jobIdRaw}`,
+    }),
   ]);
   return emailOk && pushOk;
 }
@@ -290,9 +235,7 @@ async function handleBidAccepted(event: NotificationEvent) {
 }
 
 async function handlePodUploaded(event: NotificationEvent) {
-  const companyId = typeof event.payload.company_id === 'string'
-    ? event.payload.company_id
-    : event.company_id;
+  const companyId = typeof event.payload.company_id === 'string' ? event.payload.company_id : event.company_id;
   if (!companyId) return true;
   const jobId = escapeHtml(event.payload.job_id ?? event.entity_id);
   const pickup = escapeHtml(event.payload.pickup_location ?? 'N/A');
@@ -308,26 +251,18 @@ async function handlePodUploaded(event: NotificationEvent) {
 async function handleLoadAlert(event: NotificationEvent) {
   const userId = event.recipient_user_id;
   if (!userId) return true;
-
   const emailEnabled = event.payload.email_enabled === true;
   const pushEnabled = event.payload.push_enabled === true;
   if (!emailEnabled && !pushEnabled) return true;
-
   const jobId = String(event.payload.job_id ?? event.entity_id);
   const pickup = String(event.payload.pickup_outcode ?? 'Collection area TBC');
   const delivery = String(event.payload.delivery_outcode ?? 'Delivery area TBC');
   const vehicle = String(event.payload.vehicle_type ?? '').trim();
   const budgetValue = event.payload.budget_amount;
-  const budget = typeof budgetValue === 'number'
-    ? budgetValue
-    : typeof budgetValue === 'string' && budgetValue.trim() ? Number(budgetValue) : null;
+  const budget = typeof budgetValue === 'number' ? budgetValue : typeof budgetValue === 'string' && budgetValue.trim() ? Number(budgetValue) : null;
   const routeSummary = `${pickup} → ${delivery}`;
-  const budgetSummary = typeof budget === 'number' && Number.isFinite(budget) && budget >= 0
-    ? ` · £${budget.toFixed(2)}`
-    : '';
+  const budgetSummary = typeof budget === 'number' && Number.isFinite(budget) && budget >= 0 ? ` · £${budget.toFixed(2)}` : '';
   const vehicleSummary = vehicle ? ` · ${vehicle}` : '';
-  const publicSummary = `${routeSummary}${vehicleSummary}${budgetSummary}`;
-
   let emailOk = true;
   if (emailEnabled) {
     const user = await getUserEmail(userId);
@@ -340,27 +275,18 @@ async function handleLoadAlert(event: NotificationEvent) {
       );
     }
   }
-
   const pushOk = pushEnabled
-    ? await sendDriverPush(
-      userId,
-      'New load matches your alert',
-      publicSummary,
-      {
-        event_type: 'load_alert',
-        job_id: jobId,
-        deep_link: `xdrive://loads/${jobId}`,
-      },
-    )
+    ? await sendDriverPush(userId, 'New load matches your alert', `${routeSummary}${vehicleSummary}${budgetSummary}`, {
+      event_type: 'load_alert',
+      job_id: jobId,
+      deep_link: `xdrive://loads/${jobId}`,
+    })
     : true;
-
   return emailOk && pushOk;
 }
 
 async function handleOnboardingInvite(event: NotificationEvent) {
-  const userId = typeof event.payload.recipient_user_id === 'string'
-    ? event.payload.recipient_user_id
-    : event.recipient_user_id;
+  const userId = typeof event.payload.recipient_user_id === 'string' ? event.payload.recipient_user_id : event.recipient_user_id;
   if (!userId) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
@@ -370,6 +296,36 @@ async function handleOnboardingInvite(event: NotificationEvent) {
     user.email,
     'Complete onboarding - XDrive Logistics',
     `<h2>Your XDrive onboarding is ready</h2><p>Hi ${escapeHtml(user.name)},</p><p>Continue onboarding to unlock your workspace.</p><p><strong>Account type:</strong> ${accountType}</p><p><a href="${escapeHtml(onboardingUrl)}">Start or resume onboarding</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
+  );
+}
+
+async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
+  const userId = event.recipient_user_id ?? (typeof event.payload.recipient_user_id === 'string' ? event.payload.recipient_user_id : null);
+  if (!userId) return false;
+  const user = await getUserEmail(userId);
+  if (!user) return false;
+  const documents = Array.isArray(event.payload.missing_documents)
+    ? event.payload.missing_documents.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+  if (!documents.length) {
+    console.error(`[notify] Document request event ${event.id} has no canonical missing_documents payload.`);
+    return false;
+  }
+  const reminder = event.event_type === 'onboarding_documents_reminder';
+  const onboardingUrl = safeOnboardingUrl(event.payload.onboarding_url);
+  const list = documents
+    .map((document) => `<li style="margin:6px 0"><strong>${escapeHtml(document.replaceAll('_', ' '))}</strong></li>`)
+    .join('');
+  const reason = typeof event.payload.reason === 'string' && event.payload.reason.trim()
+    ? `<p><strong>Message from XDrive:</strong> ${escapeHtml(event.payload.reason)}</p>`
+    : '';
+  return sendEmail(
+    user.email,
+    reminder
+      ? 'Reminder: documents required to complete your XDrive onboarding'
+      : 'Documents required to complete your XDrive onboarding',
+    `<h2>${reminder ? 'Your onboarding is still incomplete' : 'Please complete your XDrive documents'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${reminder ? 'The following required documents are still outstanding:' : 'To continue your XDrive onboarding, please upload or correct the following required documents:'}</p><ul>${list}</ul>${reason}<p><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Complete your documents</a></p><p>This request remains outstanding until the required documents are uploaded and approved.</p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
   );
 }
@@ -452,7 +408,6 @@ async function processEvent(event: NotificationEvent): Promise<void> {
     console.error(`[notify] Event ${event.id} arrived without a queue lease; skipped.`);
     return;
   }
-
   let success = false;
   let skipped = false;
   try {
@@ -465,6 +420,10 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'onboarding_invite_resent':
         success = await handleOnboardingInvite(event);
         break;
+      case 'onboarding_documents_required':
+      case 'onboarding_documents_reminder':
+        success = await handleOnboardingDocumentsRequired(event);
+        break;
       case 'onboarding_submitted': success = await handleOnboardingSubmitted(event); break;
       case 'onboarding_approved': success = await handleOnboardingApproved(event); break;
       case 'invoice_disputed': success = await handleInvoiceDisputed(event); break;
@@ -476,14 +435,10 @@ async function processEvent(event: NotificationEvent): Promise<void> {
   } catch (error) {
     console.error(`[notify] Event ${event.id} failed`, error);
   }
-
   const attemptCount = Math.max(0, Number(event.attempt_count ?? 0)) + 1;
   const status = skipped ? 'skipped' : success ? 'sent' : 'failed';
   const retryDelayMinutes = Math.min(60, 2 ** Math.min(attemptCount, 6));
-  const nextAttemptAt = success || skipped
-    ? null
-    : new Date(Date.now() + retryDelayMinutes * 60_000).toISOString();
-
+  const nextAttemptAt = success || skipped ? null : new Date(Date.now() + retryDelayMinutes * 60_000).toISOString();
   const { error } = await supabase
     .from('notification_events')
     .update({
@@ -498,53 +453,34 @@ async function processEvent(event: NotificationEvent): Promise<void> {
     })
     .eq('id', event.id)
     .eq('lease_token', leaseToken);
-
   if (error) console.error(`[notify] Could not finalize event ${event.id}: ${error.message}`);
 }
 
 async function claimEvents(eventId: string | null, limit: number): Promise<NotificationEvent[]> {
-  const { data, error } = await supabase.rpc('claim_notification_events', {
-    p_event_id: eventId,
-    p_limit: limit,
-  });
+  const { data, error } = await supabase.rpc('claim_notification_events', { p_event_id: eventId, p_limit: limit });
   if (error) throw error;
   return (data ?? []) as NotificationEvent[];
 }
 
-async function loadWebhookEvent(eventId: string): Promise<NotificationEvent[]> {
-  return claimEvents(eventId, 1);
-}
-
-async function loadDueEvents(): Promise<NotificationEvent[]> {
-  return claimEvents(null, 50);
-}
+const loadWebhookEvent = (eventId: string) => claimEvents(eventId, 1);
+const loadDueEvents = () => claimEvents(null, 50);
 
 Deno.serve(async (request) => {
   try {
-    if (request.method !== 'POST') {
-      return jsonResponse(405, { error: 'Method not allowed.' });
-    }
-    if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse(503, { error: 'Notification function configuration is incomplete.' });
-    }
-
+    if (request.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed.' });
+    if (!supabaseUrl || !serviceRoleKey) return jsonResponse(503, { error: 'Notification function configuration is incomplete.' });
     const suppliedSecret = request.headers.get('x-xdrive-webhook-secret') ?? '';
     const suppliedApiKey = request.headers.get('apikey') ?? '';
     const serviceBearer = bearerToken(request);
     const webhookAuthorized = webhookSecret.length >= 32 && constantTimeEqual(suppliedSecret, webhookSecret);
     const serviceRoleAuthorized = constantTimeEqual(serviceBearer, serviceRoleKey);
     const secretApiKeyAuthorized = secretApiKeys.some((key) => constantTimeEqual(suppliedApiKey, key));
-
     if (!webhookAuthorized && !serviceRoleAuthorized && !secretApiKeyAuthorized) {
       return jsonResponse(401, { error: 'Unauthorized.' });
     }
-
     const body = await request.json().catch(() => null);
     const webhookEventId = body?.record?.id ?? body?.id ?? body?.event_id ?? null;
-    const events = isUuid(webhookEventId)
-      ? await loadWebhookEvent(webhookEventId)
-      : await loadDueEvents();
-
+    const events = isUuid(webhookEventId) ? await loadWebhookEvent(webhookEventId) : await loadDueEvents();
     await Promise.allSettled(events.map(processEvent));
     return jsonResponse(200, { processed: events.length });
   } catch (error) {
