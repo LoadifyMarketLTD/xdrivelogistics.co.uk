@@ -25,7 +25,26 @@ describe('XDrive enquiry governance contract', () => {
     expect(migration).toContain("UPDATE public.quotes\n  SET status = 'converted'");
     expect(migration).toContain('INSERT INTO public.owner_audit_log (');
     expect(migration).toContain('j.creation_idempotency_key = v_quote.id::text');
+    expect(migration).toContain("IF lower(coalesce(v_quote.status, '')) <> 'accepted' THEN");
     expect(migration).toContain('TO service_role;');
+  });
+
+  it('converges public vehicle labels to the legacy jobs DB enum before RPC conversion', () => {
+    const route = read('app/api/super-admin/xdrive-logistics/enquiries/[id]/route.ts');
+    expect(route).toContain("type LegacyJobVehicleType = 'SmallVan' | 'MediumVan' | 'LargeVan' | 'LutonVan' | 'Truck'");
+    expect(route).toContain('const toLegacyJobVehicleType = (label: string): LegacyJobVehicleType =>');
+    expect(route).toContain("if (normalized.includes('luton')) return 'LutonVan'");
+    expect(route).toContain("normalized.includes('mwb')");
+    expect(route).toContain("normalized.includes('lwb')");
+    expect(route).toContain("normalized.includes('truck')");
+    expect(route).toContain('vehicleType = toLegacyJobVehicleType(requestedVehicleLabel)');
+    expect(route).toContain('p_vehicle_type: vehicleType');
+    expect(route).not.toContain('vehicleType = labelToVehicleType(requestedVehicleLabel)');
+  });
+
+  it('bounds customer price at the API boundary', () => {
+    const route = read('app/api/super-admin/xdrive-logistics/enquiries/[id]/route.ts');
+    expect(route).toContain('z.number().finite().positive().max(1_000_000)');
   });
 
   it('requires a reason in the UI', () => {
