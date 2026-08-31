@@ -311,9 +311,9 @@ RESET ROLE;
 -- under the real `authenticated` role. session_replication_role is restored
 -- immediately and the entire transaction rolls back.
 --
--- Legacy bidder_company_id / quote_amount columns are intentionally omitted:
--- clean main uses company_id as bidder-company authority and derives quote amount
--- in public.job_bids_with_job_owner rather than requiring those physical columns.
+-- bidder_company_id is canonical and NOT NULL after P0-12 / PR #424.
+-- quote_amount remains a hosted compatibility column and is intentionally omitted
+-- from this clean-replay fixture; canonical views derive it from bid_price_gbp/amount.
 -- ---------------------------------------------------------------------------
 
 SET LOCAL session_replication_role = replica;
@@ -321,6 +321,7 @@ SET LOCAL session_replication_role = replica;
 INSERT INTO public.job_bids (
   id,
   job_id,
+  bidder_company_id,
   company_id,
   bidder_user_id,
   bid_price_gbp,
@@ -332,6 +333,7 @@ INSERT INTO public.job_bids (
 VALUES (
   '86400000-0000-0000-0000-000000000001',
   '86300000-0000-0000-0000-000000000002',
+  '86100000-0000-0000-0000-000000000001',
   '86100000-0000-0000-0000-000000000001',
   '86000000-0000-0000-0000-000000000001',
   250,
@@ -384,6 +386,7 @@ SELECT pg_temp.assert_true(
     FROM public.job_bids
     WHERE id = '86400000-0000-0000-0000-000000000001'
       AND company_id = '86100000-0000-0000-0000-000000000001'
+      AND bidder_company_id = '86100000-0000-0000-0000-000000000001'
       AND message = 'Original bidder message'
       AND status = 'submitted'
   ),
@@ -414,6 +417,7 @@ SELECT pg_temp.assert_true(
     FROM public.job_bids
     WHERE id = '86400000-0000-0000-0000-000000000001'
       AND company_id = '86100000-0000-0000-0000-000000000001'
+      AND bidder_company_id = '86100000-0000-0000-0000-000000000001'
       AND bidder_user_id = '86000000-0000-0000-0000-000000000001'
       AND message = 'Original bidder message'
       AND bid_price_gbp = 250
