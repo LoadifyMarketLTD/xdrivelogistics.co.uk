@@ -218,6 +218,9 @@ WHERE user_id IN (
   '86000000-0000-0000-0000-000000000002'
 );
 
+-- The driver fixture uses the canonical driver membership role, not owner/admin.
+-- This keeps the positive jobs assertion isolated to jobs_select_assigned_driver
+-- instead of allowing another company-operator/non-driver path to satisfy it.
 INSERT INTO public.company_memberships (
   company_id, user_id, role_in_company, status, updated_at
 )
@@ -225,7 +228,7 @@ VALUES
   (
     '86100000-0000-0000-0000-000000000001',
     '86000000-0000-0000-0000-000000000001',
-    'owner', 'active', now()
+    'driver', 'active', now()
   ),
   (
     '86100000-0000-0000-0000-000000000002',
