@@ -3,7 +3,7 @@ import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
 import SuperAdminCardNavigationShell from './SuperAdminCardNavigationShell';
 
-// Safe promotion: preserve the current main workspace definition and routes exactly.
+// Layered promotion: preserve current main routes and add the read-only Global Search entry.
 export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   role: 'platform_owner',
   label: 'Platform Owner',
@@ -12,6 +12,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   nav: [
     { id: 'dashboard', label: 'Dashboard', items: [
       { id: 'command-centre', label: 'Command Centre', href: '/super-admin', icon: '⌂' },
+      { id: 'global-search', label: 'Global Search', href: '/super-admin/search', icon: '⌕' },
       { id: 'analytics', label: 'Platform Analytics', href: '/super-admin/analytics', icon: '◫' },
       { id: 'health', label: 'Platform Health', href: '/super-admin/health', icon: '✓' },
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications', icon: '!' },
