@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import SuperAdminLiveTablePage from '../_components/SuperAdminLiveTablePage';
+import { ActionConfirmModal } from '../_components/ActionConfirmModal';
 import {
   createNotificationColumns,
   notificationsTableProps,
@@ -16,22 +17,32 @@ const controlStyle = { height: '32px', background: X.white, color: X.charcoal, b
 export default function Page() {
   const [pendingById, setPendingById] = useState<Record<string, boolean>>({});
   const [feedbackById, setFeedbackById] = useState<Record<string, RetryFeedback | undefined>>({});
+  const [retryTargetId, setRetryTargetId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [category, setCategory] = useState('all');
   const [severity, setSeverity] = useState('all');
 
-  const handleRetry = useCallback(async (notificationId: string) => {
+  const executeRetry = useCallback(async (notificationId: string, reason: string) => {
     if (pendingById[notificationId]) return;
     setPendingById((current) => ({ ...current, [notificationId]: true }));
     setFeedbackById((current) => ({ ...current, [notificationId]: undefined }));
-    const feedback = await performNotificationRetry({ notificationId, onSuccess: () => setRefreshKey((value) => value + 1) });
+    const feedback = await performNotificationRetry({
+      notificationId,
+      reason,
+      onSuccess: () => setRefreshKey((value) => value + 1),
+    });
     setPendingById((current) => { const next = { ...current }; delete next[notificationId]; return next; });
     setFeedbackById((current) => ({ ...current, [notificationId]: feedback }));
   }, [pendingById]);
 
-  const columns = useMemo(() => createNotificationColumns({ pendingById, feedbackById, onRetry: handleRetry }), [pendingById, feedbackById, handleRetry]);
+  const beginRetry = useCallback((notificationId: string) => {
+    if (pendingById[notificationId]) return;
+    setRetryTargetId(notificationId);
+  }, [pendingById]);
+
+  const columns = useMemo(() => createNotificationColumns({ pendingById, feedbackById, onRetry: beginRetry }), [pendingById, feedbackById, beginRetry]);
   const endpoint = useMemo(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set('q', search.trim());
@@ -45,6 +56,24 @@ export default function Page() {
   const clearFilters = () => { setSearch(''); setStatus('all'); setCategory('all'); setSeverity('all'); };
 
   return <div style={{ background: X.light, minHeight: '100vh' }}>
+    {retryTargetId && (
+      <ActionConfirmModal
+        open
+        title="Retry notification delivery"
+        description={<>Queue notification <strong>{retryTargetId}</strong> for another delivery attempt. This Platform Owner action is audited.</>}
+        confirmLabel="Queue audited retry"
+        reasonRequired
+        reasonLabel="Retry reason"
+        reasonPlaceholder="Explain why this notification should be retried…"
+        submitting={pendingById[retryTargetId] === true}
+        onCancel={() => setRetryTargetId(null)}
+        onConfirm={(reason) => {
+          const notificationId = retryTargetId;
+          setRetryTargetId(null);
+          void executeRetry(notificationId, reason);
+        }}
+      />
+    )}
     <div style={{ padding: '12px 12px 0' }}>
       <div style={{ minHeight: '40px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '4px 8px', display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) repeat(3, minmax(130px, 1fr)) auto', gap: '8px', alignItems: 'center' }}>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, message, event type or entity…" aria-label="Search notifications" style={{ ...controlStyle, width: '100%' }} />
