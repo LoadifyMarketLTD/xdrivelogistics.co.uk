@@ -13,6 +13,7 @@ Purpose: preserve every useful, already-functional Super Admin capability from `
 - `main` is not modified by this preview work.
 - Production database is read-only for preview verification.
 - Existing semantic/atomic governance APIs are reused; no parallel unsafe mutation path is introduced.
+- Governance controls are visible in Netlify Deploy Preview only for parity/UX review. The UI disables them and the preview branch API returns `preview_mutation_disabled` before any company mutation can execute.
 - Optional profile data is not promoted to a blocking compliance requirement.
 - Compliance remains progressive: block only the operation that genuinely requires missing mandatory evidence.
 - Legacy/orphaned company records do not receive governance or completion mutations from Company 360.
@@ -28,7 +29,7 @@ Purpose: preserve every useful, already-functional Super Admin capability from `
 | Operations | all/active/pending/completed jobs, deliveries, POD queue | Operations card | PRESERVED |
 | Drivers & Fleet | drivers, availability, fleet positions | Drivers & Fleet card | PRESERVED |
 | Companies | all, approvals, active, suspended, verification, compliance | Companies card | PRESERVED |
-| Company governance | approve, reject, suspend, reinstate; compliance activation gate; durable audit | Company 360 Governance Bridge reuses `/api/super-admin/companies/[id]` | RESTORED IN #431 |
+| Company governance | approve, reject, suspend, reinstate; compliance activation gate; durable audit | Company 360 Governance Bridge shows canonical controls; mutations disabled in Netlify preview | RESTORED FOR PARITY |
 | Users & Access | all users, company owners, customers, dispatchers, drivers, platform admins | Users & Access card | PRESERVED |
 | Finance | overview, invoices, financial breakdown/fees, revenue, payments | Finance card | PRESERVED |
 | Compliance | document review, insurance, operator licences, expiry tracking, identity/fraud review | Compliance card | PRESERVED |
@@ -41,7 +42,7 @@ Purpose: preserve every useful, already-functional Super Admin capability from `
 
 ## Company governance contract preserved
 
-Existing endpoint reused: `PATCH /api/super-admin/companies/[id]`.
+Existing endpoint contract: `PATCH /api/super-admin/companies/[id]`.
 
 Canonical actions:
 
@@ -49,7 +50,7 @@ Canonical actions:
 - `active` → `suspend`
 - `suspended` → `reinstate`
 
-Controls preserve:
+The underlying functional contract preserves:
 
 - active Platform Owner verifier;
 - server-side transition validation;
@@ -59,7 +60,9 @@ Controls preserve:
 - atomic `set_company_status_governance` RPC;
 - durable owner audit.
 
-Company 360 suppresses these mutations on a record classified as `legacy_orphaned`.
+In PR #431 Netlify Deploy Preview, the controls are displayed but disabled and a server-side `deploy-preview` guard returns HTTP 409 / `preview_mutation_disabled` before body parsing or any mutation. This keeps Production read-only while still allowing visual/function-parity inspection.
+
+Company 360 also suppresses these controls on a record classified as `legacy_orphaned`.
 
 ## Progressive compliance policy used by #431
 
@@ -88,6 +91,8 @@ The current active company inspected during this audit has:
 - six approved compliance documents in total;
 - zero document issues from the current read model.
 
+The Governance Bridge therefore presents the aggregate compliance evidence (`6/6` approved) rather than treating `0 company-level documents` as a failure.
+
 A company/profile XDrive-ID mismatch is surfaced as a non-blocking identity-review signal rather than silently ignored or automatically suspending the company.
 
 ## Main movement after preview fork
@@ -96,7 +101,7 @@ A company/profile XDrive-ID mismatch is surfaced as a non-blocking identity-revi
 
 ## Current parity conclusion
 
-No major functional Super Admin domain found in current `main` is intentionally removed by #431. The material functional gap found during this audit was company governance actions disappearing from the dedicated Company 360 view; that gap has been restored by reusing the existing canonical governance endpoint.
+No major functional Super Admin domain found in current `main` is intentionally removed by #431. The material functional gap found during this audit was company governance actions disappearing from the dedicated Company 360 view; that capability is now represented again by the Company Governance Bridge while remaining write-disabled in Deploy Preview.
 
 Remaining preview-only work must continue to distinguish:
 
