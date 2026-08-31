@@ -60,22 +60,13 @@ const GLOBAL_SETTING_DEFINITIONS: GlobalSettingDefinition[] = [
 const featureFlagUpdateSchema = z.object({
   section: z.literal('feature-flags'),
   flags: z.array(z.object({ key: z.string().min(1), enabled: z.boolean() })).min(1),
+  reason: z.string().trim().min(5).max(5000),
 });
 
 const globalSettingsUpdateSchema = z.object({
   section: z.literal('global'),
   settings: z.array(z.object({ key: z.string().min(1), value: z.string().max(5000) })).min(1),
-});
-
-const rolesUpdateSchema = z.object({
-  section: z.literal('roles'),
-  roles: z.array(z.object({
-    role: z.string().min(1),
-    label: z.string().min(1),
-    description: z.string().max(1000),
-    scopes: z.array(z.string().min(1)).min(1),
-    color: z.string().min(1),
-  })).min(1).max(20),
+  reason: z.string().trim().min(5).max(5000),
 });
 
 const parseBooleanValue = (value: string) => {
@@ -83,6 +74,20 @@ const parseBooleanValue = (value: string) => {
   if (normalised === 'true') return 'true';
   if (normalised === 'false') return 'false';
   return null;
+};
+
+const governanceErrorResponse = (error: { code?: string; message?: string }) => {
+  if (error.code === '42501') return respond(403, { error: 'Platform Owner authority required.' });
+  if (error.code === '23514' || error.code === '23502' || error.code === '22P02') {
+    return respond(409, { error: error.message ?? 'Platform configuration validation failed.' });
+  }
+  if (error.code === 'PGRST202' || error.code === '42883') {
+    return respond(503, {
+      error: 'Canonical Platform settings governance is not available in this environment.',
+      migrationRequired: true,
+    });
+  }
+  return respond(500, { error: error.message ?? 'Platform configuration update failed.' });
 };
 
 export async function GET(request: NextRequest) {
@@ -94,7 +99,7 @@ export async function GET(request: NextRequest) {
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const section = request.nextUrl.searchParams.get('section')?.trim();
-  if (!section) return respond(400, { error: 'section is required (feature-flags or global).' });
+  if (!section) return respond(400, { error: 'section is required (feature-flags, global, or roles).' });
 
   if (section === 'feature-flags') {
     const { data, error } = await supabaseAdmin.from('platform_feature_flags').select('key, is_enabled');
@@ -133,23 +138,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (section === 'roles') {
-    const { data, error } = await supabaseAdmin
-      .from('platform_settings')
-      .select('key, value')
-      .eq('key', 'role_permissions_v1')
-      .maybeSingle();
-    if (error) return respond(500, { error: error.message });
-
-    if (data?.value) {
-      try {
-        const stored = JSON.parse(data.value) as unknown;
-        if (Array.isArray(stored)) return respond(200, { section, roles: stored });
-      } catch {
-        // Fall through to defaults.
-      }
-    }
-
-    return respond(200, { section, roles: null });
+    return respond(200, {
+      section,
+      roles: null,
+      readOnly: true,
+      note: 'Role authority is defined by the canonical role registry and authoritative identity/workspace sources; it is not editable through Platform settings.',
+    });
   }
 
   return respond(400, { error: 'Invalid section. Use feature-flags, global, or roles.' });
@@ -170,27 +164,40 @@ export async function PATCH(request: NextRequest) {
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
+  if (body && typeof body === 'object' && 'section' in body && (body as { section?: unknown }).section === 'roles') {
+    return respond(409, {
+      error: 'Roles & Permissions is read-only. Delegated Platform Administrator or arbitrary role mutation is not implemented.',
+    });
+  }
+
   const parsedFlags = featureFlagUpdateSchema.safeParse(body);
   if (parsedFlags.success) {
     const definitionByKey = new Map(FLAG_DEFINITIONS.map((flag) => [flag.key, flag]));
     const invalidKeys = parsedFlags.data.flags.map((flag) => flag.key).filter((key) => !definitionByKey.has(key));
     if (invalidKeys.length > 0) return respond(400, { error: `Unknown feature flag keys: ${invalidKeys.join(', ')}` });
 
-    const upsertRows = parsedFlags.data.flags.map((flag) => {
+    const changes = parsedFlags.data.flags.map((flag) => {
       const definition = definitionByKey.get(flag.key)!;
       return {
         key: definition.key,
         label: definition.label,
         description: definition.description,
         category: definition.category,
-        is_enabled: flag.enabled,
-        updated_by: owner.id,
+        enabled: flag.enabled,
       };
     });
 
-    const { error } = await supabaseAdmin.from('platform_feature_flags').upsert(upsertRows, { onConflict: 'key' });
-    if (error) return respond(500, { error: error.message });
-    return respond(200, { success: true, updated: upsertRows.length });
+    const { data, error } = await supabaseAdmin.rpc('owner_update_platform_configuration', {
+      p_actor_user_id: owner.id,
+      p_section: 'feature-flags',
+      p_changes: changes,
+      p_reason: parsedFlags.data.reason,
+    });
+    if (error) return governanceErrorResponse(error);
+
+    const result = Array.isArray(data) ? data[0] ?? null : data;
+    if (!result) return respond(500, { error: 'Platform feature flag update returned no authoritative result.' });
+    return respond(200, { success: true, updated: Number(result.updated_count ?? 0), result });
   }
 
   const parsedSettings = globalSettingsUpdateSchema.safeParse(body);
@@ -199,6 +206,7 @@ export async function PATCH(request: NextRequest) {
     const invalidKeys = parsedSettings.data.settings.map((setting) => setting.key).filter((key) => !definitionByKey.has(key));
     if (invalidKeys.length > 0) return respond(400, { error: `Unknown global setting keys: ${invalidKeys.join(', ')}` });
 
+    const changes = [] as Array<{ key: string; label: string; value: string; value_type: 'text' | 'number' | 'boolean'; category: string }>;
     for (const setting of parsedSettings.data.settings) {
       const definition = definitionByKey.get(setting.key)!;
       const rawValue = setting.value.trim();
@@ -208,57 +216,30 @@ export async function PATCH(request: NextRequest) {
       if (definition.type === 'boolean' && parseBooleanValue(rawValue) === null) {
         return respond(400, { error: `Setting '${setting.key}' must be true or false.` });
       }
-    }
 
-    const upsertRows = parsedSettings.data.settings.map((setting) => {
-      const definition = definitionByKey.get(setting.key)!;
-      const rawValue = setting.value.trim();
-
-      if (definition.type === 'boolean') {
-        const parsedBoolean = parseBooleanValue(rawValue) as 'true' | 'false';
-        return {
-          key: definition.key,
-          label: definition.label,
-          value: parsedBoolean,
-          value_type: definition.type,
-          category: definition.category,
-          updated_by: owner.id,
-        };
-      }
-
-      return {
+      changes.push({
         key: definition.key,
         label: definition.label,
-        value: rawValue,
+        value: definition.type === 'boolean' ? (parseBooleanValue(rawValue) as 'true' | 'false') : rawValue,
         value_type: definition.type,
         category: definition.category,
-        updated_by: owner.id,
-      };
+      });
+    }
+
+    const { data, error } = await supabaseAdmin.rpc('owner_update_platform_configuration', {
+      p_actor_user_id: owner.id,
+      p_section: 'global',
+      p_changes: changes,
+      p_reason: parsedSettings.data.reason,
     });
+    if (error) return governanceErrorResponse(error);
 
-    const { error } = await supabaseAdmin.from('platform_settings').upsert(upsertRows, { onConflict: 'key' });
-    if (error) return respond(500, { error: error.message });
-    return respond(200, { success: true, updated: upsertRows.length });
-  }
-
-  const parsedRoles = rolesUpdateSchema.safeParse(body);
-  if (parsedRoles.success) {
-    const { error } = await supabaseAdmin
-      .from('platform_settings')
-      .upsert({
-        key: 'role_permissions_v1',
-        label: 'Role Permissions Matrix',
-        value: JSON.stringify(parsedRoles.data.roles),
-        value_type: 'text',
-        category: 'Platform Identity',
-        updated_by: owner.id,
-      }, { onConflict: 'key' });
-
-    if (error) return respond(500, { error: error.message });
-    return respond(200, { success: true, roles: parsedRoles.data.roles.length });
+    const result = Array.isArray(data) ? data[0] ?? null : data;
+    if (!result) return respond(500, { error: 'Platform settings update returned no authoritative result.' });
+    return respond(200, { success: true, updated: Number(result.updated_count ?? 0), result });
   }
 
   return respond(400, {
-    error: 'Validation failed. Use section=feature-flags with flags[], section=global with settings[], or section=roles with roles[].',
+    error: 'Validation failed. Feature flags and global settings require a written reason of at least 5 characters.',
   });
 }
