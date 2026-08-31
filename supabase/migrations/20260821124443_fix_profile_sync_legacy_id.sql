@@ -33,9 +33,18 @@ $$;
 
 -- Any rows present during a replay are existing auth-backed profiles; preserve
 -- the dual identifier contract by deriving the missing legacy id from user_id.
-IF EXISTS (SELECT 1 FROM public.profiles WHERE id IS NOT NULL AND id IS DISTINCT FROM user_id) THEN
-  RAISE EXCEPTION 'Existing public.profiles.id values conflict with canonical user_id identity.';
-END IF;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id IS NOT NULL
+      AND id IS DISTINCT FROM user_id
+  ) THEN
+    RAISE EXCEPTION 'Existing public.profiles.id values conflict with canonical user_id identity.';
+  END IF;
+END;
+$$;
 
 UPDATE public.profiles
 SET id = user_id
