@@ -29,22 +29,27 @@ describe('XDrive enquiry governance contract', () => {
     expect(migration).toContain('TO service_role;');
   });
 
-  it('converges public vehicle labels to the legacy jobs DB enum before RPC conversion', () => {
+  it('converges vehicle types across hosted legacy and clean-replay enums', () => {
     const route = read('app/api/super-admin/xdrive-logistics/enquiries/[id]/route.ts');
-    expect(route).toContain("type LegacyJobVehicleType = 'SmallVan' | 'MediumVan' | 'LargeVan' | 'LutonVan' | 'Truck'");
-    expect(route).toContain('const toLegacyJobVehicleType = (label: string): LegacyJobVehicleType =>');
-    expect(route).toContain("if (normalized.includes('luton')) return 'LutonVan'");
-    expect(route).toContain("normalized.includes('mwb')");
-    expect(route).toContain("normalized.includes('lwb')");
-    expect(route).toContain("normalized.includes('truck')");
-    expect(route).toContain('vehicleType = toLegacyJobVehicleType(requestedVehicleLabel)');
+    const compatibility = read('supabase/migrations/20260831235930_owner_manage_xdrive_enquiry_vehicle_type_compat.sql');
+
+    expect(route).toContain('vehicleType = labelToVehicleType(requestedVehicleLabel)');
     expect(route).toContain('p_vehicle_type: vehicleType');
-    expect(route).not.toContain('vehicleType = labelToVehicleType(requestedVehicleLabel)');
+    expect(route).toContain('modern canonical slug');
+
+    expect(compatibility).toContain("e.enumlabel = 'SmallVan'");
+    expect(compatibility).toContain("e.enumlabel = 'van_small'");
+    expect(compatibility).toContain("v_job_vehicle_type::public.vehicle_type");
+    expect(compatibility).toContain("THEN 'LutonVan'");
+    expect(compatibility).toContain("THEN 'luton_tail_lift'");
+    expect(compatibility).toContain("'resolved_vehicle_type', v_job_vehicle_type");
   });
 
-  it('bounds customer price at the API boundary', () => {
+  it('bounds customer price in both API and database governance', () => {
     const route = read('app/api/super-admin/xdrive-logistics/enquiries/[id]/route.ts');
+    const compatibility = read('supabase/migrations/20260831235930_owner_manage_xdrive_enquiry_vehicle_type_compat.sql');
     expect(route).toContain('z.number().finite().positive().max(1_000_000)');
+    expect(compatibility).toContain('p_amount > 1000000');
   });
 
   it('requires a reason in the UI', () => {
