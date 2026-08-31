@@ -44,6 +44,7 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
   const [pendingConfirm, setPendingConfirm] = useState<GovernanceAction | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +65,7 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setPreviewMode(typeof window !== 'undefined' && window.location.hostname.startsWith('deploy-preview-')); }, []);
 
   const company = payload?.company ?? {};
   const legacy = payload?.identityResolution?.recordState === 'legacy_orphaned';
@@ -86,6 +88,10 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
   const identityMismatch = !legacy && Boolean(companyXdId && profileXdId && companyXdId !== profileXdId);
 
   const applyAction = async (action: GovernanceAction, reason = '') => {
+    if (previewMode) {
+      setMessage('Preview only: this action is shown for functional parity but mutations are disabled in Deploy Preview.');
+      return;
+    }
     setActing(action);
     setMessage(null);
     setError(null);
@@ -109,6 +115,10 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
   };
 
   const initiate = (action: GovernanceAction) => {
+    if (previewMode) {
+      setMessage('Preview only: governance actions are visible for review, but Production writes are blocked.');
+      return;
+    }
     if (action === 'reject' || action === 'suspend') setPendingConfirm(action);
     else void applyAction(action);
   };
@@ -146,6 +156,7 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
           <Link href="/super-admin/companies" style={{ color:C.blue, fontSize:9.5, fontWeight:850, textDecoration:'none' }}>All companies →</Link>
         </div>
 
+        {previewMode ? <div style={{ marginTop:10, borderLeft:`4px solid ${C.orange}`, background:'#fffaf0', padding:'7px 9px', color:'#806b43', fontSize:9.5 }}><strong>Deploy Preview safety:</strong> governance controls are displayed for parity review, but server-side mutations are disabled. No Production company status can be changed from #431.</div> : null}
         {loading ? <div style={{ marginTop:10, color:C.muted, fontSize:10 }}>Loading governance state…</div> : null}
         {error ? <div role="alert" style={{ marginTop:10, borderLeft:`4px solid ${C.red}`, background:'#fff7f7', padding:'7px 9px', color:C.red, fontSize:9.5 }}>{error}</div> : null}
         {message ? <div style={{ marginTop:10, borderLeft:`4px solid ${C.green}`, background:'#f4fbf7', padding:'7px 9px', color:C.green, fontSize:9.5 }}>{message}</div> : null}
@@ -161,7 +172,8 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
               {actions.map((action) => {
                 const dangerous = action === 'reject' || action === 'suspend';
                 const color = dangerous ? C.red : C.green;
-                return <button key={action} type="button" disabled={acting !== null} onClick={() => initiate(action)} style={{ minHeight:32, border:`1px solid ${color}`, borderRadius:8, background:C.white, color, padding:'0 10px', fontSize:9.5, fontWeight:850, cursor:acting?'not-allowed':'pointer', opacity: acting ? .65 : 1 }}>{acting === action ? 'Working…' : labelFor(action)}</button>;
+                const disabled = acting !== null || previewMode;
+                return <button key={action} type="button" disabled={disabled} onClick={() => initiate(action)} title={previewMode ? 'Preview only — Production mutation disabled' : undefined} style={{ minHeight:32, border:`1px solid ${color}`, borderRadius:8, background:C.white, color, padding:'0 10px', fontSize:9.5, fontWeight:850, cursor:disabled?'not-allowed':'pointer', opacity: disabled ? .62 : 1 }}>{acting === action ? 'Working…' : `${labelFor(action)}${previewMode ? ' · preview' : ''}`}</button>;
               })}
               {!actions.length && !legacy ? <span style={{ color:C.muted, fontSize:9.5 }}>No governance status transition is authorised from the current state.</span> : null}
             </div>
