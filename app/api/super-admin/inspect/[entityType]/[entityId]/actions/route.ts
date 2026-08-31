@@ -6,6 +6,7 @@ import { verifyPlatformOwner } from '../../../../_lib/verifyPlatformOwner';
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const CASE_SCHEMA_UNAVAILABLE_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
 const POD_REVIEW_SCHEMA_UNAVAILABLE_CODES = new Set(['42703', 'PGRST204']);
+const FINANCE_RECONCILIATION_SCHEMA_UNAVAILABLE_CODES = new Set(['42703', 'PGRST204']);
 const ACTIVE_CASE_STATUSES = ['open', 'acknowledged', 'investigating', 'waiting'] as const;
 const OPERATIONS_ENTITY_TYPES = new Set(['job', 'driver', 'vehicle', 'pod', 'dispute']);
 
@@ -34,6 +35,12 @@ const isPodReviewSchemaUnavailable = (error: { code?: string; message?: string }
     error
     && ((error.code && POD_REVIEW_SCHEMA_UNAVAILABLE_CODES.has(error.code))
       || error.message?.includes('platform_pod_review_status')),
+  );
+const isFinanceReconciliationSchemaUnavailable = (error: { code?: string; message?: string } | null | undefined) =>
+  Boolean(
+    error
+    && ((error.code && FINANCE_RECONCILIATION_SCHEMA_UNAVAILABLE_CODES.has(error.code))
+      || error.message?.includes('platform_finance_reconciliation_result')),
   );
 
 const CASE_ACTIONS: ActionDescriptor[] = [
@@ -158,6 +165,18 @@ async function entityExists(entityType: string, entityId: string) {
     return { exists: Boolean(data), label: data ? String(data.description ?? `Dispute ${data.id}`) : entityId, companyId: data?.raised_by_company_id ? String(data.raised_by_company_id) : null, status: data?.status ? String(data.status) : null, exchangeVisibility: null };
   }
 
+  if (entityType === 'invoice') {
+    const { data, error } = await supabaseAdmin.from('invoices').select('id, invoice_number, company_id, status, payment_status').eq('id', entityId).maybeSingle();
+    if (error) throw new Error(error.message);
+    return {
+      exists: Boolean(data),
+      label: data ? String(data.invoice_number ?? data.id) : entityId,
+      companyId: data?.company_id ? String(data.company_id) : null,
+      status: data ? String(data.payment_status ?? data.status ?? '') : null,
+      exchangeVisibility: null,
+    };
+  }
+
   return { exists: false, label: entityId, companyId: null, status: null, exchangeVisibility: null };
 }
 
@@ -169,7 +188,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
   const { entityType: rawType, entityId: rawId } = await context.params;
   const entityType = decodeURIComponent(rawType).toLowerCase();
   const entityId = decodeURIComponent(rawId).trim();
-  if (!OPERATIONS_ENTITY_TYPES.has(entityType)) {
+  if (!OPERATIONS_ENTITY_TYPES.has(entityType) && entityType !== 'invoice') {
     return respond(200, { entityType, entityId, supported: false, actions: [], activeCases: [], caseCentreAvailable: null });
   }
 
@@ -184,6 +203,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
   const actions: ActionDescriptor[] = [];
   const domainNotes: string[] = [];
   let podReviewState: Record<string, unknown> | null = null;
+  let financeReconciliationState: Record<string, unknown> | null = null;
 
   if (entityType === 'job') actions.push(...marketplaceActionsFor(entity.status ?? '', entity.exchangeVisibility ?? ''));
 
@@ -226,6 +246,68 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     }
   }
 
+  if (entityType === 'invoice') {
+    const reconciliation = await supabaseAdmin
+      .from('invoices')
+      .select('id, amount, payment_status, paid_at, platform_finance_reconciliation_result, platform_finance_reconciliation_note, platform_finance_reconciled_at')
+      .eq('id', entityId)
+      .maybeSingle();
+
+    if (reconciliation.error) {
+      if (!isFinanceReconciliationSchemaUnavailable(reconciliation.error)) return respond(500, { error: reconciliation.error.message });
+      domainNotes.push('Platform finance reconciliation schema is not applied in this environment. Reconciliation actions are suppressed.');
+    } else if (reconciliation.data) {
+      const paymentHistory = await supabaseAdmin
+        .from('invoice_payment_history')
+        .select('amount, paid_at')
+        .eq('invoice_id', entityId)
+        .eq('company_id', entity.companyId as string)
+        .order('paid_at', { ascending: false })
+        .limit(500);
+      if (paymentHistory.error) return respond(500, { error: paymentHistory.error.message });
+
+      const invoiceAmount = Number(reconciliation.data.amount) || 0;
+      const ledgerPaidAmount = (paymentHistory.data ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      const expectedPaymentStatus = invoiceAmount > 0 && ledgerPaidAmount >= invoiceAmount
+        ? 'paid'
+        : ledgerPaidAmount > 0
+          ? 'partially_paid'
+          : 'unpaid';
+      const currentPaymentStatus = String(reconciliation.data.payment_status ?? 'unpaid');
+      const expectedPaidAt = expectedPaymentStatus === 'paid'
+        ? (paymentHistory.data ?? []).map((row) => row.paid_at).filter(Boolean).sort().at(-1) ?? null
+        : null;
+      const currentPaidAt = reconciliation.data.paid_at ? String(reconciliation.data.paid_at) : null;
+      const mismatch = currentPaymentStatus !== expectedPaymentStatus || currentPaidAt !== expectedPaidAt;
+
+      financeReconciliationState = {
+        available: true,
+        invoiceAmount,
+        ledgerPaidAmount,
+        outstandingAmount: Math.max(0, invoiceAmount - ledgerPaidAmount),
+        paymentRecordCount: (paymentHistory.data ?? []).length,
+        currentPaymentStatus,
+        expectedPaymentStatus,
+        currentPaidAt,
+        expectedPaidAt,
+        mismatch,
+        lastResult: reconciliation.data.platform_finance_reconciliation_result,
+        lastNote: reconciliation.data.platform_finance_reconciliation_note,
+        lastReconciledAt: reconciliation.data.platform_finance_reconciled_at,
+      };
+
+      actions.push({
+        id: 'finance_reconcile_payment_status',
+        label: mismatch ? 'Repair payment state' : 'Verify reconciliation',
+        description: mismatch
+          ? 'Recalculate invoice settlement state from invoice_payment_history and repair only the derived invoice payment state. No payment record is created.'
+          : 'Recalculate invoice settlement state from invoice_payment_history and record an audited Platform Owner verification. No payment record is created.',
+        requiresReason: true,
+        tone: mismatch ? 'warning' : 'secondary',
+      });
+    }
+  }
+
   const caseResult = await supabaseAdmin
     .from('platform_cases')
     .select('id, reference, severity, status, title')
@@ -261,7 +343,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     entityId,
     entityLabel: entity.label,
     companyId: entity.companyId,
-    state: { status: entity.status, exchangeVisibility: entity.exchangeVisibility, podReview: podReviewState },
+    state: {
+      status: entity.status,
+      exchangeVisibility: entity.exchangeVisibility,
+      podReview: podReviewState,
+      financeReconciliation: financeReconciliationState,
+    },
     actions,
     activeCases,
     caseCentreAvailable,
