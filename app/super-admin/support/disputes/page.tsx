@@ -19,12 +19,13 @@ export default function Page() {
   return (
     <SuperAdminLiveTablePage<Row>
       icon="⚖️"
-      title="Disputes"
-      sectionLabel="Support"
-      description="Invoice dispute investigation and resolution management across all companies."
+      title="Invoice Disputes"
+      sectionLabel="Support / Finance"
+      description="Invoice dispute register. Each resolvable row drills into the authoritative Invoice Inspector, which carries the commercial parties, underlying job, payment history and dispute context."
       endpoint="/api/super-admin/support?section=disputes&limit=250"
       summaryField="summary"
-      emptyMessage="No disputes found."
+      emptyMessage="No invoice disputes found."
+      entityLink={(row) => row.invoice_id ? { entityType: 'invoice', entityId: row.invoice_id, label: 'Invoice' } : null}
       columns={[
         {
           key: 'company',
@@ -39,25 +40,17 @@ export default function Page() {
         {
           key: 'reason',
           label: 'Reason',
-          render: (row) => (
-            <span style={{ fontSize: '0.75rem' }}>{row.reason}</span>
-          ),
+          render: (row) => <span style={{ fontSize: '0.75rem' }}>{row.reason}</span>,
         },
         {
           key: 'details',
           label: 'Details',
-          render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{row.details ?? '—'}</span>
-          ),
+          render: (row) => <span style={{ fontSize: '0.72rem', color: '#64748B' }}>{row.details ?? '—'}</span>,
         },
         {
           key: 'resolution_note',
           label: 'Resolution',
-          render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: row.resolution_note ? '#22c55e' : '#94a3b8' }}>
-              {row.resolution_note ?? '—'}
-            </span>
-          ),
+          render: (row) => <span style={{ fontSize: '0.72rem', color: row.resolution_note ? '#15803D' : '#64748B' }}>{row.resolution_note ?? '—'}</span>,
         },
         {
           key: 'created_at',
@@ -67,11 +60,7 @@ export default function Page() {
         {
           key: 'resolved_at',
           label: 'Resolved',
-          render: (row) => (
-            <span style={{ fontSize: '0.75rem' }}>
-              {row.resolved_at ? formatDateTime(row.resolved_at) : '—'}
-            </span>
-          ),
+          render: (row) => <span style={{ fontSize: '0.75rem' }}>{row.resolved_at ? formatDateTime(row.resolved_at) : '—'}</span>,
         },
       ]}
     />
