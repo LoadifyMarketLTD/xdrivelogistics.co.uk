@@ -4,6 +4,13 @@ BEGIN;
 -- which is intentionally not SELECT-granted to `authenticated`. That made any
 -- authenticated storage.objects SELECT fail at policy planning time. Preserve
 -- the same membership rule behind a narrow SECURITY DEFINER predicate.
+--
+-- Fresh Supabase projects inherit broad default table ACLs for anon/authenticated,
+-- while hosted production has this evidence table restricted to postgres +
+-- service_role. Reconstruct that hosted privilege boundary explicitly before the
+-- policy verifier runs so clean replay does not depend on out-of-band ACL drift.
+REVOKE ALL ON TABLE public.invoice_documents FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.invoice_documents TO service_role;
 
 CREATE OR REPLACE FUNCTION public.can_read_invoice_storage_object(
   p_object_name text
@@ -39,8 +46,13 @@ DO $$
 DECLARE
   v_expr text;
 BEGIN
-  IF has_table_privilege('authenticated', 'public.invoice_documents', 'SELECT') THEN
-    RAISE EXCEPTION 'P0-06 must not grant authenticated raw invoice_documents access.';
+  IF has_table_privilege('authenticated', 'public.invoice_documents', 'SELECT')
+     OR has_table_privilege('anon', 'public.invoice_documents', 'SELECT') THEN
+    RAISE EXCEPTION 'P0-06 must not grant anon/authenticated raw invoice_documents access.';
+  END IF;
+
+  IF NOT has_table_privilege('service_role', 'public.invoice_documents', 'SELECT') THEN
+    RAISE EXCEPTION 'P0-06 must preserve service_role invoice_documents access.';
   END IF;
 
   SELECT qual INTO v_expr

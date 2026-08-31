@@ -1,28 +1,34 @@
--- Repair: ensure 'Pending' exists in public.invoice_status enum.
+-- Repair: ensure the hosted canonical public.invoice_status labels exist.
 --
--- 'Pending' is the legacy DB representation of the canonical 'Draft' invoice
--- state.  It was originally introduced in migration 014_add_invoices_table.sql
--- but can be absent from environments where the enum was recreated or
--- manually altered.
+-- Fresh history originally creates only the legacy Pending/Paid/Overdue labels,
+-- while hosted production also carries the lowercase canonical lifecycle labels
+-- draft/sent/paid/void/overdue. Later finance migrations use `void` directly,
+-- so zero-data replay must reconstruct those observed enum labels in an earlier,
+-- separately committed migration before first use.
 --
--- This migration is idempotent and must run before
--- 20260723111500_invoice_snapshot_integrity.sql, which casts a status reset
--- value to 'Pending'::public.invoice_status.
---
--- ALTER TYPE … ADD VALUE must not run inside an explicit transaction block in
--- older PostgreSQL versions; on Supabase (PG 14 +) it is allowed but the new
--- value is not visible within the same transaction, so it is placed here in
--- its own migration instead.
+-- ALTER TYPE ... ADD VALUE values become usable after this migration commits.
 
 DO $$
+DECLARE
+  v_label text;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM   pg_enum
-    WHERE  enumtypid = 'public.invoice_status'::regtype::oid
-      AND  enumlabel = 'Pending'
-  ) THEN
-    ALTER TYPE public.invoice_status ADD VALUE 'Pending';
-  END IF;
+  FOREACH v_label IN ARRAY ARRAY[
+    'draft',
+    'sent',
+    'paid',
+    'void',
+    'overdue',
+    'Pending'
+  ]::text[]
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_enum
+      WHERE enumtypid = 'public.invoice_status'::regtype::oid
+        AND enumlabel = v_label
+    ) THEN
+      EXECUTE format('ALTER TYPE public.invoice_status ADD VALUE %L', v_label);
+    END IF;
+  END LOOP;
 END;
 $$;

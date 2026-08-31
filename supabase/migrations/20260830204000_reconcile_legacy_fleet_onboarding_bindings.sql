@@ -3,6 +3,36 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
+-- Hosted production carries companies.updated_at as TIMESTAMPTZ NOT NULL
+-- DEFAULT now(). Fresh replay must reconstruct that physical contract before
+-- the legacy Fleet company-type reconciliation first writes the audit field.
+ALTER TABLE public.companies
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+DO $$
+DECLARE
+  v_data_type text;
+  v_nullable text;
+  v_default text;
+BEGIN
+  SELECT c.data_type, c.is_nullable, c.column_default
+  INTO v_data_type, v_nullable, v_default
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'companies'
+    AND c.column_name = 'updated_at';
+
+  IF v_data_type IS DISTINCT FROM 'timestamp with time zone'
+     OR v_nullable IS DISTINCT FROM 'NO'
+     OR v_default IS NULL
+     OR lower(v_default) NOT LIKE '%now()%'
+  THEN
+    RAISE EXCEPTION
+      'companies.updated_at clean-replay contract is not TIMESTAMPTZ NOT NULL DEFAULT now().';
+  END IF;
+END;
+$$;
+
 -- P0-11: converge the historical persisted `fleet_operator` onboarding alias to
 -- the canonical `fleet_courier` contract. Preserve applicant status/progress and
 -- never infer a company relationship unless production data proves a unique,

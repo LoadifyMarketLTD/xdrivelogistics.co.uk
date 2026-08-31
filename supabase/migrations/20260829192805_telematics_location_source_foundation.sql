@@ -2,12 +2,26 @@
 -- Existing driver/mobile writes remain valid through the driver_app default.
 
 alter table public.driver_locations
+  add column if not exists location geography(Point, 4326),
   add column if not exists vehicle_id uuid references public.vehicles(id) on delete set null,
   add column if not exists company_id uuid references public.companies(id) on delete set null,
   add column if not exists job_id uuid references public.jobs(id) on delete set null,
   add column if not exists source text not null default 'driver_app',
   add column if not exists source_provider text,
   add column if not exists source_event_id text;
+
+-- Hosted production already has geography(Point,4326) location NOT NULL, while
+-- the repository's original fresh schema only creates numeric lat/lng. Restore
+-- that observed hosted contract before installing the bidirectional sync trigger.
+-- Existing hosted rows are untouched because location is already populated.
+update public.driver_locations
+set location = st_setsrid(st_makepoint(lng, lat), 4326)::geography
+where location is null
+  and lat is not null
+  and lng is not null;
+
+alter table public.driver_locations
+  alter column location set not null;
 
 -- Hosted driver_locations still requires geography location NOT NULL, while the
 -- current Driver and Telematics routes publish numeric lat/lng. Keep both
