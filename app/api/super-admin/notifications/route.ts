@@ -62,34 +62,57 @@ const inspectorHref = (entityType: string, entityId: string) =>
   `/super-admin/inspect/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`;
 
 const DIRECT_INSPECTOR_TYPES = new Set(['company', 'user', 'driver', 'vehicle', 'job', 'invoice', 'ticket', 'dispute', 'case']);
+const EXISTENCE_GATED_TYPES = new Set(['company', 'driver', 'vehicle', 'job', 'invoice', 'ticket', 'dispute']);
 
 type OnboardingTarget = { entityType: 'company' | 'user'; entityId: string };
+type ExistingByType = Map<string, Set<string>>;
 
 const viewHrefFor = (
   row: NotificationEventRow,
   bidJobById: Map<string, string>,
   onboardingTargetById: Map<string, OnboardingTarget>,
+  existingByType: ExistingByType,
 ) => {
   const entityType = String(row.entity_type ?? '').toLowerCase();
   if (!entityType || !row.entity_id) return null;
 
   if (entityType === 'job' && row.event_type.toLowerCase().includes('pod')) {
-    return inspectorHref('pod', row.entity_id);
+    return existingByType.get('job')?.has(row.entity_id) ? inspectorHref('pod', row.entity_id) : null;
   }
-  if (DIRECT_INSPECTOR_TYPES.has(entityType)) return inspectorHref(entityType, row.entity_id);
+  if (entityType === 'pod') {
+    return existingByType.get('job')?.has(row.entity_id) ? inspectorHref('pod', row.entity_id) : null;
+  }
+  if (DIRECT_INSPECTOR_TYPES.has(entityType)) {
+    if (EXISTENCE_GATED_TYPES.has(entityType) && !existingByType.get(entityType)?.has(row.entity_id)) return null;
+    return inspectorHref(entityType, row.entity_id);
+  }
 
   if (entityType === 'bid') {
     const jobId = bidJobById.get(row.entity_id);
-    return jobId ? inspectorHref('job', jobId) : null;
+    return jobId && existingByType.get('job')?.has(jobId) ? inspectorHref('job', jobId) : null;
   }
 
   if (entityType === 'onboarding_application') {
     const target = onboardingTargetById.get(row.entity_id);
-    return target ? inspectorHref(target.entityType, target.entityId) : null;
+    if (!target) return null;
+    if (target.entityType === 'company' && !existingByType.get('company')?.has(target.entityId)) return null;
+    return inspectorHref(target.entityType, target.entityId);
   }
 
   return null;
 };
+
+const uniqueEntityIds = (rows: NotificationEventRow[], entityType: string) =>
+  Array.from(new Set(rows.filter((row) => row.entity_type === entityType).map((row) => row.entity_id).filter(Boolean)));
+
+async function fetchExistingIds(table: string, ids: string[]) {
+  if (!supabaseAdmin || ids.length === 0) return { ids: new Set<string>(), error: null as { message: string } | null };
+  const { data, error } = await supabaseAdmin.from(table).select('id').in('id', ids);
+  return {
+    ids: new Set((data ?? []).map((row) => String((row as { id: unknown }).id))),
+    error: error ? { message: error.message } : null,
+  };
+}
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -131,8 +154,8 @@ export async function GET(request: NextRequest) {
     normalizedRows = (primaryResult.data ?? []).map(normalizeDurabilityRow);
   }
 
-  const bidIds = Array.from(new Set(normalizedRows.filter((row) => row.entity_type === 'bid').map((row) => row.entity_id).filter(Boolean)));
-  const onboardingApplicationIds = Array.from(new Set(normalizedRows.filter((row) => row.entity_type === 'onboarding_application').map((row) => row.entity_id).filter(Boolean)));
+  const bidIds = uniqueEntityIds(normalizedRows, 'bid');
+  const onboardingApplicationIds = uniqueEntityIds(normalizedRows, 'onboarding_application');
 
   const [bidResolution, onboardingResolution] = await Promise.all([
     bidIds.length
@@ -152,6 +175,40 @@ export async function GET(request: NextRequest) {
     if (row.company_id) onboardingTargetById.set(String(row.id), { entityType: 'company', entityId: String(row.company_id) });
     else if (row.user_id) onboardingTargetById.set(String(row.id), { entityType: 'user', entityId: String(row.user_id) });
   }
+
+  const jobIds = Array.from(new Set([
+    ...uniqueEntityIds(normalizedRows, 'job'),
+    ...uniqueEntityIds(normalizedRows, 'pod'),
+    ...bidJobById.values(),
+  ]));
+  const companyIds = Array.from(new Set([
+    ...uniqueEntityIds(normalizedRows, 'company'),
+    ...Array.from(onboardingTargetById.values()).filter((target) => target.entityType === 'company').map((target) => target.entityId),
+  ]));
+
+  const [jobs, companies, drivers, vehicles, invoices, tickets, disputes] = await Promise.all([
+    fetchExistingIds('jobs', jobIds),
+    fetchExistingIds('companies', companyIds),
+    fetchExistingIds('drivers', uniqueEntityIds(normalizedRows, 'driver')),
+    fetchExistingIds('vehicles', uniqueEntityIds(normalizedRows, 'vehicle')),
+    fetchExistingIds('invoices', uniqueEntityIds(normalizedRows, 'invoice')),
+    fetchExistingIds('support_tickets', uniqueEntityIds(normalizedRows, 'ticket')),
+    fetchExistingIds('job_disputes', uniqueEntityIds(normalizedRows, 'dispute')),
+  ]);
+
+  const existenceResults = [jobs, companies, drivers, vehicles, invoices, tickets, disputes];
+  const existenceError = existenceResults.find((result) => result.error)?.error;
+  if (existenceError) return respond(500, { error: 'Failed to validate notification entity targets.', detail: existenceError.message });
+
+  const existingByType: ExistingByType = new Map([
+    ['job', jobs.ids],
+    ['company', companies.ids],
+    ['driver', drivers.ids],
+    ['vehicle', vehicles.ids],
+    ['invoice', invoices.ids],
+    ['ticket', tickets.ids],
+    ['dispute', disputes.ids],
+  ]);
 
   const allRows = normalizedRows.map((row) => {
     const category = categoryFor(row.event_type);
@@ -174,7 +231,7 @@ export async function GET(request: NextRequest) {
       last_error: row.last_error,
       attempt_count: row.attempt_count,
       next_attempt_at: row.next_attempt_at,
-      view_href: viewHrefFor(row, bidJobById, onboardingTargetById),
+      view_href: viewHrefFor(row, bidJobById, onboardingTargetById, existingByType),
     };
   });
 
@@ -188,6 +245,11 @@ export async function GET(request: NextRequest) {
     }
     return true;
   });
+
+  const unresolvedEntityLinks = allRows.filter((row) => row.entity_type && row.entity_type !== 'system' && !row.view_href).length;
+  const diagnosticMessages: string[] = [];
+  if (durabilityUnavailable) diagnosticMessages.push('Notification durability details are unavailable in the connected schema.');
+  if (unresolvedEntityLinks > 0) diagnosticMessages.push(`${unresolvedEntityLinks} notification target${unresolvedEntityLinks === 1 ? '' : 's'} could not be resolved to a current canonical entity; View is suppressed for those rows.`);
 
   const start = (page - 1) * limit;
   const rows = filtered.slice(start, start + limit);
@@ -212,8 +274,6 @@ export async function GET(request: NextRequest) {
       severities: ['Critical', 'Warning', 'Info', 'Success'],
       statuses: Array.from(new Set(allRows.map((row) => row.status))).sort(),
     },
-    ...(durabilityUnavailable
-      ? { diagnosticNote: 'Notification durability details are unavailable in the connected schema.' }
-      : {}),
+    ...(diagnosticMessages.length > 0 ? { diagnosticNote: diagnosticMessages.join(' ') } : {}),
   });
 }
