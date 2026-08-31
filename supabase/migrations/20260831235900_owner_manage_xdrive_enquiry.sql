@@ -184,7 +184,11 @@ BEGIN
     RAISE EXCEPTION 'The customer quote must be accepted before conversion to a job.' USING ERRCODE = '23514';
   END IF;
 
-  IF p_execution_mode NOT IN ('own_fleet', 'direct_carrier', 'marketplace') THEN
+  IF v_quote.amount IS NULL OR v_quote.amount <= 0 THEN
+    RAISE EXCEPTION 'An accepted enquiry must have a positive customer price before conversion.' USING ERRCODE = '23514';
+  END IF;
+
+  IF p_execution_mode IS NULL OR p_execution_mode NOT IN ('own_fleet', 'direct_carrier', 'marketplace') THEN
     RAISE EXCEPTION 'A valid execution mode is required.' USING ERRCODE = '22023';
   END IF;
 
