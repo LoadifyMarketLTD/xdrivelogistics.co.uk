@@ -9,6 +9,11 @@ import {
 
 const json = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
+const isDeployPreviewReadOnly = () =>
+  process.env.CONTEXT === 'deploy-preview'
+  || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
+  || Boolean(process.env.URL?.includes('deploy-preview-'));
+
 type MissingDocumentRow = {
   doc_type?: string | null;
   required_doc_type?: string | null;
@@ -43,13 +48,15 @@ export async function GET(request: NextRequest) {
 
   const missingDocuments = ((rows ?? []) as MissingDocumentRow[]).map(documentName).filter(Boolean);
 
-  // Resolve outstanding requests opportunistically when the canonical requirement set is clear.
-  if (missingDocuments.length === 0) {
+  // Normal runtime may close a durable request once the canonical requirement set is complete.
+  // Deploy Preview is strictly read-only, so even this housekeeping write must fail closed there.
+  if (missingDocuments.length === 0 && !isDeployPreviewReadOnly()) {
     await supabaseAdmin.rpc('resolve_completed_document_requests', { p_application_id: application.id }).catch(() => null);
   }
 
   return json(200, {
     available: true,
+    previewReadOnly: isDeployPreviewReadOnly(),
     application: {
       id: application.id,
       status: application.status,
