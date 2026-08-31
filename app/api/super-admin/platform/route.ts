@@ -205,49 +205,42 @@ export async function PATCH(request: NextRequest) {
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
-  const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string } | null;
+  const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string; reason?: string } | null;
   const section = String(body?.section ?? '').toLowerCase();
   const action = String(body?.action ?? '').toLowerCase();
   const notificationId = String(body?.notificationId ?? '').trim();
+  const reason = String(body?.reason ?? '').trim();
 
-  if (section !== 'notifications' || action !== 'retry' || !notificationId) {
-    return respond(400, { error: 'Invalid action payload.' });
+  if (section !== 'notifications' || action !== 'retry' || !notificationId || reason.length < 5) {
+    return respond(400, { error: 'Notification retry requires a valid event and a written reason of at least 5 characters.' });
   }
 
-  const { data: notification, error: notificationError } = await supabaseAdmin
-    .from('notification_events')
-    .select('id, status')
-    .eq('id', notificationId)
-    .maybeSingle();
+  const { data, error } = await supabaseAdmin.rpc('owner_retry_notification_event', {
+    p_actor_user_id: owner.id,
+    p_notification_id: notificationId,
+    p_reason: reason,
+  });
 
-  if (notificationError) return respond(500, { error: notificationError.message });
-  if (!notification) return respond(404, { error: 'Notification event not found.' });
-
-  const currentStatus = String(notification.status ?? '').toLowerCase();
-  if (currentStatus !== 'failed' && currentStatus !== 'skipped') {
-    return respond(409, { error: `Notification cannot be retried from status "${currentStatus || 'unknown'}".` });
+  if (error) {
+    if (error.code === 'P0002') return respond(404, { error: 'Notification event not found.' });
+    if (error.code === '42501') return respond(403, { error: 'Platform Owner authority required.' });
+    if (error.code === '23514' || error.code === '23502' || error.code === '22P02') return respond(409, { error: error.message });
+    if (error.code === 'PGRST202' || error.code === '42883') {
+      return respond(503, {
+        error: 'Canonical notification retry governance is not available in this environment.',
+        migrationRequired: true,
+      });
+    }
+    return respond(500, { error: error.message });
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from('notification_events')
-    .update({
-      status: 'pending',
-      processed_at: null,
-      last_error: null,
-      next_attempt_at: new Date().toISOString(),
-    })
-    .eq('id', notificationId);
+  const retry = Array.isArray(data) ? data[0] ?? null : data;
+  if (!retry) return respond(500, { error: 'Notification retry returned no authoritative result.' });
 
-  if (updateError && isMissingDurabilityColumnError(updateError)) {
-    const { error: fallbackError } = await supabaseAdmin
-      .from('notification_events')
-      .update({ status: 'pending', processed_at: null })
-      .eq('id', notificationId);
-    if (fallbackError) return respond(500, { error: fallbackError.message });
-    return respond(200, { success: true, notificationId, status: 'pending' });
-  }
-
-  if (updateError) return respond(500, { error: updateError.message });
-
-  return respond(200, { success: true, notificationId, status: 'pending' });
+  return respond(200, {
+    success: true,
+    notificationId: retry.notification_id ?? notificationId,
+    status: retry.status ?? 'pending',
+    retry,
+  });
 }
