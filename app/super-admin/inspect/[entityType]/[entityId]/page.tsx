@@ -65,6 +65,22 @@ type PodReviewState = {
   hardCopyPresent?: boolean;
 };
 
+type FinanceReconciliationState = {
+  available?: boolean;
+  invoiceAmount?: number;
+  ledgerPaidAmount?: number;
+  outstandingAmount?: number;
+  paymentRecordCount?: number;
+  currentPaymentStatus?: string;
+  expectedPaymentStatus?: string;
+  currentPaidAt?: string | null;
+  expectedPaidAt?: string | null;
+  mismatch?: boolean;
+  lastResult?: string | null;
+  lastNote?: string | null;
+  lastReconciledAt?: string | null;
+};
+
 type ActionState = {
   supported?: boolean;
   entityType?: string;
@@ -75,6 +91,7 @@ type ActionState = {
     status?: string | null;
     exchangeVisibility?: string | null;
     podReview?: PodReviewState | null;
+    financeReconciliation?: FinanceReconciliationState | null;
   };
   actions?: ActionDescriptor[];
   activeCases?: ActiveCase[];
@@ -152,6 +169,34 @@ function PodReviewSummary({ state }: { state: PodReviewState }) {
         </div>
       ))}
       {state.reviewNote ? <div style={{ gridColumn: '1 / -1', color: X.muted, fontSize: '10px' }}>Last review note: {state.reviewNote}{state.reviewedAt ? ` · ${state.reviewedAt}` : ''}</div> : null}
+    </div>
+  );
+}
+
+function FinanceReconciliationSummary({ state }: { state: FinanceReconciliationState }) {
+  const currency = (amount: number | undefined) => `£${Number(amount ?? 0).toFixed(2)}`;
+  return (
+    <div style={{ marginBottom: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: '6px' }}>
+        {[
+          ['Invoice amount', currency(state.invoiceAmount)],
+          ['Ledger paid', currency(state.ledgerPaidAmount)],
+          ['Outstanding', currency(state.outstandingAmount)],
+          ['Payment records', String(state.paymentRecordCount ?? 0)],
+          ['Invoice state', state.currentPaymentStatus ?? 'unknown'],
+          ['Ledger state', state.expectedPaymentStatus ?? 'unknown'],
+        ].map(([label, value]) => (
+          <div key={label} style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.light, padding: '6px 7px' }}>
+            <div style={{ color: X.muted, fontSize: '8px', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div>
+            <div style={{ marginTop: '2px', color: X.charcoal, fontSize: '10px', fontWeight: 800 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: '6px', borderLeft: `4px solid ${state.mismatch ? X.orange : X.blue}`, background: X.light, padding: '6px 8px', color: X.charcoal, fontSize: '10px' }}>
+        {state.mismatch ? 'Derived invoice payment state does not match the canonical payment ledger.' : 'Invoice payment state currently matches the canonical payment ledger.'}
+        {state.lastResult ? ` Last Platform reconciliation: ${state.lastResult}${state.lastReconciledAt ? ` · ${state.lastReconciledAt}` : ''}.` : ''}
+        {state.lastNote ? ` Note: ${state.lastNote}` : ''}
+      </div>
     </div>
   );
 }
@@ -242,23 +287,31 @@ export default function Page() {
     description: descriptor.description,
     requiresReason: descriptor.requiresReason,
     tone: descriptor.tone,
-    reasonLabel: descriptor.caseSeverity ? `${descriptor.caseSeverity} investigation reason` : 'Platform intervention reason',
+    reasonLabel: descriptor.caseSeverity
+      ? `${descriptor.caseSeverity} investigation reason`
+      : descriptor.id === 'finance_reconcile_payment_status'
+        ? 'Finance reconciliation reason'
+        : 'Platform intervention reason',
     reasonPlaceholder: descriptor.caseSeverity
       ? 'Describe the exception, evidence and operational impact…'
       : descriptor.id.startsWith('pod_')
         ? 'Record the evidence review reason and any remediation required…'
-        : 'Describe why this platform intervention is required…',
+        : descriptor.id === 'finance_reconcile_payment_status'
+          ? 'Explain why this invoice ledger reconciliation is being performed…'
+          : 'Describe why this platform intervention is required…',
     onExecute: async (reason) => {
       const auth = await getAuthHeader();
       if (!auth) throw new Error('No active Platform Owner session.');
 
       if (descriptor.caseSeverity) {
+        const caseSource = entityTypeParam === 'invoice' ? 'finance' : 'operations';
+        const caseType = entityTypeParam === 'invoice' ? 'invoice_finance_exception' : `${entityTypeParam}_exception`;
         const response = await fetch('/api/super-admin/cases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: auth },
           body: JSON.stringify({
-            source: 'operations',
-            caseType: `${entityTypeParam}_exception`,
+            source: caseSource,
+            caseType,
             severity: descriptor.caseSeverity,
             title: `${descriptor.caseSeverity} ${entityTypeParam} exception · ${actionState?.entityLabel ?? payload?.reference ?? entityIdParam}`,
             description: reason,
@@ -266,7 +319,7 @@ export default function Page() {
             entityId: entityIdParam,
             entityLabel: actionState?.entityLabel ?? payload?.reference ?? entityIdParam,
             companyId: actionState?.companyId ?? null,
-            dedupeKey: `operations:${entityTypeParam}:${entityIdParam}`,
+            dedupeKey: `${caseSource}:${entityTypeParam}:${entityIdParam}`,
             metadata: {
               origin: 'platform_entity_inspector',
               inspector_entity_type: entityTypeParam,
@@ -293,6 +346,18 @@ export default function Page() {
         });
         const body = await response.json().catch(() => ({})) as { error?: string };
         if (!response.ok) throw new Error(body.error ?? 'Platform POD review failed.');
+        await load();
+        return;
+      }
+
+      if (entityTypeParam === 'invoice' && descriptor.id === 'finance_reconcile_payment_status') {
+        const response = await fetch(`/api/super-admin/finance/invoices/${encodeURIComponent(entityIdParam)}/reconcile`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: auth },
+          body: JSON.stringify({ reason }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) throw new Error(body.error ?? 'Invoice reconciliation failed.');
         await load();
         return;
       }
@@ -348,6 +413,7 @@ export default function Page() {
         <div>
           {(actionState.domainNotes ?? []).map((note, index) => <div key={`domain-note-${index}`} style={{ marginBottom: '8px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.light, padding: '7px 9px', color: X.charcoal, fontSize: '10px' }}>{note}</div>)}
           {actionState.state?.podReview ? <PodReviewSummary state={actionState.state.podReview} /> : null}
+          {actionState.state?.financeReconciliation ? <FinanceReconciliationSummary state={actionState.state.financeReconciliation} /> : null}
           {actionState.caseCentreNote ? <div style={{ marginBottom: '8px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${actionState.caseCentreAvailable === false ? X.orange : X.blue}`, borderRadius: '4px', background: X.light, padding: '7px 9px', color: X.charcoal, fontSize: '10px' }}>{actionState.caseCentreNote}</div> : null}
           <ActiveCases rows={actionState.activeCases ?? []} />
           {actionError ? <div role="alert" style={{ marginBottom: '8px', color: X.danger, fontSize: '10px' }}>{actionError}</div> : null}
