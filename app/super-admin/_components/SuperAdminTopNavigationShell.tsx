@@ -2,8 +2,31 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import {
+  Activity,
+  AlertTriangle,
+  Bell,
+  Building2,
+  ChevronDown,
+  CircleUserRound,
+  Command,
+  CreditCard,
+  LayoutDashboard,
+  LifeBuoy,
+  LogOut,
+  Menu,
+  Route,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Store,
+  Truck,
+  UsersRound,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { useAuth } from '../../components/AuthContext';
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
@@ -16,7 +39,18 @@ import {
 import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
 import styles from './SuperAdminTopNavigationShell.module.css';
 
-const NAV_CLOSE_DELAY_MS = 140;
+const GROUP_ICONS: Record<string, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  'xdrive-logistics': Truck,
+  marketplace: Store,
+  operations: Route,
+  fleet: UsersRound,
+  companies: Building2,
+  finance: CreditCard,
+  compliance: ShieldCheck,
+  support: LifeBuoy,
+  platform: Settings2,
+};
 
 export default function SuperAdminTopNavigationShell({
   children,
@@ -30,13 +64,13 @@ export default function SuperAdminTopNavigationShell({
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const [unreadCount, setUnreadCount] = useState(fixtureOverrides?.unreadCount ?? 0);
   const [accountOpen, setAccountOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const navRef = useRef<HTMLDivElement | null>(null);
-  const closeTimerRef = useRef<number | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const role = 'platform_owner' as const;
   const actionRole = resolveActionCentreRole(role);
@@ -45,27 +79,29 @@ export default function SuperAdminTopNavigationShell({
   const companyName = fixtureOverrides?.companyName ?? 'XDrive Logistics';
 
   const navigationTargets = useMemo(
-    () =>
-      definition.nav.flatMap((group) =>
-        group.items.map((item) => ({
-          id: `${group.id}-${item.id}`,
-          group: group.label,
-          label: item.label,
-          href: item.href,
-        })),
-      ),
+    () => definition.nav.flatMap((group) => group.items.map((item) => ({
+      id: `${group.id}-${item.id}`,
+      groupId: group.id,
+      group: group.label,
+      label: item.label,
+      href: item.href,
+    }))),
     [definition.nav],
   );
+
+  const currentTarget = useMemo(() => navigationTargets.find((item) => {
+    const [baseHref] = item.href.split('?');
+    if (baseHref === definition.homeHref) return pathname === baseHref;
+    return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
+  }), [definition.homeHref, navigationTargets, pathname]);
 
   const searchResults = useMemo(() => {
     const normalized = searchValue.trim().toLowerCase();
     if (!normalized) return [];
-    return navigationTargets
-      .filter((item) =>
-        item.label.toLowerCase().includes(normalized)
-        || item.group.toLowerCase().includes(normalized),
-      )
-      .slice(0, 6);
+    return navigationTargets.filter((item) =>
+      item.label.toLowerCase().includes(normalized)
+      || item.group.toLowerCase().includes(normalized),
+    ).slice(0, 7);
   }, [navigationTargets, searchValue]);
 
   const isActive = (href: string) => {
@@ -74,41 +110,26 @@ export default function SuperAdminTopNavigationShell({
     return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
   };
 
-  const cancelScheduledClose = useCallback(() => {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  }, []);
-
-  const openNavigationGroup = useCallback((groupId: string) => {
-    cancelScheduledClose();
-    setOpenGroup(groupId);
-    setAccountOpen(false);
-    setSearchOpen(false);
-  }, [cancelScheduledClose]);
-
-  const scheduleNavigationClose = useCallback(() => {
-    cancelScheduledClose();
-    closeTimerRef.current = window.setTimeout(() => {
-      setOpenGroup(null);
-      closeTimerRef.current = null;
-    }, NAV_CLOSE_DELAY_MS);
-  }, [cancelScheduledClose]);
-
   const navigateToTarget = (href: string) => {
-    cancelScheduledClose();
     router.push(href);
     setSearchValue('');
     setSearchOpen(false);
-    setOpenGroup(null);
     setAccountOpen(false);
+    setMobileNavOpen(false);
   };
 
   const navigateFromSearch = () => {
     const query = searchValue.trim();
     if (query.length < 2) return;
     navigateToTarget(`/super-admin/search?q=${encodeURIComponent(query)}`);
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -137,138 +158,110 @@ export default function SuperAdminTopNavigationShell({
   }, [fixtureOverrides?.unreadCount, user?.id]);
 
   useEffect(() => {
-    const closeMenus = (event: MouseEvent) => {
-      if (!navRef.current?.contains(event.target as Node)) {
-        cancelScheduledClose();
-        setOpenGroup(null);
-        setAccountOpen(false);
+    const closeFloatingPanels = (event: MouseEvent) => {
+      if (!shellRef.current?.contains(event.target as Node)) {
         setSearchOpen(false);
+        setAccountOpen(false);
       }
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      cancelScheduledClose();
-      setOpenGroup(null);
-      setAccountOpen(false);
       setSearchOpen(false);
+      setAccountOpen(false);
+      setMobileNavOpen(false);
     };
-    document.addEventListener('mousedown', closeMenus);
+    document.addEventListener('mousedown', closeFloatingPanels);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
-      document.removeEventListener('mousedown', closeMenus);
+      document.removeEventListener('mousedown', closeFloatingPanels);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [cancelScheduledClose]);
+  }, []);
 
   useEffect(() => {
-    cancelScheduledClose();
-    setOpenGroup(null);
-    setAccountOpen(false);
     setSearchOpen(false);
-  }, [cancelScheduledClose, pathname]);
-
-  useEffect(() => () => cancelScheduledClose(), [cancelScheduledClose]);
+    setAccountOpen(false);
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   return (
-    <div className={styles.shell}>
-      <div ref={navRef} className={styles.top}>
-        <header className={styles.header}>
-          <button
-            type="button"
-            onClick={() => navigateToTarget(definition.homeHref)}
-            aria-label="Platform Owner home"
-            className={styles.brand}
-          >
-            <Image
-              src="/xdrive-logo-horizontal.png"
-              alt="XDrive Logistics"
-              width={246}
-              height={66}
-              priority
-              className={styles.brandLogo}
-            />
+    <div ref={shellRef} className={styles.shell}>
+      <aside className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ''}`}>
+        <div className={styles.brandBlock}>
+          <button type="button" className={styles.brand} onClick={() => navigateToTarget(definition.homeHref)} aria-label="Platform Owner home">
+            <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={246} height={66} priority className={styles.brandLogo} />
           </button>
+          <div className={styles.controlPlaneLabel}><Command size={12} /> Control plane</div>
+        </div>
 
-          <nav aria-label="Platform Owner navigation" className={styles.nav}>
-            {definition.nav.map((group) => {
-              const groupActive = group.items.some((item) => isActive(item.href));
-              const open = openGroup === group.id;
-              const buttonClass = [
-                styles.groupButton,
-                groupActive ? styles.groupActive : '',
-                open ? styles.groupOpen : '',
-              ].filter(Boolean).join(' ');
+        <div className={styles.previewStatus}>
+          <span className={styles.previewDot} />
+          <span>Visual rebuild preview</span>
+        </div>
 
-              return (
-                <div
-                  key={group.id}
-                  className={styles.group}
-                  onMouseEnter={() => openNavigationGroup(group.id)}
-                  onMouseLeave={scheduleNavigationClose}
-                >
-                  <button
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={open}
-                    onFocus={() => openNavigationGroup(group.id)}
-                    onClick={() => {
-                      cancelScheduledClose();
-                      setOpenGroup((value) => (value === group.id ? null : group.id));
-                      setAccountOpen(false);
-                      setSearchOpen(false);
-                    }}
-                    className={buttonClass}
-                  >
-                    {group.label}
-                    <span aria-hidden="true" className={styles.chevron}>▾</span>
-                  </button>
+        <nav className={styles.sidebarNav} aria-label="Platform Owner navigation">
+          {definition.nav.map((group) => {
+            const GroupIcon = GROUP_ICONS[group.id] ?? Activity;
+            const collapsed = collapsedGroups.has(group.id);
+            const activeGroup = group.items.some((item) => isActive(item.href));
+            return (
+              <section key={group.id} className={styles.navGroup}>
+                <button type="button" className={`${styles.groupHeader} ${activeGroup ? styles.groupHeaderActive : ''}`} onClick={() => toggleGroup(group.id)} aria-expanded={!collapsed}>
+                  <span className={styles.groupHeaderLabel}><GroupIcon size={15} strokeWidth={2} />{group.label}</span>
+                  <ChevronDown size={14} className={`${styles.groupChevron} ${collapsed ? styles.groupChevronCollapsed : ''}`} />
+                </button>
+                {!collapsed && (
+                  <div className={styles.groupItems}>
+                    {group.items.map((item) => {
+                      const active = isActive(item.href);
+                      return (
+                        <button key={item.id} type="button" className={`${styles.navItem} ${active ? styles.navItemActive : ''}`} onClick={() => navigateToTarget(item.href)}>
+                          <span className={styles.navItemMarker}>{active ? <span /> : null}</span>
+                          <span className={styles.navItemLabel}>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </nav>
 
-                  {open && (
-                    <div
-                      role="menu"
-                      aria-label={`${group.label} navigation`}
-                      className={styles.dropdown}
-                      onMouseEnter={cancelScheduledClose}
-                      onMouseLeave={scheduleNavigationClose}
-                    >
-                      <div className={styles.dropdownTitle}>{group.label}</div>
-                      {group.items.map((item) => {
-                        const active = isActive(item.href);
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            role="menuitem"
-                            onClick={() => navigateToTarget(item.href)}
-                            className={`${styles.menuItem} ${active ? styles.menuItemActive : ''}`}
-                          >
-                            <span aria-hidden="true" className={styles.itemIcon}>{item.icon ?? '•'}</span>
-                            <span className={styles.itemText}>
-                              <span className={styles.itemLabel}>{item.label}</span>
-                              <span className={styles.itemDescription}>
-                                {navigationDescription(group.id, item.id)}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </nav>
+        <div className={styles.sidebarFooter}>
+          <div className={styles.privilegeCard}>
+            <ShieldCheck size={16} />
+            <div>
+              <strong>Platform Owner</strong>
+              <span>Privileged global authority</span>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-          <div className={styles.actions}>
+      {mobileNavOpen && <button type="button" aria-label="Close navigation" className={styles.mobileOverlay} onClick={() => setMobileNavOpen(false)} />}
+
+      <div className={styles.workspace}>
+        <header className={styles.topbar}>
+          <div className={styles.topbarLeft}>
+            <button type="button" className={styles.mobileMenuButton} onClick={() => setMobileNavOpen((value) => !value)} aria-label="Toggle navigation">
+              {mobileNavOpen ? <X size={19} /> : <Menu size={19} />}
+            </button>
+            <div className={styles.breadcrumbBlock}>
+              <span className={styles.breadcrumbEyebrow}>{currentTarget?.group ?? 'Platform Owner'}</span>
+              <strong className={styles.breadcrumbTitle}>{currentTarget?.label ?? 'Command Centre'}</strong>
+            </div>
+          </div>
+
+          <div className={styles.topbarActions}>
             <div className={styles.searchArea}>
               <div className={styles.searchWrap}>
-                <span aria-hidden="true" className={styles.searchIcon}>⌕</span>
+                <Search size={16} className={styles.searchIcon} />
                 <input
                   value={searchValue}
                   onChange={(event) => {
                     setSearchValue(event.target.value);
                     setSearchOpen(Boolean(event.target.value.trim()));
-                    setOpenGroup(null);
                     setAccountOpen(false);
                   }}
                   onFocus={() => setSearchOpen(Boolean(searchValue.trim()))}
@@ -276,177 +269,68 @@ export default function SuperAdminTopNavigationShell({
                     if (event.key === 'Enter') navigateFromSearch();
                     if (event.key === 'Escape') setSearchOpen(false);
                   }}
-                  placeholder="Search platform"
+                  placeholder="Search jobs, companies, users, invoices…"
                   aria-label="Global Platform Search"
-                  aria-expanded={searchOpen}
-                  aria-controls="platform-owner-search-results"
                   autoComplete="off"
                   className={styles.searchInput}
                 />
+                <span className={styles.searchHint}>⌘ K</span>
               </div>
 
               {searchOpen && searchValue.trim().length > 0 && (
-                <div id="platform-owner-search-results" className={styles.searchResults} role="listbox">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected="false"
-                    className={styles.searchResult}
-                    onClick={navigateFromSearch}
-                    disabled={searchValue.trim().length < 2}
-                  >
-                    <span className={styles.searchResultLabel}>Search platform for “{searchValue.trim()}”</span>
-                    <span className={styles.searchResultGroup}>Global Platform Search</span>
+                <div className={styles.searchResults} role="listbox">
+                  <button type="button" className={`${styles.searchResult} ${styles.searchResultPrimary}`} onClick={navigateFromSearch} disabled={searchValue.trim().length < 2}>
+                    <span><strong>Search all platform data</strong><small>“{searchValue.trim()}”</small></span>
+                    <Search size={15} />
                   </button>
                   {searchResults.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      role="option"
-                      aria-selected="false"
-                      className={styles.searchResult}
-                      onClick={() => navigateToTarget(item.href)}
-                    >
-                      <span className={styles.searchResultLabel}>{item.label}</span>
-                      <span className={styles.searchResultGroup}>{item.group} · Navigation</span>
+                    <button key={item.id} type="button" className={styles.searchResult} onClick={() => navigateToTarget(item.href)}>
+                      <span><strong>{item.label}</strong><small>{item.group}</small></span>
+                      <span className={styles.searchArrow}>→</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigateToTarget(definition.homeHref)}
-              className={styles.homeButton}
-            >
-              Home
+            <button type="button" className={styles.actionCentreButton} onClick={() => navigateToTarget(actionCentreHref)} title="Action Centre">
+              <AlertTriangle size={16} />
+              <span>Action Centre</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => navigateToTarget(actionCentreHref)}
-              className={styles.actionButton}
-            >
-              Action Centre
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigateToTarget(notificationsHref)}
-              aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-              title="Notifications"
-              className={styles.notificationButton}
-            >
-              <span aria-hidden="true">🔔</span>
-              {unreadCount > 0 && (
-                <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
-              )}
+            <button type="button" className={styles.iconButton} onClick={() => navigateToTarget(notificationsHref)} aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} title="Notifications">
+              <Bell size={18} />
+              {unreadCount > 0 && <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
             </button>
 
             <div className={styles.accountWrap}>
-              <button
-                type="button"
-                onClick={() => {
-                  cancelScheduledClose();
-                  setAccountOpen((value) => !value);
-                  setOpenGroup(null);
-                  setSearchOpen(false);
-                }}
-                aria-expanded={accountOpen}
-                className={styles.accountButton}
-              >
-                <span aria-hidden="true" className={styles.avatar}>PO</span>
-                <span className={styles.accountLabel}>{user?.email ?? companyName}</span>
-                <span aria-hidden="true" className={styles.chevron}>▾</span>
+              <button type="button" className={styles.accountButton} onClick={() => { setAccountOpen((value) => !value); setSearchOpen(false); }} aria-expanded={accountOpen}>
+                <span className={styles.avatar}><CircleUserRound size={18} /></span>
+                <span className={styles.accountCopy}>
+                  <strong>Platform Owner</strong>
+                  <small>{user?.email ?? companyName}</small>
+                </span>
+                <ChevronDown size={14} />
               </button>
 
               {accountOpen && (
                 <div className={styles.accountMenu}>
-                  <div className={styles.accountMeta}>
-                    <div className={styles.accountRole}>PLATFORM OWNER</div>
-                    <div className={styles.accountEmail}>{user?.email ?? ''}</div>
+                  <div className={styles.accountMenuHeader}>
+                    <strong>Platform Owner</strong>
+                    <span>{user?.email ?? companyName}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigateToTarget(definition.homeHref)}
-                    className={styles.accountMenuButton}
-                  >
-                    Home / Command Centre
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void logout()}
-                    className={`${styles.accountMenuButton} ${styles.signout}`}
-                  >
-                    Sign out
-                  </button>
+                  <button type="button" onClick={() => navigateToTarget(definition.homeHref)}>Command Centre</button>
+                  <button type="button" className={styles.signOutMenuItem} onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
                 </div>
               )}
             </div>
-
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className={styles.signOutButton}
-            >
-              Sign out
-            </button>
           </div>
         </header>
-      </div>
 
-      <main className={styles.main}>{children}</main>
+        <main className={styles.main}>
+          <div className={styles.content}>{children}</div>
+        </main>
+      </div>
     </div>
   );
-}
-
-function navigationDescription(groupId: string, itemId: string) {
-  const descriptions: Record<string, string> = {
-    'dashboard-command-centre': 'Live operational command and action queues',
-    'dashboard-global-search': 'Find and inspect canonical platform entities',
-    'dashboard-action-centre': 'Persistent cross-domain cases and investigations',
-    'dashboard-analytics': 'Cross-platform KPI and trend reporting',
-    'dashboard-health': 'Service health and integration readiness',
-    'dashboard-notifications': 'Platform notification delivery and failures',
-    'marketplace-marketplace': 'Global marketplace workload',
-    'marketplace-quotes': 'Commercial quotes across the platform',
-    'marketplace-allocations': 'Award and allocation oversight',
-    'marketplace-disputes': 'Marketplace dispute workflow',
-    'operations-jobs': 'All transport jobs',
-    'operations-active-jobs': 'Work currently in progress',
-    'operations-pending-jobs': 'Work awaiting progression',
-    'operations-completed-jobs': 'Delivered and completed workload',
-    'operations-deliveries': 'Delivery execution overview',
-    'operations-pods': 'Proof-of-delivery review queue',
-    'fleet-drivers': 'Driver accounts and fleet membership',
-    'fleet-driver-availability': 'Current driver readiness',
-    'fleet-fleet-positions': 'Live operational fleet positions',
-    'companies-companies': 'All registered platform companies',
-    'companies-approvals': 'Applications awaiting platform approval',
-    'companies-active': 'Approved active companies',
-    'companies-suspended': 'Restricted company accounts',
-    'companies-verification': 'Company identity verification',
-    'companies-company-compliance': 'Company-level compliance status',
-    'finance-finance-overview': 'Global financial position',
-    'finance-invoices': 'Invoice workload and exceptions',
-    'finance-fees': 'Fees and financial breakdown',
-    'finance-revenue': 'Revenue reporting',
-    'finance-payments': 'Payment status and receipts',
-    'compliance-fraud-cases': 'Identity and fraud investigations',
-    'compliance-insurance': 'Insurance review and expiry',
-    'compliance-licences': 'Operator licence oversight',
-    'compliance-expiries': 'Compliance expiry monitoring',
-    'compliance-documents': 'Document review queue',
-    'support-tickets': 'Platform support workload',
-    'support-complaints': 'Complaint management',
-    'support-support-disputes': 'Support-led dispute handling',
-    'platform-global': 'Platform-wide configuration',
-    'platform-roles': 'Access and permission governance',
-    'platform-flags': 'Feature rollout controls',
-    'platform-audit': 'Administrative audit trail',
-    'platform-users': 'All platform users',
-    'platform-admins': 'Privileged platform administrators',
-  };
-  return descriptions[`${groupId}-${itemId}`] ?? 'Open section';
 }
