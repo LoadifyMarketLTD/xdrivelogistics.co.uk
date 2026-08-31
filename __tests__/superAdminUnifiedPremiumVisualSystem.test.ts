@@ -26,7 +26,7 @@ describe('Super Admin unified premium visual system', () => {
   it('uses the same structural primitives in Action Centre', () => {
     const actionCentre = read('app/super-admin/action-centre/page.tsx');
 
-    expect(actionCentre).toContain('className="sa-page"');
+    expect(actionCentre).toContain('className="sa-page sa-action-centre-premium"');
     expect(actionCentre).toContain('className="sa-page-header"');
     expect(actionCentre).toContain('className="sa-metric-card"');
     expect(actionCentre).toContain('className="sa-filter-bar"');
