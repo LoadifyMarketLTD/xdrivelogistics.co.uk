@@ -35,6 +35,7 @@ type CasesPayload = {
 export default function Page() {
   const router = useRouter();
   const [cases, setCases] = useState<PlatformCaseSummary[]>([]);
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -43,17 +44,23 @@ export default function Page() {
   const [assignee, setAssignee] = useState('all');
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null); setNote(null);
+    setLoading(true); setError(null); setNote(null); setAvailable(null);
     try {
       const auth = await getAuthHeader();
       if (!auth) { setError('No active Platform Owner session.'); return; }
       const params = new URLSearchParams({ limit: '100', status });
       if (severity !== 'ALL') params.set('severity', severity);
       if (assignee !== 'all') params.set('assignee', assignee);
-      const res = await fetch(`/api/super-admin/cases?${params.toString()}`, { headers: { Authorization: auth } });
+      const res = await fetch(`/api/super-admin/cases?${params.toString()}`, { headers: { Authorization: auth }, cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as CasesPayload & { error?: string };
-      if (!res.ok) { setError(body.error ?? 'Platform Case Centre is unavailable.'); return; }
-      if (body.available === false) { setCases([]); setNote(body.note ?? 'Platform Case Centre schema is unavailable.'); return; }
+      if (!res.ok) { setCases([]); setError(body.error ?? 'Platform Case Centre is unavailable.'); return; }
+      if (body.available === false) {
+        setCases([]);
+        setAvailable(false);
+        setNote(body.note ?? 'Platform Case Centre schema is unavailable.');
+        return;
+      }
+      setAvailable(true);
       const rows = body.rows ?? [];
       setCases(rows.map((row): PlatformCaseSummary => ({
         id: row.id,
@@ -70,6 +77,7 @@ export default function Page() {
         updatedAt: row.updated_at,
       })));
     } catch {
+      setCases([]);
       setError('Platform Case Centre is unavailable.');
     } finally {
       setLoading(false);
@@ -78,12 +86,12 @@ export default function Page() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const summary = useMemo(() => ({
+  const summary = useMemo(() => available === true ? ({
     p0: cases.filter((item) => item.severity === 'P0').length,
     p1: cases.filter((item) => item.severity === 'P1').length,
     unassigned: cases.filter((item) => !item.assignedToLabel).length,
     investigating: cases.filter((item) => item.status === 'investigating').length,
-  }), [cases]);
+  }) : null, [available, cases]);
 
   return <ProtectedRoute allowedRoles={['owner']}>
     <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
@@ -97,17 +105,17 @@ export default function Page() {
 
       {note ? <div style={{ marginBottom: '12px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.white, padding: '9px 12px', color: X.charcoal, fontSize: '11px' }}>{note}</div> : null}
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '12px', marginBottom: '12px' }}>
-        {[['P0', summary.p0], ['P1', summary.p1], ['Unassigned', summary.unassigned], ['Investigating', summary.investigating]].map(([label, value]) => <div key={String(label)} style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '10px 12px' }}><div style={{ color: X.navy, fontSize: '20px', fontWeight: 800 }}>{value}</div><div style={{ marginTop: '5px', color: X.muted, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div></div>)}
-      </section>
+      {loading ? <section style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '12px', marginBottom: '12px', color: X.muted, fontSize: '11px' }}>Loading persistent case summary…</section> : available === true && summary ? <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '12px', marginBottom: '12px' }}>
+        {[['P0', summary.p0], ['P1', summary.p1], ['Unassigned', summary.unassigned], ['Investigating', summary.investigating]].map(([label, summaryValue]) => <div key={String(label)} style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '10px 12px' }}><div style={{ color: X.navy, fontSize: '20px', fontWeight: 800 }}>{summaryValue}</div><div style={{ marginTop: '5px', color: X.muted, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>{label}</div></div>)}
+      </section> : <section style={{ minHeight: '72px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.white, padding: '12px', marginBottom: '12px', color: X.muted, fontSize: '11px' }}>Persistent case counts are unavailable in this environment. No P0/P1/unassigned/investigating zeroes are inferred.</section>}
 
       <section style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '12px', padding: '8px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white }}>
-        <label style={filterLabel}>Status<select value={status} onChange={(event) => setStatus(event.target.value)} style={selectStyle}><option value="active">Active cases</option><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="waiting">Waiting</option><option value="resolved">Resolved</option><option value="closed">Closed</option><option value="all">All</option></select></label>
-        <label style={filterLabel}>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value)} style={selectStyle}><option value="ALL">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
-        <label style={filterLabel}>Ownership<select value={assignee} onChange={(event) => setAssignee(event.target.value)} style={selectStyle}><option value="all">All</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option></select></label>
+        <label style={filterLabel}>Status<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={available === false} style={selectStyle}><option value="active">Active cases</option><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="waiting">Waiting</option><option value="resolved">Resolved</option><option value="closed">Closed</option><option value="all">All</option></select></label>
+        <label style={filterLabel}>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={available === false} style={selectStyle}><option value="ALL">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
+        <label style={filterLabel}>Ownership<select value={assignee} onChange={(event) => setAssignee(event.target.value)} disabled={available === false} style={selectStyle}><option value="all">All</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option></select></label>
       </section>
 
-      <PlatformCaseCentre cases={cases} loading={loading} error={error} onOpenCase={(caseId) => router.push(`/super-admin/action-centre/${caseId}`)} />
+      {available === false && !error ? <div style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '18px', textAlign: 'center', color: X.muted, fontSize: '11px' }}>Case registry is unavailable until the SA-02 schema is applied. No empty registry is fabricated.</div> : <PlatformCaseCentre cases={cases} loading={loading} error={error} onOpenCase={(caseId) => router.push(`/super-admin/action-centre/${caseId}`)} />}
     </div>
   </ProtectedRoute>;
 }
