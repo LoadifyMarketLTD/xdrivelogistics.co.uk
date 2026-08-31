@@ -66,6 +66,9 @@ const actionLabel = (action: string): string => {
     platform_pod_reject: '📦 Platform POD Rejected',
     platform_pod_request_missing: '📦 Missing POD Requested',
     platform_finance_reconciled: '£ Finance Reconciled',
+    notification_retry_queued: '🔁 Notification Retry Queued',
+    platform_feature_flag_updated: '🚩 Feature Flag Updated',
+    platform_setting_updated: '⚙️ Platform Setting Updated',
     fraud_case: '🚨 Fraud Case',
     identity: '🪪 Identity Review',
   };
