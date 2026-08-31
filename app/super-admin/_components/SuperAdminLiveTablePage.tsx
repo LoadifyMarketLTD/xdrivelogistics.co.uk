@@ -33,6 +33,7 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   pageSize?: number;
   refreshKey?: number;
   entityLink?: LiveTableEntityLink<T>;
+  toolbar?: ReactNode;
 };
 
 export function readLiveTableNotices(body: Record<string, unknown>, noteField?: string, diagnosticField?: string): LiveTableNotice[] {
@@ -49,15 +50,29 @@ export function readLiveTableNotices(body: Record<string, unknown>, noteField?: 
 }
 
 type SuperAdminLiveTableViewProps<T extends Record<string, unknown>> = {
-  icon: string; title: string; sectionLabel: string; description: string; columns: TableColumn<T>[];
-  emptyMessage: string; loading: boolean; error: string | null; notices: LiveTableNotice[];
-  summary: Record<string, unknown> | null; rows: T[]; page: number; hasNextPage: boolean; totalCount: number | null;
-  onPrevPage: () => void; onNextPage: () => void; entityLink?: LiveTableEntityLink<T>;
+  icon: string;
+  title: string;
+  sectionLabel: string;
+  description: string;
+  columns: TableColumn<T>[];
+  emptyMessage: string;
+  loading: boolean;
+  error: string | null;
+  notices: LiveTableNotice[];
+  summary: Record<string, unknown> | null;
+  rows: T[];
+  page: number;
+  hasNextPage: boolean;
+  totalCount: number | null;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  entityLink?: LiveTableEntityLink<T>;
+  toolbar?: ReactNode;
 };
 
 export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
   icon, title, sectionLabel, description, columns, emptyMessage, loading, error, notices,
-  summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage, entityLink,
+  summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage, entityLink, toolbar,
 }: SuperAdminLiveTableViewProps<T>) {
   const stableColumns = useMemo(() => columns, [columns]);
 
@@ -72,6 +87,8 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
         </div>
       </div>
     </header>
+
+    {toolbar}
 
     {error && <div role="alert" className="sa-notice" data-tone="danger">
       <strong>Service temporarily unavailable</strong>
@@ -135,7 +152,7 @@ function formatSummaryValue(key: string, summaryValue: unknown) {
 
 export default function SuperAdminLiveTablePage<T extends Record<string, unknown>>({
   icon, title, sectionLabel, description, endpoint, rowsField = 'rows', summaryField, noteField,
-  diagnosticField, columns, emptyMessage, pageSize = 50, refreshKey = 0, entityLink,
+  diagnosticField, columns, emptyMessage, pageSize = 50, refreshKey = 0, entityLink, toolbar,
 }: SuperAdminLiveTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
@@ -148,14 +165,26 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
 
   useEffect(() => {
     const run = async () => {
-      setLoading(true); setError(null); setNotices([]); setSummary(null); setRows([]); setHasNextPage(false); setTotalCount(null);
+      setLoading(true);
+      setError(null);
+      setNotices([]);
+      setSummary(null);
+      setRows([]);
+      setHasNextPage(false);
+      setTotalCount(null);
       try {
         const auth = await getAuthHeader();
-        if (!auth) { setError('No active session.'); return; }
+        if (!auth) {
+          setError('No active session.');
+          return;
+        }
         const separator = endpoint.includes('?') ? '&' : '?';
         const res = await fetch(`${endpoint}${separator}page=${page}&limit=${pageSize}`, { headers: { Authorization: auth } });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.'); return; }
+        if (!res.ok) {
+          setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.');
+          return;
+        }
         const fieldValue = (body as Record<string, unknown>)[rowsField];
         setRows(Array.isArray(fieldValue) ? fieldValue as T[] : []);
         const pagination = (body as Record<string, unknown>).pagination as Record<string, unknown> | undefined;
@@ -166,16 +195,33 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
           setSummary(summaryValue && typeof summaryValue === 'object' ? summaryValue as Record<string, unknown> : null);
         }
         setNotices(readLiveTableNotices(body as Record<string, unknown>, noteField, diagnosticField));
-      } catch { setError('The requested service is currently unavailable.'); }
-      finally { setLoading(false); }
+      } catch {
+        setError('The requested service is currently unavailable.');
+      } finally {
+        setLoading(false);
+      }
     };
     void run();
   }, [endpoint, rowsField, summaryField, noteField, diagnosticField, page, pageSize, refreshKey]);
 
   return <ProtectedRoute allowedRoles={['owner']}><SuperAdminLiveTableView
-    icon={icon} title={title} sectionLabel={sectionLabel} description={description} columns={columns}
-    emptyMessage={emptyMessage} loading={loading} error={error} notices={notices} summary={summary} rows={rows}
-    page={page} hasNextPage={hasNextPage} totalCount={totalCount} entityLink={entityLink}
-    onPrevPage={() => setPage(p => Math.max(1, p - 1))} onNextPage={() => setPage(p => p + 1)}
+    icon={icon}
+    title={title}
+    sectionLabel={sectionLabel}
+    description={description}
+    columns={columns}
+    emptyMessage={emptyMessage}
+    loading={loading}
+    error={error}
+    notices={notices}
+    summary={summary}
+    rows={rows}
+    page={page}
+    hasNextPage={hasNextPage}
+    totalCount={totalCount}
+    entityLink={entityLink}
+    toolbar={toolbar}
+    onPrevPage={() => setPage(p => Math.max(1, p - 1))}
+    onNextPage={() => setPage(p => p + 1)}
   /></ProtectedRoute>;
 }
