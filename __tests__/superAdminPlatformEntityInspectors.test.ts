@@ -50,4 +50,27 @@ describe('SA-04 Super Admin Platform Entity Inspectors', () => {
     expect(route).toContain('No physical POD evidence is stored on the canonical job.');
     expect(route).toContain('Platform Case Centre schema is not applied in this environment.');
   });
+
+  it('turns the main Operations, Finance and Fleet ledgers into inspector entry points', () => {
+    const table = readRepoFile('app/super-admin/_components/SuperAdminLiveTablePage.tsx');
+    expect(table).toContain('PlatformEntityLink');
+    expect(table).toContain('entityLink?: LiveTableEntityLink<T>');
+
+    const expectations: Array<[string, string]> = [
+      ['app/super-admin/operations/jobs/page.tsx', "entityType: 'job'"],
+      ['app/super-admin/operations/active-jobs/page.tsx', "entityType: 'job'"],
+      ['app/super-admin/operations/pending-jobs/page.tsx', "entityType: 'job'"],
+      ['app/super-admin/operations/completed-jobs/page.tsx', "entityType: 'job'"],
+      ['app/super-admin/operations/deliveries/page.tsx', "entityType: 'job'"],
+      ['app/super-admin/operations/pods/page.tsx', "entityType: 'pod'"],
+      ['app/super-admin/operations/disputes/page.tsx', "entityType: 'dispute'"],
+      ['app/super-admin/finance/invoices/page.tsx', "entityType: 'invoice'"],
+      ['app/super-admin/users/drivers/page.tsx', "entityType: 'driver'"],
+    ];
+
+    for (const [path, expected] of expectations) {
+      expect(readRepoFile(path)).toContain('entityLink=');
+      expect(readRepoFile(path)).toContain(expected);
+    }
+  });
 });
