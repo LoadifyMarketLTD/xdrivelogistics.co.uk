@@ -12,6 +12,37 @@ const runtimeValidation = fs.readFileSync(
 );
 
 describe('atomic owner delete migration contract', () => {
+  it('reconstructs the current server-only Owner Job dependency tables on a clean database', () => {
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS public.proof_of_delivery');
+    expect(migration).toContain('job_id uuid NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE');
+    expect(migration).toContain("delivery_status text NOT NULL DEFAULT 'Completed Delivery'");
+    expect(migration).toContain('CREATE INDEX IF NOT EXISTS idx_pod_job_id');
+    expect(migration).toContain('CREATE INDEX IF NOT EXISTS idx_pod_created_by');
+
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS public.job_cancellation_requests');
+    expect(migration).toContain('job_id uuid NOT NULL REFERENCES public.jobs(id) ON DELETE RESTRICT');
+    expect(migration).toContain("requester_party text NOT NULL CHECK (requester_party IN ('load_owner', 'carrier'))");
+    expect(migration).toContain('CREATE INDEX IF NOT EXISTS job_cancellation_requests_job_created_idx');
+    expect(migration).toContain('CREATE UNIQUE INDEX IF NOT EXISTS job_cancellation_requests_one_pending_idx');
+  });
+
+  it('keeps both dependency tables raw-client closed and service-role available', () => {
+    expect(migration).toContain('ALTER TABLE public.proof_of_delivery ENABLE ROW LEVEL SECURITY');
+    expect(migration).toContain('REVOKE ALL ON TABLE public.proof_of_delivery FROM PUBLIC, anon, authenticated');
+    expect(migration).toContain('GRANT ALL ON TABLE public.proof_of_delivery TO service_role');
+    expect(migration).toContain('ALTER TABLE public.job_cancellation_requests ENABLE ROW LEVEL SECURITY');
+    expect(migration).toContain('REVOKE ALL ON TABLE public.job_cancellation_requests FROM PUBLIC, anon, authenticated');
+    expect(migration).toContain('GRANT ALL ON TABLE public.job_cancellation_requests TO service_role');
+    expect(migration).toContain('Owner Job dependency tables unexpectedly expose raw client reads.');
+  });
+
+  it('restores the hosted POD updated-at trigger without exposing its helper', () => {
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.update_updated_at_column()');
+    expect(migration).toContain('NEW.updated_at = NOW()');
+    expect(migration).toContain('CREATE TRIGGER pod_updated_at');
+    expect(migration).toContain('REVOKE ALL ON FUNCTION public.update_updated_at_column() FROM PUBLIC, anon, authenticated');
+  });
+
   it('locks the job row and rejects non pre-award lifecycle drift', () => {
     expect(migration).toContain('FOR UPDATE');
     expect(migration).toContain("v_status NOT IN ('draft', 'received', 'posted')");
