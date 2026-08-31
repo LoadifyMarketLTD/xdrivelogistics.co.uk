@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
-import SuperAdminTopNavigationShell from './SuperAdminTopNavigationShell';
+import SuperAdminCardNavigationShell from './SuperAdminCardNavigationShell';
 
 export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   role: 'platform_owner',
@@ -83,11 +83,11 @@ export default function SuperAdminWorkspaceShell({
   fixtureOverrides?: WorkspaceShellFixtureOverrides;
 }) {
   return (
-    <SuperAdminTopNavigationShell
+    <SuperAdminCardNavigationShell
       definition={SUPER_ADMIN_WORKSPACE_DEFINITION}
       fixtureOverrides={fixtureOverrides}
     >
       {children}
-    </SuperAdminTopNavigationShell>
+    </SuperAdminCardNavigationShell>
   );
 }
