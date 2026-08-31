@@ -161,7 +161,7 @@ export default function CompanyGovernanceControls({ companyId }: { companyId: st
               {actions.map((action) => {
                 const dangerous = action === 'reject' || action === 'suspend';
                 const color = dangerous ? C.red : C.green;
-                return <button key={action} type="button" disabled={acting !== null} onClick={() => initiate(action)} style={{ minHeight:32, border:`1px solid ${color}`, borderRadius:8, background:C.white, color, padding:'0 10px', fontSize:9.5, fontWeight:850, cursor:acting?'not-allowed':'pointer', opacity:acting?.65:1 }}>{acting === action ? 'Working…' : labelFor(action)}</button>;
+                return <button key={action} type="button" disabled={acting !== null} onClick={() => initiate(action)} style={{ minHeight:32, border:`1px solid ${color}`, borderRadius:8, background:C.white, color, padding:'0 10px', fontSize:9.5, fontWeight:850, cursor:acting?'not-allowed':'pointer', opacity: acting ? .65 : 1 }}>{acting === action ? 'Working…' : labelFor(action)}</button>;
               })}
               {!actions.length && !legacy ? <span style={{ color:C.muted, fontSize:9.5 }}>No governance status transition is authorised from the current state.</span> : null}
             </div>
