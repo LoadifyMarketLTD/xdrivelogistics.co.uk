@@ -5,6 +5,7 @@ import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiv
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
+import OnboardingReviewQueue from './OnboardingReviewQueue';
 
 type DocumentFamily = 'driver' | 'vehicle' | 'company' | 'identity';
 type InspectorEntityType = 'driver' | 'vehicle' | 'company' | 'user';
@@ -151,6 +152,8 @@ export default function Page() {
     />
 
     {inlineError && <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 999, backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderLeft: '4px solid #DC2626', borderRadius: '4px', padding: '0.75rem 1rem', color: '#B91C1C', fontSize: '0.82rem', maxWidth: '360px', cursor: 'pointer' }} onClick={() => setInlineError(null)} role="alert">{inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span></div>}
+
+    <OnboardingReviewQueue onReviewed={() => setReloadToken(Date.now())} />
 
     <SuperAdminLiveTablePage<Row>
       icon="📁"
