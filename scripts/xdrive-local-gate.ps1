@@ -1,0 +1,120 @@
+param(
+  [string]$RepoUrl = 'https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git',
+  [string]$Root = "$env:USERPROFILE\Desktop\XDrive-Local",
+  [string]$Ref = 'main',
+  [switch]$SkipInstall,
+  [switch]$RunE2E
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+function Invoke-Step {
+  param(
+    [Parameter(Mandatory = $true)][string]$Label,
+    [Parameter(Mandatory = $true)][scriptblock]$Action
+  )
+  Write-Host "`n=== $Label ===" -ForegroundColor Cyan
+  & $Action
+  if ($LASTEXITCODE -ne 0) {
+    throw "$Label failed with exit code $LASTEXITCODE"
+  }
+}
+
+$mirrorDir = Join-Path $Root 'mirror\xdrivelogistics.co.uk.git'
+$workDir = Join-Path $Root 'worktree\xdrivelogistics.co.uk'
+$bundleDir = Join-Path $Root 'bundles'
+$logDir = Join-Path $Root 'logs'
+
+New-Item -ItemType Directory -Force -Path $Root, (Split-Path $mirrorDir), (Split-Path $workDir), $bundleDir, $logDir | Out-Null
+
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$logPath = Join-Path $logDir "xdrive-local-gate-$stamp.log"
+Start-Transcript -Path $logPath -Force | Out-Null
+
+try {
+  Write-Host 'XDRIVE_LOCAL_GATE=START' -ForegroundColor Green
+  Write-Host "Root: $Root"
+  Write-Host "Ref:  $Ref"
+  Write-Host 'GitHub Actions required: NO'
+
+  Invoke-Step 'Check git' { git --version }
+  Invoke-Step 'Check node' { node --version }
+  Invoke-Step 'Check npm' { npm --version }
+
+  if (-not (Test-Path $mirrorDir)) {
+    Invoke-Step 'Create full Git mirror backup' { git clone --mirror $RepoUrl $mirrorDir }
+  } else {
+    Invoke-Step 'Refresh full Git mirror backup' { git --git-dir=$mirrorDir remote update --prune }
+  }
+
+  $bundlePath = Join-Path $bundleDir "xdrivelogistics-$stamp.bundle"
+  Invoke-Step 'Create timestamped Git bundle backup' {
+    git --git-dir=$mirrorDir bundle create $bundlePath --all
+  }
+
+  if (-not (Test-Path $workDir)) {
+    Invoke-Step 'Create working clone' { git clone $RepoUrl $workDir }
+  }
+
+  Push-Location $workDir
+  try {
+    Invoke-Step 'Fetch repository refs' { git fetch --all --prune --tags }
+
+    $remoteRef = "origin/$Ref"
+    git rev-parse --verify $remoteRef *> $null
+    if ($LASTEXITCODE -eq 0) {
+      Invoke-Step "Checkout $remoteRef" { git checkout --detach $remoteRef }
+    } else {
+      Invoke-Step "Checkout $Ref" { git checkout --detach $Ref }
+    }
+
+    $sha = (git rev-parse HEAD).Trim()
+    Write-Host "Validated SHA: $sha" -ForegroundColor Yellow
+
+    if (-not $SkipInstall) {
+      Invoke-Step 'Install exact npm dependencies' { npm ci }
+    } else {
+      Write-Host 'Dependency install skipped by request.' -ForegroundColor DarkYellow
+    }
+
+    Invoke-Step 'Validate Supabase migration filenames and encoding' {
+      node .github/scripts/validate-supabase-migration-files.mjs
+    }
+
+    Invoke-Step 'TypeScript typecheck' { npm run typecheck }
+    Invoke-Step 'Vitest unit suite' { npm run test:unit }
+    Invoke-Step 'Next.js production build' { npm run build }
+
+    if ($RunE2E) {
+      Invoke-Step 'Playwright E2E suite' { npm run test:e2e }
+    }
+
+    $resultPath = Join-Path $logDir "xdrive-local-gate-$stamp.result.txt"
+    @(
+      'XDRIVE_LOCAL_GATE=PASS',
+      "sha=$sha",
+      "ref=$Ref",
+      "bundle=$bundlePath",
+      "log=$logPath",
+      "e2e=$([bool]$RunE2E)",
+      'github_actions_required=false'
+    ) | Set-Content -Path $resultPath -Encoding UTF8
+
+    Write-Host "`nXDRIVE_LOCAL_GATE=PASS" -ForegroundColor Green
+    Write-Host "SHA:    $sha"
+    Write-Host "Bundle: $bundlePath"
+    Write-Host "Log:    $logPath"
+  }
+  finally {
+    Pop-Location
+  }
+}
+catch {
+  Write-Host "`nXDRIVE_LOCAL_GATE=FAIL" -ForegroundColor Red
+  Write-Host $_.Exception.Message -ForegroundColor Red
+  throw
+}
+finally {
+  Stop-Transcript | Out-Null
+}
