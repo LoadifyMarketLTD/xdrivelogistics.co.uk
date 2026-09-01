@@ -2,6 +2,7 @@ import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailP
 
 export default function PlatformPage() {
   return <MarketingDetailPage
+    activeNavHref="/platform"
     kicker="Courier & Freight Exchange Platform"
     title="Move Freight. Manage Operations. Grow Your Network."
     intro="From transport opportunity to completed job, XDrive connects courier and freight exchange activity with quoting, award, dispatch, live execution, POD and invoice readiness in one controlled platform. The same job record moves through the entire lifecycle."
