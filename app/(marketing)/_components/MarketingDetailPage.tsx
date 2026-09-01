@@ -113,6 +113,7 @@ export function MarketingDetailPage({
   primaryHref = '/register',
   secondaryLabel = 'Sign In',
   secondaryHref = '/login',
+  activeNavHref,
   darkBand,
 }: {
   kicker: string;
@@ -123,6 +124,7 @@ export function MarketingDetailPage({
   primaryHref?: string;
   secondaryLabel?: string;
   secondaryHref?: string;
+  activeNavHref?: string;
   darkBand?: { title: string; copy: string };
 }) {
   const mode = getVisualMode(kicker);
@@ -133,7 +135,15 @@ export function MarketingDetailPage({
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
           <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
           <nav className="hidden items-center gap-6 text-sm font-black text-[#163568] lg:flex">
-            {nav.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}
+            {nav.map(([label, href]) => (
+              <Link
+                key={href}
+                href={href}
+                className={href === activeNavHref ? 'text-[#F5A300]' : 'transition hover:text-[#0E3FA9]'}
+              >
+                {label}
+              </Link>
+            ))}
             <Link href="/login" className="transition hover:text-[#0E3FA9]">Sign In</Link>
           </nav>
           <Link href="/register" className="rounded-lg bg-[#163568] px-5 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,53,104,0.14)]">Start 3 Months Free</Link>
