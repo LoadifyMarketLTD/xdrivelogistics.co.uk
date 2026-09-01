@@ -13,10 +13,10 @@ import {
 } from 'lucide-react';
 
 const plans = [
-  { name: 'Owner Driver', price: '£29.99', note: 'For self-employed couriers' },
-  { name: 'Small Carrier', price: '£59.99', note: 'For 2–5 vehicle operations' },
+  { name: 'Owner Driver', price: '£29.99', note: 'For self-employed couriers', featured: false },
+  { name: 'Small Carrier', price: '£59.99', note: 'For 2–5 vehicle operations', featured: false },
   { name: 'Broker', price: '£79.99', note: 'For posting and managing work', featured: true },
-  { name: 'Growing Carrier', price: '£89.99', note: 'For 6–15 vehicle operations' },
+  { name: 'Growing Carrier', price: '£89.99', note: 'For 6–15 vehicle operations', featured: false },
 ] as const;
 
 const workflow = [
@@ -98,16 +98,11 @@ export default function HomepagePricingPreview() {
 
       <section className="bg-[#003B8F] px-5 py-7 text-white sm:px-8">
         <div className="mx-auto grid max-w-[1440px] gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {[
-            [MapPin, 'UK-wide network'],
-            [Truck, 'Courier & freight work'],
-            [Route, 'Live operations'],
-            [FileCheck2, 'POD & records'],
-            [ShieldCheck, 'Controlled access'],
-          ].map(([Icon, label]) => {
-            const C = Icon as typeof MapPin;
-            return <div key={label as string} className="flex items-center gap-4 border-l border-white/20 px-4 py-3"><C className="h-7 w-7 text-[#FDB913]" /><span className="font-black">{label as string}</span></div>;
-          })}
+          <div className="flex items-center gap-4 border-l border-white/20 px-4 py-3"><MapPin className="h-7 w-7 text-[#FDB913]" /><span className="font-black">UK-wide network</span></div>
+          <div className="flex items-center gap-4 border-l border-white/20 px-4 py-3"><Truck className="h-7 w-7 text-[#FDB913]" /><span className="font-black">Courier & freight work</span></div>
+          <div className="flex items-center gap-4 border-l border-white/20 px-4 py-3"><Route className="h-7 w-7 text-[#FDB913]" /><span className="font-black">Live operations</span></div>
+          <div className="flex items-center gap-4 border-l border-white/20 px-4 py-3"><FileCheck2 className="h-7 w-7 text-[#FDB913]" /><span className="font-black">POD & records</span></div>
+          <div className="flex items-center gap-4 border-l border-white/20 px-4 py-3"><ShieldCheck className="h-7 w-7 text-[#FDB913]" /><span className="font-black">Controlled access</span></div>
         </div>
       </section>
 
