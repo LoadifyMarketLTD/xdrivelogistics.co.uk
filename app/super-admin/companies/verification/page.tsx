@@ -58,6 +58,14 @@ type Preflight = {
     status?: string;
     queuedAt?: string;
     processedAt?: string | null;
+    attemptCount?: number;
+    lastError?: string | null;
+    nextAttemptAt?: string | null;
+    platform?: {
+      status?: 'created' | 'unavailable' | 'unknown';
+      createdAt?: string | null;
+      readAt?: string | null;
+    };
   } | null;
   requestRegistryAvailable?: boolean;
   requestRegistryNote?: string | null;
@@ -181,11 +189,26 @@ function VerificationContent() {
             <div className="sa-metric-card"><div className="sa-metric-value" style={{ fontSize: 15 }}>{preflight.continuationPath ?? '/onboarding/resume'}</div><div className="sa-metric-label">Secure continuation route</div></div>
           </div>
           <div style={{ marginBottom: 12 }}><strong style={{ display: 'block', color: '#17305a', fontSize: 10.5, marginBottom: 7 }}>The email will request exactly:</strong><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{(preflight.missingDocuments ?? []).map((doc) => <span className="sa-section-pill" key={doc}>{pretty(doc)}</span>)}</div></div>
+          <div style={{ marginBottom: 12 }}>
+            <strong style={{ display: 'block', color: '#17305a', fontSize: 10.5, marginBottom: 7 }}>Channels</strong>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span className="sa-section-pill">Email ✓ mandatory</span>
+              <span className="sa-section-pill">Platform {preflight.delivery?.platform?.status === 'created' ? '✓ created' : 'if available'}</span>
+              <span className="sa-section-pill">Push · if available</span>
+            </div>
+          </div>
           {preflight.outstandingRequest ? <div className="sa-state-block" data-tone={preflight.delivery?.status === 'failed' ? 'danger' : 'info'}>
             <strong>Outstanding request exists.</strong> Last sent {date(preflight.outstandingRequest.last_sent_at)} · reminders {preflight.outstandingRequest.reminder_count ?? 0}.
             <div style={{ marginTop: 4 }}>
               Delivery: <strong>{preflight.delivery?.status ? pretty(preflight.delivery.status) : 'Queue status unavailable'}</strong>
               {preflight.delivery?.processedAt ? ` · processed ${date(preflight.delivery.processedAt)}` : preflight.delivery?.queuedAt ? ` · queued ${date(preflight.delivery.queuedAt)}` : ''}
+              {typeof preflight.delivery?.attemptCount === 'number' ? ` · attempts ${preflight.delivery.attemptCount}` : ''}
+            </div>
+            {preflight.delivery?.nextAttemptAt ? <div style={{ marginTop: 4 }}>Next retry: {date(preflight.delivery.nextAttemptAt)}</div> : null}
+            {preflight.delivery?.lastError ? <div style={{ marginTop: 4 }}><strong>Last delivery error:</strong> {preflight.delivery.lastError}</div> : null}
+            <div style={{ marginTop: 4 }}>
+              Platform inbox: <strong>{preflight.delivery?.platform?.status ? pretty(preflight.delivery.platform.status) : 'Unknown'}</strong>
+              {preflight.delivery?.platform?.readAt ? ` · read ${date(preflight.delivery.platform.readAt)}` : preflight.delivery?.platform?.createdAt ? ` · created ${date(preflight.delivery.platform.createdAt)}` : ''}
             </div>
           </div> : null}
           <label style={{ display: 'grid', gap: 6, color: '#53647b', fontSize: 9.5, fontWeight: 800 }}>Message / audit reason
