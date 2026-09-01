@@ -26,11 +26,44 @@ describe('Super Admin onboarding document request workflow', () => {
     expect(verifier).toContain('isSuperAdminDeployPreviewReadOnly()');
   });
 
+  test('only a genuinely outstanding request is exposed and its canonical queue delivery is linked', () => {
+    const route = read('app/api/super-admin/onboarding/[applicationId]/request-documents/route.ts');
+    expect(route).toContain(".eq('status', 'outstanding')");
+    expect(route).toContain(".from('notification_events')");
+    expect(route).toContain("'onboarding_documents_required'");
+    expect(route).toContain("'onboarding_documents_reminder'");
+    expect(route).toContain('row.payload?.document_request_id');
+    expect(route).toContain('delivery,');
+  });
+
   test('user-side missing-document GET cannot perform housekeeping writes in Deploy Preview', () => {
     const route = read('app/api/onboarding/missing-documents/route.ts');
     expect(route).toContain('isDeployPreviewReadOnly');
     expect(route).toContain('missingDocuments.length === 0 && !isDeployPreviewReadOnly()');
     expect(route).toContain("supabaseAdmin.rpc('resolve_completed_document_requests'");
+  });
+
+  test('user checklist exposes canonical document lifecycle states without returning document file paths', () => {
+    const route = read('app/api/onboarding/missing-documents/route.ts');
+    const checklist = read('app/onboarding/_components/OnboardingDocumentChecklist.tsx');
+    expect(route).toContain("type ChecklistStatus = 'missing' | 'uploaded' | 'approved' | 'expiring_soon' | 'expired' | 'rejected'");
+    expect(route).toContain(".from('compliance_document_requirements')");
+    expect(route).toContain(".from('company_documents')");
+    expect(route).toContain(".from('driver_identity_documents')");
+    expect(route).toContain('documentDetailsAvailable');
+    expect(checklist).toContain('Uploaded · pending review');
+    expect(checklist).toContain('Expiring soon');
+    expect(checklist).toContain('Rejected');
+    expect(checklist).not.toContain('file_path');
+  });
+
+  test('document request closes automatically and audibly when canonical requirements become satisfied', () => {
+    const migration = read('supabase/migrations/20260831235945_platform_document_completion_requests.sql');
+    expect(migration).toContain('resolve_document_requests_after_compliance_change');
+    expect(migration).toContain('trg_resolve_document_requests_company_documents');
+    expect(migration).toContain('trg_resolve_document_requests_identity_documents');
+    expect(migration).toContain("'onboarding_document_request_auto_resolved'");
+    expect(migration).toContain("'canonical_requirements_satisfied'");
   });
 
   test('document delivery uses the canonical operational notification worker', () => {
@@ -53,11 +86,13 @@ describe('Super Admin onboarding document request workflow', () => {
     expect(checklist).toContain('This reminder remains visible until the canonical requirements are complete.');
   });
 
-  test('Super Admin verification exposes request and reminder controls', () => {
+  test('Super Admin verification exposes request, delivery, and reminder controls', () => {
     const page = read('app/super-admin/companies/verification/page.tsx');
     expect(page).toContain('Request documents');
     expect(page).toContain('Send reminder');
     expect(page).toContain('Send request by email');
     expect(page).toContain('Preview — sending disabled');
+    expect(page).toContain('Delivery:');
+    expect(page).toContain("preflight.delivery?.status === 'failed'");
   });
 });

@@ -178,20 +178,83 @@ AS $$
 DECLARE
   v_missing_count integer := 0;
   v_updated integer := 0;
+  v_request record;
 BEGIN
   SELECT count(*) INTO v_missing_count
   FROM public.get_missing_onboarding_documents(p_application_id);
 
-  IF v_missing_count = 0 THEN
-    UPDATE public.platform_document_requests
-    SET status = 'resolved', resolved_at = COALESCE(resolved_at, now()), updated_at = now()
-    WHERE onboarding_application_id = p_application_id AND status = 'outstanding';
-    GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_missing_count <> 0 THEN
+    RETURN 0;
   END IF;
+
+  FOR v_request IN
+    UPDATE public.platform_document_requests
+    SET status = 'resolved',
+        resolved_at = COALESCE(resolved_at, now()),
+        updated_at = now(),
+        metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+          'resolution', 'canonical_requirements_satisfied',
+          'resolved_automatically', true
+        )
+    WHERE onboarding_application_id = p_application_id
+      AND status = 'outstanding'
+    RETURNING id, requested_by, company_id, recipient_user_id, recipient_email
+  LOOP
+    v_updated := v_updated + 1;
+
+    INSERT INTO public.owner_audit_log (
+      target_type, target_id, target_name, target_company_id, actor_user_id,
+      action_type, old_status, new_status, reason, metadata, created_at
+    ) VALUES (
+      'onboarding_document_request', v_request.id,
+      format('Onboarding document request %s', v_request.id), v_request.company_id,
+      v_request.requested_by,
+      'onboarding_document_request_auto_resolved',
+      'outstanding', 'resolved',
+      'Canonical onboarding document requirements are satisfied.',
+      jsonb_build_object(
+        'automatic', true,
+        'onboarding_application_id', p_application_id,
+        'recipient_user_id', v_request.recipient_user_id,
+        'recipient_email', v_request.recipient_email
+      ),
+      now()
+    );
+  END LOOP;
+
   RETURN v_updated;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.resolve_completed_document_requests(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.resolve_completed_document_requests(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.resolve_document_requests_after_compliance_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.onboarding_application_id IS NOT NULL THEN
+    PERFORM public.resolve_completed_document_requests(NEW.onboarding_application_id);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.resolve_document_requests_after_compliance_change() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_resolve_document_requests_company_documents ON public.company_documents;
+CREATE TRIGGER trg_resolve_document_requests_company_documents
+AFTER INSERT OR UPDATE ON public.company_documents
+FOR EACH ROW
+WHEN (NEW.onboarding_application_id IS NOT NULL)
+EXECUTE FUNCTION public.resolve_document_requests_after_compliance_change();
+
+DROP TRIGGER IF EXISTS trg_resolve_document_requests_identity_documents ON public.driver_identity_documents;
+CREATE TRIGGER trg_resolve_document_requests_identity_documents
+AFTER INSERT OR UPDATE ON public.driver_identity_documents
+FOR EACH ROW
+WHEN (NEW.onboarding_application_id IS NOT NULL)
+EXECUTE FUNCTION public.resolve_document_requests_after_compliance_change();
 
 COMMIT;

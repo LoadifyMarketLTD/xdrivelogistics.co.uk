@@ -52,6 +52,13 @@ type Preflight = {
     reminder_count?: number;
     recipient_email?: string;
   } | null;
+  delivery?: {
+    eventId?: string;
+    eventType?: string;
+    status?: string;
+    queuedAt?: string;
+    processedAt?: string | null;
+  } | null;
   requestRegistryAvailable?: boolean;
   requestRegistryNote?: string | null;
   error?: string;
@@ -174,7 +181,13 @@ function VerificationContent() {
             <div className="sa-metric-card"><div className="sa-metric-value" style={{ fontSize: 15 }}>{preflight.continuationPath ?? '/onboarding/resume'}</div><div className="sa-metric-label">Secure continuation route</div></div>
           </div>
           <div style={{ marginBottom: 12 }}><strong style={{ display: 'block', color: '#17305a', fontSize: 10.5, marginBottom: 7 }}>The email will request exactly:</strong><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{(preflight.missingDocuments ?? []).map((doc) => <span className="sa-section-pill" key={doc}>{pretty(doc)}</span>)}</div></div>
-          {preflight.outstandingRequest ? <div className="sa-state-block" data-tone="info"><strong>Outstanding request exists.</strong> Last sent {date(preflight.outstandingRequest.last_sent_at)} · reminders {preflight.outstandingRequest.reminder_count ?? 0}.</div> : null}
+          {preflight.outstandingRequest ? <div className="sa-state-block" data-tone={preflight.delivery?.status === 'failed' ? 'danger' : 'info'}>
+            <strong>Outstanding request exists.</strong> Last sent {date(preflight.outstandingRequest.last_sent_at)} · reminders {preflight.outstandingRequest.reminder_count ?? 0}.
+            <div style={{ marginTop: 4 }}>
+              Delivery: <strong>{preflight.delivery?.status ? pretty(preflight.delivery.status) : 'Queue status unavailable'}</strong>
+              {preflight.delivery?.processedAt ? ` · processed ${date(preflight.delivery.processedAt)}` : preflight.delivery?.queuedAt ? ` · queued ${date(preflight.delivery.queuedAt)}` : ''}
+            </div>
+          </div> : null}
           <label style={{ display: 'grid', gap: 6, color: '#53647b', fontSize: 9.5, fontWeight: 800 }}>Message / audit reason
             <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} style={{ width: '100%', resize: 'vertical', border: '1px solid #dde4ed', borderRadius: 8, padding: 10, color: '#263750', fontSize: 10.5, fontFamily: 'inherit' }} />
           </label>
