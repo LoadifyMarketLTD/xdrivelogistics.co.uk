@@ -100,82 +100,41 @@ function HeroSignature({ mode }: { mode: VisualMode }) {
   );
 }
 
+const modeLabel: Record<VisualMode, string> = {
+  platform: 'PLATFORM FLOW',
+  brokers: 'BROKER FLOW',
+  couriers: 'COURIER FLOW',
+  access: 'ACCESS STEP',
+  default: 'XDRIVE FLOW',
+};
+
 function SectionGrid({ sections, mode }: { sections: DetailSection[]; mode: VisualMode }) {
-  if (mode === 'brokers') {
-    return (
-      <div className="mx-auto grid max-w-[1240px] gap-4 lg:grid-cols-12">
-        {sections.map((section, index) => {
-          const wide = index === 0 || index === 3;
-          return (
-            <article key={section.title} className={`relative overflow-hidden rounded-2xl border p-7 lg:p-9 ${wide ? 'lg:col-span-7' : 'lg:col-span-5'} ${index === 0 ? 'border-[#0B2F6B] bg-gradient-to-br from-[#071B3C] to-[#0B2F6B] text-white shadow-[0_24px_70px_rgba(7,27,60,0.16)]' : 'border-[#DDE5EF] bg-white'}`}>
-              <div className="absolute right-5 top-4 text-7xl font-black leading-none text-[#F5A300]/10">0{index + 1}</div>
-              <p className="relative text-xs font-black tracking-[0.16em] text-[#F5A300]">0{index + 1} · BROKER FLOW</p>
-              <h2 className={`relative mt-4 text-3xl font-black tracking-tight ${index === 0 ? 'text-white' : 'text-[#0A234F]'}`}>{section.title}</h2>
-              <p className={`relative mt-4 max-w-2xl font-semibold leading-7 ${index === 0 ? 'text-white/68' : 'text-[#60758F]'}`}>{section.copy}</p>
-              {section.points?.length ? <div className="relative mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">{section.points.map(point => <div key={point} className={`flex items-start gap-2 text-sm font-bold ${index === 0 ? 'text-white/82' : 'text-[#385475]'}`}><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" />{point}</div>)}</div> : null}
-            </article>
-          );
-        })}
-      </div>
-    );
-  }
-
-  if (mode === 'couriers') {
-    return (
-      <div className="mx-auto max-w-[1240px] border-y border-[#DCE4EF]">
-        {sections.map((section, index) => (
-          <article key={section.title} className="grid gap-6 border-b border-[#DCE4EF] py-8 last:border-b-0 md:grid-cols-[110px_0.8fr_1.2fr] md:items-start lg:py-10">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#F5A300]/40 bg-[#FFF8E8] text-lg font-black text-[#A56B00]">0{index + 1}</div>
-            <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F5A300]">Courier Stage</p><h2 className="mt-2 text-3xl font-black tracking-tight text-[#0A234F]">{section.title}</h2><p className="mt-3 font-semibold leading-7 text-[#60758F]">{section.copy}</p></div>
-            {section.points?.length ? <div className="grid gap-2 rounded-2xl bg-[#071B3C] p-5 text-white shadow-[0_16px_44px_rgba(7,27,60,0.10)] sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3">{section.points.map(point => <div key={point} className="flex items-start gap-2 text-sm font-bold text-white/82"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" />{point}</div>)}</div> : null}
-          </article>
-        ))}
-      </div>
-    );
-  }
-
-  if (mode === 'access') {
-    return (
-      <div className="mx-auto grid max-w-[1240px] overflow-hidden rounded-[28px] border border-[#DDE5EF] bg-white shadow-[0_24px_70px_rgba(7,27,60,0.08)] md:grid-cols-2">
-        {sections.map((section, index) => (
-          <article key={section.title} className={`relative p-8 lg:p-10 ${index < 2 ? 'border-b border-[#DDE5EF]' : ''} ${index % 2 === 0 ? 'md:border-r md:border-[#DDE5EF]' : ''} ${index === 0 ? 'bg-[#071B3C] text-white' : ''}`}>
-            <p className="text-xs font-black tracking-[0.16em] text-[#F5A300]">STEP 0{index + 1}</p>
-            <h2 className={`mt-4 text-3xl font-black tracking-tight ${index === 0 ? 'text-white' : 'text-[#0A234F]'}`}>{section.title}</h2>
-            <p className={`mt-4 font-semibold leading-7 ${index === 0 ? 'text-white/68' : 'text-[#60758F]'}`}>{section.copy}</p>
-            {section.points?.length ? <div className="mt-6 grid gap-3">{section.points.map(point => <div key={point} className={`flex items-start gap-3 text-sm font-bold ${index === 0 ? 'text-white/82' : 'text-[#385475]'}`}><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" />{point}</div>)}</div> : null}
-          </article>
-        ))}
-      </div>
-    );
-  }
-
-  if (mode === 'platform') {
-    return (
-      <div className="mx-auto max-w-[1240px]">
-        <div className="grid gap-px overflow-hidden rounded-[26px] border border-[#DDE5EF] bg-[#DDE5EF] md:grid-cols-2">
-          {sections.map((section, index) => (
-            <article key={section.title} className={`relative min-h-[300px] p-8 lg:p-10 ${index === 0 || index === 3 ? 'bg-[#071B3C] text-white' : 'bg-white'}`}>
-              <div className="flex items-center justify-between"><p className="text-xs font-black tracking-[0.16em] text-[#F5A300]">0{index + 1}</p><span className={`h-2.5 w-2.5 rounded-full ${index === 0 || index === 3 ? 'bg-[#F5A300]' : 'bg-[#0E3FA9]'}`} /></div>
-              <h2 className={`mt-8 text-3xl font-black tracking-tight ${index === 0 || index === 3 ? 'text-white' : 'text-[#0A234F]'}`}>{section.title}</h2>
-              <p className={`mt-4 max-w-xl font-semibold leading-7 ${index === 0 || index === 3 ? 'text-white/68' : 'text-[#60758F]'}`}>{section.copy}</p>
-              {section.points?.length ? <div className="mt-7 flex flex-wrap gap-2">{section.points.map(point => <span key={point} className={`rounded-full border px-3 py-1.5 text-xs font-black ${index === 0 || index === 3 ? 'border-white/15 bg-white/[0.06] text-white/80' : 'border-[#DDE5EF] bg-[#F7F9FC] text-[#385475]'}`}>{point}</span>)}</div> : null}
-            </article>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto grid max-w-[1240px] gap-5 md:grid-cols-2">
-      {sections.map((section, index) => (
-        <article key={section.title} className="rounded-2xl border border-[#E2E8F1] bg-white p-7 shadow-[0_18px_50px_rgba(8,38,86,0.06)] lg:p-9">
-          <p className="text-xs font-black tracking-[0.16em] text-[#F5A300]">0{index + 1}</p>
-          <h2 className="mt-4 text-3xl font-black tracking-tight text-[#0A234F]">{section.title}</h2>
-          <p className="mt-4 font-semibold leading-7 text-[#60758F]">{section.copy}</p>
-          {section.points?.length ? <div className="mt-6 grid gap-3">{section.points.map(point => <div key={point} className="flex items-start gap-3 text-sm font-bold text-[#385475]"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1E7A43]" />{point}</div>)}</div> : null}
-        </article>
-      ))}
+      {sections.map((section, index) => {
+        const dark = index === 0 || index === 3;
+        return (
+          <article
+            key={section.title}
+            className={`relative flex min-h-[320px] flex-col overflow-hidden rounded-[24px] border p-8 shadow-[0_18px_50px_rgba(7,27,60,0.08)] lg:p-9 ${dark ? 'border-[#0B2F6B] bg-gradient-to-br from-[#071B3C] to-[#0B2F6B] text-white' : 'border-[#DDE5EF] bg-white text-[#102447]'}`}
+          >
+            <div className="absolute right-6 top-4 text-7xl font-black leading-none text-[#F5A300]/10">0{index + 1}</div>
+            <p className="relative text-xs font-black uppercase tracking-[0.16em] text-[#F5A300]">{modeLabel[mode]} · 0{index + 1}</p>
+            <h2 className={`relative mt-4 text-3xl font-black tracking-tight ${dark ? 'text-white' : 'text-[#0A234F]'}`}>{section.title}</h2>
+            <p className={`relative mt-4 max-w-xl font-semibold leading-7 ${dark ? 'text-white/72' : 'text-[#60758F]'}`}>{section.copy}</p>
+            {section.points?.length ? (
+              <div className="relative mt-7 grid gap-3">
+                {section.points.map(point => (
+                  <div key={point} className={`flex items-start gap-3 text-sm font-bold ${dark ? 'text-white/84' : 'text-[#385475]'}`}>
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" />
+                    {point}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        );
+      })}
     </div>
   );
 }
