@@ -62,7 +62,7 @@ export function MarketingDetailPage({
   title,
   intro,
   sections,
-  primaryLabel = 'Request Early Access',
+  primaryLabel = 'Start 3 Months Free',
   primaryHref = '/register',
   secondaryLabel = 'Sign In',
   secondaryHref = '/login',
@@ -82,12 +82,15 @@ export function MarketingDetailPage({
     <div className="min-h-screen bg-[#F7F9FC] text-[#102447]">
       <header className="sticky top-0 z-50 border-b border-[#E2E8F1] bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-          <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
+          <div className="flex items-center gap-3">
+            <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
+            <Link href="/pricing" className="hidden rounded-full border border-[#F1D89F] bg-[#FFF7E5] px-3 py-1.5 text-[0.64rem] font-black uppercase tracking-[0.1em] text-[#8A6100] md:inline-flex">3 Months Free</Link>
+          </div>
           <nav className="hidden items-center gap-6 text-sm font-black text-[#48607E] lg:flex">
             {nav.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}
             <Link href="/login" className="transition hover:text-[#0E3FA9]">Sign In</Link>
           </nav>
-          <Link href="/register" className="bg-[#0E3FA9] px-5 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(14,63,169,0.18)]">Start Free</Link>
+          <Link href="/register" className="rounded-lg bg-[#0E3FA9] px-5 py-2.5 text-sm font-black text-white shadow-[0_12px_28px_rgba(14,63,169,0.18)]">Start 3 Months Free</Link>
         </div>
       </header>
 
@@ -95,13 +98,15 @@ export function MarketingDetailPage({
         <section className="relative overflow-hidden bg-white px-5 py-20 sm:px-8 lg:py-28">
           <div className="absolute -right-40 top-10 h-[420px] w-[420px] rounded-full border border-[#0E3FA9]/10 shadow-[0_0_0_70px_rgba(14,63,169,0.025),0_0_0_140px_rgba(14,63,169,0.018)]" />
           <div className="relative mx-auto max-w-[1240px]">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
+            <div className="inline-flex rounded-full border border-[#F1D89F] bg-[#FFF7E5] px-4 py-2 text-[0.68rem] font-black uppercase tracking-[0.12em] text-[#8A6100]">Early Access · First 3 Months Free</div>
+            <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
             <h1 className="mt-5 max-w-5xl text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#0A234F] sm:text-[4.6rem] lg:text-[5.4rem]">{title}</h1>
             <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#516987]">{intro}</p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#0E3FA9] px-6 py-3.5 text-sm font-black text-white">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
               <Link href={secondaryHref} className="rounded-lg border border-[#D8E1ED] bg-white px-6 py-3.5 text-sm font-black text-[#0E3FA9]">{secondaryLabel}</Link>
             </div>
+            <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-[#385475]"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
           </div>
         </section>
 
