@@ -66,10 +66,10 @@ export default function PricingPage() {
       </section>
     </main>
 
-    <footer className="relative border-t border-[#DDE5EF] bg-white px-5 pb-10 pt-12 sm:px-8">
+    <footer className="relative border-t border-[#DDE5EF] bg-white px-5 pt-12 sm:px-8">
       <div className="absolute inset-x-0 top-0 h-1 bg-[#163568]" />
       <div className="mx-auto max-w-[1440px]">
-        <div className="grid gap-10 xl:grid-cols-[1.15fr_2.85fr]">
+        <div className="grid gap-10 pb-10 xl:grid-cols-[1.15fr_2.85fr]">
           <div>
             <Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link>
             <p className="mt-4 text-base font-black text-[#163568]">Courier &amp; Freight Exchange Platform</p>
@@ -84,11 +84,13 @@ export default function PricingPage() {
           </div>
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">{footerGroups.map(group => <div key={group.title}><h2 className="text-[0.72rem] font-black uppercase tracking-[0.19em] text-[#F5A300]">{group.title}</h2><div className="mt-5 grid gap-3 text-sm font-black text-[#163568]">{group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}</div></div>)}</div>
         </div>
-        <div className="mt-8 border-t border-[#DDE5EF] pt-5 text-xs font-bold leading-5 text-[#60758F]">
+      </div>
+      <div className="-mx-5 border-t border-white/10 bg-gradient-to-br from-[#163568] to-[#102B55] px-5 py-5 text-xs font-bold leading-5 text-white/72 sm:-mx-8 sm:px-8">
+        <div className="mx-auto max-w-[1440px]">
           <p>XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p>
-            <p className="font-black text-[#163568]">Move Freight. Manage Operations. Grow Your Network.</p>
+            <p className="font-black text-white">Move Freight. Manage Operations. <span className="text-[#F5A300]">Grow Your Network.</span></p>
           </div>
         </div>
       </div>
