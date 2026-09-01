@@ -1,170 +1,31 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy',
-  description: 'XDrive Logistics Privacy Policy — how we collect, use, and protect your personal data in accordance with UK GDPR.',
+  title: 'Privacy Policy | XDrive Logistics',
+  description: 'How XDrive Logistics collects, uses, shares and protects personal data under UK data-protection law.',
 };
 
-const LAST_UPDATED = '20 February 2026';
+const LAST_UPDATED = '1 September 2026';
 
-export default function PrivacyPage() {
-  return (
-    <main
-      style={{
-        minHeight: '100vh',
-        backgroundColor: 'var(--color-primary-navy-dark)',
-        color: 'var(--color-text-white)',
-        padding: '6rem 24px 4rem',
-      }}
-    >
-      <div style={{ maxWidth: '860px', margin: '0 auto' }}>
-        <a
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: 'var(--color-gold-primary)',
-            textDecoration: 'none',
-            fontSize: '0.9rem',
-            marginBottom: '2rem',
-          }}
-        >
-          ← Back to Home
-        </a>
-
-        <h1
-          style={{
-            fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-            fontWeight: 800,
-            color: 'var(--color-text-white)',
-            marginBottom: '0.5rem',
-          }}
-        >
-          Privacy Policy
-        </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
-          Last updated: {LAST_UPDATED}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
-          <Section title="1. Who We Are">
-            {COMPANY_CONFIG.legalName} (Company Number {COMPANY_CONFIG.companyNumber}), registered at {COMPANY_CONFIG.address.street},
-            {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}, {COMPANY_CONFIG.address.country}, is the data controller for personal data collected
-            through this platform. We are committed to protecting your privacy in accordance with
-            the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
-          </Section>
-
-          <Section title="2. Data We Collect">
-            We may collect the following personal data:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li>Name, email address, and phone number</li>
-              <li>Business name and address</li>
-              <li>Driver licence, CPC certificate, and other professional documents (for drivers)</li>
-              <li>Payment information (processed securely; we do not store full card details)</li>
-              <li>IP address, browser type, and usage data via cookies</li>
-              <li>Delivery and job history</li>
-            </ul>
-          </Section>
-
-          <Section title="3. How We Use Your Data">
-            We use your personal data to:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li>Provide and manage platform services</li>
-              <li>Verify driver qualifications and identity</li>
-              <li>Record invoice details, payment status, and related finance history</li>
-              <li>Communicate about your bookings and account</li>
-              <li>Improve our platform and services</li>
-              <li>Comply with legal obligations</li>
-            </ul>
-          </Section>
-
-          <Section title="4. Legal Basis for Processing">
-            We process your data on the following legal bases:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li><strong>Contract</strong>: to provide the services you have requested</li>
-              <li><strong>Legal obligation</strong>: to comply with applicable laws</li>
-              <li><strong>Legitimate interests</strong>: to improve our platform and prevent fraud</li>
-              <li><strong>Consent</strong>: for marketing communications (you may withdraw at any time)</li>
-            </ul>
-          </Section>
-
-          <Section title="5. Data Sharing">
-            We do not sell your personal data. We may share your data with:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li>Drivers and clients as necessary to facilitate a booking</li>
-              <li>Approved third-party services used to support our operational platform</li>
-              <li>Cloud service providers (e.g., Supabase/AWS) for data hosting</li>
-              <li>Legal authorities when required by law</li>
-            </ul>
-          </Section>
-
-          <Section title="6. Data Retention">
-            We retain your personal data for as long as your account is active and for up to 7 years
-            after account closure for legal and tax purposes, unless a shorter period is required or
-            permitted by law.
-          </Section>
-
-          <Section title="7. Your Rights">
-            Under UK GDPR, you have the right to:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li>Access the personal data we hold about you</li>
-              <li>Request correction of inaccurate data</li>
-              <li>Request deletion of your data (&quot;right to be forgotten&quot;)</li>
-              <li>Object to or restrict processing</li>
-              <li>Data portability</li>
-              <li>Withdraw consent at any time</li>
-            </ul>
-            To exercise any of these rights, contact us at {COMPANY_CONFIG.email}.
-          </Section>
-
-          <Section title="8. Cookies">
-            We use only essential cookies required for authentication and core platform operation. See our{' '}
-            <a href="/cookies" style={{ color: 'var(--color-gold-primary)' }}>
-              Cookie Policy
-            </a>{' '}
-            for full details.
-          </Section>
-
-          <Section title="9. Security">
-            We implement industry-standard security measures including SSL/TLS encryption,
-            secure data storage, and access controls. However, no system is completely secure
-            and we cannot guarantee absolute security.
-          </Section>
-
-          <Section title="10. Contact & Complaints">
-            For privacy-related queries, contact us at:<br /><br />
-            {COMPANY_CONFIG.legalName}<br />
-            {COMPANY_CONFIG.address.street}, {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}<br />
-            Email: {COMPANY_CONFIG.email}<br /><br />
-            {COMPANY_CONFIG.legalName} is an independent platform and is not affiliated with Courier Exchange or any third-party courier exchange platform.<br /><br />
-            You also have the right to lodge a complaint with the UK Information Commissioner&apos;s
-            Office (ICO) at{' '}
-            <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-gold-primary)' }}>
-              ico.org.uk
-            </a>.
-          </Section>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2
-        style={{
-          fontSize: '1.2rem',
-          fontWeight: 700,
-          color: 'var(--color-gold-primary)',
-          marginBottom: '0.75rem',
-        }}
-      >
-        {title}
-      </h2>
-      <div style={{ margin: 0 }}>{children}</div>
-    </div>
-  );
-}
+export default function PrivacyPage(){return <main className="min-h-screen bg-[#071B3C] px-6 py-20 text-white"><div className="mx-auto max-w-[900px]">
+<Link href="/" className="text-sm font-black text-[#F5A300]">← Back to XDrive</Link><p className="mt-10 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">Privacy</p><h1 className="mt-3 text-4xl font-black sm:text-5xl">Privacy Policy</h1><p className="mt-3 text-sm font-semibold text-white/55">Last updated: {LAST_UPDATED}</p>
+<div className="mt-10 grid gap-8 leading-7 text-white/78">
+<S t="1. Who is responsible for your data">{COMPANY_CONFIG.legalName} (Company No. {COMPANY_CONFIG.companyNumber}), registered office {COMPANY_CONFIG.address.full}, is the controller for personal data processed for the XDrive website, accounts, membership, marketplace and operational platform unless another party is expressly identified as controller for a particular processing activity.</S>
+<S t="2. Data we may collect"><ul className="list-disc space-y-2 pl-6"><li>identity and contact details such as name, email, phone and account credentials;</li><li>business and role information, company details, registered or trading addresses and authorised users;</li><li>driver, carrier, vehicle, licence, insurance and compliance documents where relevant to platform eligibility or a job;</li><li>job, route, quote, award, dispatch, status, POD, signature, photograph, message and invoice-readiness records;</li><li>membership, billing, invoice and payment-status information; card details are processed by authorised payment providers and are not stored by XDrive as full card numbers;</li><li>technical and security information such as IP address, device/browser data, authentication events and audit logs;</li><li>tax-identification and seller-reporting information where UK digital-platform reporting law requires us to collect or verify it.</li></ul></S>
+<S t="3. Why we use personal data"><ul className="list-disc space-y-2 pl-6"><li>to create, verify and administer accounts and controlled access;</li><li>to provide exchange, quoting, award, dispatch, tracking, POD and finance-record features;</li><li>to administer free access, subscriptions, billing and support;</li><li>to prevent fraud, protect users and enforce platform rules;</li><li>to meet accounting, tax, digital-platform reporting, legal and regulatory obligations;</li><li>to communicate service messages and, where permitted, marketing;</li><li>to investigate complaints, disputes, incidents and security events;</li><li>to improve reliability, usability and product performance.</li></ul></S>
+<S t="4. Lawful bases">Depending on the activity, we rely on performance of a contract or steps requested before a contract, compliance with legal obligations, legitimate interests such as platform security, fraud prevention and service improvement, and consent where consent is legally required, including certain direct marketing or non-essential storage/access technologies.</S>
+<S t="5. Who we share data with">We may share relevant data with customers, brokers, carriers, drivers and authorised company users where necessary to operate a job; service providers supporting hosting, authentication, communications, payments, support and security; professional advisers; insurers where relevant; and competent authorities including HM Revenue & Customs, law enforcement, courts or regulators where disclosure is required or legally justified. We do not sell personal data to advertisers.</S>
+<S t="6. Digital-platform seller reporting">Where XDrive is required to comply with UK platform-operator reporting rules, we may collect and verify prescribed seller information and report required details to HM Revenue & Customs. We may also provide affected sellers with information that the law requires us to give them. Only information required for the applicable reporting obligation should be collected and retained for that purpose.</S>
+<S t="7. International transfers">Some technology providers may process data outside the UK. Where a restricted transfer occurs, XDrive will use an applicable UK adequacy regulation, the UK International Data Transfer Agreement/addendum or another lawful safeguard, together with appropriate risk assessment where required.</S>
+<S t="8. Retention">Retention depends on the record. Active account and operational data is retained while needed to provide the service. Financial, tax and contractual records may be retained for periods required by law or reasonably needed to establish or defend legal claims. Security logs and unsuccessful application data should be kept only for proportionate periods. We review retention and delete or anonymise data when it is no longer required, subject to legal holds and statutory duties.</S>
+<S t="9. Your rights">Subject to the conditions and exemptions in UK data-protection law, you may have rights of access, rectification, erasure, restriction, objection and data portability, and the right to withdraw consent where processing relies on consent. Contact {COMPANY_CONFIG.email} to exercise a right. We may need to verify your identity before responding.</S>
+<S t="10. Security">We use technical and organisational measures appropriate to the risk, including encrypted connections, access controls, authentication, least-privilege controls and audit/security monitoring. No online system can be guaranteed absolutely secure.</S>
+<S t="11. Cookies and similar technologies">Our Cookie Policy explains cookies, local storage and other storage/access technologies. Non-essential technologies are not to be activated without the consent or other lawful permission required by applicable UK rules.</S>
+<S t="12. Children">XDrive is designed for business and professional transport use and is not intended for children. Do not create an account for a child or submit a child's personal data unless it is genuinely necessary for a lawful transport purpose and you have the legal authority to do so.</S>
+<S t="13. Changes to this notice">We review this notice as the platform and law change. Material new uses of personal data will be brought to affected users' attention before they begin where required.</S>
+<S t="14. Contact and complaints">Contact {COMPANY_CONFIG.legalName} at {COMPANY_CONFIG.email}, {COMPANY_CONFIG.phoneDisplay}, or {COMPANY_CONFIG.address.full}. You may also complain to the UK Information Commissioner's Office if you believe your data-protection rights have been infringed.</S>
+</div><div className="mt-12 flex flex-wrap gap-4 border-t border-white/10 pt-7 text-sm font-black text-[#F5A300]"><Link href="/cookies">Cookies</Link><Link href="/terms">Terms</Link><Link href="/complaints">Complaints</Link></div>
+</div></main>}
+function S({t,children}:{t:string;children:React.ReactNode}){return <section><h2 className="text-xl font-black text-[#F5A300]">{t}</h2><div className="mt-3">{children}</div></section>}
