@@ -77,9 +77,12 @@ export function MarketingDetailPage({
       </main>
 
       <footer className="border-t border-[#E2E8F1] bg-white px-5 py-10 sm:px-8">
-        <div className="mx-auto flex max-w-[1240px] flex-col gap-5 text-sm font-bold text-[#60758F] sm:flex-row sm:items-center sm:justify-between">
-          <div>© 2021 XDrive Logistics Ltd. · Company No. 13171804</div>
-          <div className="flex flex-wrap gap-5"><Link href="/contact">Contact</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link></div>
+        <div className="mx-auto max-w-[1240px]">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-start">
+            <div className="text-sm font-bold leading-6 text-[#60758F]"><p className="font-black text-[#0A234F]">XDrive Logistics Ltd.</p><p>Company No. 13171804 · Registered in England and Wales</p><p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p><p className="mt-2">Courier & Freight Exchange Platform · No client funds held by XDrive under the current platform model.</p></div>
+            <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-black text-[#0E3FA9]"><Link href="/contact">Contact</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/subscription-terms">Subscription Terms</Link><Link href="/acceptable-use">Acceptable Use</Link><Link href="/cookies">Cookies</Link><Link href="/complaints">Complaints</Link></div>
+          </div>
+          <div className="mt-8 flex flex-col gap-2 border-t border-[#E2E8F1] pt-5 text-xs font-bold text-[#60758F] sm:flex-row sm:justify-between"><p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p><p>Move Freight. Manage Operations. Grow Your Network.</p></div>
         </div>
       </footer>
     </div>
