@@ -10,12 +10,12 @@ export const metadata: Metadata = {
 const LAST_UPDATED = '1 September 2026';
 
 export default function SubscriptionTermsPage() {
-  return <main className="min-h-screen bg-[#F7F9FC] px-6 py-20 text-[#102447]"><div className="mx-auto max-w-[900px]">
-    <Link href="/pricing" className="text-sm font-black text-[#0E3FA9]">← Back to Pricing</Link>
+  return <main className="min-h-screen bg-[#071B3C] px-6 py-20 text-white"><div className="mx-auto max-w-[900px]">
+    <Link href="/pricing" className="text-sm font-black text-[#F5A300]">← Back to Pricing</Link>
     <p className="mt-10 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">Membership</p>
-    <h1 className="mt-3 text-4xl font-black text-[#071B3C] sm:text-5xl">Membership & Subscription Terms</h1>
-    <p className="mt-3 text-sm font-semibold text-[#6A7C95]">Last updated: {LAST_UPDATED}</p>
-    <div className="mt-10 grid gap-8 leading-7 text-[#405B78]">
+    <h1 className="mt-3 text-4xl font-black sm:text-5xl">Membership & Subscription Terms</h1>
+    <p className="mt-3 text-sm font-semibold text-white/55">Last updated: {LAST_UPDATED}</p>
+    <div className="mt-10 grid gap-8 text-[0.98rem] font-medium leading-7 text-white/78">
       <S t="1. Scope">These terms apply to XDrive platform memberships. They supplement the main Terms & Conditions. If there is a conflict about membership billing, renewal or cancellation, these membership terms take priority for that issue.</S>
       <S t="2. Eligibility and approval">Early access is subject to application review and account approval. XDrive may decline or defer an application where the applicant does not fit the current rollout, verification is incomplete or access would create security, compliance or operational risk.</S>
       <S t="3. Free access period">Eligible approved launch accounts receive the advertised three-month free access period. No membership charge is due for that free period. The free period is promotional, non-transferable and may be limited to one qualifying account or business unless XDrive agrees otherwise.</S>
@@ -30,8 +30,8 @@ export default function SubscriptionTermsPage() {
       <S t="12. Contract confirmation">Where a paid membership is entered into online, XDrive will provide or make available the key membership information and will provide a confirmation that can be retained by the customer, such as an email or downloadable record.</S>
       <S t="13. Contact">Questions about membership or cancellation can be sent to {COMPANY_CONFIG.email}. {COMPANY_CONFIG.legalName}, Company No. {COMPANY_CONFIG.companyNumber}, registered office {COMPANY_CONFIG.address.full}, registered in England and Wales.</S>
     </div>
-    <div className="mt-12 flex flex-wrap gap-4 border-t border-[#E2E8F1] pt-7 text-sm font-black text-[#0E3FA9]"><Link href="/terms">Terms</Link><Link href="/pricing">Pricing</Link><Link href="/complaints">Complaints</Link><Link href="/privacy">Privacy</Link></div>
+    <div className="mt-12 flex flex-wrap gap-4 border-t border-white/10 pt-7 text-sm font-black text-[#F5A300]"><Link href="/terms">Terms</Link><Link href="/pricing">Pricing</Link><Link href="/complaints">Complaints</Link><Link href="/privacy">Privacy</Link></div>
   </div></main>;
 }
 
-function S({t, children}:{t:string; children:React.ReactNode}){return <section><h2 className="text-xl font-black text-[#071B3C]">{t}</h2><div className="mt-3">{children}</div></section>}
+function S({t, children}:{t:string; children:React.ReactNode}){return <section><h2 className="text-xl font-black text-[#F5A300]">{t}</h2><div className="mt-3">{children}</div></section>}
