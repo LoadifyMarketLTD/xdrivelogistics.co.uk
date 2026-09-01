@@ -26,12 +26,20 @@ type ChecklistPayload = {
 };
 
 const pretty = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const STATUS_LABELS: Record<ChecklistDocument['status'], string> = {
+  missing: 'Missing',
+  uploaded: 'Uploaded',
+  approved: 'Approved',
+  expiring_soon: 'Expiring soon',
+  expired: 'Expired',
+  rejected: 'Rejected',
+};
 const statusLabel = (document: ChecklistDocument) => {
   if (document.status === 'uploaded' && document.reviewStatus === 'pending_review') return 'Uploaded · pending review';
   if (document.status === 'expiring_soon') return document.daysUntilExpiry === null || document.daysUntilExpiry === undefined
-    ? 'Expiring soon'
+    ? STATUS_LABELS.expiring_soon
     : `Expiring in ${document.daysUntilExpiry} day${document.daysUntilExpiry === 1 ? '' : 's'}`;
-  return pretty(document.status);
+  return STATUS_LABELS[document.status];
 };
 
 export default function OnboardingDocumentChecklist() {
