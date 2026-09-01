@@ -2,6 +2,7 @@ import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailP
 
 export default function BrokersPage() {
   return <MarketingDetailPage
+    activeNavHref="/brokers"
     kicker="XDrive for Brokers"
     title="Post transport work. Compare capacity. Award with control."
     intro="XDrive gives brokers one commercial and operational workflow for posting courier and freight jobs, receiving carrier quotes, awarding work and keeping visibility through dispatch, POD and invoice readiness."
