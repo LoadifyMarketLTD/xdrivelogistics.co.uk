@@ -16,9 +16,12 @@ export default function PricingPage() {
   return <div className="min-h-screen bg-[#071B3C] text-white">
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#071B3C]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-        <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
+        <div className="flex items-center gap-3">
+          <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
+          <span className="hidden rounded-full border border-[#F5A300]/35 bg-[#F5A300]/10 px-3 py-1.5 text-[0.64rem] font-black uppercase tracking-[0.1em] text-[#F5A300] md:inline-flex">3 Months Free</span>
+        </div>
         <nav className="hidden items-center gap-6 text-sm font-black text-white/70 lg:flex"><Link href="/platform">Platform</Link><Link href="/brokers">Brokers</Link><Link href="/couriers">Couriers</Link><Link href="/pricing" className="text-[#F5A300]">Pricing</Link><Link href="/access">Access</Link><Link href="/login">Sign In</Link></nav>
-        <Link href="/register" className="rounded-lg bg-[#F5A300] px-5 py-2.5 text-sm font-black text-[#071B3C]">Start Free</Link>
+        <Link href="/register" className="rounded-lg bg-[#F5A300] px-5 py-2.5 text-sm font-black text-[#071B3C]">Start 3 Months Free</Link>
       </div>
     </header>
     <main>
