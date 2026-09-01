@@ -2,6 +2,7 @@ import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailP
 
 export default function AccessPage() {
   return <MarketingDetailPage
+    activeNavHref="/access"
     kicker="Controlled Early Access"
     title="Apply to join XDrive before paid membership begins."
     intro="XDrive is rolling out in a controlled way. Applications are reviewed so the network can grow around real courier, carrier, broker and transport-customer operations rather than anonymous sign-ups."
