@@ -84,7 +84,7 @@ function SectionGrid({ sections, mode }: { sections: DetailSection[]; mode: Visu
           key={section.title}
           className="relative flex min-h-[330px] flex-col overflow-hidden rounded-[24px] border border-[#1B3D6B] bg-gradient-to-br from-[#163568] to-[#102B55] p-7 text-white shadow-[0_18px_45px_rgba(7,27,60,0.12)] lg:p-8"
         >
-          <div className="absolute right-6 top-4 text-7xl font-black leading-none text-[#F5A300]/10">0{index + 1}</div>
+          <div className="absolute right-6 top-4 text-7xl font-black leading-none text-[#46689F]">0{index + 1}</div>
           <p className="relative text-[0.7rem] font-black uppercase tracking-[0.17em] text-[#F5A300]">{modeLabel[mode]} · 0{index + 1}</p>
           <h2 className="relative mt-4 text-3xl font-black tracking-tight text-white">{section.title}</h2>
           <p className="relative mt-4 max-w-xl font-semibold leading-7 text-white/70">{section.copy}</p>
