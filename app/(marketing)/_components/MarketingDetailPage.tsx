@@ -131,10 +131,7 @@ export function MarketingDetailPage({
     <div className="min-h-screen bg-[#F4F6FA] text-[#102447]">
       <header className="sticky top-0 z-50 border-b border-[#DDE5EF] bg-white/95 text-[#163568] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-          <div className="flex items-center gap-3">
-            <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
-            <Link href="/pricing" className="hidden rounded-full border border-[#F5A300]/35 bg-[#FFF7E5] px-3 py-1.5 text-[0.64rem] font-black uppercase tracking-[0.1em] text-[#A56B00] md:inline-flex">3 Months Free</Link>
-          </div>
+          <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
           <nav className="hidden items-center gap-6 text-sm font-black text-[#163568] lg:flex">
             {nav.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}
             <Link href="/login" className="transition hover:text-[#0E3FA9]">Sign In</Link>
@@ -146,8 +143,10 @@ export function MarketingDetailPage({
       <main>
         <section className="bg-[#071B3C] px-5 py-16 text-white sm:px-8 lg:py-20">
           <div className="mx-auto max-w-[1240px]">
-            <div className="inline-flex rounded-full border border-[#F5A300]/30 bg-[#F5A300]/10 px-4 py-2 text-[0.68rem] font-black uppercase tracking-[0.12em] text-[#F5A300]">Early Access · First 3 Months Free</div>
-            <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
+            </div>
             <h1 className="mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-white sm:text-[4.6rem] lg:text-[5.15rem]">{title}</h1>
             <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">{intro}</p>
             <div className="mt-9 flex flex-wrap gap-3">
