@@ -10,6 +10,7 @@ import { getCanonicalSiteOrigin, getCanonicalSiteUrl } from '../lib/siteUrl'
 
 const canonicalSiteUrl = getCanonicalSiteUrl()
 const canonicalSiteOrigin = getCanonicalSiteOrigin()
+const platformDescription = 'XDrive is a courier and freight exchange platform connecting customers, brokers, owner drivers and carriers from posted work and quotes through award, dispatch, POD and invoice readiness. Access is currently by application.'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -20,22 +21,22 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'XDrive Logistics | Courier & Delivery Management Platform',
+    default: 'XDrive Logistics | Courier & Freight Exchange Platform',
     template: '%s | XDrive Logistics',
   },
-  description: 'XDrive Logistics connects self-employed courier drivers with businesses across the UK and Europe. Find loads, manage deliveries, and grow your transport business. 24/7 reliable freight services.',
+  description: platformDescription,
   keywords: [
     'XDrive Logistics',
-    'courier jobs UK',
-    'self employed driver',
+    'courier exchange UK',
+    'freight exchange UK',
     'transport platform UK',
     'owner driver jobs UK',
-    'courier driver app UK',
+    'courier driver platform UK',
     'freight loads UK',
-    'UK courier',
-    'express delivery',
-    'same day delivery',
-    'pallet transport',
+    'transport broker platform',
+    'carrier operations platform',
+    'proof of delivery',
+    'dispatch management',
     'logistics Blackburn',
   ],
   authors: [{ name: COMPANY_CONFIG.legalName }],
@@ -54,8 +55,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_GB',
     url: canonicalSiteOrigin,
-    title: 'XDrive Logistics - Premium Transport Services',
-    description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
+    title: 'XDrive Logistics | Courier & Freight Exchange Platform',
+    description: platformDescription,
     siteName: 'XDrive Logistics',
     images: [
       {
@@ -66,8 +67,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'XDrive Logistics - Premium Transport Services',
-    description: `Independent transport platform by ${COMPANY_CONFIG.legalName} for UK and EU courier operations.`,
+    title: 'XDrive Logistics | Courier & Freight Exchange Platform',
+    description: platformDescription,
     images: ['/xdrive-logo-primary.png'],
   },
   robots: {
