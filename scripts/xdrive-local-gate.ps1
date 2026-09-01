@@ -30,6 +30,8 @@ New-Item -ItemType Directory -Force -Path $Root, (Split-Path $mirrorDir), (Split
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logPath = Join-Path $logDir "xdrive-local-gate-$stamp.log"
+$vitestJsonPath = Join-Path $logDir "xdrive-vitest-$stamp.json"
+$vitestFailurePath = Join-Path $logDir "xdrive-vitest-failures-$stamp.txt"
 Start-Transcript -Path $logPath -Force | Out-Null
 
 try {
@@ -83,7 +85,55 @@ try {
     }
 
     Invoke-Step 'TypeScript typecheck' { npm run typecheck }
-    Invoke-Step 'Vitest unit suite' { npm run test:unit }
+
+    Write-Host "`n=== Vitest unit suite ===" -ForegroundColor Cyan
+    npm run test:unit
+    $unitExit = $LASTEXITCODE
+    if ($unitExit -ne 0) {
+      Write-Host "Vitest failed; generating machine-readable failure report..." -ForegroundColor Yellow
+      npx vitest run --reporter=json --outputFile="$vitestJsonPath" *> $null
+
+      if (Test-Path $vitestJsonPath) {
+        try {
+          $report = Get-Content -Raw -Path $vitestJsonPath | ConvertFrom-Json
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("sha=$sha")
+          $lines.Add("ref=$Ref")
+          $lines.Add("vitest_exit=$unitExit")
+          $lines.Add('')
+
+          foreach ($suite in @($report.testResults)) {
+            if ($suite.status -eq 'failed') {
+              $lines.Add("FILE: $($suite.name)")
+              foreach ($assertion in @($suite.assertionResults)) {
+                if ($assertion.status -eq 'failed') {
+                  $title = if ($assertion.fullName) { $assertion.fullName } else { $assertion.title }
+                  $lines.Add("  FAIL: $title")
+                  if ($assertion.failureMessages) {
+                    $firstMessage = (@($assertion.failureMessages) | Select-Object -First 1)
+                    if ($firstMessage) {
+                      $cleanMessage = [regex]::Replace([string]$firstMessage, "`e\[[0-9;]*m", '')
+                      $lines.Add("    $cleanMessage")
+                    }
+                  }
+                }
+              }
+              $lines.Add('')
+            }
+          }
+          $lines | Set-Content -Path $vitestFailurePath -Encoding UTF8
+          Write-Host "Vitest failure summary: $vitestFailurePath" -ForegroundColor Yellow
+          Write-Host "Vitest JSON report:    $vitestJsonPath" -ForegroundColor Yellow
+        }
+        catch {
+          Write-Host "Vitest JSON exists but summary parsing failed: $($_.Exception.Message)" -ForegroundColor DarkYellow
+          Write-Host "Vitest JSON report: $vitestJsonPath" -ForegroundColor Yellow
+        }
+      }
+
+      throw "Vitest unit suite failed with exit code $unitExit"
+    }
+
     Invoke-Step 'Next.js production build' { npm run build }
 
     if ($RunE2E) {
