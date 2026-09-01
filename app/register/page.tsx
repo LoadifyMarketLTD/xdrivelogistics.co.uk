@@ -135,6 +135,7 @@ export default function RegisterPage() {
 
   const roleUi = ROLE_UI[role];
   const priceUi = useMemo(() => selectedPlan ? PLAN_PRICES[selectedPlan] : null, [selectedPlan]);
+  const enterpriseSelected = selectedPlan === 'enterprise';
 
   const selectRole = (nextRole: RegisterRole) => {
     setRole(nextRole);
@@ -146,6 +147,7 @@ export default function RegisterPage() {
     event.preventDefault();
     setError(''); setMessage(''); setWarning('');
 
+    if (enterpriseSelected) { router.push('/contact'); return; }
     if (!isSupabaseConfigured) { setError('Registration is unavailable: Supabase is not configured.'); return; }
     if (role === 'fleet_operator' && (!selectedPlan || !CARRIER_PLANS.has(selectedPlan as CarrierPlan))) {
       setError('Choose your Carrier / Fleet size before creating the account.'); return;
@@ -235,12 +237,12 @@ export default function RegisterPage() {
               </div>
               <div className="text-right">
                 <div className="text-[clamp(1.3rem,3.2vh,1.8rem)] font-black tracking-tight text-white">{priceUi?.price ?? '—'}</div>
-                <p className="text-[clamp(8px,1vh,10px)] font-bold text-white/48">{selectedPlan === 'enterprise' ? 'pricing agreed separately' : '/ month + VAT after trial'}</p>
+                <p className="text-[clamp(8px,1vh,10px)] font-bold text-white/48">{enterpriseSelected ? 'pricing agreed separately' : '/ month + VAT after trial'}</p>
               </div>
             </div>
 
             <div className="mt-[clamp(0.65rem,1.5vh,1rem)] flex items-center justify-between gap-4 rounded-xl bg-[#F5A300] px-4 py-[clamp(0.55rem,1.25vh,0.8rem)] text-[#071B3C]">
-              <div><p className="text-[9px] font-black uppercase tracking-[0.13em]">Launch access</p><p className="text-[clamp(0.85rem,1.8vh,1rem)] font-black">Your first 3 months are free</p></div>
+              <div><p className="text-[9px] font-black uppercase tracking-[0.13em]">{enterpriseSelected ? 'Enterprise access' : 'Launch access'}</p><p className="text-[clamp(0.85rem,1.8vh,1rem)] font-black">{enterpriseSelected ? 'Commercial review required' : 'Your first 3 months are free'}</p></div>
               <ShieldCheck className="h-5 w-5 shrink-0" />
             </div>
 
@@ -256,7 +258,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 pt-3 text-[clamp(8px,1.1vh,10px)] font-bold text-white/48">
-            <span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling</span>
+            <span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>{enterpriseSelected ? '✓ Custom commercial terms' : '✓ Monthly rolling'}</span>
           </div>
         </div>
       </section>
@@ -298,41 +300,53 @@ export default function RegisterPage() {
             </div>
           </div> : null}
 
-          <form onSubmit={handleSubmit} className="mt-[clamp(0.6rem,1.3vh,0.9rem)] rounded-[clamp(16px,2vw,20px)] border border-[#DDE5EF] bg-white p-[clamp(0.8rem,1.8vh,1.2rem)] shadow-[0_18px_50px_rgba(7,27,60,0.07)]">
-            <div className="flex items-center justify-between gap-3 border-b border-[#E8EDF4] pb-[clamp(0.45rem,1vh,0.7rem)]">
-              <div><p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#6A7C95]">Account setup</p><p className="mt-0.5 text-sm font-black text-[#071B3C]">{roleUi.label}{priceUi ? ` · ${priceUi.label}` : ''}</p></div>
-              <div className="rounded-full bg-[#FFF4D7] px-3 py-1 text-[10px] font-black text-[#8A6100]">3 months free</div>
+          {enterpriseSelected ? (
+            <div className="mt-[clamp(0.6rem,1.3vh,0.9rem)] rounded-[clamp(16px,2vw,20px)] border border-[#DDE5EF] bg-white p-[clamp(1rem,2vh,1.4rem)] shadow-[0_18px_50px_rgba(7,27,60,0.07)]">
+              <div className="rounded-xl bg-[#FFF7E5] p-4 text-[#071B3C]">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8A6100]">Enterprise · 51+ vehicles / custom</p>
+                <h3 className="mt-2 text-xl font-black">Let’s scope the right commercial setup.</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#60758F]">Enterprise pricing, launch terms, fleet scope and onboarding are agreed directly with XDrive. No public Enterprise subscription price is currently set.</p>
+              </div>
+              <Link href="/contact" className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0E3FA9] px-5 text-xs font-black text-white shadow-[0_12px_28px_rgba(14,63,169,0.20)]">Contact XDrive <ArrowRight className="h-4 w-4" /></Link>
+              <p className="mt-2 text-center text-[10px] font-semibold text-[#7A8DA4]">Commercial terms are confirmed before Enterprise access is activated.</p>
             </div>
-
-            <div className="mt-[clamp(0.55rem,1.2vh,0.8rem)] grid grid-cols-2 gap-[clamp(0.45rem,1vh,0.7rem)]">
-              <div className="col-span-2">
-                <label htmlFor="register-email" className="mb-1 block text-[10px] font-black text-[#071B3C]">Business email</label>
-                <input id="register-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} placeholder="you@company.co.uk" className="h-[clamp(36px,4.8vh,42px)] w-full rounded-lg border border-[#CCD7E5] bg-[#FBFCFE] px-3 text-sm text-[#071B3C] outline-none transition placeholder:text-[#9AA9BA] focus:border-[#0E3FA9] focus:bg-white focus:ring-2 focus:ring-[#0E3FA9]/10" />
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-[clamp(0.6rem,1.3vh,0.9rem)] rounded-[clamp(16px,2vw,20px)] border border-[#DDE5EF] bg-white p-[clamp(0.8rem,1.8vh,1.2rem)] shadow-[0_18px_50px_rgba(7,27,60,0.07)]">
+              <div className="flex items-center justify-between gap-3 border-b border-[#E8EDF4] pb-[clamp(0.45rem,1vh,0.7rem)]">
+                <div><p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#6A7C95]">Account setup</p><p className="mt-0.5 text-sm font-black text-[#071B3C]">{roleUi.label}{priceUi ? ` · ${priceUi.label}` : ''}</p></div>
+                <div className="rounded-full bg-[#FFF4D7] px-3 py-1 text-[10px] font-black text-[#8A6100]">3 months free</div>
               </div>
-              <div>
-                <label htmlFor="register-password" className="mb-1 block text-[10px] font-black text-[#071B3C]">Password</label>
-                <input id="register-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} disabled={loading} placeholder="Minimum 8 characters" className="h-[clamp(36px,4.8vh,42px)] w-full rounded-lg border border-[#CCD7E5] bg-[#FBFCFE] px-3 text-sm text-[#071B3C] outline-none transition placeholder:text-[#9AA9BA] focus:border-[#0E3FA9] focus:bg-white focus:ring-2 focus:ring-[#0E3FA9]/10" />
+
+              <div className="mt-[clamp(0.55rem,1.2vh,0.8rem)] grid grid-cols-2 gap-[clamp(0.45rem,1vh,0.7rem)]">
+                <div className="col-span-2">
+                  <label htmlFor="register-email" className="mb-1 block text-[10px] font-black text-[#071B3C]">Business email</label>
+                  <input id="register-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} placeholder="you@company.co.uk" className="h-[clamp(36px,4.8vh,42px)] w-full rounded-lg border border-[#CCD7E5] bg-[#FBFCFE] px-3 text-sm text-[#071B3C] outline-none transition placeholder:text-[#9AA9BA] focus:border-[#0E3FA9] focus:bg-white focus:ring-2 focus:ring-[#0E3FA9]/10" />
+                </div>
+                <div>
+                  <label htmlFor="register-password" className="mb-1 block text-[10px] font-black text-[#071B3C]">Password</label>
+                  <input id="register-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} disabled={loading} placeholder="Minimum 8 characters" className="h-[clamp(36px,4.8vh,42px)] w-full rounded-lg border border-[#CCD7E5] bg-[#FBFCFE] px-3 text-sm text-[#071B3C] outline-none transition placeholder:text-[#9AA9BA] focus:border-[#0E3FA9] focus:bg-white focus:ring-2 focus:ring-[#0E3FA9]/10" />
+                </div>
+                <div>
+                  <label htmlFor="register-password-confirm" className="mb-1 block text-[10px] font-black text-[#071B3C]">Confirm password</label>
+                  <input id="register-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} disabled={loading} placeholder="Repeat password" className="h-[clamp(36px,4.8vh,42px)] w-full rounded-lg border border-[#CCD7E5] bg-[#FBFCFE] px-3 text-sm text-[#071B3C] outline-none transition placeholder:text-[#9AA9BA] focus:border-[#0E3FA9] focus:bg-white focus:ring-2 focus:ring-[#0E3FA9]/10" />
+                </div>
               </div>
-              <div>
-                <label htmlFor="register-password-confirm" className="mb-1 block text-[10px] font-black text-[#071B3C]">Confirm password</label>
-                <input id="register-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} disabled={loading} placeholder="Repeat password" className="h-[clamp(36px,4.8vh,42px)] w-full rounded-lg border border-[#CCD7E5] bg-[#FBFCFE] px-3 text-sm text-[#071B3C] outline-none transition placeholder:text-[#9AA9BA] focus:border-[#0E3FA9] focus:bg-white focus:ring-2 focus:ring-[#0E3FA9]/10" />
-              </div>
-            </div>
 
-            <div className="mt-[clamp(0.45rem,1vh,0.65rem)] flex items-start gap-2 rounded-lg border border-[#E3EAF2] bg-[#F8FAFD] px-3 py-2 text-[9px] font-semibold leading-4 text-[#566D88]"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0E3FA9]" /><p>{role === 'fleet_operator' ? 'Carrier/Fleet creates the company workspace first; drivers are invited into that company.' : role === 'owner_operator' ? 'Owner Drivers receive their own operations workspace and map internally to the driver role.' : 'Your account direction determines the onboarding path and workspace created after registration.'}</p></div>
+              <div className="mt-[clamp(0.45rem,1vh,0.65rem)] flex items-start gap-2 rounded-lg border border-[#E3EAF2] bg-[#F8FAFD] px-3 py-2 text-[9px] font-semibold leading-4 text-[#566D88]"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0E3FA9]" /><p>{role === 'fleet_operator' ? 'Carrier/Fleet creates the company workspace first; drivers are invited into that company.' : role === 'owner_operator' ? 'Owner Drivers receive their own operations workspace and map internally to the driver role.' : 'Your account direction determines the onboarding path and workspace created after registration.'}</p></div>
 
-            <label className="mt-[clamp(0.4rem,0.9vh,0.6rem)] flex items-start gap-2 rounded-lg border border-[#E3EAF2] bg-white px-3 py-2 text-[9px] font-semibold leading-4 text-[#526983]">
-              <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} disabled={loading} required className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#0E3FA9]" />
-              <span>I agree to the <Link href="/terms" target="_blank" className="font-black text-[#0E3FA9] underline underline-offset-2">Terms & Conditions</Link>, have read the <Link href="/privacy" target="_blank" className="font-black text-[#0E3FA9] underline underline-offset-2">Privacy Policy</Link>, and understand that membership billing is governed by the <Link href="/subscription-terms" target="_blank" className="font-black text-[#0E3FA9] underline underline-offset-2">Membership & Subscription Terms</Link>.</span>
-            </label>
+              <label className="mt-[clamp(0.4rem,0.9vh,0.6rem)] flex items-start gap-2 rounded-lg border border-[#E3EAF2] bg-white px-3 py-2 text-[9px] font-semibold leading-4 text-[#526983]">
+                <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} disabled={loading} required className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#0E3FA9]" />
+                <span>I agree to the <Link href="/terms" target="_blank" className="font-black text-[#0E3FA9] underline underline-offset-2">Terms & Conditions</Link>, have read the <Link href="/privacy" target="_blank" className="font-black text-[#0E3FA9] underline underline-offset-2">Privacy Policy</Link>, and understand that membership billing is governed by the <Link href="/subscription-terms" target="_blank" className="font-black text-[#0E3FA9] underline underline-offset-2">Membership & Subscription Terms</Link>.</span>
+              </label>
 
-            {error ? <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-bold text-red-700">{error}</div> : null}
-            {message ? <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-700">{message}</div> : null}
-            {warning ? <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-700">{warning}</div> : null}
+              {error ? <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-bold text-red-700">{error}</div> : null}
+              {message ? <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-700">{message}</div> : null}
+              {warning ? <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-700">{warning}</div> : null}
 
-            <button type="submit" disabled={loading} className="mt-[clamp(0.5rem,1vh,0.7rem)] flex h-[clamp(38px,5vh,44px)] w-full items-center justify-center gap-2 rounded-lg bg-[#0E3FA9] px-5 text-xs font-black text-white shadow-[0_12px_28px_rgba(14,63,169,0.20)] transition hover:bg-[#0B348C] disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Creating your XDrive account…' : <>Start 3 Months Free <ArrowRight className="h-4 w-4" /></>}</button>
-            <p className="mt-1.5 text-center text-[9px] font-semibold text-[#7A8DA4]">No membership charge during the qualifying 3-month launch period.</p>
-          </form>
+              <button type="submit" disabled={loading} className="mt-[clamp(0.5rem,1vh,0.7rem)] flex h-[clamp(38px,5vh,44px)] w-full items-center justify-center gap-2 rounded-lg bg-[#0E3FA9] px-5 text-xs font-black text-white shadow-[0_12px_28px_rgba(14,63,169,0.20)] transition hover:bg-[#0B348C] disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Creating your XDrive account…' : <>Start 3 Months Free <ArrowRight className="h-4 w-4" /></>}</button>
+              <p className="mt-1.5 text-center text-[9px] font-semibold text-[#7A8DA4]">No membership charge during the qualifying 3-month launch period.</p>
+            </form>
+          )}
         </div>
       </section>
     </main>
