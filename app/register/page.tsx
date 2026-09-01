@@ -3,16 +3,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 
-type RegisterRole =
-  | 'owner_operator'
-  | 'fleet_operator'
-  | 'transport_broker'
-  | 'customer_shipper';
+type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
 
 type SignupConfig = {
   appRole: 'broker' | 'company_admin' | 'driver' | 'customer';
@@ -21,18 +17,17 @@ type SignupConfig = {
   ownerDriverWorkspace: boolean;
 };
 
+const REGISTER_ROLES = new Set<RegisterRole>(['owner_operator', 'fleet_operator', 'transport_broker', 'customer_shipper']);
+
 const SIGNUP_ROLE_CONFIG: Record<Exclude<RegisterRole, 'owner_operator'>, SignupConfig> = {
   fleet_operator: { appRole: 'company_admin', accountType: 'fleet_courier', workspaceMode: 'company', ownerDriverWorkspace: false },
   transport_broker: { appRole: 'broker', accountType: 'broker_shipper', workspaceMode: 'broker', ownerDriverWorkspace: false },
   customer_shipper: { appRole: 'customer', accountType: 'customer_shipper', workspaceMode: 'customer', ownerDriverWorkspace: false },
 };
 
-const getSignupConfig = (role: RegisterRole): SignupConfig => {
-  if (role === 'owner_operator') {
-    return { appRole: 'driver', accountType: 'owner_driver', workspaceMode: 'owner_driver', ownerDriverWorkspace: true };
-  }
-  return SIGNUP_ROLE_CONFIG[role];
-};
+const getSignupConfig = (role: RegisterRole): SignupConfig => role === 'owner_operator'
+  ? { appRole: 'driver', accountType: 'owner_driver', workspaceMode: 'owner_driver', ownerDriverWorkspace: true }
+  : SIGNUP_ROLE_CONFIG[role];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -40,11 +35,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<RegisterRole>('customer_shipper');
+  const [selectedPlan, setSelectedPlan] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedRole = params.get('role') as RegisterRole | null;
+    const plan = params.get('plan')?.trim() || '';
+    if (requestedRole && REGISTER_ROLES.has(requestedRole)) setRole(requestedRole);
+    if (plan) setSelectedPlan(plan);
+  }, []);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -72,6 +76,7 @@ export default function RegisterPage() {
             account_type: signupConfig.accountType,
             workspace_mode: signupConfig.workspaceMode,
             owner_driver_workspace: signupConfig.ownerDriverWorkspace,
+            selected_membership_plan: selectedPlan || null,
             terms_accepted_at: acceptedAt,
             terms_version: '2026-09-01',
             privacy_acknowledged_at: acceptedAt,
@@ -106,7 +111,7 @@ export default function RegisterPage() {
       }
 
       setMessage('Account created. Check your email to verify your account, then sign in.');
-      setEmail(''); setPassword(''); setConfirmPassword(''); setRole('customer_shipper'); setAcceptedTerms(false);
+      setEmail(''); setPassword(''); setConfirmPassword(''); setAcceptedTerms(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Registration failed.');
     } finally { setLoading(false); }
@@ -117,7 +122,8 @@ export default function RegisterPage() {
       <div style={{ backgroundColor: '#fff', borderRadius: '12px', width: '100%', maxWidth: '460px', padding: '2rem', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
         <h1 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#0A2239' }}>Create account</h1>
         <div style={{ marginBottom: '1rem' }}><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={180} height={49} priority style={{ width: 'auto', height: '40px' }} /></div>
-        <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: '1.5rem' }}>Register as a Customer/Shipper, Transport Broker, Fleet Operator, or Owner Operator.</p>
+        <p style={{ marginTop: 0, color: '#5B6B85', marginBottom: selectedPlan ? '0.75rem' : '1.5rem' }}>Register as a Customer/Shipper, Transport Broker, Fleet Operator, or Owner Operator.</p>
+        {selectedPlan ? <p style={{ marginTop: 0, marginBottom: '1.5rem', padding: '0.7rem 0.8rem', borderRadius: '6px', background: '#EFF5FF', color: '#1E4E8C', fontSize: '0.9rem', fontWeight: 700 }}>Selected membership: {selectedPlan.replaceAll('-', ' ')}</p> : null}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="register-email" style={{ display: 'block', marginBottom: '0.4rem', color: '#0B1B33' }}>Email</label>
