@@ -66,13 +66,31 @@ export default function PricingPage() {
       </section>
     </main>
 
-    <footer className="border-t border-[#DDE5EF] bg-white px-5 py-10 sm:px-8">
+    <footer className="relative border-t border-[#DDE5EF] bg-white px-5 pb-10 pt-12 sm:px-8">
+      <div className="absolute inset-x-0 top-0 h-1 bg-[#163568]" />
       <div className="mx-auto max-w-[1440px]">
         <div className="grid gap-10 xl:grid-cols-[1.15fr_2.85fr]">
-          <div><Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link><p className="mt-4 text-base font-black text-[#0A234F]">Courier &amp; Freight Exchange Platform</p><p className="mt-3 max-w-md text-sm font-semibold leading-6 text-[#60758F]">Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.</p><div className="mt-5 border-l-2 border-[#F5A300] pl-4 text-sm font-bold leading-6 text-[#516987]"><p className="font-black text-[#0A234F]">XDrive Logistics Ltd.</p><p>Company No. 13171804</p><p>Registered in England and Wales</p><p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p><p>VAT No. GB 375949535</p></div></div>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">{footerGroups.map(group => <div key={group.title}><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{group.title}</h2><div className="mt-5 grid gap-3 text-sm font-black text-[#163568]">{group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}</div></div>)}</div>
+          <div>
+            <Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link>
+            <p className="mt-4 text-base font-black text-[#163568]">Courier &amp; Freight Exchange Platform</p>
+            <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-[#60758F]">Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.</p>
+            <div className="mt-5 rounded-[18px] border border-[#DDE5EF] bg-[#F7F9FC] p-4 text-sm font-bold leading-6 text-[#516987] shadow-[0_10px_28px_rgba(22,53,104,0.05)]">
+              <p className="font-black text-[#163568]">XDrive Logistics Ltd.</p>
+              <p>Company No. 13171804</p>
+              <p>Registered in England and Wales</p>
+              <p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p>
+              <p>VAT No. GB 375949535</p>
+            </div>
+          </div>
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">{footerGroups.map(group => <div key={group.title}><h2 className="text-[0.72rem] font-black uppercase tracking-[0.19em] text-[#F5A300]">{group.title}</h2><div className="mt-5 grid gap-3 text-sm font-black text-[#163568]">{group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}</div></div>)}</div>
         </div>
-        <div className="mt-8 border-t border-[#E2E8F1] pt-5 text-xs font-bold leading-5 text-[#60758F]"><p>XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p><p className="font-black text-[#163568]">Move Freight. Manage Operations. Grow Your Network.</p></div></div>
+        <div className="mt-8 border-t border-[#DDE5EF] pt-5 text-xs font-bold leading-5 text-[#60758F]">
+          <p>XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p>
+            <p className="font-black text-[#163568]">Move Freight. Manage Operations. Grow Your Network.</p>
+          </div>
+        </div>
       </div>
     </footer>
   </div>;
