@@ -179,8 +179,8 @@ export function MarketingDetailPage({
               <Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link>
               <p className="mt-4 text-base font-black text-[#163568]">Courier &amp; Freight Exchange Platform</p>
               <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-[#60758F]">Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.</p>
-              <div className="mt-5 rounded-[18px] border border-[#DDE5EF] bg-[#F7F9FC] p-4 text-sm font-bold leading-6 text-[#516987] shadow-[0_10px_28px_rgba(22,53,104,0.05)]">
-                <p className="font-black text-[#163568]">XDrive Logistics Ltd.</p>
+              <div className="mt-5 rounded-[24px] border border-[#1B3D6B] bg-gradient-to-br from-[#163568] to-[#102B55] p-5 text-sm font-bold leading-6 text-[#D8E4F3] shadow-[0_18px_45px_rgba(7,27,60,0.12)]">
+                <p className="font-black text-white">XDrive Logistics Ltd.</p>
                 <p>Company No. 13171804</p>
                 <p>Registered in England and Wales</p>
                 <p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p>
