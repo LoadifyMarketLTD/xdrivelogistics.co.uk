@@ -4,7 +4,7 @@
 export const COMPANY_CONFIG = {
   name: 'XDrive Logistics',
   legalName: 'XDrive Logistics Ltd',
-  tagline: 'Professional Transport Services',
+  tagline: 'Move Freight. Manage Operations. Grow Your Network.',
   companyNumber: '13171804',
 
   // Physical / registered office address
