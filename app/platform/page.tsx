@@ -2,9 +2,9 @@ import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailP
 
 export default function PlatformPage() {
   return <MarketingDetailPage
-    kicker="The XDrive Platform"
-    title="From transport opportunity to completed job, in one connected platform."
-    intro="XDrive combines courier and freight exchange activity with quoting, award, dispatch, live execution, POD and invoice readiness. The same job record moves through the entire lifecycle."
+    kicker="Courier & Freight Exchange Platform"
+    title="Move Freight. Manage Operations. Grow Your Network."
+    intro="From transport opportunity to completed job, XDrive connects courier and freight exchange activity with quoting, award, dispatch, live execution, POD and invoice readiness in one controlled platform. The same job record moves through the entire lifecycle."
     sections={[
       { title: 'Exchange', copy: 'Customers and brokers publish work while couriers and carriers discover relevant opportunities.', points: ['Courier and freight work', 'Vehicle and route context', 'Return loads and scheduled transport'] },
       { title: 'Commercial workflow', copy: 'Quotes stay attached to the job so the commercial decision is clear and auditable.', points: ['Quote submission', 'Offer comparison', 'Award into operations'] },
