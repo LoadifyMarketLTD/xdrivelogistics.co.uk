@@ -33,6 +33,11 @@ describe('Super Admin onboarding document request workflow', () => {
     expect(route).toContain("'onboarding_documents_required'");
     expect(route).toContain("'onboarding_documents_reminder'");
     expect(route).toContain('row.payload?.document_request_id');
+    expect(route).toContain('attempt_count');
+    expect(route).toContain('last_error');
+    expect(route).toContain('next_attempt_at');
+    expect(route).toContain(".from('notifications')");
+    expect(route).toContain("status: 'created'");
     expect(route).toContain('delivery,');
   });
 
@@ -86,12 +91,16 @@ describe('Super Admin onboarding document request workflow', () => {
     expect(checklist).toContain('This reminder remains visible until the canonical requirements are complete.');
   });
 
-  test('Super Admin verification exposes request, delivery, and reminder controls', () => {
+  test('Super Admin verification exposes request, channels, retry evidence, and reminder controls', () => {
     const page = read('app/super-admin/companies/verification/page.tsx');
     expect(page).toContain('Request documents');
     expect(page).toContain('Send reminder');
     expect(page).toContain('Send request by email');
     expect(page).toContain('Preview — sending disabled');
+    expect(page).toContain('Email ✓ mandatory');
+    expect(page).toContain('Platform inbox:');
+    expect(page).toContain('Last delivery error:');
+    expect(page).toContain('Next retry:');
     expect(page).toContain('Delivery:');
     expect(page).toContain("preflight.delivery?.status === 'failed'");
   });
