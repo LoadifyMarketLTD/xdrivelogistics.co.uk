@@ -141,7 +141,7 @@ export function MarketingDetailPage({
       </header>
 
       <main>
-        <section className="bg-[#071B3C] px-5 py-16 text-white sm:px-8 lg:py-20">
+        <section className="bg-gradient-to-br from-[#163568] to-[#102B55] px-5 py-16 text-white sm:px-8 lg:py-20">
           <div className="mx-auto max-w-[1240px]">
             <div className="flex flex-col items-start gap-2">
               <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
@@ -150,7 +150,7 @@ export function MarketingDetailPage({
             <h1 className="mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-white sm:text-[4.6rem] lg:text-[5.15rem]">{title}</h1>
             <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">{intro}</p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#071B3C]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
+              <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102B55]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
               <Link href={secondaryHref} className="rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-black text-white">{secondaryLabel}</Link>
             </div>
             <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-white/78"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
