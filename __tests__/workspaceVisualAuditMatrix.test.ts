@@ -45,7 +45,7 @@ describe('workspace visual verification matrix evidence', () => {
   });
 
   it('keeps super-admin on its dedicated read-only shell boundary', () => {
-    expect(superAdminShell).toContain('<SuperAdminTopNavigationShell');
+    expect(superAdminShell).toContain('<SuperAdminCardNavigationShell');
     expect(superAdminShell).not.toContain('<WorkspaceShell');
     expect(superAdminShell).toContain('definition={SUPER_ADMIN_WORKSPACE_DEFINITION}');
     expect(superAdminShell).toContain("label: 'Command Centre'");
