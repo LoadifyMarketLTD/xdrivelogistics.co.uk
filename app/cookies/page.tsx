@@ -1,172 +1,27 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
-  title: 'Cookie Policy',
-  description: 'XDrive Logistics Cookie Policy — how we use cookies on our website and how you can manage your preferences.',
+  title: 'Cookie & Storage Policy | XDrive Logistics',
+  description: 'How XDrive Logistics uses cookies and similar storage and access technologies.',
 };
 
-const LAST_UPDATED = '20 February 2026';
+const LAST_UPDATED='1 September 2026';
 
-export default function CookiesPage() {
-  return (
-    <main
-      style={{
-        minHeight: '100vh',
-        backgroundColor: 'var(--color-primary-navy-dark)',
-        color: 'var(--color-text-white)',
-        padding: '6rem 24px 4rem',
-      }}
-    >
-      <div style={{ maxWidth: '860px', margin: '0 auto' }}>
-        <a
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: 'var(--color-gold-primary)',
-            textDecoration: 'none',
-            fontSize: '0.9rem',
-            marginBottom: '2rem',
-          }}
-        >
-          ← Back to Home
-        </a>
-
-        <h1
-          style={{
-            fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
-            fontWeight: 800,
-            color: 'var(--color-text-white)',
-            marginBottom: '0.5rem',
-          }}
-        >
-          Cookie Policy
-        </h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '2.5rem', fontSize: '0.9rem' }}>
-          Last updated: {LAST_UPDATED}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: '1.7', color: 'rgba(255,255,255,0.82)' }}>
-          <Section title="1. What Are Cookies?">
-            Cookies are small text files placed on your device when you visit a website. They help
-            the website remember your preferences, understand how you use the site, and provide
-            a better experience.
-          </Section>
-
-          <Section title="2. How We Use Cookies">
-            {COMPANY_CONFIG.legalName} uses cookies for the following purposes:
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                marginTop: '1rem',
-                fontSize: '0.9rem',
-              }}
-            >
-              <thead>
-                <tr>
-                  {['Cookie Type', 'Purpose', 'Duration'].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: 'left',
-                        padding: '0.75rem',
-                        backgroundColor: 'rgba(212,175,55,0.15)',
-                        color: 'var(--color-gold-primary)',
-                        borderBottom: '1px solid rgba(212,175,55,0.3)',
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ['Strictly Necessary', 'Authentication, session management, security', 'Session'],
-                  ['Functional', 'User preferences needed for core platform UX', 'Up to 1 year'],
-                ].map(([type, purpose, duration], i) => (
-                  <tr key={i}>
-                    {[type, purpose, duration].map((cell, j) => (
-                      <td
-                        key={j}
-                        style={{
-                          padding: '0.75rem',
-                          borderBottom: '1px solid rgba(255,255,255,0.08)',
-                          verticalAlign: 'top',
-                        }}
-                      >
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Section>
-
-          <Section title="3. Third-Party Cookies">
-            We currently do not run non-essential analytics or advertising trackers on the public website.
-            Third-party cookies may still be set when you intentionally use third-party links/services, including:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li><strong>Supabase</strong> — authentication and database services</li>
-              <li><strong>WhatsApp</strong> — click-to-chat functionality</li>
-            </ul>
-            These third parties have their own privacy and cookie policies, which we encourage you to review.
-          </Section>
-
-          <Section title="4. Managing Cookies">
-            You can control and manage cookies through your browser settings. Most browsers allow you to:
-            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <li>View cookies stored on your device</li>
-              <li>Delete specific or all cookies</li>
-              <li>Block cookies from specific or all websites</li>
-              <li>Set preferences for each website</li>
-            </ul>
-            Please note that disabling strictly necessary cookies may affect the functionality of our platform,
-            including your ability to log in and use core features.
-          </Section>
-
-          <Section title="5. Consent">
-            Because we currently use only essential cookies on the public website, a non-essential cookie
-            consent banner is not shown. If non-essential cookies are introduced in future, this policy and
-            consent handling will be updated before activation.
-          </Section>
-
-          <Section title="6. Changes to This Policy">
-            We may update this Cookie Policy from time to time. Changes will be posted on this page
-            with an updated &quot;Last updated&quot; date.
-          </Section>
-
-          <Section title="7. Contact Us">
-            If you have any questions about our use of cookies, please contact:<br /><br />
-            {COMPANY_CONFIG.legalName}<br />
-            {COMPANY_CONFIG.address.street}, {COMPANY_CONFIG.address.city}, {COMPANY_CONFIG.address.postcode}<br />
-            Email: {COMPANY_CONFIG.email}<br />
-            Phone: {COMPANY_CONFIG.phoneDisplay}
-          </Section>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2
-        style={{
-          fontSize: '1.2rem',
-          fontWeight: 700,
-          color: 'var(--color-gold-primary)',
-          marginBottom: '0.75rem',
-        }}
-      >
-        {title}
-      </h2>
-      <div style={{ margin: 0 }}>{children}</div>
-    </div>
-  );
-}
+export default function CookiesPage(){return <main className="min-h-screen bg-[#071B3C] px-6 py-20 text-white"><div className="mx-auto max-w-[900px]">
+<Link href="/" className="text-sm font-black text-[#F5A300]">← Back to XDrive</Link><p className="mt-10 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">Privacy</p><h1 className="mt-3 text-4xl font-black sm:text-5xl">Cookie & Storage Policy</h1><p className="mt-3 text-sm font-semibold text-white/55">Last updated: {LAST_UPDATED}</p>
+<div className="mt-10 grid gap-8 leading-7 text-white/78">
+<S t="1. What this policy covers">This policy covers cookies and similar technologies that store information on, or access information from, a user's device, including browser storage used for authentication, security or preferences.</S>
+<S t="2. Strictly necessary technologies">XDrive may use technologies that are strictly necessary to provide a service requested by the user, including authentication/session handling, security, fraud prevention, load balancing and essential account state. These should be limited to what is necessary for the requested service.</S>
+<S t="3. Optional technologies">Analytics, advertising, behavioural tracking or optional preference technologies must not be activated unless XDrive has the consent or other lawful permission required by applicable UK rules. Where consent is required, users must be able to make a real choice and change that choice later.</S>
+<S t="4. Current public-site position">The public XDrive site is intended to operate without advertising trackers or non-essential behavioural tracking. Authentication and core platform services may use necessary storage/access technologies. If optional analytics or marketing technologies are introduced, the consent mechanism and this policy must be updated before activation.</S>
+<S t="5. Third-party services">Platform functionality may involve service providers for hosting, authentication, security, communications or payments. A third party may process device or technical information when its service is actually used. XDrive reviews these integrations and should not permit non-essential third-party tracking to run without the required consent.</S>
+<S t="6. Managing choices">Where optional technologies are available, XDrive will provide an appropriate preference mechanism. Browser controls can also delete or block stored information, but blocking technologies that are strictly necessary may prevent login or other requested platform functionality.</S>
+<S t="7. Retention">Session technologies normally expire when the session ends. Persistent technologies should have a defined and proportionate duration. XDrive reviews whether each technology remains necessary and whether its retention period remains appropriate.</S>
+<S t="8. Relationship with the Privacy Policy">Where cookie or storage data identifies or relates to an individual, the Privacy Policy explains the purposes, lawful bases, recipients, retention and data-protection rights that apply.</S>
+<S t="9. Changes">We will update this policy when technologies or legal requirements change. Material introduction of optional tracking will be accompanied by the required consent or preference controls before that tracking is enabled.</S>
+<S t="10. Contact">Questions about cookies or storage/access technologies can be sent to {COMPANY_CONFIG.email}. {COMPANY_CONFIG.legalName}, Company No. {COMPANY_CONFIG.companyNumber}, registered office {COMPANY_CONFIG.address.full}, registered in England and Wales.</S>
+</div><div className="mt-12 flex flex-wrap gap-4 border-t border-white/10 pt-7 text-sm font-black text-[#F5A300]"><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/complaints">Complaints</Link></div>
+</div></main>}
+function S({t,children}:{t:string;children:React.ReactNode}){return <section><h2 className="text-xl font-black text-[#F5A300]">{t}</h2><div className="mt-3">{children}</div></section>}
