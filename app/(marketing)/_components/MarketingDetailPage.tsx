@@ -12,6 +12,51 @@ const nav = [
   ['Access', '/access'],
 ] as const;
 
+const footerGroups = [
+  {
+    title: 'Platform',
+    links: [
+      ['Platform', '/platform'],
+      ['Exchange', '/exchange'],
+      ['How It Works', '/how-it-works'],
+      ['Customers', '/customers'],
+      ['Brokers', '/brokers'],
+      ['Couriers', '/couriers'],
+    ],
+  },
+  {
+    title: 'Product',
+    links: [
+      ['Operations Diary', '/operations-diary'],
+      ['Courier Workspace', '/courier-workspace'],
+      ['POD & Records', '/pod-records'],
+      ['Finance', '/finance'],
+    ],
+  },
+  {
+    title: 'Account',
+    links: [
+      ['Pricing', '/pricing'],
+      ['Request Access', '/register'],
+      ['Sign In', '/login'],
+      ['Access', '/access'],
+      ['Help & FAQ', '/help'],
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      ['Contact', '/contact'],
+      ['Privacy', '/privacy'],
+      ['Terms', '/terms'],
+      ['Subscription Terms', '/subscription-terms'],
+      ['Acceptable Use', '/acceptable-use'],
+      ['Cookies', '/cookies'],
+      ['Complaints', '/complaints'],
+    ],
+  },
+] as const;
+
 export function MarketingDetailPage({
   kicker,
   title,
@@ -76,13 +121,41 @@ export function MarketingDetailPage({
         {darkBand ? <section className="bg-gradient-to-br from-[#071B3C] to-[#0B2F6B] px-5 py-16 text-white sm:px-8"><div className="mx-auto max-w-[1240px]"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Logistics</p><h2 className="mt-3 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">{darkBand.title}</h2><p className="mt-5 max-w-3xl text-lg font-semibold leading-8 text-white/70">{darkBand.copy}</p></div></section> : null}
       </main>
 
-      <footer className="border-t border-[#E2E8F1] bg-white px-5 py-10 sm:px-8">
-        <div className="mx-auto max-w-[1240px]">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-start">
-            <div className="text-sm font-bold leading-6 text-[#60758F]"><p className="font-black text-[#0A234F]">XDrive Logistics Ltd.</p><p>Company No. 13171804 · Registered in England and Wales</p><p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p><p className="mt-2">Courier & Freight Exchange Platform · No client funds held by XDrive under the current platform model.</p></div>
-            <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-black text-[#0E3FA9]"><Link href="/contact">Contact</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/subscription-terms">Subscription Terms</Link><Link href="/acceptable-use">Acceptable Use</Link><Link href="/cookies">Cookies</Link><Link href="/complaints">Complaints</Link></div>
+      <footer className="border-t border-[#E2E8F1] bg-white px-5 py-12 sm:px-8">
+        <div className="mx-auto max-w-[1440px]">
+          <div className="grid gap-12 xl:grid-cols-[1.15fr_2.85fr]">
+            <div>
+              <Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link>
+              <p className="mt-4 text-base font-black text-[#0A234F]">Courier &amp; Freight Exchange Platform</p>
+              <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-[#60758F]">Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.</p>
+              <div className="mt-5 border-l-2 border-[#F5A300] pl-4 text-sm font-bold leading-6 text-[#516987]">
+                <p className="font-black text-[#0A234F]">XDrive Logistics Ltd.</p>
+                <p>Company No. 13171804</p>
+                <p>Registered in England and Wales</p>
+                <p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p>
+                <p>VAT No. GB 375949535</p>
+              </div>
+            </div>
+
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              {footerGroups.map(group => (
+                <div key={group.title}>
+                  <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{group.title}</h2>
+                  <div className="mt-5 grid gap-3 text-sm font-black text-[#0E3FA9]">
+                    {group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#071B3C]">{label}</Link>)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="mt-8 flex flex-col gap-2 border-t border-[#E2E8F1] pt-5 text-xs font-bold text-[#60758F] sm:flex-row sm:justify-between"><p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p><p>Move Freight. Manage Operations. Grow Your Network.</p></div>
+
+          <div className="mt-10 border-t border-[#E2E8F1] pt-6 text-xs font-bold leading-5 text-[#60758F]">
+            <p>XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p>
+              <p className="font-black text-[#385475]">Move Freight. Manage Operations. Grow Your Network.</p>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
