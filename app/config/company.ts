@@ -7,7 +7,7 @@ export const COMPANY_CONFIG = {
   tagline: 'Professional Transport Services',
   companyNumber: '13171804',
 
-  // Physical address
+  // Physical / registered office address
   address: {
     street: '101 Cornelian Street',
     city: 'Blackburn',
@@ -53,13 +53,14 @@ export const COMPANY_CONFIG = {
   
   // VAT options (MASTER SPEC)
   vat: {
+    registrationNumber: 'GB 375949535',
     rates: [0, 5, 20] as const,
     defaultRate: 20,
   },
   
   // Invoice configuration (MASTER SPEC)
   invoice: {
-    jobRefPrefix: 'DC', // job reference prefix
+    jobRefPrefix: 'DC',
     invoicePrefix: 'INV',
   },
   
@@ -69,7 +70,7 @@ export const COMPANY_CONFIG = {
     instagram: '#',
     tiktok: '#',
     youtube: '#',
-    linkedin: '#', // Optional
+    linkedin: '#',
   },
 };
 
@@ -77,21 +78,20 @@ export const COMPANY_CONFIG = {
 // Canonical chain: draft → posted → quoted → awarded → allocated → collected
 //                       → in_transit → delivered → invoiced → paid
 export const JOB_STATUS = {
-  RECEIVED:   'draft',       // new job awaiting posting
-  POSTED:     'posted',      // posted to marketplace for driver bids
-  QUOTED:     'quoted',      // carrier has quoted; awaiting award
-  AWARDED:    'awarded',     // quote accepted; awaiting driver allocation
-  ALLOCATED:  'allocated',   // driver assigned
-  COLLECTED:  'collected',   // cargo collected from pickup
-  IN_TRANSIT: 'in_transit',  // en route to delivery
-  DELIVERED:  'delivered',   // delivered; awaiting invoice
-  INVOICED:   'invoiced',    // invoice raised; awaiting payment
-  PAID:       'paid',        // payment received — terminal
-  CANCELLED:  'cancelled',   // terminal
-  DISPUTED:   'disputed',    // terminal
+  RECEIVED:   'draft',
+  POSTED:     'posted',
+  QUOTED:     'quoted',
+  AWARDED:    'awarded',
+  ALLOCATED:  'allocated',
+  COLLECTED:  'collected',
+  IN_TRANSIT: 'in_transit',
+  DELIVERED:  'delivered',
+  INVOICED:   'invoiced',
+  PAID:       'paid',
+  CANCELLED:  'cancelled',
+  DISPUTED:   'disputed',
 } as const;
 
-// Human-readable labels for each DB status value
 export const JOB_STATUS_LABEL: Record<string, string> = {
   draft:      'Received',
   posted:     'Posted',
@@ -107,7 +107,6 @@ export const JOB_STATUS_LABEL: Record<string, string> = {
   disputed:   'Disputed',
 };
 
-// Canonical bid status values — match job_bids.status CHECK constraint
 export const BID_STATUS = {
   SUBMITTED:  'submitted',
   ACCEPTED:   'accepted',
@@ -115,7 +114,6 @@ export const BID_STATUS = {
   WITHDRAWN:  'withdrawn',
 } as const;
 
-// Delay update options (MASTER SPEC) — operational ETA delay, not payment terms.
 export const DELAY_OPTIONS = [15, 30, 45, 60] as const;
 
 export type JobStatus = typeof JOB_STATUS[keyof typeof JOB_STATUS];
