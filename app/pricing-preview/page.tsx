@@ -1,3 +1,4 @@
+// Preview-only page. Harmless touch to retrigger canonical Netlify deploy; no production route or homepage replacement.
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 
