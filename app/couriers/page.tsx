@@ -2,6 +2,7 @@ import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailP
 
 export default function CouriersPage() {
   return <MarketingDetailPage
+    activeNavHref="/couriers"
     kicker="XDrive for Couriers & Carriers"
     title="Find work. Quote fast. Keep every awarded job connected."
     intro="Owner drivers and courier companies can discover relevant work, submit quotes, receive awarded jobs into operations, update live status and return POD without leaving the XDrive workflow."
