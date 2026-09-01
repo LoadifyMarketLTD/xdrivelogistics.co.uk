@@ -35,6 +35,9 @@ type NotificationDeliveryRow = {
   status: string;
   created_at: string;
   processed_at: string | null;
+  attempt_count: number | null;
+  last_error: string | null;
+  next_attempt_at: string | null;
   payload: Record<string, unknown> | null;
 };
 
@@ -80,6 +83,14 @@ export async function GET(
     status: string;
     queuedAt: string;
     processedAt: string | null;
+    attemptCount: number;
+    lastError: string | null;
+    nextAttemptAt: string | null;
+    platform: {
+      status: 'created' | 'unavailable' | 'unknown';
+      createdAt: string | null;
+      readAt: string | null;
+    };
   } | null = null;
 
   const { data: requestRows, error: requestError } = await supabaseAdmin
@@ -96,7 +107,7 @@ export async function GET(
   if (outstandingRequest?.id && application.user_id) {
     const { data: deliveryRows, error: deliveryError } = await supabaseAdmin
       .from('notification_events')
-      .select('id, event_type, status, created_at, processed_at, payload')
+      .select('id, event_type, status, created_at, processed_at, attempt_count, last_error, next_attempt_at, payload')
       .eq('entity_type', 'onboarding_application')
       .eq('entity_id', applicationId)
       .eq('recipient_user_id', application.user_id)
@@ -109,12 +120,35 @@ export async function GET(
         String(row.payload?.document_request_id ?? '') === outstandingRequest?.id,
       );
       if (matchingEvent) {
+        let platform: {
+          status: 'created' | 'unavailable' | 'unknown';
+          createdAt: string | null;
+          readAt: string | null;
+        } = { status: 'unknown', createdAt: null, readAt: null };
+
+        const { data: inboxRow, error: inboxError } = await supabaseAdmin
+          .from('notifications')
+          .select('id, created_at, read_at')
+          .eq('id', matchingEvent.id)
+          .eq('user_id', application.user_id)
+          .maybeSingle();
+
+        if (!inboxError) {
+          platform = inboxRow
+            ? { status: 'created', createdAt: inboxRow.created_at ?? null, readAt: inboxRow.read_at ?? null }
+            : { status: 'unavailable', createdAt: null, readAt: null };
+        }
+
         delivery = {
           eventId: matchingEvent.id,
           eventType: matchingEvent.event_type,
           status: matchingEvent.status,
           queuedAt: matchingEvent.created_at,
           processedAt: matchingEvent.processed_at,
+          attemptCount: Number(matchingEvent.attempt_count ?? 0),
+          lastError: matchingEvent.last_error,
+          nextAttemptAt: matchingEvent.next_attempt_at,
+          platform,
         };
       }
     }
@@ -137,7 +171,7 @@ export async function GET(
     missingCount: missingDocuments.length,
     canRequest: missingDocuments.length > 0 && Boolean(application.user_id && application.email),
     primaryChannel: 'email',
-    supplementalChannels: ['in_app', 'push_if_available'],
+    supplementalChannels: ['in_app_if_available', 'push_if_available'],
     continuationPath: '/onboarding/resume',
     outstandingRequest,
     delivery,
