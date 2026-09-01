@@ -56,9 +56,9 @@ const PLAN_PRICES: Record<string, { label: string; price: string; range?: string
   'customer-shipper': { label: 'Customer / Shipper', price: '£29.99' },
   broker: { label: 'Broker', price: '£79.99' },
   'small-carrier': { label: 'Small Carrier', range: '2–5 vehicles', price: '£59.99' },
-  'growing-carrier': { label: 'Growing Carrier', range: '6–15 vehicles', price: '£89.99' },
-  fleet: { label: 'Fleet', range: '16–50 vehicles', price: '£149.99' },
-  enterprise: { label: 'Enterprise', range: '51+ / custom', price: 'From £249.99' },
+  'growing-carrier': { label: 'Growing Carrier', range: '6–15 vehicles', price: '£129.99' },
+  fleet: { label: 'Fleet', range: '16–50 vehicles', price: '£249.99' },
+  enterprise: { label: 'Enterprise', range: '51+ / custom', price: 'Custom' },
 };
 
 const ROLE_UI: Record<RegisterRole, RolePresentation> = {
@@ -235,7 +235,7 @@ export default function RegisterPage() {
               </div>
               <div className="text-right">
                 <div className="text-[clamp(1.3rem,3.2vh,1.8rem)] font-black tracking-tight text-white">{priceUi?.price ?? '—'}</div>
-                <p className="text-[clamp(8px,1vh,10px)] font-bold text-white/48">/ month + VAT after trial</p>
+                <p className="text-[clamp(8px,1vh,10px)] font-bold text-white/48">{selectedPlan === 'enterprise' ? 'pricing agreed separately' : '/ month + VAT after trial'}</p>
               </div>
             </div>
 
@@ -292,7 +292,7 @@ export default function RegisterPage() {
                 return <button key={plan} type="button" onClick={() => { setSelectedPlan(plan); setError(''); }} className={`rounded-lg border px-2.5 py-2 text-left transition ${active ? 'border-[#0E3FA9] bg-[#EDF4FF] shadow-sm' : 'border-[#DDE5EF] bg-white hover:border-[#9BB5DD]'}`}>
                   <span className="block text-[10px] font-black text-[#071B3C]">{item.range}</span>
                   <span className="mt-0.5 block text-[9px] font-semibold text-[#60758F]">{item.label}</span>
-                  <span className="mt-1 block text-[11px] font-black text-[#0E3FA9]">{item.price}</span>
+                  <span className="mt-1 block text-[11px] font-black text-[#0E3FA9]">{item.price}{plan === 'enterprise' ? ' · contact us' : ''}</span>
                 </button>;
               })}
             </div>
