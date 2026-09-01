@@ -36,11 +36,11 @@ function PlanCard({ plan }: { plan: typeof plans[number] }) {
 
 export default function PricingPage() {
   return <div className="min-h-screen bg-[#F4F6FA] text-[#102447]">
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#071B3C]/95 text-white backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-[#DDE5EF] bg-white/95 text-[#163568] backdrop-blur-xl">
       <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-        <div className="flex items-center gap-3"><Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link><span className="hidden rounded-full border border-[#F5A300]/35 bg-[#F5A300]/10 px-3 py-1.5 text-[0.64rem] font-black uppercase tracking-[0.1em] text-[#F5A300] md:inline-flex">3 Months Free</span></div>
-        <nav className="hidden items-center gap-6 text-sm font-black text-white/70 lg:flex"><Link href="/platform">Platform</Link><Link href="/brokers">Brokers</Link><Link href="/couriers">Couriers</Link><Link href="/pricing" className="text-[#F5A300]">Pricing</Link><Link href="/access">Access</Link><Link href="/login">Sign In</Link></nav>
-        <Link href="/register" className="rounded-lg bg-[#F5A300] px-5 py-2.5 text-sm font-black text-[#071B3C]">Start 3 Months Free</Link>
+        <div className="flex items-center gap-3"><Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link><span className="hidden rounded-full border border-[#F5A300]/35 bg-[#FFF7E5] px-3 py-1.5 text-[0.64rem] font-black uppercase tracking-[0.1em] text-[#A56B00] md:inline-flex">3 Months Free</span></div>
+        <nav className="hidden items-center gap-6 text-sm font-black text-[#163568] lg:flex"><Link href="/platform" className="transition hover:text-[#0E3FA9]">Platform</Link><Link href="/brokers" className="transition hover:text-[#0E3FA9]">Brokers</Link><Link href="/couriers" className="transition hover:text-[#0E3FA9]">Couriers</Link><Link href="/pricing" className="text-[#F5A300]">Pricing</Link><Link href="/access" className="transition hover:text-[#0E3FA9]">Access</Link><Link href="/login" className="transition hover:text-[#0E3FA9]">Sign In</Link></nav>
+        <Link href="/register" className="rounded-lg bg-[#163568] px-5 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,53,104,0.14)]">Start 3 Months Free</Link>
       </div>
     </header>
 
@@ -70,9 +70,9 @@ export default function PricingPage() {
       <div className="mx-auto max-w-[1440px]">
         <div className="grid gap-10 xl:grid-cols-[1.15fr_2.85fr]">
           <div><Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link><p className="mt-4 text-base font-black text-[#0A234F]">Courier &amp; Freight Exchange Platform</p><p className="mt-3 max-w-md text-sm font-semibold leading-6 text-[#60758F]">Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.</p><div className="mt-5 border-l-2 border-[#F5A300] pl-4 text-sm font-bold leading-6 text-[#516987]"><p className="font-black text-[#0A234F]">XDrive Logistics Ltd.</p><p>Company No. 13171804</p><p>Registered in England and Wales</p><p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p><p>VAT No. GB 375949535</p></div></div>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">{footerGroups.map(group => <div key={group.title}><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{group.title}</h2><div className="mt-5 grid gap-3 text-sm font-black text-[#0E3FA9]">{group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#071B3C]">{label}</Link>)}</div></div>)}</div>
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">{footerGroups.map(group => <div key={group.title}><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{group.title}</h2><div className="mt-5 grid gap-3 text-sm font-black text-[#163568]">{group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}</div></div>)}</div>
         </div>
-        <div className="mt-8 border-t border-[#E2E8F1] pt-5 text-xs font-bold leading-5 text-[#60758F]"><p>XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p><p className="font-black text-[#385475]">Move Freight. Manage Operations. Grow Your Network.</p></div></div>
+        <div className="mt-8 border-t border-[#E2E8F1] pt-5 text-xs font-bold leading-5 text-[#60758F]"><p>XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p>© 2021 XDrive Logistics Ltd. All Rights Reserved.</p><p className="font-black text-[#163568]">Move Freight. Manage Operations. Grow Your Network.</p></div></div>
       </div>
     </footer>
   </div>;
