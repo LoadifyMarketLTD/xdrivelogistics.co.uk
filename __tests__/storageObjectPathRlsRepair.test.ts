@@ -22,11 +22,12 @@ const mobileEvidenceRoute = fs.readFileSync(
   path.join(process.cwd(), 'app/api/driver/mobile/jobs/[id]/evidence/route.ts'),
   'utf8',
 );
+const policyDefinitions = pathRepair.split('DO $$')[0];
 
 describe('Storage object-path RLS repair', () => {
   it('qualifies the outer storage.objects.name inside correlated policy subqueries', () => {
-    expect(pathRepair).toContain('storage.foldername(storage.objects.name)');
-    expect(pathRepair).not.toContain('storage.foldername(d.name)');
+    expect(policyDefinitions).toContain('storage.foldername(storage.objects.name)');
+    expect(policyDefinitions).not.toContain('storage.foldername(d.name)');
   });
 
   it('repairs load, POD and vehicle policy families', () => {

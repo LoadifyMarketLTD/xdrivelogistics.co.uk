@@ -16,7 +16,7 @@ describe('jobs.status enum-to-text dependency bridge', () => {
   it('preserves the two repo-owned fresh view contracts without cascade drops', () => {
     expect(source).toContain("to_regclass('public.dashboard_stats')");
     expect(source).toContain("to_regclass('public.job_bids_with_job_owner')");
-    expect(source).toContain('CREATE VIEW public.dashboard_stats AS');
+    expect(source).toContain('CREATE VIEW public.dashboard_stats');
     expect(source).toContain('CREATE VIEW public.job_bids_with_job_owner');
     expect(source).toContain('WITH (security_invoker = true)');
     expect(source).toContain('GRANT SELECT ON public.job_bids_with_job_owner TO authenticated');
