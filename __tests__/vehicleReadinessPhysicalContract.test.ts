@@ -14,7 +14,7 @@ describe('vehicle readiness physical contract reconciliation', () => {
   it('materialises only the live-proven readiness columns when clean replay omitted them', () => {
     expect(migration).toContain("table_name = 'vehicles'");
     expect(migration).toContain("column_name = 'status'");
-    expect(migration).toContain("ADD COLUMN status text DEFAULT 'active'");
+    expect(migration).toContain("ADD COLUMN status public.status_enum DEFAULT 'active'::public.status_enum");
     expect(migration).toContain("column_name = 'is_available'");
     expect(migration).toContain('ADD COLUMN is_available boolean DEFAULT true');
   });

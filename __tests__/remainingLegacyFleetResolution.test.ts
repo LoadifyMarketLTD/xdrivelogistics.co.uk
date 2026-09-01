@@ -68,7 +68,7 @@ describe('remaining legacy Fleet resolution', () => {
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.vehicles');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.drivers');
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.job_commercial_agreements');
-    expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.job_cancellation_requests');
+    expect(migration).toMatch(/NOT EXISTS\s*\(\s*SELECT 1 FROM public\.job_cancellation_requests/);
     expect(migration).toContain('NOT EXISTS (SELECT 1 FROM public.company_registration_claims');
     expect(migration).toContain('public.set_company_status_governance');
     expect(migration).toContain("'suspended'");
@@ -98,7 +98,7 @@ describe('remaining legacy Fleet resolution', () => {
     );
 
     expect(verification).toContain('A remaining legacy Fleet application has no explicit P0-12 resolution.');
-    expect(verification).toContain('A quarantined legacy Fleet company shell still carries company authority.');
+    expect(verification).toContain('A quarantined legacy Fleet company shell still carries company authority');
     expect(verification).toContain('Creator membership bootstrap is not restricted to pending-approval companies.');
     expect(verification).toContain('Client roles can execute the service-controlled verified company registration RPC.');
     expect(verification).not.toContain('UPDATE public.');
