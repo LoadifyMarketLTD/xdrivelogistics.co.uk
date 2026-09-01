@@ -56,20 +56,30 @@ try {
   }
 
   if (-not (Test-Path $workDir)) {
-    Invoke-Step 'Create working clone' { git clone $RepoUrl $workDir }
+    Invoke-Step 'Create working clone' { git -c core.autocrlf=false clone $RepoUrl $workDir }
   }
 
   Push-Location $workDir
   try {
+    Invoke-Step 'Configure deterministic LF checkout' {
+      git config core.autocrlf false
+      git config core.eol lf
+    }
+
     Invoke-Step 'Fetch repository refs' { git fetch --all --prune --tags }
 
     $remoteRef = "origin/$Ref"
     git rev-parse --verify $remoteRef *> $null
     if ($LASTEXITCODE -eq 0) {
-      Invoke-Step "Checkout $remoteRef" { git checkout --detach $remoteRef }
+      Invoke-Step "Checkout $remoteRef" { git checkout --detach --force $remoteRef }
     } else {
-      Invoke-Step "Checkout $Ref" { git checkout --detach $Ref }
+      Invoke-Step "Checkout $Ref" { git checkout --detach --force $Ref }
     }
+
+    # The worktree may have been created previously with Windows CRLF conversion.
+    # Re-materialise tracked files from the Git index after disabling autocrlf so
+    # source-based contract tests see the same LF bytes as Netlify/Linux.
+    Invoke-Step 'Normalize tracked worktree to LF bytes' { git reset --hard HEAD }
 
     $sha = (git rev-parse HEAD).Trim()
     Write-Host "Validated SHA: $sha" -ForegroundColor Yellow
