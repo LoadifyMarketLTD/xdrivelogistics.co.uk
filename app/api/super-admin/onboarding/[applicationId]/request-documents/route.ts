@@ -17,6 +17,27 @@ type MissingDocumentRow = {
   document_type?: string | null;
 };
 
+type DocumentRequestRow = {
+  id: string;
+  status: string;
+  requested_documents: string[] | null;
+  reason: string;
+  requested_at: string;
+  last_sent_at: string;
+  reminder_count: number;
+  recipient_email: string;
+  resolved_at: string | null;
+};
+
+type NotificationDeliveryRow = {
+  id: string;
+  event_type: string;
+  status: string;
+  created_at: string;
+  processed_at: string | null;
+  payload: Record<string, unknown> | null;
+};
+
 const docName = (row: MissingDocumentRow) =>
   String(row.doc_type ?? row.required_doc_type ?? row.document_type ?? '').trim();
 
@@ -52,16 +73,52 @@ export async function GET(
     .map(docName)
     .filter(Boolean);
 
-  let outstandingRequest: Record<string, unknown> | null = null;
+  let outstandingRequest: DocumentRequestRow | null = null;
+  let delivery: {
+    eventId: string;
+    eventType: string;
+    status: string;
+    queuedAt: string;
+    processedAt: string | null;
+  } | null = null;
+
   const { data: requestRows, error: requestError } = await supabaseAdmin
     .from('platform_document_requests')
     .select('id, status, requested_documents, reason, requested_at, last_sent_at, reminder_count, recipient_email, resolved_at')
     .eq('onboarding_application_id', applicationId)
+    .eq('status', 'outstanding')
     .order('requested_at', { ascending: false })
     .limit(1);
 
   // Migration may intentionally be absent in Production while this PR is preview-only.
-  if (!requestError) outstandingRequest = requestRows?.[0] ?? null;
+  if (!requestError) outstandingRequest = ((requestRows?.[0] ?? null) as DocumentRequestRow | null);
+
+  if (outstandingRequest?.id && application.user_id) {
+    const { data: deliveryRows, error: deliveryError } = await supabaseAdmin
+      .from('notification_events')
+      .select('id, event_type, status, created_at, processed_at, payload')
+      .eq('entity_type', 'onboarding_application')
+      .eq('entity_id', applicationId)
+      .eq('recipient_user_id', application.user_id)
+      .in('event_type', ['onboarding_documents_required', 'onboarding_documents_reminder'])
+      .order('created_at', { ascending: false })
+      .limit(25);
+
+    if (!deliveryError) {
+      const matchingEvent = ((deliveryRows ?? []) as NotificationDeliveryRow[]).find((row) =>
+        String(row.payload?.document_request_id ?? '') === outstandingRequest?.id,
+      );
+      if (matchingEvent) {
+        delivery = {
+          eventId: matchingEvent.id,
+          eventType: matchingEvent.event_type,
+          status: matchingEvent.status,
+          queuedAt: matchingEvent.created_at,
+          processedAt: matchingEvent.processed_at,
+        };
+      }
+    }
+  }
 
   return json(200, {
     available: true,
@@ -83,6 +140,7 @@ export async function GET(
     supplementalChannels: ['in_app', 'push_if_available'],
     continuationPath: '/onboarding/resume',
     outstandingRequest,
+    delivery,
     requestRegistryAvailable: !requestError,
     requestRegistryNote: requestError ? 'Document request registry migration is not applied in this environment.' : null,
   });
