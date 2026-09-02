@@ -2,13 +2,14 @@ import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
-const MIGRATION = 'supabase/migrations/20260902102000_platform_settings_governance.sql';
+const MIGRATION = 'supabase/migrations/20260902103000_platform_settings_governance.sql';
 const ROUTE = 'app/api/super-admin/settings/route.ts';
 
- describe('Platform settings governance boundary', () => {
+describe('Platform settings governance boundary', () => {
   it('closes direct tenant write paths while preserving governed RPC execution', () => {
     const migration = readRepoFile(MIGRATION);
     expect(migration).toContain('DROP POLICY IF EXISTS platform_settings_write_owner');
+    expect(migration).toContain('DROP POLICY IF EXISTS platform_feature_flags_write_owner');
     expect(migration).toContain('REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.platform_settings FROM anon, authenticated');
     expect(migration).toContain('REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.platform_feature_flags FROM anon, authenticated');
     expect(migration).toContain('SECURITY DEFINER');
