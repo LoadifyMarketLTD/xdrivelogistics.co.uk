@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 
@@ -22,7 +24,7 @@ export default function Page() {
       icon="🧾"
       title="Platform Invoices"
       sectionLabel="Finance"
-      description="Cross-company invoice ledger with status, amounts, and audit record data."
+      description="Cross-company invoice ledger with status, amounts, and audit record data. Platform reconciliation verifies canonical payment history without creating settlement records."
       endpoint="/api/super-admin/finance?section=invoices&limit=250"
       summaryField="summary"
       emptyMessage="No invoices found."
@@ -76,6 +78,18 @@ export default function Page() {
           key: 'created_at',
           label: 'Created',
           render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
+        },
+        {
+          key: 'reconcile',
+          label: 'Platform Review',
+          render: (row) => (
+            <Link
+              href={`/super-admin/finance/invoices/${encodeURIComponent(row.id)}`}
+              style={{ color: '#1D57D8', fontWeight: 800, textDecoration: 'none', fontSize: '0.76rem' }}
+            >
+              Reconcile →
+            </Link>
+          ),
         },
       ]}
     />
