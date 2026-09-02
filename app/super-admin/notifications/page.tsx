@@ -10,7 +10,7 @@ import {
   type RetryFeedback,
 } from './_lib/notificationsPage';
 
-const X = { navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B' } as const;
+const X = { navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626' } as const;
 const controlStyle = { height: '32px', background: X.white, color: X.charcoal, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '0 8px', fontSize: '12px', outlineColor: X.blue } as const;
 
 export default function Page() {
@@ -21,17 +21,45 @@ export default function Page() {
   const [status, setStatus] = useState('all');
   const [category, setCategory] = useState('all');
   const [severity, setSeverity] = useState('all');
+  const [retryTarget, setRetryTarget] = useState<string | null>(null);
+  const [retryReason, setRetryReason] = useState('');
 
-  const handleRetry = useCallback(async (notificationId: string) => {
+  const openRetry = useCallback((notificationId: string) => {
     if (pendingById[notificationId]) return;
-    setPendingById((current) => ({ ...current, [notificationId]: true }));
-    setFeedbackById((current) => ({ ...current, [notificationId]: undefined }));
-    const feedback = await performNotificationRetry({ notificationId, onSuccess: () => setRefreshKey((value) => value + 1) });
-    setPendingById((current) => { const next = { ...current }; delete next[notificationId]; return next; });
-    setFeedbackById((current) => ({ ...current, [notificationId]: feedback }));
+    setRetryTarget(notificationId);
+    setRetryReason('');
   }, [pendingById]);
 
-  const columns = useMemo(() => createNotificationColumns({ pendingById, feedbackById, onRetry: handleRetry }), [pendingById, feedbackById, handleRetry]);
+  const closeRetry = useCallback(() => {
+    if (retryTarget && pendingById[retryTarget]) return;
+    setRetryTarget(null);
+    setRetryReason('');
+  }, [pendingById, retryTarget]);
+
+  const confirmRetry = useCallback(async () => {
+    const notificationId = retryTarget;
+    if (!notificationId || pendingById[notificationId]) return;
+    if (retryReason.trim().length < 5) {
+      setFeedbackById((current) => ({ ...current, [notificationId]: { tone: 'error', message: 'Enter a retry reason of at least 5 characters.' } }));
+      return;
+    }
+
+    setPendingById((current) => ({ ...current, [notificationId]: true }));
+    setFeedbackById((current) => ({ ...current, [notificationId]: undefined }));
+    const feedback = await performNotificationRetry({
+      notificationId,
+      reason: retryReason,
+      onSuccess: () => setRefreshKey((value) => value + 1),
+    });
+    setPendingById((current) => { const next = { ...current }; delete next[notificationId]; return next; });
+    setFeedbackById((current) => ({ ...current, [notificationId]: feedback }));
+    if (feedback.tone === 'success') {
+      setRetryTarget(null);
+      setRetryReason('');
+    }
+  }, [pendingById, retryReason, retryTarget]);
+
+  const columns = useMemo(() => createNotificationColumns({ pendingById, feedbackById, onRetry: openRetry }), [pendingById, feedbackById, openRetry]);
   const endpoint = useMemo(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set('q', search.trim());
@@ -43,6 +71,7 @@ export default function Page() {
   }, [search, status, category, severity]);
 
   const clearFilters = () => { setSearch(''); setStatus('all'); setCategory('all'); setSeverity('all'); };
+  const retryPending = retryTarget ? pendingById[retryTarget] === true : false;
 
   return <div style={{ background: X.light, minHeight: '100vh' }}>
     <div style={{ padding: '12px 12px 0' }}>
@@ -55,5 +84,18 @@ export default function Page() {
       </div>
     </div>
     <SuperAdminLiveTablePage<NotificationRow> key={endpoint} {...notificationsTableProps} endpoint={endpoint} refreshKey={refreshKey} columns={columns} />
+
+    {retryTarget && <div role="dialog" aria-modal="true" aria-labelledby="retry-notification-title" style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(7,27,60,0.42)', display: 'grid', placeItems: 'center', padding: '20px' }}>
+      <div style={{ width: 'min(520px, 100%)', background: X.white, border: `1px solid ${X.border}`, borderRadius: '8px', boxShadow: '0 22px 60px rgba(7,27,60,.24)', padding: '20px' }}>
+        <div id="retry-notification-title" style={{ color: X.navy, fontSize: '18px', fontWeight: 800 }}>Retry notification</div>
+        <p style={{ margin: '8px 0 14px', color: X.muted, fontSize: '13px', lineHeight: 1.5 }}>This will release any stale queue lease and requeue the event. The original attempt history is preserved and your reason is written to the Platform Owner audit log.</p>
+        <label htmlFor="retry-reason" style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: X.charcoal, marginBottom: '6px' }}>Reason</label>
+        <textarea id="retry-reason" value={retryReason} onChange={(event) => setRetryReason(event.target.value)} maxLength={2000} rows={4} placeholder="Explain why this failed or skipped event should be retried…" style={{ width: '100%', resize: 'vertical', border: `1px solid ${X.border}`, borderRadius: '6px', padding: '10px', font: 'inherit', fontSize: '13px', color: X.charcoal, outlineColor: X.blue }} />
+        <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button type="button" onClick={closeRetry} disabled={retryPending} style={{ ...controlStyle, cursor: retryPending ? 'not-allowed' : 'pointer', fontWeight: 700 }}>Cancel</button>
+          <button type="button" onClick={() => { void confirmRetry(); }} disabled={retryPending || retryReason.trim().length < 5} style={{ ...controlStyle, cursor: retryPending || retryReason.trim().length < 5 ? 'not-allowed' : 'pointer', fontWeight: 800, borderColor: retryPending || retryReason.trim().length < 5 ? X.border : X.blue, background: retryPending || retryReason.trim().length < 5 ? X.light : X.blue, color: retryPending || retryReason.trim().length < 5 ? X.muted : X.white }}>{retryPending ? 'Queuing…' : 'Queue retry'}</button>
+        </div>
+      </div>
+    </div>}
   </div>;
 }
