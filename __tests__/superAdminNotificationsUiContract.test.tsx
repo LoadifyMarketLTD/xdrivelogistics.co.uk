@@ -200,7 +200,11 @@ describe('notifications page contract', () => {
 
   it('calls the refresh callback after a successful governed retry request', async () => {
     const onSuccess = vi.fn();
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 }));
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    };
 
     const feedback = await performNotificationRetry({
       notificationId: 'evt-1',
@@ -210,9 +214,8 @@ describe('notifications page contract', () => {
       onSuccess,
     });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
-    expect(String(init.body)).toContain('Provider recovered; retry approved.');
+    expect(requests).toHaveLength(1);
+    expect(String(requests[0]?.init?.body)).toContain('Provider recovered; retry approved.');
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(feedback).toEqual({ tone: 'success', message: 'Retry queued and audit recorded.' });
   });
