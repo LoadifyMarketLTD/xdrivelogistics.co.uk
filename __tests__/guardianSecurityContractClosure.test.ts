@@ -9,6 +9,7 @@ const source = readFileSync(
   ),
   'utf8',
 );
+const normalizedSource = source.replace(/\r\n/g, '\n');
 
 describe('Branch Guardian post-merge security closure', () => {
   it('removes privileged bypass callers from the auth.uid-bound vehicle RPC', () => {
@@ -17,7 +18,7 @@ describe('Branch Guardian post-merge security closure', () => {
     );
     expect(source).toContain('FROM PUBLIC, anon, service_role;');
     expect(source).toContain('TO authenticated;');
-    expect(source).toContain(
+    expect(normalizedSource).toContain(
       "'service_role',\n    'public.set_vehicle_advertising_state(uuid,text,text,jsonb)',",
     );
   });

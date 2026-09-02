@@ -6,6 +6,7 @@ const migration = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/20260821124443_fix_profile_sync_legacy_id.sql'),
   'utf8',
 );
+const normalizedMigration = migration.replace(/\r\n/g, '\n');
 
 describe('clean replay profiles legacy id contract', () => {
   it('reconstructs the hosted profiles.id dependency before the auth trigger writes it', () => {
@@ -17,7 +18,7 @@ describe('clean replay profiles legacy id contract', () => {
     expect(migration).toContain('ADD CONSTRAINT profiles_id_fkey');
     expect(migration).toContain('REFERENCES auth.users(id)');
     expect(migration).toContain('ON DELETE CASCADE');
-    expect(migration).toContain('INSERT INTO public.profiles (\n    id,\n    user_id,');
+    expect(normalizedMigration).toContain('INSERT INTO public.profiles (\n    id,\n    user_id,');
   });
 
   it('fails closed on conflicting pre-existing legacy identifiers', () => {
