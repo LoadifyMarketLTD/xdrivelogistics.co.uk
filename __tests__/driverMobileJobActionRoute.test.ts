@@ -73,6 +73,12 @@ const makeJobTable = () => ({
   }),
 });
 
+const makeJobStopsTable = () => ({
+  select: () => ({
+    eq: async () => ({ data: [], error: null }),
+  }),
+});
+
 describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -118,6 +124,7 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
 
     mocks.from.mockImplementation((table: string) => {
       if (table === 'jobs') return makeJobTable();
+      if (table === 'job_stops') return makeJobStopsTable();
       throw new Error(`Unexpected table ${table}`);
     });
   });

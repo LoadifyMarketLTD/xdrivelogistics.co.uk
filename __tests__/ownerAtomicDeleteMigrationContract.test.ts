@@ -10,6 +10,8 @@ const runtimeValidation = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/20260830122404_verify_owner_job_delete_atomic_guard_runtime.sql'),
   'utf8',
 );
+const executableMigration = migration.replace(/^\s*--.*$/gm, '');
+const normalizedRuntimeValidation = runtimeValidation.replace(/\r\n/g, '\n');
 
 describe('atomic owner delete migration contract', () => {
   it('reconstructs the current server-only Owner Job dependency tables on a clean database', () => {
@@ -69,9 +71,9 @@ describe('atomic owner delete migration contract', () => {
   });
 
   it('uses the current jobs-only schema and never references removed loads.job_id', () => {
-    expect(migration).toContain('DELETE FROM public.jobs');
-    expect(migration).not.toContain('DELETE FROM public.loads');
-    expect(migration).not.toContain('loads.job_id');
+    expect(executableMigration).toContain('DELETE FROM public.jobs');
+    expect(executableMigration).not.toContain('DELETE FROM public.loads');
+    expect(executableMigration).not.toContain('loads.job_id');
   });
 
   it('writes a durable audit entry and stays service-role only', () => {
@@ -82,17 +84,17 @@ describe('atomic owner delete migration contract', () => {
   });
 
   it('retains the hosted synthetic success-path validation without leaving test data', () => {
-    expect(runtimeValidation).toContain("exchange_visibility,\n      is_test,\n      customer_ref");
-    expect(runtimeValidation).toContain("'private',\n      true,");
-    expect(runtimeValidation).toContain('delete_unbid_exchange_job_atomic(v_job_id, v_actor_user_id)');
-    expect(runtimeValidation).toContain("action_type = 'exchange_load_deleted_without_bids'");
-    expect(runtimeValidation).toContain("ERRCODE = 'PZ001'");
-    expect(runtimeValidation).toContain('Synthetic audit record remained after validation rollback.');
+    expect(normalizedRuntimeValidation).toContain("exchange_visibility,\n      is_test,\n      customer_ref");
+    expect(normalizedRuntimeValidation).toContain("'private',\n      true,");
+    expect(normalizedRuntimeValidation).toContain('delete_unbid_exchange_job_atomic(v_job_id, v_actor_user_id)');
+    expect(normalizedRuntimeValidation).toContain("action_type = 'exchange_load_deleted_without_bids'");
+    expect(normalizedRuntimeValidation).toContain("ERRCODE = 'PZ001'");
+    expect(normalizedRuntimeValidation).toContain('Synthetic audit record remained after validation rollback.');
   });
 
   it('does not block clean migration replay before account seed data exists', () => {
-    expect(runtimeValidation).toContain('IF v_actor_user_id IS NULL OR v_company_id IS NULL THEN');
-    expect(runtimeValidation).toContain('RETURN;');
-    expect(runtimeValidation).not.toContain('validation requires an active posting-company operator');
+    expect(normalizedRuntimeValidation).toContain('IF v_actor_user_id IS NULL OR v_company_id IS NULL THEN');
+    expect(normalizedRuntimeValidation).toContain('RETURN;');
+    expect(normalizedRuntimeValidation).not.toContain('validation requires an active posting-company operator');
   });
 });

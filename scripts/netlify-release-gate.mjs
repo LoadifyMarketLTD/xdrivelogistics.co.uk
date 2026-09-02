@@ -2,42 +2,32 @@ import { spawnSync } from 'node:child_process';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-// Canonical no-GitHub-hosted-runner gate.
-// Database behavior/security is validated by Supabase Preview; this gate keeps
-// repository migration integrity and the deployable production build fail-closed.
-const gates = [
-  {
-    label: 'Supabase migration filename and encoding validation',
-    command: process.execPath,
-    args: ['.github/scripts/validate-supabase-migration-files.mjs'],
-  },
-  {
-    label: 'Next.js production build',
-    command: npmCommand,
-    args: ['run', 'build'],
-  },
-];
-
-console.log('NETLIFY_RELEASE_GATE=START');
-
-for (const gate of gates) {
-  console.log(`\n=== ${gate.label} ===`);
-  const result = spawnSync(gate.command, gate.args, {
+function run(command, args) {
+  const result = spawnSync(command, args, {
     cwd: process.cwd(),
-    env: process.env,
+    env: { ...process.env, CI: process.env.CI ?? 'true' },
     stdio: 'inherit',
     shell: false,
   });
-
-  if (result.error) {
-    console.error(`NETLIFY_RELEASE_GATE=FAIL gate=${JSON.stringify(gate.label)} reason=${JSON.stringify(result.error.message)}`);
-    process.exit(1);
-  }
-
-  if (result.status !== 0) {
-    console.error(`NETLIFY_RELEASE_GATE=FAIL gate=${JSON.stringify(gate.label)} exit=${result.status ?? 'null'}`);
-    process.exit(result.status ?? 1);
-  }
+  if (result.error) process.exit(1);
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-console.log('\nNETLIFY_RELEASE_GATE=PASS');
+console.log('NETLIFY_RELEASE_GATE=DIAGNOSTIC_MODIFIED_TESTS');
+run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
+run(npmCommand, ['run', 'typecheck']);
+run(npmCommand, [
+  'run', 'test:unit', '--',
+  '__tests__/availabilityTrackingContract.test.ts',
+  '__tests__/cleanReplayProfileLegacyIdContract.test.ts',
+  '__tests__/driverMobileJobActionRoute.test.ts',
+  '__tests__/driverMobileRequireDriverCompat.test.ts',
+  '__tests__/guardianSecurityContractClosure.test.ts',
+  '__tests__/jobsStatusTextViewDependencyContract.test.ts',
+  '__tests__/ownerAtomicDeleteMigrationContract.test.ts',
+  '__tests__/remainingLegacyFleetResolution.test.ts',
+  '__tests__/storageObjectPathRlsRepair.test.ts',
+  '__tests__/vehicleReadinessPhysicalContract.test.ts',
+]);
+run(npmCommand, ['run', 'build']);
+console.log('NETLIFY_RELEASE_GATE=DIAGNOSTIC_MODIFIED_TESTS_PASS');
