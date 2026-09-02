@@ -374,6 +374,40 @@ async function handleOnboardingInvite(event: NotificationEvent) {
   );
 }
 
+async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
+  const userId = event.recipient_user_id
+    ?? (typeof event.payload.recipient_user_id === 'string' ? event.payload.recipient_user_id : null);
+  if (!userId) return false;
+  const user = await getUserEmail(userId);
+  if (!user) return false;
+
+  const documents = Array.isArray(event.payload.missing_documents)
+    ? event.payload.missing_documents.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+  if (!documents.length) {
+    console.error(`[notify] Document request event ${event.id} has no canonical missing_documents payload.`);
+    return false;
+  }
+
+  const reminder = event.event_type === 'onboarding_documents_reminder';
+  const onboardingUrl = safeOnboardingUrl(event.payload.onboarding_url);
+  const list = documents
+    .map((document) => `<li style="margin:6px 0"><strong>${escapeHtml(document.replaceAll('_', ' '))}</strong></li>`)
+    .join('');
+  const reason = typeof event.payload.reason === 'string' && event.payload.reason.trim()
+    ? `<p><strong>Message from XDrive:</strong> ${escapeHtml(event.payload.reason)}</p>`
+    : '';
+
+  return sendEmail(
+    user.email,
+    reminder
+      ? 'Reminder: documents required to complete your XDrive onboarding'
+      : 'Documents required to complete your XDrive onboarding',
+    `<h2>${reminder ? 'Your onboarding is still incomplete' : 'Please complete your XDrive documents'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${reminder ? 'The following required documents are still outstanding:' : 'To continue your XDrive onboarding, please upload or correct the following required documents:'}</p><ul>${list}</ul>${reason}<p><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Complete your documents</a></p><p>This request remains outstanding until the required documents are uploaded and approved.</p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
+  );
+}
+
 async function handleOnboardingSubmitted(event: NotificationEvent) {
   const userId = event.recipient_user_id ?? (event.payload.recipient_user_id as string | undefined);
   if (!userId) return true;
@@ -464,6 +498,10 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'onboarding_invite':
       case 'onboarding_invite_resent':
         success = await handleOnboardingInvite(event);
+        break;
+      case 'onboarding_documents_required':
+      case 'onboarding_documents_reminder':
+        success = await handleOnboardingDocumentsRequired(event);
         break;
       case 'onboarding_submitted': success = await handleOnboardingSubmitted(event); break;
       case 'onboarding_approved': success = await handleOnboardingApproved(event); break;
