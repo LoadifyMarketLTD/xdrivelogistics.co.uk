@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.platform_pod_reviews (
   job_id uuid PRIMARY KEY REFERENCES public.jobs(id) ON DELETE CASCADE,
   status text NOT NULL CHECK (status IN ('approved', 'rejected', 'missing_requested')),
   note text NOT NULL,
-  reviewed_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   reviewed_at timestamptz NOT NULL DEFAULT now(),
   evidence_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.platform_pod_reviews (
 
 CREATE INDEX IF NOT EXISTS idx_platform_pod_reviews_status_reviewed_at
   ON public.platform_pod_reviews(status, reviewed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_platform_pod_reviews_reviewed_by
+  ON public.platform_pod_reviews(reviewed_by);
 
 ALTER TABLE public.platform_pod_reviews ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.platform_pod_reviews FROM PUBLIC, anon, authenticated;
