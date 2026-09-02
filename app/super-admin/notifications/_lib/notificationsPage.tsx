@@ -11,12 +11,13 @@ export type NotificationRow = { id:string; user_id:string|null; entity_id?:strin
 export type RetryFeedback = { tone:'success'|'error'; message:string };
 
 const X = { navy:'#0B2F6B', blue:'#1D57D8', orange:'#F5A300', white:'#FFFFFF', charcoal:'#1A1F2B', light:'#F4F6F8', border:'#D9E1EA', muted:'#64748B', danger:'#DC2626', success:'#16A34A' } as const;
-export const notificationsTableProps = { icon:'🔔', title:'Notification Centre', sectionLabel:'Platform', description:'Operational notifications with category, severity, delivery state and recovery actions.', summaryField:'summary', noteField:'note', diagnosticField:'diagnosticNote', emptyMessage:'No notifications match the selected filters.' } as const;
+export const notificationsTableProps = { icon:'🔔', title:'Notification Centre', sectionLabel:'Platform', description:'Operational notifications with category, severity, delivery state and governed recovery actions.', summaryField:'summary', noteField:'note', diagnosticField:'diagnosticNote', emptyMessage:'No notifications match the selected filters.' } as const;
 
-export async function performNotificationRetry({notificationId,getAuthHeaderImpl=getAuthHeader,fetchImpl=fetch,onSuccess}:{notificationId:string;getAuthHeaderImpl?:typeof getAuthHeader;fetchImpl?:typeof fetch;onSuccess?:()=>void|Promise<void>}):Promise<RetryFeedback>{
+export async function performNotificationRetry({notificationId,reason,getAuthHeaderImpl=getAuthHeader,fetchImpl=fetch,onSuccess}:{notificationId:string;reason:string;getAuthHeaderImpl?:typeof getAuthHeader;fetchImpl?:typeof fetch;onSuccess?:()=>void|Promise<void>}):Promise<RetryFeedback>{
+ const trimmedReason=reason.trim(); if(trimmedReason.length<5)return{tone:'error',message:'Enter a retry reason of at least 5 characters.'};
  const auth=await getAuthHeaderImpl(); if(!auth)return{tone:'error',message:'Authentication session is unavailable.'}; let response:Response;
- try{response=await fetchImpl('/api/super-admin/platform',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:auth},body:JSON.stringify({section:'notifications',action:'retry',notificationId})});}catch{return{tone:'error',message:'Notification retry is currently unavailable.'};}
- await response.json().catch(()=>null); if(!response.ok)return{tone:'error',message:'Notification retry is currently unavailable.'}; await onSuccess?.(); return{tone:'success',message:'Retry queued.'};
+ try{response=await fetchImpl('/api/super-admin/platform',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:auth},body:JSON.stringify({section:'notifications',action:'retry',notificationId,reason:trimmedReason})});}catch{return{tone:'error',message:'Notification retry is currently unavailable.'};}
+ const body=await response.json().catch(()=>null) as {error?:string}|null; if(!response.ok)return{tone:'error',message:body?.error??'Notification retry is currently unavailable.'}; await onSuccess?.(); return{tone:'success',message:'Retry queued and audit recorded.'};
 }
 const severityColor:Record<NotificationSeverity,string>={Critical:X.danger,Warning:X.orange,Info:X.blue,Success:X.success};
 const fallbackSeverity=(row:NotificationRow):NotificationSeverity=>row.status==='failed'?'Critical':row.status==='pending'?'Warning':row.status==='sent'?'Success':'Info';
