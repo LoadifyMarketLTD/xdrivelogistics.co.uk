@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 const readRepoFile = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
 
-const MIGRATION = 'supabase/migrations/20260902080500_platform_pod_review.sql';
+const MIGRATION = 'supabase/migrations/20260902084500_platform_pod_review.sql';
 const ROUTE = 'app/api/super-admin/pod/[jobId]/route.ts';
 const PAGE = 'app/super-admin/operations/pods/[jobId]/page.tsx';
 const LIST_PAGE = 'app/super-admin/operations/pods/page.tsx';
