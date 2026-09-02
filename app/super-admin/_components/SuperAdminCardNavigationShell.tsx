@@ -66,6 +66,7 @@ const GROUP_DESCRIPTIONS: Record<string, string> = {
 };
 
 function fallbackGroupId(pathname: string) {
+  if (pathname.startsWith('/super-admin/action-centre') || pathname.startsWith('/super-admin/cases')) return 'support';
   if (pathname.startsWith('/super-admin/inspect/company/')) return 'companies';
   if (pathname.startsWith('/super-admin/inspect/driver/') || pathname.startsWith('/super-admin/inspect/vehicle/')) return 'fleet';
   if (pathname.startsWith('/super-admin/inspect/invoice/')) return 'finance';
