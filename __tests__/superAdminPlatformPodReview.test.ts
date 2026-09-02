@@ -19,6 +19,15 @@ describe('Platform Owner POD review lane', () => {
     expect(migration).not.toContain('SET broker_pod_review_status');
   });
 
+  it('keeps reviewer provenance durable without blocking auth account lifecycle', () => {
+    const migration = readRepoFile(MIGRATION);
+
+    expect(migration).toContain('reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL');
+    expect(migration).toContain('CREATE INDEX IF NOT EXISTS idx_platform_pod_reviews_reviewed_by');
+    expect(migration).toContain('ON public.platform_pod_reviews(reviewed_by)');
+    expect(migration).not.toContain('reviewed_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT');
+  });
+
   it('keeps the registry and semantic mutation service-role only', () => {
     const migration = readRepoFile(MIGRATION);
 
