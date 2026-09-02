@@ -29,7 +29,7 @@ Current consolidation baseline:
 
 - Global Search page/API exists in current main.
 - Entity inspector control-plane foundation exists in current main.
-- Company 360 component and inspector integration exist in current main.
+- Company 360 component and inspector integration exists in current main.
 
 Status: `ALREADY_IN_MAIN` — preserve current main implementation; only reconcile truly missing deltas.
 
@@ -80,8 +80,8 @@ Safe reconstruction now staged in #456:
 
 Current #456 state for POD extraction:
 
-- branch is 0 behind current baseline main at last compare;
-- canonical Netlify exact-head PASS;
+- branch was 0 behind baseline main at last compare;
+- canonical Netlify passed on the POD implementation HEAD, then returned to PENDING after later documentation-only commits changed the PR HEAD; exact current HEAD must pass again before any release decision;
 - Supabase preview branch has not yet been created, so migration replay/security runtime evidence is still missing;
 - DO NOT MERGE.
 
@@ -176,7 +176,30 @@ Original #431 source:
 - `app/api/super-admin/xdrive-logistics/enquiries/[id]/route.ts`
 - enquiry governance tests/UI deltas
 
-Status: `UNIQUE_TO_431` pending audit against current XDrive enquiry schema and business workflow.
+Audit findings:
+
+1. Current main performs price/status mutations and enquiry→job conversion in application code with multiple separate DB writes.
+2. Current main can create a job and then fail to update the enquiry, leaving split-brain state.
+3. Current main has a fallback that removes `creation_idempotency_key` and retries job insertion after an idempotency-key-related error; this weakens duplicate protection and must not survive convergence.
+4. #431 improves this materially by moving quote mutation, job conversion and owner audit into one row-locked transaction with reason and Platform Owner authority.
+5. #431 adds an `expected_updated_at` optimistic-concurrency guard and reuses an existing job with `creation_idempotency_key = enquiry.id` for safe replay.
+6. The public intake source was independently checked in `LoadifyMarketLTD/app.xdrivelogistics.co.uk`: it sends collection and delivery **postcodes** into the upstream `pickupLocation`/`deliveryLocation`, so using those values as `pickup_postcode`/`delivery_postcode` is correct for this specific source contract.
+7. The #431 vehicle compatibility migration is stale against current Production enum truth. Current application mapper emits slugs such as `van_small`, `van_large`, `truck_7_5t`; current Production `vehicle_type` enum includes values such as `small_van`, `large_van`, `7_5t` plus many granular values. #431's compatibility branches do not correctly cover the current combination.
+8. Therefore #431 cannot be promoted verbatim even though its transaction model is superior.
+
+Required safe reconstruction:
+
+- retain atomic SECURITY DEFINER transaction and row lock;
+- retain active Platform Owner authority and mandatory reason;
+- retain expected-updated-at concurrency guard;
+- retain durable owner audit;
+- never drop idempotency protection as a fallback;
+- resolve vehicle type against the **current actual enum** using a deterministic, tested compatibility map;
+- reject unsupported/ambiguous vehicle mapping instead of silently converting to a broad default when commercial execution could be affected;
+- preserve intake source guard and configured intake-company boundary;
+- validate own_fleet/direct_carrier/marketplace execution semantics against current job publication rules before enabling conversion.
+
+Status: `UNIQUE_TO_431 → ATOMIC MODEL VALUABLE / VEHICLE COMPATIBILITY REBUILD REQUIRED`.
 
 ## Partial reconciliation candidates
 
