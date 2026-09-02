@@ -57,7 +57,7 @@ export async function GET(
     if (isSchemaUnavailable(reviewResult.error)) {
       return respond(503, {
         error: 'Platform POD review schema is not applied in this environment.',
-        migrationRequired: '20260902080500_platform_pod_review.sql',
+        migrationRequired: '20260902084500_platform_pod_review.sql',
       });
     }
     return respond(500, { error: reviewResult.error.message });
@@ -141,7 +141,7 @@ export async function PATCH(
     if (isSchemaUnavailable(error)) {
       return respond(503, {
         error: 'Platform POD review schema is not applied in this environment.',
-        migrationRequired: '20260902080500_platform_pod_review.sql',
+        migrationRequired: '20260902084500_platform_pod_review.sql',
       });
     }
     if (error.code === 'P0002') return respond(404, { error: error.message });
