@@ -47,7 +47,7 @@ type ReviewPayload = {
   platformReview?: {
     status: string;
     note: string;
-    reviewedBy: string;
+    reviewedBy: string | null;
     reviewedAt: string;
     evidenceSnapshot?: Record<string, unknown>;
     updatedAt?: string;
