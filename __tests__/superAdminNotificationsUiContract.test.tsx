@@ -171,7 +171,7 @@ describe('notifications page contract', () => {
 
   it('renders visible retry success feedback', () => {
     const feedbackById: Record<string, RetryFeedback | undefined> = {
-      'evt-1': { tone: 'success', message: 'Retry queued.' },
+      'evt-1': { tone: 'success', message: 'Retry queued and audit recorded.' },
     };
     const columns = createNotificationColumns({
       pendingById: {},
@@ -182,32 +182,52 @@ describe('notifications page contract', () => {
     if (!actionColumn) throw new Error('actions column missing');
 
     const html = render(React.createElement(React.Fragment, null, actionColumn.render(sampleNotificationRow)));
-    expect(html).toContain('Retry queued.');
+    expect(html).toContain('Retry queued and audit recorded.');
   });
 
-  it('calls the refresh callback after a successful retry request', async () => {
+  it('requires an explicit reason before submitting a retry', async () => {
+    const fetchImpl = vi.fn();
+    const feedback = await performNotificationRetry({
+      notificationId: 'evt-1',
+      reason: 'bad',
+      getAuthHeaderImpl: async () => '******',
+      fetchImpl,
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(feedback).toEqual({ tone: 'error', message: 'Enter a retry reason of at least 5 characters.' });
+  });
+
+  it('calls the refresh callback after a successful governed retry request', async () => {
     const onSuccess = vi.fn();
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 }));
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests.push({ input, init });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    };
 
     const feedback = await performNotificationRetry({
       notificationId: 'evt-1',
+      reason: 'Provider recovered; retry approved.',
       getAuthHeaderImpl: async () => '******',
       fetchImpl,
       onSuccess,
     });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(1);
+    expect(String(requests[0]?.init?.body)).toContain('Provider recovered; retry approved.');
     expect(onSuccess).toHaveBeenCalledTimes(1);
-    expect(feedback).toEqual({ tone: 'success', message: 'Retry queued.' });
+    expect(feedback).toEqual({ tone: 'success', message: 'Retry queued and audit recorded.' });
   });
 
-  it('returns a safe generic retry failure without exposing server diagnostics', async () => {
+  it('surfaces a safe retry denial from the governed endpoint', async () => {
     const feedback = await performNotificationRetry({
       notificationId: 'evt-1',
+      reason: 'Retry after provider recovery.',
       getAuthHeaderImpl: async () => '******',
-      fetchImpl: async () => new Response(JSON.stringify({ error: 'Retry denied.' }), { status: 409 }),
+      fetchImpl: async () => new Response(JSON.stringify({ error: 'Notification cannot be retried from status sent.' }), { status: 409 }),
     });
 
-    expect(feedback).toEqual({ tone: 'error', message: 'Notification retry is currently unavailable.' });
+    expect(feedback).toEqual({ tone: 'error', message: 'Notification cannot be retried from status sent.' });
   });
 });
