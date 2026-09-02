@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
-const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const respond = (status: number, payload: Record<string, unknown>) =>
+  NextResponse.json(payload, { status });
 
 type FlagDefinition = {
   key: string;
@@ -81,13 +82,18 @@ const governanceErrorResponse = (error: { code?: string; message?: string }) => 
     return respond(409, { error: error.message ?? 'Platform configuration validation failed.' });
   }
   if (error.code === 'PGRST202' || error.code === '42883') {
-    return respond(503, { error: 'Canonical Platform settings governance is not available in this environment.', migrationRequired: true });
+    return respond(503, {
+      error: 'Canonical Platform settings governance is not available in this environment.',
+      migrationRequired: true,
+    });
   }
   return respond(500, { error: error.message ?? 'Platform configuration update failed.' });
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
 
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
@@ -98,10 +104,14 @@ export async function GET(request: NextRequest) {
   if (section === 'feature-flags') {
     const { data, error } = await supabaseAdmin.from('platform_feature_flags').select('key, is_enabled');
     if (error) return respond(500, { error: error.message });
+
     const enabledByKey = new Map((data ?? []).map((row) => [row.key, Boolean(row.is_enabled)]));
     return respond(200, {
       section,
-      flags: FLAG_DEFINITIONS.map((flag) => ({ ...flag, enabled: enabledByKey.has(flag.key) ? enabledByKey.get(flag.key) : flag.enabled })),
+      flags: FLAG_DEFINITIONS.map((flag) => ({
+        ...flag,
+        enabled: enabledByKey.has(flag.key) ? enabledByKey.get(flag.key) : flag.enabled,
+      })),
       summary: {
         total: FLAG_DEFINITIONS.length,
         enabled: FLAG_DEFINITIONS.filter((flag) => enabledByKey.has(flag.key) ? Boolean(enabledByKey.get(flag.key)) : flag.enabled).length,
@@ -112,12 +122,17 @@ export async function GET(request: NextRequest) {
   if (section === 'global') {
     const { data, error } = await supabaseAdmin.from('platform_settings').select('key, value, value_type');
     if (error) return respond(500, { error: error.message });
+
     const valueByKey = new Map((data ?? []).map((row) => [row.key, { value: row.value, value_type: row.value_type }]));
     return respond(200, {
       section,
       settings: GLOBAL_SETTING_DEFINITIONS.map((setting) => {
         const stored = valueByKey.get(setting.key);
-        return { ...setting, value: stored?.value ?? setting.value, type: stored?.value_type ?? setting.type };
+        return {
+          ...setting,
+          value: stored?.value ?? setting.value,
+          type: stored?.value_type ?? setting.type,
+        };
       }),
     });
   }
@@ -135,20 +150,24 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-
-  const owner = await verifyPlatformOwner(request);
-  if (!owner) {
-    if (isSuperAdminDeployPreviewReadOnly()) return respond(403, { error: 'Deploy Preview is read-only. Platform settings were not changed.' });
-    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
   }
 
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+
   let body: unknown;
-  try { body = await request.json(); }
-  catch { return respond(400, { error: 'Invalid JSON body.' }); }
+  try {
+    body = await request.json();
+  } catch {
+    return respond(400, { error: 'Invalid JSON body.' });
+  }
 
   if (body && typeof body === 'object' && 'section' in body && (body as { section?: unknown }).section === 'roles') {
-    return respond(409, { error: 'Roles & Permissions is read-only. Delegated Platform Administrator or arbitrary role mutation is not implemented.' });
+    return respond(409, {
+      error: 'Roles & Permissions is read-only. Delegated Platform Administrator or arbitrary role mutation is not implemented.',
+    });
   }
 
   const parsedFlags = featureFlagUpdateSchema.safeParse(body);
@@ -159,7 +178,13 @@ export async function PATCH(request: NextRequest) {
 
     const changes = parsedFlags.data.flags.map((flag) => {
       const definition = definitionByKey.get(flag.key)!;
-      return { key: definition.key, label: definition.label, description: definition.description, category: definition.category, enabled: flag.enabled };
+      return {
+        key: definition.key,
+        label: definition.label,
+        description: definition.description,
+        category: definition.category,
+        enabled: flag.enabled,
+      };
     });
 
     const { data, error } = await supabaseAdmin.rpc('owner_update_platform_configuration', {
@@ -169,6 +194,7 @@ export async function PATCH(request: NextRequest) {
       p_reason: parsedFlags.data.reason,
     });
     if (error) return governanceErrorResponse(error);
+
     const result = Array.isArray(data) ? data[0] ?? null : data;
     if (!result) return respond(500, { error: 'Platform feature flag update returned no authoritative result.' });
     return respond(200, { success: true, updated: Number(result.updated_count ?? 0), result });
@@ -180,12 +206,17 @@ export async function PATCH(request: NextRequest) {
     const invalidKeys = parsedSettings.data.settings.map((setting) => setting.key).filter((key) => !definitionByKey.has(key));
     if (invalidKeys.length > 0) return respond(400, { error: `Unknown global setting keys: ${invalidKeys.join(', ')}` });
 
-    const changes: Array<{ key: string; label: string; value: string; value_type: 'text' | 'number' | 'boolean'; category: string }> = [];
+    const changes = [] as Array<{ key: string; label: string; value: string; value_type: 'text' | 'number' | 'boolean'; category: string }>;
     for (const setting of parsedSettings.data.settings) {
       const definition = definitionByKey.get(setting.key)!;
       const rawValue = setting.value.trim();
-      if (definition.type === 'number' && !Number.isFinite(Number(rawValue))) return respond(400, { error: `Setting '${setting.key}' must be a valid number.` });
-      if (definition.type === 'boolean' && parseBooleanValue(rawValue) === null) return respond(400, { error: `Setting '${setting.key}' must be true or false.` });
+      if (definition.type === 'number' && !Number.isFinite(Number(rawValue))) {
+        return respond(400, { error: `Setting '${setting.key}' must be a valid number.` });
+      }
+      if (definition.type === 'boolean' && parseBooleanValue(rawValue) === null) {
+        return respond(400, { error: `Setting '${setting.key}' must be true or false.` });
+      }
+
       changes.push({
         key: definition.key,
         label: definition.label,
@@ -202,10 +233,13 @@ export async function PATCH(request: NextRequest) {
       p_reason: parsedSettings.data.reason,
     });
     if (error) return governanceErrorResponse(error);
+
     const result = Array.isArray(data) ? data[0] ?? null : data;
     if (!result) return respond(500, { error: 'Platform settings update returned no authoritative result.' });
     return respond(200, { success: true, updated: Number(result.updated_count ?? 0), result });
   }
 
-  return respond(400, { error: 'Validation failed. Feature flags and global settings require a written reason of at least 5 characters.' });
+  return respond(400, {
+    error: 'Validation failed. Feature flags and global settings require a written reason of at least 5 characters.',
+  });
 }
