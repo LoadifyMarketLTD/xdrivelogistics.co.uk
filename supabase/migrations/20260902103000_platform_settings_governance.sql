@@ -30,6 +30,9 @@ BEGIN
 END;
 $preflight$;
 
+-- Close all direct tenant/browser write paths. Reads remain available under the
+-- existing read policies and internal database consumers continue to read the
+-- same tables. Super Admin writes must use the audited RPC below.
 DROP POLICY IF EXISTS platform_settings_write_owner ON public.platform_settings;
 DROP POLICY IF EXISTS platform_feature_flags_write_owner ON public.platform_feature_flags;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.platform_settings FROM anon, authenticated;
