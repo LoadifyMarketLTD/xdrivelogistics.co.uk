@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import { StatusChip, formatDateTime, routeSummary } from '@/app/super-admin/_components/superAdminFormatters';
 
@@ -23,7 +25,7 @@ export default function Page() {
       icon="📸"
       title="All PODs"
       sectionLabel="Operations"
-      description="Proof-of-delivery evidence extracted from completed delivery jobs."
+      description="Proof-of-delivery evidence extracted from completed delivery jobs. Platform Owner review remains separate from broker review provenance."
       endpoint="/api/super-admin/operations?section=pods&limit=250"
       emptyMessage="No POD evidence found."
       columns={[
@@ -56,6 +58,18 @@ export default function Page() {
           key: 'created',
           label: 'Created',
           render: (row) => formatDateTime(row.created_at),
+        },
+        {
+          key: 'review',
+          label: 'Platform Review',
+          render: (row) => (
+            <Link
+              href={`/super-admin/operations/pods/${encodeURIComponent(row.id)}`}
+              style={{ color: '#1D57D8', fontWeight: 800, textDecoration: 'none' }}
+            >
+              Review POD →
+            </Link>
+          ),
         },
       ]}
     />
