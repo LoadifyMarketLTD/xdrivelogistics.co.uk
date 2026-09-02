@@ -8,6 +8,7 @@ import {
   type NotificationEventDurabilityRow,
   type NotificationEventRow,
 } from '../_lib/notificationEvents';
+import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -73,7 +74,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
 
-  // ── Analytics ─────────────────────────────────────────────────────────────────
   if (section === 'analytics') {
     const [
       companies,
@@ -102,7 +102,6 @@ export async function GET(request: NextRequest) {
     const totalInvoiced = (invoices.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const totalRevenue = (invoicesPaid.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
-    // Jobs trend: last 30 days grouped by week
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
     const { data: recentJobs } = await supabaseAdmin
       .from('jobs')
@@ -136,14 +135,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── Notifications ─────────────────────────────────────────────────────────────
   if (section === 'notifications') {
-    // Attempt to select optional durability columns (last_error, attempt_count,
-    // next_attempt_at) added by migration 20260720121500. If the deployed
-    // schema predates that migration these columns will not exist.
-    // In that case fall back to the baseline column set and surface an honest
-    // diagnostic note rather than failing the whole notifications page.
-
     const primaryResult = await supabaseAdmin
       .from('notification_events')
       .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
@@ -156,7 +148,6 @@ export async function GET(request: NextRequest) {
 
     if (primaryResult.error) {
       if (isMissingDurabilityColumnError(primaryResult.error)) {
-        // Retry with baseline columns only.
         const fallbackResult = await supabaseAdmin
           .from('notification_events')
           .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
@@ -176,7 +167,6 @@ export async function GET(request: NextRequest) {
         normalizedRows = (fallbackResult.data ?? []).map(normalizeBaseRow);
         durabilityUnavailable = true;
       } else {
-        // Unrelated error — surface it, do not convert to healthy empty state.
         return respond(500, {
           section,
           error: 'Failed to load notification events.',
@@ -227,54 +217,46 @@ export async function PATCH(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) {
+    if (isSuperAdminDeployPreviewReadOnly()) {
+      return respond(403, { error: 'Deploy Preview is read-only. Notification retry was not changed.' });
+    }
+    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+  }
 
-  const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string } | null;
+  const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string; reason?: string } | null;
   const section = String(body?.section ?? '').toLowerCase();
   const action = String(body?.action ?? '').toLowerCase();
   const notificationId = String(body?.notificationId ?? '').trim();
+  const reason = String(body?.reason ?? '').trim();
 
   if (section !== 'notifications' || action !== 'retry' || !notificationId) {
     return respond(400, { error: 'Invalid action payload.' });
   }
-
-  const { data: notification, error: notificationError } = await supabaseAdmin
-    .from('notification_events')
-    .select('id, status')
-    .eq('id', notificationId)
-    .maybeSingle();
-
-  if (notificationError) return respond(500, { error: notificationError.message });
-  if (!notification) return respond(404, { error: 'Notification event not found.' });
-
-  const currentStatus = String(notification.status ?? '').toLowerCase();
-  if (currentStatus !== 'failed' && currentStatus !== 'skipped') {
-    return respond(409, { error: `Notification cannot be retried from status "${currentStatus || 'unknown'}".` });
+  if (reason.length < 5) {
+    return respond(400, { error: 'A notification retry reason of at least 5 characters is required.' });
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from('notification_events')
-    .update({
-      status: 'pending',
-      processed_at: null,
-      last_error: null,
-      next_attempt_at: new Date().toISOString(),
-    })
-    .eq('id', notificationId);
+  const { data, error } = await supabaseAdmin.rpc('owner_retry_notification_event', {
+    p_actor_user_id: owner.id,
+    p_notification_id: notificationId,
+    p_reason: reason,
+  });
 
-  // If the update fails because durability columns don't exist yet
-  // (pre-migration schema), retry with the minimal column set.
-  if (updateError && isMissingDurabilityColumnError(updateError)) {
-    const { error: fallbackError } = await supabaseAdmin
-      .from('notification_events')
-      .update({ status: 'pending', processed_at: null })
-      .eq('id', notificationId);
-    if (fallbackError) return respond(500, { error: fallbackError.message });
-    return respond(200, { success: true, notificationId, status: 'pending' });
+  if (error) {
+    if (error.code === 'P0002') return respond(404, { error: error.message });
+    if (error.code === '23514' || error.code === '23502') return respond(409, { error: error.message });
+    if (error.code === '42501') return respond(403, { error: error.message });
+    if (error.code === '42883' || error.code === 'PGRST202') {
+      return respond(503, {
+        error: 'Platform notification retry governance schema is not applied in this environment.',
+        migrationRequired: '20260902091000_platform_notification_retry_governance.sql',
+      });
+    }
+    return respond(500, { error: error.message });
   }
 
-  if (updateError) return respond(500, { error: updateError.message });
-
-  return respond(200, { success: true, notificationId, status: 'pending' });
+  const reconciliation = Array.isArray(data) ? data[0] ?? null : data;
+  return respond(200, { success: true, notificationId, retry: reconciliation });
 }
