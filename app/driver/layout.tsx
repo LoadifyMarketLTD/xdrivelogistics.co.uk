@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import MembershipEntitlementGate from '../components/MembershipEntitlementGate';
 import ProtectedRoute from '../components/ProtectedRoute';
 import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
@@ -22,10 +23,12 @@ export const metadata: Metadata = {
 
 export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-driver-workspace">
-      <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
-        <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>
-      </ProtectedRoute>
-    </div>
+    <MembershipEntitlementGate workspacePath="/driver">
+      <div className="xdrive-workspace-measured xdrive-driver-workspace">
+        <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
+          <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>
+        </ProtectedRoute>
+      </div>
+    </MembershipEntitlementGate>
   );
 }
