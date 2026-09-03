@@ -41,13 +41,11 @@ describe('XDrive public enquiry governance', () => {
     expect(patch).not.toContain('booking_reference');
   });
 
-  it('aligns the DB enum to the complete canonical XDrive vehicle taxonomy', () => {
+  it('converges the DB enum to the complete canonical XDrive vehicle taxonomy from either baseline', () => {
     const migration = readRepoFile(TAXONOMY);
     for (const vehicle of canonicalVehicles) expect(migration).toContain(`'${vehicle}'`);
-    expect(migration).toContain("ALTER TYPE public.vehicle_type ADD VALUE 'truck_18t'");
-    expect(migration).toContain("ALTER TYPE public.vehicle_type ADD VALUE 'truck_7_5t'");
-    expect(migration).toContain("ALTER TYPE public.vehicle_type ADD VALUE 'van_small'");
-    expect(migration).toContain("ALTER TYPE public.vehicle_type ADD VALUE 'van_large'");
+    expect(migration).toContain("ALTER TYPE public.vehicle_type ADD VALUE %L");
+    expect(migration).toContain('XDrive vehicle taxonomy alignment incomplete');
   });
 
   it('fails closed instead of downgrading unsupported transport types', () => {
