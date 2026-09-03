@@ -2,23 +2,24 @@
 -- ST_EstimatedExtent overloads from public/anon/authenticated roles.
 -- XDrive application code does not call these RPCs. Service-role and database
 -- owner execution remain available for trusted server/database operations.
+--
+-- Supabase/PostGIS installs these three overloads in public. Use explicit,
+-- schema-qualified signatures so privilege changes cannot resolve against an
+-- unintended search_path object.
 
 DO $$
-DECLARE
-  r record;
 BEGIN
-  FOR r IN
-    SELECT p.oid::regprocedure AS signature
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = 'st_estimatedextent'
-      AND p.prosecdef
-  LOOP
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', r.signature);
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM anon', r.signature);
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM authenticated', r.signature);
-  END LOOP;
+  IF to_regprocedure('public.st_estimatedextent(text,text)') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text) FROM PUBLIC, anon, authenticated;
+  END IF;
+
+  IF to_regprocedure('public.st_estimatedextent(text,text,text)') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text,text) FROM PUBLIC, anon, authenticated;
+  END IF;
+
+  IF to_regprocedure('public.st_estimatedextent(text,text,text,boolean)') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text,text,boolean) FROM PUBLIC, anon, authenticated;
+  END IF;
 END;
 $$;
 
