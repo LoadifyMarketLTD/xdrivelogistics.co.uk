@@ -198,9 +198,9 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
-  const preservedTrialEnd = existing?.status === 'trialing'
-    ? parseFutureTrialEnd(existing.trial_ends_at, now)
-    : null;
+  // Preserve any existing future trial end across Checkout retries. A failed or cancelled
+  // Checkout must never restart, shorten, or silently discard the original free period.
+  const preservedTrialEnd = parseFutureTrialEnd(existing?.trial_ends_at, now);
   const trialEnd = preservedTrialEnd ?? (existing ? null : addCalendarMonths(now, 3));
   const trialStartedAt = preservedTrialEnd
     ? existing?.trial_started_at ?? now.toISOString()
