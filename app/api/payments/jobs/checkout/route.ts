@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
     return json(503, { error: 'Stripe Connect schema is not available yet.', migrationRequired: true });
   }
   if (connectedError) return json(500, { error: connectedError.message });
-  if (!connected?.stripe_account_id || !connected.charges_enabled) {
-    return json(409, { error: 'The carrier has not completed Stripe payment onboarding.' });
+  if (!connected?.stripe_account_id || !connected.charges_enabled || !connected.payouts_enabled) {
+    return json(409, { error: 'The carrier has not completed Stripe payment and payout onboarding.' });
   }
 
   const amountPence = toMinorUnits(invoice.amount);
