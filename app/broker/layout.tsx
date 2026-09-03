@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import MembershipEntitlementGate from '../components/MembershipEntitlementGate';
 import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
@@ -14,8 +15,10 @@ export const metadata: Metadata = {
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
-      <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
-    </div>
+    <MembershipEntitlementGate workspacePath="/broker">
+      <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
+        <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
+      </div>
+    </MembershipEntitlementGate>
   );
 }

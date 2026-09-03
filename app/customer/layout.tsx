@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import MembershipEntitlementGate from '../components/MembershipEntitlementGate';
 import ProtectedRoute from '../components/ProtectedRoute';
 import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
@@ -15,10 +16,12 @@ export const metadata: Metadata = {
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
-      <ProtectedRoute allowedRoles={['customer']}>
-        <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
-      </ProtectedRoute>
-    </div>
+    <MembershipEntitlementGate workspacePath="/customer">
+      <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
+        <ProtectedRoute allowedRoles={['customer']}>
+          <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
+        </ProtectedRoute>
+      </div>
+    </MembershipEntitlementGate>
   );
 }
