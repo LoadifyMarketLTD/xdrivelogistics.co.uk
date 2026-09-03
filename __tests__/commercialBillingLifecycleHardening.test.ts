@@ -5,11 +5,11 @@ import { describe, expect, it } from 'vitest';
 const source = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 describe('XDrive commercial billing lifecycle hardening', () => {
-  it('preserves an existing launch trial instead of restarting it at Checkout', () => {
+  it('preserves an existing future trial instead of restarting or losing it at Checkout', () => {
     const checkout = source('app/api/billing/subscription/checkout/route.ts');
-    expect(checkout).toContain('preservedTrialEnd');
-    expect(checkout).toContain('trialPreserved');
-    expect(checkout).toContain('Entering a payment method must never restart or extend their three free calendar months.');
+    expect(checkout).toContain('const preservedTrialEnd = parseFutureTrialEnd(existing?.trial_ends_at, now);');
+    expect(checkout).toContain('trialPreserved: Boolean(preservedTrialEnd)');
+    expect(checkout).toContain('Checkout must never restart, shorten, or silently discard the original free period.');
   });
 
   it('keeps Platform Owner outside commercial membership billing', () => {
