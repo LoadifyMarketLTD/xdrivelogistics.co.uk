@@ -1,0 +1,1 @@
+Temporary production-recovery diagnostic marker. This branch restores app/ and lib/ to commit d62104bb8c0bbbed2b434ad4f50c849322542f83 while preserving current migration history and repository infrastructure. Do not treat this file as product documentation.
