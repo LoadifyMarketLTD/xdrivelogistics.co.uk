@@ -13,7 +13,8 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-console.log('NETLIFY_RELEASE_GATE=TYPECHECK_ISOLATION');
+console.log('NETLIFY_RELEASE_GATE=START');
 run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 run(npmCommand, ['run', 'typecheck']);
-console.log('NETLIFY_RELEASE_GATE=TYPECHECK_ISOLATION_PASS');
+run(npmCommand, ['run', 'build']);
+console.log('NETLIFY_RELEASE_GATE=PASS');

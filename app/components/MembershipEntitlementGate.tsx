@@ -179,7 +179,7 @@ export default async function MembershipEntitlementGate({
 
   const subscription = await readSubscription(companyId, userId);
   if (!subscription) {
-    billingRedirect('membership_missing');
+    return billingRedirect('membership_missing');
   }
 
   const entitlement = resolveMembershipEntitlement({
