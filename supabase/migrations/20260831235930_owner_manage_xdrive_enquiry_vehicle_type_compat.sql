@@ -3,11 +3,9 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
 
--- Align the hosted vehicle_type enum with the full canonical XDrive transport
--- taxonomy used by job posting, Driver loads, search and enquiry conversion.
--- Legacy labels are intentionally preserved for existing rows. New XDrive
--- enquiry conversions persist the exact canonical type; no downgrade/fallback
--- to vans, 7.5T, artic or any other broader category is permitted.
+-- Converge vehicle_type to the complete canonical XDrive transport taxonomy
+-- from any supported legacy or clean-replay baseline. Existing/legacy labels
+-- are preserved for historical rows. New writes use the canonical labels.
 
 DO $preflight$
 BEGIN
@@ -18,35 +16,27 @@ END;
 $preflight$;
 
 DO $enum_alignment$
+DECLARE
+  v_label text;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'bicycle') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'bicycle';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'motorbike') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'motorbike';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'car') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'car';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'van_small') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'van_small';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'van_large') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'van_large';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'truck_7_5t') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'truck_7_5t';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = 'truck_18t') THEN
-    ALTER TYPE public.vehicle_type ADD VALUE 'truck_18t';
-  END IF;
+  FOREACH v_label IN ARRAY ARRAY[
+    'bicycle','motorbike','car',
+    'van_small','van_large','swb_van','mwb_van','lwb_van','xlwb_van','luton','luton_tail_lift','curtainside_van',
+    'truck_3_5t','truck_5t','truck_7_5t','truck_12t','truck_18t','truck_26t',
+    'artic','artic_44t_curtainsider','artic_44t_box_trailer','artic_44t_flatbed','artic_44t_refrigerated','artic_44t_double_deck',
+    'hiab','moffett','adr_vehicle','refrigerated_vehicle','temperature_controlled_vehicle'
+  ]
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_enum
+      WHERE enumtypid = 'public.vehicle_type'::regtype AND enumlabel = v_label
+    ) THEN
+      EXECUTE format('ALTER TYPE public.vehicle_type ADD VALUE %L', v_label);
+    END IF;
+  END LOOP;
 END;
 $enum_alignment$;
 
-COMMIT;
-
--- Verify after commit because newly-added enum labels cannot be used in the same
--- transaction that introduced them on all supported PostgreSQL versions.
 DO $verify_full_taxonomy$
 DECLARE
   v_missing text[];
@@ -64,10 +54,8 @@ BEGIN
       (25, 'hiab'), (26, 'moffett'), (27, 'adr_vehicle'), (28, 'refrigerated_vehicle'), (29, 'temperature_controlled_vehicle')
   ) AS required(ord, label)
   WHERE NOT EXISTS (
-    SELECT 1
-    FROM pg_catalog.pg_enum e
-    WHERE e.enumtypid = 'public.vehicle_type'::regtype
-      AND e.enumlabel = required.label
+    SELECT 1 FROM pg_catalog.pg_enum e
+    WHERE e.enumtypid = 'public.vehicle_type'::regtype AND e.enumlabel = required.label
   );
 
   IF v_missing IS NOT NULL THEN
@@ -76,5 +64,7 @@ BEGIN
   END IF;
 END;
 $verify_full_taxonomy$;
+
+COMMIT;
 
 NOTIFY pgrst, 'reload schema';
