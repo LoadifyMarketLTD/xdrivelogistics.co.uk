@@ -1,5 +1,3 @@
-import 'server-only';
-
 import type { ReactNode } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -88,8 +86,6 @@ async function readSubscription(companyId: string | null, userId: string): Promi
   }
 
   const rows = (data ?? []) as SubscriptionRow[];
-  // A company/person must have one canonical membership lifecycle. Multiple
-  // rows are ambiguous financial authority, so fail closed rather than choose.
   if (rows.length !== 1) return null;
   return rows[0];
 }
@@ -152,8 +148,6 @@ export default async function MembershipEntitlementGate({
     redirect('/forbidden');
   }
 
-  // Platform Owner is authoritative only from the server-side profile table.
-  // It is intentionally outside the commercial subscriber lifecycle.
   if (profile.role?.toLowerCase() === 'owner') {
     return children;
   }
@@ -179,9 +173,6 @@ export default async function MembershipEntitlementGate({
     if (!activeCompany.ok) redirect('/forbidden');
     companyId = activeCompany.context.companyId;
   } else if (workspacePath === '/driver') {
-    // Standalone drivers can be owner-drivers bound directly to a sole-trader
-    // company. Employee-only standalone identities with no company remain
-    // outside platform membership billing.
     companyId = await resolveStandaloneDriverCompanyId(userId);
     if (!companyId) return children;
   }
