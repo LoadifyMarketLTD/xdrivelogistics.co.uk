@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
-import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
@@ -30,7 +29,6 @@ export default function Page() {
   const [settings, setSettings] = useState<Setting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [confirmSave, setConfirmSave] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -82,7 +80,7 @@ export default function Page() {
     setMessage(null);
   };
 
-  const save = async (reason: string) => {
+  const save = async () => {
     if (settings.length === 0) return;
     setSaving(true);
     setError(null);
@@ -104,17 +102,13 @@ export default function Page() {
         body: JSON.stringify({
           section: 'global',
           settings: settings.map((setting) => ({ key: setting.key, value: setting.value })),
-          reason: reason.trim(),
         }),
       });
-      const payload = (await res.json().catch(() => ({}))) as { updated?: number; migrationRequired?: boolean };
+      await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(payload.migrationRequired
-          ? 'Platform settings governance migration is not applied in this environment.'
-          : 'Platform settings could not be saved right now.');
+        setError('Platform settings could not be saved right now.');
       } else {
-        const updated = Number(payload.updated ?? 0);
-        setMessage(updated > 0 ? `${updated} platform setting change${updated === 1 ? '' : 's'} saved and audited.` : 'No platform setting values changed.');
+        setMessage('Global settings saved.');
         await load();
       }
     } catch {
@@ -128,24 +122,6 @@ export default function Page() {
   return (
     <ProtectedRoute allowedRoles={['owner']}>
       <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '12px' }}>
-        {confirmSave && (
-          <ActionConfirmModal
-            open
-            title="Save global platform settings"
-            description="Apply platform-wide configuration through the audited Platform Owner governance path."
-            confirmLabel="Save audited changes"
-            reasonRequired
-            reasonLabel="Change reason"
-            reasonPlaceholder="Explain why these platform settings are being changed…"
-            submitting={saving}
-            onCancel={() => setConfirmSave(false)}
-            onConfirm={(reason) => {
-              setConfirmSave(false);
-              void save(reason);
-            }}
-          />
-        )}
-
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '20px' }}>⚙️</span>
@@ -154,12 +130,12 @@ export default function Page() {
                 <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Global Platform Settings</h1>
                 <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A5D00', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Settings</span>
               </div>
-              <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Edit platform-wide configuration through the audited Platform Owner governance path.</p>
+              <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Edit and persist platform-wide configuration defaults.</p>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button type="button" onClick={() => void load()} disabled={loading || saving} style={{ height: '32px', border: `1px solid ${THEME.cardBorder}`, backgroundColor: THEME.cardBg, color: THEME.heading, borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 700, cursor: loading || saving ? 'not-allowed' : 'pointer' }}>Refresh</button>
-            <button type="button" onClick={() => setConfirmSave(true)} disabled={saveDisabled} style={{ height: '32px', border: `1px solid ${saveDisabled ? THEME.cardBorder : THEME.blue}`, backgroundColor: saveDisabled ? '#E5E7EB' : THEME.blue, color: saveDisabled ? '#94A3B8' : '#FFFFFF', borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 800, cursor: saveDisabled ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving…' : 'Save'}</button>
+            <button type="button" onClick={() => void save()} disabled={saveDisabled} style={{ height: '32px', border: `1px solid ${saveDisabled ? THEME.cardBorder : THEME.blue}`, backgroundColor: saveDisabled ? '#E5E7EB' : THEME.blue, color: saveDisabled ? '#94A3B8' : '#FFFFFF', borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 800, cursor: saveDisabled ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
 

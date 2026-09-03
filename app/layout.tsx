@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
 import { AuthProvider } from './components/AuthContext'
@@ -83,17 +84,20 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
         <script
           id="organization-schema"
           type="application/ld+json"
+          nonce={nonce}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
