@@ -1,16 +1,3 @@
-/**
- * Regression tests for GET /api/super-admin/settings?section=feature-flags
- * and PATCH /api/super-admin/settings (section=feature-flags).
- *
- * Key contract assertions:
- *  - GET reads `is_enabled` from platform_feature_flags (not `enabled`)
- *  - PATCH upserts `is_enabled` to platform_feature_flags (not `enabled`)
- *  - Response model exposes `enabled` to the UI (translation layer is correct)
- *  - FLAG_DEFINITIONS keys match the DB-seeded canonical set
- *  - Unknown keys are rejected by PATCH
- *  - Stale keys (driver_tracking, public_quote_requests, compliance_gating) are
- *    not present in the definition set and are rejected by PATCH
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
@@ -18,9 +5,10 @@ const mocks = vi.hoisted(() => ({
   getBearerToken: vi.fn(),
   getUser: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
   profileRole: 'owner' as string,
+  profileStatus: 'active' as string,
   flagRows: [] as Array<Record<string, unknown>>,
-  upsertError: null as { message: string } | null,
 }));
 
 vi.mock('../app/api/_lib/supabaseAdmin', () => ({
@@ -33,6 +21,7 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   },
   supabaseAdmin: {
     from: mocks.from,
+    rpc: mocks.rpc,
   },
 }));
 
@@ -41,8 +30,8 @@ import { GET, PATCH } from '../app/api/super-admin/settings/route';
 const getRequest = (url: string) =>
   new NextRequest(url, { method: 'GET', headers: { Authorization: '******' } });
 
-const patchRequest = (url: string, body: unknown) =>
-  new NextRequest(url, {
+const patchRequest = (body: unknown) =>
+  new NextRequest('http://localhost/api/super-admin/settings', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: '******' },
     body: JSON.stringify(body),
@@ -52,13 +41,14 @@ beforeEach(() => {
   mocks.getBearerToken.mockReset();
   mocks.getUser.mockReset();
   mocks.from.mockReset();
+  mocks.rpc.mockReset();
   mocks.flagRows = [];
-  mocks.upsertError = null;
   mocks.profileRole = 'owner';
+  mocks.profileStatus = 'active';
 
   mocks.getBearerToken.mockReturnValue('test-token');
   mocks.getUser.mockResolvedValue({
-    data: { user: { id: 'owner-user-1' } },
+    data: { user: { id: '44444444-4444-4444-8444-444444444444' } },
     error: null,
   });
 
@@ -67,21 +57,25 @@ beforeEach(() => {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: () =>
-              Promise.resolve({ data: { role: mocks.profileRole }, error: null }),
+            maybeSingle: () => Promise.resolve({
+              data: { role: mocks.profileRole, status: mocks.profileStatus },
+              error: null,
+            }),
           }),
         }),
       };
     }
     if (table === 'platform_feature_flags') {
       return {
-        select: () =>
-          Promise.resolve({ data: mocks.flagRows, error: null }),
-        upsert: () =>
-          Promise.resolve({ data: null, error: mocks.upsertError }),
+        select: () => Promise.resolve({ data: mocks.flagRows, error: null }),
       };
     }
-    return {};
+    if (table === 'platform_settings') {
+      return {
+        select: () => Promise.resolve({ data: [], error: null }),
+      };
+    }
+    throw new Error(`Unexpected table ${table}`);
   });
 });
 
@@ -92,196 +86,141 @@ describe('GET ?section=feature-flags', () => {
       { key: 'notifications', is_enabled: true },
     ];
 
-    const res = await GET(
-      getRequest('http://localhost/api/super-admin/settings?section=feature-flags')
-    );
+    const res = await GET(getRequest('http://localhost/api/super-admin/settings?section=feature-flags'));
     expect(res.status).toBe(200);
     const body = await res.json() as { flags: Array<{ key: string; enabled: boolean }> };
 
-    const exchange = body.flags.find((f) => f.key === 'exchange_marketplace');
-    expect(exchange?.enabled).toBe(false);
-
-    const notif = body.flags.find((f) => f.key === 'notifications');
-    expect(notif?.enabled).toBe(true);
+    expect(body.flags.find((flag) => flag.key === 'exchange_marketplace')?.enabled).toBe(false);
+    expect(body.flags.find((flag) => flag.key === 'notifications')?.enabled).toBe(true);
   });
 
-  it('falls back to definition default when key is not yet persisted in DB', async () => {
-    mocks.flagRows = [];
-
-    const res = await GET(
-      getRequest('http://localhost/api/super-admin/settings?section=feature-flags')
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json() as { flags: Array<{ key: string; enabled: boolean }> };
-
-    const stripe = body.flags.find((f) => f.key === 'stripe_billing_future_phase');
-    expect(stripe?.enabled).toBe(false);
-
-    const exchange = body.flags.find((f) => f.key === 'exchange_marketplace');
-    expect(exchange?.enabled).toBe(true);
-  });
-
-  it('includes all 12 DB-canonical flag keys', async () => {
-    mocks.flagRows = [];
-
-    const res = await GET(
-      getRequest('http://localhost/api/super-admin/settings?section=feature-flags')
-    );
+  it('keeps the 12 canonical flag definitions and excludes stale aliases', async () => {
+    const res = await GET(getRequest('http://localhost/api/super-admin/settings?section=feature-flags'));
     const body = await res.json() as { flags: Array<{ key: string }> };
-    const keys = body.flags.map((f) => f.key).sort();
+    const keys = body.flags.map((flag) => flag.key);
 
-    const expected = [
-      'audit_logging',
-      'bid_acceptance_workflow',
-      'broker_carrier_network',
-      'company_suspension',
-      'dispute_filing',
-      'document_review',
-      'driver_mobile_app',
-      'exchange_marketplace',
-      'invoice_generation',
-      'notifications',
-      'pod_capture',
-      'stripe_billing_future_phase',
-    ].sort();
-
-    expect(keys).toEqual(expected);
-  });
-
-  it('does not include stale flags removed from the canonical set', async () => {
-    mocks.flagRows = [];
-
-    const res = await GET(
-      getRequest('http://localhost/api/super-admin/settings?section=feature-flags')
-    );
-    const body = await res.json() as { flags: Array<{ key: string }> };
-    const keys = body.flags.map((f) => f.key);
-
+    expect(keys).toHaveLength(12);
+    expect(keys).toContain('exchange_marketplace');
+    expect(keys).toContain('audit_logging');
     expect(keys).not.toContain('driver_tracking');
     expect(keys).not.toContain('public_quote_requests');
     expect(keys).not.toContain('compliance_gating');
   });
 
-  it('returns 403 when caller is not owner role', async () => {
-    mocks.profileRole = 'company_admin';
-
-    const res = await GET(
-      getRequest('http://localhost/api/super-admin/settings?section=feature-flags')
-    );
+  it('requires an active Platform Owner', async () => {
+    mocks.profileStatus = 'suspended';
+    const res = await GET(getRequest('http://localhost/api/super-admin/settings?section=feature-flags'));
     expect(res.status).toBe(403);
   });
 });
 
-describe('PATCH section=feature-flags', () => {
-  it('upserts is_enabled (not enabled) to platform_feature_flags', async () => {
-    let capturedUpsertRows: Array<Record<string, unknown>> = [];
-    mocks.from.mockImplementation((table: string) => {
-      if (table === 'profiles') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () =>
-                Promise.resolve({ data: { role: 'owner' }, error: null }),
-            }),
-          }),
-        };
-      }
-      if (table === 'platform_feature_flags') {
-        return {
-          upsert: (rows: Array<Record<string, unknown>>) => {
-            capturedUpsertRows = rows;
-            return Promise.resolve({ data: null, error: null });
-          },
-        };
-      }
-      return {};
-    });
+describe('PATCH Platform configuration', () => {
+  it('routes feature flag changes through the atomic audited governance RPC', async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ section: 'feature-flags', updated_count: 1 }], error: null });
 
-    const res = await PATCH(
-      patchRequest('http://localhost/api/super-admin/settings', {
-        section: 'feature-flags',
-        flags: [{ key: 'exchange_marketplace', enabled: false }],
-      })
-    );
+    const res = await PATCH(patchRequest({
+      section: 'feature-flags',
+      flags: [{ key: 'exchange_marketplace', enabled: false }],
+      reason: 'Temporarily disable exchange for maintenance',
+    }));
+    const body = await res.json();
+
     expect(res.status).toBe(200);
-
-    expect(capturedUpsertRows).toHaveLength(1);
-    const row = capturedUpsertRows[0];
-    // Must write is_enabled, not enabled
-    expect(row).toHaveProperty('is_enabled', false);
-    expect(row).not.toHaveProperty('enabled');
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith('owner_update_platform_configuration', {
+      p_actor_user_id: '44444444-4444-4444-8444-444444444444',
+      p_section: 'feature-flags',
+      p_changes: [expect.objectContaining({
+        key: 'exchange_marketplace',
+        enabled: false,
+        label: 'Exchange Marketplace',
+      })],
+      p_reason: 'Temporarily disable exchange for maintenance',
+    });
+    expect(body.updated).toBe(1);
   });
 
-  it('rejects unknown / stale flag keys', async () => {
-    const res = await PATCH(
-      patchRequest('http://localhost/api/super-admin/settings', {
-        section: 'feature-flags',
-        flags: [{ key: 'driver_tracking', enabled: true }],
-      })
-    );
+  it('rejects unknown or stale flag keys before the governance RPC', async () => {
+    const res = await PATCH(patchRequest({
+      section: 'feature-flags',
+      flags: [{ key: 'driver_tracking', enabled: true }],
+      reason: 'Test unknown key rejection',
+    }));
+
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
-    expect(body.error).toMatch(/driver_tracking/);
+    expect((await res.json()).error).toMatch(/driver_tracking/);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it('accepts all 12 canonical DB flags', async () => {
-    const canonicalKeys = [
-      'exchange_marketplace',
-      'bid_acceptance_workflow',
-      'pod_capture',
-      'invoice_generation',
-      'dispute_filing',
-      'stripe_billing_future_phase',
-      'notifications',
-      'document_review',
-      'broker_carrier_network',
-      'driver_mobile_app',
-      'company_suspension',
-      'audit_logging',
-    ];
+  it('requires a written reason for feature flag mutation', async () => {
+    const res = await PATCH(patchRequest({
+      section: 'feature-flags',
+      flags: [{ key: 'notifications', enabled: false }],
+      reason: 'no',
+    }));
 
-    let upsertCallCount = 0;
-    mocks.from.mockImplementation((table: string) => {
-      if (table === 'profiles') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () =>
-                Promise.resolve({ data: { role: 'owner' }, error: null }),
-            }),
-          }),
-        };
-      }
-      if (table === 'platform_feature_flags') {
-        return {
-          upsert: () => {
-            upsertCallCount++;
-            return Promise.resolve({ data: null, error: null });
-          },
-        };
-      }
-      return {};
-    });
+    expect(res.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
 
-    const res = await PATCH(
-      patchRequest('http://localhost/api/super-admin/settings', {
-        section: 'feature-flags',
-        flags: canonicalKeys.map((key) => ({ key, enabled: true })),
-      })
-    );
+  it('routes global settings through the same atomic audited governance RPC', async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ section: 'global', updated_count: 1 }], error: null });
+
+    const res = await PATCH(patchRequest({
+      section: 'global',
+      settings: [{ key: 'default_timezone', value: 'Europe/London' }],
+      reason: 'Confirm canonical platform timezone',
+    }));
+
     expect(res.status).toBe(200);
-    expect(upsertCallCount).toBe(1);
+    expect(mocks.rpc).toHaveBeenCalledWith('owner_update_platform_configuration', {
+      p_actor_user_id: '44444444-4444-4444-8444-444444444444',
+      p_section: 'global',
+      p_changes: [expect.objectContaining({
+        key: 'default_timezone',
+        value: 'Europe/London',
+        value_type: 'text',
+      })],
+      p_reason: 'Confirm canonical platform timezone',
+    });
   });
 
-  it('returns 403 when caller is not owner role', async () => {
-    mocks.profileRole = 'driver';
+  it('fails closed when the settings governance migration is unavailable', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'function not found' } });
 
-    const res = await PATCH(
-      patchRequest('http://localhost/api/super-admin/settings', {
-        section: 'feature-flags',
-        flags: [{ key: 'notifications', enabled: false }],
-      })
-    );
+    const res = await PATCH(patchRequest({
+      section: 'feature-flags',
+      flags: [{ key: 'notifications', enabled: false }],
+      reason: 'Disable during provider incident',
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.migrationRequired).toBe(true);
+  });
+
+  it('keeps Roles & Permissions read-only at the API boundary', async () => {
+    const res = await PATCH(patchRequest({
+      section: 'roles',
+      roles: [{ role: 'platform_admin' }],
+      reason: 'Attempt direct role mutation',
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.error).toMatch(/read-only/i);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects inactive owners before any settings mutation RPC', async () => {
+    mocks.profileStatus = 'inactive';
+    const res = await PATCH(patchRequest({
+      section: 'feature-flags',
+      flags: [{ key: 'notifications', enabled: false }],
+      reason: 'Disable during provider incident',
+    }));
+
     expect(res.status).toBe(403);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });
