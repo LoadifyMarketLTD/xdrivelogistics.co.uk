@@ -49,7 +49,6 @@ export default function Page() {
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [price, setPrice] = useState('');
-  const [governanceReason, setGovernanceReason] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -88,12 +87,6 @@ export default function Page() {
 
   const runAction = useCallback(async (payload: Record<string, unknown>, label: string) => {
     if (!selectedId) return;
-    const reason = governanceReason.trim();
-    if (reason.length < 3) {
-      setError('Enter a governance reason before changing the enquiry.');
-      return;
-    }
-
     setBusy(label); setError(null); setNotice(null);
     try {
       const auth = await getAuthHeader();
@@ -101,22 +94,19 @@ export default function Page() {
       const res = await fetch(`/api/super-admin/xdrive-logistics/enquiries/${selectedId}`, {
         method: 'PATCH',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, reason }),
+        body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { setError((body as { error?: string }).error ?? 'Action failed.'); return; }
       const job = (body as { job?: { id?: string } }).job;
       setNotice(job?.id ? `Converted to job ${job.id}.` : `${label} completed.`);
-      setGovernanceReason('');
       await Promise.all([loadList(), loadDetail(selectedId)]);
     } catch { setError('Action failed.'); }
     finally { setBusy(null); }
-  }, [governanceReason, loadDetail, loadList, selectedId]);
+  }, [loadDetail, loadList, selectedId]);
 
   const status = String(enquiry?.status ?? 'draft').toLowerCase();
-  const hasReason = governanceReason.trim().length >= 3;
-  const canPrice = Boolean(enquiry && !enquiry.converted_job_id && !['quote_sent', 'accepted', 'converted'].includes(status));
-  const canSend = Boolean(enquiry && typeof enquiry.amount === 'number' && enquiry.amount > 0 && !enquiry.converted_job_id && ['draft', 'new', 'priced'].includes(status));
+  const canSend = Boolean(enquiry && typeof enquiry.amount === 'number' && enquiry.amount > 0 && !enquiry.converted_job_id);
   const canAccept = status === 'quote_sent' && !enquiry?.converted_job_id;
   const canConvert = status === 'accepted' && !enquiry?.converted_job_id;
   const details = useMemo(() => (enquiry?.notes ?? '').split('|').map(v => v.trim()).filter(Boolean), [enquiry?.notes]);
@@ -156,7 +146,7 @@ export default function Page() {
               <td style={td}>{typeof row.amount === 'number' ? `${row.currency ?? 'GBP'} ${row.amount.toFixed(2)}` : 'Not priced'}</td>
               <td style={td}><StatusChip value={row.status ?? 'draft'} /></td>
               <td style={td}>{formatDateTime(row.created_at)}</td>
-              <td style={{ ...td, textAlign: 'right' }}><button type="button" onClick={() => { setGovernanceReason(''); void loadDetail(row.id); }} style={secondaryButton}>Open</button></td>
+              <td style={{ ...td, textAlign: 'right' }}><button type="button" onClick={() => void loadDetail(row.id)} style={secondaryButton}>Open</button></td>
             </tr>)}</tbody>
           </table>
         </div>}
@@ -173,31 +163,15 @@ export default function Page() {
         </div>
 
         <div style={panel}>
-          <h2 style={sectionTitle}>Governance reason</h2>
-          <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: X.navy }}>
-            Reason for the next Platform Owner action
-            <textarea
-              value={governanceReason}
-              onChange={(event) => setGovernanceReason(event.target.value)}
-              placeholder="Required. This reason is written to the durable owner audit log."
-              disabled={busy !== null}
-              maxLength={5000}
-              style={reasonInputStyle}
-            />
-          </label>
-          <div style={{ marginTop: 7, color: X.muted, fontSize: 11 }}>The reason is consumed by one successful action and then cleared.</div>
-        </div>
-
-        <div style={panel}>
           <h2 style={sectionTitle}>1. Price customer</h2>
           <div style={{ display: 'flex', alignItems: 'end', gap: 8, flexWrap: 'wrap' }}>
             <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: X.navy }}>
               Customer price (GBP)
-              <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" disabled={!canPrice} style={inputStyle} />
+              <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" disabled={Boolean(enquiry.converted_job_id)} style={inputStyle} />
             </label>
-            <button type="button" disabled={!canPrice || !hasReason || busy !== null || !(Number(price) > 0)} onClick={() => void runAction({ action: 'set_price', amount: Number(price) }, 'Price saved')} style={primaryButton}>Save price</button>
-            <button type="button" disabled={!canSend || !hasReason || busy !== null} onClick={() => void runAction({ action: 'quote_sent' }, 'Quote sent')} style={primaryButton}>Mark Quote Sent</button>
-            <button type="button" disabled={!canAccept || !hasReason || busy !== null} onClick={() => void runAction({ action: 'accepted' }, 'Customer accepted')} style={primaryButton}>Mark Accepted</button>
+            <button type="button" disabled={Boolean(enquiry.converted_job_id) || busy !== null || !(Number(price) > 0)} onClick={() => void runAction({ action: 'set_price', amount: Number(price) }, 'Price saved')} style={primaryButton}>Save price</button>
+            <button type="button" disabled={!canSend || busy !== null} onClick={() => void runAction({ action: 'quote_sent' }, 'Quote sent')} style={primaryButton}>Mark Quote Sent</button>
+            <button type="button" disabled={!canAccept || busy !== null} onClick={() => void runAction({ action: 'accepted' }, 'Customer accepted')} style={primaryButton}>Mark Accepted</button>
           </div>
           <div style={{ marginTop: 9, color: X.muted, fontSize: 11 }}>
             {enquiry.quote_sent_at ? `Quote sent: ${formatDateTime(enquiry.quote_sent_at)}. ` : ''}
@@ -211,9 +185,9 @@ export default function Page() {
             <div style={{ color: X.success, fontSize: 12, fontWeight: 800 }}>Converted successfully</div>
             <div style={{ marginTop: 4, color: X.muted, fontSize: 11 }}>Job ID: {enquiry.converted_job_id} · Execution: {enquiry.execution_mode ?? '—'} · {enquiry.converted_at ? formatDateTime(enquiry.converted_at) : ''}</div>
           </> : <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" disabled={!canConvert || !hasReason || busy !== null} onClick={() => void runAction({ action: 'convert_to_job', executionMode: 'own_fleet' }, 'Own Fleet conversion')} style={conversionButton}>Own Fleet</button>
-            <button type="button" disabled={!canConvert || !hasReason || busy !== null} onClick={() => void runAction({ action: 'convert_to_job', executionMode: 'direct_carrier' }, 'Direct Carrier conversion')} style={conversionButton}>Direct Carrier</button>
-            <button type="button" disabled={!canConvert || !hasReason || busy !== null} onClick={() => void runAction({ action: 'convert_to_job', executionMode: 'marketplace' }, 'Marketplace conversion')} style={conversionButton}>Marketplace</button>
+            <button type="button" disabled={!canConvert || busy !== null} onClick={() => void runAction({ action: 'convert_to_job', executionMode: 'own_fleet' }, 'Own Fleet conversion')} style={conversionButton}>Own Fleet</button>
+            <button type="button" disabled={!canConvert || busy !== null} onClick={() => void runAction({ action: 'convert_to_job', executionMode: 'direct_carrier' }, 'Direct Carrier conversion')} style={conversionButton}>Direct Carrier</button>
+            <button type="button" disabled={!canConvert || busy !== null} onClick={() => void runAction({ action: 'convert_to_job', executionMode: 'marketplace' }, 'Marketplace conversion')} style={conversionButton}>Marketplace</button>
           </div>}
           {!canConvert && !enquiry.converted_job_id && <div style={{ marginTop: 8, color: X.muted, fontSize: 11 }}>The quote must be marked Accepted before conversion becomes available.</div>}
         </div>
@@ -242,7 +216,6 @@ const sectionTitle = { margin: '0 0 10px', color: X.navy, fontSize: 14, fontWeig
 const th = { padding: '0 12px', textAlign: 'left' as const, color: X.navy, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '.04em' };
 const td = { padding: '9px 12px', color: X.charcoal, verticalAlign: 'top' as const };
 const inputStyle = { width: 170, height: 34, border: `1px solid ${X.border}`, borderRadius: 4, padding: '0 9px', fontSize: 12, color: X.charcoal, background: X.white } as const;
-const reasonInputStyle = { minHeight: 68, width: '100%', resize: 'vertical' as const, border: `1px solid ${X.border}`, borderRadius: 4, padding: 9, fontSize: 12, color: X.charcoal, background: X.white } as const;
 const primaryButton = { height: 34, padding: '0 12px', border: `1px solid ${X.blue}`, borderRadius: 4, background: X.blue, color: X.white, fontSize: 11, fontWeight: 800, cursor: 'pointer' } as const;
 const conversionButton = { ...primaryButton, border: `1px solid ${X.navy}`, background: X.navy } as const;
 const secondaryButton = { height: 30, padding: '0 10px', border: `1px solid ${X.border}`, borderRadius: 4, background: X.white, color: X.navy, fontSize: 11, fontWeight: 800, cursor: 'pointer' } as const;
