@@ -24,6 +24,7 @@ describe('XDrive commercial billing lifecycle hardening', () => {
     const paymentCheckout = source('app/api/payments/jobs/checkout/route.ts');
     expect(checkout).toContain("COMPANY_BILLING_ROLES = new Set(['owner', 'admin'])");
     expect(paymentCheckout).toContain("membershipHasCapability(buyerRole, 'payments.manage')");
+    expect(paymentCheckout).toContain('!connected.payouts_enabled');
   });
 
   it('prevents Stripe billing webhooks from prematurely ending a live trial', () => {
