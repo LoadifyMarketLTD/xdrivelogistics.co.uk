@@ -23,3 +23,5 @@ export default function Home() {
     </>
   );
 }
+
+// Production redeploy marker: 2026-09-03. No runtime behavior change.
