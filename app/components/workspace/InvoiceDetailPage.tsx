@@ -46,7 +46,6 @@ type History = { id: string; from_status: string | null; to_status: string; note
 type Payment = { id: string; amount: number; currency: string; paid_at: string; settlement_method: string; external_reference: string | null };
 type Dispute = { id: string; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string };
 type Document = { id: string; doc_type: string; file_url: string; file_name: string | null; file_size_bytes: number | null; created_at: string };
-type InvoicePermissions = { canPayThroughStripe: boolean; isBuyer: boolean; isIssuer: boolean };
 
 const currency = (value: number | null | undefined, code = 'GBP') =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: code }).format(Number(value ?? 0));
@@ -76,10 +75,8 @@ export default function InvoiceDetailPage({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [permissions, setPermissions] = useState<InvoicePermissions>({ canPayThroughStripe: false, isBuyer: false, isIssuer: false });
   const [loading, setLoading] = useState(true);
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
-  const [openingPayment, setOpeningPayment] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -103,7 +100,6 @@ export default function InvoiceDetailPage({
         payments?: Payment[];
         disputes?: Dispute[];
         documents?: Document[];
-        permissions?: InvoicePermissions;
       } | null;
       if (!response.ok || !payload?.invoice) throw new Error(payload?.error ?? 'Invoice could not be loaded.');
       setInvoice(payload.invoice);
@@ -111,7 +107,6 @@ export default function InvoiceDetailPage({
       setPayments(payload.payments ?? []);
       setDisputes(payload.disputes ?? []);
       setDocuments(payload.documents ?? []);
-      setPermissions(payload.permissions ?? { canPayThroughStripe: false, isBuyer: false, isIssuer: false });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be loaded.');
     } finally {
@@ -153,28 +148,6 @@ export default function InvoiceDetailPage({
     }
   };
 
-  const payInvoice = async () => {
-    if (!invoice || !permissions.canPayThroughStripe) return;
-    setOpeningPayment(true);
-    setError('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) throw new Error('Your session has expired. Please sign in again.');
-      const response = await fetch('/api/payments/jobs/checkout', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id }),
-      });
-      const payload = (await response.json().catch(() => null)) as { checkoutUrl?: string; error?: string } | null;
-      if (!response.ok || !payload?.checkoutUrl) throw new Error(payload?.error ?? 'Secure payment could not be started.');
-      window.location.assign(payload.checkoutUrl);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Secure payment could not be started.');
-      setOpeningPayment(false);
-    }
-  };
-
   const paid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
   const code = invoice?.currency ?? 'GBP';
   const outstanding = Math.max(0, Number(invoice?.amount ?? 0) - paid);
@@ -189,11 +162,6 @@ export default function InvoiceDetailPage({
         description="Commercial amount, invoice lifecycle, payment state, supporting documents and audit history in one authorised view."
         actions={
           <>
-            {invoice && permissions.canPayThroughStripe ? (
-              <ActionButton tone="primary" disabled={openingPayment} onClick={() => void payInvoice()}>
-                {openingPayment ? 'Opening secure payment…' : `Pay securely ${currency(outstanding, code)}`}
-              </ActionButton>
-            ) : null}
             <ActionButton tone="secondary" onClick={() => router.push(backHref)}>Back to register</ActionButton>
             <ActionButton tone="secondary" onClick={() => window.print()}>Print</ActionButton>
             <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>

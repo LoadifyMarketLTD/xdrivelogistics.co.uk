@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { membershipHasCapability, resolveMembershipRole } from '../../../../../lib/membershipRole';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -71,19 +70,11 @@ export async function GET(
 
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('company_id, role_in_company')
+    .select('company_id')
     .eq('user_id', authData.user.id)
     .eq('status', 'active');
   if (membershipError) return respond(500, { error: membershipError.message });
   const companyIds = new Set((memberships ?? []).map((membership) => membership.company_id as string));
-  const paymentAuthorityCompanyIds = new Set(
-    (memberships ?? []).flatMap((membership) => {
-      const role = resolveMembershipRole(membership.role_in_company ?? null);
-      return role && membershipHasCapability(role, 'payments.manage')
-        ? [membership.company_id as string]
-        : [];
-    }),
-  );
 
   const { id } = await params;
   const { data: invoice, error } = await supabaseAdmin
@@ -154,30 +145,11 @@ export async function GET(
         note: entry.to_status === 'Submitted' ? 'Invoice sent to customer.' : null,
       }));
 
-  const alreadyPaid = String(invoice.payment_status ?? '').toLowerCase() === 'paid';
-  const paymentAuthority = Boolean(
-    invoice.buyer_company_id && paymentAuthorityCompanyIds.has(invoice.buyer_company_id as string),
-  );
-  const canPayThroughStripe = Boolean(
-    buyerAuthorised &&
-    paymentAuthority &&
-    !alreadyPaid &&
-    invoice.buyer_company_id &&
-    invoice.supplier_company_id &&
-    Number(invoice.amount ?? 0) > 0,
-  );
-
   return respond(200, {
     invoice: issuerAuthorised ? invoice : toCustomerInvoice(invoice as Record<string, unknown>),
     statusHistory: safeHistory,
     payments: payments.data ?? [],
     disputes: disputes.data ?? [],
     documents: documents.data ?? [],
-    permissions: {
-      canPayThroughStripe,
-      isBuyer: buyerAuthorised,
-      isIssuer: issuerAuthorised,
-      hasPaymentAuthority: paymentAuthority,
-    },
   });
 }
