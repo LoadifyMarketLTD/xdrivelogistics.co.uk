@@ -39,7 +39,7 @@ type SubscriptionRow = {
   trial_ends_at?: string | null;
 };
 
-const billingRedirect = (reason: string) => {
+const billingRedirect = (reason: string): never => {
   redirect(`/settings/billing?reason=${encodeURIComponent(reason)}`);
 };
 
