@@ -33,6 +33,25 @@ type ExistingSubscription = {
   trial_ends_at: string | null;
 };
 
+type StripeRuntimeError = Error & { stripeCode?: string; status?: number };
+
+const stripeFailureResponse = (reason: unknown, operation: string) => {
+  const error = (reason instanceof Error
+    ? reason
+    : new Error('Unknown Stripe runtime failure.')) as StripeRuntimeError;
+  console.error(`[billing checkout] ${operation} failed`, {
+    message: error.message,
+    stripeCode: error.stripeCode ?? null,
+    status: error.status ?? null,
+  });
+  return json(502, {
+    error: 'Stripe checkout service failed. Please try again.',
+    operation,
+    stripeCode: error.stripeCode ?? null,
+    stripeStatus: error.status ?? null,
+  });
+};
+
 const addCalendarMonths = (date: Date, months: number) => {
   const result = new Date(date.getTime());
   const originalDay = result.getUTCDate();
@@ -186,15 +205,19 @@ export async function POST(request: NextRequest) {
 
   let customerId = existing?.stripe_customer_id as string | null | undefined;
   if (!customerId) {
-    const customer = await stripeRequest<StripeCustomer>('/customers', {
-      params: {
-        email: authData.user.email ?? undefined,
-        'metadata[xdrive_user_id]': authData.user.id,
-        'metadata[xdrive_company_id]': companyId ?? '',
-      },
-      idempotencyKey: `xdrive-membership-customer:${companyId ?? authData.user.id}`,
-    });
-    customerId = customer.id;
+    try {
+      const customer = await stripeRequest<StripeCustomer>('/customers', {
+        params: {
+          email: authData.user.email ?? undefined,
+          'metadata[xdrive_user_id]': authData.user.id,
+          'metadata[xdrive_company_id]': companyId ?? '',
+        },
+        idempotencyKey: `xdrive-membership-customer:${companyId ?? authData.user.id}`,
+      });
+      customerId = customer.id;
+    } catch (reason) {
+      return stripeFailureResponse(reason, 'customer creation');
+    }
   }
 
   const now = new Date();
@@ -207,7 +230,20 @@ export async function POST(request: NextRequest) {
     : existing
       ? existing.trial_started_at
       : now.toISOString();
-  const priceId = getStripePriceId(planId);
+
+  let priceId: string;
+  try {
+    priceId = getStripePriceId(planId);
+  } catch (reason) {
+    const message = reason instanceof Error ? reason.message : 'Unknown Stripe price configuration failure.';
+    console.error('[billing checkout] price configuration failed', { planId, message });
+    return json(503, {
+      error: 'Stripe membership price is not configured.',
+      operation: 'price configuration',
+      configurationRequired: true,
+    });
+  }
+
   const acceptedAt = now.toISOString();
   const recordStatus = preservedTrialEnd ? 'trialing' : 'pending';
   const record = {
@@ -251,10 +287,15 @@ export async function POST(request: NextRequest) {
     checkoutParams['subscription_data[trial_end]'] = Math.floor(trialEnd.getTime() / 1000);
   }
 
-  const session = await stripeRequest<CheckoutSession>('/checkout/sessions', {
-    idempotencyKey: `xdrive-membership-checkout:${companyId ?? authData.user.id}:${planId}:${trialEnd?.toISOString() ?? 'no-trial'}`,
-    params: checkoutParams,
-  });
+  let session: CheckoutSession;
+  try {
+    session = await stripeRequest<CheckoutSession>('/checkout/sessions', {
+      idempotencyKey: `xdrive-membership-checkout:${companyId ?? authData.user.id}:${planId}:${trialEnd?.toISOString() ?? 'no-trial'}`,
+      params: checkoutParams,
+    });
+  } catch (reason) {
+    return stripeFailureResponse(reason, 'Checkout Session creation');
+  }
   if (!session.url) return json(502, { error: 'Stripe did not return a Checkout URL.' });
 
   const checkoutRecordResult = existing?.id
