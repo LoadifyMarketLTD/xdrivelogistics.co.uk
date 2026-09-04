@@ -213,6 +213,7 @@ export default function CustomerCompanySettingsPage() {
             { id: 'profile', label: 'Company Profile', detail: 'Identity and contact details', active: true, onClick: () => undefined },
             { id: 'team', label: 'Team', detail: 'Customer workspace members', onClick: () => router.push('/customer/team') },
             { id: 'invoices', label: 'Invoices', detail: 'Customer billing records', onClick: () => router.push('/customer/invoices') },
+            { id: 'legal', label: 'Legal & Agreements', detail: 'Accepted terms and evidence history', onClick: () => router.push('/customer/account/legal-agreements') },
             { id: 'notifications', label: 'Notifications', detail: 'Workspace notifications', onClick: () => router.push('/customer/notifications') },
             { id: 'settings', label: 'Settings', detail: 'Workspace preferences', onClick: () => router.push('/customer/settings') },
           ]}

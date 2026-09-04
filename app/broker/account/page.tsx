@@ -8,7 +8,7 @@ import {
   PageHeader,
 } from '../../components/workspace/WorkspaceUI';
 
-type AccountSection = 'settings' | 'team';
+type AccountSection = 'settings' | 'team' | 'legal';
 
 const sections: Array<{
   id: AccountSection;
@@ -25,12 +25,23 @@ const sections: Array<{
     label: 'Team',
     description: 'Broker users and company membership administration.',
   },
+  {
+    id: 'legal',
+    label: 'Legal & Agreements',
+    description: 'Accepted terms, versions and immutable legal evidence history.',
+  },
 ];
 
 export default function BrokerAccountPage() {
   const router = useRouter();
   const [section, setSection] = useState<AccountSection>('settings');
   const active = sections.find((item) => item.id === section) ?? sections[0];
+
+  const openSection = () => {
+    if (section === 'settings') return router.push('/broker/settings');
+    if (section === 'team') return router.push('/broker/team');
+    return router.push('/broker/account/legal-agreements');
+  };
 
   return (
     <PageFrame>
@@ -80,17 +91,16 @@ export default function BrokerAccountPage() {
                 <strong>{active.label}</strong>
                 <div style={{ color: '#64748b', marginTop: 2, fontSize: 'var(--ws-font-meta, 11px)', lineHeight: '15px' }}>{active.description}</div>
               </div>
-              <ActionButton
-                tone="primary"
-                onClick={() => router.push(section === 'settings' ? '/broker/settings' : '/broker/team')}
-              >
-                Open {section === 'settings' ? 'settings' : 'team'}
+              <ActionButton tone="primary" onClick={openSection}>
+                Open {section === 'settings' ? 'settings' : section === 'team' ? 'team' : 'Legal & Agreements'}
               </ActionButton>
             </div>
             <div style={{ padding: 8, color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)', lineHeight: '15px' }}>
               {section === 'settings'
                 ? 'The existing Settings module remains the source of truth for broker company configuration. No settings are duplicated in this account hub.'
-                : 'The existing Team module remains connected to the company membership workflow. Account only provides the shared navigation entry point.'}
+                : section === 'team'
+                  ? 'The existing Team module remains connected to the company membership workflow. Account only provides the shared navigation entry point.'
+                  : 'Legal & Agreements shows the authenticated account’s accepted contractual package and immutable evidence history. Re-acceptance is offered only when the server identifies a material change.'}
             </div>
           </section>
         </main>
