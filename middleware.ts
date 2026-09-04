@@ -245,6 +245,9 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   const superAdminRouteRequested =
     request.nextUrl.pathname === '/super-admin' || request.nextUrl.pathname.startsWith('/super-admin/');
 
+  // Super Admin access depends only on the authoritative server-side profile.
+  // Resolve that boundary before company context so every Super Admin navigation
+  // avoids unnecessary company_memberships and companies queries.
   if (superAdminRouteRequested) {
     const { data: superAdminProfileData, error: superAdminProfileError } = await supabaseAdmin
       .from('profiles')
@@ -319,6 +322,13 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   }
 
   if (profileRes.error || membershipsRes.error || creatorCompanyRes.error) {
+    // A DB query error is not an access-control decision — it means the
+    // underlying data could not be read (transient connection hiccup, schema
+    // drift, or an RLS policy issue that isn't a network failure).  Returning
+    // 'forbidden' here was silently turning these transient failures into a
+    // permanent-looking 403 page.  Return 'service_unavailable' so the user
+    // is sent to the login page with a retryable "service unavailable" message
+    // rather than being told they have no permission.
     return { kind: 'service_unavailable' };
   }
 
@@ -340,6 +350,10 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
+  // Customer/Shipper and Driver are valid standalone portal identities in the
+  // existing XDrive auth/RLS contracts. Resolve only those roles before the
+  // company-membership gate; all broker/admin/carrier identities continue to
+  // require an authoritative active company context.
   if (memberships.length === 0) {
     const rawRole = profile.role ?? fallbackRole ?? null;
     const standaloneRole = resolveAuthoritativeRole({
@@ -410,6 +424,8 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
       }
 
       const standaloneDrivers = (standaloneDriverData ?? []) as DriverRouteRow[];
+      // No driver evidence, or more than one active driver context, stays
+      // fail-closed because there is no membership to disambiguate company scope.
       if (standaloneDrivers.length !== 1) {
         return { kind: 'forbidden' };
       }
@@ -471,6 +487,9 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     .limit(1)
     .maybeSingle();
 
+  // PostgreSQL 42703 compatibility: when the live schema is missing can_commercial_bid
+  // (production schema drift — unapplied migration 20260725184000), retry exactly once
+  // with the legacy column set.  Commercial bidding is fail-closed: null if unavailable.
   const driverNeedsLegacyFallback = isMissingDriverCanBidColumn(driverErrorInitial);
   const { data: driverData, error: driverError } = driverNeedsLegacyFallback
     ? await supabaseAdmin
@@ -486,6 +505,8 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'service_unavailable' };
   }
   if (driverError) {
+    // Same principle as the profile/membership query block above: an unexpected
+    // DB error reading driver data is a service issue, not an access denial.
     return { kind: 'service_unavailable' };
   }
 
@@ -503,7 +524,8 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   if (companyStatus !== 'active') {
     return { kind: 'forbidden' };
   }
-  const ownerDriverWorkspace = ownerDriverWorkspaceRequested && Boolean(driver?.id);
+  const ownerDriverWorkspace =
+    ownerDriverWorkspaceRequested && Boolean(driver?.id);
   const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
   const role = resolveAuthoritativeRole({
@@ -698,11 +720,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   runtime: 'nodejs',
   matcher: [
-    '/super-admin/:path*',
-    '/broker/:path*',
-    '/admin/:path*',
-    '/driver/:path*',
-    '/customer/:path*',
-    '/m/:path*',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)',
   ],
 };
