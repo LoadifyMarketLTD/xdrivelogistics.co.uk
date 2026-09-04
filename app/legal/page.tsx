@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { COMPANY_CONFIG } from '../../lib/companyConfig';
+import { COMPANY_CONFIG } from '../config/company';
 
 const LEGAL_GROUPS = [
   {
