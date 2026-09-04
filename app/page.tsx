@@ -1,5 +1,13 @@
 import { MarketingDetailPage } from './(marketing)/_components/MarketingDetailPage';
 import { AuthRedirectGuard } from './components/AuthRedirectGuard';
+import { buildMarketingMetadata } from '../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/',
+  title: 'XDrive Logistics | Courier & Freight Exchange Platform',
+  description: 'Apply to join XDrive and connect courier, carrier, broker and transport-customer operations through one controlled UK courier and freight exchange platform.',
+  kicker: 'Controlled Early Access',
+});
 
 export default function Home() {
   return (

@@ -1,6 +1,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { SocialShareBar } from '../(marketing)/_components/SocialShareBar';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/pricing',
+  title: 'XDrive Membership Pricing',
+  description: 'Compare XDrive launch membership plans for owner drivers, transport customers, carriers and brokers, with the first 3 months free on eligible standard plans.',
+  kicker: 'XDrive Membership',
+  visual: 'pricing',
+});
 
 const plans = [
   { id: 'owner-driver', role: 'owner_operator', name: 'Owner Driver', price: '£29.99', suffix: '/ month + VAT', detail: '1 self-employed courier / owner driver', features: ['3 months free', 'Exchange access', 'Quote workflow', 'Awarded jobs', 'Live status & POD'] },
@@ -13,9 +23,9 @@ const plans = [
 ] as const;
 
 const footerGroups = [
-  { title: 'Platform', links: [['Platform','/platform'],['Exchange','/exchange'],['How It Works','/how-it-works'],['Customers','/customers'],['Brokers','/brokers'],['Couriers','/couriers']] },
+  { title: 'Platform', links: [['Platform','/platform'],['Exchange','/exchange'],['How It Works','/how-it-works'],['Customers','/customers'],['Brokers','/brokers'],['Drivers','/drivers'],['Owner Drivers','/owner-drivers'],['Carriers','/carriers'],['Couriers','/couriers']] },
   { title: 'Product', links: [['Operations Diary','/operations-diary'],['Courier Workspace','/courier-workspace'],['POD & Records','/pod-records'],['Finance','/finance']] },
-  { title: 'Account', links: [['Pricing','/pricing'],['Request Access','/register'],['Sign In','/login'],['Access','/access'],['Help & FAQ','/help']] },
+  { title: 'Account', links: [['Pricing','/pricing'],['Join XDrive','/join-xdrive'],['Request Access','/register'],['Sign In','/login'],['Access','/access'],['Help & FAQ','/help']] },
   { title: 'Company', links: [['Contact','/contact'],['Privacy','/privacy'],['Terms','/terms'],['Subscription Terms','/subscription-terms'],['Acceptable Use','/acceptable-use'],['Cookies','/cookies'],['Complaints','/complaints']] },
 ] as const;
 
@@ -44,7 +54,7 @@ export default function PricingPage() {
     </header>
 
     <main>
-      <section className="bg-gradient-to-br from-[#173B73] to-[#0E2D5A] px-5 py-16 text-white sm:px-8 lg:py-20"><div className="mx-auto max-w-[1240px]"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p><h1 className="mt-5 max-w-5xl text-[3.2rem] font-black leading-[0.96] tracking-tight sm:text-[4.8rem]">Simple pricing. First 3 months free.</h1><p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">No XDrive commission on the value of your job. No XDrive booking fee. After your free period, continue on the plan that matches your operation.</p><div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-6 text-sm font-bold leading-6 text-white/70"><p>Standard launch plans are monthly rolling after the free period. Public prices shown are exclusive of VAT unless expressly stated otherwise; VAT is added where legally applicable. There is no minimum paid term under the standard monthly launch model.</p><p className="mt-2">Enterprise pricing and launch terms are intentionally not published yet and will be agreed separately for 51+ vehicle or custom operations. See the <Link href="/subscription-terms" className="font-black text-[#F5A300] underline">Membership & Subscription Terms</Link> for renewal, cancellation and refund rules applying to standard memberships.</p></div></div></section>
+      <section className="bg-gradient-to-br from-[#173B73] to-[#0E2D5A] px-5 py-16 text-white sm:px-8 lg:py-20"><div className="mx-auto max-w-[1240px]"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p><h1 className="mt-5 max-w-5xl text-[3.2rem] font-black leading-[0.96] tracking-tight sm:text-[4.8rem]">Simple pricing. First 3 months free.</h1><p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">No XDrive commission on the value of your job. No XDrive booking fee. After your free period, continue on the plan that matches your operation.</p><div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-6 text-sm font-bold leading-6 text-white/70"><p>Standard launch plans are monthly rolling after the free period. Public prices shown are exclusive of VAT unless expressly stated otherwise; VAT is added where legally applicable. There is no minimum paid term under the standard monthly launch model.</p><p className="mt-2">Enterprise pricing and launch terms are intentionally not published yet and will be agreed separately for 51+ vehicle or custom operations. See the <Link href="/subscription-terms" className="font-black text-[#F5A300] underline">Membership & Subscription Terms</Link> for renewal, cancellation and refund rules applying to standard memberships.</p></div><SocialShareBar pageTitle="XDrive Membership Pricing" /></div></section>
 
       <section className="border-t border-[#DDE5EF] bg-gradient-to-b from-[#F8FAFD] to-[#EEF3F8] px-5 py-14 sm:px-8 lg:py-16">
         <div className="mx-auto grid max-w-[1440px] gap-5 md:grid-cols-2 xl:grid-cols-4">

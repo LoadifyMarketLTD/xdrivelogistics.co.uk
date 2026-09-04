@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/how-it-works',
+  title: 'How XDrive Works',
+  description: 'See how one transport job moves through posting, quoting, award, dispatch, live tracking, POD and finance readiness without losing the operational record.',
+  kicker: 'How XDrive Works',
+});
 
 export default function HowItWorksPage() {
   return <MarketingDetailPage

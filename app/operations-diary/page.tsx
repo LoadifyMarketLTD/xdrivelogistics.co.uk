@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/operations-diary',
+  title: 'XDrive Operations Diary',
+  description: 'Move awarded transport work into driver and vehicle allocation, live job status, ETA, exception handling, POD and completion readiness in XDrive.',
+  kicker: 'Operations Diary',
+});
 
 export default function OperationsDiaryPage() {
   return <MarketingDetailPage
