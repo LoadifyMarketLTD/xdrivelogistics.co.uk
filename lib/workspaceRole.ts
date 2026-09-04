@@ -19,6 +19,7 @@ export type WorkspaceCapability =
   | 'platform.manage'
   | 'company.manage'
   | 'company.members.manage'
+  | 'billing.manage'
   | 'loads.create'
   | 'loads.publish'
   | 'loads.view.own'
@@ -130,6 +131,7 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
 const ALL_COMPANY_MANAGEMENT: WorkspaceCapability[] = [
   'company.manage',
   'company.members.manage',
+  'billing.manage',
   'settings.manage',
 ];
 
@@ -178,22 +180,23 @@ const SHARED_DRIVER_NAV: WorkspaceNavGroup[] = [
     { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles', icon: '▰' },
     { id: 'documents', label: 'Documents', href: '/driver/documents', icon: '▤' },
     { id: 'invoices', label: 'Invoices', href: '/driver/finance', icon: '£' },
+    { id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' },
     { id: 'messages', label: 'Messages', href: '/driver/messages', icon: '◫' },
     { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
   ] },
 ];
 
 const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
-  platform_owner: new Set<WorkspaceCapability>(['platform.manage', ...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.execute', 'documents.own.manage', 'documents.verify', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
+  platform_owner: new Set<WorkspaceCapability>(['platform.manage', ...ALL_COMPANY_MANAGEMENT.filter((capability) => capability !== 'billing.manage'), ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.execute', 'documents.own.manage', 'documents.verify', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_owner: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_admin: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   carrier_admin: new Set<WorkspaceCapability>(CARRIER_COMMERCIAL),
-  broker: new Set<WorkspaceCapability>(['company.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
-  customer: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
+  broker: new Set<WorkspaceCapability>(['company.manage', 'billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
+  customer: new Set<WorkspaceCapability>(['billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
   fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'incidents.manage', 'settings.manage']),
   dispatcher: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage']),
   driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
-  owner_driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
+  owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'billing.manage']),
   finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view']),
   compliance: new Set<WorkspaceCapability>(['drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage']),
   viewer: new Set<WorkspaceCapability>(['jobs.view']),
@@ -214,6 +217,7 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
   { id: 'carrier-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' }] },
   { id: 'carrier-compliance', label: 'Compliance', items: [{ id: 'compliance', label: 'Compliance', href: '/admin/documents', icon: '✓', capability: 'documents.company.manage' }] },
+  { id: 'carrier-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
   { id: 'carrier-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
 ];
 
@@ -235,6 +239,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'broker-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/broker/diary', icon: '□', capability: 'jobs.view' }] },
       { id: 'broker-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/broker/disputes', icon: '!', capability: 'incidents.manage' }] },
       { id: 'broker-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/broker/finance', icon: '£', capability: 'invoices.customer.manage' }] },
+      { id: 'broker-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
       { id: 'broker-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/broker/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
@@ -249,6 +254,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'customer-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/customer/diary', icon: '□', capability: 'jobs.view' }] },
       { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network', icon: '◌' }] },
       { id: 'customer-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/customer/disputes', icon: '!', capability: 'jobs.view' }] },
+      { id: 'customer-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
       { id: 'customer-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/customer/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },

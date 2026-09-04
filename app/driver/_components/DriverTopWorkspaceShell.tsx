@@ -36,6 +36,7 @@ const DRIVER_MORE_NAV = [
   { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles' },
   { id: 'documents', label: 'Documents', href: '/driver/documents' },
   { id: 'invoices', label: 'Invoices', href: '/driver/finance' },
+  { id: 'billing', label: 'Membership & Billing', href: '/settings/billing' },
   { id: 'notifications', label: 'Notifications', href: '/driver/notifications' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
@@ -50,7 +51,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const role = 'driver' as const;
+  const role = user?.ownerDriverWorkspace ? 'owner_driver' as const : 'driver' as const;
   const definition = getWorkspaceDefinition(role);
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,6 +64,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
     (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
+  const visibleMoreNav = DRIVER_MORE_NAV.filter((item) => item.id !== 'billing' || hasWorkspaceCapability(role, 'billing.manage'));
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -117,7 +119,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const moreActive = DRIVER_MORE_NAV.some((item) => isActive(item.href));
+  const moreActive = visibleMoreNav.some((item) => isActive(item.href));
 
   return (
     <div className="driver-top-shell">
@@ -138,7 +140,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
             <details className="driver-top-nav__more">
               <summary className="driver-top-nav__item driver-top-nav__more-trigger" data-active={moreActive ? 'true' : 'false'}>More <span aria-hidden="true">▾</span></summary>
               <div className="driver-top-nav__more-menu" role="menu" aria-label="More Driver workspace options">
-                {DRIVER_MORE_NAV.map((item) => (
+                {visibleMoreNav.map((item) => (
                   <button
                     key={item.id}
                     type="button"
