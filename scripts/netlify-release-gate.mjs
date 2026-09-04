@@ -64,6 +64,8 @@ const goLiveHardeningUnitTests = [
   '__tests__/goLiveTenantReviewerHardening.test.ts',
 ];
 
+const androidNativeParityContract = '__tests__/androidNativeParityContract.test.ts';
+
 console.log('NETLIFY_RELEASE_GATE=START');
 run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 
@@ -82,8 +84,11 @@ if (isGoLiveHardeningPreview) {
 }
 
 if (isAndroidNativeParityPreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR497_ANDROID_NATIVE_TEST_BUILD');
-  run('sh', ['-c', 'cd android-native && ./gradlew --no-daemon testDebugUnitTest assembleDebug']);
+  console.log('NETLIFY_RELEASE_GATE=PR497_ANDROID_NATIVE_SOURCE_CONTRACT_LINT');
+  run(npmCommand, ['exec', '--', 'eslint', androidNativeParityContract]);
+  console.log('NETLIFY_RELEASE_GATE=PR497_ANDROID_NATIVE_SOURCE_CONTRACT_TEST');
+  run(npmCommand, ['run', 'test:unit', '--', androidNativeParityContract]);
+  console.log('ANDROID_NATIVE_BINARY_GATE=EXTERNAL_REQUIRED');
 }
 
 run(npmCommand, ['run', 'typecheck']);
