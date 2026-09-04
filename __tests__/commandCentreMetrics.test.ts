@@ -71,7 +71,7 @@ class QueryBuilder<T extends Record<string, unknown>> {
   }
 
   not(column: string, operator: string, value: unknown) {
-    if (operator === 'is') {
+    if (operator === 'is' || operator === 'eq') {
       this.filters.push((row) => row[column as keyof T] !== value);
     }
     return this;
@@ -247,14 +247,26 @@ describe('GET /api/super-admin/command-centre metrics', () => {
       })),
       { id: 'fraud-p0', subject_company_id: 'co-p0', status: 'investigating', created_at: '2026-08-05T00:00:00.000Z' },
     ];
-    mocks.datasets.invoices = makeRows(21, (index) => ({
-      id: `invoice-${index}`,
-      invoice_number: `INV-${index}`,
-      amount: 100,
-      due_date: '2026-07-01',
-      created_at: '2026-07-01T00:00:00.000Z',
-      payment_status: 'unpaid',
-    }));
+    mocks.datasets.invoices = [
+      ...makeRows(21, (index) => ({
+        id: `invoice-${index}`,
+        invoice_number: `INV-${index}`,
+        amount: 100,
+        due_date: '2026-07-01',
+        created_at: '2026-07-01T00:00:00.000Z',
+        payment_status: 'unpaid',
+        status: 'sent',
+      })),
+      {
+        id: 'invoice-void',
+        invoice_number: 'XDR-01001',
+        amount: 100,
+        due_date: '2026-07-01',
+        created_at: '2026-07-01T00:00:00.000Z',
+        payment_status: 'unpaid',
+        status: 'void',
+      },
+    ];
     mocks.datasets.support_tickets = [
       ...makeRows(10, (index) => ({
         id: `ticket-p1-${index}`,
@@ -338,6 +350,7 @@ describe('GET /api/super-admin/command-centre metrics', () => {
     expect(body.actionQueue.p2).toBe(5);
     expect(body.actionQueue.items).toHaveLength(50);
     expect(body.actionQueue.items.some((item) => item.type === 'fraud_case' && item.entityId === 'co-p0')).toBe(true);
+    expect(body.actionQueue.items.some((item) => item.entityId === 'invoice-void')).toBe(false);
 
     expect(mocks.limitCalls.length).toBeGreaterThan(0);
     expect(mocks.limitCalls.every((call) => call.limit <= 50)).toBe(true);
