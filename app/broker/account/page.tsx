@@ -40,7 +40,7 @@ export default function BrokerAccountPage() {
   const openSection = () => {
     if (section === 'settings') return router.push('/broker/settings');
     if (section === 'team') return router.push('/broker/team');
-    return router.push('/broker/legal-agreements');
+    return router.push('/broker/account/legal-agreements');
   };
 
   return (
