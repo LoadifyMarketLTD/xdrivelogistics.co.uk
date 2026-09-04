@@ -36,6 +36,7 @@ const DRIVER_MORE_NAV = [
   { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles' },
   { id: 'documents', label: 'Documents', href: '/driver/documents' },
   { id: 'invoices', label: 'Invoices', href: '/driver/finance' },
+  { id: 'billing', label: 'Membership & Billing', href: '/settings/billing' },
   { id: 'notifications', label: 'Notifications', href: '/driver/notifications' },
   { id: 'account', label: 'Account', href: '/driver/account' },
 ] as const;
