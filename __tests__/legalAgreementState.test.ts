@@ -5,6 +5,7 @@ import {
   buildCurrentLegalRequirement,
   computeLegalRequirementFingerprint,
   evaluateLegalAcceptance,
+  findCurrentLegalAcceptanceIndex,
 } from '../lib/legal/legalAgreementState';
 
 describe('legal agreement material re-acceptance state', () => {
@@ -42,6 +43,16 @@ describe('legal agreement material re-acceptance state', () => {
     const evaluation = evaluateLegalAcceptance(requirement, evidence);
     expect(evaluation.requiresReacceptance).toBe(true);
     expect(evaluation.reasons).toContain('registration_role_changed');
+  });
+
+  it('selects the newest legally sufficient event instead of blindly treating the newest row as current', () => {
+    const requirement = buildCurrentLegalRequirement('owner_operator');
+    const currentEvidence = buildCurrentLegalEvidence('owner_operator', '2026-09-04T21:45:00.000Z');
+    const unrelatedNewerEvidence = buildCurrentLegalEvidence('transport_broker', '2026-09-04T21:46:00.000Z');
+
+    expect(
+      findCurrentLegalAcceptanceIndex(requirement, [unrelatedNewerEvidence, currentEvidence]),
+    ).toBe(1);
   });
 
   it('does not change the requirement fingerprint for presentation-only label or href edits', () => {
