@@ -51,12 +51,14 @@ const legalUnitTests = [
 const goLiveHardeningLintTargets = [
   '__tests__/commandCentreMetrics.test.ts',
   '__tests__/goLiveHardeningMigrationContract.test.ts',
+  '__tests__/goLiveTenantReviewerHardening.test.ts',
   'app/api/super-admin/command-centre/route.ts',
 ];
 
 const goLiveHardeningUnitTests = [
   '__tests__/commandCentreMetrics.test.ts',
   '__tests__/goLiveHardeningMigrationContract.test.ts',
+  '__tests__/goLiveTenantReviewerHardening.test.ts',
 ];
 
 console.log('NETLIFY_RELEASE_GATE=START');
