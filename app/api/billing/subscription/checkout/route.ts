@@ -268,6 +268,7 @@ export async function POST(request: NextRequest) {
   const checkoutParams: Record<string, string | number | boolean | undefined> = {
     mode: 'subscription',
     customer: customerId,
+    'customer_update[address]': 'auto',
     payment_method_collection: 'always',
     billing_address_collection: 'required',
     'automatic_tax[enabled]': true,
