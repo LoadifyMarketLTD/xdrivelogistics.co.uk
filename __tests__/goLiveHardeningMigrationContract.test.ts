@@ -12,6 +12,8 @@ const BROAD_RLS_DRIFT_MIGRATION =
   'supabase/migrations/20260904223500_remove_hosted_broad_invoice_company_rls_drift.sql';
 const DRIVER_SELF_SERVICE_GUARD_MIGRATION =
   'supabase/migrations/20260904225000_guard_driver_self_service_protected_fields.sql';
+const POD_STORAGE_OPERATOR_GUARD_MIGRATION =
+  'supabase/migrations/20260904230000_harden_pod_storage_operator_insert.sql';
 
 const LEGACY_GOVERNANCE_FUNCTIONS = [
   'approve_company',
@@ -151,5 +153,19 @@ describe('PR #500 go-live hardening migration contracts', () => {
     expect(migration).not.toContain('destination_priority_enabled IS DISTINCT FROM');
     expect(migration).not.toContain('destination_radius_miles IS DISTINCT FROM');
     expect(migration).not.toContain('UPDATE public.drivers');
+  });
+
+  it('requires company-operator authority for the non-driver POD upload path', () => {
+    const migration = readRepoFile(POD_STORAGE_OPERATOR_GUARD_MIGRATION);
+
+    expect(migration).toContain('DROP POLICY IF EXISTS "pod_photos_insert_operator_for_accessible_job" ON storage.objects');
+    expect(migration).toContain('public.is_company_operator(public.auth_company_id())');
+    expect(migration).toContain("bucket_id = 'pod-photos'");
+    expect(migration).toContain('j.company_id = public.auth_company_id()');
+    expect(migration).toContain('j.assigned_company_id = public.auth_company_id()');
+    expect(migration).toContain('j.awarded_carrier_company_id = public.auth_company_id()');
+    expect(migration).not.toContain('d.user_id = auth.uid()');
+    expect(migration).not.toContain('UPDATE storage.objects');
+    expect(migration).not.toContain('DELETE FROM storage.objects');
   });
 });
