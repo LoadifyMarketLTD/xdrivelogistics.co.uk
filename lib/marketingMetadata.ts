@@ -21,7 +21,7 @@ export function buildMarketingMetadata({ path, title, description, kicker }: Mar
   const image = socialCardUrl({ title, kicker });
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical },
     openGraph: {
