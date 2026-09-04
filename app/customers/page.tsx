@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/customers',
+  title: 'XDrive for Transport Customers',
+  description: 'Post courier and freight requirements, compare operator quotes, award work and follow delivery evidence in one controlled XDrive workflow.',
+  kicker: 'For Transport Customers',
+});
 
 export default function CustomersPage() {
   return <MarketingDetailPage
