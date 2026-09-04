@@ -14,10 +14,14 @@ const ROLE_VALUES = new Set<RegistrationLegalRole>([
 ]);
 
 export type RegistrationLegalMetadata = {
+  requested_role?: unknown;
   registration_role?: unknown;
-  legal_version?: unknown;
-  legal_agreements?: unknown;
+  terms_accepted_at?: unknown;
   legal_agreements_accepted_at?: unknown;
+  legal_agreement_codes?: unknown;
+  legal_agreement_versions?: unknown;
+  legal_agreements?: unknown;
+  legal_version?: unknown;
   legal_authority_confirmed_at?: unknown;
   legal_role_declaration_confirmed_at?: unknown;
   privacy_acknowledged_at?: unknown;
@@ -43,39 +47,62 @@ const asIsoDate = (value: unknown): string | null => {
   return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 };
 
-const normalizeAgreements = (value: unknown) => {
-  if (!Array.isArray(value)) return null;
-  const rows = value.map((entry) => {
-    if (!entry || typeof entry !== 'object') return null;
-    const candidate = entry as Record<string, unknown>;
-    if (typeof candidate.code !== 'string' || typeof candidate.version !== 'string') return null;
-    return { code: candidate.code, version: candidate.version };
+const normalizeAgreements = (metadata: RegistrationLegalMetadata) => {
+  if (Array.isArray(metadata.legal_agreements)) {
+    const rows = metadata.legal_agreements.map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const candidate = entry as Record<string, unknown>;
+      if (typeof candidate.code !== 'string' || typeof candidate.version !== 'string') return null;
+      return { code: candidate.code, version: candidate.version };
+    });
+    return rows.every(Boolean) ? (rows as Array<{ code: string; version: string }>) : null;
+  }
+
+  if (!Array.isArray(metadata.legal_agreement_codes)) return null;
+  if (!metadata.legal_agreement_versions || typeof metadata.legal_agreement_versions !== 'object') return null;
+
+  const versions = metadata.legal_agreement_versions as Record<string, unknown>;
+  const rows = metadata.legal_agreement_codes.map((code) => {
+    if (typeof code !== 'string' || typeof versions[code] !== 'string') return null;
+    return { code, version: versions[code] as string };
   });
   return rows.every(Boolean) ? (rows as Array<{ code: string; version: string }>) : null;
 };
 
+export const hasModernRegistrationLegalMetadata = (metadata: RegistrationLegalMetadata) =>
+  Boolean(
+    metadata.registration_role ||
+    metadata.legal_version ||
+    metadata.legal_agreements ||
+    metadata.legal_agreement_codes ||
+    metadata.legal_agreement_versions ||
+    metadata.legal_authority_confirmed_at ||
+    metadata.legal_role_declaration_confirmed_at,
+  );
+
 export const buildRegistrationLegalEvidence = (
   metadata: RegistrationLegalMetadata,
 ): RegistrationLegalEvidence | null => {
-  const role = metadata.registration_role;
+  const role = metadata.registration_role ?? metadata.requested_role;
   if (typeof role !== 'string' || !ROLE_VALUES.has(role as RegistrationLegalRole)) return null;
 
   const registrationRole = role as RegistrationLegalRole;
   const config = getRegistrationLegalConfig(registrationRole);
-  const agreements = normalizeAgreements(metadata.legal_agreements);
-  const acceptedAt = asIsoDate(metadata.legal_agreements_accepted_at);
+  const agreements = normalizeAgreements(metadata);
+  const acceptedAt = asIsoDate(metadata.legal_agreements_accepted_at ?? metadata.terms_accepted_at);
   const authorityAt = asIsoDate(metadata.legal_authority_confirmed_at);
   const roleDeclarationAt = asIsoDate(metadata.legal_role_declaration_confirmed_at);
   const privacyAt = asIsoDate(metadata.privacy_acknowledged_at);
+  const legalVersion = typeof metadata.legal_version === 'string' ? metadata.legal_version : LEGAL_VERSION;
 
   if (!agreements || !acceptedAt || !authorityAt || !roleDeclarationAt || !privacyAt) return null;
-  if (metadata.legal_version !== LEGAL_VERSION || metadata.privacy_version !== '2026-09-01') return null;
+  if (legalVersion !== LEGAL_VERSION || metadata.privacy_version !== '2026-09-01') return null;
 
   const expectedAgreements = config.agreements.map(({ code, version }) => ({ code, version }));
   if (JSON.stringify(agreements) !== JSON.stringify(expectedAgreements)) return null;
 
-  // The three confirmations are captured by the registration UI as one atomic
-  // contractual gate. Require their timestamps to represent that same action.
+  // Registration captures the contractual gate as one deliberate action. The
+  // evidence timestamps must therefore all refer to that same acceptance event.
   if (authorityAt !== acceptedAt || roleDeclarationAt !== acceptedAt || privacyAt !== acceptedAt) return null;
 
   const acceptanceStatement = `I agree to the XDrive agreements listed for my ${registrationRole} registration role.`;
