@@ -1,0 +1,55 @@
+-- Go-live hardening: remove hosted-only permissive RLS drift that broadens
+-- invoice mutation/visibility and company updates beyond the canonical policies.
+--
+-- This migration only drops policy names that are present in the hosted database
+-- but have no active source definition in the current repository. It does not
+-- rewrite business rows, alter table schemas, or replace canonical policies.
+
+BEGIN;
+
+SET LOCAL lock_timeout = '10s';
+SET LOCAL statement_timeout = '120s';
+
+-- Invoice drift: these permissive policies broaden access beyond the canonical
+-- non-driver/operator + customer-ready invoice policies and OR together with them.
+DROP POLICY IF EXISTS invoices_delete_member ON public.invoices;
+DROP POLICY IF EXISTS invoices_insert_authenticated ON public.invoices;
+DROP POLICY IF EXISTS invoices_insert_member ON public.invoices;
+DROP POLICY IF EXISTS invoices_select_authenticated ON public.invoices;
+DROP POLICY IF EXISTS invoices_select_member ON public.invoices;
+DROP POLICY IF EXISTS invoices_update_authenticated ON public.invoices;
+DROP POLICY IF EXISTS invoices_update_member ON public.invoices;
+
+-- Company drift: the legacy company_members-based member update policy allows
+-- any active legacy member role to update the company row. Keep the narrower
+-- owner/admin/creator/capability policies intact while removing this broad OR path.
+DROP POLICY IF EXISTS companies_update_member ON public.companies;
+
+DO $$
+DECLARE
+  v_remaining integer;
+BEGIN
+  SELECT count(*)
+  INTO v_remaining
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND (
+      (tablename = 'invoices' AND policyname = ANY (ARRAY[
+        'invoices_delete_member',
+        'invoices_insert_authenticated',
+        'invoices_insert_member',
+        'invoices_select_authenticated',
+        'invoices_select_member',
+        'invoices_update_authenticated',
+        'invoices_update_member'
+      ]::text[]))
+      OR (tablename = 'companies' AND policyname = 'companies_update_member')
+    );
+
+  IF v_remaining <> 0 THEN
+    RAISE EXCEPTION 'Broad hosted RLS drift policies remain after cleanup: %', v_remaining;
+  END IF;
+END;
+$$;
+
+COMMIT;
