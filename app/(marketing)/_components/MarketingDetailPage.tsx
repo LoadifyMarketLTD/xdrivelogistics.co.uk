@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { SocialShareBar } from './SocialShareBar';
 
 export type DetailSection = { title: string; copy: string; points?: string[] };
 
@@ -164,6 +165,7 @@ export function MarketingDetailPage({
               <Link href={secondaryHref} className="rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-black text-white">{secondaryLabel}</Link>
             </div>
             <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-white/78"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
+            <SocialShareBar pageTitle={title} />
           </div>
         </section>
 

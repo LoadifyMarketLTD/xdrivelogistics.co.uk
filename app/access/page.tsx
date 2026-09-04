@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/access',
+  title: 'Request Early Access to XDrive',
+  description: 'Apply to join XDrive during controlled early access for owner drivers, courier companies, carriers, brokers and transport customers.',
+  kicker: 'Controlled Early Access',
+});
 
 export default function AccessPage() {
   return <MarketingDetailPage

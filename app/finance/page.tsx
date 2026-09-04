@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/finance',
+  title: 'XDrive Finance & Invoice Readiness',
+  description: 'Keep awarded value, POD, completion status and payment context connected so completed transport jobs move into invoicing with a clear audit trail.',
+  kicker: 'Finance & Invoice Readiness',
+});
 
 export default function FinancePage() {
   return <MarketingDetailPage

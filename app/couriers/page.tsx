@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/couriers',
+  title: 'XDrive for Couriers & Carriers',
+  description: 'Find courier and freight work, quote quickly, receive awarded jobs into operations, update live status and return POD in one XDrive workflow.',
+  kicker: 'XDrive for Couriers & Carriers',
+});
 
 export default function CouriersPage() {
   return <MarketingDetailPage

@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/courier-workspace',
+  title: 'XDrive Courier Workspace',
+  description: 'Give owner drivers and company drivers one operational view for assigned work, live status, ETA, exceptions and delivery evidence in XDrive.',
+  kicker: 'Courier Workspace',
+});
 
 export default function CourierWorkspacePage() {
   return <MarketingDetailPage
