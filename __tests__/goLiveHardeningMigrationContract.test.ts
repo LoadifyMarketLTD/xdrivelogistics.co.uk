@@ -14,6 +14,8 @@ const DRIVER_SELF_SERVICE_GUARD_MIGRATION =
   'supabase/migrations/20260904225000_guard_driver_self_service_protected_fields.sql';
 const POD_STORAGE_OPERATOR_GUARD_MIGRATION =
   'supabase/migrations/20260904230000_harden_pod_storage_operator_insert.sql';
+const ANON_SECURITY_DEFINER_MIGRATION =
+  'supabase/migrations/20260904231500_close_anonymous_security_definer_rpc_surface.sql';
 
 const LEGACY_GOVERNANCE_FUNCTIONS = [
   'approve_company',
@@ -58,6 +60,36 @@ const PROTECTED_DRIVER_FIELDS = [
   'international_work_approved',
   'driver_type',
   'can_commercial_bid',
+] as const;
+
+const SERVICE_ONLY_SECURITY_DEFINERS = [
+  'public.promote_to_platform_owner(text)',
+  'public.driver_operational_eligibility(uuid)',
+  'public.register_duplicate_document_fraud_case(uuid, uuid, uuid, uuid, uuid, text, text, uuid, text, uuid)',
+] as const;
+
+const TRIGGER_ONLY_SECURITY_DEFINERS = [
+  'public.enforce_onboarding_approval_compliance()',
+  'public.fn_apply_invoice_payment()',
+  'public.fn_assign_invoice_origin()',
+  'public.fn_auto_allocate_on_driver_assign()',
+  'public.fn_complete_commercial_agreement_snapshot()',
+  'public.fn_guard_invoice_overpayment()',
+  'public.fn_job_bids_autofill()',
+  'public.fn_job_bids_compliance_guard()',
+  'public.fn_jobs_mvp_guardrails()',
+  'public.fn_lock_accepted_bid()',
+  'public.fn_lock_commercial_agreement()',
+  'public.fn_log_invoice_status_change()',
+  'public.fn_normalize_invoice_payment_history()',
+  'public.fn_notify_bid_accepted()',
+  'public.fn_notify_invoice_created()',
+  'public.fn_notify_job_assigned()',
+  'public.fn_notify_pod_uploaded()',
+  'public.fn_sync_job_status_from_invoice()',
+  'public.guard_company_status_update()',
+  'public.guard_direct_invite_bid_acceptance()',
+  'public.trigger_notify_operational_event()',
 ] as const;
 
 describe('PR #500 go-live hardening migration contracts', () => {
@@ -167,5 +199,28 @@ describe('PR #500 go-live hardening migration contracts', () => {
     expect(migration).not.toContain('d.user_id = auth.uid()');
     expect(migration).not.toContain('UPDATE storage.objects');
     expect(migration).not.toContain('DELETE FROM storage.objects');
+  });
+
+  it('closes anonymous SECURITY DEFINER RPC access without breaking authenticated helpers', () => {
+    const migration = readRepoFile(ANON_SECURITY_DEFINER_MIGRATION);
+
+    for (const signature of SERVICE_ONLY_SECURITY_DEFINERS) {
+      expect(migration).toContain(`REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated`);
+      expect(migration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role`);
+    }
+
+    for (const signature of TRIGGER_ONLY_SECURITY_DEFINERS) {
+      expect(migration).toContain(`REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated`);
+      expect(migration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role`);
+    }
+
+    expect(migration).toContain('REVOKE EXECUTE ON FUNCTION public.auth_company_id() FROM PUBLIC, anon');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.auth_company_id() TO authenticated, service_role');
+    expect(migration).toContain('REVOKE EXECUTE ON FUNCTION public.bootstrap_owner_driver_workspace() FROM PUBLIC, anon');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.bootstrap_owner_driver_workspace() TO authenticated, service_role');
+    expect(migration).toContain("p.proname <> 'st_estimatedextent'");
+    expect(migration).toContain('ALTER FUNCTION public.can_operator_access_job(uuid) SET search_path = public, pg_temp');
+    expect(migration).toContain('ALTER FUNCTION public.is_current_driver(uuid) SET search_path = public, pg_temp');
+    expect(migration).not.toContain('DROP FUNCTION');
   });
 });
