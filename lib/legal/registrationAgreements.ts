@@ -19,6 +19,7 @@ export type RegistrationAgreementDefinition = {
   href: string;
   version: string;
   required: true;
+  materialChangeRequiresReacceptance: boolean;
 };
 
 export type RegistrationRoleLegalConfig = {
@@ -29,6 +30,7 @@ export type RegistrationRoleLegalConfig = {
 };
 
 export const LEGAL_VERSION = '2026-09-04';
+export const PRIVACY_VERSION = '2026-09-01';
 
 const PLATFORM_TERMS: RegistrationAgreementDefinition = {
   code: 'platform_terms',
@@ -36,6 +38,7 @@ const PLATFORM_TERMS: RegistrationAgreementDefinition = {
   href: '/terms',
   version: '2026-09-01',
   required: true,
+  materialChangeRequiresReacceptance: true,
 };
 
 const MEMBERSHIP_TERMS: RegistrationAgreementDefinition = {
@@ -44,6 +47,7 @@ const MEMBERSHIP_TERMS: RegistrationAgreementDefinition = {
   href: '/subscription-terms',
   version: '2026-09-01',
   required: true,
+  materialChangeRequiresReacceptance: true,
 };
 
 const MARKETPLACE_TERMS: RegistrationAgreementDefinition = {
@@ -52,6 +56,7 @@ const MARKETPLACE_TERMS: RegistrationAgreementDefinition = {
   href: '/terms',
   version: '2026-09-01',
   required: true,
+  materialChangeRequiresReacceptance: true,
 };
 
 const roleTerm = (
@@ -65,6 +70,7 @@ const roleTerm = (
   href: '/terms',
   version: '2026-09-01',
   required: true,
+  materialChangeRequiresReacceptance: true,
 });
 
 export const REGISTRATION_LEGAL_CONFIG: Record<RegistrationLegalRole, RegistrationRoleLegalConfig> = {
