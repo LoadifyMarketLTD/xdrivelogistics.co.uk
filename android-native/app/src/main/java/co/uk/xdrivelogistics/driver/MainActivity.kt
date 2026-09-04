@@ -478,21 +478,26 @@ private fun DriverAppShell(
                 DriverTab.JOBS -> MyJobsScreen(state, onJobSelected, onTabChange, onMoveStatus, onSubmitQuote)
                 DriverTab.SMARTPAY -> SmartPayScreen(state)
                 DriverTab.ACTION -> ActionScreen(
-            state,
-            onSendNote,
-            onSubmitQuote,
-            onPickPodFile,
-            onCapturePodPhoto,
-            onConfirmDeliveryRecipient,
-            onMoveStatus,
-            onNavigateTo,
-        )
+                    state,
+                    onSendNote,
+                    onSubmitQuote,
+                    onPickPodFile,
+                    onCapturePodPhoto,
+                    onConfirmDeliveryRecipient,
+                    onMoveStatus,
+                    onNavigateTo,
+                )
                 DriverTab.MESSAGES -> MessagesScreen(state, onSendNote, onMarkAlertRead, onDeleteAlert)
                 DriverTab.PROFILE -> ProfileScreen(state, onUpdatePassword, onLogout, onPickComplianceDocument, onSaveReturnJourney, onStartTracking, onStopTracking)
             }
         }
 
-        BottomNav(state.selectedTab, state.jobs.count { it.isActive() }, onTabChange)
+        BottomNav(
+            selected = state.selectedTab,
+            activeCount = state.jobs.count { it.isActive() },
+            unreadCount = unreadUpdatesCount(state.notifications),
+            onTabChange = onTabChange,
+        )
     }
 }
 
@@ -662,6 +667,7 @@ private fun NearbyJobsScreen(
     val emptyState = liveLoadsEmptyState(box, activeDeliveryJob?.deliveryPostcode)
     val vehicleOptions = listOf("All vehicles") + state.jobs.map { it.vehicleType.trim() }.filter { it.isNotBlank() }.distinct().take(5)
     val freightOptions = listOf("All freight") + state.jobs.map { it.cargoType.trim() }.filter { it.isNotBlank() }.distinct().take(5)
+    val nearbyDriverRows = nearbyDriverDisplayRows(state.nearbyDrivers)
 
     LazyColumn(
         modifier = Modifier
@@ -742,6 +748,29 @@ private fun NearbyJobsScreen(
                         label = memberScope,
                         onClick = { memberScope = if (memberScope == "All members") "Named members" else "All members" },
                     )
+                }
+            }
+        }
+        if (nearbyDriverRows.isNotEmpty()) {
+            item {
+                XDriveCard {
+                    Text("Nearby Drivers", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(
+                        "Privacy-safe presence only — exact driver coordinates are never shown.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                    )
+                    nearbyDriverRows.take(5).forEach { driver ->
+                        Spacer(Modifier.height(10.dp))
+                        Text(driver.driverName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            "${driver.vehicleLabel} · ${driver.lastSeenLabel}",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -1106,13 +1135,13 @@ private fun ActionScreen(
                 "Stops" -> item { JobStopsPanel(selected, onNavigateTo) }
                 "Status" -> item { JobStatusPanel(selected, onMoveStatus, onSubmitQuote, state.isSubmittingQuote) }
                 "POD" -> item {
-            PodPanel(
-                selected,
-                onCapturePodPhoto,
-                onPickPodFile,
-                onConfirmDeliveryRecipient,
-            )
-        }
+                    PodPanel(
+                        selected,
+                        onCapturePodPhoto,
+                        onPickPodFile,
+                        onConfirmDeliveryRecipient,
+                    )
+                }
             }
         }
         item {
@@ -2069,7 +2098,12 @@ private fun JobCard(
 }
 
 @Composable
-private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (DriverTab) -> Unit) {
+private fun BottomNav(
+    selected: DriverTab,
+    activeCount: Int,
+    unreadCount: Int,
+    onTabChange: (DriverTab) -> Unit,
+) {
     val tabs = primaryBottomNavTabs()
     Row(
         modifier = Modifier
@@ -2093,7 +2127,7 @@ private fun BottomNav(selected: DriverTab, activeCount: Int, onTabChange: (Drive
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    tab.navLabel(activeCount),
+                    tab.navLabel(activeCount, unreadCount),
                     color = if (tab == selected) Yellow else TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = if (tab == selected) FontWeight.Bold else FontWeight.Normal,
@@ -2113,7 +2147,8 @@ internal fun primaryBottomNavTabs(): List<DriverTab> = listOf(
     DriverTab.PROFILE,
 )
 
-internal fun primaryBottomNavLabels(activeCount: Int = 0): List<String> = primaryBottomNavTabs().map { it.navLabel(activeCount) }
+internal fun primaryBottomNavLabels(activeCount: Int = 0, unreadCount: Int = 0): List<String> =
+    primaryBottomNavTabs().map { it.navLabel(activeCount, unreadCount) }
 
 @Composable
 private fun LiveLoadsSegmentedTabs(
@@ -2185,6 +2220,7 @@ private fun StatusTimeline(status: String) {
         "on_my_way",
         "on_site_pickup",
         "loaded",
+        "in_transit",
         "on_site_delivery",
         "pod",
         "delivered",
@@ -2646,14 +2682,14 @@ private fun DriverUiState.headerTitle(): String {
     }
 }
 
-private fun DriverTab.navLabel(activeCount: Int = 0) = when (this) {
+private fun DriverTab.navLabel(activeCount: Int = 0, unreadCount: Int = 0) = when (this) {
     DriverTab.NEARBY -> "Loads"
     DriverTab.QUOTES -> "Offers"
     DriverTab.BOOKINGS -> "Bookings"
     DriverTab.JOBS -> if (activeCount > 0) "Runs $activeCount" else "Runs"
     DriverTab.SMARTPAY -> "Pay"
     DriverTab.ACTION -> "Job"
-    DriverTab.MESSAGES -> "Updates"
+    DriverTab.MESSAGES -> unreadUpdatesLabel(unreadCount)
     DriverTab.PROFILE -> "More"
 }
 
@@ -2668,28 +2704,6 @@ private fun DriverTab.navIcon(activeCount: Int) = when (this) {
     DriverTab.PROFILE -> "Me"
 }
 
-private fun DriverJob.statusKey(): String = currentStatus.ifBlank { status }.lowercase()
-
-private fun DriverJob.driverStatusKey(): String =
-    when (statusKey()) {
-        "collected" -> "loaded"
-        "in_transit" -> "on_site_delivery"
-        else -> statusKey()
-    }
-
-private fun DriverJob.isInProgress(): Boolean =
-    driverStatusKey() in listOf("on_my_way", "on_site_pickup", "loaded", "on_site_delivery", "in_progress")
-
-private fun DriverJob.isActive(): Boolean = driverStatusKey() !in listOf("delivered", "completed", "cancelled", "canceled")
-
-private fun DriverJob.hasPod(): Boolean = podPhotos.isNotEmpty() || deliveryPhotos.isNotEmpty()
-
-private fun DriverJob.isPosted(): Boolean = driverStatusKey() == "posted"
-
-private fun DriverJob.routeLabel(): String = "${pickupLocation.ifBlank { "Pickup" }} -> ${deliveryLocation.ifBlank { "Delivery" }}"
-
-private fun DriverJob.statusLabel(): String = driverStatusKey().statusLabel()
-
 private fun String.statusLabel(): String =
     when (this) {
         "pod" -> "POD"
@@ -2697,6 +2711,7 @@ private fun String.statusLabel(): String =
         "on_my_way" -> "On My Way to Collection"
         "on_site_pickup" -> "Arrived at Collection"
         "loaded" -> "Loaded"
+        "in_transit" -> "On My Way to Delivery"
         "on_site_delivery" -> "Arrived at Delivery"
         "delivered" -> "Delivered (POD)"
         "completed" -> "Completed"
@@ -2738,29 +2753,6 @@ private fun String.toUkDateLabel(): String =
         val parts = split("-")
         if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else this
     }.getOrDefault(this)
-
-private fun DriverJob.nextStatus(): String = when (driverStatusKey()) {
-    "allocated" -> "on_my_way"
-    "on_my_way" -> "on_site_pickup"
-    "on_site_pickup" -> "loaded"
-    "loaded" -> "on_site_delivery"
-    "on_site_delivery" -> "delivered"
-    "delivered" -> "completed"
-    else -> ""
-}
-
-private fun DriverJob.nextActionLabel(): String = when (nextStatus()) {
-    "on_my_way" -> "On My Way"
-    "on_site_pickup" -> "Arrived at Collection"
-    "loaded" -> "Loaded / Collected"
-    "on_site_delivery" -> "Arrived at Delivery"
-    "delivered" -> "Mark as Delivered"
-    "completed" -> "Complete Job"
-    else -> "No further action"
-}
-
-private fun DriverJob.canMoveNext(): Boolean =
-    nextStatus().isNotBlank() && (nextStatus() != "delivered" || hasPod())
 
 private fun MainActivity.hasForegroundLocationPermission(): Boolean {
     val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
