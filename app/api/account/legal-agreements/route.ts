@@ -152,10 +152,10 @@ const loadLegalContext = async (userId: string) => {
     ? LEGAL_ROLE_BY_ACCOUNT_TYPE[normalizedAccountType] ?? null
     : null;
 
-  // Legacy users may pre-date the authoritative onboarding account-type record.
-  // Their latest server-recorded legal evidence is a safe fallback because the
-  // browser cannot write this append-only table directly.
-  if (!registrationRole && history.length > 0) {
+  // Only users without an authoritative onboarding record may fall back to
+  // immutable server-recorded legal evidence. A current Company Driver
+  // (`individual_driver`) record must never inherit a prior self-service role.
+  if (!onboarding && !registrationRole && history.length > 0) {
     const candidate = history[0].registration_role;
     if (LEGAL_ROLE_VALUES.has(candidate as RegistrationLegalRole)) {
       registrationRole = candidate as RegistrationLegalRole;
