@@ -13,14 +13,18 @@ type MarketingMetadataInput = {
   visual?: MarketingSocialVisual;
 };
 
+function socialPageKey(path: string) {
+  if (path === '/' || path.trim() === '') return 'home';
+  return path.replace(/^\/+|\/+$/g, '').replace(/\//g, '-');
+}
+
 export function buildMarketingMetadata({ path, title, description }: MarketingMetadataInput): Metadata {
   const origin = getCanonicalSiteOrigin();
   const canonicalPath = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
   const canonical = `${origin}${canonicalPath}`;
-  const pageKey = canonicalPath ? canonicalPath.slice(1).replace(/\//g, '-') : 'home';
-  // Page-specific, versioned and query-free so social crawlers receive the exact page visual
-  // and do not reuse an older generic image from cache.
-  const image = `${origin}/social/${pageKey}-v2/opengraph-image`;
+  // Each public page gets its own stable, query-free Open Graph image URL.
+  // That keeps the social preview tied to the exact page being shared and avoids reuse of old generic cards.
+  const image = `${origin}/social-page/${socialPageKey(path)}/opengraph-image`;
 
   return {
     title: { absolute: title },
