@@ -16,6 +16,8 @@ const POD_STORAGE_OPERATOR_GUARD_MIGRATION =
   'supabase/migrations/20260904230000_harden_pod_storage_operator_insert.sql';
 const ANON_SECURITY_DEFINER_MIGRATION =
   'supabase/migrations/20260904231500_close_anonymous_security_definer_rpc_surface.sql';
+const SERVICE_ONLY_RECONCILIATION_MIGRATION =
+  'supabase/migrations/20260904232000_reconcile_service_only_security_definer_privileges.sql';
 
 const LEGACY_GOVERNANCE_FUNCTIONS = [
   'approve_company',
@@ -65,7 +67,28 @@ const PROTECTED_DRIVER_FIELDS = [
 const SERVICE_ONLY_SECURITY_DEFINERS = [
   'public.promote_to_platform_owner(text)',
   'public.driver_operational_eligibility(uuid)',
-  'public.register_duplicate_document_fraud_case(uuid, uuid, uuid, uuid, uuid, text, text, uuid, text, uuid)',
+  'public.register_duplicate_document_fraud_case(uuid,uuid,uuid,uuid,uuid,text,text,uuid,text,uuid)',
+  'public.assert_onboarding_compliance_ready(uuid)',
+  'public.ensure_company_driver_onboarding(uuid,uuid,text,text)',
+  'public.has_active_company_membership(uuid,uuid)',
+  'public.identity_registry_allows_driver_access(uuid,uuid)',
+  'public.submit_individual_driver_onboarding(uuid)',
+] as const;
+
+const AUTHENTICATED_SECURITY_DEFINER_HELPERS = [
+  'public.auth_company_id()',
+  'public.bootstrap_owner_driver_workspace()',
+  'public.can_admin_manage_job(uuid)',
+  'public.can_driver_access_job(uuid)',
+  'public.can_driver_update_job(uuid)',
+  'public.can_non_driver_access_job(uuid)',
+  'public.can_operator_access_job(uuid)',
+  'public.can_read_marketplace_execution_job(uuid)',
+  'public.is_company_admin(uuid)',
+  'public.is_company_member(uuid)',
+  'public.is_company_non_driver(uuid)',
+  'public.is_company_operator(uuid)',
+  'public.is_current_driver(uuid)',
 ] as const;
 
 const TRIGGER_ONLY_SECURITY_DEFINERS = [
@@ -201,26 +224,32 @@ describe('PR #500 go-live hardening migration contracts', () => {
     expect(migration).not.toContain('DELETE FROM storage.objects');
   });
 
-  it('closes anonymous SECURITY DEFINER RPC access without breaking authenticated helpers', () => {
+  it('closes anonymous SECURITY DEFINER RPC access with production-safe optional reconciliation', () => {
     const migration = readRepoFile(ANON_SECURITY_DEFINER_MIGRATION);
+    const reconciliation = readRepoFile(SERVICE_ONLY_RECONCILIATION_MIGRATION);
+
+    expect(migration).toContain('IF to_regprocedure(v_signature) IS NOT NULL THEN');
+    expect(migration).toContain("'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated'");
+    expect(migration).toContain("'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon'");
+    expect(migration).toContain("'GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role'");
+    expect(migration).toContain("'GRANT EXECUTE ON FUNCTION %s TO service_role'");
 
     for (const signature of SERVICE_ONLY_SECURITY_DEFINERS) {
-      expect(migration).toContain(`REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated`);
-      expect(migration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role`);
+      expect(migration).toContain(`'${signature}'`);
+      expect(reconciliation).toContain(`'${signature}'`);
     }
-
+    for (const signature of AUTHENTICATED_SECURITY_DEFINER_HELPERS) {
+      expect(migration).toContain(`'${signature}'`);
+    }
     for (const signature of TRIGGER_ONLY_SECURITY_DEFINERS) {
-      expect(migration).toContain(`REVOKE EXECUTE ON FUNCTION ${signature} FROM PUBLIC, anon, authenticated`);
-      expect(migration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role`);
+      expect(migration).toContain(`'${signature}'`);
     }
 
-    expect(migration).toContain('REVOKE EXECUTE ON FUNCTION public.auth_company_id() FROM PUBLIC, anon');
-    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.auth_company_id() TO authenticated, service_role');
-    expect(migration).toContain('REVOKE EXECUTE ON FUNCTION public.bootstrap_owner_driver_workspace() FROM PUBLIC, anon');
-    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.bootstrap_owner_driver_workspace() TO authenticated, service_role');
     expect(migration).toContain("p.proname <> 'st_estimatedextent'");
-    expect(migration).toContain('ALTER FUNCTION public.can_operator_access_job(uuid) SET search_path = public, pg_temp');
-    expect(migration).toContain('ALTER FUNCTION public.is_current_driver(uuid) SET search_path = public, pg_temp');
+    expect(migration).toContain("'ALTER FUNCTION %s SET search_path = public, pg_temp'");
+    expect(reconciliation).toContain("'REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated'");
+    expect(reconciliation).toContain("'GRANT EXECUTE ON FUNCTION %s TO service_role'");
     expect(migration).not.toContain('DROP FUNCTION');
+    expect(reconciliation).not.toContain('DROP FUNCTION');
   });
 });
