@@ -2,7 +2,7 @@
 
 import { Check, Copy, Mail, Share2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type SocialShareBarProps = {
   pageTitle: string;
@@ -19,15 +19,16 @@ const campaignFromPath = (pathname: string) => {
 
 export function SocialShareBar({ pageTitle }: SocialShareBarProps) {
   const pathname = usePathname() || '/';
+  const [canonicalUrl, setCanonicalUrl] = useState('');
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
 
-  const canonicalUrl = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    return `${window.location.origin}${pathname}`;
+  useEffect(() => {
+    setCanonicalUrl(`${window.location.origin}${pathname}`);
   }, [pathname]);
 
   const trackedUrl = (source: string) => {
-    const url = new URL(canonicalUrl || `${window.location.origin}${pathname}`);
+    const baseUrl = canonicalUrl || `${window.location.origin}${pathname}`;
+    const url = new URL(baseUrl);
     url.searchParams.set('utm_source', source);
     url.searchParams.set('utm_medium', 'social');
     url.searchParams.set('utm_campaign', campaignFromPath(pathname));
@@ -35,10 +36,14 @@ export function SocialShareBar({ pageTitle }: SocialShareBarProps) {
     return url.toString();
   };
 
+  const showFeedback = (label: string, duration = 2200) => {
+    setCopiedLabel(label);
+    window.setTimeout(() => setCopiedLabel(null), duration);
+  };
+
   const copyTrackedLink = async (source = 'copy_link', label = 'Link copied') => {
     await navigator.clipboard.writeText(trackedUrl(source));
-    setCopiedLabel(label);
-    window.setTimeout(() => setCopiedLabel(null), 2200);
+    showFeedback(label);
   };
 
   const nativeShare = async (source: string, fallbackLabel: string) => {
@@ -52,8 +57,13 @@ export function SocialShareBar({ pageTitle }: SocialShareBarProps) {
       }
     }
     await navigator.clipboard.writeText(url);
-    setCopiedLabel(fallbackLabel);
-    window.setTimeout(() => setCopiedLabel(null), 2600);
+    showFeedback(fallbackLabel, 2600);
+  };
+
+  const shareByEmail = () => {
+    const subject = encodeURIComponent(pageTitle);
+    const body = encodeURIComponent(`${pageTitle}\n\n${trackedUrl('email')}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
   const buttons = [
@@ -112,13 +122,14 @@ export function SocialShareBar({ pageTitle }: SocialShareBarProps) {
               {button.label}
             </button>
           ))}
-          <a
-            href={`mailto:?subject=${encodeURIComponent(pageTitle)}&body=${encodeURIComponent(`${pageTitle}\n\n${canonicalUrl}`)}`}
+          <button
+            type="button"
+            onClick={shareByEmail}
             className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.07] px-3 py-2 text-xs font-black text-white transition hover:border-[#F5A300]/60 hover:bg-white/[0.12] focus:outline-none focus:ring-2 focus:ring-[#F5A300]/70"
             aria-label={`Share ${pageTitle} by email`}
           >
             <Mail className="h-3.5 w-3.5" /> Email
-          </a>
+          </button>
           <button
             type="button"
             onClick={() => copyTrackedLink()}
