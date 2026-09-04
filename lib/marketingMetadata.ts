@@ -13,29 +13,14 @@ type MarketingMetadataInput = {
   visual?: MarketingSocialVisual;
 };
 
-const inferVisual = ({ path, title, kicker }: Pick<MarketingMetadataInput, 'path' | 'title' | 'kicker'>): MarketingSocialVisual => {
-  const value = `${path} ${title} ${kicker}`.toLowerCase();
-  if (value.includes('owner-driver') || value.includes('owner driver')) return 'owner-driver';
-  if (value.includes('/drivers') || value.includes('for drivers')) return 'driver';
-  if (value.includes('/brokers') || value.includes('broker')) return 'broker';
-  if (value.includes('/customers') || value.includes('customer')) return 'customer';
-  if (value.includes('/carriers') || value.includes('courier') || value.includes('carrier')) return 'carrier';
-  if (value.includes('pricing') || value.includes('membership')) return 'pricing';
-  if (value.includes('pod') || value.includes('delivery records')) return 'pod';
-  if (value.includes('finance') || value.includes('invoice')) return 'finance';
-  if (value.includes('join xdrive') || value.includes('network')) return 'network';
-  if (value.includes('access') || path === '/') return 'access';
-  if (value.includes('operations') || value.includes('workspace') || value.includes('how-it-works')) return 'operations';
-  return 'platform';
-};
-
-export function buildMarketingMetadata({ path, title, description, kicker, visual }: MarketingMetadataInput): Metadata {
+export function buildMarketingMetadata({ path, title, description }: MarketingMetadataInput): Metadata {
   const origin = getCanonicalSiteOrigin();
   const canonicalPath = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
   const canonical = `${origin}${canonicalPath}`;
-  const resolvedVisual = visual ?? inferVisual({ path, title, kicker });
-  // Stable, query-free image URLs are friendlier to social crawlers and their caches.
-  const image = `${origin}/social/${resolvedVisual}/opengraph-image`;
+  const pageKey = canonicalPath ? canonicalPath.slice(1).replace(/\//g, '-') : 'home';
+  // Page-specific, versioned and query-free so social crawlers receive the exact page visual
+  // and do not reuse an older generic image from cache.
+  const image = `${origin}/social/${pageKey}-v2/opengraph-image`;
 
   return {
     title: { absolute: title },
