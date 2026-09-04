@@ -1,4 +1,12 @@
 import { MarketingDetailPage } from '../(marketing)/_components/MarketingDetailPage';
+import { buildMarketingMetadata } from '../../lib/marketingMetadata';
+
+export const metadata = buildMarketingMetadata({
+  path: '/pod-records',
+  title: 'XDrive POD & Delivery Records',
+  description: 'Keep proof of delivery, timestamps, driver context and completion history attached to the transport job for clearer operational and finance records.',
+  kicker: 'POD & Records',
+});
 
 export default function PodRecordsPage() {
   return <MarketingDetailPage
