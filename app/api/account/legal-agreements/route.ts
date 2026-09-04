@@ -12,6 +12,7 @@ import {
   buildCurrentLegalEvidence,
   buildCurrentLegalRequirement,
   evaluateLegalAcceptance,
+  findCurrentLegalAcceptanceIndex,
   type LegalAcceptanceSnapshot,
 } from '../../../../lib/legal/legalAgreementState';
 import type { RegistrationLegalRole } from '../../../../lib/legal/registrationAgreements';
@@ -178,13 +179,33 @@ const loadLegalContext = async (userId: string) => {
   } as const;
 };
 
-const buildReadModel = (
+const resolveHistoryState = (
   registrationRole: RegistrationLegalRole,
   history: LegalAcceptanceRow[],
 ) => {
   const requirement = buildCurrentLegalRequirement(registrationRole);
-  const latest = history[0] ? toAcceptanceSnapshot(history[0]) : null;
-  const evaluation = evaluateLegalAcceptance(requirement, latest);
+  const snapshots = history.map(toAcceptanceSnapshot);
+  const currentAcceptanceIndex = findCurrentLegalAcceptanceIndex(requirement, snapshots);
+  const latestEvaluation = evaluateLegalAcceptance(
+    requirement,
+    snapshots[0] ?? null,
+  );
+
+  return {
+    requirement,
+    currentAcceptanceIndex,
+    requiresReacceptance: currentAcceptanceIndex === -1,
+    reacceptanceReasons:
+      currentAcceptanceIndex === -1 ? latestEvaluation.reasons : [],
+  };
+};
+
+const buildReadModel = (
+  registrationRole: RegistrationLegalRole,
+  history: LegalAcceptanceRow[],
+) => {
+  const state = resolveHistoryState(registrationRole, history);
+  const { requirement } = state;
 
   return {
     currentRequirement: {
@@ -198,8 +219,8 @@ const buildReadModel = (
       privacyStatement: requirement.privacyStatement,
       requirementFingerprint: requirement.requirementFingerprint,
     },
-    requiresReacceptance: evaluation.requiresReacceptance,
-    reacceptanceReasons: evaluation.reasons,
+    requiresReacceptance: state.requiresReacceptance,
+    reacceptanceReasons: state.reacceptanceReasons,
     history: history.map((row, index) => ({
       id: row.id,
       registrationRole: row.registration_role,
@@ -210,7 +231,7 @@ const buildReadModel = (
       source: row.source,
       evidenceHash: row.evidence_hash,
       createdAt: row.created_at,
-      status: index === 0 && !evaluation.requiresReacceptance ? 'current' : 'superseded',
+      status: index === state.currentAcceptanceIndex ? 'current' : 'superseded',
     })),
   };
 };
@@ -241,7 +262,8 @@ export async function POST(request: NextRequest) {
   const context = await loadLegalContext(auth.user.id);
   if ('response' in context) return context.response;
 
-  const requirement = buildCurrentLegalRequirement(context.registrationRole);
+  const state = resolveHistoryState(context.registrationRole, context.history);
+  const { requirement } = state;
   if (payload.requirementFingerprint !== requirement.requirementFingerprint) {
     return json(409, {
       error: 'The legal requirement changed before acceptance. Reload the current agreements before continuing.',
@@ -250,9 +272,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const latest = context.history[0] ? toAcceptanceSnapshot(context.history[0]) : null;
-  const evaluation = evaluateLegalAcceptance(requirement, latest);
-  if (!evaluation.requiresReacceptance) {
+  if (!state.requiresReacceptance) {
     return json(409, {
       error: 'No material legal re-acceptance is currently required.',
       code: 'legal_reacceptance_not_required',
