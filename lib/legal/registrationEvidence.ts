@@ -1,8 +1,11 @@
-import { createHash } from 'node:crypto';
-
+import {
+  buildCurrentLegalEvidence,
+  type CurrentLegalEvidence,
+} from './legalAgreementState';
 import {
   getRegistrationLegalConfig,
   LEGAL_VERSION,
+  PRIVACY_VERSION,
   type RegistrationLegalRole,
 } from './registrationAgreements';
 
@@ -28,18 +31,7 @@ export type RegistrationLegalMetadata = {
   privacy_version?: unknown;
 };
 
-export type RegistrationLegalEvidence = {
-  registrationRole: RegistrationLegalRole;
-  legalVersion: string;
-  agreements: Array<{ code: string; version: string }>;
-  acceptanceStatement: string;
-  authorityStatement: string;
-  roleStatement: string;
-  privacyStatement: string;
-  privacyVersion: string;
-  acceptedAt: string;
-  evidenceHash: string;
-};
+export type RegistrationLegalEvidence = CurrentLegalEvidence;
 
 const asIsoDate = (value: unknown): string | null => {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -96,7 +88,7 @@ export const buildRegistrationLegalEvidence = (
   const legalVersion = typeof metadata.legal_version === 'string' ? metadata.legal_version : LEGAL_VERSION;
 
   if (!agreements || !acceptedAt || !authorityAt || !roleDeclarationAt || !privacyAt) return null;
-  if (legalVersion !== LEGAL_VERSION || metadata.privacy_version !== '2026-09-01') return null;
+  if (legalVersion !== LEGAL_VERSION || metadata.privacy_version !== PRIVACY_VERSION) return null;
 
   const expectedAgreements = config.agreements.map(({ code, version }) => ({ code, version }));
   if (JSON.stringify(agreements) !== JSON.stringify(expectedAgreements)) return null;
@@ -105,29 +97,5 @@ export const buildRegistrationLegalEvidence = (
   // evidence timestamps must therefore all refer to that same acceptance event.
   if (authorityAt !== acceptedAt || roleDeclarationAt !== acceptedAt || privacyAt !== acceptedAt) return null;
 
-  const acceptanceStatement = `I agree to the XDrive agreements listed for my ${registrationRole} registration role.`;
-  const canonical = JSON.stringify({
-    registrationRole,
-    legalVersion: LEGAL_VERSION,
-    agreements: expectedAgreements,
-    acceptanceStatement,
-    authorityStatement: config.authorityDeclaration,
-    roleStatement: config.roleDeclaration,
-    privacyStatement: config.privacyAcknowledgement,
-    privacyVersion: '2026-09-01',
-    acceptedAt,
-  });
-
-  return {
-    registrationRole,
-    legalVersion: LEGAL_VERSION,
-    agreements: expectedAgreements,
-    acceptanceStatement,
-    authorityStatement: config.authorityDeclaration,
-    roleStatement: config.roleDeclaration,
-    privacyStatement: config.privacyAcknowledgement,
-    privacyVersion: '2026-09-01',
-    acceptedAt,
-    evidenceHash: createHash('sha256').update(canonical).digest('hex'),
-  };
+  return buildCurrentLegalEvidence(registrationRole, acceptedAt);
 };
