@@ -1,4 +1,4 @@
--- Immutable registration legal acceptance evidence.
+-- Immutable registration and material re-acceptance legal evidence.
 -- Preview-only migration until PR #499 is explicitly approved and merged.
 
 begin;
@@ -17,7 +17,7 @@ create table if not exists public.registration_legal_acceptances (
   privacy_statement text not null,
   privacy_version text not null,
   accepted_at timestamptz not null,
-  source text not null default 'registration' check (source = 'registration'),
+  source text not null default 'registration' check (source in ('registration', 'material_reacceptance')),
   user_agent text null,
   evidence_hash text not null,
   created_at timestamptz not null default now(),
@@ -27,7 +27,7 @@ create table if not exists public.registration_legal_acceptances (
 );
 
 comment on table public.registration_legal_acceptances is
-  'Append-only evidence of role-specific legal terms accepted during XDrive registration.';
+  'Append-only evidence of role-specific legal agreements accepted during registration and later material re-acceptance.';
 
 create index if not exists registration_legal_acceptances_user_created_idx
   on public.registration_legal_acceptances (user_id, created_at desc);
@@ -41,8 +41,8 @@ create index if not exists registration_legal_acceptances_onboarding_idx
 alter table public.registration_legal_acceptances enable row level security;
 
 -- Evidence is written only by trusted server-side service-role code. No browser
--- role receives direct read/write rights; later account UI reads must use a
--- deliberately scoped server route that authenticates the requesting user.
+-- role receives direct read/write rights; account UI reads must use a deliberately
+-- scoped server route that authenticates the requesting user and filters by user_id.
 revoke all on table public.registration_legal_acceptances from public, anon, authenticated;
 grant select, insert on table public.registration_legal_acceptances to service_role;
 
