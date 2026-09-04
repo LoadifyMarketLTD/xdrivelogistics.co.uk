@@ -69,11 +69,15 @@ describe('PR #497 Android native useful-parity contract', () => {
     }
   });
 
-  it('uses an API 35-compatible Android Gradle plugin while keeping JDK 17 bytecode', () => {
+  it('uses an API 35-compatible Android and Kotlin toolchain while keeping JDK 17 bytecode', () => {
     const rootBuild = readRepoFile(ANDROID_ROOT_BUILD);
     const appBuild = readRepoFile(ANDROID_APP_BUILD);
 
     expect(rootBuild).toContain('id("com.android.application") version "8.6.1"');
+    expect(rootBuild).toContain('id("org.jetbrains.kotlin.android") version "2.1.20"');
+    expect(rootBuild).toContain('id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"');
+    expect(appBuild).toContain('id("org.jetbrains.kotlin.plugin.compose")');
+    expect(appBuild).not.toContain('kotlinCompilerExtensionVersion');
     expect(appBuild).toContain('compileSdk = 35');
     expect(appBuild).toContain('targetSdk = 35');
     expect(appBuild).toContain('JavaVersion.VERSION_17');
