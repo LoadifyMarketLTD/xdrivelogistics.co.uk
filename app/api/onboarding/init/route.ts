@@ -18,6 +18,11 @@ import {
   resolveOnboardingTokenTtlHours,
 } from '../../_lib/onboarding';
 import { isCompanyDriverOnboardingApplication } from '../../../../lib/onboardingContract';
+import {
+  buildRegistrationLegalEvidence,
+  hasModernRegistrationLegalMetadata,
+  type RegistrationLegalMetadata,
+} from '../../../../lib/legal/registrationEvidence';
 
 const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
@@ -51,6 +56,20 @@ export async function POST(request: NextRequest) {
   }
 
   const authUser = authData.user;
+  const legalMetadata = {
+    ...(authUser.app_metadata ?? {}),
+    ...(authUser.user_metadata ?? {}),
+  } as RegistrationLegalMetadata;
+  const hasModernLegalGate = hasModernRegistrationLegalMetadata(legalMetadata);
+  const legalEvidence = buildRegistrationLegalEvidence(legalMetadata);
+
+  if (hasModernLegalGate && !legalEvidence) {
+    return json(409, {
+      error: 'Registration legal acceptance evidence is incomplete or does not match the active XDrive agreement versions.',
+      code: 'invalid_registration_legal_evidence',
+    });
+  }
+
   const metadataAccountType = resolveOnboardingAccountTypeFromMetadata(
     (authUser.user_metadata ?? null) as Record<string, unknown> | null,
     (authUser.app_metadata ?? null) as Record<string, unknown> | null,
@@ -160,10 +179,46 @@ export async function POST(request: NextRequest) {
   const { data: upserted, error: upsertError } = await supabaseAdmin
     .from('onboarding_applications')
     .upsert(row, { onConflict: 'user_id' })
-    .select('id, status, account_type, token_expires_at')
+    .select('id, status, account_type, company_id, token_expires_at')
     .single();
 
   if (upsertError) return json(500, { error: upsertError.message });
+
+  if (legalEvidence) {
+    const { error: evidenceError } = await supabaseAdmin
+      .from('registration_legal_acceptances')
+      .insert({
+        user_id: authUser.id,
+        company_id: upserted.company_id ?? null,
+        onboarding_application_id: upserted.id,
+        registration_role: legalEvidence.registrationRole,
+        legal_version: legalEvidence.legalVersion,
+        agreements: legalEvidence.agreements,
+        acceptance_statement: legalEvidence.acceptanceStatement,
+        authority_statement: legalEvidence.authorityStatement,
+        role_statement: legalEvidence.roleStatement,
+        privacy_statement: legalEvidence.privacyStatement,
+        privacy_version: legalEvidence.privacyVersion,
+        accepted_at: legalEvidence.acceptedAt,
+        source: 'registration',
+        user_agent: request.headers.get('user-agent'),
+        evidence_hash: legalEvidence.evidenceHash,
+      });
+
+    if (evidenceError && evidenceError.code !== '23505') {
+      if (evidenceError.code === '42P01' || evidenceError.code === 'PGRST205') {
+        return json(503, {
+          error: 'Registration legal evidence storage is not available in this environment.',
+          code: 'registration_legal_evidence_schema_missing',
+          migrationRequired: '20260904210500_registration_legal_acceptance_evidence.sql',
+        });
+      }
+      return json(500, {
+        error: 'Registration legal acceptance could not be persisted.',
+        code: 'registration_legal_evidence_persistence_failed',
+      });
+    }
+  }
 
   if (shouldRegenerateToken && invitationUrl) {
     const { error: notificationError } = await supabaseAdmin
@@ -196,6 +251,7 @@ export async function POST(request: NextRequest) {
     onboardingUrl: '/onboarding/resume',
     tokenExpiresAt: upserted.token_expires_at,
     invitationRegenerated: shouldRegenerateToken,
+    legalEvidenceRecorded: Boolean(legalEvidence),
     resumeAllowed: true,
   });
 }
