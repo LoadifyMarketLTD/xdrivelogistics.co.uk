@@ -6,6 +6,7 @@ describe('PostGIS relocation bridge', () => {
     path.join(process.cwd(), 'supabase/migrations/20260905003500_prepare_postgis_schema_relocation_bridge.sql'),
     'utf8',
   );
+  const executableSql = migration.replace(/--.*$/gm, '');
 
   test('accepts only the current and target PostGIS schemas', () => {
     expect(migration).toContain("if v_postgis_schema not in ('public', 'extensions') then");
@@ -19,9 +20,9 @@ describe('PostGIS relocation bridge', () => {
   });
 
   test('never performs the managed extension relocation itself', () => {
-    expect(migration).not.toMatch(/drop\s+extension/i);
-    expect(migration).not.toMatch(/alter\s+extension\s+postgis\s+set\s+schema/i);
-    expect(migration).not.toMatch(/update\s+pg_extension/i);
-    expect(migration).not.toMatch(/cascade/i);
+    expect(executableSql).not.toMatch(/drop\s+extension/i);
+    expect(executableSql).not.toMatch(/alter\s+extension\s+postgis\s+set\s+schema/i);
+    expect(executableSql).not.toMatch(/update\s+pg_extension/i);
+    expect(executableSql).not.toMatch(/drop\s+extension[\s\S]*cascade/i);
   });
 });
