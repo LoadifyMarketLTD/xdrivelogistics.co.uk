@@ -16,7 +16,8 @@ function run(command, args) {
 const isLegalGatePreview =
   process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '499';
 const isGoLiveHardeningPreview =
-  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '500';
+  process.env.CONTEXT === 'deploy-preview' &&
+  ['500', '501'].includes(process.env.REVIEW_ID ?? '');
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -51,12 +52,14 @@ const legalUnitTests = [
 const goLiveHardeningLintTargets = [
   '__tests__/commandCentreMetrics.test.ts',
   '__tests__/goLiveHardeningMigrationContract.test.ts',
+  '__tests__/goLiveTenantReviewerHardening.test.ts',
   'app/api/super-admin/command-centre/route.ts',
 ];
 
 const goLiveHardeningUnitTests = [
   '__tests__/commandCentreMetrics.test.ts',
   '__tests__/goLiveHardeningMigrationContract.test.ts',
+  '__tests__/goLiveTenantReviewerHardening.test.ts',
 ];
 
 console.log('NETLIFY_RELEASE_GATE=START');
@@ -70,9 +73,9 @@ if (isLegalGatePreview) {
 }
 
 if (isGoLiveHardeningPreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR500_GO_LIVE_HARDENING_LINT');
+  console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_LINT');
   run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR500_GO_LIVE_HARDENING_TESTS');
+  console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
 }
 
