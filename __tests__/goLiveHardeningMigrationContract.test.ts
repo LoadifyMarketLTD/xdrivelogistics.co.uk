@@ -10,6 +10,8 @@ const LEGACY_RPC_RESTRICTION_MIGRATION =
   'supabase/migrations/20260904222500_restrict_legacy_governance_security_definer_rpcs.sql';
 const BROAD_RLS_DRIFT_MIGRATION =
   'supabase/migrations/20260904223500_remove_hosted_broad_invoice_company_rls_drift.sql';
+const DRIVER_SELF_SERVICE_GUARD_MIGRATION =
+  'supabase/migrations/20260904225000_guard_driver_self_service_protected_fields.sql';
 
 const LEGACY_GOVERNANCE_FUNCTIONS = [
   'approve_company',
@@ -36,6 +38,19 @@ const BROAD_JOB_POLICIES = [
 const BROAD_VEHICLE_POLICIES = [
   'vehicles_insert_authenticated',
   'vehicles_update_authenticated',
+] as const;
+
+const PROTECTED_DRIVER_FIELDS = [
+  'user_id',
+  'company_id',
+  'status',
+  'app_access',
+  'temporary_password_seq',
+  'must_change_password',
+  'temp_password_generated_at',
+  'international_work_approved',
+  'driver_type',
+  'can_commercial_bid',
 ] as const;
 
 describe('PR #500 go-live hardening migration contracts', () => {
@@ -105,5 +120,24 @@ describe('PR #500 go-live hardening migration contracts', () => {
     expect(migration).not.toContain('UPDATE public.companies');
     expect(migration).not.toContain('UPDATE public.jobs');
     expect(migration).not.toContain('UPDATE public.vehicles');
+  });
+
+  it('blocks driver self-service privilege escalation while preserving safe preference writes', () => {
+    const migration = readRepoFile(DRIVER_SELF_SERVICE_GUARD_MIGRATION);
+
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.guard_driver_self_service_protected_fields()');
+    expect(migration).toContain('SECURITY INVOKER');
+    expect(migration).toContain('IF OLD.user_id = v_actor THEN');
+    for (const fieldName of PROTECTED_DRIVER_FIELDS) {
+      expect(migration).toContain(`NEW.${fieldName} IS DISTINCT FROM OLD.${fieldName}`);
+    }
+
+    expect(migration).toContain('BEFORE UPDATE ON public.drivers');
+    expect(migration).toContain("USING ERRCODE = '42501'");
+    expect(migration).toContain('REVOKE ALL ON FUNCTION public.guard_driver_self_service_protected_fields() FROM PUBLIC, anon, authenticated');
+    expect(migration).not.toContain('availability_status IS DISTINCT FROM');
+    expect(migration).not.toContain('destination_priority_enabled IS DISTINCT FROM');
+    expect(migration).not.toContain('destination_radius_miles IS DISTINCT FROM');
+    expect(migration).not.toContain('UPDATE public.drivers');
   });
 });
