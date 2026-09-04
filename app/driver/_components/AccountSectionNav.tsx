@@ -8,7 +8,7 @@ const ACCOUNT_SECTIONS = [
   { label: 'Vehicle', href: '/driver/vehicles' },
   { label: 'Documents', href: '/driver/documents' },
   { label: 'Finance', href: '/driver/finance' },
-  { label: 'Legal & Agreements', href: '/driver/legal-agreements' },
+  { label: 'Legal & Agreements', href: '/driver/account/legal-agreements' },
   { label: 'Messages', href: '/driver/messages' },
   { label: 'Notifications', href: '/driver/notifications' },
   { label: 'Load Alerts', href: '/driver/load-alerts' },
