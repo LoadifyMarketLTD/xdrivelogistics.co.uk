@@ -1,9 +1,10 @@
 -- Go-live hardening: remove hosted-only permissive RLS drift that broadens
--- invoice mutation/visibility and company updates beyond the canonical policies.
+-- invoice, job, vehicle and company mutations beyond the canonical policies.
 --
 -- This migration only drops policy names that are present in the hosted database
--- but have no active source definition in the current repository. It does not
--- rewrite business rows, alter table schemas, or replace canonical policies.
+-- but have no active source definition in the current repository and duplicate or
+-- weaken narrower role-aware policies. It does not rewrite business rows, alter
+-- table schemas, or replace canonical policies.
 
 BEGIN;
 
@@ -25,6 +26,18 @@ DROP POLICY IF EXISTS invoices_update_member ON public.invoices;
 -- owner/admin/creator/capability policies intact while removing this broad OR path.
 DROP POLICY IF EXISTS companies_update_member ON public.companies;
 
+-- Job drift: these hosted-only policies allow any active company membership to
+-- create/update job rows. Canonical source already provides operator/admin job
+-- mutation plus the separately constrained assigned-driver lifecycle path.
+DROP POLICY IF EXISTS jobs_insert_authenticated ON public.jobs;
+DROP POLICY IF EXISTS jobs_update_authenticated ON public.jobs;
+
+-- Vehicle drift: these hosted-only policies allow any active company membership
+-- to create/update vehicle rows. Preserve the narrower operator/admin and assigned
+-- driver policies that already exist on the hosted project.
+DROP POLICY IF EXISTS vehicles_insert_authenticated ON public.vehicles;
+DROP POLICY IF EXISTS vehicles_update_authenticated ON public.vehicles;
+
 DO $$
 DECLARE
   v_remaining integer;
@@ -44,6 +57,14 @@ BEGIN
         'invoices_update_member'
       ]::text[]))
       OR (tablename = 'companies' AND policyname = 'companies_update_member')
+      OR (tablename = 'jobs' AND policyname = ANY (ARRAY[
+        'jobs_insert_authenticated',
+        'jobs_update_authenticated'
+      ]::text[]))
+      OR (tablename = 'vehicles' AND policyname = ANY (ARRAY[
+        'vehicles_insert_authenticated',
+        'vehicles_update_authenticated'
+      ]::text[]))
     );
 
   IF v_remaining <> 0 THEN
