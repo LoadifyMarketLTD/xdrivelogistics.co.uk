@@ -8,12 +8,24 @@ const OWNER_AUDIT_INDEX_MIGRATION =
   'supabase/migrations/20260904214000_add_owner_audit_log_target_company_index.sql';
 const LEGACY_RPC_RESTRICTION_MIGRATION =
   'supabase/migrations/20260904222500_restrict_legacy_governance_security_definer_rpcs.sql';
+const BROAD_RLS_DRIFT_MIGRATION =
+  'supabase/migrations/20260904223500_remove_hosted_broad_invoice_company_rls_drift.sql';
 
 const LEGACY_GOVERNANCE_FUNCTIONS = [
   'approve_company',
   'reject_company',
   'submit_company_for_review',
   'create_driver_invite',
+] as const;
+
+const BROAD_INVOICE_POLICIES = [
+  'invoices_delete_member',
+  'invoices_insert_authenticated',
+  'invoices_insert_member',
+  'invoices_select_authenticated',
+  'invoices_select_member',
+  'invoices_update_authenticated',
+  'invoices_update_member',
 ] as const;
 
 describe('PR #500 go-live hardening migration contracts', () => {
@@ -45,5 +57,24 @@ describe('PR #500 go-live hardening migration contracts', () => {
     expect(migration).not.toContain('DROP FUNCTION');
     expect(migration).not.toContain('CREATE OR REPLACE FUNCTION');
     expect(migration).not.toContain('TO authenticated');
+  });
+
+  it('removes only hosted broad invoice/company RLS drift and preserves canonical policies', () => {
+    const migration = readRepoFile(BROAD_RLS_DRIFT_MIGRATION);
+
+    for (const policyName of BROAD_INVOICE_POLICIES) {
+      expect(migration).toContain(`DROP POLICY IF EXISTS ${policyName} ON public.invoices`);
+    }
+    expect(migration).toContain('DROP POLICY IF EXISTS companies_update_member ON public.companies');
+
+    expect(migration).not.toContain('DROP POLICY IF EXISTS invoices_select_non_driver');
+    expect(migration).not.toContain('DROP POLICY IF EXISTS invoices_insert_operator');
+    expect(migration).not.toContain('DROP POLICY IF EXISTS invoices_update_creator_or_admin');
+    expect(migration).not.toContain('DROP POLICY IF EXISTS invoices_delete_creator_or_admin');
+    expect(migration).not.toContain('DROP POLICY IF EXISTS invoices_job_owner_read');
+    expect(migration).not.toContain('DROP POLICY IF EXISTS owner_select_all_invoices');
+    expect(migration).not.toContain('DELETE FROM public.invoices');
+    expect(migration).not.toContain('UPDATE public.invoices');
+    expect(migration).not.toContain('UPDATE public.companies');
   });
 });
