@@ -63,7 +63,7 @@ describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
     expect(migration).not.toContain('DELETE FROM public.driver_identity_documents');
   });
 
-  it('reconciles company SELECT access to creator, active member, or platform owner only', () => {
+  it('reconciles company SELECT access to creator, active member, or active platform owner only', () => {
     const migration = readRepoFile(COMPANY_SELECT_RLS_MIGRATION);
 
     expect(migration).toContain(
@@ -79,7 +79,11 @@ describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
     expect(migration).toContain('TO authenticated');
     expect(migration).toContain('companies.created_by = (SELECT auth.uid())');
     expect(migration).toContain('public.is_company_member(companies.id)');
-    expect(migration).toContain('public.is_owner((SELECT auth.uid()))');
+    expect(migration).toContain('FROM public.profiles p');
+    expect(migration).toContain('p.user_id = (SELECT auth.uid())');
+    expect(migration).toContain("p.role = 'owner'");
+    expect(migration).toContain("COALESCE(p.status::text, '') = 'active'");
+    expect(migration).not.toContain('public.is_owner(');
     expect(migration).not.toContain('company_id = id');
   });
 });
