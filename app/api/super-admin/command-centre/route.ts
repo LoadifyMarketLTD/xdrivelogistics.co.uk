@@ -238,11 +238,12 @@ export async function GET(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'investigating'),
 
-    // Overdue invoices (payment_status = unpaid, due_date < now)
+    // Overdue collectible invoices. Void rows are audit history, not receivables.
     supabaseAdmin
       .from('invoices')
       .select('id, invoice_number, amount, due_date, created_at')
       .eq('payment_status', 'unpaid')
+      .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', todayDate)
       .order('due_date', { ascending: true })
@@ -252,6 +253,7 @@ export async function GET(request: NextRequest) {
       .from('invoices')
       .select('id', { count: 'exact', head: true })
       .eq('payment_status', 'unpaid')
+      .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', todayDate),
 
@@ -259,6 +261,7 @@ export async function GET(request: NextRequest) {
       .from('invoices')
       .select('id', { count: 'exact', head: true })
       .eq('payment_status', 'unpaid')
+      .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', thirtyDaysAgoDate),
 
