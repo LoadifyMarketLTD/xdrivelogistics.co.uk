@@ -23,10 +23,26 @@ type MarketingMetadataInput = {
   visual?: MarketingSocialVisual;
 };
 
-const socialCardUrl = ({ title, kicker, visual }: Pick<MarketingMetadataInput, 'title' | 'kicker' | 'visual'>) => {
+const inferVisual = ({ path, title, kicker }: Pick<MarketingMetadataInput, 'path' | 'title' | 'kicker'>): MarketingSocialVisual => {
+  const value = `${path} ${title} ${kicker}`.toLowerCase();
+  if (value.includes('owner-driver') || value.includes('owner driver')) return 'owner-driver';
+  if (value.includes('/drivers') || value.includes('for drivers')) return 'driver';
+  if (value.includes('/brokers') || value.includes('broker')) return 'broker';
+  if (value.includes('/customers') || value.includes('customer')) return 'customer';
+  if (value.includes('/carriers') || value.includes('courier') || value.includes('carrier')) return 'carrier';
+  if (value.includes('pricing') || value.includes('membership')) return 'pricing';
+  if (value.includes('pod') || value.includes('delivery records')) return 'pod';
+  if (value.includes('finance') || value.includes('invoice')) return 'finance';
+  if (value.includes('join xdrive') || value.includes('network')) return 'network';
+  if (value.includes('access') || path === '/') return 'access';
+  if (value.includes('operations') || value.includes('workspace') || value.includes('how-it-works')) return 'operations';
+  return 'platform';
+};
+
+const socialCardUrl = (input: Pick<MarketingMetadataInput, 'path' | 'title' | 'kicker' | 'visual'>) => {
   const origin = getCanonicalSiteOrigin();
-  const params = new URLSearchParams({ title, kicker });
-  if (visual) params.set('visual', visual);
+  const visual = input.visual ?? inferVisual(input);
+  const params = new URLSearchParams({ title: input.title, kicker: input.kicker, visual });
   return `${origin}/api/social-card?${params.toString()}`;
 };
 
@@ -34,7 +50,7 @@ export function buildMarketingMetadata({ path, title, description, kicker, visua
   const origin = getCanonicalSiteOrigin();
   const canonicalPath = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
   const canonical = `${origin}${canonicalPath}`;
-  const image = socialCardUrl({ title, kicker, visual });
+  const image = socialCardUrl({ path, title, kicker, visual });
 
   return {
     title: { absolute: title },
