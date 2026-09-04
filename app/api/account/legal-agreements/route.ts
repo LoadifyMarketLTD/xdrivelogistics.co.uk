@@ -186,10 +186,7 @@ const resolveHistoryState = (
   const requirement = buildCurrentLegalRequirement(registrationRole);
   const snapshots = history.map(toAcceptanceSnapshot);
   const currentAcceptanceIndex = findCurrentLegalAcceptanceIndex(requirement, snapshots);
-  const latestEvaluation = evaluateLegalAcceptance(
-    requirement,
-    snapshots[0] ?? null,
-  );
+  const latestEvaluation = evaluateLegalAcceptance(requirement, snapshots[0] ?? null);
 
   return {
     requirement,
@@ -262,6 +259,16 @@ export async function POST(request: NextRequest) {
   const context = await loadLegalContext(auth.user.id);
   if ('response' in context) return context.response;
 
+  // Re-acceptance is never a substitute for the initial registration acceptance.
+  // Accounts missing their initial immutable evidence must use the registration /
+  // remediation flow rather than fabricating a material-reacceptance event.
+  if (context.history.length === 0) {
+    return json(409, {
+      error: 'Initial legal acceptance evidence is missing for this account.',
+      code: 'initial_legal_acceptance_missing',
+    });
+  }
+
   const state = resolveHistoryState(context.registrationRole, context.history);
   const { requirement } = state;
   if (payload.requirementFingerprint !== requirement.requirementFingerprint) {
@@ -305,15 +312,25 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    if (
-      error.code === '42P01' ||
-      error.code === 'PGRST205' ||
-      error.code === '23514'
-    ) {
+    if (error.code === '42P01' || error.code === 'PGRST205') {
       return json(503, {
-        error: 'Material legal re-acceptance storage is not available in this environment.',
-        code: 'legal_reacceptance_schema_missing',
+        error: 'Legal agreement evidence storage is not available in this environment.',
+        code: 'legal_agreement_evidence_schema_missing',
         migrationRequired: '20260904210500_registration_legal_acceptance_evidence.sql',
+      });
+    }
+    if (error.code === '23514') {
+      return json(503, {
+        error: 'Material legal re-acceptance storage is not enabled in this environment.',
+        code: 'legal_reacceptance_schema_missing',
+        migrationRequired: '20260904215518_registration_legal_material_reacceptance.sql',
+      });
+    }
+    if (error.code === '23505') {
+      return json(409, {
+        error: 'This contractual requirement has already been accepted.',
+        code: 'legal_reacceptance_already_recorded',
+        reloadRequired: true,
       });
     }
     return json(500, {
