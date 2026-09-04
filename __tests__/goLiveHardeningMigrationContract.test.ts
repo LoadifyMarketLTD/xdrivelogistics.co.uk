@@ -40,6 +40,11 @@ const BROAD_VEHICLE_POLICIES = [
   'vehicles_update_authenticated',
 ] as const;
 
+const BROAD_ONBOARDING_POLICIES = [
+  'onboarding_insert_own',
+  'onboarding_update_own_limited',
+] as const;
+
 const PROTECTED_DRIVER_FIELDS = [
   'user_id',
   'company_id',
@@ -96,6 +101,9 @@ describe('PR #500 go-live hardening migration contracts', () => {
     for (const policyName of BROAD_VEHICLE_POLICIES) {
       expect(migration).toContain(`DROP POLICY IF EXISTS ${policyName} ON public.vehicles`);
     }
+    for (const policyName of BROAD_ONBOARDING_POLICIES) {
+      expect(migration).toContain(`DROP POLICY IF EXISTS ${policyName} ON public.onboarding_applications`);
+    }
     expect(migration).toContain('DROP POLICY IF EXISTS companies_update_member ON public.companies');
 
     expect(migration).not.toContain('DROP POLICY IF EXISTS invoices_select_non_driver');
@@ -115,11 +123,15 @@ describe('PR #500 go-live hardening migration contracts', () => {
     expect(migration).not.toContain('DROP POLICY IF EXISTS vehicles_update_driver_or_operator');
     expect(migration).not.toContain('DROP POLICY IF EXISTS vehicles_delete_driver_or_operator');
 
+    expect(migration).not.toContain('DROP POLICY IF EXISTS onboarding_applications_owner_insert');
+    expect(migration).not.toContain('DROP POLICY IF EXISTS onboarding_applications_owner_update');
+
     expect(migration).not.toContain('DELETE FROM public.invoices');
     expect(migration).not.toContain('UPDATE public.invoices');
     expect(migration).not.toContain('UPDATE public.companies');
     expect(migration).not.toContain('UPDATE public.jobs');
     expect(migration).not.toContain('UPDATE public.vehicles');
+    expect(migration).not.toContain('UPDATE public.onboarding_applications');
   });
 
   it('blocks driver self-service privilege escalation while preserving safe preference writes', () => {
