@@ -15,7 +15,12 @@ import {
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
+import { getRegistrationLegalConfig } from '../../lib/legal/registrationAgreements';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
+import RegistrationAgreementGate, {
+  isRegistrationAgreementGateComplete,
+  type RegistrationAgreementGateValue,
+} from './RegistrationAgreementGate';
 
 type RegisterRole = 'owner_operator' | 'fleet_operator' | 'transport_broker' | 'customer_shipper';
 type CarrierPlan = 'small-carrier' | 'growing-carrier' | 'fleet' | 'enterprise';
@@ -39,6 +44,12 @@ type RolePresentation = {
 
 const REGISTER_ROLES = new Set<RegisterRole>(['owner_operator', 'fleet_operator', 'transport_broker', 'customer_shipper']);
 const CARRIER_PLANS = new Set<CarrierPlan>(['small-carrier', 'growing-carrier', 'fleet', 'enterprise']);
+const EMPTY_LEGAL_GATE: RegistrationAgreementGateValue = {
+  agreementsAccepted: false,
+  authorityConfirmed: false,
+  roleDeclarationConfirmed: false,
+  privacyAcknowledged: false,
+};
 
 const SIGNUP_ROLE_CONFIG: Record<Exclude<RegisterRole, 'owner_operator'>, SignupConfig> = {
   fleet_operator: { appRole: 'company_admin', accountType: 'fleet_courier', workspaceMode: 'company', ownerDriverWorkspace: false },
@@ -111,7 +122,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<RegisterRole>('customer_shipper');
   const [selectedPlan, setSelectedPlan] = useState('customer-shipper');
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [legalGate, setLegalGate] = useState<RegistrationAgreementGateValue>(EMPTY_LEGAL_GATE);
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
@@ -135,10 +146,12 @@ export default function RegisterPage() {
   const roleUi = ROLE_UI[role];
   const priceUi = useMemo(() => selectedPlan ? PLAN_PRICES[selectedPlan] : null, [selectedPlan]);
   const enterpriseSelected = selectedPlan === 'enterprise';
+  const legalGateComplete = isRegistrationAgreementGateComplete(legalGate);
 
   const selectRole = (nextRole: RegisterRole) => {
     setRole(nextRole);
     setSelectedPlan(ROLE_UI[nextRole].defaultPlan);
+    setLegalGate(EMPTY_LEGAL_GATE);
     setError('');
   };
 
@@ -153,13 +166,16 @@ export default function RegisterPage() {
     }
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
-    if (!acceptedTerms) { setError('Please confirm that you agree to the Terms and have read the Privacy Policy.'); return; }
+    if (!legalGateComplete) { setError('Complete all required agreements and declarations before creating the account.'); return; }
 
     setLoading(true);
     try {
       const signupConfig = getSignupConfig(role);
       const storedRole = normalizeProfileRoleForStorage(signupConfig.appRole) ?? 'customer';
       const acceptedAt = new Date().toISOString();
+      const legalConfig = getRegistrationLegalConfig(role);
+      const agreementVersions = Object.fromEntries(legalConfig.agreements.map((agreement) => [agreement.code, agreement.version]));
+      const agreementCodes = legalConfig.agreements.map((agreement) => agreement.code);
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(), password,
         options: {
@@ -174,6 +190,10 @@ export default function RegisterPage() {
             selected_membership_plan: selectedPlan || null,
             terms_accepted_at: acceptedAt,
             terms_version: '2026-09-01',
+            legal_agreement_codes: agreementCodes,
+            legal_agreement_versions: agreementVersions,
+            legal_authority_confirmed_at: acceptedAt,
+            legal_role_declaration_confirmed_at: acceptedAt,
             privacy_acknowledged_at: acceptedAt,
             privacy_version: '2026-09-01',
           },
@@ -203,7 +223,7 @@ export default function RegisterPage() {
       }
 
       setMessage('Account created. Check your email to verify your account, then sign in.');
-      setEmail(''); setPassword(''); setConfirmPassword(''); setAcceptedTerms(false);
+      setEmail(''); setPassword(''); setConfirmPassword(''); setLegalGate(EMPTY_LEGAL_GATE);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Registration failed.');
     } finally { setLoading(false); }
@@ -327,16 +347,13 @@ export default function RegisterPage() {
 
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-[#DDE5EF] bg-[#F8FAFD] p-3 text-xs font-semibold leading-5 text-[#566D88]"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" /><p>{role === 'fleet_operator' ? 'Carrier/Fleet creates the company workspace first; drivers are invited into that company.' : role === 'owner_operator' ? 'Owner Drivers receive their own operations workspace and map internally to the driver role.' : 'Your account direction determines the onboarding path and workspace created after registration.'}</p></div>
 
-                <label className="mt-3 flex items-start gap-2 rounded-xl border border-[#DDE5EF] p-3 text-xs font-semibold leading-5 text-[#526983]">
-                  <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} disabled={loading} required className="mt-1 h-4 w-4 shrink-0 accent-[#F5A300]" />
-                  <span>I agree to the <Link href="/terms" target="_blank" className="font-black text-[#173B73] underline">Terms & Conditions</Link>, have read the <Link href="/privacy" target="_blank" className="font-black text-[#173B73] underline">Privacy Policy</Link>, and understand that membership billing is governed by the <Link href="/subscription-terms" target="_blank" className="font-black text-[#173B73] underline">Membership & Subscription Terms</Link>.</span>
-                </label>
+                <RegistrationAgreementGate role={role} value={legalGate} onChange={setLegalGate} disabled={loading} />
 
                 {error ? <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{error}</div> : null}
                 {message ? <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">{message}</div> : null}
                 {warning ? <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">{warning}</div> : null}
 
-                <button type="submit" disabled={loading} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F5A300] px-5 text-sm font-black text-[#071B3C] transition hover:bg-[#E99B00] disabled:opacity-60">{loading ? 'Creating your XDrive account…' : <>Start 3 Months Free <ArrowRight className="h-4 w-4" /></>}</button>
+                <button type="submit" disabled={loading || !legalGateComplete} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F5A300] px-5 text-sm font-black text-[#071B3C] transition hover:bg-[#E99B00] disabled:cursor-not-allowed disabled:opacity-50">{loading ? 'Creating your XDrive account…' : <>Start 3 Months Free <ArrowRight className="h-4 w-4" /></>}</button>
                 <p className="mt-2 text-center text-xs font-semibold text-[#7A8DA4]">No membership charge during the qualifying 3-month launch period.</p>
               </div>
             </form>
