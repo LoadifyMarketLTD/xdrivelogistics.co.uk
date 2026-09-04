@@ -6,6 +6,10 @@
 -- `company_memberships.company_id = company_memberships.id` instead of binding
 -- the outer companies row. Consolidate the overlapping hosted/replay policies
 -- onto the canonical active-membership helper.
+--
+-- Platform-owner access is checked directly against the active profile contract
+-- rather than relying on hosted-only public.is_owner(uuid), which does not
+-- exist on a clean repository replay.
 
 BEGIN;
 
@@ -23,7 +27,13 @@ CREATE POLICY companies_select_authorized
   USING (
     companies.created_by = (SELECT auth.uid())
     OR public.is_company_member(companies.id)
-    OR public.is_owner((SELECT auth.uid()))
+    OR EXISTS (
+      SELECT 1
+      FROM public.profiles p
+      WHERE p.user_id = (SELECT auth.uid())
+        AND p.role = 'owner'
+        AND COALESCE(p.status::text, '') = 'active'
+    )
   );
 
 COMMIT;
