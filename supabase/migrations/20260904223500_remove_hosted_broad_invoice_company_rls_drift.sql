@@ -1,5 +1,6 @@
 -- Go-live hardening: remove hosted-only permissive RLS drift that broadens
--- invoice, job, vehicle and company mutations beyond the canonical policies.
+-- invoice, job, vehicle, onboarding and company mutations beyond the canonical
+-- policies.
 --
 -- This migration only drops policy names that are present in the hosted database
 -- but have no active source definition in the current repository and duplicate or
@@ -38,6 +39,13 @@ DROP POLICY IF EXISTS jobs_update_authenticated ON public.jobs;
 DROP POLICY IF EXISTS vehicles_insert_authenticated ON public.vehicles;
 DROP POLICY IF EXISTS vehicles_update_authenticated ON public.vehicles;
 
+-- Onboarding drift: canonical migration 107 limits applicants to draft / in-progress
+-- / request-changes edits and uses column grants to keep review state server-owned.
+-- These hosted-only permissive policies OR around that contract, allowing a user
+-- to insert an under-review row or keep changing payload while already under review.
+DROP POLICY IF EXISTS onboarding_insert_own ON public.onboarding_applications;
+DROP POLICY IF EXISTS onboarding_update_own_limited ON public.onboarding_applications;
+
 DO $$
 DECLARE
   v_remaining integer;
@@ -64,6 +72,10 @@ BEGIN
       OR (tablename = 'vehicles' AND policyname = ANY (ARRAY[
         'vehicles_insert_authenticated',
         'vehicles_update_authenticated'
+      ]::text[]))
+      OR (tablename = 'onboarding_applications' AND policyname = ANY (ARRAY[
+        'onboarding_insert_own',
+        'onboarding_update_own_limited'
       ]::text[]))
     );
 
