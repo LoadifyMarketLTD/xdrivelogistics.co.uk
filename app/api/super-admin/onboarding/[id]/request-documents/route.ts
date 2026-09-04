@@ -22,12 +22,12 @@ const docName = (row: MissingDocumentRow) =>
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ applicationId: string }> },
+  context: { params: Promise<{ id: string }> },
 ) {
   const owner = await verifyPlatformOwner(request);
   if (!owner || !supabaseAdmin) return json(403, { error: 'Forbidden: Platform Owner authority required.' });
 
-  const { applicationId } = await context.params;
+  const { id: applicationId } = await context.params;
   const { data: application, error: applicationError } = await supabaseAdmin
     .from('onboarding_applications')
     .select('id, user_id, email, account_type, status, company_id, completion_percentage, current_step')
@@ -90,7 +90,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ applicationId: string }> },
+  context: { params: Promise<{ id: string }> },
 ) {
   const owner = await verifyPlatformOwner(request);
   if (!owner || !supabaseAdmin) {
@@ -104,7 +104,7 @@ export async function POST(
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json(400, { error: 'A clear request reason is required.' });
 
-  const { applicationId } = await context.params;
+  const { id: applicationId } = await context.params;
   const { data, error } = await supabaseAdmin.rpc('owner_request_onboarding_documents', {
     p_actor_user_id: owner.id,
     p_application_id: applicationId,
