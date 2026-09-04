@@ -2,18 +2,8 @@ import type { Metadata } from 'next';
 import { getCanonicalSiteOrigin } from './siteUrl';
 
 export type MarketingSocialVisual =
-  | 'platform'
-  | 'broker'
-  | 'customer'
-  | 'driver'
-  | 'carrier'
-  | 'owner-driver'
-  | 'pricing'
-  | 'operations'
-  | 'pod'
-  | 'finance'
-  | 'access'
-  | 'network';
+  | 'platform' | 'broker' | 'customer' | 'driver' | 'carrier' | 'owner-driver'
+  | 'pricing' | 'operations' | 'pod' | 'finance' | 'access' | 'network';
 
 type MarketingMetadataInput = {
   path: string;
@@ -39,18 +29,13 @@ const inferVisual = ({ path, title, kicker }: Pick<MarketingMetadataInput, 'path
   return 'platform';
 };
 
-const socialCardUrl = (input: Pick<MarketingMetadataInput, 'path' | 'title' | 'kicker' | 'visual'>) => {
-  const origin = getCanonicalSiteOrigin();
-  const visual = input.visual ?? inferVisual(input);
-  const params = new URLSearchParams({ title: input.title, kicker: input.kicker, visual });
-  return `${origin}/api/social-card?${params.toString()}`;
-};
-
 export function buildMarketingMetadata({ path, title, description, kicker, visual }: MarketingMetadataInput): Metadata {
   const origin = getCanonicalSiteOrigin();
   const canonicalPath = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
   const canonical = `${origin}${canonicalPath}`;
-  const image = socialCardUrl({ path, title, kicker, visual });
+  const resolvedVisual = visual ?? inferVisual({ path, title, kicker });
+  // Stable, query-free image URLs are friendlier to social crawlers and their caches.
+  const image = `${origin}/social/${resolvedVisual}/opengraph-image`;
 
   return {
     title: { absolute: title },
@@ -63,7 +48,7 @@ export function buildMarketingMetadata({ path, title, description, kicker, visua
       title,
       description,
       siteName: 'XDrive Logistics',
-      images: [{ url: image, width: 1200, height: 630, alt: `${title} — XDrive Logistics` }],
+      images: [{ url: image, width: 1200, height: 630, alt: `${title} — XDrive Logistics`, type: 'image/png' }],
     },
     twitter: {
       card: 'summary_large_image',
