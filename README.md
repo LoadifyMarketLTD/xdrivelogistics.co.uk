@@ -36,15 +36,19 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - `npm run lint` - Run ESLint to check code quality
 - `npm run typecheck` - Run TypeScript checks without emitting files
 
-## Driver Mobile Routing
+## Driver Mobile Ownership
 
-- `apps/driver-mobile` is the canonical mobile experience (Expo React Native).
-- Legacy web routes under `app/m/` are deprecated and kept only as transitional fallback screens.
-- New mobile feature work should target `apps/driver-mobile`, not `app/m/`.
+- `android-native/` is the canonical production Android application (Kotlin / Jetpack Compose), package `co.uk.xdrivelogistics.driver`.
+- `apps/driver-mobile/` is an internal Expo / React Native preview and behavioural reference only. It is not a production application and must not be submitted to the Play Store as XDrive Driver.
+- Useful behaviour found in the Expo preview must be selectively rebuilt or verified in `android-native/`; do not merge or copy the preview wholesale.
+- Legacy web routes under `app/m/` are deprecated transitional fallback screens. The responsive Next.js website remains separate from the native Android application.
+- New production Android feature work must target `android-native/`.
 
 ## Project Structure
 
 - `/app` - Next.js App Router pages and layouts
+- `/android-native` - canonical production Android driver application
+- `/apps/driver-mobile` - internal Expo preview/reference only
 - `/lib` - Utility functions and shared code
 - `/database` - Consolidated SQL schema reference
 - `/supabase/migrations` - Ordered Supabase migration history
