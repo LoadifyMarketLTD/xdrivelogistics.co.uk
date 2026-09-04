@@ -15,6 +15,8 @@ function run(command, args) {
 
 const isLegalGatePreview =
   process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '499';
+const isGoLiveHardeningPreview =
+  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '500';
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -46,6 +48,15 @@ const legalUnitTests = [
   '__tests__/registrationLegalEvidence.test.ts',
 ];
 
+const goLiveHardeningLintTargets = [
+  '__tests__/commandCentreMetrics.test.ts',
+  'app/api/super-admin/command-centre/route.ts',
+];
+
+const goLiveHardeningUnitTests = [
+  '__tests__/commandCentreMetrics.test.ts',
+];
+
 console.log('NETLIFY_RELEASE_GATE=START');
 run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 
@@ -54,6 +65,13 @@ if (isLegalGatePreview) {
   run(npmCommand, ['exec', '--', 'eslint', ...legalLintTargets]);
   console.log('NETLIFY_RELEASE_GATE=PR499_LEGAL_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...legalUnitTests]);
+}
+
+if (isGoLiveHardeningPreview) {
+  console.log('NETLIFY_RELEASE_GATE=PR500_GO_LIVE_HARDENING_LINT');
+  run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
+  console.log('NETLIFY_RELEASE_GATE=PR500_GO_LIVE_HARDENING_TESTS');
+  run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
 }
 
 run(npmCommand, ['run', 'typecheck']);
