@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
   let session: CheckoutSession;
   try {
     session = await stripeRequest<CheckoutSession>('/checkout/sessions', {
-      idempotencyKey: `xdrive-membership-checkout:${companyId ?? authData.user.id}:${planId}:${trialEnd?.toISOString() ?? 'no-trial'}`,
+      idempotencyKey: `xdrive-membership-checkout:v2:${companyId ?? authData.user.id}:${planId}:${trialEnd?.toISOString() ?? 'no-trial'}`,
       params: checkoutParams,
     });
   } catch (reason) {
