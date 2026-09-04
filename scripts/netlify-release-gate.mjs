@@ -18,6 +18,8 @@ const isLegalGatePreview =
 const isGoLiveHardeningPreview =
   process.env.CONTEXT === 'deploy-preview' &&
   ['500', '501'].includes(process.env.REVIEW_ID ?? '');
+const isAndroidNativeParityPreview =
+  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '497';
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -77,6 +79,11 @@ if (isGoLiveHardeningPreview) {
   run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
   console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
+}
+
+if (isAndroidNativeParityPreview) {
+  console.log('NETLIFY_RELEASE_GATE=PR497_ANDROID_NATIVE_TEST_BUILD');
+  run('sh', ['-c', 'cd android-native && ./gradlew --no-daemon testDebugUnitTest assembleDebug']);
 }
 
 run(npmCommand, ['run', 'typecheck']);
