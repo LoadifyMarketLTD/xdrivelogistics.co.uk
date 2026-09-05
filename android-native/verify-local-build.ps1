@@ -13,18 +13,30 @@ $evidenceFile = Join-Path $evidenceDir 'LOCAL_BUILD_EVIDENCE.md'
 
 New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
 
-function Get-CommandOutput {
+function Invoke-NativeCapture {
   param(
     [Parameter(Mandatory = $true)][scriptblock]$Command,
     [Parameter(Mandatory = $true)][string]$Label
   )
 
-  $output = & $Command 2>&1 | Out-String
-  $exitCode = $LASTEXITCODE
+  $previousPreference = $ErrorActionPreference
+  try {
+    # Windows PowerShell 5.1 can surface native STDERR as PowerShell error
+    # records. java -version intentionally writes to STDERR even on success,
+    # so do not let that produce a false gate failure.
+    $ErrorActionPreference = 'Continue'
+    $outputLines = @(& $Command 2>&1 | ForEach-Object { "$_" })
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousPreference
+  }
+
+  if ($null -eq $exitCode) { $exitCode = 0 }
+  $output = ($outputLines -join [Environment]::NewLine).Trim()
   if ($exitCode -ne 0) {
     throw "$Label failed with exit code $exitCode.`n$output"
   }
-  return $output.Trim()
+  return $output
 }
 
 function Write-FailureEvidence {
@@ -51,18 +63,18 @@ function Write-FailureEvidence {
 
   $diagnosticLines = @()
   if (Test-Path $gradleLog) {
-    $diagnosticLines = Select-String -Path $gradleLog -Pattern $patterns |
+    $diagnosticLines = @(Select-String -Path $gradleLog -Pattern $patterns |
       ForEach-Object { $_.Line.TrimEnd() } |
       Where-Object { $_ -and $_.Trim().Length -gt 0 } |
-      Select-Object -Unique -First 250
+      Select-Object -Unique -First 250)
   }
 
-  if (-not $diagnosticLines -or $diagnosticLines.Count -eq 0) {
+  if ($diagnosticLines.Count -eq 0) {
     $diagnosticLines = @($Reason)
   }
 
   @(
-    "ANDROID LOCAL GATE: FAIL",
+    'ANDROID LOCAL GATE: FAIL',
     "Reason: $Reason",
     "Gradle exit code: $ExitCode",
     '',
@@ -90,7 +102,10 @@ This is a local Android binary-gate failure. It is not an E2E release verdict.
 "@ | Set-Content -Path $evidenceFile -Encoding UTF8
 
   Write-Host "`nANDROID LOCAL GATE: FAIL" -ForegroundColor Red
-  Write-Host "Diagnostic: $diagnosticFile" -ForegroundColor Yellow
+  Write-Host "Reason: $Reason" -ForegroundColor Red
+  Write-Host "`n=== EXTRACTED DIAGNOSTICS ===" -ForegroundColor Yellow
+  $diagnosticLines | Select-Object -First 80 | ForEach-Object { Write-Host $_ }
+  Write-Host "`nDiagnostic: $diagnosticFile" -ForegroundColor Yellow
   Write-Host "Full log:   $gradleLog" -ForegroundColor Yellow
   Write-Host "Evidence:   $evidenceFile" -ForegroundColor Yellow
 }
@@ -120,8 +135,8 @@ try {
   $status = (& git status --short 2>$null | Out-String).Trim()
   if ([string]::IsNullOrWhiteSpace($status)) { $status = '<clean>' }
 
-  $javaVersion = Get-CommandOutput -Label 'Java' -Command { java -version }
-  $gradleVersion = Get-CommandOutput -Label 'Gradle wrapper' -Command { .\gradlew.bat --version }
+  $javaVersion = Invoke-NativeCapture -Label 'Java' -Command { java -version }
+  $gradleVersion = Invoke-NativeCapture -Label 'Gradle wrapper' -Command { .\gradlew.bat --version }
 
   @"
 XDrive Android local gate environment
@@ -158,9 +173,16 @@ Write-Host "`n=== ANDROID BINARY GATE ===" -ForegroundColor Cyan
 Write-Host ".\gradlew.bat $($gradleArgs -join ' ')"
 Write-Host 'The complete output is being saved automatically. No manual error hunting is required.' -ForegroundColor DarkGray
 
-& .\gradlew.bat @gradleArgs 2>&1 | Tee-Object -FilePath $gradleLog
-$gradleExit = $LASTEXITCODE
+$previousPreference = $ErrorActionPreference
+try {
+  $ErrorActionPreference = 'Continue'
+  & .\gradlew.bat @gradleArgs 2>&1 | Tee-Object -FilePath $gradleLog
+  $gradleExit = $LASTEXITCODE
+} finally {
+  $ErrorActionPreference = $previousPreference
+}
 
+if ($null -eq $gradleExit) { $gradleExit = 1 }
 if ($gradleExit -ne 0) {
   Write-FailureEvidence -Reason 'Gradle compile/test/lint/APK gate failed.' -ExitCode $gradleExit
   exit $gradleExit
