@@ -81,8 +81,8 @@ describe('GET /api/super-admin/stats contract', () => {
     mocks.authUser = { id: 'owner-1' };
     mocks.authError = null;
     mocks.datasets.profiles = [
-      { user_id: 'owner-1', role: 'owner', is_internal_account: false },
-      { user_id: 'internal-1', role: 'admin', is_internal_account: true },
+      { user_id: 'owner-1', role: 'owner', status: 'active', is_internal_account: false },
+      { user_id: 'internal-1', role: 'admin', status: 'active', is_internal_account: true },
     ];
     mocks.datasets.companies = [
       { id: 'c1', status: 'active' },
@@ -130,7 +130,16 @@ describe('GET /api/super-admin/stats contract', () => {
   });
 
   it('returns 403 when an authenticated user is not the platform owner', async () => {
-    mocks.datasets.profiles[0] = { user_id: 'owner-1', role: 'admin', is_internal_account: false };
+    mocks.datasets.profiles[0] = { user_id: 'owner-1', role: 'admin', status: 'active', is_internal_account: false };
+    const { GET } = await import('../app/api/super-admin/stats/route');
+    const response = await GET(new NextRequest('http://localhost/api/super-admin/stats', {
+      headers: { Authorization: 'Bearer owner-token' },
+    }));
+    expect(response.status).toBe(403);
+  });
+
+  it('returns 403 when the platform owner profile is not active', async () => {
+    mocks.datasets.profiles[0] = { user_id: 'owner-1', role: 'owner', status: 'suspended', is_internal_account: false };
     const { GET } = await import('../app/api/super-admin/stats/route');
     const response = await GET(new NextRequest('http://localhost/api/super-admin/stats', {
       headers: { Authorization: 'Bearer owner-token' },
