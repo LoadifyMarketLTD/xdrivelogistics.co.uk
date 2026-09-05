@@ -3,7 +3,6 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-const PENDING_COMPANY_STATUSES = ['pending', 'pending_approval'];
 const OPEN_JOB_STATUSES = ['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit'];
 const OUTSTANDING_PAYMENT_STATUSES = ['unpaid', 'partially_paid', 'overdue', 'disputed'];
 // Hosted public.invoice_status uses lowercase `paid` and `void` for the two
@@ -69,7 +68,8 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
-    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).in('status', PENDING_COMPANY_STATUSES),
+    // `pending` is a UI alias only. The hosted company_status enum uses pending_approval.
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
     supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('profiles').select('user_id').eq('is_internal_account', true),
     supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
