@@ -109,8 +109,7 @@
 }
 
 /* Old custom inspectors used 8–12px microtype. Raise body/detail copy to the
- * approved 14px floor. Status pills are reset to 12px by the later visual
- * contract, preserving compact status geometry. */
+ * approved 14px floor. */
 .super-admin-light-root main [style*="font-size: 8px"],
 .super-admin-light-root main [style*="font-size:8px"],
 .super-admin-light-root main [style*="font-size: 8."],
@@ -139,8 +138,9 @@
 .super-admin-light-root [data-card],
 .super-admin-light-root [data-panel] {
   border-color: #E0E3E7 !important;
-  border-radius: 12px !important;
-  box-shadow: 0 3px 12px rgba(31, 41, 55, 0.055) !important;
+  border-radius: 8px !important;
+  box-shadow: 0px 2px 6px rgba(0,0,0,0.08) !important;
+  padding: 24px !important;
 }
 
 /* Controls remain operational and use the Master Pack dimensions. */
@@ -162,6 +162,8 @@
 .super-admin-light-root [aria-modal="true"] section {
   background-color: #FFFFFF !important;
   color: #4A4A4A !important;
+  border-radius: 8px !important;
+  box-shadow: 0px 2px 6px rgba(0,0,0,0.08) !important;
 }
 
 /* Only repair explicit white text when no inline background is declared. */
