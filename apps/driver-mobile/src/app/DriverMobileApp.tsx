@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Image, Linking, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -6,7 +5,7 @@ import SignatureCanvas, { type SignatureViewRef } from 'react-native-signature-c
 
 import { isPermanentClientError } from '../api/client';
 import { fetchJob, fetchJobs, postJobStatus, postStopStatus, uploadPod } from '../api/jobs';
-import { fetchDriverResources, type DriverAlert, type DriverResources } from '../api/resources';
+import { fetchDriverResources, markDriverNotificationRead, type DriverAlert, type DriverResources } from '../api/resources';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
 import { handleSessionLoss } from '../auth/sessionLoss';
 import { supabase } from '../auth/supabase';
@@ -28,6 +27,7 @@ import {
   type QueuedAction,
 } from '../offline/queue';
 import { getReadyActionsInOrder } from '../offline/queueOrderingHelpers';
+import { subscribeToNotificationNavigation } from '../push/notificationHandling';
 import { colors, spacing } from '../ui/theme';
 
 type Screen = 'login' | 'liveLoads' | 'active' | 'jobs' | 'detail' | 'pod' | 'viewPod' | 'notifications' | 'profile';
@@ -153,6 +153,25 @@ function notificationSummary(alert: DriverAlert) {
   return dispatcherMessage || `${stringField(alert.entity_type, 'Record')} #${stringField(alert.entity_id, '').slice(0, 8).toUpperCase() || 'update'}`;
 }
 
+function isInboxNotification(alert: DriverAlert) {
+  const payload = toRecord(alert.payload);
+  return alert.entity_type === 'notification' || optionalString(payload.source) === 'driver_inbox';
+}
+
+function notificationReadAt(alert: DriverAlert) {
+  return optionalString(toRecord(alert.payload).read_at) ?? null;
+}
+
+function isUnreadInboxNotification(alert: DriverAlert) {
+  return isInboxNotification(alert) && !notificationReadAt(alert);
+}
+
+function notificationJobId(alert: DriverAlert) {
+  if (alert.entity_type === 'job' && alert.entity_id.trim()) return alert.entity_id.trim();
+  const payload = toRecord(alert.payload);
+  return optionalString(payload.job_id) ?? optionalString(payload.jobId) ?? null;
+}
+
 function queueStatusLabel(status: QueuedActionStatus) {
   if (status === 'syncing') return 'Syncing';
   if (status === 'synced') return 'Synced';
@@ -189,6 +208,20 @@ function hasIncompletePersistentStops(job: DriverJob) {
   return stops.length > 0 && stops.some((stop) => !isStopTerminal(stop));
 }
 
+function applyOptimisticStopStatus(job: DriverJob, stopId: string, status: 'arrived' | 'completed'): DriverJob {
+  const now = new Date().toISOString();
+  return {
+    ...job,
+    stops: job.stops?.map((stop) => {
+      if (stop.id !== stopId) return stop;
+      if (status === 'arrived') {
+        return { ...stop, status, arrivedAt: stop.arrivedAt ?? now };
+      }
+      return { ...stop, status, arrivedAt: stop.arrivedAt ?? now, completedAt: now };
+    }),
+  };
+}
+
 async function captureCollectionPhotoPayload(): Promise<Record<string, unknown> | null> {
   const ImagePicker = await import('expo-image-picker');
   const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -214,7 +247,6 @@ export default function DriverMobileApp() {
   const [scope, setScope] = useState<JobScope>('active');
   const [queue, setQueue] = useState<QueuedAction[]>([]);
   const [resources, setResources] = useState<DriverResources | null>(null);
-  const [notificationsSeenAt, setNotificationsSeenAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [stopActionId, setStopActionId] = useState<string | null>(null);
@@ -229,14 +261,11 @@ export default function DriverMobileApp() {
   const authenticatedUserIdRef = useRef<string | null>(null);
   const nextStep = useMemo(() => (job ? getNextStep(job.status) : undefined), [job]);
   const queueCounts = useMemo(() => getQueueCounts(queue), [queue]);
-  const notificationsSeenKey = authUserId ? `xdrive.driver.notificationsSeen:${authUserId}` : null;
   const driverCanCommercialBid = optionalBoolean(resources?.driver?.can_commercial_bid);
-  const unreadNotificationCount = useMemo(() => {
-    if (!resources?.alerts?.length) return 0;
-    if (!notificationsSeenAt) return resources.alerts.length;
-    const threshold = new Date(notificationsSeenAt).getTime();
-    return resources.alerts.filter((alert) => new Date(alert.created_at).getTime() > threshold).length;
-  }, [notificationsSeenAt, resources?.alerts]);
+  const unreadNotificationCount = useMemo(
+    () => resources?.alerts?.filter(isUnreadInboxNotification).length ?? 0,
+    [resources?.alerts],
+  );
 
   const loadJobs = useCallback(async (
     sessionToken: string,
@@ -341,6 +370,25 @@ export default function DriverMobileApp() {
     }
   }, [token]);
 
+  const openNotification = useCallback(async (alert: DriverAlert) => {
+    if (!token) return;
+    if (isUnreadInboxNotification(alert)) {
+      const notificationId = alert.entity_id.trim() || alert.id.trim();
+      if (notificationId) {
+        try {
+          await markDriverNotificationRead(notificationId, token);
+          await loadResources(token, { silent: true });
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : 'Notification read state could not be updated.');
+          return;
+        }
+      }
+    }
+
+    const jobId = notificationJobId(alert);
+    if (jobId) await openJobById(jobId);
+  }, [loadResources, openJobById, token]);
+
   useEffect(() => {
     void waitForReadySession()
       .then(async (readySession) => {
@@ -402,14 +450,6 @@ export default function DriverMobileApp() {
   }, [flushQueue, loadJobs, loadResources]);
 
   useEffect(() => {
-    if (!notificationsSeenKey) {
-      setNotificationsSeenAt(null);
-      return;
-    }
-    void AsyncStorage.getItem(notificationsSeenKey).then(setNotificationsSeenAt).catch(() => setNotificationsSeenAt(null));
-  }, [notificationsSeenKey]);
-
-  useEffect(() => {
     if (!token) return;
     if (screen === 'profile' || screen === 'notifications') {
       void loadResources(token);
@@ -417,11 +457,11 @@ export default function DriverMobileApp() {
   }, [loadResources, screen, token]);
 
   useEffect(() => {
-    if (screen !== 'notifications' || !notificationsSeenKey) return;
-    const seenAt = resources?.alerts?.[0]?.created_at ?? new Date().toISOString();
-    setNotificationsSeenAt(seenAt);
-    void AsyncStorage.setItem(notificationsSeenKey, seenAt).catch(() => undefined);
-  }, [notificationsSeenKey, resources?.alerts, screen]);
+    if (!token) return;
+    return subscribeToNotificationNavigation((jobId) => {
+      void openJobById(jobId);
+    });
+  }, [openJobById, token]);
 
   useEffect(() => {
     if (!token || !authUserId) return;
@@ -498,7 +538,6 @@ export default function DriverMobileApp() {
     setJobs([]);
     setQueue([]);
     setResources(null);
-    setNotificationsSeenAt(null);
     setMessage('');
     setScreen('login');
   }
@@ -515,21 +554,51 @@ export default function DriverMobileApp() {
   }
 
   async function submitStopStatus(stopId: string, status: 'arrived' | 'completed') {
-    if (!job || !token || stopActionId) return;
-    if (!(await isOnline())) {
-      setMessage('Multi-drop stop updates require an internet connection and are not queued offline yet.');
-      return;
-    }
+    if (!job || !authUserId || stopActionId) return;
+    const currentJob = job;
+    const payload = { stop_id: stopId, status };
+
+    const queueStopAction = async (reason: string) => {
+      const queued = await enqueueAction(authUserId, {
+        jobId: currentJob.id,
+        endpoint: 'stop-status',
+        payload,
+      });
+      setQueue((items) => reconcileQueueState(items, queued));
+      const optimisticJob = applyOptimisticStopStatus(currentJob, stopId, status);
+      setJob(optimisticJob);
+      setJobs((items) => items.map((item) => item.id === optimisticJob.id ? optimisticJob : item));
+      setMessage(reason);
+    };
 
     setStopActionId(stopId);
     setMessage('');
     try {
-      await postStopStatus(job.id, stopId, status, token);
-      const refreshed = await fetchJob(job.id, token);
-      setJob(refreshed.job);
-      setJobs((items) => items.map((item) => item.id === refreshed.job.id ? refreshed.job : item));
+      if (!token || !(await isOnline())) {
+        await queueStopAction('Stop update saved offline. It will sync in order when connectivity returns.');
+        return;
+      }
+
+      try {
+        await postStopStatus(currentJob.id, stopId, status, token);
+        const refreshed = await fetchJob(currentJob.id, token);
+        setJob(refreshed.job);
+        setJobs((items) => items.map((item) => item.id === refreshed.job.id ? refreshed.job : item));
+      } catch (error) {
+        const text = error instanceof Error ? error.message : 'Unable to update this stop.';
+        if (isPermanentClientError(error)) {
+          setMessage(text);
+          const refreshed = await fetchJob(currentJob.id, token).catch(() => null);
+          if (refreshed?.job) {
+            setJob(refreshed.job);
+            setJobs((items) => items.map((item) => item.id === refreshed.job.id ? refreshed.job : item));
+          }
+          return;
+        }
+        await queueStopAction('Stop update queued after a connection failure. It will retry automatically.');
+      }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to update this stop. Refresh and retry.');
+      setMessage(error instanceof Error ? error.message : 'Unable to save this stop update securely.');
     } finally {
       setStopActionId(null);
     }
@@ -695,7 +764,7 @@ export default function DriverMobileApp() {
               <NotificationsScreen
                 notifications={resources?.alerts ?? []}
                 unreadCount={unreadNotificationCount}
-                onOpenJob={(jobId) => void openJobById(jobId)}
+                onOpenNotification={(alert) => void openNotification(alert)}
               />
             )}
             {screen === 'profile' && (
@@ -983,7 +1052,7 @@ function StopsTab({
         <Panel>
           <Info label="Stop progress" value={`${completedStops}/${persistentStops.length} complete`} />
           {currentStop ? <Info label="Current stop" value={`${currentStop.sequence} · ${currentStop.type === 'collection' ? 'Collection' : 'Delivery'}`} /> : null}
-          <Text style={styles.copy}>Stop Arrived/Completed updates require an internet connection and are confirmed by the server before the next stop unlocks.</Text>
+          <Text style={styles.copy}>Stop Arrived/Completed updates are saved securely offline when needed and replayed to the server in job order before final delivery/POD.</Text>
         </Panel>
       ) : null}
       {stops.map((stop) => {
@@ -1363,28 +1432,33 @@ function EmptyJobsScreen({ onRefresh }: { onRefresh: () => void }) {
   );
 }
 
-function NotificationsScreen({ notifications, unreadCount, onOpenJob }: { notifications: DriverAlert[]; unreadCount: number; onOpenJob: (jobId: string) => void }) {
+function NotificationsScreen({ notifications, unreadCount, onOpenNotification }: { notifications: DriverAlert[]; unreadCount: number; onOpenNotification: (alert: DriverAlert) => void }) {
   return (
     <View style={styles.stack}>
       <Panel>
         <Text style={styles.title}>Critical Notifications</Text>
-        <Text style={styles.copy}>{unreadCount > 0 ? `${unreadCount} unread updates` : 'All notifications are up to date.'}</Text>
+        <Text style={styles.copy}>{unreadCount > 0 ? `${unreadCount} unread inbox updates` : 'All inbox notifications are up to date.'}</Text>
       </Panel>
       {notifications.length === 0 ? (
         <Panel>
           <Text style={styles.copy}>No notifications yet.</Text>
         </Panel>
       ) : notifications.map((alert) => {
-        const canOpenJob = alert.entity_type === 'job' && Boolean(alert.entity_id);
+        const jobId = notificationJobId(alert);
+        const inboxNotification = isInboxNotification(alert);
+        const inboxUnread = isUnreadInboxNotification(alert);
+        const actionable = Boolean(jobId) || inboxUnread;
+        const displayStatus = inboxNotification ? (inboxUnread ? 'Unread' : 'Read') : stringField(alert.status, 'sent');
+        const displayTone = inboxNotification ? (inboxUnread ? 'warning' : 'success') : statusTone(alert.status === 'failed' ? 'failed' : alert.status === 'sent' ? 'synced' : 'pending');
         return (
-          <TouchableOpacity key={alert.id} style={styles.notificationCard} onPress={() => canOpenJob && onOpenJob(alert.entity_id)} disabled={!canOpenJob}>
+          <TouchableOpacity key={alert.id} style={styles.notificationCard} onPress={() => actionable && onOpenNotification(alert)} disabled={!actionable}>
             <View style={styles.notificationHeader}>
               <Text style={styles.notificationTitle}>{notificationTitle(alert)}</Text>
-              <StatusPill label={stringField(alert.status, 'pending')} tone={statusTone(alert.status === 'failed' ? 'failed' : alert.status === 'sent' ? 'synced' : 'pending')} />
+              <StatusPill label={displayStatus} tone={displayTone} />
             </View>
             <Text style={styles.copy}>{notificationSummary(alert)}</Text>
             <Text style={styles.notificationMeta}>{formatRelativeTime(alert.created_at)} • {formatDateTime(alert.created_at)}</Text>
-            {canOpenJob ? <Text style={styles.linkText}>Open related job</Text> : null}
+            {jobId ? <Text style={styles.linkText}>Open related job</Text> : inboxUnread ? <Text style={styles.linkText}>Mark as read</Text> : null}
           </TouchableOpacity>
         );
       })}
