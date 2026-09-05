@@ -1,8 +1,7 @@
 /*
  * XDrive Logistics LTD — Super Admin enterprise design system
  * Canonical scope: every route rendered inside /super-admin.
- * This layer is visual only: it does not change data, auth, navigation or
- * mutation semantics. Existing unsupported data remains fail-closed.
+ * Visual only: data, auth, navigation and mutation semantics are unchanged.
  */
 
 .super-admin-light-root {
@@ -15,20 +14,20 @@
   --status-red: #EA4335;
   --status-gray: #8A9099;
   --enterprise-border: #E0E3E7;
-  --enterprise-ink: #1F2937;
-  --enterprise-navy: #0B2F6B;
-  --enterprise-muted: #6B7280;
+  --enterprise-ink: var(--text-gray);
+  --enterprise-navy: var(--brand-blue);
+  --enterprise-muted: var(--text-gray);
   --enterprise-radius: 12px;
   --enterprise-shadow: 0 3px 12px rgba(31, 41, 55, 0.055);
   --enterprise-control-height: 40px;
   --enterprise-section-gap: 18px;
 
   /* Compatibility aliases for existing Super Admin CSS. */
-  --sa-ui-navy: var(--enterprise-navy);
+  --sa-ui-navy: var(--brand-blue);
   --sa-ui-blue: var(--brand-blue);
   --sa-ui-orange: var(--status-yellow);
-  --sa-ui-ink: var(--enterprise-ink);
-  --sa-ui-muted: var(--enterprise-muted);
+  --sa-ui-ink: var(--text-gray);
+  --sa-ui-muted: var(--text-gray);
   --sa-ui-border: var(--enterprise-border);
   --sa-ui-soft: var(--light-gray);
   --sa-ui-white: var(--white);
@@ -48,7 +47,7 @@
 /* Typography hierarchy from the approved Master Pack. */
 .super-admin-light-root main h1 {
   margin-top: 0;
-  color: var(--enterprise-navy) !important;
+  color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 28px !important;
   line-height: 1.16 !important;
@@ -57,7 +56,7 @@
 }
 
 .super-admin-light-root main h2 {
-  color: var(--enterprise-navy) !important;
+  color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 20px !important;
   line-height: 1.25 !important;
@@ -66,7 +65,7 @@
 }
 
 .super-admin-light-root main h3 {
-  color: var(--enterprise-navy) !important;
+  color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 18px !important;
   line-height: 1.3 !important;
@@ -98,17 +97,17 @@
   background: transparent !important;
 }
 
-/* Normalize remaining dark-theme fragments into the enterprise light system. */
+/* Normalize remaining known dark-theme fragments. */
 .super-admin-light-root main [style*="color: #f1f5f9"],
 .super-admin-light-root main [style*="color:#f1f5f9"],
 .super-admin-light-root main [style*="color: rgb(241, 245, 249)"] {
-  color: var(--enterprise-ink) !important;
+  color: var(--text-gray) !important;
 }
 
 .super-admin-light-root main [style*="color: #94a3b8"],
 .super-admin-light-root main [style*="color:#94a3b8"],
 .super-admin-light-root main [style*="color: rgb(148, 163, 184)"] {
-  color: var(--enterprise-muted) !important;
+  color: var(--text-gray) !important;
 }
 
 .super-admin-light-root main [style*="background-color: #1e293b"],
@@ -118,7 +117,7 @@
 .super-admin-light-root main [style*="background-color:#0b1220"],
 .super-admin-light-root main [style*="background-color: rgb(11, 18, 32)"] {
   background-color: var(--white) !important;
-  color: var(--enterprise-ink) !important;
+  color: var(--text-gray) !important;
 }
 
 .super-admin-light-root main [style*="border-color: #334155"],
@@ -146,7 +145,7 @@
   padding: 20px !important;
 }
 
-/* KPI values use strong tabular numerals but retain their owning semantic color. */
+/* KPI values use strong tabular numerals but retain owning semantic colour. */
 .super-admin-light-root main div[style*="font-size: 22px"],
 .super-admin-light-root main div[style*="font-size: 20px"][style*="font-weight: 800"] {
   font-family: Inter, Roboto, Arial, sans-serif !important;
@@ -155,12 +154,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Tables: readable, airy, enterprise rather than dense/debug-like. */
+/* Tables: readable, airy and consistent. */
 .super-admin-light-root main table {
   width: 100%;
   border-collapse: collapse;
   background: var(--white) !important;
-  color: var(--enterprise-ink);
+  color: var(--text-gray);
   font-size: 14px !important;
 }
 
@@ -168,7 +167,7 @@
 .super-admin-light-root main th {
   min-height: 42px;
   padding: 11px 14px !important;
-  color: var(--enterprise-navy) !important;
+  color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 13px !important;
   font-weight: 750 !important;
@@ -180,7 +179,7 @@
 
 .super-admin-light-root main td {
   padding: 12px 14px !important;
-  color: var(--enterprise-ink);
+  color: var(--text-gray);
   font-size: 14px !important;
   line-height: 1.45;
   vertical-align: top;
@@ -232,7 +231,7 @@
   outline-offset: 2px;
 }
 
-/* Status chips share one geometry while retaining semantic color. */
+/* Status chips share one geometry while retaining semantic colour. */
 .super-admin-light-root main [style*="border-radius: 999"],
 .super-admin-light-root main [style*="border-radius:999"] {
   min-height: 26px;
@@ -251,7 +250,7 @@
 .super-admin-light-root main [role="dialog"] aside {
   border-radius: var(--enterprise-radius) !important;
   background: var(--white) !important;
-  color: var(--enterprise-ink) !important;
+  color: var(--text-gray) !important;
   box-shadow: 0 16px 40px rgba(31,41,55,.12) !important;
 }
 
@@ -262,7 +261,7 @@
 }
 
 .super-admin-light-root main code {
-  color: var(--enterprise-muted);
+  color: var(--text-gray);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
 }
@@ -272,20 +271,16 @@
   min-height: 100px;
   display: grid;
   place-items: center;
-  color: var(--enterprise-muted) !important;
+  color: var(--text-gray) !important;
   background: var(--white);
   border-radius: var(--enterprise-radius);
   font-size: 14px !important;
 }
 
-/* The shell itself follows the same typography and enterprise control language. */
-.super-admin-light-root > * {
-  font-family: Roboto, Inter, Arial, sans-serif;
-}
+/* The shell follows the same typography/control language. */
+.super-admin-light-root > * { font-family: Roboto, Inter, Arial, sans-serif; }
 .super-admin-light-root nav,
-.super-admin-light-root header {
-  color: var(--text-gray);
-}
+.super-admin-light-root header { color: var(--text-gray); }
 .super-admin-light-root nav a,
 .super-admin-light-root header button,
 .super-admin-light-root header a {
