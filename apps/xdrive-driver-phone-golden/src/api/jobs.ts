@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 
-import { apiRequest } from './client';
+import { apiRequest, getApiBaseUrl } from './client';
 import type { DriverJob, JobScope } from '../jobs/types';
 
 type EvidencePayload = Record<string, unknown> & {
@@ -8,40 +8,98 @@ type EvidencePayload = Record<string, unknown> & {
   pickupPhotoUris?: string[];
   deliveryPhotoUris?: string[];
   photoUris?: string[];
+  damagePhotoUris?: string[];
+  documentUris?: string[];
 };
 
-type EncodedImage = {
-  base64: string;
-  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-};
+type EvidenceKind = 'collection' | 'delivery';
+type DeliveryEvidenceCategory = 'photos' | 'damage' | 'documents';
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
 
-function imageMimeType(uri: string): EncodedImage['mimeType'] {
-  const normalized = uri.toLowerCase().split('?')[0];
-  if (normalized.endsWith('.png')) return 'image/png';
-  if (normalized.endsWith('.webp')) return 'image/webp';
+function cleanLocalUri(uri: string) {
+  return uri.split('?', 1)[0] ?? uri;
+}
+
+function localFileName(uri: string, prefix: string) {
+  const clean = cleanLocalUri(uri);
+  const raw = clean.slice(clean.lastIndexOf('/') + 1) || `${prefix}.jpg`;
+  const safe = raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(-150);
+  return `${prefix}-${safe || 'evidence.jpg'}`.slice(0, 180);
+}
+
+function evidenceContentType(uri: string, category: DeliveryEvidenceCategory | 'collection') {
+  const clean = cleanLocalUri(uri).toLowerCase();
+  if (category === 'documents' && clean.endsWith('.pdf')) return 'application/pdf';
+  if (clean.endsWith('.png')) return 'image/png';
   return 'image/jpeg';
 }
 
-async function encodeImage(uri: string): Promise<EncodedImage> {
+async function assertEvidenceFile(uri: string) {
   const info = await FileSystem.getInfoAsync(uri, { size: true });
-  if (!info.exists) throw new Error('An evidence photo is no longer available on this device. Please take it again.');
-  if (typeof info.size === 'number' && info.size > MAX_IMAGE_BYTES) {
-    throw new Error('Evidence photos must be smaller than 10 MB.');
+  if (!info.exists) {
+    throw new Error('An evidence file is no longer available on this device. Please capture or select it again.');
   }
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-  return { base64, mimeType: imageMimeType(uri) };
+  if (typeof info.size === 'number' && info.size > MAX_EVIDENCE_BYTES) {
+    throw new Error('Evidence files must be 10 MB or smaller.');
+  }
 }
 
-async function encodeEvidence(payload: EvidencePayload) {
-  const { collectionPhotoUri, pickupPhotoUris, deliveryPhotoUris, photoUris: _photoUris, ...metadata } = payload;
-  return {
-    ...metadata,
-    ...(collectionPhotoUri ? { collectionPhoto: await encodeImage(collectionPhotoUri) } : {}),
-    ...(pickupPhotoUris ? { pickupPhotos: await Promise.all(pickupPhotoUris.map(encodeImage)) } : {}),
-    ...(deliveryPhotoUris ? { deliveryPhotos: await Promise.all(deliveryPhotoUris.map(encodeImage)) } : {}),
-  };
+async function uploadEvidenceFile({
+  jobId,
+  token,
+  uri,
+  kind,
+  category,
+}: {
+  jobId: string;
+  token: string;
+  uri: string;
+  kind: EvidenceKind;
+  category?: DeliveryEvidenceCategory;
+}) {
+  await assertEvidenceFile(uri);
+
+  const effectiveCategory = kind === 'collection' ? 'collection' : category;
+  if (kind === 'delivery' && !effectiveCategory) {
+    throw new Error('Delivery evidence category is required.');
+  }
+
+  const prefix = kind === 'collection' ? 'collection' : String(effectiveCategory);
+  const objectName = localFileName(uri, prefix);
+  const contentType = evidenceContentType(uri, effectiveCategory as DeliveryEvidenceCategory | 'collection');
+  const endpoint = `${getApiBaseUrl()}/api/driver/mobile/jobs/${jobId}/evidence`;
+
+  const result = await FileSystem.uploadAsync(endpoint, uri, {
+    httpMethod: 'POST',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      'Content-Type': contentType,
+      'x-xdrive-evidence-kind': kind,
+      'x-xdrive-evidence-name': objectName,
+      ...(kind === 'delivery' ? { 'x-xdrive-evidence-category': String(effectiveCategory) } : {}),
+    },
+  });
+
+  let payload: Record<string, unknown> = {};
+  try {
+    payload = JSON.parse(result.body || '{}') as Record<string, unknown>;
+  } catch {
+    payload = {};
+  }
+
+  if (result.status < 200 || result.status >= 300) {
+    const message = typeof payload.error === 'string'
+      ? payload.error
+      : `Evidence upload failed with HTTP ${result.status}`;
+    throw new Error(message);
+  }
+
+  const storagePath = typeof payload.storagePath === 'string' ? payload.storagePath.trim() : '';
+  if (!storagePath) throw new Error('Evidence upload succeeded without a storage path.');
+  return storagePath;
 }
 
 export async function persistEvidencePhoto(uri: string, jobId: string, stage: 'pickup' | 'delivery') {
@@ -49,7 +107,9 @@ export async function persistEvidencePhoto(uri: string, jobId: string, stage: 'p
   if (!root) return uri;
   const folder = `${root}pod-evidence/${jobId.replace(/[^a-z0-9-]/gi, '')}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
-  const destination = `${folder}${stage}-${Date.now()}.jpg`;
+  const clean = cleanLocalUri(uri).toLowerCase();
+  const extension = clean.endsWith('.png') ? 'png' : 'jpg';
+  const destination = `${folder}${stage}-${Date.now()}.${extension}`;
   await FileSystem.copyAsync({ from: uri, to: destination });
   return destination;
 }
@@ -63,14 +123,55 @@ export async function fetchJob(jobId: string, token: string) {
 }
 
 export async function postJobStatus(jobId: string, endpoint: string, token: string, payload: EvidencePayload = {}) {
-  const body = Object.keys(payload).length > 0 ? await encodeEvidence(payload) : undefined;
-  return apiRequest<{ ok: true; job?: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, { method: 'POST', token, body });
+  const { collectionPhotoUri, ...metadata } = payload;
+
+  // The current server contract is storage-authoritative: collection evidence
+  // must be uploaded and linked before the Loaded lifecycle transition.
+  if (collectionPhotoUri) {
+    await uploadEvidenceFile({
+      jobId,
+      token,
+      uri: collectionPhotoUri,
+      kind: 'collection',
+    });
+  }
+
+  return apiRequest<{ ok: true; job?: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/${endpoint}`, {
+    method: 'POST',
+    token,
+    body: Object.keys(metadata).length > 0 ? metadata : undefined,
+  });
 }
 
 export async function uploadPod(jobId: string, token: string, metadata: EvidencePayload) {
+  const {
+    pickupPhotoUris: _pickupPhotoUris,
+    deliveryPhotoUris = [],
+    photoUris: _legacyPhotoUris,
+    damagePhotoUris = [],
+    documentUris = [],
+    collectionPhotoUri: _collectionPhotoUri,
+    ...podMetadata
+  } = metadata;
+
+  const photoPaths = await Promise.all(
+    deliveryPhotoUris.map((uri) => uploadEvidenceFile({ jobId, token, uri, kind: 'delivery', category: 'photos' })),
+  );
+  const damagePhotoPaths = await Promise.all(
+    damagePhotoUris.map((uri) => uploadEvidenceFile({ jobId, token, uri, kind: 'delivery', category: 'damage' })),
+  );
+  const documentPaths = await Promise.all(
+    documentUris.map((uri) => uploadEvidenceFile({ jobId, token, uri, kind: 'delivery', category: 'documents' })),
+  );
+
   return apiRequest<{ ok: true; job?: DriverJob }>(`/api/driver/mobile/jobs/${jobId}/pod`, {
     method: 'POST',
     token,
-    body: await encodeEvidence(metadata),
+    body: {
+      ...podMetadata,
+      photoUris: photoPaths,
+      damagePhotoUris: damagePhotoPaths,
+      documentUris: documentPaths,
+    },
   });
 }
