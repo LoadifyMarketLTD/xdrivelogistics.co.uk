@@ -1,332 +1,309 @@
 /*
- * XDrive Super Admin — visual unification contract
- *
- * This is deliberately scoped to the Super Admin content canvas. It does not
- * change data, authorization, navigation or mutation semantics. The purpose is
- * to make legacy/custom pages and shared table/module pages read as one product
- * while preserving the established XDrive navy/blue/orange light identity.
+ * XDrive Logistics LTD — Super Admin enterprise design system
+ * Canonical scope: every route rendered inside /super-admin.
+ * This layer is visual only: it does not change data, auth, navigation or
+ * mutation semantics. Existing unsupported data remains fail-closed.
  */
 
 .super-admin-light-root {
-  --sa-ui-navy: #0B2F6B;
-  --sa-ui-blue: #1D57D8;
-  --sa-ui-orange: #F5A300;
-  --sa-ui-ink: #1A1F2B;
-  --sa-ui-muted: #64748B;
-  --sa-ui-border: #D9E1EA;
-  --sa-ui-soft: #F4F6F8;
-  --sa-ui-white: #FFFFFF;
-  --sa-ui-danger: #DC2626;
-  --sa-ui-success: #168553;
-  --sa-ui-radius: 8px;
-  --sa-ui-control-height: 32px;
-  --sa-ui-section-gap: 12px;
+  --white: #FFFFFF;
+  --light-gray: #F5F7FA;
+  --text-gray: #4A4A4A;
+  --brand-blue: #1A73E8;
+  --status-green: #34A853;
+  --status-yellow: #FBBC05;
+  --status-red: #EA4335;
+  --status-gray: #8A9099;
+  --enterprise-border: #E0E3E7;
+  --enterprise-ink: #1F2937;
+  --enterprise-navy: #0B2F6B;
+  --enterprise-muted: #6B7280;
+  --enterprise-radius: 12px;
+  --enterprise-shadow: 0 3px 12px rgba(31, 41, 55, 0.055);
+  --enterprise-control-height: 40px;
+  --enterprise-section-gap: 18px;
+
+  /* Compatibility aliases for existing Super Admin CSS. */
+  --sa-ui-navy: var(--enterprise-navy);
+  --sa-ui-blue: var(--brand-blue);
+  --sa-ui-orange: var(--status-yellow);
+  --sa-ui-ink: var(--enterprise-ink);
+  --sa-ui-muted: var(--enterprise-muted);
+  --sa-ui-border: var(--enterprise-border);
+  --sa-ui-soft: var(--light-gray);
+  --sa-ui-white: var(--white);
+  --sa-ui-danger: var(--status-red);
+  --sa-ui-success: var(--status-green);
+  --sa-ui-radius: var(--enterprise-radius);
+  --sa-ui-control-height: var(--enterprise-control-height);
+  --sa-ui-section-gap: var(--enterprise-section-gap);
+
+  background: var(--light-gray);
+  color: var(--text-gray);
+  font-family: Roboto, Inter, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-/* Page typography: one hierarchy across analytics, governance, finance,
- * support, operations, compliance, fleet and entity inspection. */
+/* Typography hierarchy from the approved Master Pack. */
 .super-admin-light-root main h1 {
   margin-top: 0;
-  color: var(--sa-ui-navy) !important;
-  font-size: 20px !important;
-  line-height: 1.2 !important;
-  font-weight: 850 !important;
-  letter-spacing: -0.015em;
+  color: var(--enterprise-navy) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 28px !important;
+  line-height: 1.16 !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
 }
 
 .super-admin-light-root main h2 {
-  color: var(--sa-ui-navy) !important;
-  font-size: 13px !important;
+  color: var(--enterprise-navy) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 20px !important;
   line-height: 1.25 !important;
-  font-weight: 820 !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.01em;
 }
 
 .super-admin-light-root main h3 {
-  color: var(--sa-ui-navy) !important;
-  font-size: 12px !important;
+  color: var(--enterprise-navy) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 18px !important;
   line-height: 1.3 !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
 }
 
-.super-admin-light-root main p {
-  line-height: 1.45;
+.super-admin-light-root main p,
+.super-admin-light-root main li,
+.super-admin-light-root main label,
+.super-admin-light-root main td,
+.super-admin-light-root main input,
+.super-admin-light-root main select,
+.super-admin-light-root main textarea {
+  font-family: Roboto, Inter, Arial, sans-serif;
+  font-size: 14px;
 }
 
-/* The context bar above the content already carries the active domain. Legacy
- * pages repeated that information with emoji tiles and section pills while
- * newer pages (Analytics/Health) did not. Remove only those page-header
- * decorations so every route starts with the same title/description hierarchy. */
+/* Legacy page-header decorations are redundant with the shared shell. */
 .super-admin-light-root main header[style*="min-height: 52px"] > span[aria-hidden="true"],
-.super-admin-light-root main header[style*="min-height:52px"] > span[aria-hidden="true"] {
-  display: none !important;
-}
-
+.super-admin-light-root main header[style*="min-height:52px"] > span[aria-hidden="true"],
 .super-admin-light-root main header[style*="min-height: 52px"] > div > div:first-child > span[style*="text-transform: uppercase"],
 .super-admin-light-root main header[style*="min-height:52px"] > div > div:first-child > span[style*="text-transform:uppercase"] {
   display: none !important;
 }
 
-/* A few older custom pages use divs instead of the shared header element. Keep
- * the same rule for those roots rather than preserving a second visual family. */
-.super-admin-light-root main > div[style*="min-height: 100vh"] > div:first-child > span:first-child,
-.super-admin-light-root main > div > div[style*="min-height: 100vh"] > div:first-child > span:first-child {
-  display: none !important;
-}
-
-.super-admin-light-root main > div[style*="min-height: 100vh"] > div:first-child > div > div:first-child > span[style*="text-transform: uppercase"],
-.super-admin-light-root main > div > div[style*="min-height: 100vh"] > div:first-child > div > div:first-child > span[style*="text-transform: uppercase"] {
-  display: none !important;
-}
-
-/* Page-level rhythm. Custom pages historically used different canvases and
- * padding values; normalize their first content surface without touching the
- * sticky shell/header above it. */
-.super-admin-light-root main > div {
-  min-width: 0;
-}
-
+.super-admin-light-root main > div { min-width: 0; }
 .super-admin-light-root main > div[style*="min-height: 100vh"],
 .super-admin-light-root main > div > div[style*="min-height: 100vh"] {
   background: transparent !important;
 }
 
-/* Legacy dark-theme fragments still exist in a handful of mature control-plane
- * pages. The shell is now deliberately light, so normalize only those exact old
- * palette values. This also repairs pale text that otherwise lands on white
- * cards/modals while preserving semantic success/warning/danger colours. */
+/* Normalize remaining dark-theme fragments into the enterprise light system. */
 .super-admin-light-root main [style*="color: #f1f5f9"],
 .super-admin-light-root main [style*="color:#f1f5f9"],
-.super-admin-light-root main [style*="color: rgb(241, 245, 249)"],
-.super-admin-light-root main [style*="color:rgb(241, 245, 249)"] {
-  color: var(--sa-ui-ink) !important;
+.super-admin-light-root main [style*="color: rgb(241, 245, 249)"] {
+  color: var(--enterprise-ink) !important;
 }
 
 .super-admin-light-root main [style*="color: #94a3b8"],
 .super-admin-light-root main [style*="color:#94a3b8"],
-.super-admin-light-root main [style*="color: rgb(148, 163, 184)"],
-.super-admin-light-root main [style*="color:rgb(148, 163, 184)"] {
-  color: var(--sa-ui-muted) !important;
+.super-admin-light-root main [style*="color: rgb(148, 163, 184)"] {
+  color: var(--enterprise-muted) !important;
 }
 
 .super-admin-light-root main [style*="background-color: #1e293b"],
 .super-admin-light-root main [style*="background-color:#1e293b"],
 .super-admin-light-root main [style*="background-color: rgb(30, 41, 59)"],
-.super-admin-light-root main [style*="background-color:rgb(30, 41, 59)"] {
-  background-color: var(--sa-ui-white) !important;
+.super-admin-light-root main [style*="background-color: #0b1220"],
+.super-admin-light-root main [style*="background-color:#0b1220"],
+.super-admin-light-root main [style*="background-color: rgb(11, 18, 32)"] {
+  background-color: var(--white) !important;
+  color: var(--enterprise-ink) !important;
 }
 
 .super-admin-light-root main [style*="border-color: #334155"],
 .super-admin-light-root main [style*="border-color:#334155"],
-.super-admin-light-root main [style*="border-color: rgb(51, 65, 85)"],
-.super-admin-light-root main [style*="border-color:rgb(51, 65, 85)"] {
-  border-color: var(--sa-ui-border) !important;
+.super-admin-light-root main [style*="border-color: rgb(51, 65, 85)"] {
+  border-color: var(--enterprise-border) !important;
 }
 
-.super-admin-light-root main [style*="background-color: #0b1220"],
-.super-admin-light-root main [style*="background-color:#0b1220"],
-.super-admin-light-root main [style*="background-color: rgb(11, 18, 32)"],
-.super-admin-light-root main [style*="background-color:rgb(11, 18, 32)"] {
-  background-color: var(--sa-ui-white) !important;
-  color: var(--sa-ui-navy) !important;
-}
-
-/* Shared cards / panels. Existing semantic colours are preserved; geometry,
- * border and shadow language are unified. */
+/* Shared enterprise card/panel language across every Super Admin module. */
 .super-admin-light-root main section[style*="border"],
 .super-admin-light-root main article[style*="border"],
 .super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
-  border-color: var(--sa-ui-border) !important;
-  border-radius: var(--sa-ui-radius) !important;
-  box-shadow: none !important;
+  border-color: var(--enterprise-border) !important;
+  border-radius: var(--enterprise-radius) !important;
+  background: var(--white) !important;
+  box-shadow: var(--enterprise-shadow) !important;
 }
 
 .super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
-  min-height: 88px !important;
-  background: var(--sa-ui-white) !important;
-  padding: 12px !important;
+  min-height: 100px !important;
+  padding: 20px !important;
 }
 
-/* Compact KPI language: numeric value, label, supporting note. */
+/* KPI values use strong tabular numerals but retain their owning semantic color. */
 .super-admin-light-root main div[style*="font-size: 22px"],
 .super-admin-light-root main div[style*="font-size: 20px"][style*="font-weight: 800"] {
-  color: var(--sa-ui-navy) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
   font-variant-numeric: tabular-nums;
 }
 
-.super-admin-light-root main div[style*="min-height: 88px"][style*="border"] > div:nth-child(2),
-.super-admin-light-root main div[style*="min-height: 80px"][style*="border"] > div:nth-child(2),
-.super-admin-light-root main div[style*="min-height: 72px"][style*="border"] > div:nth-child(2) {
-  margin-top: 7px !important;
-  color: var(--sa-ui-ink) !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-}
-
-/* Tables are the main control-plane surface and must feel identical regardless
- * of which route produced them. */
+/* Tables: readable, airy, enterprise rather than dense/debug-like. */
 .super-admin-light-root main table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--sa-ui-white) !important;
-  color: var(--sa-ui-ink);
-  font-size: 11.5px !important;
+  background: var(--white) !important;
+  color: var(--enterprise-ink);
+  font-size: 14px !important;
 }
 
-.super-admin-light-root main thead {
-  background: var(--sa-ui-soft) !important;
-}
-
+.super-admin-light-root main thead { background: var(--light-gray) !important; }
 .super-admin-light-root main th {
-  min-height: 38px;
-  padding: 9px 12px !important;
-  color: var(--sa-ui-navy) !important;
-  font-size: 10px !important;
-  font-weight: 850 !important;
-  line-height: 1.2;
-  letter-spacing: .045em !important;
-  text-transform: uppercase;
+  min-height: 42px;
+  padding: 11px 14px !important;
+  color: var(--enterprise-navy) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+  line-height: 1.25;
+  letter-spacing: .015em !important;
+  text-transform: none;
   vertical-align: middle;
 }
 
 .super-admin-light-root main td {
-  padding: 9px 12px !important;
-  color: var(--sa-ui-ink);
-  font-size: 11.5px;
-  line-height: 1.4;
+  padding: 12px 14px !important;
+  color: var(--enterprise-ink);
+  font-size: 14px !important;
+  line-height: 1.45;
   vertical-align: top;
 }
 
 .super-admin-light-root main tbody tr {
-  min-height: 44px;
-  border-bottom: 1px solid var(--sa-ui-border) !important;
+  min-height: 48px;
+  border-bottom: 1px solid var(--enterprise-border) !important;
 }
+.super-admin-light-root main tbody tr:last-child { border-bottom: 0 !important; }
+.super-admin-light-root main tbody tr:hover { background: #FAFBFD !important; }
 
-.super-admin-light-root main tbody tr:last-child {
-  border-bottom: 0 !important;
-}
-
-.super-admin-light-root main tbody tr:hover {
-  background: #F8FAFD !important;
-}
-
-/* Controls: consistent dimensions and focus treatment. Existing primary,
- * success, warning and danger fills remain untouched. */
+/* Enterprise controls and actions. Semantic fills remain owned by each page. */
 .super-admin-light-root main button,
 .super-admin-light-root main a[role="button"] {
-  min-height: var(--sa-ui-control-height);
-  border-radius: var(--sa-ui-radius) !important;
-  font-family: inherit;
-  font-size: 10.5px;
-  font-weight: 780;
-  line-height: 1;
+  min-height: var(--enterprise-control-height);
+  border-radius: 8px !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.1;
 }
 
-/* Older table action cells supplied only text and click handlers, leaving them
- * visually unlike the rest of the control plane. Give only truly unstyled table
- * actions the shared neutral control treatment; semantic/danger buttons with an
- * explicit border or fill keep their owning page colours. */
 .super-admin-light-root main table button:not([style*="background"]):not([style*="border"]) {
-  border: 1px solid var(--sa-ui-border);
-  background: var(--sa-ui-white);
-  color: var(--sa-ui-navy);
-  padding: 0 9px;
+  border: 1px solid var(--enterprise-border);
+  background: var(--white);
+  color: var(--brand-blue);
+  padding: 0 12px;
 }
+
+.super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
+.super-admin-light-root main select,
+.super-admin-light-root main textarea {
+  border: 1px solid var(--enterprise-border) !important;
+  border-radius: 8px !important;
+  background: var(--white) !important;
+  color: var(--text-gray) !important;
+}
+.super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
+.super-admin-light-root main select { min-height: 40px; }
+.super-admin-light-root main textarea { line-height: 1.5; }
 
 .super-admin-light-root main button:focus-visible,
 .super-admin-light-root main a:focus-visible,
 .super-admin-light-root main input:focus-visible,
 .super-admin-light-root main textarea:focus-visible,
 .super-admin-light-root main select:focus-visible {
-  outline: 2px solid var(--sa-ui-blue) !important;
+  outline: 3px solid rgba(26,115,232,.25) !important;
   outline-offset: 2px;
 }
 
-.super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
-.super-admin-light-root main select {
-  min-height: 34px;
-  border-radius: var(--sa-ui-radius) !important;
-  font-size: 11.5px;
-}
-
-.super-admin-light-root main textarea {
-  border-radius: var(--sa-ui-radius) !important;
-  font-size: 11.5px;
-  line-height: 1.45;
-}
-
-/* Confirmation/reason dialogs use the same surface geometry as cards. */
-.super-admin-light-root main [role="dialog"] > div {
-  border-radius: var(--sa-ui-radius) !important;
-}
-
-/* Alerts/notices use a shared geometry while retaining semantic border, fill
- * and text colours supplied by each owning page. */
-.super-admin-light-root main [role="alert"] {
-  border-radius: var(--sa-ui-radius) !important;
-  background: var(--sa-ui-white);
-  padding: 10px 12px !important;
-  line-height: 1.45;
-}
-
-/* Status chips / badges keep their meaning but no longer vary wildly in
- * vertical size across custom and shared pages. */
+/* Status chips share one geometry while retaining semantic color. */
 .super-admin-light-root main [style*="border-radius: 999"],
 .super-admin-light-root main [style*="border-radius:999"] {
-  min-height: 22px;
+  min-height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
-  font-size: 9px !important;
+  padding: 4px 10px !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 12px !important;
   line-height: 1.15 !important;
-  font-weight: 820 !important;
+  font-weight: 700 !important;
 }
 
-/* Read-only inspector and reconciliation/detail cards were a separate visual
- * family. Bring their 12/14px legacy cards into the same geometry. */
-.super-admin-light-root main [style*="border-radius: 14px"],
-.super-admin-light-root main [style*="border-radius:14px"],
-.super-admin-light-root main [style*="border-radius: 12px"],
-.super-admin-light-root main [style*="border-radius:12px"] {
-  border-radius: var(--sa-ui-radius) !important;
+/* Dialogs, alerts and empty states use the same card geometry. */
+.super-admin-light-root main [role="dialog"] > div,
+.super-admin-light-root main [role="dialog"] aside {
+  border-radius: var(--enterprise-radius) !important;
+  background: var(--white) !important;
+  color: var(--enterprise-ink) !important;
+  box-shadow: 0 16px 40px rgba(31,41,55,.12) !important;
+}
+
+.super-admin-light-root main [role="alert"] {
+  border-radius: var(--enterprise-radius) !important;
+  padding: 14px 16px !important;
+  line-height: 1.5;
 }
 
 .super-admin-light-root main code {
-  color: var(--sa-ui-muted);
+  color: var(--enterprise-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 9.5px;
+  font-size: 12px;
 }
 
-/* Empty states and loading-only panels use a common quiet treatment. */
 .super-admin-light-root main section > div[style*="text-align: center"][style*="padding: 18px"],
 .super-admin-light-root main section > div[style*="text-align:center"][style*="padding:18px"] {
-  min-height: 84px;
+  min-height: 100px;
   display: grid;
   place-items: center;
-  color: var(--sa-ui-muted) !important;
-  background: var(--sa-ui-white);
-  font-size: 11.5px !important;
+  color: var(--enterprise-muted) !important;
+  background: var(--white);
+  border-radius: var(--enterprise-radius);
+  font-size: 14px !important;
 }
 
-/* Keep dense control-plane pages usable on smaller screens without inventing a
- * second mobile visual language. */
+/* The shell itself follows the same typography and enterprise control language. */
+.super-admin-light-root > * {
+  font-family: Roboto, Inter, Arial, sans-serif;
+}
+.super-admin-light-root nav,
+.super-admin-light-root header {
+  color: var(--text-gray);
+}
+.super-admin-light-root nav a,
+.super-admin-light-root header button,
+.super-admin-light-root header a {
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
-  .super-admin-light-root main h1 { font-size: 18px !important; }
+  .super-admin-light-root main h1 { font-size: 24px !important; }
+  .super-admin-light-root main h2 { font-size: 19px !important; }
   .super-admin-light-root main th,
-  .super-admin-light-root main td { padding-left: 9px !important; padding-right: 9px !important; }
+  .super-admin-light-root main td { padding-left: 10px !important; padding-right: 10px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .super-admin-light-root main *,
-  .super-admin-light-root main *::before,
-  .super-admin-light-root main *::after {
+  .super-admin-light-root *,
+  .super-admin-light-root *::before,
+  .super-admin-light-root *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
