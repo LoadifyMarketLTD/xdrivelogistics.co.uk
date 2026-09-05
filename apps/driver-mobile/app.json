@@ -1,20 +1,26 @@
 {
   "expo": {
-    "name": "XDrive Driver Preview",
-    "slug": "xdrive-driver-preview",
-    "version": "1.1.0-preview.2",
+    "name": "XDrive Driver",
+    "slug": "xdrive-driver",
+    "version": "1.2.0",
     "orientation": "portrait",
     "newArchEnabled": false,
     "icon": "./assets/xdrive-native-logo.jpeg",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "scheme": [
+      "xdrivedriver",
+      "xdrive"
+    ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "co.uk.xdrivelogistics.driver.preview"
+      "supportsTablet": false,
+      "bundleIdentifier": "co.uk.xdrivelogistics.driver",
+      "buildNumber": "20260905"
     },
     "android": {
-      "package": "co.uk.xdrivelogistics.driver.preview",
-      "versionCode": 2,
+      "package": "co.uk.xdrivelogistics.driver",
+      "versionCode": 20260905,
       "permissions": [
+        "ACCESS_NETWORK_STATE",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "CAMERA",
@@ -31,8 +37,8 @@
     },
     "owner": "xdrive-logistics-ltd",
     "extra": {
-      "releaseChannel": "preview",
-      "productionOwner": "android-native",
+      "releaseChannel": "e2e-hardening",
+      "productionOwner": "driver-mobile",
       "eas": {
         "projectId": "c19b0bdf-567a-488e-b78f-d36b84f25c99"
       }
@@ -47,7 +53,11 @@
       "url": "https://u.expo.dev/c19b0bdf-567a-488e-b78f-d36b84f25c99"
     },
     "plugins": [
-      "expo-splash-screen"
+      "expo-asset",
+      "expo-secure-store",
+      "expo-image-picker",
+      "expo-document-picker",
+      "expo-notifications"
     ]
   }
 }
