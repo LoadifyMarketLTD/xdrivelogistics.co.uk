@@ -12,16 +12,12 @@
  *    `actionQueue.derived === true` signals this contract to consumers.
  *  - `refreshedAt`: timestamp of this snapshot. No push/polling is provided.
  *
- * Owner role required.
+ * Active Platform Owner required.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { resolveEnvironment } from '../_lib/envDetection';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -44,22 +40,6 @@ type ActionQueueItem = {
   href: string;
 };
 
-const resolveOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 const ageMinutes = (isoDate: string): number => {
   const ms = Date.now() - new Date(isoDate).getTime();
   return Math.max(0, Math.floor(ms / 60000));
@@ -75,15 +55,16 @@ const isTableMissing = (err: { code?: string; message?: string } | null | undefi
   Boolean(err?.code && TABLE_MISSING_CODES.has(err.code));
 
 const exactCount = (result: { count: number | null; error: { message: string } | null }) =>
-  result.error ? null : (result.count ?? 0);
+  result.error || result.count === null ? null : result.count;
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await resolveOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!(await verifyPlatformOwner(request))) {
+    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+  }
 
   const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
@@ -241,7 +222,7 @@ export async function GET(request: NextRequest) {
     // Overdue collectible invoices. Void rows are audit history, not receivables.
     supabaseAdmin
       .from('invoices')
-      .select('id, invoice_number, amount, due_date, created_at')
+      .select('id, invoice_number, amount, currency, due_date, created_at')
       .eq('payment_status', 'unpaid')
       .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
@@ -312,10 +293,9 @@ export async function GET(request: NextRequest) {
       .lt('created_at', twentyFiveDaysAgo),
   ]);
 
-  // Propagate errors — any failed query produces an explicit partial_data warning.
-  // We do not silently present missing data as zero/healthy.
-  // Sources backed by tables that may not yet exist in the live schema are tracked
-  // separately so the UI can distinguish "unavailable" from "zero".
+  // Propagate errors. Optional/future-schema relations are tracked separately;
+  // any other query error fails the snapshot closed instead of presenting partial
+  // data as a healthy or zero state.
   const queryErrors: string[] = [];
   const collectQueryError = (
     source: string,
@@ -333,7 +313,7 @@ export async function GET(request: NextRequest) {
   collectQueryError('docs_expired', docsExpiredPreviewResult.error, docsExpiredCountResult.error);
 
   // For optional/future-schema tables, distinguish "table missing" (unavailable)
-  // from other errors (partial data warning).
+  // from other errors (hard failure).
   const fraudUnavailable = [
     fraudCasesPreviewResult.error,
     fraudCasesCountResult.error,
@@ -366,6 +346,13 @@ export async function GET(request: NextRequest) {
     gdprRequestsP0CountResult.error,
   ].some((error) => isTableMissing(error));
   collectQueryError('gdpr_requests', gdprRequestsPreviewResult.error, gdprRequestsCountResult.error, gdprRequestsP0CountResult.error);
+
+  if (queryErrors.length > 0) {
+    return respond(503, {
+      error: 'Command Centre data could not be determined safely.',
+      queryErrors,
+    });
+  }
 
   // Build Critical Action Queue
   const queue: ActionQueueItem[] = [];
@@ -481,14 +468,15 @@ export async function GET(request: NextRequest) {
 
   // Overdue invoices (only when the table exists in the live schema)
   if (!invoicesUnavailable) {
-    for (const invoice of (invoicesOverduePreviewResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; due_date: string; created_at: string }>) {
+    for (const invoice of (invoicesOverduePreviewResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; currency: string | null; due_date: string; created_at: string }>) {
       const age = ageMinutes(invoice.due_date);
+      const currency = String(invoice.currency ?? '').trim().toUpperCase() || 'UNKNOWN';
       queue.push({
         id: `invoice-overdue-${invoice.id}`,
         type: 'invoice_overdue',
         severity: age > 30 * 24 * 60 ? 'P1' : 'P2',
         title: 'Invoice overdue',
-        description: `${invoice.invoice_number} · £${(invoice.amount ?? 0).toFixed(2)} · overdue ${Math.floor(age / (24 * 60))} days`,
+        description: `${invoice.invoice_number} · ${currency} ${(invoice.amount ?? 0).toFixed(2)} · overdue ${Math.floor(age / (24 * 60))} days`,
         entityType: 'invoice',
         entityId: invoice.id,
         entityName: invoice.invoice_number,
@@ -565,6 +553,23 @@ export async function GET(request: NextRequest) {
   const gdprRequestsP0Count = gdprUnavailable ? 0 : (exactCount(gdprRequestsP0CountResult) ?? 0);
   const blockedAccountsCount = exactCount(companiesSuspendedCountResult);
 
+  const coreCountUnavailable = [
+    companiesPendingCount,
+    jobsAtRiskCount,
+    jobsAtRiskP0Count,
+    jobsWithoutDriverCount,
+    docsExpiringSoonCount,
+    docsExpiringSoonP1Count,
+    docsExpiredCount,
+    blockedAccountsCount,
+  ].some((count) => count === null);
+
+  if (coreCountUnavailable) {
+    return respond(503, {
+      error: 'Command Centre exact counts could not be determined safely.',
+    });
+  }
+
   const staleJobP1Count =
     jobsAtRiskCount !== null && jobsAtRiskP0Count !== null ? Math.max(0, jobsAtRiskCount - jobsAtRiskP0Count) : 0;
   const docsExpiringSoonP2Count =
@@ -615,17 +620,26 @@ export async function GET(request: NextRequest) {
   if (supportCriticalUnavailable) unavailableSources.push('support_tickets');
   if (gdprUnavailable) unavailableSources.push('support_tickets_gdpr');
 
+  const criticalCoverageUnavailable = fraudUnavailable || supportCriticalUnavailable || gdprUnavailable;
+  const queueCoverageUnavailable = criticalCoverageUnavailable || invoicesUnavailable;
+
   return respond(200, {
     environment: resolveEnvironment(),
     refreshedAt: now.toISOString(),
-    ...(queryErrors.length > 0 ? { partialData: true, queryErrors } : {}),
     ...(unavailableSources.length > 0 ? { unavailableSources } : {}),
     attentionIndicators: {
-      p0p1Incidents: {
-        count: criticalActionsCount,
-        label: 'Critical actions (P0/P1)',
-        severity: criticalActionsCount > 0 ? 'critical' : 'ok',
-      },
+      p0p1Incidents: criticalCoverageUnavailable
+        ? {
+            count: null,
+            label: 'Critical actions (P0/P1)',
+            severity: 'unknown' as const,
+            note: 'One or more critical-action sources are unavailable.',
+          }
+        : {
+            count: criticalActionsCount,
+            label: 'Critical actions (P0/P1)',
+            severity: criticalActionsCount > 0 ? 'critical' as const : 'ok' as const,
+          },
       jobsAtRisk: exactJobsAtRiskCount === null
         ? { count: null, label: 'Jobs at risk', severity: 'unknown' as const, note: 'Jobs-at-risk totals unavailable.' }
         : {
@@ -659,11 +673,14 @@ export async function GET(request: NextRequest) {
     },
     actionQueue: {
       derived: true,
-      queueNote: 'Computed on-demand from current source tables. Not a persistent incident/case registry — items are re-derived on every request.',
-      total: totalQueueCount,
-      p0: p0Count,
-      p1: p1Count,
-      p2: p2Count,
+      partial: queueCoverageUnavailable,
+      queueNote: queueCoverageUnavailable
+        ? 'Computed from available source tables only; at least one source is unavailable, so queue totals are unknown.'
+        : 'Computed on-demand from current source tables. Not a persistent incident/case registry — items are re-derived on every request.',
+      total: queueCoverageUnavailable ? null : totalQueueCount,
+      p0: criticalCoverageUnavailable ? null : p0Count,
+      p1: queueCoverageUnavailable ? null : p1Count,
+      p2: invoicesUnavailable ? null : p2Count,
       items: queue.slice(0, PREVIEW_LIMIT),
     },
   });
