@@ -21,13 +21,19 @@ export type OperationalJobPin = {
   map: { pickup_lat: number | null; pickup_lng: number | null; delivery_lat: number | null; delivery_lng: number | null };
 };
 
-const DRIVER_COLORS = { online: '#16A34A', busy: '#F5A300', offline: '#DC2626' } as const;
-const JOB_COLOR = '#1D57D8';
+const COLORS = {
+  blue: '#1A73E8',
+  green: '#34A853',
+  yellow: '#FBBC05',
+  red: '#EA4335',
+  white: '#FFFFFF',
+  text: '#4A4A4A',
+} as const;
 
 function driverOperationalColor(pin: OperationalDriverPin) {
-  if (pin.status === 'offline') return DRIVER_COLORS.offline;
-  if ((pin.location?.speed_mph ?? 0) > 3) return DRIVER_COLORS.online;
-  return pin.status === 'busy' ? DRIVER_COLORS.busy : '#D9A400';
+  if (pin.status === 'offline') return COLORS.red;
+  if ((pin.location?.speed_mph ?? 0) > 3) return COLORS.green;
+  return COLORS.yellow;
 }
 
 export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
@@ -63,25 +69,25 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
 
       const markerIcon = (color: string, label: string) => L.divIcon({
         className: '',
-        html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(11,47,107,.28);display:grid;place-items:center;color:#fff;font:800 10px/1 Inter,sans-serif">${label}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: `<div style="width:30px;height:30px;border-radius:50%;background:${color};border:3px solid ${COLORS.white};box-shadow:0 2px 8px rgba(0,0,0,.18);display:grid;place-items:center;color:${COLORS.white};font:800 11px/1 Inter,Roboto,sans-serif">${label}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       });
 
       const popup = (title: string, lines: string[]) => {
         const root = document.createElement('div');
-        root.style.minWidth = '170px';
-        root.style.fontFamily = 'Inter, sans-serif';
+        root.style.minWidth = '180px';
+        root.style.fontFamily = 'Inter, Roboto, sans-serif';
         const heading = document.createElement('strong');
         heading.textContent = title;
-        heading.style.color = '#0B2F6B';
+        heading.style.color = COLORS.blue;
         root.appendChild(heading);
         for (const line of lines) {
           const item = document.createElement('div');
           item.textContent = line;
-          item.style.fontSize = '11px';
-          item.style.marginTop = '4px';
-          item.style.color = '#475569';
+          item.style.fontSize = '13px';
+          item.style.marginTop = '5px';
+          item.style.color = COLORS.text;
           root.appendChild(item);
         }
         return root;
@@ -103,7 +109,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       for (const job of jobs) {
         const eta = job.eta?.eta_at ? `ETA ${new Date(job.eta.eta_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'ETA unavailable';
         if (Number.isFinite(job.map.pickup_lat) && Number.isFinite(job.map.pickup_lng)) {
-          L.marker([Number(job.map.pickup_lat), Number(job.map.pickup_lng)], { icon: markerIcon(JOB_COLOR, 'J') })
+          L.marker([Number(job.map.pickup_lat), Number(job.map.pickup_lng)], { icon: markerIcon(COLORS.blue, 'J') })
             .addTo(map)
             .bindPopup(popup(`Job ${job.short_id}`, [job.client, `Pickup: ${job.pickup}`, eta]));
         }
@@ -113,7 +119,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         const a: [number, number] = [Number(job.map.pickup_lat), Number(job.map.pickup_lng)];
         const b: [number, number] = [Number(job.map.delivery_lat), Number(job.map.delivery_lng)];
         if (![...a, ...b].every(Number.isFinite)) continue;
-        L.polyline([a, b], { color: JOB_COLOR, weight: 3, opacity: 0.75, dashArray: '8 6' }).addTo(map);
+        L.polyline([a, b], { color: COLORS.blue, weight: 3, opacity: 0.8, dashArray: '8 6' }).addTo(map);
       }
 
       if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [34, 34], maxZoom: 11 });
@@ -130,22 +136,23 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         const wrap = L.DomUtil.create('div');
         wrap.style.display = 'flex';
         wrap.style.gap = '4px';
-        wrap.style.background = '#fff';
+        wrap.style.background = COLORS.white;
         wrap.style.padding = '5px';
-        wrap.style.border = '1px solid #D9E1EA';
+        wrap.style.border = '1px solid #E0E3E7';
         wrap.style.borderRadius = '8px';
         L.DomEvent.disableClickPropagation(wrap);
         for (const region of regions) {
           const button = document.createElement('button');
           button.type = 'button';
           button.textContent = region.label;
-          button.style.border = '1px solid #D9E1EA';
-          button.style.background = '#fff';
-          button.style.color = '#0B2F6B';
+          button.style.border = '1px solid #E0E3E7';
+          button.style.background = COLORS.white;
+          button.style.color = COLORS.blue;
           button.style.borderRadius = '6px';
-          button.style.padding = '5px 7px';
-          button.style.fontSize = '10px';
-          button.style.fontWeight = '800';
+          button.style.padding = '6px 8px';
+          button.style.fontFamily = 'Inter, Roboto, sans-serif';
+          button.style.fontSize = '12px';
+          button.style.fontWeight = '700';
           button.onclick = () => map.setView([region.lat, region.lng], region.zoom);
           wrap.appendChild(button);
         }
@@ -162,5 +169,5 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
     };
   }, [drivers, jobs, routes]);
 
-  return <div ref={nodeRef} aria-label="Live operational map" style={{ width: '100%', minHeight: 390, border: '1px solid #D9E1EA', borderRadius: 8, overflow: 'hidden', background: '#E8EEF5' }} />;
+  return <div ref={nodeRef} aria-label="Live operational map" style={{ width: '100%', minHeight: 420, border: '1px solid #E0E3E7', borderRadius: 10, overflow: 'hidden', background: '#F5F7FA' }} />;
 }
