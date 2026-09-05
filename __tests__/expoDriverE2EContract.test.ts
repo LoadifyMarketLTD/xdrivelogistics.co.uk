@@ -12,7 +12,6 @@ const push = read('apps/driver-mobile/src/push/registerPushToken.ts');
 const pushNavigation = read('apps/driver-mobile/src/push/notificationHandling.ts');
 const queue = read('apps/driver-mobile/src/offline/queue.ts');
 const jobsApi = read('apps/driver-mobile/src/api/jobs.ts');
-const liveLoadsApi = read('apps/driver-mobile/src/api/liveLoads.ts');
 const liveLoadsScreen = read('apps/driver-mobile/src/live-loads/LiveLoadsScreen.tsx');
 const serverLocation = read('app/api/driver/location/route.ts');
 
@@ -63,12 +62,14 @@ describe('Expo Driver production/E2E source contract', () => {
 
   it('keeps quote and multi-drop replay inside the account-scoped durable queue', () => {
     expect(queue).toContain('queueStorageKey(userId)');
-    expect(queue).toContain("action.endpoint === 'quote'");
     expect(queue).toContain("action.endpoint === 'stop-status'");
-    expect(jobsApi).toContain('postQueuedStopStatus');
-    expect(liveLoadsApi).toContain('submitQueuedLiveLoadQuote');
+    expect(queue).toContain("stringPayload(action.payload, 'stop_id')");
+    expect(jobsApi).toContain("if (endpoint === 'quote')");
+    expect(jobsApi).toContain("'/api/driver/mobile/bids'");
+    expect(jobsApi).toContain("if (endpoint === 'stop-status')");
+    expect(jobsApi).toContain('return postStopStatus(jobId, stopId, status, token)');
     expect(liveLoadsScreen).toContain("endpoint: 'quote'");
-    expect(liveLoadsScreen).toContain('Quote saved offline');
+    expect(liveLoadsScreen).toContain("Alert.alert('Quote pending'");
   });
 
   it('does not weaken POD and collection evidence requirements while hardening offline behaviour', () => {
