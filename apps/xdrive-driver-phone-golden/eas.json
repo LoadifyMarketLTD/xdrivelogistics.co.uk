@@ -9,7 +9,7 @@
       "environment": "preview",
       "android": {
         "buildType": "apk",
-        "image": "latest"
+        "image": "sdk-53"
       }
     },
     "production": {
@@ -18,7 +18,7 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",
-        "image": "latest"
+        "image": "sdk-53"
       }
     }
   },
