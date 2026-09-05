@@ -39,6 +39,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
     ] },
     { id: 'companies', label: 'Companies', items: [
       { id: 'companies', label: 'All Companies', href: '/super-admin/companies', icon: '◎' },
+      { id: 'brokers', label: 'Broker Oversight', href: '/super-admin/companies/brokers', icon: '◎' },
       { id: 'memberships', label: 'Membership & Access', href: '/super-admin/companies/memberships', icon: '◉' },
       { id: 'approvals', label: 'Pending Approval', href: '/super-admin/companies/approvals', icon: '!' },
       { id: 'active', label: 'Active Companies', href: '/super-admin/companies/active', icon: '✓' },
@@ -70,7 +71,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
     { id: 'platform', label: 'Platform', items: [
       { id: 'global', label: 'Global Settings', href: '/super-admin/settings/global', icon: '⚙' },
       { id: 'legal-agreements', label: 'Legal & Agreements', href: '/super-admin/settings/legal-agreements', icon: '§' },
-      { id: 'roles', label: 'Roles & Permissions', href: '/super-admin/settings/roles-permissions', icon: '⚙' },
+      { id: 'roles', label: 'Access Matrix', href: '/super-admin/settings/roles-permissions', icon: '⚙' },
       { id: 'flags', label: 'Feature Flags', href: '/super-admin/settings/feature-flags', icon: '⚑' },
       { id: 'audit', label: 'Audit Logs', href: '/super-admin/settings/audit-logs', icon: '▤' },
       { id: 'users', label: 'All Users', href: '/super-admin/users', icon: '◎' },
