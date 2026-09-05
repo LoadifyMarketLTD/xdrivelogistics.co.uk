@@ -1,9 +1,9 @@
 /*
  * XDrive Logistics LTD — Super Admin light hardening guard
  *
- * Prevents known legacy dark fragments from leaking into the approved
- * enterprise light theme. Selectors are intentionally narrow so semantic
- * brand/status fills are never mistaken for legacy dark surfaces.
+ * Prevents known legacy dark fragments and microtype from leaking into the
+ * approved enterprise light theme. Selectors are intentionally scoped to the
+ * Super Admin canvas so data/auth/mutation semantics are untouched.
  */
 
 .super-admin-light-root {
@@ -37,8 +37,8 @@
   color: #4A4A4A !important;
 }
 
-/* Known old inline palette values. Do not use broad #0/#1 prefix selectors:
- * #1A73E8 is the approved brand blue and must remain visible. */
+/* Known old inline dark palette values. Never use broad #0/#1 prefix
+ * selectors: #1A73E8 is the approved brand blue and must remain visible. */
 .super-admin-light-root [style*="background-color: #0f172a"],
 .super-admin-light-root [style*="background-color:#0f172a"],
 .super-admin-light-root [style*="background: #0f172a"],
@@ -62,6 +62,75 @@
   background: #FFFFFF !important;
   background-color: #FFFFFF !important;
   color: #4A4A4A !important;
+}
+
+/* Reconcile legacy Super Admin accent colours to the final Master Pack. */
+.super-admin-light-root main [style*="color: #082a61"],
+.super-admin-light-root main [style*="color:#082a61"],
+.super-admin-light-root main [style*="color: #0B2F6B"],
+.super-admin-light-root main [style*="color:#0B2F6B"],
+.super-admin-light-root main [style*="color: #1D57D8"],
+.super-admin-light-root main [style*="color:#1D57D8"],
+.super-admin-light-root main [style*="color: #0b4fb8"],
+.super-admin-light-root main [style*="color:#0b4fb8"],
+.super-admin-light-root main [style*="color: #7c3aed"],
+.super-admin-light-root main [style*="color:#7c3aed"] {
+  color: #1A73E8 !important;
+}
+
+.super-admin-light-root main [style*="color: #64748B"],
+.super-admin-light-root main [style*="color:#64748B"],
+.super-admin-light-root main [style*="color: #66778e"],
+.super-admin-light-root main [style*="color:#66778e"],
+.super-admin-light-root main [style*="color: #6B7280"],
+.super-admin-light-root main [style*="color:#6B7280"] {
+  color: #4A4A4A !important;
+}
+
+.super-admin-light-root main [style*="color: #168553"],
+.super-admin-light-root main [style*="color:#168553"],
+.super-admin-light-root main [style*="color: #16A34A"],
+.super-admin-light-root main [style*="color:#16A34A"] {
+  color: #34A853 !important;
+}
+
+.super-admin-light-root main [style*="color: #d92d20"],
+.super-admin-light-root main [style*="color:#d92d20"],
+.super-admin-light-root main [style*="color: #DC2626"],
+.super-admin-light-root main [style*="color:#DC2626"] {
+  color: #EA4335 !important;
+}
+
+.super-admin-light-root main [style*="color: #F5A300"],
+.super-admin-light-root main [style*="color:#F5A300"],
+.super-admin-light-root main [style*="color: #f59e0b"],
+.super-admin-light-root main [style*="color:#f59e0b"] {
+  color: #FBBC05 !important;
+}
+
+/* Old custom inspectors used 8–12px microtype. Raise body/detail copy to the
+ * approved 14px floor. Status pills are reset to 12px by the later visual
+ * contract, preserving compact status geometry. */
+.super-admin-light-root main [style*="font-size: 8px"],
+.super-admin-light-root main [style*="font-size:8px"],
+.super-admin-light-root main [style*="font-size: 8."],
+.super-admin-light-root main [style*="font-size:8."],
+.super-admin-light-root main [style*="font-size: 9px"],
+.super-admin-light-root main [style*="font-size:9px"],
+.super-admin-light-root main [style*="font-size: 9."],
+.super-admin-light-root main [style*="font-size:9."],
+.super-admin-light-root main [style*="font-size: 10px"],
+.super-admin-light-root main [style*="font-size:10px"],
+.super-admin-light-root main [style*="font-size: 10."],
+.super-admin-light-root main [style*="font-size:10."],
+.super-admin-light-root main [style*="font-size: 11px"],
+.super-admin-light-root main [style*="font-size:11px"],
+.super-admin-light-root main [style*="font-size: 11."],
+.super-admin-light-root main [style*="font-size:11."],
+.super-admin-light-root main [style*="font-size: 12px"],
+.super-admin-light-root main [style*="font-size:12px"] {
+  font-size: 14px !important;
+  line-height: 1.45 !important;
 }
 
 /* Legacy cards that do not use shared surface classes. */
