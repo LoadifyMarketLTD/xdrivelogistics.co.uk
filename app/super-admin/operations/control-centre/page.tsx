@@ -7,91 +7,395 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import PlatformEntityLink from '@/app/super-admin/_components/control-plane/PlatformEntityLink';
 import SuperAdminOperationalMap, { type OperationalDriverPin, type OperationalJobPin } from '@/app/super-admin/_components/SuperAdminOperationalMap';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
-
-const X = { navy:'#0B2F6B', blue:'#1D57D8', orange:'#F5A300', white:'#FFFFFF', ink:'#1A1F2B', light:'#F4F6F8', border:'#D9E1EA', muted:'#64748B', green:'#16A34A', red:'#DC2626', cyan:'#0891B2', violet:'#7C3AED' } as const;
+import styles from './page.module.css';
 
 type Job = OperationalJobPin & {
-  client: string; pickup_postcode: string | null; delivery_postcode: string | null; driver_id: string | null; driver_name: string | null;
-  vehicle_id: string | null; vehicle_registration: string | null; price: number | null; currency: string; created_at: string | null;
-};
-type Driver = OperationalDriverPin & { user_id: string | null; company_name: string; availability_status: string; online: boolean; last_activity_at: string | null; rating: number | null; review_count: number; };
-type Vehicle = { id:string; company_name:string; registration:string; label:string; status:string; available:boolean; tracked:boolean; last_tracked_at:string|null; tail_lift:boolean; equipment:unknown[]; pallets_capacity:number|null; payload_kg:number|null; loading_capacity_m3:number|null; international_work_approved:boolean; assigned_driver_id:string|null; operationally_healthy:boolean; compliance_blocked:boolean; mileage:null; service_due:null; };
-type Finance = { currency:string|null; mixedCurrency:boolean; revenueToday:number|null; revenueWeek:number|null; revenueMonth:number|null; outstandingInvoices:number; topClients:Array<{name:string;invoicedValue:number}>; driverPayments:null; profitabilityPerRoute:null; unavailable:string[]; };
-type Payload = {
-  refreshedAt:string;
-  definitions:{driversOnline:string;fleetHealth:string;lateDeliveries:string;revenue:string};
-  kpis:{activeJobs:number;driversOnline:number;fleetHealth:number|null;lateDeliveries:number;revenueToday:number|null;urgentRequests:number;currency:string|null;mixedCurrency:boolean};
-  map:{drivers:Driver[];jobs:Job[];routes:Job[];trafficEtaSource:string;providerCallsTriggered:boolean};
-  jobs:Job[]; drivers:Driver[]; fleet:Vehicle[]; finance:Finance;
-  capabilities:{apiKeyManagement:boolean;xeroIntegrationManagement:boolean;courierExchangeIntegrationManagement:boolean;stripeIntegrationVisibility:boolean;backupRestoreDirectAction:boolean;vehicleMileage:boolean;vehicleServiceDue:boolean};
+  pickup_postcode: string | null;
+  delivery_postcode: string | null;
+  driver_id: string | null;
+  driver_name: string | null;
+  vehicle_id: string | null;
+  vehicle_registration: string | null;
+  price: number | null;
+  currency: string;
 };
 
-const ACTIVE = new Set(['draft','received','posted','quoted','awarded','allocated','accepted','assigned','in_progress','on_my_way','on_my_way_to_pickup','on_site_pickup','loaded','collected','in_transit','on_my_way_to_delivery','on_site_delivery']);
-const money = (value:number|null,currency:string|null) => value == null || !currency ? '—' : new Intl.NumberFormat('en-GB',{style:'currency',currency,maximumFractionDigits:0}).format(value);
-const when = (value:string|null) => value ? new Date(value).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
-const statusColor = (status:string) => {
-  const value=status.toLowerCase();
-  if(['delivered','completed','online','available'].includes(value)) return X.green;
-  if(['cancelled','canceled','failed','offline','suspended'].includes(value)) return X.red;
-  if(['busy','late','overdue','on_site_pickup','on_site_delivery'].includes(value)) return X.orange;
-  return X.blue;
+type Driver = OperationalDriverPin & {
+  user_id: string | null;
+  company_name: string;
+  availability_status: string;
+  online: boolean;
+  last_activity_at: string | null;
+  rating: number | null;
+  review_count: number;
 };
-const regionOf = (job:Job) => {
-  const postcode=(job.pickup_postcode??'').toUpperCase();
-  if(/^(E|EC|N|NW|SE|SW|W|WC|BR|CR|DA|EN|HA|IG|KT|RM|SM|TW|UB)/.test(postcode)) return 'London';
-  if(/^(B|CV|DE|DY|LE|NG|NN|ST|TF|WS|WV)/.test(postcode)) return 'Midlands';
-  if(/^(BB|BD|BL|CA|CH|CW|DH|DL|DN|FY|HD|HG|HU|HX|L|LA|LS|M|NE|OL|PR|S|SK|SR|TS|WA|WF|WN|YO)/.test(postcode)) return 'North';
+
+type Vehicle = {
+  id: string;
+  company_name: string;
+  registration: string;
+  label: string;
+  status: string;
+  available: boolean;
+  tracked: boolean;
+  last_tracked_at: string | null;
+  tail_lift: boolean;
+  pallets_capacity: number | null;
+  payload_kg: number | null;
+  loading_capacity_m3: number | null;
+  operationally_healthy: boolean;
+  compliance_blocked: boolean;
+  mileage: null;
+  service_due: null;
+};
+
+type Finance = {
+  currency: string | null;
+  mixedCurrency: boolean;
+  revenueToday: number | null;
+  revenueWeek: number | null;
+  revenueMonth: number | null;
+  outstandingInvoices: number;
+  topClients: Array<{ name: string; invoicedValue: number }>;
+  driverPayments: null;
+  profitabilityPerRoute: null;
+  unavailable: string[];
+};
+
+type Payload = {
+  refreshedAt: string;
+  kpis: {
+    activeJobs: number;
+    driversOnline: number;
+    fleetHealth: number | null;
+    lateDeliveries: number;
+    revenueToday: number | null;
+    urgentRequests: number;
+    currency: string | null;
+    mixedCurrency: boolean;
+  };
+  map: { drivers: Driver[]; jobs: Job[]; routes: Job[] };
+  jobs: Job[];
+  drivers: Driver[];
+  fleet: Vehicle[];
+  finance: Finance;
+  capabilities: {
+    apiKeyManagement: boolean;
+    xeroIntegrationManagement: boolean;
+    courierExchangeIntegrationManagement: boolean;
+    stripeIntegrationVisibility: boolean;
+    backupRestoreDirectAction: boolean;
+    vehicleMileage: boolean;
+    vehicleServiceDue: boolean;
+  };
+};
+
+const C = {
+  blue: '#1A73E8',
+  green: '#34A853',
+  yellow: '#FBBC05',
+  red: '#EA4335',
+  grey: '#8A9099',
+} as const;
+
+const money = (value: number | null, currency: string | null) =>
+  value == null || !currency
+    ? '—'
+    : new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
+
+const when = (value: string | null) =>
+  value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+
+const regionOf = (job: Job) => {
+  const postcode = (job.pickup_postcode ?? '').toUpperCase();
+  if (/^(E|EC|N|NW|SE|SW|W|WC|BR|CR|DA|EN|HA|IG|KT|RM|SM|TW|UB)/.test(postcode)) return 'London';
+  if (/^(B|CV|DE|DY|LE|NG|NN|ST|TF|WS|WV)/.test(postcode)) return 'Midlands';
+  if (/^(BB|BD|BL|CA|CH|CW|DH|DL|DN|FY|HD|HG|HU|HX|L|LA|LS|M|NE|OL|PR|S|SK|SR|TS|WA|WF|WN|YO)/.test(postcode)) return 'North';
   return 'Other';
 };
 
-function KpiCard({label,value,note,color}:{label:string;value:string|number;note:string;color:string}){
-  return <div style={{minHeight:92,background:X.white,border:`1px solid ${X.border}`,borderTop:`4px solid ${color}`,borderRadius:8,padding:'12px 14px'}}><div style={{fontSize:24,fontWeight:900,color,lineHeight:1}}>{value}</div><div style={{marginTop:8,fontSize:11,fontWeight:850,color:X.navy}}>{label}</div><div style={{marginTop:3,fontSize:9.5,color:X.muted,lineHeight:1.35}}>{note}</div></div>;
+const jobTone = (status: string) => {
+  const value = status.toLowerCase();
+  if (['delivered', 'completed', 'paid'].includes(value)) return C.green;
+  if (['cancelled', 'canceled', 'failed'].includes(value)) return C.red;
+  if (['draft', 'received', 'posted', 'quoted', 'pending'].includes(value)) return C.yellow;
+  return C.blue;
+};
+
+const driverTone = (driver: Driver) => {
+  if (!driver.online) return C.grey;
+  if (driver.status === 'busy') return C.blue;
+  return C.green;
+};
+
+function KpiCard({ label, value, note, accent }: { label: string; value: string | number; note: string; accent: string }) {
+  return (
+    <div className={styles.kpiCard} style={{ '--accent': accent } as React.CSSProperties}>
+      <div className={styles.kpiValue}>{value}</div>
+      <div className={styles.kpiLabel}>{label}</div>
+      <div className={styles.kpiNote}>{note}</div>
+    </div>
+  );
 }
 
-export default function SuperAdminOperationsControlCentre(){
-  const[data,setData]=useState<Payload|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState<string|null>(null);
-  const[statusFilter,setStatusFilter]=useState('all');const[regionFilter,setRegionFilter]=useState('all');const[vehicleFilter,setVehicleFilter]=useState('all');const[clientFilter,setClientFilter]=useState('');
-  const load=useCallback(async()=>{setLoading(true);setError(null);setData(null);try{const auth=await getAuthHeader();if(!auth){setError('No active Platform Owner session.');return;}const response=await fetch('/api/super-admin/operations-cockpit',{headers:{Authorization:auth},cache:'no-store'});const body=await response.json().catch(()=>({}));if(!response.ok){setError((body as {error?:string}).error??`Operations cockpit unavailable (${response.status}).`);return;}setData(body as Payload);}catch(err){setError(err instanceof Error?err.message:'Operations cockpit unavailable.');}finally{setLoading(false);}},[]);
-  useEffect(()=>{void load();},[load]);
+export default function SuperAdminOperationsControlCentre() {
+  const [data, setData] = useState<Payload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('all');
+  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('');
 
-  const filteredJobs=useMemo(()=>data?.jobs.filter((job)=>{
-    if(statusFilter!=='all'&&job.status!==statusFilter)return false;if(regionFilter!=='all'&&regionOf(job)!==regionFilter)return false;if(vehicleFilter!=='all'&&(job.vehicle_registration??'unassigned')!==vehicleFilter)return false;
-    const q=clientFilter.trim().toLowerCase();return !q||job.client.toLowerCase().includes(q)||job.short_id.toLowerCase().includes(q);
-  })??[],[data,statusFilter,regionFilter,vehicleFilter,clientFilter]);
-  const statuses=Array.from(new Set((data?.jobs??[]).map((job)=>job.status))).sort();const vehicles=Array.from(new Set((data?.jobs??[]).map((job)=>job.vehicle_registration??'unassigned'))).sort();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setData(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) {
+        setError('No active Platform Owner session.');
+        return;
+      }
+      const response = await fetch('/api/super-admin/operations-cockpit', {
+        headers: { Authorization: auth },
+        cache: 'no-store',
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError((body as { error?: string }).error ?? `System overview unavailable (${response.status}).`);
+        return;
+      }
+      setData(body as Payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'System overview unavailable.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  return <ProtectedRoute allowedRoles={['owner']}><div style={{minHeight:'100vh',background:X.light,color:X.ink,padding:12}}>
-    <header style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',flexWrap:'wrap',marginBottom:12}}><div><h1 style={{margin:0,color:X.navy,fontSize:20,fontWeight:900}}>Operations Control Centre</h1><p style={{margin:'4px 0 0',color:X.muted,fontSize:11.5}}>Live platform operations, drivers, fleet, jobs and finance in one Platform Owner view.</p>{data&&<div style={{marginTop:3,color:X.muted,fontSize:9.5}}>Verified snapshot {new Date(data.refreshedAt).toLocaleString('en-GB')} · read-only overview</div>}</div><button type='button' onClick={()=>void load()} disabled={loading} style={{height:32,padding:'0 12px',border:`1px solid ${X.blue}`,borderRadius:8,background:X.blue,color:'#fff',fontWeight:850,fontSize:11}}>{loading?'Refreshing…':'Refresh'}</button></header>
-    {error&&<div role='alert' style={{border:`1px solid ${X.red}`,borderLeft:`4px solid ${X.red}`,background:X.white,color:X.red,padding:'10px 12px',borderRadius:8,marginBottom:12,fontSize:11,fontWeight:750}}>{error}</div>}
-    {!error&&<>
-      <section aria-label='Key performance indicators' style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:12}}>
-        <KpiCard label='Active Jobs' value={loading?'—':data?.kpis.activeJobs??'—'} note='Open transport workload' color={X.blue}/>
-        <KpiCard label='Drivers Online' value={loading?'—':data?.kpis.driversOnline??'—'} note='Fresh ≤30m location + active presence' color={X.green}/>
-        <KpiCard label='Fleet Health' value={loading?'—':data?.kpis.fleetHealth==null?'—':`${data.kpis.fleetHealth}%`} note='Operational/compliance readiness; not mechanical telemetry' color={X.cyan}/>
-        <KpiCard label='Late Deliveries' value={loading?'—':data?.kpis.lateDeliveries??'—'} note='Cached traffic ETA or planned deadline' color={X.red}/>
-        <KpiCard label='Revenue Today' value={loading?'—':money(data?.kpis.revenueToday??null,data?.kpis.currency??null)} note={data?.kpis.mixedCurrency?'Mixed currencies — no aggregate':'Recorded settlement ledger'} color={X.violet}/>
-        <KpiCard label='Urgent Requests' value={loading?'—':data?.kpis.urgentRequests??'—'} note='Open P0/P1 cases + critical support' color={X.orange}/>
-      </section>
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-      {data&&<section style={{display:'grid',gridTemplateColumns:'minmax(0,2fr) minmax(260px,.72fr)',gap:12,marginBottom:12}}>
-        <div style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:10}}><div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'baseline',marginBottom:8,flexWrap:'wrap'}}><div><h2 style={{margin:0,color:X.navy,fontSize:13,fontWeight:850}}>Live Operational Map</h2><p style={{margin:'2px 0 0',fontSize:10,color:X.muted}}>Green = moving · yellow = idle/busy · red = offline · blue = active job. ETA is read only from the server cache; this page triggers no routing-provider calls.</p></div><Link href='/super-admin/operations/fleet-positions' style={{fontSize:10,fontWeight:800,color:X.blue,textDecoration:'none'}}>Fleet positions →</Link></div><SuperAdminOperationalMap drivers={data.map.drivers} jobs={data.map.jobs} routes={data.map.routes}/>{data.map.jobs.length===0&&<div style={{marginTop:7,color:X.orange,fontSize:10,fontWeight:700}}>No executing job has canonical map coordinates in the current snapshot, so no job pin/route is fabricated.</div>}</div>
-        <aside style={{display:'grid',gap:10,alignContent:'start'}}><div style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:12}}><h2 style={{margin:'0 0 8px',fontSize:13,color:X.navy}}>Quick Actions</h2>{[
-          ['Job workspace','/super-admin/operations/jobs'],['Driver workspace','/super-admin/users/drivers'],['Vehicle workspace','/super-admin/fleet/vehicles'],['Generate report','/super-admin/analytics'],['Platform settings','/super-admin/settings/global'],['Finance reports','/super-admin/finance']
-        ].map(([label,href])=><Link key={href} href={href} style={{display:'flex',justifyContent:'space-between',alignItems:'center',minHeight:32,borderBottom:`1px solid ${X.border}`,color:X.navy,textDecoration:'none',fontSize:10.5,fontWeight:750}}><span>{label}</span><span>→</span></Link>)}<p style={{margin:'8px 0 0',fontSize:9.5,color:X.muted,lineHeight:1.4}}>Direct Create/Add/Reassign/Cancel shortcuts are not exposed here unless a governed Platform Owner mutation route exists. The cockpit does not bypass tenant ownership or audit controls.</p></div>
-          <div style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:12}}><h2 style={{margin:'0 0 8px',fontSize:13,color:X.navy}}>Live Feed</h2>{data.jobs.filter((job)=>ACTIVE.has(job.status.toLowerCase())).slice(0,6).map((job)=><div key={job.id} style={{padding:'7px 0',borderBottom:`1px solid ${X.border}`}}><div style={{fontSize:10.5,fontWeight:800,color:X.ink}}>Job {job.short_id} · {job.status.replaceAll('_',' ')}</div><div style={{fontSize:9.5,color:X.muted,marginTop:2}}>{job.pickup} → {job.delivery}</div></div>)}{!data.jobs.some((job)=>ACTIVE.has(job.status.toLowerCase()))&&<div style={{fontSize:10,color:X.muted}}>No active operational events.</div>}</div>
-        </aside>
-      </section>}
+  const filteredJobs = useMemo(() => data?.jobs.filter((job) => {
+    if (statusFilter !== 'all' && job.status !== statusFilter) return false;
+    if (regionFilter !== 'all' && regionOf(job) !== regionFilter) return false;
+    if (vehicleFilter !== 'all' && (job.vehicle_registration ?? 'unassigned') !== vehicleFilter) return false;
+    const query = clientFilter.trim().toLowerCase();
+    return !query || job.client.toLowerCase().includes(query) || job.short_id.toLowerCase().includes(query);
+  }) ?? [], [clientFilter, data, regionFilter, statusFilter, vehicleFilter]);
 
-      {data&&<section style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,overflow:'hidden',marginBottom:12}}><div style={{padding:12,borderBottom:`1px solid ${X.border}`}}><div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'baseline',flexWrap:'wrap'}}><div><h2 style={{margin:0,fontSize:13,color:X.navy}}>Job Management</h2><p style={{margin:'2px 0 0',fontSize:10,color:X.muted}}>Client, route, assigned resources, cached ETA and commercial value. Direct cross-tenant mutation remains governed elsewhere.</p></div><span style={{fontSize:10,color:X.muted}}>{filteredJobs.length} shown / {data.jobs.length} loaded</span></div><div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(120px,1fr))',gap:7,marginTop:9}}><select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}><option value='all'>All statuses</option>{statuses.map((value)=><option key={value} value={value}>{value}</option>)}</select><select value={regionFilter} onChange={(e)=>setRegionFilter(e.target.value)}><option value='all'>All regions</option>{['London','Midlands','North','Other'].map((value)=><option key={value}>{value}</option>)}</select><select value={vehicleFilter} onChange={(e)=>setVehicleFilter(e.target.value)}><option value='all'>All vehicles</option>{vehicles.map((value)=><option key={value} value={value}>{value==='unassigned'?'Unassigned':value}</option>)}</select><input value={clientFilter} onChange={(e)=>setClientFilter(e.target.value)} placeholder='Client or Job ID'/></div></div><div style={{overflowX:'auto'}}><table style={{minWidth:1100}}><thead><tr>{['Job ID','Client','Pickup → Delivery','Driver','Status','ETA','Price','Actions'].map((h)=><th key={h}>{h}</th>)}</tr></thead><tbody>{filteredJobs.map((job)=><tr key={job.id}><td><code>{job.short_id}</code></td><td>{job.client}</td><td><strong>{job.pickup}</strong><div style={{color:X.muted,fontSize:9.5,marginTop:2}}>→ {job.delivery} · {regionOf(job)}</div></td><td>{job.driver_name??'Unassigned'}<div style={{fontSize:9.5,color:X.muted}}>{job.vehicle_registration??'No vehicle'}</div></td><td><span style={{color:'#fff',background:statusColor(job.status),padding:'3px 7px',borderRadius:999,fontSize:9,fontWeight:800}}>{job.status.replaceAll('_',' ')}</span></td><td>{job.eta?.eta_at?when(job.eta.eta_at):'—'}<div style={{fontSize:9.5,color:job.eta?.late_by_minutes!=null&&job.eta.late_by_minutes>0?X.red:X.muted}}>{job.eta?.remaining_minutes!=null?`${job.eta.remaining_minutes} min remaining`:'No cached traffic ETA'}</div></td><td>{money(job.price,job.currency)}</td><td><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><PlatformEntityLink entityType='job' entityId={job.id} compact>View</PlatformEntityLink>{job.driver_id&&<Link className='sa-button' href={`/super-admin/inspect/driver/${encodeURIComponent(job.driver_id)}`} style={{minHeight:28,padding:'0 8px',textDecoration:'none'}}>Driver</Link>}<button disabled title='No governed Platform Owner reassignment mutation is exposed from this read-only cockpit.'>Reassign</button><button disabled title='Cancellation must use the governed job workflow, not a dashboard bypass.'>Cancel</button></div></td></tr>)}{filteredJobs.length===0&&<tr><td colSpan={8} style={{textAlign:'center',color:X.muted,padding:18}}>No jobs match these filters.</td></tr>}</tbody></table></div></section>}
+  const statuses = Array.from(new Set((data?.jobs ?? []).map((job) => job.status))).sort();
+  const vehicles = Array.from(new Set((data?.jobs ?? []).map((job) => job.vehicle_registration ?? 'unassigned'))).sort();
+  const maxClientValue = data?.finance.topClients[0]?.invoicedValue || 1;
 
-      {data&&<section style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:7}}><div><h2 style={{margin:0,fontSize:13,color:X.navy}}>Driver Control Center</h2><p style={{margin:'2px 0 0',fontSize:10,color:X.muted}}>Live presence, assigned vehicle, last activity and verified review rating.</p></div><Link href='/super-admin/users/drivers' style={{color:X.blue,fontSize:10,fontWeight:800,textDecoration:'none'}}>All drivers →</Link></div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(235px,1fr))',gap:10}}>{data.drivers.map((driver)=><div key={driver.id} style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:12}}><div style={{display:'flex',gap:10,alignItems:'center'}}><div style={{width:42,height:42,borderRadius:'50%',display:'grid',placeItems:'center',background:'#EEF4FF',color:X.navy,fontWeight:900}}>{driver.name.split(/\s+/).slice(0,2).map((part)=>part[0]).join('').toUpperCase()}</div><div style={{minWidth:0,flex:1}}><div style={{fontSize:12,fontWeight:850,color:X.navy}}>{driver.name}</div><div style={{fontSize:9.5,color:X.muted}}>{driver.company_name}</div></div><span style={{background:statusColor(driver.status),color:'#fff',borderRadius:999,padding:'3px 7px',fontSize:9,fontWeight:850}}>{driver.status}</span></div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginTop:10,fontSize:10}}><div><span style={{color:X.muted}}>Rating</span><div style={{fontWeight:800}}>{driver.rating==null?'No reviews':`${driver.rating.toFixed(1)} / 5`} {driver.review_count>0&&`(${driver.review_count})`}</div></div><div><span style={{color:X.muted}}>Vehicle</span><div style={{fontWeight:800}}>{driver.vehicle?.registration??'Unassigned'}</div></div><div style={{gridColumn:'1 / -1'}}><span style={{color:X.muted}}>Last activity</span><div style={{fontWeight:800}}>{when(driver.last_activity_at)}</div></div></div><div style={{display:'flex',gap:6,marginTop:10}}><PlatformEntityLink entityType='driver' entityId={driver.id} compact>View Profile</PlatformEntityLink><button disabled title='Job assignment must use an audited governed assignment workflow.'>Assign Job</button></div></div>)}</div></section>}
+  return (
+    <ProtectedRoute allowedRoles={['owner']}>
+      <main className={styles.page}>
+        <header className={styles.header}>
+          <div>
+            <h1 className={styles.title}>XDrive Logistics LTD — System Overview</h1>
+            <p className={styles.subtitle}>Your Freight. Our Priority.</p>
+            {data && <div className={styles.snapshot}>Live snapshot: {new Date(data.refreshedAt).toLocaleString('en-GB')}</div>}
+          </div>
+          <button type="button" className={styles.button} onClick={() => void load()} disabled={loading}>
+            {loading ? 'Refreshing…' : 'Refresh Live Data'}
+          </button>
+        </header>
 
-      {data&&<section style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:7}}><div><h2 style={{margin:0,fontSize:13,color:X.navy}}>Fleet Overview</h2><p style={{margin:'2px 0 0',fontSize:10,color:X.muted}}>Operational readiness, capacity, equipment and GPS evidence. Mileage/service due are not invented because the canonical vehicle schema does not contain them.</p></div><Link href='/super-admin/fleet/vehicles' style={{color:X.blue,fontSize:10,fontWeight:800,textDecoration:'none'}}>Vehicle Registry →</Link></div><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(245px,1fr))',gap:10}}>{data.fleet.map((vehicle)=><div key={vehicle.id} style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:12}}><div style={{height:68,borderRadius:7,background:'linear-gradient(135deg,#EEF4FF,#F8FAFD)',display:'grid',placeItems:'center',fontSize:28,marginBottom:9}}>🚐</div><div style={{display:'flex',justifyContent:'space-between',gap:8}}><div><div style={{fontSize:12,fontWeight:900,color:X.navy}}>{vehicle.registration}</div><div style={{fontSize:10,color:X.muted}}>{vehicle.label}</div></div><span style={{fontSize:9,fontWeight:850,color:vehicle.operationally_healthy?X.green:X.red}}>{vehicle.operationally_healthy?'READY':'ATTENTION'}</span></div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginTop:10,fontSize:10}}><div>Capacity <strong>{vehicle.payload_kg!=null?`${vehicle.payload_kg} kg`:'—'}</strong></div><div>Tail-lift <strong>{vehicle.tail_lift?'Yes':'No'}</strong></div><div>GPS <strong>{vehicle.tracked?'Tracked':'Not tracked'}</strong></div><div>Health <strong>{vehicle.operationally_healthy?'Operational':'Review'}</strong></div><div>Mileage <strong>Unavailable</strong></div><div>Service due <strong>Unavailable</strong></div></div><div style={{marginTop:10}}><PlatformEntityLink entityType='vehicle' entityId={vehicle.id} compact>Inspect</PlatformEntityLink></div></div>)}</div></section>}
+        {error && <div className={styles.alert} role="alert">{error}</div>}
 
-      {data&&<section style={{display:'grid',gridTemplateColumns:'minmax(0,1.5fr) minmax(280px,.8fr)',gap:12,marginBottom:12}}><div style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:12}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}><div><h2 style={{margin:0,fontSize:13,color:X.navy}}>Finance & Reports</h2><p style={{margin:'2px 0 0',fontSize:10,color:X.muted}}>Recorded settlements and invoice exposure only; unsupported profitability is not inferred.</p></div><Link href='/super-admin/finance' style={{color:X.blue,fontSize:10,fontWeight:800,textDecoration:'none'}}>Finance →</Link></div><div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(120px,1fr))',gap:8,marginTop:10}}>{[['Today',data.finance.revenueToday],['This week',data.finance.revenueWeek],['This month',data.finance.revenueMonth],['Outstanding invoices',data.finance.outstandingInvoices]].map(([label,value])=><div key={label as string} style={{border:`1px solid ${X.border}`,borderRadius:8,padding:10}}><div style={{fontSize:9.5,color:X.muted}}>{label}</div><div style={{fontSize:17,fontWeight:900,color:X.navy,marginTop:4}}>{label==='Outstanding invoices'?String(value):money(value as number|null,data.finance.currency)}</div></div>)}</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:12}}><div><h3 style={{margin:'0 0 7px',fontSize:11,color:X.navy}}>Top Clients · invoiced value</h3>{data.finance.topClients.length?data.finance.topClients.map((client,index)=>{const max=data.finance.topClients[0]?.invoicedValue||1;return <div key={client.name} style={{marginBottom:7}}><div style={{display:'flex',justifyContent:'space-between',fontSize:9.5}}><span>{client.name}</span><strong>{money(client.invoicedValue,data.finance.currency??'GBP')}</strong></div><div style={{height:7,background:'#EEF2F7',borderRadius:999,marginTop:3}}><div style={{height:'100%',width:`${Math.max(4,Math.round((client.invoicedValue/max)*100))}%`,background:X.blue,borderRadius:999}}/></div></div>}):<div style={{fontSize:10,color:X.muted}}>No invoice client value to chart.</div>}</div><div><h3 style={{margin:'0 0 7px',fontSize:11,color:X.navy}}>Unavailable by design</h3>{data.finance.unavailable.map((line)=><div key={line} style={{borderLeft:`3px solid ${X.orange}`,padding:'5px 8px',fontSize:9.5,color:X.muted,marginBottom:6}}>{line}</div>)}</div></div></div>
-        <div style={{background:X.white,border:`1px solid ${X.border}`,borderRadius:8,padding:12}}><h2 style={{margin:'0 0 8px',fontSize:13,color:X.navy}}>Admin Tools</h2>{[['Roles & permissions','/super-admin/settings/roles-permissions','Ready'],['Stripe / webhooks','/super-admin/finance/stripe-webhooks','Ready'],['Logs & audits','/super-admin/settings/audit-logs','Ready'],['Security / health','/super-admin/health','Ready'],['Feature flags','/super-admin/settings/feature-flags','Ready']].map(([label,href,state])=><Link key={href} href={href} style={{display:'flex',justifyContent:'space-between',minHeight:32,alignItems:'center',borderBottom:`1px solid ${X.border}`,textDecoration:'none',fontSize:10.5,color:X.navy,fontWeight:750}}><span>{label}</span><span style={{color:X.green,fontSize:9}}>{state}</span></Link>)}{[['API keys',data.capabilities.apiKeyManagement],['Xero integration',data.capabilities.xeroIntegrationManagement],['Courier Exchange API',data.capabilities.courierExchangeIntegrationManagement],['Backup & restore',data.capabilities.backupRestoreDirectAction]].map(([label,available])=><div key={label as string} style={{display:'flex',justifyContent:'space-between',minHeight:32,alignItems:'center',borderBottom:`1px solid ${X.border}`,fontSize:10.5,color:X.ink}}><span>{label}</span><span style={{color:available?X.green:X.orange,fontSize:9,fontWeight:800}}>{available?'Ready':'Not configured'}</span></div>)}</div></section>}
+        {!error && (
+          <>
+            <section className={styles.kpiGrid} aria-label="Key performance indicators">
+              <KpiCard label="Active Jobs" value={loading ? '—' : data?.kpis.activeJobs ?? '—'} note="Open transport workload" accent={C.blue} />
+              <KpiCard label="Drivers Online" value={loading ? '—' : data?.kpis.driversOnline ?? '—'} note="Fresh location + active presence" accent={C.green} />
+              <KpiCard label="Fleet Health" value={loading ? '—' : data?.kpis.fleetHealth == null ? '—' : `${data.kpis.fleetHealth}%`} note="Operational/compliance readiness" accent={C.green} />
+              <KpiCard label="Late Deliveries" value={loading ? '—' : data?.kpis.lateDeliveries ?? '—'} note="ETA or delivery deadline breached" accent={C.red} />
+              <KpiCard label="Revenue Today" value={loading ? '—' : money(data?.kpis.revenueToday ?? null, data?.kpis.currency ?? null)} note={data?.kpis.mixedCurrency ? 'Mixed currencies — no aggregate' : 'Recorded settlements'} accent={C.green} />
+              <KpiCard label="Urgent Requests" value={loading ? '—' : data?.kpis.urgentRequests ?? '—'} note="P0/P1 cases + critical support" accent={C.yellow} />
+            </section>
 
-      <footer style={{background:X.navy,color:'#fff',borderRadius:8,padding:'13px 15px',display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',flexWrap:'wrap'}}><div><div style={{fontWeight:900,fontSize:12}}>XDrive Logistics · Super Admin</div><div style={{fontSize:9.5,opacity:.75,marginTop:2}}>Move Freight. Manage Operations. Grow Your Network.</div></div><div style={{display:'flex',gap:12,flexWrap:'wrap'}}><Link href='/track' style={{color:'#fff',fontSize:10,textDecoration:'none'}}>Track Shipment</Link><Link href='/quote' style={{color:'#fff',fontSize:10,textDecoration:'none'}}>Get a Quote</Link><Link href='/contact' style={{color:'#fff',fontSize:10,textDecoration:'none'}}>Contact</Link><span style={{fontSize:10,opacity:.7}}>© {new Date().getFullYear()} XDrive Logistics · control-plane</span></div></footer>
-    </>}
-  </div></ProtectedRoute>;
+            {data && (
+              <section className={styles.overviewGrid}>
+                <div className={styles.card}>
+                  <div className={styles.sectionHeader} style={{ padding: 0, borderBottom: 0, marginBottom: 12 }}>
+                    <div>
+                      <h2 className={styles.sectionTitle}>Live Operational Map</h2>
+                      <p className={styles.sectionText}>Moving vehicles green · idle yellow · offline red · active jobs blue. ETA uses cached traffic data; this page makes no routing-provider call.</p>
+                    </div>
+                    <Link className={styles.linkButton} href="/super-admin/operations/fleet-positions">Fleet Positions</Link>
+                  </div>
+                  <SuperAdminOperationalMap drivers={data.map.drivers} jobs={data.map.jobs} routes={data.map.routes} />
+                  {data.map.jobs.length === 0 && <p className={styles.quickNote}>No active job currently has canonical map coordinates, so no job pin or route is fabricated.</p>}
+                </div>
+
+                <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
+                  <aside className={styles.asideCard}>
+                    <h2 className={styles.sectionTitle}>Quick Actions</h2>
+                    <div className={styles.quickList}>
+                      <Link className={styles.quickLink} href="/super-admin/operations/jobs">Jobs Management <span>→</span></Link>
+                      <Link className={styles.quickLink} href="/super-admin/users/drivers">Drivers Center <span>→</span></Link>
+                      <Link className={styles.quickLink} href="/super-admin/fleet/vehicles">Fleet Overview <span>→</span></Link>
+                      <Link className={styles.quickLink} href="/super-admin/finance">Finance Dashboard <span>→</span></Link>
+                      <Link className={styles.quickLink} href="/super-admin/settings/roles-permissions">Manage Roles <span>→</span></Link>
+                      <Link className={styles.quickLink} href="/super-admin/settings/audit-logs">View Logs <span>→</span></Link>
+                    </div>
+                    <p className={styles.quickNote}>Create, assign, reassign, cancel, backup and restore remain disabled here unless a governed Platform Owner mutation route exists.</p>
+                  </aside>
+
+                  <aside className={styles.asideCard}>
+                    <h2 className={styles.sectionTitle}>Live Feed</h2>
+                    {data.jobs.slice(0, 6).map((job) => (
+                      <div key={job.id} className={styles.feedItem}>
+                        <strong>Job {job.short_id} · {job.status.replaceAll('_', ' ')}</strong>
+                        <span>{job.pickup} → {job.delivery}</span>
+                      </div>
+                    ))}
+                  </aside>
+                </div>
+              </section>
+            )}
+
+            {data && (
+              <section className={styles.module}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2 className={styles.sectionTitle}>Jobs Management</h2>
+                    <p className={styles.sectionText}>Pickup, dropoff, vehicle, driver, status, ETA and price with advanced filters.</p>
+                  </div>
+                  <Link className={styles.linkButton} href="/super-admin/operations/jobs">Open Full Jobs Workspace</Link>
+                </div>
+                <div className={styles.moduleBody}>
+                  <div className={styles.filters}>
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+                    <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}><option value="all">All regions</option>{['London', 'Midlands', 'North', 'Other'].map((region) => <option key={region} value={region}>{region}</option>)}</select>
+                    <select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicles</option>{vehicles.map((vehicle) => <option key={vehicle} value={vehicle}>{vehicle === 'unassigned' ? 'Unassigned' : vehicle}</option>)}</select>
+                    <input value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} placeholder="Client or Job ID" />
+                  </div>
+                  <div className={styles.jobGrid} style={{ marginTop: 14 }}>
+                    {filteredJobs.map((job) => (
+                      <article key={job.id} className={styles.jobCard}>
+                        <div className={styles.cardHeader}>
+                          <strong>Job {job.short_id}</strong>
+                          <span className={styles.status} style={{ background: jobTone(job.status) }}>{job.status.replaceAll('_', ' ')}</span>
+                        </div>
+                        <div className={styles.jobRoute}><strong>{job.pickup}</strong><span>↓</span><strong>{job.delivery}</strong></div>
+                        <div className={styles.metaGrid}>
+                          <div><span className={styles.metaLabel}>Client</span><span className={styles.metaValue}>{job.client}</span></div>
+                          <div><span className={styles.metaLabel}>Region</span><span className={styles.metaValue}>{regionOf(job)}</span></div>
+                          <div><span className={styles.metaLabel}>Driver</span><span className={styles.metaValue}>{job.driver_name ?? 'Unassigned'}</span></div>
+                          <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{job.vehicle_registration ?? 'Unassigned'}</span></div>
+                          <div><span className={styles.metaLabel}>ETA</span><span className={styles.metaValue}>{job.eta?.eta_at ? when(job.eta.eta_at) : 'Unavailable'}</span></div>
+                          <div><span className={styles.metaLabel}>Price</span><span className={styles.metaValue}>{money(job.price, job.currency)}</span></div>
+                        </div>
+                        <div className={styles.actions}>
+                          <PlatformEntityLink entityType="job" entityId={job.id} compact>Track / View</PlatformEntityLink>
+                          <button className={styles.disabledButton} type="button" disabled>Assign Driver</button>
+                        </div>
+                      </article>
+                    ))}
+                    {filteredJobs.length === 0 && <div className={styles.unavailable}>No jobs match the selected filters.</div>}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {data && (
+              <section className={styles.module}>
+                <div className={styles.sectionHeader}>
+                  <div><h2 className={styles.sectionTitle}>Drivers Center</h2><p className={styles.sectionText}>Availability, route state, rating, assigned vehicle and last activity.</p></div>
+                  <Link className={styles.linkButton} href="/super-admin/users/drivers">All Drivers</Link>
+                </div>
+                <div className={styles.moduleBody}><div className={styles.driverGrid}>
+                  {data.drivers.map((driver) => (
+                    <article key={driver.id} className={styles.driverCard}>
+                      <div className={styles.driverHeader}>
+                        <div className={styles.avatar}>{driver.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div>
+                        <span className={styles.status} style={{ background: driverTone(driver) }}>{driver.online ? (driver.status === 'busy' ? 'On Route' : 'Available') : 'Off Duty'}</span>
+                      </div>
+                      <h3>{driver.name}</h3>
+                      <div className={styles.metaGrid}>
+                        <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{driver.vehicle?.registration ?? 'Unassigned'}</span></div>
+                        <div><span className={styles.metaLabel}>Rating</span><span className={styles.metaValue}>{driver.rating == null ? 'No reviews' : `${driver.rating.toFixed(1)} / 5`}</span></div>
+                        <div style={{ gridColumn: '1 / -1' }}><span className={styles.metaLabel}>Last activity</span><span className={styles.metaValue}>{when(driver.last_activity_at)}</span></div>
+                      </div>
+                      <div className={styles.actions}><PlatformEntityLink entityType="driver" entityId={driver.id} compact>View Profile</PlatformEntityLink><button className={styles.disabledButton} type="button" disabled>Assign Job</button></div>
+                    </article>
+                  ))}
+                </div></div>
+              </section>
+            )}
+
+            {data && (
+              <section className={styles.module}>
+                <div className={styles.sectionHeader}>
+                  <div><h2 className={styles.sectionTitle}>Fleet Overview</h2><p className={styles.sectionText}>Vehicle type, capacity, tail-lift, GPS and operational health. Mileage and service due remain unavailable until canonical source fields exist.</p></div>
+                  <Link className={styles.linkButton} href="/super-admin/fleet/vehicles">Vehicle Registry</Link>
+                </div>
+                <div className={styles.moduleBody}><div className={styles.fleetGrid}>
+                  {data.fleet.map((vehicle) => (
+                    <article key={vehicle.id} className={styles.vehicleCard}>
+                      <div className={styles.vehicleVisual}>🚚</div>
+                      <div className={styles.cardHeader}><div><strong>{vehicle.registration}</strong><div>{vehicle.label}</div></div><div className={styles.healthRing}>{vehicle.operationally_healthy ? 'OK' : '!'}</div></div>
+                      <div className={styles.metaGrid}>
+                        <div><span className={styles.metaLabel}>Capacity</span><span className={styles.metaValue}>{vehicle.payload_kg == null ? '—' : `${vehicle.payload_kg} kg`}</span></div>
+                        <div><span className={styles.metaLabel}>Tail-lift</span><span className={styles.metaValue}>{vehicle.tail_lift ? 'Yes' : 'No'}</span></div>
+                        <div><span className={styles.metaLabel}>GPS</span><span className={styles.metaValue}>{vehicle.tracked ? 'Active' : 'Signal unavailable'}</span></div>
+                        <div><span className={styles.metaLabel}>Health</span><span className={styles.metaValue}>{vehicle.operationally_healthy ? 'Ready' : 'Attention'}</span></div>
+                        <div><span className={styles.metaLabel}>Mileage</span><span className={styles.metaValue}>Unavailable</span></div>
+                        <div><span className={styles.metaLabel}>Service due</span><span className={styles.metaValue}>Unavailable</span></div>
+                      </div>
+                      <div className={styles.actions}><PlatformEntityLink entityType="vehicle" entityId={vehicle.id} compact>Inspect Vehicle</PlatformEntityLink></div>
+                    </article>
+                  ))}
+                </div></div>
+              </section>
+            )}
+
+            {data && (
+              <section className={styles.module}>
+                <div className={styles.sectionHeader}>
+                  <div><h2 className={styles.sectionTitle}>Finance Dashboard</h2><p className={styles.sectionText}>Revenue and invoice exposure from recorded ledgers. Expenses and profit are not inferred without an authoritative cost ledger.</p></div>
+                  <div className={styles.actions}><Link className={styles.linkButton} href="/super-admin/finance">View Transactions</Link><Link className={styles.linkButton} href="/super-admin/analytics">Generate Report</Link></div>
+                </div>
+                <div className={styles.moduleBody}>
+                  <div className={styles.financeGrid}>
+                    <div className={styles.metricCard}><span className={styles.metaLabel}>Revenue Today</span><div className={styles.metricValue} style={{ color: C.green }}>{money(data.finance.revenueToday, data.finance.currency)}</div></div>
+                    <div className={styles.metricCard}><span className={styles.metaLabel}>Expenses</span><div className={styles.metricValue} style={{ color: C.red }}>Unavailable</div></div>
+                    <div className={styles.metricCard}><span className={styles.metaLabel}>Profit</span><div className={styles.metricValue} style={{ color: C.blue }}>Unavailable</div></div>
+                    <div className={styles.metricCard}><span className={styles.metaLabel}>Outstanding Invoices</span><div className={styles.metricValue} style={{ color: C.yellow }}>{data.finance.outstandingInvoices}</div></div>
+                  </div>
+                  <div className={styles.chartGrid}>
+                    <div className={styles.chart}><h3 className={styles.sectionTitle}>Top Clients</h3>{data.finance.topClients.map((client) => <div className={styles.barRow} key={client.name}><div className={styles.barHeader}><span>{client.name}</span><strong>{money(client.invoicedValue, data.finance.currency ?? 'GBP')}</strong></div><div className={styles.barTrack}><div className={styles.barFill} style={{ width: `${Math.max(4, Math.round((client.invoicedValue / maxClientValue) * 100))}%` }} /></div></div>)}</div>
+                    <div className={styles.chart}><h3 className={styles.sectionTitle}>Revenue & Profit Trend / Expense Breakdown</h3><div className={styles.unavailable}>Profit trend and expense breakdown are intentionally unavailable because there is no canonical cost/expense ledger. The dashboard does not manufacture financial performance.</div><div style={{ marginTop: 12 }}><strong>Revenue week:</strong> {money(data.finance.revenueWeek, data.finance.currency)}<br /><strong>Revenue month:</strong> {money(data.finance.revenueMonth, data.finance.currency)}</div></div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {data && (
+              <section className={styles.module}>
+                <div className={styles.sectionHeader}><div><h2 className={styles.sectionTitle}>Admin & Compliance</h2><p className={styles.sectionText}>Platform Owner controls, audit, security and compliance surfaces.</p></div></div>
+                <div className={styles.moduleBody}><div className={styles.adminGrid}>
+                  <div className={styles.adminCard}><h3>User Roles & Permissions</h3><p>Access Matrix and Platform Admin registry.</p><div className={styles.actions}><Link className={styles.linkButton} href="/super-admin/settings/roles-permissions">Manage Roles</Link></div></div>
+                  <div className={styles.adminCard}><h3>API Keys & Integrations</h3><p>Stripe visibility is available. Xero, Courier Exchange API and general key management are not configured as Super Admin controls.</p><div className={styles.adminState} style={{ color: C.yellow }}>Partially configured</div></div>
+                  <div className={styles.adminCard}><h3>System Logs & Audit Trail</h3><p>Review immutable platform audit activity and operational evidence.</p><div className={styles.actions}><Link className={styles.linkButton} href="/super-admin/settings/audit-logs">View Logs</Link></div></div>
+                  <div className={styles.adminCard}><h3>Security Alerts</h3><p>Platform health, security and degraded-service monitoring.</p><div className={styles.actions}><Link className={styles.linkButton} href="/super-admin/health">Open Health</Link></div></div>
+                  <div className={styles.adminCard}><h3>Backup & Restore</h3><p>Direct restore is not exposed from the browser control plane.</p><div className={styles.adminState} style={{ color: C.yellow }}>Restricted by design</div></div>
+                  <div className={styles.adminCard}><h3>Compliance Status</h3><p>Document review, insurance, operator licences, expiries and legal agreements are available. No ISO certification is asserted by this dashboard.</p><div className={styles.actions}><Link className={styles.linkButton} href="/super-admin/compliance/documents">Open Compliance</Link></div></div>
+                </div></div>
+              </section>
+            )}
+
+            <footer className={styles.footer}>
+              <div><div className={styles.footerBrand}>XDrive Logistics LTD</div><div className={styles.footerTagline}>Your Freight. Our Priority.</div></div>
+              <div className={styles.footerLinks}><Link href="/track">Track Shipment</Link><Link href="/quote">Get a Quote</Link><Link href="/contact">Contact</Link><span>© {new Date().getFullYear()} XDrive Logistics</span></div>
+            </footer>
+          </>
+        )}
+      </main>
+    </ProtectedRoute>
+  );
 }
