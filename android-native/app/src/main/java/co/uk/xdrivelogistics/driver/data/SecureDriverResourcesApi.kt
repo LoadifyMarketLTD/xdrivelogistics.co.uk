@@ -186,7 +186,10 @@ class SecureDriverResourcesApi(
     private suspend fun <T> networkResult(block: () -> T): Result<T> = withContext(Dispatchers.IO) { runCatching(block) }
     private fun JsonObject.array(name: String): JsonArray = getAsJsonArray(name) ?: JsonArray()
     private fun <T> JsonArray.mapObjects(block: (JsonObject) -> T): List<T> = buildList {
-        for (index in 0 until size()) get(index).takeIf { it.isJsonObject }?.asJsonObject?.let { add(block(it)) }
+        for (index in 0 until size()) {
+            val element = get(index)
+            if (element is JsonObject) add(block(element))
+        }
     }
     private fun JsonObject.string(name: String): String = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrDefault("") } ?: ""
     private fun JsonObject.nullableString(name: String): String? = get(name)?.takeUnless { it.isJsonNull }?.let { runCatching { it.asString }.getOrNull() }
