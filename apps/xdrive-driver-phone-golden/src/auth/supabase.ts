@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
 
 function normalizeSupabaseUrl(value: unknown) {
@@ -27,6 +27,18 @@ function normalizeAnonKey(value: unknown) {
   return normalized;
 }
 
+const secureAuthStorage = {
+  getItem: async (key: string) => SecureStore.getItemAsync(key),
+  setItem: async (key: string, value: string) => {
+    await SecureStore.setItemAsync(key, value, {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  },
+  removeItem: async (key: string) => {
+    await SecureStore.deleteItemAsync(key);
+  },
+};
+
 // Metro/EAS statically inlines EXPO_PUBLIC_* variables at bundle time.
 // Validate both Expo extra values and the directly inlined env values so a
 // malformed build-time URL (for example a duplicated https:// prefix) cannot
@@ -49,7 +61,7 @@ export const supabase = createClient(
   supabaseAnonKey || 'placeholder',
   {
     auth: {
-      storage: AsyncStorage,
+      storage: secureAuthStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
