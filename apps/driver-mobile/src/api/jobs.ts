@@ -93,12 +93,56 @@ async function uploadCollectionPhoto(
   }
 }
 
+function numberPayload(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Replay-safe dispatcher for every durable Expo queue action. Keeping replay
+ * here means the existing WorkQueue loop uses the exact same server contracts
+ * as online actions and never bypasses device/session gates.
+ */
 export async function postJobStatus(
   jobId: string,
   endpoint: string,
   token: string,
   payload: Record<string, unknown> = {},
 ) {
+  if (endpoint === 'quote') {
+    const totalAmount = numberPayload(payload, 'totalAmount');
+    const baseAmount = numberPayload(payload, 'baseAmount');
+    const additionalExtrasGbp = numberPayload(payload, 'additionalExtrasGbp');
+    const collectWithinMinutes = payload.collectWithinMinutes == null
+      ? null
+      : numberPayload(payload, 'collectWithinMinutes');
+    if (totalAmount == null || totalAmount <= 0 || baseAmount == null || baseAmount <= 0 || additionalExtrasGbp == null) {
+      throw new Error('Queued quote payload is invalid.');
+    }
+    return apiRequest<{ success?: boolean; bidId?: string; jobId?: string; idempotent?: boolean }>(
+      '/api/driver/mobile/bids',
+      {
+        method: 'POST',
+        token,
+        body: {
+          jobId,
+          amount: totalAmount,
+          baseAmount,
+          additionalExtrasGbp,
+          collectWithinMinutes,
+          message: typeof payload.message === 'string' && payload.message.trim() ? payload.message.trim() : null,
+        },
+      },
+    );
+  }
+
+  if (endpoint === 'stop-status') {
+    const stopId = typeof payload.stop_id === 'string' ? payload.stop_id.trim() : '';
+    const status = payload.status === 'arrived' || payload.status === 'completed' ? payload.status : null;
+    if (!stopId || !status) throw new Error('Queued multi-drop stop payload is invalid.');
+    return postStopStatus(jobId, stopId, status, token);
+  }
+
   if (endpoint === 'loaded') await uploadCollectionPhoto(jobId, token, payload);
 
   const driverNotes = typeof payload.driverNotes === 'string' && payload.driverNotes.trim()
