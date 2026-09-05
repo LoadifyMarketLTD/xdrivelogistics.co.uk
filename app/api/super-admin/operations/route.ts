@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
     if (error) return respond(500, { error: error.message });
     if (typeof count !== 'number') return respond(500, { error: 'Quotes source returned an incomplete exact-count snapshot.' });
-    const rows = data ?? [];
+    const rows = quotes ?? [];
     const companyResult = await loadCompanyMap(rows.map((quote) => String(quote.company_id ?? '')).filter(Boolean));
     if (companyResult.error) return respond(500, { error: companyResult.error });
     return respond(200, {
