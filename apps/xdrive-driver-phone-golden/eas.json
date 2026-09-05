@@ -6,27 +6,19 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "APP_ENV": "preview",
-        "EXPO_PUBLIC_API_BASE_URL": "https://www.xdrivelogistics.co.uk",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://jqxlauexhkonixtjvljw.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_yxmGBfB7tzCgBXi_6T-uJQ_JNNYmBVO"
+        "buildType": "apk",
+        "image": "latest"
       }
     },
     "production": {
       "distribution": "store",
+      "environment": "production",
       "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle"
-      },
-      "env": {
-        "APP_ENV": "production",
-        "EXPO_PUBLIC_API_BASE_URL": "https://www.xdrivelogistics.co.uk",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://jqxlauexhkonixtjvljw.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_yxmGBfB7tzCgBXi_6T-uJQ_JNNYmBVO"
+        "buildType": "app-bundle",
+        "image": "latest"
       }
     }
   },
