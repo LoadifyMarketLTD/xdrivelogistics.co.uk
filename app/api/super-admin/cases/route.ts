@@ -27,10 +27,7 @@ const isCaseSchemaUnavailable = (error: { code?: string } | null | undefined) =>
   Boolean(error?.code && CASE_SCHEMA_UNAVAILABLE_CODES.has(error.code));
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
@@ -46,10 +43,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('platform_cases')
-    .select(
-      'id, reference, source, case_type, severity, status, title, description, entity_type, entity_id, entity_label, company_id, assigned_to_user_id, detected_at, created_at, updated_at',
-      { count: 'exact' },
-    )
+    .select('id, reference, source, case_type, severity, status, title, description, entity_type, entity_id, entity_label, company_id, assigned_to_user_id, detected_at, created_at, updated_at', { count: 'exact' })
     .order('updated_at', { ascending: false });
 
   if (status === 'active') query = query.in('status', [...ACTIVE_CASE_STATUSES]);
@@ -60,17 +54,17 @@ export async function GET(request: NextRequest) {
   if (assignee === 'unassigned') query = query.is('assigned_to_user_id', null);
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
-
   if (isCaseSchemaUnavailable(error)) {
     return respond(200, {
       available: false,
       readOnly,
       rows: [],
-      pagination: { page, limit, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: page > 1 },
+      pagination: { page, limit, total: null, totalPages: null, hasNextPage: false, hasPrevPage: page > 1 },
       note: 'Platform Case Centre schema is not applied in this environment.',
     });
   }
   if (error) return respond(500, { error: error.message });
+  if (typeof count !== 'number') return respond(500, { error: 'Platform Case Centre returned an incomplete exact-count snapshot.' });
 
   const rows = data ?? [];
   const assigneeIds = Array.from(new Set(rows.map((row) => row.assigned_to_user_id).filter((value): value is string => Boolean(value))));
@@ -78,9 +72,7 @@ export async function GET(request: NextRequest) {
     ? await supabaseAdmin.from('profiles').select('user_id, full_name').in('user_id', assigneeIds)
     : { data: [], error: null };
   if (profileError) return respond(500, { error: profileError.message });
-
   const nameByUserId = new Map((profiles ?? []).map((profile) => [String(profile.user_id), String(profile.full_name ?? 'Platform Owner')]));
-  const total = count ?? rows.length;
 
   return respond(200, {
     available: true,
@@ -107,27 +99,25 @@ export async function GET(request: NextRequest) {
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasNextPage: page * limit < total,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      hasNextPage: page * limit < count,
       hasPrevPage: page > 1,
     },
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const owner = await verifyPlatformOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+  if (!owner) {
+    if (isSuperAdminDeployPreviewReadOnly()) return respond(403, { error: 'Deploy Preview is read-only. Platform case creation was not performed.' });
+    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
-  if (!parsed.success) {
-    return respond(400, { error: parsed.error.issues[0]?.message ?? 'Invalid platform case payload.', details: parsed.error.flatten() });
-  }
+  if (!parsed.success) return respond(400, { error: parsed.error.issues[0]?.message ?? 'Invalid platform case payload.', details: parsed.error.flatten() });
 
   const value = parsed.data;
   const { data, error } = await supabaseAdmin.rpc('owner_create_platform_case', {
@@ -152,5 +142,7 @@ export async function POST(request: NextRequest) {
     return respond(code, { error: error.message });
   }
 
-  return respond(201, { case: Array.isArray(data) ? data[0] ?? null : data });
+  const created = Array.isArray(data) ? data[0] ?? null : data;
+  if (!created) return respond(500, { error: 'Platform case creation returned no reconciliation data.' });
+  return respond(201, { case: created });
 }
