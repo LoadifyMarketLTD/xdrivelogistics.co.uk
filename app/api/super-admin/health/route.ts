@@ -4,6 +4,7 @@ import { buildPlatformIntegrationReadiness, runPlatformHealthChecks } from '../_
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const GOVERNANCE_HEALTH_SERVICES = new Set(['Membership Billing', 'Stripe Webhook Processing']);
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -13,7 +14,13 @@ export async function GET(request: NextRequest) {
   try {
     const { checks, summary } = await runPlatformHealthChecks();
     const integrations = buildPlatformIntegrationReadiness();
-    return respond(200, { checkedAt: new Date().toISOString(), checks, integrations, summary });
+    return respond(200, {
+      checkedAt: new Date().toISOString(),
+      checks: checks.filter((check) => !GOVERNANCE_HEALTH_SERVICES.has(check.service)),
+      governanceChecks: checks.filter((check) => GOVERNANCE_HEALTH_SERVICES.has(check.service)),
+      integrations,
+      summary,
+    });
   } catch (error) {
     return respond(503, {
       error: 'Platform health could not be determined safely.',
