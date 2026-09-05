@@ -7,6 +7,10 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
 const config = read('apps/driver-mobile/app.config.ts');
 const packageJson = read('apps/driver-mobile/package.json');
+const readme = read('apps/driver-mobile/README.md');
+const appEntry = read('apps/driver-mobile/App.tsx');
+const runtimeGate = read('apps/driver-mobile/src/app/DriverRuntimeGate.tsx');
+const supabaseAuth = read('apps/driver-mobile/src/auth/supabase.ts');
 const tracking = read('apps/driver-mobile/src/tracking/locationTracking.ts');
 const push = read('apps/driver-mobile/src/push/registerPushToken.ts');
 const pushNavigation = read('apps/driver-mobile/src/push/notificationHandling.ts');
@@ -16,7 +20,7 @@ const liveLoadsScreen = read('apps/driver-mobile/src/live-loads/LiveLoadsScreen.
 const serverLocation = read('app/api/driver/location/route.ts');
 
 describe('Expo Driver production/E2E source contract', () => {
-  it('restores the historical production Expo identity without preview ownership', () => {
+  it('restores Expo as the single production Driver mobile owner', () => {
     expect(config).toContain("name: 'XDrive Driver'");
     expect(config).toContain("slug: 'xdrive-driver'");
     expect(config).toContain("bundleIdentifier: 'co.uk.xdrivelogistics.driver'");
@@ -24,11 +28,29 @@ describe('Expo Driver production/E2E source contract', () => {
     expect(config).toContain("productionOwner: 'driver-mobile'");
     expect(config).not.toContain('co.uk.xdrivelogistics.driver.preview');
     expect(config).not.toContain("productionOwner: 'android-native'");
+    expect(readme).toContain('Production mobile source: `apps/driver-mobile/`');
+    expect(readme).toContain('technical reference only');
+    expect(readme).not.toContain('Expo preview package');
+  });
+
+  it('uses a secure persisted auth gate with canonical password recovery', () => {
+    expect(appEntry).toContain("import('./src/app/DriverRuntimeGate')");
+    expect(runtimeGate).toContain('Driver operations app');
+    expect(runtimeGate).toContain('Forgot password?');
+    expect(runtimeGate).toContain("https://www.xdrivelogistics.co.uk/reset-password");
+    expect(runtimeGate).toContain('resetPasswordForEmail');
+    expect(runtimeGate).toContain('If this email belongs to an XDrive account');
+    expect(supabaseAuth).toContain('persistSession: true');
+    expect(supabaseAuth).toContain('resetPasswordForEmail');
+    expect(supabaseAuth.indexOf('unregisterPushToken(accessToken)')).toBeLessThan(
+      supabaseAuth.indexOf('cleanupDriverServerSession(accessToken)'),
+    );
   });
 
   it('declares the Expo SDK 53 location runtime and native permissions required by the tracking design', () => {
     expect(packageJson).toContain('"expo-location": "~18.1.6"');
     expect(packageJson).toContain('"expo-task-manager": "~13.1.6"');
+    expect(packageJson).toContain('"bundle:android"');
     expect(config).toContain("'ACCESS_BACKGROUND_LOCATION'");
     expect(config).toContain("'FOREGROUND_SERVICE_LOCATION'");
     expect(config).toContain("'expo-location'");
@@ -42,6 +64,8 @@ describe('Expo Driver production/E2E source contract', () => {
     expect(tracking).toContain("await apiRequest('/api/driver/location'");
     expect(tracking).toContain('job_id: jobId');
     expect(tracking).toContain('trackable.length === 1');
+    expect(tracking).toContain("'on_my_way_to_pickup'");
+    expect(tracking).toContain("'on_my_way_to_delivery'");
     expect(tracking).toContain("[401, 403, 409].includes(error.status)");
     expect(tracking).toContain("await stopAllTracking('signed-out')");
     expect(tracking).not.toContain('enqueueAction');
