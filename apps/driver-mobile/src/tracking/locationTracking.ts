@@ -11,6 +11,7 @@ export const DRIVER_LOCATION_TASK = 'xdrive-driver-live-location';
 
 const TRACKING_JOB_KEY = 'xdrive.driver.trackingJobId';
 const TRACKING_DIAGNOSTIC_KEY = 'xdrive.driver.trackingDiagnostic';
+const BACKGROUND_PERMISSION_REQUESTED_KEY = 'xdrive.driver.backgroundLocationRequested';
 const RECONCILE_INTERVAL_MS = 60_000;
 const LOCATION_INTERVAL_MS = 60_000;
 const LOCATION_DISTANCE_METRES = 25;
@@ -152,7 +153,13 @@ async function ensurePermissions() {
   if (foreground.status !== 'granted') return { foreground: false, background: false };
 
   let background = await Location.getBackgroundPermissionsAsync();
-  if (background.status !== 'granted' && background.canAskAgain !== false) {
+  const alreadyRequestedBackground = await AsyncStorage.getItem(BACKGROUND_PERMISSION_REQUESTED_KEY).catch(() => null);
+  if (
+    background.status !== 'granted' &&
+    background.canAskAgain !== false &&
+    alreadyRequestedBackground !== 'yes'
+  ) {
+    await AsyncStorage.setItem(BACKGROUND_PERMISSION_REQUESTED_KEY, 'yes').catch(() => undefined);
     background = await Location.requestBackgroundPermissionsAsync();
   }
 
