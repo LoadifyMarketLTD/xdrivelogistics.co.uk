@@ -198,7 +198,7 @@ export default function SuperAdminCardNavigationShell({
 
         <div className={styles.searchArea}>
           <div className={styles.searchWrap}>
-            <Search size={17} className={styles.searchIcon} />
+            <Search size={24} className={styles.searchIcon} />
             <input
               value={searchValue}
               onChange={(event) => { setSearchValue(event.target.value); setSearchOpen(Boolean(event.target.value.trim())); setAccountOpen(false); }}
@@ -225,27 +225,27 @@ export default function SuperAdminCardNavigationShell({
         </div>
 
         <div className={styles.topbarActions}>
-          <button type="button" className={styles.headerButton} onClick={() => setExploreOpen((value) => !value)} aria-expanded={exploreOpen}><Command size={16} /><span>Explore areas</span></button>
+          <button type="button" className={styles.headerButton} onClick={() => setExploreOpen((value) => !value)} aria-expanded={exploreOpen}><Command size={24} /><span>Explore areas</span></button>
           <button
             type="button"
             className={`${styles.headerButton} ${styles.actionCentreButton}`}
             onClick={() => { if (actionCentreAvailable) navigateToTarget(actionCentreHref); }}
             disabled={!actionCentreAvailable}
             title={actionCentreAvailable ? 'Open Action Centre' : 'Action Centre promotion pending runtime gate'}
-          ><AlertTriangle size={16} /><span>Action Centre</span></button>
-          <button type="button" className={styles.iconButton} onClick={() => navigateToTarget(notificationsHref)} aria-label="Notifications"><Bell size={18} />{unreadCount > 0 ? <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span> : null}</button>
+          ><AlertTriangle size={24} /><span>Action Centre</span></button>
+          <button type="button" className={styles.iconButton} onClick={() => navigateToTarget(notificationsHref)} aria-label="Notifications"><Bell size={24} />{unreadCount > 0 ? <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span> : null}</button>
           <div className={styles.accountWrap}>
             <button type="button" className={styles.accountButton} onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}>
-              <span className={styles.avatar}><CircleUserRound size={18} /></span>
+              <span className={styles.avatar}><CircleUserRound size={24} /></span>
               <span className={styles.accountCopy}><strong>Platform Owner</strong><small>{user?.email ?? companyName}</small></span>
-              <ChevronDown size={14} />
+              <ChevronDown size={24} />
             </button>
             {accountOpen ? (
               <div className={styles.accountMenu}>
                 <div className={styles.accountMenuHeader}><strong>Platform Owner</strong><span>{user?.email ?? companyName}</span></div>
                 <button type="button" onClick={() => navigateToTarget(definition.homeHref)}>Super Admin home</button>
                 <button type="button" onClick={() => setExploreOpen(true)}>Explore all areas</button>
-                <button type="button" className={styles.signOutMenuItem} onClick={() => void logout()}><LogOut size={15} /> Sign out</button>
+                <button type="button" className={styles.signOutMenuItem} onClick={() => void logout()}><LogOut size={24} /> Sign out</button>
               </div>
             ) : null}
           </div>
@@ -285,7 +285,7 @@ export default function SuperAdminCardNavigationShell({
                 const active = currentGroup?.id === group.id;
                 return (
                   <article key={group.id} className={`${styles.areaCard} ${active ? styles.areaCardActive : ''}`}>
-                    <div className={styles.areaCardHead}><span className={styles.areaIcon}><GroupIcon size={18} /></span><div><strong>{group.label}</strong><p>{GROUP_DESCRIPTIONS[group.id] ?? 'Platform administration tools and related workflows.'}</p></div></div>
+                    <div className={styles.areaCardHead}><span className={styles.areaIcon}><GroupIcon size={24} /></span><div><strong>{group.label}</strong><p>{GROUP_DESCRIPTIONS[group.id] ?? 'Platform administration tools and related workflows.'}</p></div></div>
                     <div className={styles.areaLinks}>{group.items.map((item) => <button type="button" key={item.id} onClick={() => navigateToTarget(item.href)}>{item.label}<span>→</span></button>)}</div>
                   </article>
                 );
