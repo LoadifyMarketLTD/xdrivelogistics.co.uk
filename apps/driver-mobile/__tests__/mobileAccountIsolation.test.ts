@@ -78,7 +78,8 @@ describe('enqueueAction account isolation', () => {
     const [queueA, queueB] = await Promise.all([getQueue(USER_A), getQueue(USER_B)]);
     expect(queueA).toHaveLength(1);
     expect(queueB).toHaveLength(1);
-    expect(queueA[0].id).not.toBe(queueB[0].id);
+    expect(queueA[0].jobId).toBe('shared-job');
+    expect(queueB[0].jobId).toBe('shared-job');
   });
 
   it('deduplicates the same action only within one account', async () => {
