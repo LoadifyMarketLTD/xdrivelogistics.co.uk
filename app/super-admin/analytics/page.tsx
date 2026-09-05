@@ -16,13 +16,12 @@ type Kpis = {
   totalInvoiced: number; totalRevenue: number; paymentStatusRate: number; deliveryRate: number;
 };
 type WeeklyJob = { week: string; count: number };
-type AnalyticsPayload = { refreshedAt?: string; kpis?: Partial<Kpis>; weeklyJobs?: unknown };
+type AnalyticsPayload = { refreshedAt?: string; currency?: string; kpis?: Partial<Kpis>; weeklyJobs?: unknown; error?: string };
 
 const KPI_KEYS: Array<keyof Kpis> = [
   'totalCompanies', 'activeCompanies', 'totalDrivers', 'totalJobs', 'deliveredJobs', 'activeJobs',
   'totalQuotes', 'totalBids', 'totalInvoiced', 'totalRevenue', 'paymentStatusRate', 'deliveryRate',
 ];
-const money = (value: number) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const isKpis = (value: unknown): value is Kpis => {
   if (!value || typeof value !== 'object') return false;
   return KPI_KEYS.every((key) => typeof (value as Record<string, unknown>)[key] === 'number' && Number.isFinite((value as Record<string, number>)[key]));
@@ -34,6 +33,7 @@ const isWeeklyJobs = (value: unknown): value is WeeklyJob[] => Array.isArray(val
 export default function Page() {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [weekly, setWeekly] = useState<WeeklyJob[]>([]);
+  const [currency, setCurrency] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
@@ -41,11 +41,7 @@ export default function Page() {
 
   const load = useCallback(async () => {
     const generation = ++generationRef.current;
-    setLoading(true);
-    setError(null);
-    setKpis(null);
-    setWeekly([]);
-    setRefreshedAt(null);
+    setLoading(true); setError(null); setKpis(null); setWeekly([]); setCurrency(null); setRefreshedAt(null);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -55,15 +51,16 @@ export default function Page() {
       const res = await fetch('/api/super-admin/platform?section=analytics', {
         headers: { Authorization: auth }, signal: controller.signal, cache: 'no-store',
       });
-      const body = await res.json().catch(() => ({})) as AnalyticsPayload & { error?: string };
+      const body = await res.json().catch(() => ({})) as AnalyticsPayload;
       if (generation !== generationRef.current) return;
       if (!res.ok) { setError(body.error ?? `Platform analytics is unavailable (${res.status}).`); return; }
-      if (!isKpis(body.kpis) || !isWeeklyJobs(body.weeklyJobs)) {
+      if (!isKpis(body.kpis) || !isWeeklyJobs(body.weeklyJobs) || typeof body.currency !== 'string' || !body.currency.trim()) {
         setError('Platform analytics returned an incomplete snapshot. No KPI values were inferred.');
         return;
       }
       setKpis(body.kpis);
       setWeekly(body.weeklyJobs);
+      setCurrency(body.currency.trim().toUpperCase());
       setRefreshedAt(typeof body.refreshedAt === 'string' ? body.refreshedAt : null);
     } catch (err) {
       if (generation !== generationRef.current) return;
@@ -78,15 +75,24 @@ export default function Page() {
 
   useEffect(() => { void load(); return () => { generationRef.current += 1; }; }, [load]);
 
-  const maxJobs = weekly.length > 0 ? Math.max(...weekly.map((w) => w.count), 1) : 1;
+  const money = useCallback((value: number) => {
+    const code = currency ?? 'GBP';
+    try {
+      return new Intl.NumberFormat('en-GB', { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    } catch {
+      return `${code} ${value.toFixed(2)}`;
+    }
+  }, [currency]);
+
+  const maxJobs = weekly.length > 0 ? Math.max(...weekly.map((week) => week.count), 1) : 1;
   const primary = useMemo(() => kpis ? [
     { label: 'Active companies', value: kpis.activeCompanies.toLocaleString(), note: `${kpis.totalCompanies.toLocaleString()} registered` },
-    { label: 'Active jobs', value: kpis.activeJobs.toLocaleString(), note: `${kpis.totalJobs.toLocaleString()} total jobs` },
+    { label: 'Open jobs', value: kpis.activeJobs.toLocaleString(), note: `${kpis.totalJobs.toLocaleString()} total jobs` },
     { label: 'Delivered jobs', value: kpis.deliveredJobs.toLocaleString(), note: `${kpis.deliveryRate}% delivery rate` },
     { label: 'Drivers', value: kpis.totalDrivers.toLocaleString(), note: 'Platform driver accounts' },
     { label: 'Recorded paid', value: money(kpis.totalRevenue), note: `${kpis.paymentStatusRate}% payment status rate` },
-    { label: 'Total invoiced', value: money(kpis.totalInvoiced), note: 'Cross-platform invoice value' },
-  ] : [], [kpis]);
+    { label: 'Issued invoice value', value: money(kpis.totalInvoiced), note: `${currency ?? '—'} verified currency` },
+  ] : [], [currency, kpis, money]);
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
@@ -94,8 +100,8 @@ export default function Page() {
         <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
           <div>
             <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', lineHeight: 1.2, fontWeight: 800 }}>Platform Analytics</h1>
-            <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>Cross-platform performance, finance and operational trend reporting.</p>
-            {refreshedAt && <div style={{ marginTop: 3, color: X.muted, fontSize: 10 }}>Verified snapshot {new Date(refreshedAt).toLocaleString('en-GB')}</div>}
+            <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>Cross-platform performance, finance and operational trend reporting. Multiple invoice currencies are never silently combined.</p>
+            {refreshedAt && <div style={{ marginTop: 3, color: X.muted, fontSize: 10 }}>Verified snapshot {new Date(refreshedAt).toLocaleString('en-GB')}{currency ? ` · ${currency}` : ''}</div>}
           </div>
           <button type="button" onClick={() => void load()} disabled={loading} style={{ height: '32px', padding: '0 12px', border: `1px solid ${X.blue}`, borderRadius: '4px', background: X.blue, color: X.white, fontSize: '12px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>{loading ? 'Loading…' : 'Refresh'}</button>
         </header>
@@ -127,7 +133,7 @@ export default function Page() {
               <div style={{ minHeight: '210px', padding: '16px 12px 12px', display: 'flex', alignItems: 'flex-end' }}>
                 {loading ? <div style={{ width: '100%', textAlign: 'center', color: X.muted, fontSize: '12px' }}>Loading verified trend…</div> : weekly.length === 0 ? <div style={{ width: '100%', textAlign: 'center', color: X.muted, fontSize: '12px' }}>No job activity was recorded for this period.</div> : (
                   <div style={{ width: '100%', height: '170px', display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-                    {weekly.map((w) => { const pct = Math.max((w.count / maxJobs) * 100, 4); return <div key={w.week} style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '5px' }}><span style={{ color: X.navy, fontSize: '11px', fontWeight: 800 }}>{w.count}</span><div title={`${w.week}: ${w.count} jobs`} style={{ width: '100%', maxWidth: '76px', height: `${pct}%`, minHeight: '6px', borderRadius: '3px 3px 0 0', background: X.blue }} /><span style={{ color: X.muted, fontSize: '10px', textAlign: 'center' }}>{w.week}</span></div>; })}
+                    {weekly.map((week) => { const pct = Math.max((week.count / maxJobs) * 100, 4); return <div key={week.week} style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '5px' }}><span style={{ color: X.navy, fontSize: '11px', fontWeight: 800 }}>{week.count}</span><div title={`${week.week}: ${week.count} jobs`} style={{ width: '100%', maxWidth: '76px', height: `${pct}%`, minHeight: '6px', borderRadius: '3px 3px 0 0', background: X.blue }} /><span style={{ color: X.muted, fontSize: '10px', textAlign: 'center' }}>{week.week}</span></div>; })}
                   </div>
                 )}
               </div>
