@@ -17,6 +17,7 @@ const onboardingRoute = source('app/api/super-admin/onboarding/route.ts');
 const companyGovernanceRoute = source('app/api/super-admin/companies/[id]/route.ts');
 const settingsRoute = source('app/api/super-admin/settings/route.ts');
 const financeRoute = source('app/api/super-admin/finance/route.ts');
+const superAdminAuthHeader = source('app/super-admin/_lib/getAuthHeader.ts');
 
 const canonicalGuardRoutePaths = [
   'app/api/super-admin/audit/route.ts',
@@ -100,6 +101,14 @@ describe('Super Admin control-plane completeness', () => {
     expect(healthPage).toContain('Stripe Webhook Processing');
     expect(healthPage).toContain('setChecks([])');
     expect(healthPage).toContain('setIntegrations([])');
+  });
+
+  it('reuses the synchronized route-auth cookie for Super Admin API headers', () => {
+    expect(superAdminAuthHeader).toContain('ROUTE_AUTH_COOKIE_NAME');
+    expect(superAdminAuthHeader).toContain('document.cookie');
+    expect(superAdminAuthHeader).toContain('decodeURIComponent');
+    expect(superAdminAuthHeader).not.toContain('supabase.auth.getSession');
+    expect(superAdminAuthHeader).not.toContain('supabaseClient');
   });
 
   it('enforces active Platform Owner and Deploy Preview write lock in the canonical guard', () => {
