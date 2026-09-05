@@ -1,14 +1,31 @@
-import { supabase } from '@/lib/supabaseClient';
+import { ROUTE_AUTH_COOKIE_NAME } from '@/lib/routeAuthCookie';
 
 /**
- * Returns an Authorization header value (`****** for the active
- * Supabase session, or `null` when no session exists.
+ * Returns an Authorization header value for the active Super Admin route session.
  *
- * This utility was duplicated verbatim across every super-admin page and
- * shared component. It is now the single canonical implementation.
+ * The middleware and AuthContext already keep ROUTE_AUTH_COOKIE_NAME synchronized
+ * with the Supabase access token. Reading that cookie here avoids starting a
+ * second supabase.auth.getSession() during hard-navigation bootstrap, which can
+ * contend with AuthContext hydration in the browser. API routes still verify the
+ * bearer token and active Platform Owner status server-side.
  */
 export async function getAuthHeader(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-  return ['Bearer', session.access_token].join(' ');
+  if (typeof document === 'undefined') return null;
+
+  const prefix = `${ROUTE_AUTH_COOKIE_NAME}=`;
+  const entry = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+
+  if (!entry) return null;
+  const encodedToken = entry.slice(prefix.length);
+  if (!encodedToken) return null;
+
+  try {
+    const token = decodeURIComponent(encodedToken).trim();
+    return token ? ['Bearer', token].join(' ') : null;
+  } catch {
+    return null;
+  }
 }
