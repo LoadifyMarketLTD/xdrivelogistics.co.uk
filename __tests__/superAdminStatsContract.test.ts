@@ -88,7 +88,7 @@ describe('GET /api/super-admin/stats contract', () => {
       { id: 'c1', status: 'active' },
       { id: 'c2', status: 'active' },
       { id: 'c3', status: 'pending_approval' },
-      { id: 'c4', status: 'pending' },
+      { id: 'c4', status: 'pending_approval' },
       { id: 'c5', status: 'suspended' },
     ];
     mocks.datasets.drivers = [
