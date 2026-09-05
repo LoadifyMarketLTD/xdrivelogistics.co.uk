@@ -6,7 +6,10 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 const PENDING_COMPANY_STATUSES = ['pending', 'pending_approval'];
 const OPEN_JOB_STATUSES = ['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit'];
 const OUTSTANDING_PAYMENT_STATUSES = ['unpaid', 'partially_paid', 'overdue', 'disputed'];
-const NON_COLLECTIBLE_INVOICE_STATUSES = ['paid', 'Paid', 'cancelled', 'Cancelled', 'void'];
+// Hosted public.invoice_status uses lowercase `paid` and `void` for the two
+// non-collectible lifecycle states. Do not send UI-only/nonexistent enum literals
+// (for example `Cancelled`) through PostgREST because enum coercion would fail.
+const NON_COLLECTIBLE_INVOICE_STATUSES = ['paid', 'void'];
 const COMPLIANCE_REVIEW_STATUSES = ['pending', 'rejected'];
 const MISSING_INTERNAL_ACCOUNT_COLUMN_CODES = new Set(['42703', 'PGRST204']);
 
@@ -140,7 +143,7 @@ export async function GET(request: NextRequest) {
     jobsDelivered: countValue(jobsDeliveredResult),
     invoicesTotal: countValue(invoicesTotalResult),
     // Canonical outstanding semantics: payment state must represent money still due,
-    // while paid/cancelled/void invoice lifecycle states are never reported as unpaid.
+    // while paid/void invoice lifecycle states are never reported as unpaid.
     invoicesUnpaid: Math.max(0, outstandingInvoices - nonCollectibleOutstandingInvoices),
     compliancePending: countValue(driverComplianceResult) + countValue(vehicleComplianceResult),
   });
