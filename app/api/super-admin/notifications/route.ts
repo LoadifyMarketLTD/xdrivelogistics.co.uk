@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 import {
   isMissingDurabilityColumnError,
   normalizeBaseRow,
@@ -10,33 +11,14 @@ import {
 } from '../_lib/notificationEvents';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
+const SOURCE_PAGE_SIZE = 1000;
 
 const titleFor = (eventType: string) => {
   const labels: Record<string, string> = {
-    job_assigned: 'Job assigned',
-    bid_accepted: 'Bid accepted',
-    pod_uploaded: 'POD uploaded',
-    invoice_created: 'Invoice created',
-    invoice_sent: 'Invoice sent',
-    onboarding_invite: 'Onboarding invite',
+    job_assigned: 'Job assigned', bid_accepted: 'Bid accepted', pod_uploaded: 'POD uploaded',
+    invoice_created: 'Invoice created', invoice_sent: 'Invoice sent', onboarding_invite: 'Onboarding invite',
   };
-  return labels[eventType] ?? eventType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return labels[eventType] ?? eventType.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 const messageFor = (row: NotificationEventRow) => {
@@ -76,18 +58,54 @@ const severityFor = (status: string, eventType: string) => {
 const viewHrefFor = (eventType: string, entityId: string) => {
   const value = eventType.toLowerCase();
   if (value.includes('job') || value.includes('pod') || value.includes('delivery') || value.includes('bid') || value.includes('quote')) {
-    return `/super-admin/operations/jobs?focus=${encodeURIComponent(entityId)}`;
+    return `/super-admin/inspect/job/${encodeURIComponent(entityId)}`;
   }
   if (value.includes('invoice') || value.includes('payment')) return '/super-admin/finance/invoices';
   if (value.includes('onboarding') || value.includes('company')) return '/super-admin/companies/approvals';
-  if (value.includes('compliance') || value.includes('document') || value.includes('insurance') || value.includes('licence')) return '/super-admin/companies/compliance';
+  if (value.includes('compliance') || value.includes('document') || value.includes('insurance') || value.includes('licence')) return '/super-admin/compliance/documents';
   return null;
+};
+
+const loadAllNotificationRows = async () => {
+  if (!supabaseAdmin) return { rows: [] as NotificationEventRow[], durabilityUnavailable: false, error: 'Server auth is not configured.' };
+  const durabilityRows: NotificationEventDurabilityRow[] = [];
+  for (let offset = 0; ; offset += SOURCE_PAGE_SIZE) {
+    const result = await supabaseAdmin
+      .from('notification_events')
+      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
+      .returns<NotificationEventDurabilityRow[]>()
+      .order('created_at', { ascending: false })
+      .range(offset, offset + SOURCE_PAGE_SIZE - 1);
+    if (result.error) {
+      if (!isMissingDurabilityColumnError(result.error)) {
+        return { rows: [] as NotificationEventRow[], durabilityUnavailable: false, error: result.error.message };
+      }
+      const baseRows: NotificationEventBaseRow[] = [];
+      for (let baseOffset = 0; ; baseOffset += SOURCE_PAGE_SIZE) {
+        const fallback = await supabaseAdmin
+          .from('notification_events')
+          .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
+          .returns<NotificationEventBaseRow[]>()
+          .order('created_at', { ascending: false })
+          .range(baseOffset, baseOffset + SOURCE_PAGE_SIZE - 1);
+        if (fallback.error) return { rows: [] as NotificationEventRow[], durabilityUnavailable: true, error: fallback.error.message };
+        const page = fallback.data ?? [];
+        baseRows.push(...page);
+        if (page.length < SOURCE_PAGE_SIZE) break;
+      }
+      return { rows: baseRows.map(normalizeBaseRow), durabilityUnavailable: true, error: null as string | null };
+    }
+    const page = result.data ?? [];
+    durabilityRows.push(...page);
+    if (page.length < SOURCE_PAGE_SIZE) break;
+  }
+  return { rows: durabilityRows.map(normalizeDurabilityRow), durabilityUnavailable: false, error: null as string | null };
 };
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, Number(searchParams.get('page') ?? 1) || 1);
@@ -97,45 +115,19 @@ export async function GET(request: NextRequest) {
   const severityFilter = (searchParams.get('severity') ?? 'all').trim().toLowerCase();
   const query = (searchParams.get('q') ?? '').trim().toLowerCase();
 
-  const primaryResult = await supabaseAdmin
-    .from('notification_events')
-    .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at, last_error, attempt_count, next_attempt_at')
-    .returns<NotificationEventDurabilityRow[]>()
-    .order('created_at', { ascending: false })
-    .limit(500);
+  const source = await loadAllNotificationRows();
+  if (source.error) return respond(500, { error: 'Failed to load notification events.', detail: source.error });
 
-  let durabilityUnavailable = false;
-  let normalizedRows: NotificationEventRow[];
-
-  if (primaryResult.error) {
-    if (!isMissingDurabilityColumnError(primaryResult.error)) {
-      return respond(500, { error: 'Failed to load notification events.', detail: primaryResult.error.message });
-    }
-    const fallbackResult = await supabaseAdmin
-      .from('notification_events')
-      .select('id, event_type, entity_id, recipient_user_id, payload, status, created_at, processed_at')
-      .returns<NotificationEventBaseRow[]>()
-      .order('created_at', { ascending: false })
-      .limit(500);
-    if (fallbackResult.error) return respond(500, { error: 'Failed to load notification events.', detail: fallbackResult.error.message });
-    normalizedRows = (fallbackResult.data ?? []).map(normalizeBaseRow);
-    durabilityUnavailable = true;
-  } else {
-    normalizedRows = (primaryResult.data ?? []).map(normalizeDurabilityRow);
-  }
-
-  const allRows = normalizedRows.map((row) => {
+  const allRows = source.rows.map((row) => {
     const category = categoryFor(row.event_type);
     const severity = severityFor(row.status, row.event_type);
-    const title = titleFor(row.event_type);
-    const message = messageFor(row);
     return {
       id: row.id,
       user_id: row.recipient_user_id,
       entity_id: row.entity_id,
       type: row.event_type,
-      title,
-      message,
+      title: titleFor(row.event_type),
+      message: messageFor(row),
       status: row.status,
       category,
       severity,
@@ -161,7 +153,6 @@ export async function GET(request: NextRequest) {
 
   const start = (page - 1) * limit;
   const rows = filtered.slice(start, start + limit);
-
   return respond(200, {
     rows,
     summary: {
@@ -175,15 +166,15 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       total: filtered.length,
+      totalPages: Math.ceil(filtered.length / limit),
       hasNextPage: start + limit < filtered.length,
+      hasPrevPage: page > 1,
     },
     filters: {
       categories: Array.from(new Set(allRows.map((row) => row.category))).sort(),
       severities: ['Critical', 'Warning', 'Info', 'Success'],
       statuses: Array.from(new Set(allRows.map((row) => row.status))).sort(),
     },
-    ...(durabilityUnavailable
-      ? { diagnosticNote: 'Notification durability details are unavailable in the connected schema.' }
-      : {}),
+    ...(source.durabilityUnavailable ? { diagnosticNote: 'Notification durability details are unavailable in the connected schema.' } : {}),
   });
 }
