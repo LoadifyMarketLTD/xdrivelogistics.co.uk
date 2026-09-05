@@ -11,6 +11,15 @@ import {
 import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const ANALYTICS_PAGE_SIZE = 1000;
+const ACTIVE_JOB_STATUSES = [
+  'draft', 'received', 'posted', 'quoted', 'awarded', 'allocated', 'accepted', 'assigned',
+  'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit',
+  'on_my_way_to_delivery', 'on_site_delivery', 'in_progress', 'OPEN', 'open',
+];
+
+type AnalyticsInvoiceRow = { id: string; amount: number | string | null; payment_status: string | null };
+type AnalyticsJobRow = { id: string; status: string | null; created_at: string };
 
 const verifyOwner = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
@@ -26,6 +35,42 @@ const verifyOwner = async (request: NextRequest) => {
     .maybeSingle();
   if (!profile || profile.role !== 'owner') return null;
   return authData.user;
+};
+
+const loadAllAnalyticsInvoices = async () => {
+  if (!supabaseAdmin) return { rows: [] as AnalyticsInvoiceRow[], error: 'Server auth is not configured.' };
+  const rows: AnalyticsInvoiceRow[] = [];
+  for (let offset = 0; ; offset += ANALYTICS_PAGE_SIZE) {
+    const result = await supabaseAdmin
+      .from('invoices')
+      .select('id, amount, payment_status')
+      .order('id', { ascending: true })
+      .range(offset, offset + ANALYTICS_PAGE_SIZE - 1);
+    if (result.error) return { rows: [] as AnalyticsInvoiceRow[], error: result.error.message };
+    const page = (result.data ?? []) as AnalyticsInvoiceRow[];
+    rows.push(...page);
+    if (page.length < ANALYTICS_PAGE_SIZE) break;
+  }
+  return { rows, error: null as string | null };
+};
+
+const loadRecentAnalyticsJobs = async (fromIso: string) => {
+  if (!supabaseAdmin) return { rows: [] as AnalyticsJobRow[], error: 'Server auth is not configured.' };
+  const rows: AnalyticsJobRow[] = [];
+  for (let offset = 0; ; offset += ANALYTICS_PAGE_SIZE) {
+    const result = await supabaseAdmin
+      .from('jobs')
+      .select('id, status, created_at')
+      .gte('created_at', fromIso)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + ANALYTICS_PAGE_SIZE - 1);
+    if (result.error) return { rows: [] as AnalyticsJobRow[], error: result.error.message };
+    const page = (result.data ?? []) as AnalyticsJobRow[];
+    rows.push(...page);
+    if (page.length < ANALYTICS_PAGE_SIZE) break;
+  }
+  return { rows, error: null as string | null };
 };
 
 const getNotificationTitle = (eventType: string) => {
@@ -82,56 +127,87 @@ export async function GET(request: NextRequest) {
       jobs,
       jobsDelivered,
       jobsOpen,
-      invoices,
-      invoicesPaid,
       quotes,
       bids,
+      invoicesResult,
     ] = await Promise.all([
       supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
-      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ['posted', 'allocated', 'in_transit']),
-      supabaseAdmin.from('invoices').select('id, amount, payment_status').limit(2000),
-      supabaseAdmin.from('invoices').select('id, amount').eq('payment_status', 'paid').limit(2000),
+      supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', ACTIVE_JOB_STATUSES),
       supabaseAdmin.from('quotes').select('id', { count: 'exact', head: true }),
       supabaseAdmin.from('job_bids').select('id', { count: 'exact', head: true }),
+      loadAllAnalyticsInvoices(),
     ]);
 
-    const totalInvoiced = (invoices.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const totalRevenue = (invoicesPaid.data ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const failedCount = [
+      ['companies_total', companies.error],
+      ['companies_active', companiesActive.error],
+      ['drivers_total', drivers.error],
+      ['jobs_total', jobs.error],
+      ['jobs_delivered', jobsDelivered.error],
+      ['jobs_active', jobsOpen.error],
+      ['quotes_total', quotes.error],
+      ['bids_total', bids.error],
+    ].find(([, error]) => Boolean(error)) as [string, { message?: string } | null] | undefined;
 
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-    const { data: recentJobs } = await supabaseAdmin
-      .from('jobs')
-      .select('id, status, created_at')
-      .gte('created_at', thirtyDaysAgo)
-      .order('created_at', { ascending: true });
+    if (failedCount) {
+      return respond(500, { error: `Platform analytics source unavailable: ${failedCount[0]}.`, detail: failedCount[1]?.message ?? null });
+    }
+    if (invoicesResult.error) {
+      return respond(500, { error: 'Platform analytics invoice source unavailable.', detail: invoicesResult.error });
+    }
+
+    const invoiceRows = invoicesResult.rows;
+    const totalInvoiced = invoiceRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const paidRows = invoiceRows.filter((row) => String(row.payment_status ?? '').toLowerCase() === 'paid');
+    const totalRevenue = paidRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const recentJobsResult = await loadRecentAnalyticsJobs(thirtyDaysAgo);
+    if (recentJobsResult.error) {
+      return respond(500, { error: 'Platform analytics trend source unavailable.', detail: recentJobsResult.error });
+    }
 
     const weeklyJobs: Record<string, number> = {};
-    for (const job of (recentJobs ?? [])) {
-      const week = `W${Math.ceil(new Date(job.created_at as string).getDate() / 7)} ${new Date(job.created_at as string).toLocaleString('en-GB', { month: 'short' })}`;
-      weeklyJobs[week] = (weeklyJobs[week] ?? 0) + 1;
+    for (const job of recentJobsResult.rows) {
+      const created = new Date(job.created_at);
+      if (!Number.isFinite(created.getTime())) continue;
+      const weekStart = new Date(created);
+      const day = (weekStart.getUTCDay() + 6) % 7;
+      weekStart.setUTCDate(weekStart.getUTCDate() - day);
+      weekStart.setUTCHours(0, 0, 0, 0);
+      const key = weekStart.toISOString().slice(0, 10);
+      weeklyJobs[key] = (weeklyJobs[key] ?? 0) + 1;
+    }
+
+    const counts = [companies.count, companiesActive.count, drivers.count, jobs.count, jobsDelivered.count, jobsOpen.count, quotes.count, bids.count];
+    if (counts.some((count) => typeof count !== 'number')) {
+      return respond(500, { error: 'Platform analytics returned an incomplete exact-count snapshot.' });
     }
 
     return respond(200, {
       section,
+      refreshedAt: new Date().toISOString(),
       kpis: {
-        totalCompanies: companies.count ?? 0,
-        activeCompanies: companiesActive.count ?? 0,
-        totalDrivers: drivers.count ?? 0,
-        totalJobs: jobs.count ?? 0,
-        deliveredJobs: jobsDelivered.count ?? 0,
-        activeJobs: jobsOpen.count ?? 0,
-        totalQuotes: quotes.count ?? 0,
-        totalBids: bids.count ?? 0,
+        totalCompanies: companies.count,
+        activeCompanies: companiesActive.count,
+        totalDrivers: drivers.count,
+        totalJobs: jobs.count,
+        deliveredJobs: jobsDelivered.count,
+        activeJobs: jobsOpen.count,
+        totalQuotes: quotes.count,
+        totalBids: bids.count,
         totalInvoiced: Math.round(totalInvoiced * 100) / 100,
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         paymentStatusRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
-        deliveryRate: (jobs.count ?? 0) > 0 ? Math.round(((jobsDelivered.count ?? 0) / (jobs.count ?? 1)) * 100) : 0,
+        deliveryRate: jobs.count > 0 ? Math.round((jobsDelivered.count / jobs.count) * 100) : 0,
       },
-      weeklyJobs: Object.entries(weeklyJobs).map(([week, count]) => ({ week, count })),
+      weeklyJobs: Object.entries(weeklyJobs)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([weekStart, count]) => ({ week: weekStart, count })),
     });
   }
 
