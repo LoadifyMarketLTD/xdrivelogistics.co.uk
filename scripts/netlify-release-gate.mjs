@@ -2,15 +2,26 @@ import { spawnSync } from 'node:child_process';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-function run(command, args) {
+function run(label, failureCode, command, args) {
+  console.log(`NETLIFY_RELEASE_GATE_STAGE=${label}`);
   const result = spawnSync(command, args, {
     cwd: process.cwd(),
     env: { ...process.env, CI: process.env.CI ?? 'true' },
     stdio: 'inherit',
     shell: false,
   });
-  if (result.error) process.exit(1);
-  if (result.status !== 0) process.exit(result.status ?? 1);
+
+  if (result.error) {
+    console.error(`NETLIFY_RELEASE_GATE_FAILED=${label}:spawn_error=${result.error.message}`);
+    process.exit(failureCode);
+  }
+
+  if (result.status !== 0) {
+    console.error(`NETLIFY_RELEASE_GATE_FAILED=${label}:child_status=${result.status ?? 'unknown'}`);
+    process.exit(failureCode);
+  }
+
+  console.log(`NETLIFY_RELEASE_GATE_STAGE_PASS=${label}`);
 }
 
 const isLegalGatePreview =
@@ -65,22 +76,28 @@ const goLiveHardeningUnitTests = [
 ];
 
 console.log('NETLIFY_RELEASE_GATE=START');
-run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
+run('migration-validation', 21, process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 
 if (isLegalGatePreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR499_LEGAL_LINT');
-  run(npmCommand, ['exec', '--', 'eslint', ...legalLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR499_LEGAL_TESTS');
-  run(npmCommand, ['run', 'test:unit', '--', ...legalUnitTests]);
+  run('pr499-legal-lint', 22, npmCommand, ['exec', '--', 'eslint', ...legalLintTargets]);
+  run('pr499-legal-tests', 23, npmCommand, ['run', 'test:unit', '--', ...legalUnitTests]);
 }
 
 if (isGoLiveHardeningPreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR500_501_502_GO_LIVE_HARDENING_LINT');
-  run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR500_501_502_GO_LIVE_HARDENING_TESTS');
-  run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
+  run('pr500-501-502-hardening-lint', 24, npmCommand, [
+    'exec',
+    '--',
+    'eslint',
+    ...goLiveHardeningLintTargets,
+  ]);
+  run('pr500-501-502-hardening-tests', 25, npmCommand, [
+    'run',
+    'test:unit',
+    '--',
+    ...goLiveHardeningUnitTests,
+  ]);
 }
 
-run(npmCommand, ['run', 'typecheck']);
-run(npmCommand, ['run', 'build']);
+run('typecheck', 26, npmCommand, ['run', 'typecheck']);
+run('production-build', 27, npmCommand, ['run', 'build']);
 console.log('NETLIFY_RELEASE_GATE=PASS');
