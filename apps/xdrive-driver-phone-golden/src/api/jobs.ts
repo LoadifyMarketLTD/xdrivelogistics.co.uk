@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 
+import { ensureNativeDeviceSession, getInstallationHeaders } from '../auth/deviceSession';
 import { apiRequest, getApiBaseUrl } from './client';
 import type { DriverJob, JobScope } from '../jobs/types';
 
@@ -59,6 +60,8 @@ async function uploadEvidenceFile({
   category?: DeliveryEvidenceCategory;
 }) {
   await assertEvidenceFile(uri);
+  await ensureNativeDeviceSession(token);
+  const installationHeaders = await getInstallationHeaders();
 
   const effectiveCategory = kind === 'collection' ? 'collection' : category;
   if (kind === 'delivery' && !effectiveCategory) {
@@ -80,6 +83,7 @@ async function uploadEvidenceFile({
       'x-xdrive-evidence-kind': kind,
       'x-xdrive-evidence-name': objectName,
       ...(kind === 'delivery' ? { 'x-xdrive-evidence-category': String(effectiveCategory) } : {}),
+      ...installationHeaders,
     },
   });
 
