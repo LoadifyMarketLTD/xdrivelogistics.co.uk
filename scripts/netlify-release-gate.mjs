@@ -116,6 +116,7 @@ const superAdminControlPlaneLintTargets = [
   'app/super-admin/_components/SuperAdminLiveTablePage.tsx',
   'app/super-admin/_components/SuperAdminUserListPage.tsx',
   'app/super-admin/_components/SuperAdminWorkspaceShell.tsx',
+  'app/super-admin/_lib/getAuthHeader.ts',
   'app/super-admin/analytics/page.tsx',
   'app/super-admin/companies/brokers/page.tsx',
   'app/super-admin/companies/memberships/page.tsx',
