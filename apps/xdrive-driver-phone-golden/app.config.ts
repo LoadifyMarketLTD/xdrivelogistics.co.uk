@@ -1,5 +1,21 @@
 import type { ExpoConfig } from 'expo/config';
 
+function normalizeSupabaseUrl(value: string | undefined) {
+  let normalized = value?.trim() ?? '';
+  while (/^https?:\/\/https?:\/\//i.test(normalized)) {
+    normalized = normalized.replace(/^https?:\/\/https?:\/\//i, 'https://');
+  }
+  if (!normalized) return '';
+
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== 'https:' || !url.hostname.endsWith('.supabase.co')) return '';
+    return url.origin;
+  } catch {
+    return '';
+  }
+}
+
 const config: ExpoConfig = {
   name: 'XDrive Driver',
   slug: 'xdrive-driver',
@@ -52,8 +68,8 @@ const config: ExpoConfig = {
   ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    supabaseUrl: normalizeSupabaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL),
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '',
     eas: {
       projectId: 'c19b0bdf-567a-488e-b78f-d36b84f25c99',
     },
