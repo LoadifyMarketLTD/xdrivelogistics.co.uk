@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { resolveEnvironment } from '../_lib/envDetection';
+import { runPlatformHealthChecks } from '../_lib/platformHealth';
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
@@ -77,7 +78,6 @@ export async function GET(request: NextRequest) {
   const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const todayDate = now.toISOString().slice(0, 10);
 
-  // Parallel bounded preview queries plus exact database-side count queries.
   const [
     companiesPendingPreviewResult,
     companiesPendingCountResult,
@@ -105,26 +105,20 @@ export async function GET(request: NextRequest) {
     gdprRequestsCountResult,
     gdprRequestsP0CountResult,
   ] = await Promise.all([
-    // Companies awaiting approval (canonical enum value: pending_approval)
     supabaseAdmin
       .from('companies')
       .select('id, name, created_at')
       .eq('status', 'pending_approval')
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('companies')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending_approval'),
-
-    // Companies suspended (canonical enum value: suspended)
     supabaseAdmin
       .from('companies')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'suspended'),
-
-    // Active jobs with status not changed in >2h (at risk)
     supabaseAdmin
       .from('jobs')
       .select('id, status, pickup_location, delivery_location, updated_at, created_at')
@@ -132,20 +126,16 @@ export async function GET(request: NextRequest) {
       .lt('updated_at', twoHoursAgo)
       .order('updated_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .in('status', ['allocated', 'collected', 'in_transit'])
       .lt('updated_at', twoHoursAgo),
-
     supabaseAdmin
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .in('status', ['allocated', 'collected', 'in_transit'])
       .lt('updated_at', fourHoursAgo),
-
-    // Jobs awarded/posted but without driver for >1h
     supabaseAdmin
       .from('jobs')
       .select('id, status, pickup_location, delivery_location, created_at')
@@ -154,15 +144,12 @@ export async function GET(request: NextRequest) {
       .lt('updated_at', oneHourAgo)
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .in('status', ['awarded', 'allocated'])
       .is('assigned_driver_id', null)
       .lt('updated_at', oneHourAgo),
-
-    // Documents expiring in ≤7 days (active companies/drivers)
     supabaseAdmin
       .from('driver_documents')
       .select('id, driver_id, doc_type, expiry_date')
@@ -171,22 +158,18 @@ export async function GET(request: NextRequest) {
       .lte('expiry_date', sevenDaysAhead)
       .order('expiry_date', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('driver_documents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .gte('expiry_date', now.toISOString())
       .lte('expiry_date', sevenDaysAhead),
-
     supabaseAdmin
       .from('driver_documents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .gte('expiry_date', now.toISOString())
       .lte('expiry_date', twoDaysAhead),
-
-    // Documents that have passed their expiry date (all driver documents, not scoped to jobs)
     supabaseAdmin
       .from('driver_documents')
       .select('id, driver_id, doc_type, expiry_date')
@@ -194,32 +177,25 @@ export async function GET(request: NextRequest) {
       .lt('expiry_date', now.toISOString())
       .order('expiry_date', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('driver_documents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .lt('expiry_date', now.toISOString()),
-
-    // Open fraud cases
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id, subject_company_id, status, created_at')
       .in('status', ['open', 'investigating'])
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id', { count: 'exact', head: true })
       .in('status', ['open', 'investigating']),
-
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'investigating'),
-
-    // Overdue collectible invoices. Void rows are audit history, not receivables.
     supabaseAdmin
       .from('invoices')
       .select('id, invoice_number, amount, currency, due_date, created_at')
@@ -229,7 +205,6 @@ export async function GET(request: NextRequest) {
       .lt('due_date', todayDate)
       .order('due_date', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('invoices')
       .select('id', { count: 'exact', head: true })
@@ -237,7 +212,6 @@ export async function GET(request: NextRequest) {
       .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', todayDate),
-
     supabaseAdmin
       .from('invoices')
       .select('id', { count: 'exact', head: true })
@@ -245,8 +219,6 @@ export async function GET(request: NextRequest) {
       .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', thirtyDaysAgoDate),
-
-    // Critical support tickets (priority=critical, open or investigating)
     supabaseAdmin
       .from('support_tickets')
       .select('id, subject, status, priority, created_at')
@@ -254,21 +226,16 @@ export async function GET(request: NextRequest) {
       .eq('priority', 'critical')
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
       .in('status', ['open', 'investigating'])
       .eq('priority', 'critical'),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'investigating')
       .eq('priority', 'critical'),
-
-    // GDPR/compliance requests approaching deadline (SAR: 30 days from receipt)
-    // Alert when >20 days old (10 or fewer days remaining)
     supabaseAdmin
       .from('support_tickets')
       .select('id, subject, created_at')
@@ -277,14 +244,12 @@ export async function GET(request: NextRequest) {
       .lt('created_at', twentyDaysAgo)
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
       .eq('category', 'compliance')
       .in('status', ['open', 'investigating'])
       .lt('created_at', twentyDaysAgo),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
@@ -293,9 +258,6 @@ export async function GET(request: NextRequest) {
       .lt('created_at', twentyFiveDaysAgo),
   ]);
 
-  // Propagate errors. Optional/future-schema relations are tracked separately;
-  // any other query error fails the snapshot closed instead of presenting partial
-  // data as a healthy or zero state.
   const queryErrors: string[] = [];
   const collectQueryError = (
     source: string,
@@ -312,8 +274,6 @@ export async function GET(request: NextRequest) {
   collectQueryError('docs_expiring', docsExpiringSoonPreviewResult.error, docsExpiringSoonCountResult.error, docsExpiringSoonP1CountResult.error);
   collectQueryError('docs_expired', docsExpiredPreviewResult.error, docsExpiredCountResult.error);
 
-  // For optional/future-schema tables, distinguish "table missing" (unavailable)
-  // from other errors (hard failure).
   const fraudUnavailable = [
     fraudCasesPreviewResult.error,
     fraudCasesCountResult.error,
@@ -354,10 +314,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Build Critical Action Queue
   const queue: ActionQueueItem[] = [];
 
-  // Companies pending approval
   for (const company of (companiesPendingPreviewResult.data ?? []) as Array<{ id: string; name: string; created_at: string }>) {
     const age = ageMinutes(company.created_at);
     queue.push({
@@ -375,7 +333,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Jobs at risk (no status change for >2h in active states)
   for (const job of (jobsAtRiskPreviewResult.data ?? []) as Array<{ id: string; status: string; pickup_location: string | null; delivery_location: string | null; updated_at: string }>) {
     const age = ageMinutes(job.updated_at);
     queue.push({
@@ -393,7 +350,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Jobs without driver
   for (const job of (jobsWithoutDriverPreviewResult.data ?? []) as Array<{ id: string; status: string; pickup_location: string | null; delivery_location: string | null; created_at: string }>) {
     const age = ageMinutes(job.created_at);
     queue.push({
@@ -411,7 +367,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Documents expiring soon
   for (const doc of (docsExpiringSoonPreviewResult.data ?? []) as Array<{ id: string; driver_id: string; doc_type: string; expiry_date: string }>) {
     const daysLeft = Math.ceil((new Date(doc.expiry_date).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
     queue.push({
@@ -429,7 +384,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Expired documents
   for (const doc of (docsExpiredPreviewResult.data ?? []) as Array<{ id: string; driver_id: string; doc_type: string; expiry_date: string }>) {
     queue.push({
       id: `doc-expired-${doc.id}`,
@@ -446,7 +400,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Fraud cases (only when the table exists in the live schema)
   if (!fraudUnavailable) {
     for (const fraudCase of (fraudCasesPreviewResult.data ?? []) as Array<{ id: string; subject_company_id: string | null; status: string; created_at: string }>) {
       const age = ageMinutes(fraudCase.created_at);
@@ -466,7 +419,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Overdue invoices (only when the table exists in the live schema)
   if (!invoicesUnavailable) {
     for (const invoice of (invoicesOverduePreviewResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; currency: string | null; due_date: string; created_at: string }>) {
       const age = ageMinutes(invoice.due_date);
@@ -487,7 +439,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Critical support tickets (only when the table exists in the live schema)
   if (!supportCriticalUnavailable) {
     for (const ticket of (supportTicketsCriticalPreviewResult.data ?? []) as Array<{ id: string; subject: string; status: string; priority: string; created_at: string }>) {
       const age = ageMinutes(ticket.created_at);
@@ -507,7 +458,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Compliance/GDPR requests approaching 30-day SAR deadline (only when the table exists)
   if (!gdprUnavailable) {
     for (const req of (gdprRequestsPreviewResult.data ?? []) as Array<{ id: string; subject: string; created_at: string }>) {
       const age = ageMinutes(req.created_at);
@@ -529,7 +479,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Sort queue: P0 first, then P1, then P2, within same severity by age desc
   queue.sort((a, b) => {
     const severityDiff = (SEVERITY_ORDER[a.severity] ?? 3) - (SEVERITY_ORDER[b.severity] ?? 3);
     if (severityDiff !== 0) return severityDiff;
@@ -602,18 +551,34 @@ export async function GET(request: NextRequest) {
       ? jobsAtRiskCount + jobsWithoutDriverCount
       : null;
 
-  // Financial exposure: exact invoice count is available, but exact overdue
-  // amount is not exposed through the current safe query surface without a new
-  // aggregate RPC/migration, so report an honest unknown amount.
   const invoicesQueryFailed = Boolean(
     !invoicesUnavailable &&
     (invoicesOverduePreviewResult.error || invoicesOverdueCountResult.error || invoicesOverdueP1CountResult.error),
   );
-  // degradedServices: health-check integration is planned for PR-4.1 and is not yet implemented.
-  // Report as null/unknown rather than falsely reporting zero degraded services.
-  const degradedServicesCount: number | null = null;
 
-  // Collect which optional sources are unavailable so the UI can show an honest state.
+  let degradedServicesCount: number | null = null;
+  let degradedServicesSeverity: 'warning' | 'caution' | 'ok' | 'unknown' = 'unknown';
+  let degradedServicesNote = 'Platform health snapshot unavailable — not reported as zero.';
+  try {
+    const healthSnapshot = await runPlatformHealthChecks();
+    const { summary } = healthSnapshot;
+    if (summary.determined && summary.unhealthyCount !== null) {
+      degradedServicesCount = summary.unhealthyCount;
+      degradedServicesSeverity = summary.errorCount > 0
+        ? 'warning'
+        : summary.degradedCount > 0
+          ? 'caution'
+          : 'ok';
+      degradedServicesNote = degradedServicesCount === 0
+        ? `All ${summary.totalChecks} canonical health checks are healthy.`
+        : `${degradedServicesCount} of ${summary.totalChecks} canonical health checks require attention (${summary.errorCount} error, ${summary.degradedCount} degraded).`;
+    }
+  } catch {
+    degradedServicesCount = null;
+    degradedServicesSeverity = 'unknown';
+    degradedServicesNote = 'Platform health snapshot unavailable — not reported as zero.';
+  }
+
   const unavailableSources: string[] = [];
   if (fraudUnavailable) unavailableSources.push('fraud_review_cases');
   if (invoicesUnavailable) unavailableSources.push('invoices');
@@ -667,8 +632,8 @@ export async function GET(request: NextRequest) {
       degradedServices: {
         count: degradedServicesCount,
         label: 'Degraded services',
-        severity: 'unknown' as const,
-        note: 'Health-check integration pending (PR-4.1)',
+        severity: degradedServicesSeverity,
+        note: degradedServicesNote,
       },
     },
     actionQueue: {
