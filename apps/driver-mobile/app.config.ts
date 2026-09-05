@@ -28,6 +28,9 @@ const config: ExpoConfig = {
       'ACCESS_NETWORK_STATE',
       'ACCESS_FINE_LOCATION',
       'ACCESS_COARSE_LOCATION',
+      'ACCESS_BACKGROUND_LOCATION',
+      'FOREGROUND_SERVICE',
+      'FOREGROUND_SERVICE_LOCATION',
     ],
     adaptiveIcon: {
       backgroundColor: '#0B2F6B',
@@ -56,6 +59,15 @@ const config: ExpoConfig = {
     'expo-image-picker',
     'expo-document-picker',
     'expo-notifications',
+    [
+      'expo-location',
+      {
+        locationAlwaysAndWhenInUsePermission: 'Allow XDrive Driver to use your location while you are completing an assigned job.',
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+      },
+    ],
   ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
