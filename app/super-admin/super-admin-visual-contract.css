@@ -52,6 +52,20 @@
   line-height: 1.45;
 }
 
+/* The context bar above the content already carries the active domain. Legacy
+ * pages repeated that information with emoji tiles and section pills while
+ * newer pages (Analytics/Health) did not. Remove only those page-header
+ * decorations so every route starts with the same title/description hierarchy. */
+.super-admin-light-root main header[style*="min-height: 52px"] > span[aria-hidden="true"],
+.super-admin-light-root main header[style*="min-height:52px"] > span[aria-hidden="true"] {
+  display: none !important;
+}
+
+.super-admin-light-root main header[style*="min-height: 52px"] > div > div:first-child > span[style*="text-transform: uppercase"],
+.super-admin-light-root main header[style*="min-height:52px"] > div > div:first-child > span[style*="text-transform:uppercase"] {
+  display: none !important;
+}
+
 /* Page-level rhythm. Custom pages historically used different canvases and
  * padding values; normalize their first content surface without touching the
  * sticky shell/header above it. */
@@ -59,8 +73,7 @@
   min-width: 0;
 }
 
-.super-admin-light-root main > div > div[style*="min-height: 100vh"],
-.super-admin-light-root main > div > div[style*="minHeight"] {
+.super-admin-light-root main > div > div[style*="min-height: 100vh"] {
   background: transparent !important;
 }
 
@@ -69,14 +82,17 @@
 .super-admin-light-root main section[style*="border"],
 .super-admin-light-root main article[style*="border"],
 .super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
-.super-admin-light-root main div[style*="min-height: 80px"][style*="border"] {
+.super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
+.super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
   border-color: var(--sa-ui-border) !important;
   border-radius: var(--sa-ui-radius) !important;
   box-shadow: none !important;
 }
 
 .super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
-.super-admin-light-root main div[style*="min-height: 80px"][style*="border"] {
+.super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
+.super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
+  min-height: 88px !important;
   background: var(--sa-ui-white) !important;
   padding: 12px !important;
 }
@@ -86,6 +102,17 @@
 .super-admin-light-root main div[style*="font-size: 20px"][style*="font-weight: 800"] {
   color: var(--sa-ui-navy) !important;
   font-variant-numeric: tabular-nums;
+}
+
+.super-admin-light-root main div[style*="min-height: 88px"][style*="border"] > div:nth-child(2),
+.super-admin-light-root main div[style*="min-height: 80px"][style*="border"] > div:nth-child(2),
+.super-admin-light-root main div[style*="min-height: 72px"][style*="border"] > div:nth-child(2) {
+  margin-top: 7px !important;
+  color: var(--sa-ui-ink) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
 }
 
 /* Tables are the main control-plane surface and must feel identical regardless
