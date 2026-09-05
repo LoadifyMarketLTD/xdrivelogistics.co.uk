@@ -18,6 +18,7 @@ const companyGovernanceRoute = source('app/api/super-admin/companies/[id]/route.
 const settingsRoute = source('app/api/super-admin/settings/route.ts');
 const financeRoute = source('app/api/super-admin/finance/route.ts');
 const superAdminAuthHeader = source('app/super-admin/_lib/getAuthHeader.ts');
+const authContext = source('app/components/AuthContext.tsx');
 
 const canonicalGuardRoutePaths = [
   'app/api/super-admin/audit/route.ts',
@@ -109,6 +110,14 @@ describe('Super Admin control-plane completeness', () => {
     expect(superAdminAuthHeader).toContain('decodeURIComponent');
     expect(superAdminAuthHeader).not.toContain('supabase.auth.getSession');
     expect(superAdminAuthHeader).not.toContain('supabaseClient');
+  });
+
+  it('defers Supabase API hydration outside the auth subscription callback', () => {
+    expect(authContext).toContain('supabase.auth.onAuthStateChange((event, session) =>');
+    expect(authContext).not.toContain('supabase.auth.onAuthStateChange(async');
+    expect(authContext).toContain('window.setTimeout(() =>');
+    expect(authContext).toContain('await hydrateUser(session.user)');
+    expect(authContext).toContain('released before resolveAuthenticatedUser() issues database queries');
   });
 
   it('enforces active Platform Owner and Deploy Preview write lock in the canonical guard', () => {
