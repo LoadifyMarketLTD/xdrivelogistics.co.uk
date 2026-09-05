@@ -1,28 +1,27 @@
 /*
- * XDrive Super Admin — light visual contract
- * Scoped to /super-admin only. The supplied CX direction is operational,
- * compact and light: navy/blue/orange are brand accents, not cinematic page
- * backgrounds.
+ * XDrive Logistics LTD — Super Admin light compatibility layer
  *
- * Brand direction:
- * Navy #0B2F6B · Blue #1D57D8 · Orange #F5A300 · White #FFFFFF
- * Charcoal #1A1F2B · Light Grey #F4F6F8
+ * Scoped to /super-admin only. This file keeps legacy/custom pages readable in
+ * the approved light enterprise system while the canonical tokens and
+ * typography live in super-admin-visual-contract.css.
  */
 
 .super-admin-light-root {
-  --sa-navy: #0B2F6B;
-  --sa-blue: #1D57D8;
-  --sa-orange: #F5A300;
   --sa-white: #FFFFFF;
-  --sa-charcoal: #1A1F2B;
-  --sa-light: #F4F6F8;
-  --sa-border: #D8DEE8;
-  --sa-muted: #64748B;
+  --sa-light: #F5F7FA;
+  --sa-charcoal: #4A4A4A;
+  --sa-blue: #1A73E8;
+  --sa-green: #34A853;
+  --sa-yellow: #FBBC05;
+  --sa-red: #EA4335;
+  --sa-navy: #1A73E8;
+  --sa-border: #E0E3E7;
+  --sa-muted: #6B7280;
   min-height: 100vh;
   background: var(--sa-light);
   color: var(--sa-charcoal);
   color-scheme: light;
-  font-family: Inter, Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Roboto, Inter, Arial, sans-serif;
 }
 
 /* Legacy page/card canvases, including Tailwind variants. */
@@ -63,7 +62,7 @@
   color: var(--sa-charcoal) !important;
 }
 
-/* Convert old light-on-dark type into the light-theme hierarchy. */
+/* Convert old light-on-dark type into the approved light hierarchy. */
 .super-admin-light-root [class*="text-slate-100"],
 .super-admin-light-root [class*="text-slate-200"],
 .super-admin-light-root [class*="text-gray-100"],
@@ -88,27 +87,27 @@
   color: var(--sa-muted) !important;
 }
 
-/* Pale semantic colours designed for dark backgrounds are darkened for contrast. */
+/* Legacy semantic colours are normalized to the approved status palette. */
 .super-admin-light-root [style*="color: rgb(134, 239, 172)"],
 .super-admin-light-root [style*="color:#86efac"],
 .super-admin-light-root [style*="color: #86efac"],
 .super-admin-light-root [style*="color: rgb(74, 222, 128)"],
 .super-admin-light-root [style*="color:#4ade80"],
-.super-admin-light-root [style*="color: #4ade80"] { color: #15803D !important; }
+.super-admin-light-root [style*="color: #4ade80"] { color: var(--sa-green) !important; }
 
 .super-admin-light-root [style*="color: rgb(252, 211, 77)"],
 .super-admin-light-root [style*="color:#fcd34d"],
 .super-admin-light-root [style*="color: #fcd34d"],
 .super-admin-light-root [style*="color: rgb(251, 191, 36)"],
 .super-admin-light-root [style*="color:#fbbf24"],
-.super-admin-light-root [style*="color: #fbbf24"] { color: #B45309 !important; }
+.super-admin-light-root [style*="color: #fbbf24"] { color: var(--sa-yellow) !important; }
 
 .super-admin-light-root [style*="color: rgb(252, 165, 165)"],
 .super-admin-light-root [style*="color:#fca5a5"],
 .super-admin-light-root [style*="color: #fca5a5"],
 .super-admin-light-root [style*="color: rgb(248, 113, 113)"],
 .super-admin-light-root [style*="color:#f87171"],
-.super-admin-light-root [style*="color: #f87171"] { color: #DC2626 !important; }
+.super-admin-light-root [style*="color: #f87171"] { color: var(--sa-red) !important; }
 
 .super-admin-light-root [style*="color: rgb(147, 197, 253)"],
 .super-admin-light-root [style*="color:#93c5fd"],
@@ -120,7 +119,7 @@
 .super-admin-light-root [style*="color:#bfdbfe"],
 .super-admin-light-root [style*="color: #bfdbfe"] { color: var(--sa-blue) !important; }
 
-/* Dark borders become the supplied compact divider. */
+/* Dark borders become the shared enterprise divider. */
 .super-admin-light-root [class*="border-slate-700"],
 .super-admin-light-root [class*="border-slate-800"],
 .super-admin-light-root [class*="border-gray-700"],
@@ -134,25 +133,25 @@
   border-color: var(--sa-border) !important;
 }
 
-/* Cards, tables and controls follow the CX density contract. */
+/* Cards and legacy rounded surfaces follow the same geometry as new modules. */
 .super-admin-light-root [style*="border-radius: 8px"],
 .super-admin-light-root [style*="border-radius: 10px"],
 .super-admin-light-root [style*="border-radius: 12px"],
 .super-admin-light-root [class*="rounded-lg"],
 .super-admin-light-root [class*="rounded-xl"],
 .super-admin-light-root [class*="rounded-2xl"] {
-  border-radius: 4px !important;
+  border-radius: 12px !important;
 }
 
 .super-admin-light-root [class*="shadow-xl"],
 .super-admin-light-root [class*="shadow-2xl"] {
-  box-shadow: 0 1px 3px rgba(11, 47, 107, 0.10) !important;
+  box-shadow: 0 3px 12px rgba(31, 41, 55, 0.055) !important;
 }
 
 .super-admin-light-root table { background: var(--sa-white); border-color: var(--sa-border); }
 .super-admin-light-root thead { background: var(--sa-light); }
-.super-admin-light-root th { color: var(--sa-navy); }
-.super-admin-light-root tbody tr:hover { background: #F8FAFC; }
+.super-admin-light-root th { color: var(--sa-blue); }
+.super-admin-light-root tbody tr:hover { background: #FAFBFD; }
 
 .super-admin-light-root input:not([type="checkbox"]):not([type="radio"]),
 .super-admin-light-root textarea,
@@ -160,13 +159,14 @@
   background-color: var(--sa-white);
   color: var(--sa-charcoal);
   border-color: var(--sa-border);
-  border-radius: 4px;
+  border-radius: 8px;
+  font-family: Roboto, Inter, Arial, sans-serif;
 }
 
 .super-admin-light-root button,
 .super-admin-light-root input,
 .super-admin-light-root select {
-  min-height: 30px;
+  min-height: 40px;
 }
 
 /* Branded/semantic action fills keep white labels. */
@@ -174,6 +174,10 @@
 .super-admin-light-root a[class*="bg-blue-"],
 .super-admin-light-root button[class*="bg-green-"],
 .super-admin-light-root a[class*="bg-green-"],
+.super-admin-light-root button[style*="#1A73E8"],
+.super-admin-light-root button[style*="#1a73e8"],
+.super-admin-light-root a[style*="#1A73E8"],
+.super-admin-light-root a[style*="#1a73e8"],
 .super-admin-light-root button[style*="#1D57D8"],
 .super-admin-light-root button[style*="#1d57d8"] {
   color: var(--sa-white) !important;
@@ -187,8 +191,8 @@
 }
 
 .super-admin-light-root ::selection {
-  background: rgba(29, 87, 216, 0.18);
-  color: var(--sa-navy);
+  background: rgba(26, 115, 232, 0.18);
+  color: var(--sa-charcoal);
 }
 
 @media (prefers-color-scheme: dark) {
