@@ -1,0 +1,238 @@
+/*
+ * XDrive Super Admin — visual unification contract
+ *
+ * This is deliberately scoped to the Super Admin content canvas. It does not
+ * change data, authorization, navigation or mutation semantics. The purpose is
+ * to make legacy/custom pages and shared table/module pages read as one product
+ * while preserving the established XDrive navy/blue/orange light identity.
+ */
+
+.super-admin-light-root {
+  --sa-ui-navy: #0B2F6B;
+  --sa-ui-blue: #1D57D8;
+  --sa-ui-orange: #F5A300;
+  --sa-ui-ink: #1A1F2B;
+  --sa-ui-muted: #64748B;
+  --sa-ui-border: #D9E1EA;
+  --sa-ui-soft: #F4F6F8;
+  --sa-ui-white: #FFFFFF;
+  --sa-ui-danger: #DC2626;
+  --sa-ui-success: #168553;
+  --sa-ui-radius: 8px;
+  --sa-ui-control-height: 32px;
+  --sa-ui-section-gap: 12px;
+}
+
+/* Page typography: one hierarchy across analytics, governance, finance,
+ * support, operations, compliance, fleet and entity inspection. */
+.super-admin-light-root main h1 {
+  margin-top: 0;
+  color: var(--sa-ui-navy) !important;
+  font-size: 20px !important;
+  line-height: 1.2 !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.015em;
+}
+
+.super-admin-light-root main h2 {
+  color: var(--sa-ui-navy) !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+  font-weight: 820 !important;
+}
+
+.super-admin-light-root main h3 {
+  color: var(--sa-ui-navy) !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  font-weight: 800 !important;
+}
+
+.super-admin-light-root main p {
+  line-height: 1.45;
+}
+
+/* Page-level rhythm. Custom pages historically used different canvases and
+ * padding values; normalize their first content surface without touching the
+ * sticky shell/header above it. */
+.super-admin-light-root main > div {
+  min-width: 0;
+}
+
+.super-admin-light-root main > div > div[style*="min-height: 100vh"],
+.super-admin-light-root main > div > div[style*="minHeight"] {
+  background: transparent !important;
+}
+
+/* Shared cards / panels. Existing semantic colours are preserved; geometry,
+ * border and shadow language are unified. */
+.super-admin-light-root main section[style*="border"],
+.super-admin-light-root main article[style*="border"],
+.super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
+.super-admin-light-root main div[style*="min-height: 80px"][style*="border"] {
+  border-color: var(--sa-ui-border) !important;
+  border-radius: var(--sa-ui-radius) !important;
+  box-shadow: none !important;
+}
+
+.super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
+.super-admin-light-root main div[style*="min-height: 80px"][style*="border"] {
+  background: var(--sa-ui-white) !important;
+  padding: 12px !important;
+}
+
+/* Compact KPI language: numeric value, label, supporting note. */
+.super-admin-light-root main div[style*="font-size: 22px"],
+.super-admin-light-root main div[style*="font-size: 20px"][style*="font-weight: 800"] {
+  color: var(--sa-ui-navy) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tables are the main control-plane surface and must feel identical regardless
+ * of which route produced them. */
+.super-admin-light-root main table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--sa-ui-white) !important;
+  color: var(--sa-ui-ink);
+  font-size: 11.5px !important;
+}
+
+.super-admin-light-root main thead {
+  background: var(--sa-ui-soft) !important;
+}
+
+.super-admin-light-root main th {
+  min-height: 38px;
+  padding: 9px 12px !important;
+  color: var(--sa-ui-navy) !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  line-height: 1.2;
+  letter-spacing: .045em !important;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.super-admin-light-root main td {
+  padding: 9px 12px !important;
+  color: var(--sa-ui-ink);
+  font-size: 11.5px;
+  line-height: 1.4;
+  vertical-align: top;
+}
+
+.super-admin-light-root main tbody tr {
+  min-height: 44px;
+  border-bottom: 1px solid var(--sa-ui-border) !important;
+}
+
+.super-admin-light-root main tbody tr:last-child {
+  border-bottom: 0 !important;
+}
+
+.super-admin-light-root main tbody tr:hover {
+  background: #F8FAFD !important;
+}
+
+/* Controls: consistent dimensions and focus treatment. Existing primary,
+ * success, warning and danger fills remain untouched. */
+.super-admin-light-root main button,
+.super-admin-light-root main a[role="button"] {
+  min-height: var(--sa-ui-control-height);
+  border-radius: var(--sa-ui-radius) !important;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 780;
+  line-height: 1;
+}
+
+.super-admin-light-root main button:focus-visible,
+.super-admin-light-root main a:focus-visible,
+.super-admin-light-root main input:focus-visible,
+.super-admin-light-root main textarea:focus-visible,
+.super-admin-light-root main select:focus-visible {
+  outline: 2px solid var(--sa-ui-blue) !important;
+  outline-offset: 2px;
+}
+
+.super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
+.super-admin-light-root main select {
+  min-height: 34px;
+  border-radius: var(--sa-ui-radius) !important;
+  font-size: 11.5px;
+}
+
+.super-admin-light-root main textarea {
+  border-radius: var(--sa-ui-radius) !important;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* Alerts/notices use a shared geometry while retaining semantic border/text
+ * colours supplied by each owning page. */
+.super-admin-light-root main [role="alert"] {
+  border-radius: var(--sa-ui-radius) !important;
+  background: var(--sa-ui-white) !important;
+  padding: 10px 12px !important;
+  line-height: 1.45;
+}
+
+/* Status chips / badges keep their meaning but no longer vary wildly in
+ * vertical size across custom and shared pages. */
+.super-admin-light-root main [style*="border-radius: 999"],
+.super-admin-light-root main [style*="border-radius:999"] {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  font-size: 9px !important;
+  line-height: 1.15 !important;
+  font-weight: 820 !important;
+}
+
+/* Read-only inspector and reconciliation/detail cards were a separate visual
+ * family. Bring their 12/14px legacy cards into the same geometry. */
+.super-admin-light-root main [style*="border-radius: 14px"],
+.super-admin-light-root main [style*="border-radius:14px"],
+.super-admin-light-root main [style*="border-radius: 12px"],
+.super-admin-light-root main [style*="border-radius:12px"] {
+  border-radius: var(--sa-ui-radius) !important;
+}
+
+.super-admin-light-root main code {
+  color: var(--sa-ui-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9.5px;
+}
+
+/* Empty states and loading-only panels use a common quiet treatment. */
+.super-admin-light-root main section > div[style*="text-align: center"][style*="padding: 18px"],
+.super-admin-light-root main section > div[style*="text-align:center"][style*="padding:18px"] {
+  min-height: 84px;
+  display: grid;
+  place-items: center;
+  color: var(--sa-ui-muted) !important;
+  background: var(--sa-ui-white);
+  font-size: 11.5px !important;
+}
+
+/* Keep dense control-plane pages usable on smaller screens without inventing a
+ * second mobile visual language. */
+@media (max-width: 900px) {
+  .super-admin-light-root main h1 { font-size: 18px !important; }
+  .super-admin-light-root main th,
+  .super-admin-light-root main td { padding-left: 9px !important; padding-right: 9px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .super-admin-light-root main *,
+  .super-admin-light-root main *::before,
+  .super-admin-light-root main *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
