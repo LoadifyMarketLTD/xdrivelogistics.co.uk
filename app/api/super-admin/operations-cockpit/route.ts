@@ -12,7 +12,6 @@ const ACTIVE_JOB_STATUSES = [
 const OPEN_JOB_STATUSES = [
   'draft', 'received', 'posted', 'quoted', 'awarded', ...ACTIVE_JOB_STATUSES,
 ];
-const TERMINAL_JOB_STATUSES = ['delivered', 'invoiced', 'paid', 'cancelled', 'canceled'];
 const ONLINE_LOCATION_MAX_AGE_MS = 30 * 60_000;
 const MAP_LOCATION_MAX_AGE_MS = 24 * 60 * 60_000;
 const MAX_LOCATION_ROWS = 2_000;
