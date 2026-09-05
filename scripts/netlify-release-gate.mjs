@@ -102,7 +102,13 @@ if (isGoLiveHardeningPreview && !isPr502DiagnosticPreview) {
 }
 
 if (isPr502DiagnosticPreview) {
-  console.log('NETLIFY_RELEASE_GATE_PR502_DIAGNOSTIC=migration-validation-plus-production-build');
+  console.log('NETLIFY_RELEASE_GATE_PR502_DIAGNOSTIC=migration-validation-plus-lint-plus-production-build');
+  run('pr502-hardening-lint', 24, npmCommand, [
+    'exec',
+    '--',
+    'eslint',
+    ...goLiveHardeningLintTargets,
+  ]);
 } else if (!isLegalGatePreview && !isGoLiveHardeningPreview) {
   run('typecheck', 26, npmCommand, ['run', 'typecheck']);
 }
