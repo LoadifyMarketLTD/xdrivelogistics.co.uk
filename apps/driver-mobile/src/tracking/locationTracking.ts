@@ -26,12 +26,14 @@ const TRACKABLE_STATUSES = new Set([
   'accepted',
   'on_my_way',
   'on_my_way_pickup',
+  'on_my_way_to_pickup',
   'on_site_pickup',
   'arrived_pickup',
   'loaded',
   'collected',
   'in_transit',
   'on_my_way_delivery',
+  'on_my_way_to_delivery',
   'on_route_delivery',
   'on_site_delivery',
   'arrived_delivery',
@@ -132,18 +134,16 @@ async function publishLocation(location: Location.LocationObject) {
   }
 }
 
-TaskManager.defineTask(
-  DRIVER_LOCATION_TASK,
-  async ({ data, error }: { data?: { locations?: Location.LocationObject[] } | null; error?: Error | null }) => {
-    if (error) {
-      await writeDiagnostic(`task-error:${error.message}`);
-      return;
-    }
-    const locations = Array.isArray(data?.locations) ? data.locations : [];
-    const latest = locations[locations.length - 1];
-    if (latest) await publishLocation(latest);
-  },
-);
+TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
+  if (error) {
+    await writeDiagnostic(`task-error:${error.message}`);
+    return;
+  }
+  const taskData = data as { locations?: Location.LocationObject[] } | null | undefined;
+  const locations = Array.isArray(taskData?.locations) ? taskData.locations : [];
+  const latest = locations[locations.length - 1];
+  if (latest) await publishLocation(latest);
+});
 
 async function ensurePermissions() {
   if (!(await Location.hasServicesEnabledAsync().catch(() => false))) return { foreground: false, background: false };
