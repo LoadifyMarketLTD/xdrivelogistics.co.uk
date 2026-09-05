@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../app/api/_lib/supabaseAdmin', () => ({
+  supabaseAdmin: null,
+}));
 
 import { summarizePlatformHealth, type PlatformHealthCheck } from '../app/api/super-admin/_lib/platformHealth';
 
