@@ -3,7 +3,29 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-const OPEN_JOB_STATUSES = ['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit'];
+// Non-terminal raw lifecycle values accepted by the canonical workspace job-stage
+// contract, including hosted/historical aliases still present in jobs.status (text).
+const OPEN_JOB_STATUSES = [
+  'draft',
+  'received',
+  'posted',
+  'quoted',
+  'awarded',
+  'allocated',
+  'accepted',
+  'assigned',
+  'open',
+  'OPEN',
+  'in_progress',
+  'on_my_way',
+  'on_my_way_to_pickup',
+  'on_site_pickup',
+  'loaded',
+  'collected',
+  'in_transit',
+  'on_my_way_to_delivery',
+  'on_site_delivery',
+];
 const OUTSTANDING_PAYMENT_STATUSES = ['unpaid', 'partially_paid', 'overdue', 'disputed'];
 // Hosted public.invoice_status uses lowercase `paid` and `void` for the two
 // non-collectible lifecycle states. Do not send UI-only/nonexistent enum literals
