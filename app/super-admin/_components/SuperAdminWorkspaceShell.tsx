@@ -11,6 +11,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   nav: [
     { id: 'dashboard', label: 'Dashboard', items: [
       { id: 'command-centre', label: 'Command Centre', href: '/super-admin', icon: '⌂' },
+      { id: 'operations-control-centre', label: 'Operations Control Centre', href: '/super-admin/operations/control-centre', icon: '⌖' },
       { id: 'global-search', label: 'Global Search', href: '/super-admin/search', icon: '⌕' },
       { id: 'analytics', label: 'Platform Analytics', href: '/super-admin/analytics', icon: '◫' },
       { id: 'health', label: 'Platform Health', href: '/super-admin/health', icon: '✓' },
