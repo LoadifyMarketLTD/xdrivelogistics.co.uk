@@ -82,6 +82,8 @@ const superAdminHomeUnitTests = [
 const superAdminControlPlaneLintTargets = [
   '__tests__/invoiceStatusCanonical.test.ts',
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminPlatformHealth.test.ts',
+  'app/api/super-admin/_lib/platformHealth.ts',
   'app/api/super-admin/_lib/verifyPlatformOwner.ts',
   'app/api/super-admin/audit/route.ts',
   'app/api/super-admin/brokers/route.ts',
@@ -137,6 +139,7 @@ const superAdminControlPlaneLintTargets = [
 
 const superAdminControlPlaneUnitTests = [
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminPlatformHealth.test.ts',
   '__tests__/invoiceStatusCanonical.test.ts',
   '__tests__/superAdminStatsContract.test.ts',
   '__tests__/commandCentreMetrics.test.ts',
