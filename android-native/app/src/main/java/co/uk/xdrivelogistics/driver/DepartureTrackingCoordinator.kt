@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 
 /**
  * Best-effort tracking activation for a driver-initiated departure action.
@@ -47,7 +48,9 @@ internal class DepartureTrackingCoordinator(
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun isDeviceLocationEnabled(): Boolean =
-        runCatching { context.getSystemService(LocationManager::class.java).isLocationEnabled }.getOrDefault(false)
+        runCatching {
+            LocationManagerCompat.isLocationEnabled(context.getSystemService(LocationManager::class.java))
+        }.getOrDefault(false)
 }
 
 internal fun DepartureTrackingCoordinator.Outcome.driverWarningOrNull(): String? = when (this) {
