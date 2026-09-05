@@ -71,23 +71,27 @@ export const summarizePlatformHealth = (checks: PlatformHealthCheck[]): Platform
 
 export const runPlatformHealthChecks = async () => {
   if (!supabaseAdmin) throw new Error('Platform health client is not configured.');
+  const client = supabaseAdmin;
 
   const checks = await Promise.all([
     timed('Supabase Database', async () => {
-      const { count, error } = await supabaseAdmin.from('companies').select('id', { count: 'exact', head: true });
+      const { count, error } = await client.from('companies').select('id', { count: 'exact', head: true });
       if (error) throw new Error(error.message);
       if (typeof count !== 'number') throw new Error('Database exact-count health probe returned an incomplete snapshot.');
       return `Database query completed successfully (${count.toLocaleString()} companies visible to the service role).`;
     }),
     timed('Supabase Storage', async () => {
-      if (!supabaseAdmin.storage?.listBuckets) throw new Error('Storage health client is unavailable.');
-      const { data, error } = await supabaseAdmin.storage.listBuckets();
+      const storageClient = client.storage;
+      if (!storageClient || typeof storageClient.listBuckets !== 'function') {
+        throw new Error('Storage health client is unavailable.');
+      }
+      const { data, error } = await storageClient.listBuckets();
       if (error) throw new Error(error.message);
       if (!Array.isArray(data)) throw new Error('Storage health probe returned an invalid bucket list.');
       return `${data.length} storage bucket${data.length === 1 ? '' : 's'} accessible.`;
     }),
     timed('Notification Store', async () => {
-      const { count, error } = await supabaseAdmin.from('notification_events').select('id', { count: 'exact', head: true });
+      const { count, error } = await client.from('notification_events').select('id', { count: 'exact', head: true });
       if (error) throw new Error(error.message);
       if (typeof count !== 'number') throw new Error('Notification store exact-count health probe returned an incomplete snapshot.');
       return `Notification event store is reachable (${count.toLocaleString()} events).`;
