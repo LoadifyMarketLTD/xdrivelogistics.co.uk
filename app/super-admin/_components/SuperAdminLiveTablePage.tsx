@@ -33,6 +33,8 @@ const X = {
   charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626',
 } as const;
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export function readLiveTableNotices(body: Record<string, unknown>, noteField?: string, diagnosticField?: string): LiveTableNotice[] {
   const notices: LiveTableNotice[] = [];
   if (noteField) {
@@ -131,29 +133,62 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     const run = async () => {
       setLoading(true); setError(null); setNotices([]); setSummary(null); setRows([]); setHasNextPage(false); setTotalCount(null);
       try {
         const auth = await getAuthHeader();
         if (!auth) { setError('No active session.'); return; }
         const separator = endpoint.includes('?') ? '&' : '?';
-        const res = await fetch(`${endpoint}${separator}page=${page}&limit=${pageSize}`, { headers: { Authorization: auth } });
+        const res = await fetch(`${endpoint}${separator}page=${page}&limit=${pageSize}`, {
+          headers: { Authorization: auth },
+          signal: controller.signal,
+        });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) { setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.'); return; }
-        const fieldValue = (body as Record<string, unknown>)[rowsField];
-        setRows(Array.isArray(fieldValue) ? fieldValue as T[] : []);
-        const pagination = (body as Record<string, unknown>).pagination as Record<string, unknown> | undefined;
-        setHasNextPage(Boolean(pagination?.hasNextPage ?? false));
-        setTotalCount(typeof pagination?.total === 'number' ? pagination.total : null);
-        if (summaryField) {
-          const value = (body as Record<string, unknown>)[summaryField];
-          setSummary(value && typeof value === 'object' ? value as Record<string, unknown> : null);
+
+        const record = body as Record<string, unknown>;
+        const fieldValue = record[rowsField];
+        if (!Array.isArray(fieldValue)) {
+          setError('The requested service returned an invalid data contract.');
+          return;
         }
-        setNotices(readLiveTableNotices(body as Record<string, unknown>, noteField, diagnosticField));
-      } catch { setError('The requested service is currently unavailable.'); }
-      finally { setLoading(false); }
+        setRows(fieldValue as T[]);
+
+        const pageInfo = record.pagination as Record<string, unknown> | undefined;
+        if (pageInfo !== undefined && (!pageInfo || typeof pageInfo !== 'object')) {
+          setError('The requested service returned invalid pagination metadata.');
+          return;
+        }
+        setHasNextPage(Boolean(pageInfo?.hasNextPage ?? false));
+        setTotalCount(typeof pageInfo?.total === 'number' ? pageInfo.total : null);
+
+        if (summaryField) {
+          const value = record[summaryField];
+          if (value !== undefined && (!value || typeof value !== 'object' || Array.isArray(value))) {
+            setError('The requested service returned invalid summary metadata.');
+            return;
+          }
+          setSummary(value ? value as Record<string, unknown> : null);
+        }
+        setNotices(readLiveTableNotices(record, noteField, diagnosticField));
+      } catch (cause) {
+        setError(cause instanceof DOMException && cause.name === 'AbortError'
+          ? 'The requested service timed out.'
+          : 'The requested service is currently unavailable.');
+      } finally {
+        window.clearTimeout(timeout);
+        setLoading(false);
+      }
     };
+
     void run();
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [endpoint, rowsField, summaryField, noteField, diagnosticField, page, pageSize, refreshKey]);
 
   return <ProtectedRoute allowedRoles={['owner']}><SuperAdminLiveTableView
