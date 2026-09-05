@@ -10,6 +10,8 @@ const packageJson = read('apps/driver-mobile/package.json');
 const readme = read('apps/driver-mobile/README.md');
 const appEntry = read('apps/driver-mobile/App.tsx');
 const runtimeGate = read('apps/driver-mobile/src/app/DriverRuntimeGate.tsx');
+const driverApp = read('apps/driver-mobile/src/app/DriverMobileApp.tsx');
+const resourcesApi = read('apps/driver-mobile/src/api/resources.ts');
 const supabaseAuth = read('apps/driver-mobile/src/auth/supabase.ts');
 const tracking = read('apps/driver-mobile/src/tracking/locationTracking.ts');
 const push = read('apps/driver-mobile/src/push/registerPushToken.ts');
@@ -82,6 +84,18 @@ describe('Expo Driver production/E2E source contract', () => {
     expect(pushNavigation).toContain('Notifications.addNotificationResponseReceivedListener');
     expect(pushNavigation).toContain('data.job_id');
     expect(pushNavigation).toContain('xdrive:\\/\\/job\\/');
+    expect(driverApp).toContain('subscribeToNotificationNavigation');
+    expect(driverApp).toContain('void openJobById(jobId)');
+  });
+
+  it('uses server-authoritative inbox read state instead of a local seen timestamp', () => {
+    expect(resourcesApi).toContain('markDriverNotificationRead');
+    expect(resourcesApi).toContain("action: 'mark_notification_read'");
+    expect(driverApp).toContain('isUnreadInboxNotification');
+    expect(driverApp).toContain('await markDriverNotificationRead(notificationId, token)');
+    expect(driverApp).toContain('await loadResources(token, { silent: true })');
+    expect(driverApp).not.toContain('notificationsSeenAt');
+    expect(driverApp).not.toContain('notificationsSeenKey');
   });
 
   it('keeps quote and multi-drop replay inside the account-scoped durable queue', () => {
@@ -94,6 +108,10 @@ describe('Expo Driver production/E2E source contract', () => {
     expect(jobsApi).toContain('return postStopStatus(jobId, stopId, status, token)');
     expect(liveLoadsScreen).toContain("endpoint: 'quote'");
     expect(liveLoadsScreen).toContain("Alert.alert('Quote pending'");
+    expect(driverApp).toContain("endpoint: 'stop-status'");
+    expect(driverApp).toContain('applyOptimisticStopStatus');
+    expect(driverApp).toContain('Stop update saved offline. It will sync in order when connectivity returns.');
+    expect(driverApp).not.toContain('Multi-drop stop updates require an internet connection and are not queued offline yet.');
   });
 
   it('does not weaken POD and collection evidence requirements while hardening offline behaviour', () => {
