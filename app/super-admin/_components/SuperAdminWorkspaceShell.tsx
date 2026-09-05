@@ -3,7 +3,6 @@ import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
 import SuperAdminCardNavigationShell from './SuperAdminCardNavigationShell';
 
-// Layered promotion: preserve current main routes and add the read-only Global Search entry.
 export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
   role: 'platform_owner',
   label: 'Platform Owner',
@@ -16,9 +15,6 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'analytics', label: 'Platform Analytics', href: '/super-admin/analytics', icon: '◫' },
       { id: 'health', label: 'Platform Health', href: '/super-admin/health', icon: '✓' },
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications', icon: '!' },
-    ] },
-    { id: 'xdrive-logistics', label: 'XDrive Logistics', items: [
-      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: '◎' },
     ] },
     { id: 'marketplace', label: 'Marketplace', items: [
       { id: 'marketplace', label: 'Marketplace', href: '/super-admin/marketplace', icon: '▦' },
@@ -36,11 +32,14 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
     ] },
     { id: 'fleet', label: 'Fleet', items: [
       { id: 'drivers', label: 'Drivers', href: '/super-admin/users/drivers', icon: '◉' },
+      { id: 'vehicles', label: 'Vehicle Registry', href: '/super-admin/fleet/vehicles', icon: '▰' },
+      { id: 'return-journeys', label: 'Return Journeys', href: '/super-admin/fleet/return-journeys', icon: '↩' },
       { id: 'driver-availability', label: 'Driver Availability', href: '/super-admin/operations/driver-availability', icon: '◷' },
       { id: 'fleet-positions', label: 'Fleet Positions', href: '/super-admin/operations/fleet-positions', icon: '⌖' },
     ] },
     { id: 'companies', label: 'Companies', items: [
       { id: 'companies', label: 'All Companies', href: '/super-admin/companies', icon: '◎' },
+      { id: 'memberships', label: 'Membership & Access', href: '/super-admin/companies/memberships', icon: '◉' },
       { id: 'approvals', label: 'Pending Approval', href: '/super-admin/companies/approvals', icon: '!' },
       { id: 'active', label: 'Active Companies', href: '/super-admin/companies/active', icon: '✓' },
       { id: 'suspended', label: 'Suspended Companies', href: '/super-admin/companies/suspended', icon: '×' },
@@ -50,9 +49,11 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
     { id: 'finance', label: 'Finance', items: [
       { id: 'finance-overview', label: 'Finance Overview', href: '/super-admin/finance', icon: '£' },
       { id: 'invoices', label: 'Invoices', href: '/super-admin/finance/invoices', icon: '£' },
+      { id: 'payments', label: 'Payments', href: '/super-admin/finance/payments', icon: '✓' },
+      { id: 'subscriptions', label: 'Membership Subscriptions', href: '/super-admin/finance/subscriptions', icon: '◉' },
+      { id: 'stripe-webhooks', label: 'Stripe Webhooks', href: '/super-admin/finance/stripe-webhooks', icon: '↻' },
       { id: 'fees', label: 'Financial Breakdown', href: '/super-admin/finance/fees', icon: '%' },
       { id: 'revenue', label: 'Revenue', href: '/super-admin/finance/revenue', icon: '£' },
-      { id: 'payments', label: 'Payments', href: '/super-admin/finance/payments', icon: '✓' },
     ] },
     { id: 'compliance', label: 'Compliance', items: [
       { id: 'fraud-cases', label: 'Identity & Fraud Review', href: '/super-admin/compliance/fraud-cases', icon: '!' },
@@ -68,6 +69,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
     ] },
     { id: 'platform', label: 'Platform', items: [
       { id: 'global', label: 'Global Settings', href: '/super-admin/settings/global', icon: '⚙' },
+      { id: 'legal-agreements', label: 'Legal & Agreements', href: '/super-admin/settings/legal-agreements', icon: '§' },
       { id: 'roles', label: 'Roles & Permissions', href: '/super-admin/settings/roles-permissions', icon: '⚙' },
       { id: 'flags', label: 'Feature Flags', href: '/super-admin/settings/feature-flags', icon: '⚑' },
       { id: 'audit', label: 'Audit Logs', href: '/super-admin/settings/audit-logs', icon: '▤' },
