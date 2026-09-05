@@ -23,6 +23,10 @@ describe('Android active-job tracking lifecycle contract', () => {
     path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt'),
     'utf8',
   );
+  const departure = fs.readFileSync(
+    path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/DepartureTrackingCoordinator.kt'),
+    'utf8',
+  );
 
   it('uses server-authoritative single-active-job eligibility', () => {
     expect(route).toContain('const ACTIVE_JOB_STATUSES = new Set([');
@@ -66,9 +70,12 @@ describe('Android active-job tracking lifecycle contract', () => {
     expect(service).toContain('hasLocationPermission()');
   });
 
-  it('fails closed when Android Location Services are off and links to system settings', () => {
+  it('fails closed when Android Location Services are off and remains API 26 compatible', () => {
     expect(service).toContain('LocationManager::class.java');
-    expect(service).toContain('isLocationEnabled');
+    expect(service).toContain('LocationManagerCompat.isLocationEnabled');
+    expect(departure).toContain('LocationManagerCompat.isLocationEnabled');
+    expect(service).not.toContain('LocationManager::class.java).isLocationEnabled');
+    expect(departure).not.toContain('LocationManager::class.java).isLocationEnabled');
     expect(service).toContain('Settings.ACTION_LOCATION_SOURCE_SETTINGS');
     expect(service).toContain('Android Location Services are OFF');
   });
