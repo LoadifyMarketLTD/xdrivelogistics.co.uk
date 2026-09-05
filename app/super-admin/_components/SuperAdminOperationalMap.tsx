@@ -125,7 +125,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         { label: 'North', lat: 53.8008, lng: -1.5491, zoom: 7 },
         { label: 'UK', lat: 54.1, lng: -2.4, zoom: 6 },
       ];
-      const control = L.control({ position: 'topright' });
+      const control = new L.Control({ position: 'topright' });
       control.onAdd = () => {
         const wrap = L.DomUtil.create('div');
         wrap.style.display = 'flex';
