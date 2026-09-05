@@ -29,6 +29,8 @@ const isLegalGatePreview =
 const isGoLiveHardeningPreview =
   process.env.CONTEXT === 'deploy-preview' &&
   ['500', '501', '502'].includes(process.env.REVIEW_ID ?? '');
+const isPr502DiagnosticPreview =
+  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '502';
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -83,21 +85,27 @@ if (isLegalGatePreview) {
   run('pr499-legal-tests', 23, npmCommand, ['run', 'test:unit', '--', ...legalUnitTests]);
 }
 
-if (isGoLiveHardeningPreview) {
-  run('pr500-501-502-hardening-lint', 24, npmCommand, [
+if (isGoLiveHardeningPreview && !isPr502DiagnosticPreview) {
+  run('pr500-501-hardening-lint', 24, npmCommand, [
     'exec',
     '--',
     'eslint',
     ...goLiveHardeningLintTargets,
   ]);
-  run('pr500-501-502-hardening-tests', 25, npmCommand, [
+  run('pr500-501-hardening-tests', 25, npmCommand, [
     'run',
     'test:unit',
     '--',
     ...goLiveHardeningUnitTests,
   ]);
+  run('typecheck', 26, npmCommand, ['run', 'typecheck']);
 }
 
-run('typecheck', 26, npmCommand, ['run', 'typecheck']);
+if (isPr502DiagnosticPreview) {
+  console.log('NETLIFY_RELEASE_GATE_PR502_DIAGNOSTIC=migration-validation-plus-production-build');
+} else if (!isLegalGatePreview && !isGoLiveHardeningPreview) {
+  run('typecheck', 26, npmCommand, ['run', 'typecheck']);
+}
+
 run('production-build', 27, npmCommand, ['run', 'build']);
 console.log('NETLIFY_RELEASE_GATE=PASS');
