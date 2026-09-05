@@ -40,6 +40,24 @@ const timed = async (service: string, fn: () => Promise<string>): Promise<Platfo
   }
 };
 
+const assessed = async (
+  service: string,
+  fn: () => Promise<{ status: 'healthy' | 'degraded'; detail: string }>,
+): Promise<PlatformHealthCheck> => {
+  const started = Date.now();
+  try {
+    const result = await fn();
+    return { service, status: result.status, latencyMs: Date.now() - started, detail: result.detail };
+  } catch (error) {
+    return {
+      service,
+      status: 'error',
+      latencyMs: Date.now() - started,
+      detail: error instanceof Error ? error.message : 'Health check failed.',
+    };
+  }
+};
+
 export const summarizePlatformHealth = (checks: PlatformHealthCheck[]): PlatformHealthSummary => {
   if (checks.length === 0) {
     return {
@@ -95,6 +113,31 @@ export const runPlatformHealthChecks = async () => {
       if (error) throw new Error(error.message);
       if (typeof count !== 'number') throw new Error('Notification store exact-count health probe returned an incomplete snapshot.');
       return `Notification event store is reachable (${count.toLocaleString()} events).`;
+    }),
+    assessed('Membership Billing', async () => {
+      const problemStatuses = ['past_due', 'unpaid', 'incomplete', 'incomplete_expired'];
+      const { count, error } = await client
+        .from('platform_membership_subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .in('status', problemStatuses);
+      if (error) throw new Error(error.message);
+      if (typeof count !== 'number') throw new Error('Membership billing exact-count health probe returned an incomplete snapshot.');
+      return count > 0
+        ? { status: 'degraded' as const, detail: `${count} subscription(s) require billing attention.` }
+        : { status: 'healthy' as const, detail: 'No subscriptions currently require billing attention.' };
+    }),
+    assessed('Stripe Webhook Processing', async () => {
+      const { data, error } = await client
+        .from('stripe_webhook_events')
+        .select('processing_status')
+        .order('received_at', { ascending: false })
+        .limit(100);
+      if (error) throw new Error(error.message);
+      if (!Array.isArray(data)) throw new Error('Stripe webhook health probe returned an invalid snapshot.');
+      const failed = data.filter((row) => ['failed', 'error'].includes(String(row.processing_status ?? '').toLowerCase())).length;
+      return failed > 0
+        ? { status: 'degraded' as const, detail: `${failed} of the latest ${data.length} webhook event(s) failed processing.` }
+        : { status: 'healthy' as const, detail: `${data.length} recent webhook event(s) checked with no processing failures.` };
     }),
   ]);
 
