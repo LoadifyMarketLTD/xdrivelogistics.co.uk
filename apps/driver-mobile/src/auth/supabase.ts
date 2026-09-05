@@ -150,6 +150,16 @@ export const supabase: any = {
         };
       }
     },
+    async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
+      try {
+        return await (await ensureSupabaseClient()).auth.resetPasswordForEmail(email, options);
+      } catch (error) {
+        return {
+          data: {},
+          error: error instanceof Error ? error : new Error('Supabase mobile config is missing.'),
+        };
+      }
+    },
     async signOut() {
       try {
         const activeClient = await ensureSupabaseClient();
@@ -157,6 +167,13 @@ export const supabase: any = {
         const accessToken = data.session?.access_token?.trim() || '';
 
         if (accessToken) {
+          try {
+            const { unregisterPushToken } = await import('../push/registerPushToken');
+            await unregisterPushToken(accessToken);
+          } catch {
+            // Explicit logout must still complete if push cleanup is unavailable.
+          }
+
           try {
             const { cleanupDriverServerSession } = await import('./serverSessionCleanup');
             await cleanupDriverServerSession(accessToken);
