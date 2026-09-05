@@ -14,7 +14,7 @@ alter table public.registration_legal_acceptances
 -- Concurrent remediation submissions for the same current contractual
 -- requirement must collapse to one evidence event even though the evidence hash
 -- contains the acceptance timestamp.
-create unique index if not exists registration_legal_acceptances_initial_remediation_requirement_uidx
+create unique index if not exists registration_legal_initial_remediation_requirement_uidx
   on public.registration_legal_acceptances (
     user_id,
     registration_role,
