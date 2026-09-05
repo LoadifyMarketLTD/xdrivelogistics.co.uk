@@ -12,6 +12,7 @@ const healthPage = source('app/super-admin/health/page.tsx');
 const liveTable = source('app/super-admin/_components/SuperAdminLiveTablePage.tsx');
 const ownerGuard = source('app/api/super-admin/_lib/verifyPlatformOwner.ts');
 const commandCentre = source('app/api/super-admin/command-centre/route.ts');
+const statsRoute = source('app/api/super-admin/stats/route.ts');
 const onboardingRoute = source('app/api/super-admin/onboarding/route.ts');
 const companyGovernanceRoute = source('app/api/super-admin/companies/[id]/route.ts');
 const settingsRoute = source('app/api/super-admin/settings/route.ts');
@@ -70,10 +71,11 @@ describe('Super Admin control-plane completeness', () => {
     }
   });
 
-  it('keeps the access matrix semantically read-only', () => {
+  it('keeps the Access Matrix semantically read-only', () => {
     expect(accessMatrix).toContain('Access Matrix');
-    expect(accessMatrix).toContain('read-only canonical workspace roles');
+    expect(accessMatrix).toContain('Read-only canonical workspace roles');
     expect(accessMatrix).toContain('Inspect');
+    expect(accessMatrix).toContain('it does not mutate user authority');
     expect(accessMatrix).not.toContain('>Manage</button>');
   });
 
@@ -106,6 +108,7 @@ describe('Super Admin control-plane completeness', () => {
     expect(ownerGuard).toContain("!== 'active'");
     expect(ownerGuard).toContain("const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])");
     expect(ownerGuard).toContain('isSuperAdminDeployPreviewReadOnly() && !READ_ONLY_METHODS.has');
+    expect(ownerGuard).toContain('hasSuperAdminBearerAuthorization');
   });
 
   it('requires every remediated Super Admin API route to use the canonical owner guard', () => {
@@ -114,6 +117,12 @@ describe('Super Admin control-plane completeness', () => {
       expect(route.content, route.path).not.toContain('const resolveOwner = async');
       expect(route.content, route.path).not.toContain('getBearerToken');
     }
+  });
+
+  it('preserves 401 for missing Stats authentication and 403 for failed owner authorization', () => {
+    expect(statsRoute).toContain('hasSuperAdminBearerAuthorization(request)');
+    expect(statsRoute).toContain("respond(401, { error: 'Unauthorized: bearer token required.' })");
+    expect(statsRoute).toContain("respond(403, { error: 'Forbidden: active Platform Owner required.' })");
   });
 
   it('keeps Command Centre exact-count and source-coverage semantics fail closed', () => {
