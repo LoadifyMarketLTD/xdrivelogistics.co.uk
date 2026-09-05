@@ -61,8 +61,8 @@ describe('Super Admin canonical platform health summary', () => {
 
   it('keeps Command Centre wired to the canonical health runner and removes the stale placeholder', () => {
     const route = readFileSync(resolve(process.cwd(), 'app/api/super-admin/command-centre/route.ts'), 'utf8');
-    expect(route).toContain("runPlatformHealthChecks");
-    expect(route).toContain("Platform health snapshot unavailable — not reported as zero.");
+    expect(route).toContain('runPlatformHealthChecks');
+    expect(route).toContain('Platform health snapshot unavailable — not reported as zero.');
     expect(route).not.toContain('Health-check integration pending (PR-4.1)');
   });
 
