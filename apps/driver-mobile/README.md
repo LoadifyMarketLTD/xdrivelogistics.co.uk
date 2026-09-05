@@ -1,58 +1,67 @@
-# XDrive Driver Mobile Preview
+# XDrive Driver Mobile
 
-This Expo / React Native application under `apps/driver-mobile/` is an **internal preview and behavioural reference**. It is not the production Android application and must not be submitted to the Play Store as XDrive Driver.
+`apps/driver-mobile/` is the active XDrive Driver mobile client built with Expo / React Native.
 
 ## Canonical production owner
 
-- Production Android source: `android-native/`
-- Framework: Kotlin / Jetpack Compose
+- Production mobile source: `apps/driver-mobile/`
+- Framework: Expo / React Native
 - Production Android package: `co.uk.xdrivelogistics.driver`
-- Expo preview package: `co.uk.xdrivelogistics.driver.preview`
+- Production iOS bundle ID: `co.uk.xdrivelogistics.driver`
+- EAS organization: `xdrive-logistics-ltd`
+- EAS project ID: `c19b0bdf-567a-488e-b78f-d36b84f25c99`
 
-The Expo project may be used to compare flows, prototype UX and run internal APK tests. Useful behaviour must be rebuilt or verified in `android-native/` before it becomes a production Android feature.
+The older `android-native/` Kotlin implementation remains in repository history/source as technical reference only. It is not the current Driver product and must not be distributed or merged as a replacement without a separate product decision and full release gate.
 
-## Preview scope
+## Driver scope
 
-- Driver login and session reference flows.
-- Job lifecycle reference screens.
-- Live-load and quote UX reference.
-- POD/photo/signature reference flows.
-- Push and offline-retry reference implementations.
+The application owns the mobile Driver experience, including:
 
-## Commands
+- secure Driver login, persisted session and password recovery;
+- Live Loads and commercial quote submission;
+- active/upcoming/completed Driver jobs;
+- authoritative lifecycle transitions;
+- collection evidence before Loaded;
+- multi-drop stop progression;
+- delivery POD, photos, documents, signature and recipient confirmation;
+- durable offline mutation replay;
+- push registration and notification handling;
+- job-bound live GPS tracking while work is actively being performed.
+
+The backend remains authoritative for identity, tenant/company boundaries, device sessions, job assignment, lifecycle transitions, quote eligibility, POD rules and location publishing.
+
+## Local commands
 
 ```bash
 npm install
+npm run typecheck
+npm run test
+npm run bundle:android
 npm run start
 npm run android
+```
+
+Internal APK builds use:
+
+```bash
 npm run build:android:apk
 ```
 
-From the repository root:
+Do not treat a successful JavaScript bundle or TypeScript compile as a mobile release pass. Android native build, signing/install and physical-device E2E remain separate release gates.
 
-```bash
-npm run mobile:dev
-npm run mobile:android
-npm run mobile:apk
-```
+## Configuration
 
-## Expo / EAS preview project
+The application can bootstrap public Supabase configuration from the canonical XDrive backend at `https://www.xdrivelogistics.co.uk/api/driver/mobile/config` or receive the equivalent public Expo environment values at build time.
 
-- Organization: `xdrive-logistics-ltd`
-- Project ID: `c19b0bdf-567a-488e-b78f-d36b84f25c99`
-- Android package: `co.uk.xdrivelogistics.driver.preview`
-- iOS bundle ID: `co.uk.xdrivelogistics.driver.preview`
-- Distribution: internal preview APK only
+Android push delivery uses the provider-native Firebase token registered through the server-owned Driver push-device registry. The production Android build therefore requires the authorised Firebase `google-services.json` configuration through the protected build environment; it must not be committed as a secret-bearing replacement file.
 
-`eas.json` intentionally contains no Play Store production profile and no submit profile. Do not add a production AAB/store path to this preview application.
+Live tracking is job-bound and server-authorised. The app does not queue old GPS points and later present them as current live location. Background tracking requires the platform permissions and foreground-service behaviour declared in Expo config and must be validated on a physical Android device.
 
-The preview app can bootstrap public Supabase configuration from `https://www.xdrivelogistics.co.uk/api/driver/mobile/config` or use preview EAS environment values when explicitly configured.
+## Release rules
 
-## Architecture rules
-
-- Backend remains the source of truth.
-- The preview client does not decide critical business transitions.
-- Shared server APIs may remain compatible with the preview while it exists.
-- Production Android features belong in `android-native/`.
-- `co.uk.xdrivelogistics.driver` is reserved exclusively for the Kotlin production application.
-- Expo preview signing credentials, if any exist in EAS, must never be treated as the production Android signing lineage.
+- Preserve the existing Driver UX unless a visual change is explicitly requested.
+- Do not bypass server APIs with direct privileged database writes.
+- Keep offline actions account-scoped and replay them in deterministic order.
+- Do not weaken collection/POD evidence requirements to make offline flows easier.
+- Do not merge a Driver release until the exact-head source gate, Expo mobile typecheck/tests/bundle, Android build, signing/install and physical-device E2E gates have passed.
+- GitHub Actions are not the release gate for this workstream.
