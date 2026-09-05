@@ -15,6 +15,17 @@ Public references:
 
 This gate verifies XDrive behaviour; it does not assert unpublished Courier Exchange internals.
 
+## Evidence truth rules
+
+Each gate must end in one of these states:
+
+- `PASS` — the required phone behaviour and any required server-side evidence were actually observed.
+- `FAIL` — the required behaviour was exercised and did not meet the contract.
+- `BLOCKED` — a prerequisite such as Firebase, Supabase Auth redirect configuration, second device, test job or server evidence is unavailable.
+- `NOT_RUN` — the gate has not yet been exercised.
+
+`STATIC PASS`, `BUILD PASS`, successful APK installation, or the absence of a crash must never be converted into a physical E2E PASS by inference.
+
 ## Test prerequisites
 
 Record before execution:
@@ -73,7 +84,7 @@ PASS: no dead browser callback, no raw token displayed, no recovery session reta
 Prerequisites:
 
 - Firebase Android app registered for `co.uk.xdrivelogistics.driver`.
-- Native Firebase project/app/api/sender values supplied to the build.
+- Native Firebase project/app/api/sender values supplied to the exact APK under test.
 - `FIREBASE_SERVICE_ACCOUNT_JSON` configured only on the trusted server/Edge Function.
 - `notify-operational-event` exact-source version deployed with the XDrive Android click/deep-link contract.
 
@@ -90,16 +101,16 @@ PASS: registered device + real FCM delivery + correct job deep link.
 
 Use the canonical persisted lifecycle:
 
-`allocated -> on_my_way -> on_site_pickup -> loaded -> on_site_delivery -> delivered -> completed`
+`allocated -> on_my_way -> on_site_pickup -> loaded -> in_transit -> on_site_delivery -> delivered -> completed`
 
 1. Open awarded/allocated test job.
 2. `On My Way` must not be blocked solely because GPS is temporarily stale/unavailable.
-3. Progress each transition in order.
+3. Progress every transition in order, including `loaded -> in_transit -> on_site_delivery`.
 4. Attempt an out-of-order transition and confirm server rejects it.
 5. Confirm same-status retry is idempotent where applicable.
 6. Confirm UI/server state converge after each transition.
 
-PASS: no skipped persisted transition, no lifecycle deadlock caused by GPS/network state.
+PASS: no skipped persisted transition, including `in_transit`, and no lifecycle deadlock caused by GPS/network state.
 
 ## Gate F — Active-job GPS and live tracking
 
@@ -219,6 +230,6 @@ Problem 15/15 may be marked PASS only when every applicable gate above has evide
 - timestamps of push/GPS/offline/POD tests
 - relevant Supabase row evidence/counts
 - any ADB log files
-- explicit PASS/FAIL per gate
+- explicit `PASS` / `FAIL` / `BLOCKED` / `NOT_RUN` per gate
 
-A partial phone test must be reported as partial. Never convert missing Firebase, signing, build or physical evidence into an inferred PASS.
+A partial phone test must be reported as partial. Never convert missing Firebase, signing, build, server correlation or physical evidence into an inferred PASS.
