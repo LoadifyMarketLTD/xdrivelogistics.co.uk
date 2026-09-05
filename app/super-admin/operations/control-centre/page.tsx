@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
-  AlertTriangle,
   BriefcaseBusiness,
   ClipboardList,
   ClockAlert,
