@@ -31,35 +31,50 @@ export function routeSummary(
   return `${pickup} → ${delivery}`;
 }
 
+const BLUE = '#1A73E8';
+const GREEN = '#34A853';
+const YELLOW = '#FBBC05';
+const RED = '#EA4335';
+const GREY = '#8A9099';
+const TEXT = '#4A4A4A';
+const WHITE = '#FFFFFF';
+
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: '#334155', text: '#e2e8f0' },
-  posted: { bg: '#1d4ed8', text: '#dbeafe' },
-  allocated: { bg: '#7c3aed', text: '#ede9fe' },
-  in_transit: { bg: '#0f766e', text: '#ccfbf1' },
-  delivered: { bg: '#166534', text: '#dcfce7' },
-  cancelled: { bg: '#991b1b', text: '#fee2e2' },
-  disputed: { bg: '#9a3412', text: '#ffedd5' },
-  active: { bg: '#166534', text: '#dcfce7' },
-  suspended: { bg: '#991b1b', text: '#fee2e2' },
-  pending: { bg: '#854d0e', text: '#fef9c3' },
-  pending_approval: { bg: '#854d0e', text: '#fef9c3' },
-  rejected: { bg: '#9a3412', text: '#ffedd5' },
-  paid: { bg: '#166534', text: '#dcfce7' },
+  draft: { bg: GREY, text: WHITE },
+  posted: { bg: BLUE, text: WHITE },
+  allocated: { bg: BLUE, text: WHITE },
+  in_transit: { bg: BLUE, text: WHITE },
+  delivered: { bg: GREEN, text: WHITE },
+  cancelled: { bg: RED, text: WHITE },
+  disputed: { bg: RED, text: WHITE },
+  active: { bg: GREEN, text: WHITE },
+  available: { bg: GREEN, text: WHITE },
+  ready: { bg: GREEN, text: WHITE },
+  suspended: { bg: RED, text: WHITE },
+  critical: { bg: RED, text: WHITE },
+  rejected: { bg: RED, text: WHITE },
+  pending: { bg: YELLOW, text: TEXT },
+  pending_approval: { bg: YELLOW, text: TEXT },
+  attention: { bg: YELLOW, text: TEXT },
+  paid: { bg: GREEN, text: WHITE },
+  offline: { bg: GREY, text: WHITE },
 };
 
 export function StatusChip({ value }: { value: string | null | undefined }) {
   const rawValue = (value ?? 'unknown').toString();
   const normalized = rawValue.toLowerCase();
-  const palette = STATUS_COLORS[normalized] ?? { bg: '#334155', text: '#e2e8f0' };
+  const palette = STATUS_COLORS[normalized] ?? { bg: GREY, text: WHITE };
   return (
     <span
       style={{
-        display: 'inline-block',
-        padding: '0.12rem 0.5rem',
-        borderRadius: '999px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '4px 10px',
+        borderRadius: '8px',
         backgroundColor: palette.bg,
         color: palette.text,
-        fontSize: '0.72rem',
+        fontFamily: 'Inter, Roboto, Arial, sans-serif',
+        fontSize: '14px',
         fontWeight: 700,
         textTransform: 'uppercase',
       }}
