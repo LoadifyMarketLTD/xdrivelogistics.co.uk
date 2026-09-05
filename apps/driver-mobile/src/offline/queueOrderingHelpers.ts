@@ -2,8 +2,9 @@
  * Helpers for offline queue ordering and per-job dependency decisions.
  *
  * Rules:
- * - Actions for a given job must be processed in the order they were enqueued
- *   (ascending createdAt / insertion order = oldest first).
+ * - Actions for a given job must be processed in canonical lifecycle order.
+ * - Repeated actions at the same lifecycle position use createdAt/insertion order.
+ * - Every queued multi-drop stop update must sync before POD/final Delivered.
  * - The `pod` endpoint must successfully sync before `delivered` for the same job.
  * - If any action for a job fails or is still pending/syncing, all later actions
  *   for that same job are blocked in the current flush pass.
@@ -14,8 +15,11 @@ import type { QueuedAction } from './queue';
 
 /**
  * Canonical endpoint processing order for a single job.
- * Endpoints that appear earlier in this list must be processed first.
- * `pod` intentionally precedes `delivered` to enforce POD-before-delivery ordering.
+ *
+ * `stop-status` is intentionally immediately before POD. Multi-drop stop
+ * Arrived/Completed events keep their own creation order because they share the
+ * same endpoint ordinal. This guarantees that no offline POD or final Delivered
+ * action can overtake an unsynced stop update.
  */
 const ENDPOINT_LIFECYCLE_ORDER: readonly string[] = [
   'on-my-way-pickup',
@@ -23,6 +27,7 @@ const ENDPOINT_LIFECYCLE_ORDER: readonly string[] = [
   'loaded',
   'on-my-way-delivery',
   'arrived-delivery',
+  'stop-status',
   'pod',
   'delivered',
 ];
@@ -38,7 +43,7 @@ export function endpointOrder(endpoint: string): number {
 
 /**
  * Sorts queue items for a single job into the correct processing order:
- * 1. By lifecycle endpoint order (pod before delivered, etc.).
+ * 1. By lifecycle endpoint order (all stop-status before pod before delivered).
  * 2. By `createdAt` ascending as a tiebreaker (oldest first).
  */
 export function sortJobActions(actions: QueuedAction[]): QueuedAction[] {
@@ -69,7 +74,6 @@ export function getReadyActionsInOrder(
   queue: QueuedAction[],
   isReady: (item: QueuedAction) => boolean,
 ): QueuedAction[] {
-  // Group by jobId
   const byJob = new Map<string, QueuedAction[]>();
   for (const item of queue) {
     if (!byJob.has(item.jobId)) byJob.set(item.jobId, []);
@@ -82,11 +86,7 @@ export function getReadyActionsInOrder(
     const sorted = sortJobActions(actions);
     for (const action of sorted) {
       if (action.status === 'synced') continue;
-      // First non-synced item gates all following items for this job.
-      if (isReady(action)) {
-        result.push(action);
-      }
-      // Whether ready or not, this item gates all later actions for this job.
+      if (isReady(action)) result.push(action);
       break;
     }
   }
@@ -97,17 +97,10 @@ export function getReadyActionsInOrder(
 /**
  * Returns true if processing `item` should be blocked because an earlier action
  * for the same job has not yet successfully synced.
- *
- * Use this inside `flushQueue` after a per-item failure to decide whether to
- * skip the remaining actions for the same job.
- *
- * @param queue  The full current queue (reflects latest statuses after patches).
- * @param item   The item that just failed (or whose predecessor failed).
  */
 export function isJobActionBlocked(queue: QueuedAction[], item: QueuedAction): boolean {
   const sorted = sortJobActions(queue.filter((q) => q.jobId === item.jobId));
-  const itemOrder = endpointOrder(item.endpoint);
-  return sorted.some(
-    (q) => endpointOrder(q.endpoint) < itemOrder && q.status !== 'synced',
-  );
+  const itemIndex = sorted.findIndex((candidate) => candidate.id === item.id);
+  if (itemIndex <= 0) return false;
+  return sorted.slice(0, itemIndex).some((candidate) => candidate.status !== 'synced');
 }
