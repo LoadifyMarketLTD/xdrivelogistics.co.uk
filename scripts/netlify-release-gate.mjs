@@ -2,10 +2,10 @@ import { spawnSync } from 'node:child_process';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-function run(command, args) {
+function run(command, args, extraEnv = {}) {
   const result = spawnSync(command, args, {
     cwd: process.cwd(),
-    env: { ...process.env, CI: process.env.CI ?? 'true' },
+    env: { ...process.env, CI: process.env.CI ?? 'true', ...extraEnv },
     stdio: 'inherit',
     shell: false,
   });
@@ -89,11 +89,22 @@ if (isExpoDriverHardeningPreview) {
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_SOURCE_CONTRACT');
   run(npmCommand, ['run', 'test:unit', '--', ...expoDriverUnitTests]);
 
-  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_INSTALL');
+  // Reconcile the mobile lock deterministically in the networked Preview build.
+  // This is temporary until the generated lock is committed to PR #503.
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_LOCK_RECONCILE');
   run(npmCommand, [
     '--prefix', 'apps/driver-mobile',
     'install',
-    '--no-package-lock',
+    '--package-lock-only',
+    '--ignore-scripts',
+    '--no-audit',
+    '--no-fund',
+  ]);
+
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_CI_INSTALL');
+  run(npmCommand, [
+    '--prefix', 'apps/driver-mobile',
+    'ci',
     '--ignore-scripts',
     '--no-audit',
     '--no-fund',
@@ -103,7 +114,12 @@ if (isExpoDriverHardeningPreview) {
   run(npmCommand, ['--prefix', 'apps/driver-mobile', 'run', 'typecheck']);
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TESTS');
   run(npmCommand, ['--prefix', 'apps/driver-mobile', 'run', 'test']);
-  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_ANDROID_BUNDLE=DIAGNOSTIC_PENDING');
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_ANDROID_BUNDLE');
+  run(
+    npmCommand,
+    ['--prefix', 'apps/driver-mobile', 'run', 'bundle:android'],
+    { EXPO_NO_DOCTOR: '1' },
+  );
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_NATIVE_BINARY_GATE=EXTERNAL_REQUIRED');
 }
 
