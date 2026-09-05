@@ -18,6 +18,8 @@ const isLegalGatePreview =
 const isGoLiveHardeningPreview =
   process.env.CONTEXT === 'deploy-preview' &&
   ['500', '501'].includes(process.env.REVIEW_ID ?? '');
+const isSuperAdminHomePreview =
+  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '504';
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -62,6 +64,18 @@ const goLiveHardeningUnitTests = [
   '__tests__/goLiveTenantReviewerHardening.test.ts',
 ];
 
+const superAdminHomeLintTargets = [
+  '__tests__/superAdminStatsContract.test.ts',
+  'app/api/super-admin/stats/route.ts',
+  'app/super-admin/page.tsx',
+  'e2e/super-admin.spec.ts',
+];
+
+const superAdminHomeUnitTests = [
+  '__tests__/superAdminStatsContract.test.ts',
+  '__tests__/commandCentreMetrics.test.ts',
+];
+
 console.log('NETLIFY_RELEASE_GATE=START');
 run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 
@@ -77,6 +91,13 @@ if (isGoLiveHardeningPreview) {
   run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
   console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
+}
+
+if (isSuperAdminHomePreview) {
+  console.log('NETLIFY_RELEASE_GATE=PR504_SUPER_ADMIN_HOME_LINT');
+  run(npmCommand, ['exec', '--', 'eslint', ...superAdminHomeLintTargets]);
+  console.log('NETLIFY_RELEASE_GATE=PR504_SUPER_ADMIN_HOME_TESTS');
+  run(npmCommand, ['run', 'test:unit', '--', ...superAdminHomeUnitTests]);
 }
 
 run(npmCommand, ['run', 'typecheck']);
