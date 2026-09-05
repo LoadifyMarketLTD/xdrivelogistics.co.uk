@@ -85,6 +85,19 @@
   box-shadow: var(--enterprise-shadow) !important;
 }
 
+/* FINAL container rule: every bordered Super Admin container uses 24px internal padding,
+ * 8px radius and the one approved shadow. This catches legacy inline cards without
+ * altering their data, actions, navigation or API behaviour. */
+.super-admin-light-root main div[style*="border"],
+.super-admin-light-root main form[style*="border"],
+.super-admin-light-root main aside[style*="border"],
+.super-admin-light-root main section[style*="border"],
+.super-admin-light-root main article[style*="border"] {
+  padding: 24px !important;
+  border-radius: 8px !important;
+  box-shadow: var(--enterprise-shadow) !important;
+}
+
 /* Legacy page-header decorations are redundant with the shared shell. */
 .super-admin-light-root main header[style*="min-height: 52px"] > span[aria-hidden="true"],
 .super-admin-light-root main header[style*="min-height:52px"] > span[aria-hidden="true"],
