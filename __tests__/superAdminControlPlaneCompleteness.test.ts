@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const source = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 const shell = source('app/super-admin/_components/SuperAdminWorkspaceShell.tsx');
+const superAdminLayout = source('app/super-admin/layout.tsx');
 const governanceRoute = source('app/api/super-admin/governance/route.ts');
 const brokerRoute = source('app/api/super-admin/brokers/route.ts');
 const accessMatrix = source('app/super-admin/settings/roles-permissions/page.tsx');
@@ -58,6 +59,11 @@ describe('Super Admin control-plane completeness', () => {
     expect(shell).not.toContain("href: '/broker'");
     expect(shell).toContain("href: '/super-admin/companies/brokers'");
     expect(brokerRoute).toContain(".eq('company_type', 'broker')");
+  });
+
+  it('forces protected Super Admin routes to render dynamically for per-request CSP nonces', () => {
+    expect(superAdminLayout).toContain("export const dynamic = 'force-dynamic'");
+    expect(superAdminLayout).toContain('per-request CSP nonce');
   });
 
   it('exposes the persistent owner-governance domains in navigation', () => {
