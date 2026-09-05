@@ -1,7 +1,7 @@
 /*
- * XDrive Logistics LTD — Super Admin enterprise design system
- * Canonical scope: every route rendered inside /super-admin.
- * Visual only: data, auth, navigation and mutation semantics are unchanged.
+ * XDrive Logistics LTD — Super Admin FINAL visual contract.
+ * Scope: every route rendered inside /super-admin.
+ * UI only: data, auth, navigation and mutation semantics are unchanged.
  */
 
 .super-admin-light-root {
@@ -17,12 +17,12 @@
   --enterprise-ink: var(--text-gray);
   --enterprise-navy: var(--brand-blue);
   --enterprise-muted: var(--text-gray);
-  --enterprise-radius: 12px;
-  --enterprise-shadow: 0 3px 12px rgba(31, 41, 55, 0.055);
+  --enterprise-radius: 8px;
+  --enterprise-shadow: 0px 2px 6px rgba(0,0,0,0.08);
   --enterprise-control-height: 40px;
-  --enterprise-section-gap: 18px;
+  --enterprise-section-gap: 24px;
+  --enterprise-padding: 24px;
 
-  /* Compatibility aliases for existing Super Admin CSS. */
   --sa-ui-navy: var(--brand-blue);
   --sa-ui-blue: var(--brand-blue);
   --sa-ui-orange: var(--status-yellow);
@@ -44,32 +44,16 @@
   line-height: 1.5;
 }
 
-/* Typography hierarchy from the approved Master Pack. */
-.super-admin-light-root main h1 {
-  margin-top: 0;
-  color: var(--brand-blue) !important;
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 28px !important;
-  line-height: 1.16 !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.02em;
-}
-
-.super-admin-light-root main h2 {
+/* FINAL title rule: every Super Admin title is Inter 20px bold. */
+.super-admin-light-root main h1,
+.super-admin-light-root main h2,
+.super-admin-light-root main h3 {
   color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 20px !important;
   line-height: 1.25 !important;
-  font-weight: 750 !important;
-  letter-spacing: -0.01em;
-}
-
-.super-admin-light-root main h3 {
-  color: var(--brand-blue) !important;
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 18px !important;
-  line-height: 1.3 !important;
   font-weight: 700 !important;
+  letter-spacing: 0 !important;
 }
 
 .super-admin-light-root main p,
@@ -81,6 +65,24 @@
 .super-admin-light-root main textarea {
   font-family: Roboto, Inter, Arial, sans-serif;
   font-size: 14px;
+}
+
+/* No legacy geometry is allowed to override the FINAL contract. */
+.super-admin-light-root main [style*="border-radius"],
+.super-admin-light-root main section,
+.super-admin-light-root main article,
+.super-admin-light-root main table,
+.super-admin-light-root main [role="dialog"],
+.super-admin-light-root main [role="alert"] {
+  border-radius: 8px !important;
+}
+
+.super-admin-light-root main [style*="box-shadow"],
+.super-admin-light-root main section[style*="border"],
+.super-admin-light-root main article[style*="border"],
+.super-admin-light-root main [role="dialog"] > div,
+.super-admin-light-root main [role="dialog"] aside {
+  box-shadow: var(--enterprise-shadow) !important;
 }
 
 /* Legacy page-header decorations are redundant with the shared shell. */
@@ -126,59 +128,44 @@
   border-color: var(--enterprise-border) !important;
 }
 
-/* Shared enterprise card/panel language across every Super Admin module. */
+/* Cards, panels, sections and KPI containers: exact 8px / 24px / canonical shadow. */
 .super-admin-light-root main section[style*="border"],
 .super-admin-light-root main article[style*="border"],
 .super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
   border-color: var(--enterprise-border) !important;
-  border-radius: var(--enterprise-radius) !important;
+  border-radius: 8px !important;
   background: var(--white) !important;
   box-shadow: var(--enterprise-shadow) !important;
+  padding: 24px !important;
 }
 
-.super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
-.super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
-.super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
-  min-height: 100px !important;
-  padding: 20px !important;
-}
-
-/* KPI values use strong tabular numerals but retain owning semantic colour. */
-.super-admin-light-root main div[style*="font-size: 22px"],
-.super-admin-light-root main div[style*="font-size: 20px"][style*="font-weight: 800"] {
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 26px !important;
-  font-weight: 800 !important;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Tables: readable, airy and consistent. */
+/* Tables: exact enterprise geometry. */
 .super-admin-light-root main table {
   width: 100%;
   border-collapse: collapse;
   background: var(--white) !important;
   color: var(--text-gray);
   font-size: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: var(--enterprise-shadow) !important;
 }
 
 .super-admin-light-root main thead { background: var(--light-gray) !important; }
 .super-admin-light-root main th {
-  min-height: 42px;
-  padding: 11px 14px !important;
+  padding: 24px !important;
   color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 13px !important;
-  font-weight: 750 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
   line-height: 1.25;
-  letter-spacing: .015em !important;
   text-transform: none;
   vertical-align: middle;
 }
 
 .super-admin-light-root main td {
-  padding: 12px 14px !important;
+  padding: 24px !important;
   color: var(--text-gray);
   font-size: 14px !important;
   line-height: 1.45;
@@ -186,13 +173,12 @@
 }
 
 .super-admin-light-root main tbody tr {
-  min-height: 48px;
   border-bottom: 1px solid var(--enterprise-border) !important;
 }
 .super-admin-light-root main tbody tr:last-child { border-bottom: 0 !important; }
 .super-admin-light-root main tbody tr:hover { background: #FAFBFD !important; }
 
-/* Enterprise controls and actions. Semantic fills remain owned by each page. */
+/* Controls keep their semantics; geometry is fixed. */
 .super-admin-light-root main button,
 .super-admin-light-root main a[role="button"] {
   min-height: var(--enterprise-control-height);
@@ -231,33 +217,36 @@
   outline-offset: 2px;
 }
 
-/* Status chips share one geometry while retaining semantic colour. */
+/* Status chips: no pill exception; the FINAL radius is 8px. */
 .super-admin-light-root main [style*="border-radius: 999"],
 .super-admin-light-root main [style*="border-radius:999"] {
+  border-radius: 8px !important;
   min-height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 4px 10px !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
   line-height: 1.15 !important;
   font-weight: 700 !important;
 }
 
-/* Dialogs, alerts and empty states use the same card geometry. */
+/* Dialogs, alerts and empty states: exact contract. */
 .super-admin-light-root main [role="dialog"] > div,
 .super-admin-light-root main [role="dialog"] aside {
-  border-radius: var(--enterprise-radius) !important;
+  border-radius: 8px !important;
   background: var(--white) !important;
   color: var(--text-gray) !important;
-  box-shadow: 0 16px 40px rgba(31,41,55,.12) !important;
+  box-shadow: var(--enterprise-shadow) !important;
+  padding: 24px !important;
 }
 
 .super-admin-light-root main [role="alert"] {
-  border-radius: var(--enterprise-radius) !important;
-  padding: 14px 16px !important;
+  border-radius: 8px !important;
+  padding: 24px !important;
   line-height: 1.5;
+  box-shadow: var(--enterprise-shadow) !important;
 }
 
 .super-admin-light-root main code {
@@ -266,18 +255,17 @@
   font-size: 12px;
 }
 
-.super-admin-light-root main section > div[style*="text-align: center"][style*="padding: 18px"],
-.super-admin-light-root main section > div[style*="text-align:center"][style*="padding:18px"] {
-  min-height: 100px;
+.super-admin-light-root main section > div[style*="text-align: center"],
+.super-admin-light-root main section > div[style*="text-align:center"] {
   display: grid;
   place-items: center;
+  padding: 24px !important;
   color: var(--text-gray) !important;
   background: var(--white);
-  border-radius: var(--enterprise-radius);
+  border-radius: 8px !important;
   font-size: 14px !important;
 }
 
-/* The shell follows the same typography/control language. */
 .super-admin-light-root > * { font-family: Roboto, Inter, Arial, sans-serif; }
 .super-admin-light-root nav,
 .super-admin-light-root header { color: var(--text-gray); }
@@ -288,11 +276,13 @@
   font-weight: 700;
 }
 
+/* No responsive title-size exceptions are permitted by the FINAL contract. */
 @media (max-width: 900px) {
-  .super-admin-light-root main h1 { font-size: 24px !important; }
-  .super-admin-light-root main h2 { font-size: 19px !important; }
+  .super-admin-light-root main h1,
+  .super-admin-light-root main h2,
+  .super-admin-light-root main h3 { font-size: 20px !important; font-weight: 700 !important; }
   .super-admin-light-root main th,
-  .super-admin-light-root main td { padding-left: 10px !important; padding-right: 10px !important; }
+  .super-admin-light-root main td { padding: 24px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
