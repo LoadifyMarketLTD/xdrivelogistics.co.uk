@@ -86,10 +86,11 @@ class TrackingPolicyTest {
     @Test
     fun `task10 upload outcome values are distinct`() {
         val outcomes = UploadOutcome.values()
-        assertEquals(3, outcomes.size)
+        assertEquals(4, outcomes.size)
         assertTrue(UploadOutcome.SUCCESS in outcomes)
         assertTrue(UploadOutcome.RETRY in outcomes)
         assertTrue(UploadOutcome.AUTH_REQUIRED in outcomes)
+        assertTrue(UploadOutcome.JOB_NOT_ACTIVE in outcomes)
     }
 
     @Test
@@ -101,5 +102,12 @@ class TrackingPolicyTest {
     fun `task10 auth required outcome triggers re-login not retry`() {
         assertTrue(UploadOutcome.AUTH_REQUIRED != UploadOutcome.RETRY)
         assertTrue(UploadOutcome.AUTH_REQUIRED != UploadOutcome.SUCCESS)
+    }
+
+    @Test
+    fun `task10 inactive job outcome does not retry or trigger re-login`() {
+        assertTrue(UploadOutcome.JOB_NOT_ACTIVE != UploadOutcome.RETRY)
+        assertTrue(UploadOutcome.JOB_NOT_ACTIVE != UploadOutcome.AUTH_REQUIRED)
+        assertTrue(UploadOutcome.JOB_NOT_ACTIVE != UploadOutcome.SUCCESS)
     }
 }
