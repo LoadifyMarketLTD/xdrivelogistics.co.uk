@@ -18,6 +18,8 @@ const isLegalGatePreview =
 const isGoLiveHardeningPreview =
   process.env.CONTEXT === 'deploy-preview' &&
   ['500', '501'].includes(process.env.REVIEW_ID ?? '');
+const isExpoDriverHardeningPreview =
+  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '503';
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -62,6 +64,10 @@ const goLiveHardeningUnitTests = [
   '__tests__/goLiveTenantReviewerHardening.test.ts',
 ];
 
+const expoDriverUnitTests = [
+  '__tests__/expoDriverE2EContract.test.ts',
+];
+
 console.log('NETLIFY_RELEASE_GATE=START');
 run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 
@@ -77,6 +83,12 @@ if (isGoLiveHardeningPreview) {
   run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
   console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
+}
+
+if (isExpoDriverHardeningPreview) {
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_SOURCE_CONTRACT');
+  run(npmCommand, ['run', 'test:unit', '--', ...expoDriverUnitTests]);
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_BINARY_GATE=EXTERNAL_REQUIRED');
 }
 
 run(npmCommand, ['run', 'typecheck']);
