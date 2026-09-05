@@ -5,7 +5,7 @@ import { ROUTE_AUTH_COOKIE_NAME } from '@/lib/routeAuthCookie';
  *
  * The middleware and AuthContext already keep ROUTE_AUTH_COOKIE_NAME synchronized
  * with the Supabase access token. Reading that cookie here avoids starting a
- * second supabase.auth.getSession() during hard-navigation bootstrap, which can
+ * second client-side session lookup during hard-navigation bootstrap, which can
  * contend with AuthContext hydration in the browser. API routes still verify the
  * bearer token and active Platform Owner status server-side.
  */
