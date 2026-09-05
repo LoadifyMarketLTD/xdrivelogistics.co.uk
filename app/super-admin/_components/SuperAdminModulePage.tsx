@@ -8,8 +8,17 @@ import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { formatDateTime, routeSummary } from './superAdminFormatters';
 
 const X = {
-  navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF',
-  charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626',
+  blue: '#1A73E8',
+  navy: '#1A73E8',
+  green: '#34A853',
+  yellow: '#FBBC05',
+  red: '#EA4335',
+  white: '#FFFFFF',
+  charcoal: '#4A4A4A',
+  light: '#F5F7FA',
+  border: '#E0E3E7',
+  muted: '#4A4A4A',
+  danger: '#EA4335',
 } as const;
 
 interface SuperAdminModulePageProps { title: string; description: string; section: string; icon?: string; children?: ReactNode; }
@@ -53,42 +62,42 @@ export default function SuperAdminModulePage({ title, description, section, icon
   ];
 
   return <ProtectedRoute allowedRoles={['owner']}>
-    <div style={{ minHeight: '100vh', background: X.light, padding: '12px', color: X.charcoal }}>
-      <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-        <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '4px', background: X.navy, color: X.white, display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: 800 }}>{icon}</span>
+    <div style={{ minHeight: '100vh', background: X.light, padding: '20px', color: X.charcoal, fontFamily: 'Roboto, Inter, Arial, sans-serif', fontSize: '14px' }}>
+      <header style={{ minHeight: '64px', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+        <span aria-hidden="true" style={{ width: '44px', height: '44px', borderRadius: '10px', background: X.blue, color: X.white, display: 'grid', placeItems: 'center', fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '18px', fontWeight: 800 }}>{icon}</span>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '20px', lineHeight: 1.2, fontWeight: 800, color: X.navy, margin: 0 }}>{title}</h1>
-            <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', color: X.blue, background: '#EEF4FF', padding: '3px 6px', borderRadius: '4px' }}>{section}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h1 style={{ fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '28px', lineHeight: 1.16, fontWeight: 800, color: X.blue, margin: 0 }}>{title}</h1>
+            <span style={{ fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.03em', color: X.blue, background: X.light, padding: '5px 9px', borderRadius: '999px' }}>{section}</span>
           </div>
-          <p style={{ color: X.muted, margin: '4px 0 0', fontSize: '12px' }}>{description}</p>
+          <p style={{ color: X.muted, margin: '5px 0 0', fontSize: '14px', opacity: .78 }}>{description}</p>
         </div>
       </header>
 
       {children ?? <>
-        {dataError && <div role="alert" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px', color: X.danger, fontSize: '12px' }}>{dataError}</div>}
+        {dataError && <div role="alert" style={{ marginBottom: '18px', border: `1px solid ${X.danger}`, borderLeft: `4px solid ${X.danger}`, borderRadius: '12px', background: X.white, padding: '14px 16px', color: X.danger, fontSize: '14px' }}>{dataError}</div>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '12px', marginBottom: '12px' }}>
-          {metrics.map(([label, value]) => <div key={String(label)} style={{ minHeight: '88px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}>
-            <div style={{ color: X.navy, fontSize: '22px', lineHeight: 1.05, fontWeight: 800 }}>{loading ? '—' : value}</div>
-            <div style={{ marginTop: '8px', color: X.charcoal, fontSize: '11px', fontWeight: 700 }}>{label}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '16px', marginBottom: '18px' }}>
+          {metrics.map(([label, value]) => <div key={String(label)} style={{ minHeight: '108px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '12px', padding: '20px', boxShadow: '0 3px 12px rgba(31,41,55,.055)' }}>
+            <div style={{ color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '26px', lineHeight: 1.05, fontWeight: 800 }}>{loading ? '—' : value}</div>
+            <div style={{ marginTop: '10px', color: X.charcoal, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '14px', fontWeight: 700 }}>{label}</div>
           </div>)}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1fr)', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1fr)', gap: '18px' }}>
           <PreviewPanel title="Recent platform jobs" loading={loading} empty={jobsPreview.length === 0}>
             {jobsPreview.map(job => <div key={job.id} style={rowStyle}>
-              <div style={{ color: X.navy, fontWeight: 800, fontSize: '12px' }}>{routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}</div>
-              <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{job.posting_company_name} · {job.status} · bids {job.bids_count}</div>
-              <div style={{ color: X.muted, fontSize: '10px', marginTop: '2px' }}>{formatDateTime(job.created_at)}</div>
+              <div style={{ color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: '14px' }}>{routeSummary(job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode)}</div>
+              <div style={{ color: X.muted, fontSize: '14px', marginTop: '4px' }}>{job.posting_company_name} · {job.status} · bids {job.bids_count}</div>
+              <div style={{ color: X.muted, fontSize: '14px', marginTop: '3px', opacity: .78 }}>{formatDateTime(job.created_at)}</div>
             </div>)}
           </PreviewPanel>
 
           <PreviewPanel title="Recent quote requests" loading={loading} empty={quotesPreview.length === 0}>
             {quotesPreview.map(quote => <div key={quote.id} style={rowStyle}>
-              <div style={{ color: X.navy, fontWeight: 800, fontSize: '12px' }}>{quote.company_name} · {quote.status}</div>
-              <div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}</div>
-              <div style={{ color: X.muted, fontSize: '10px', marginTop: '2px' }}>{quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}</div>
+              <div style={{ color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: '14px' }}>{quote.company_name} · {quote.status}</div>
+              <div style={{ color: X.muted, fontSize: '14px', marginTop: '4px' }}>{quote.customer_name ?? 'Unknown customer'} · {quote.pickup_location ?? '—'} → {quote.delivery_location ?? '—'}</div>
+              <div style={{ color: X.muted, fontSize: '14px', marginTop: '3px', opacity: .78 }}>{quote.amount ? `${quote.amount} ${quote.currency ?? ''}`.trim() : 'Amount pending'} · {formatDateTime(quote.created_at)}</div>
             </div>)}
           </PreviewPanel>
         </div>
@@ -97,16 +106,16 @@ export default function SuperAdminModulePage({ title, description, section, icon
   </ProtectedRoute>;
 }
 
-const rowStyle = { minHeight: '44px', padding: '9px 12px', borderBottom: `1px solid ${X.border}`, background: X.white } as const;
+const rowStyle = { minHeight: '64px', padding: '14px 16px', borderBottom: `1px solid ${X.border}`, background: X.white } as const;
 
 function PreviewPanel({ title, loading, empty, children }: { title: string; loading: boolean; empty: boolean; children: ReactNode }) {
-  return <section style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, overflow: 'hidden' }}>
-    <div style={{ height: '40px', padding: '0 12px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${X.border}`, color: X.navy, fontSize: '13px', fontWeight: 800 }}>{title}</div>
-    {loading ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>Loading…</div> : empty ? <div style={{ padding: '18px', textAlign: 'center', color: X.muted, fontSize: '12px' }}>No records found.</div> : children}
+  return <section style={{ border: `1px solid ${X.border}`, borderRadius: '12px', background: X.white, overflow: 'hidden', boxShadow: '0 3px 12px rgba(31,41,55,.055)' }}>
+    <div style={{ minHeight: '54px', padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${X.border}`, color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '18px', fontWeight: 750 }}>{title}</div>
+    {loading ? <div style={{ padding: '24px', textAlign: 'center', color: X.muted, fontSize: '14px' }}>Loading…</div> : empty ? <div style={{ padding: '24px', textAlign: 'center', color: X.muted, fontSize: '14px' }}>No records found.</div> : children}
   </section>;
 }
 
 export function BackToSuperAdminButton() {
   const router = useRouter();
-  return <button onClick={() => router.push('/super-admin')} style={{ height: '32px', padding: '0 12px', background: X.blue, color: X.white, border: `1px solid ${X.blue}`, borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>← Back to Dashboard</button>;
+  return <button onClick={() => router.push('/super-admin')} style={{ minHeight: '40px', padding: '0 14px', background: X.blue, color: X.white, border: `1px solid ${X.blue}`, borderRadius: '8px', fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}>← Back to Dashboard</button>;
 }
