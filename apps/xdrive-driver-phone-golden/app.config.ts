@@ -1,5 +1,8 @@
 import type { ExpoConfig } from 'expo/config';
 
+const CANONICAL_SUPABASE_URL = 'https://jqxlauexhkonixtjvljw.supabase.co';
+const CANONICAL_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_yxmGBfB7tzCgBXi_6T-uJQ_JNNYmBVO';
+
 function normalizeSupabaseUrl(value: string | undefined) {
   let normalized = value?.trim() ?? '';
   while (/^https?:\/\/https?:\/\//i.test(normalized)) {
@@ -15,6 +18,15 @@ function normalizeSupabaseUrl(value: string | undefined) {
     return '';
   }
 }
+
+function normalizePublishableKey(value: string | undefined) {
+  const normalized = value?.trim() ?? '';
+  if (!normalized || normalized === 'placeholder' || normalized === 'placeholder-anon-key') return '';
+  return normalized;
+}
+
+const configuredSupabaseUrl = normalizeSupabaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
+const configuredPublishableKey = normalizePublishableKey(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
 const config: ExpoConfig = {
   name: 'XDrive Driver',
@@ -68,8 +80,8 @@ const config: ExpoConfig = {
   ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
-    supabaseUrl: normalizeSupabaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL),
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '',
+    supabaseUrl: configuredSupabaseUrl || CANONICAL_SUPABASE_URL,
+    supabaseAnonKey: configuredPublishableKey || CANONICAL_SUPABASE_PUBLISHABLE_KEY,
     eas: {
       projectId: 'c19b0bdf-567a-488e-b78f-d36b84f25c99',
     },
