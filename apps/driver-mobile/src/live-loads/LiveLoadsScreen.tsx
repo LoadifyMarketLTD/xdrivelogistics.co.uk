@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Animated, PanResponder, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
+import { isPermanentClientError } from '../api/client';
+import { fetchActiveQuotedJobIds, fetchLiveLoads, submitLiveLoadQuote, type LiveLoad, type StructuredLiveLoadQuote } from '../api/liveLoads';
 import { supabase } from '../auth/supabase';
 import { loadMarketplacePreferences, saveMarketplacePreferences, type MarketplacePreferences } from '../jobs/marketplacePreferences';
 import {
@@ -15,6 +16,7 @@ import {
   validateQuote,
   type QuoteLineItems,
 } from '../jobs/quoteHelpers';
+import { enqueueAction, getQueue, isOnline } from '../offline/queue';
 import { LiveLoadCard } from './LiveLoadCard';
 
 type Feed = 'live' | 'pinned' | 'hidden';
@@ -188,6 +190,10 @@ function RestoreCard({ job, onRestore }: { job: LiveLoad; onRestore: () => void 
   );
 }
 
+function pendingQuoteJobIds(queue: Awaited<ReturnType<typeof getQueue>>) {
+  return new Set(queue.filter((item) => item.endpoint === 'quote' && item.status !== 'synced').map((item) => item.jobId));
+}
+
 export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boolean | null }) {
   const [feed, setFeed] = useState<Feed>('live');
   const [jobs, setJobs] = useState<LiveLoad[]>([]);
@@ -202,12 +208,16 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     setRefreshing(true);
     setError('');
     try {
-      const [result, quotedJobIds] = await Promise.all([
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id?.trim() || '';
+      const [result, quotedJobIds, localQueue] = await Promise.all([
         fetchLiveLoads({ destinationMode: nextPreferences.destinationPriorityEnabled, radiusMiles: nextPreferences.destinationRadiusMiles }),
         fetchActiveQuotedJobIds(),
+        userId ? getQueue(userId) : Promise.resolve([]),
       ]);
+      const pendingJobIds = pendingQuoteJobIds(localQueue);
       setJobs(result.jobs
-        .filter((job) => !quotedJobIds.has(job.id))
+        .filter((job) => !quotedJobIds.has(job.id) && !pendingJobIds.has(job.id))
         .map((job) => {
           if (canCommercialBid === false) {
             return {
@@ -275,6 +285,26 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     setQuoteJob(job);
   }, []);
 
+  const saveQuoteOffline = useCallback(async (job: LiveLoad, quote: StructuredLiveLoadQuote) => {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id?.trim() || '';
+    if (!userId) throw new Error('Driver session is required to save this quote offline.');
+    await enqueueAction(userId, {
+      jobId: job.id,
+      endpoint: 'quote',
+      payload: {
+        totalAmount: quote.totalAmount,
+        baseAmount: quote.baseAmount,
+        additionalExtrasGbp: quote.additionalExtrasGbp,
+        collectWithinMinutes: quote.collectWithinMinutes,
+        message: quote.message ?? '',
+      },
+    });
+    setJobs((current) => current.filter((item) => item.id !== job.id));
+    setQuoteJob(null);
+    Alert.alert('Quote pending', 'Your quote is saved securely and will submit automatically when connectivity returns.');
+  }, []);
+
   const handleSubmitQuote = useCallback(async (items: QuoteLineItems) => {
     if (!quoteJob) return;
     const validationError = validateQuote(items);
@@ -282,23 +312,27 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
       setError(validationError);
       return;
     }
-    const total = computeTotal(items);
-    const baseAmount = parseNum(items.amount);
-    const additionalExtrasGbp = computeStructuredExtras(items);
-    const collectWithinMinutes = items.collectWithinMinutes.trim()
-      ? Number(items.collectWithinMinutes)
-      : null;
-    const message = buildQuoteMessage(items);
+    const quote: StructuredLiveLoadQuote = {
+      totalAmount: computeTotal(items),
+      baseAmount: parseNum(items.amount),
+      additionalExtrasGbp: computeStructuredExtras(items),
+      collectWithinMinutes: items.collectWithinMinutes.trim() ? Number(items.collectWithinMinutes) : null,
+      message: buildQuoteMessage(items) || undefined,
+    };
     setSubmitting(true);
     setError('');
     try {
-      await submitLiveLoadQuote(quoteJob.id, {
-        totalAmount: total,
-        baseAmount,
-        additionalExtrasGbp,
-        collectWithinMinutes,
-        message: message || undefined,
-      });
+      if (!(await isOnline())) {
+        await saveQuoteOffline(quoteJob, quote);
+        return;
+      }
+      try {
+        await submitLiveLoadQuote(quoteJob.id, quote);
+      } catch (quoteError) {
+        if (isPermanentClientError(quoteError)) throw quoteError;
+        await saveQuoteOffline(quoteJob, quote);
+        return;
+      }
       setJobs((current) => current.filter((job) => job.id !== quoteJob.id));
       setQuoteJob(null);
       Alert.alert('Quote sent', 'Your quote was submitted successfully.');
@@ -307,7 +341,7 @@ export function LiveLoadsScreen({ canCommercialBid }: { canCommercialBid?: boole
     } finally {
       setSubmitting(false);
     }
-  }, [quoteJob]);
+  }, [quoteJob, saveQuoteOffline]);
 
   const visible = jobs.filter((job) => !preferences.hiddenJobIds.includes(job.id));
   const displayed = feed === 'pinned'
