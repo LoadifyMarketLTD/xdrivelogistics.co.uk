@@ -1,35 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-// Non-terminal raw lifecycle values accepted by the canonical workspace job-stage
-// contract, including hosted/historical aliases still present in jobs.status (text).
 const OPEN_JOB_STATUSES = [
-  'draft',
-  'received',
-  'posted',
-  'quoted',
-  'awarded',
-  'allocated',
-  'accepted',
-  'assigned',
-  'open',
-  'OPEN',
-  'in_progress',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
+  'draft', 'received', 'posted', 'quoted', 'awarded', 'allocated', 'accepted', 'assigned',
+  'open', 'OPEN', 'in_progress', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
 ];
 const OUTSTANDING_PAYMENT_STATUSES = ['unpaid', 'partially_paid', 'overdue', 'disputed'];
-// Hosted public.invoice_status uses lowercase `paid` and `void` for the two
-// non-collectible lifecycle states. Do not send UI-only/nonexistent enum literals
-// (for example `Cancelled`) through PostgREST because enum coercion would fail.
 const NON_COLLECTIBLE_INVOICE_STATUSES = ['paid', 'void'];
 const COMPLIANCE_REVIEW_STATUSES = ['pending', 'rejected'];
 const MISSING_INTERNAL_ACCOUNT_COLUMN_CODES = new Set(['42703', 'PGRST204']);
@@ -37,39 +17,12 @@ const MISSING_INTERNAL_ACCOUNT_COLUMN_CODES = new Set(['42703', 'PGRST204']);
 type QueryError = { code?: string; message: string } | null;
 type CountResult = { count: number | null; error: QueryError };
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
-const countValue = (result: CountResult) => result.count ?? 0;
+const countValue = (result: CountResult) => result.count as number;
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const token = getBearerToken(request);
-  if (!token) {
-    return respond(401, { error: 'Unauthorized.' });
-  }
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) {
-    return respond(401, { error: 'Unauthorized: invalid or expired token.' });
-  }
-
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') {
-    return respond(403, { error: 'Forbidden: owner role required.' });
-  }
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const [
     companiesTotalResult,
@@ -90,7 +43,6 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
-    // `pending` is a UI alias only. The hosted company_status enum uses pending_approval.
     supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
     supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('profiles').select('user_id').eq('is_internal_account', true),
@@ -120,9 +72,12 @@ export async function GET(request: NextRequest) {
     ['vehicle_compliance', vehicleComplianceResult],
   ];
 
-  const failed = requiredResults.find(([, result]) => result.error);
+  const failed = requiredResults.find(([, result]) => result.error || typeof result.count !== 'number');
   if (failed) {
-    return respond(500, { error: `${failed[0]}: ${failed[1].error?.message ?? 'query failed'}` });
+    return respond(500, {
+      error: `${failed[0]}: ${failed[1].error?.message ?? 'exact count unavailable'}`,
+      code: 'super_admin_stats_incomplete_snapshot',
+    });
   }
 
   const internalProfilesError = internalProfilesResult.error as QueryError;
@@ -133,20 +88,20 @@ export async function GET(request: NextRequest) {
   let driversTotal = countValue(driversTotalResult);
   if (!internalProfilesError) {
     const internalUserIds = Array.from(new Set(
-      (internalProfilesResult.data ?? [])
-        .map((row) => String(row.user_id ?? '').trim())
-        .filter(Boolean)
+      (internalProfilesResult.data ?? []).map((row) => String(row.user_id ?? '').trim()).filter(Boolean),
     ));
-
     if (internalUserIds.length > 0) {
       const internalDriversResult = await supabaseAdmin
         .from('drivers')
         .select('id', { count: 'exact', head: true })
         .in('user_id', internalUserIds);
-      if (internalDriversResult.error) {
-        return respond(500, { error: `internal_drivers: ${internalDriversResult.error.message}` });
+      if (internalDriversResult.error || typeof internalDriversResult.count !== 'number') {
+        return respond(500, {
+          error: `internal_drivers: ${internalDriversResult.error?.message ?? 'exact count unavailable'}`,
+          code: 'super_admin_stats_internal_driver_count_unavailable',
+        });
       }
-      driversTotal = Math.max(0, driversTotal - (internalDriversResult.count ?? 0));
+      driversTotal = Math.max(0, driversTotal - internalDriversResult.count);
     }
   }
 
@@ -164,8 +119,6 @@ export async function GET(request: NextRequest) {
     jobsOpen: countValue(jobsOpenResult),
     jobsDelivered: countValue(jobsDeliveredResult),
     invoicesTotal: countValue(invoicesTotalResult),
-    // Canonical outstanding semantics: payment state must represent money still due,
-    // while paid/void invoice lifecycle states are never reported as unpaid.
     invoicesUnpaid: Math.max(0, outstandingInvoices - nonCollectibleOutstandingInvoices),
     compliancePending: countValue(driverComplianceResult) + countValue(vehicleComplianceResult),
   });
