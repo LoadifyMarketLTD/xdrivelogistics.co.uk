@@ -65,6 +65,7 @@ describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
 
   it('reconciles company SELECT access to creator, active member, or active platform owner only', () => {
     const migration = readRepoFile(COMPANY_SELECT_RLS_MIGRATION);
+    const executableSql = migration.replace(/--.*$/gm, '');
 
     expect(migration).toContain(
       'DROP POLICY IF EXISTS companies_select_member_or_creator ON public.companies;',
@@ -83,7 +84,7 @@ describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
     expect(migration).toContain('p.user_id = (SELECT auth.uid())');
     expect(migration).toContain("p.role = 'owner'");
     expect(migration).toContain("COALESCE(p.status::text, '') = 'active'");
-    expect(migration).not.toContain('public.is_owner(');
-    expect(migration).not.toContain('company_id = id');
+    expect(executableSql).not.toContain('public.is_owner(');
+    expect(executableSql).not.toContain('company_id = id');
   });
 });
