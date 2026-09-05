@@ -28,32 +28,32 @@ export default function Page() {
     <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
       <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', fontWeight: 800 }}>Roles &amp; Permissions</h1>
-          <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>Workspace access and permission governance. Technical IDs remain in Advanced details.</p>
+          <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', fontWeight: 800 }}>Access Matrix</h1>
+          <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>Read-only canonical workspace roles, route boundaries and capability groups. Role assignment is intentionally managed outside this surface until audited mutation controls exist.</p>
         </div>
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search roles" aria-label="Search roles" style={{ width: '220px', height: '32px', borderRadius: '4px', border: `1px solid ${X.border}`, background: X.white, color: X.charcoal, padding: '0 10px', fontSize: '12px', outline: 'none' }} />
       </header>
 
-      <nav aria-label="Roles workspace" style={{ height: '40px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
-        <span style={tabStyle(true)}>Roles</span>
+      <nav aria-label="Access matrix workspace" style={{ height: '40px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <span style={tabStyle(true)}>Access Matrix</span>
         <Link href="/super-admin/users" style={tabStyle(false)}>Users</Link>
-        <a href="#permission-groups" style={tabStyle(false)}>Permission groups</a>
+        <a href="#permission-groups" style={tabStyle(false)}>Capability groups</a>
         <Link href="/super-admin/settings/audit-logs" style={tabStyle(false)}>Audit</Link>
       </nav>
 
       <section style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '860px' }}>
+        <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '820px' }}>
           <thead><tr style={{ height: '38px', background: X.light, borderBottom: `1px solid ${X.border}` }}>
-            {['Role', 'Scope', 'Users', 'Access level', 'Status', 'Actions'].map(h => <th key={h} style={{ padding: '0 12px', textAlign: 'left', color: X.navy, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>{h}</th>)}
+            {['Role', 'Scope', 'Access level', 'Definition', 'Action'].map(h => <th key={h} style={{ padding: '0 12px', textAlign: 'left', color: X.navy, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>{h}</th>)}
           </tr></thead>
           <tbody>{roles.map(role => {
             const badge = accessLevelBadge[role.accessLevel];
             return <tr key={role.workspaceRole} style={{ minHeight: '44px', borderBottom: `1px solid ${X.border}` }}>
-              <td style={{ padding: '9px 12px' }}><div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '4px', display: 'grid', placeItems: 'center', background: X.light, fontSize: '14px' }}>{role.emoji}</span><div><div style={{ color: X.navy, fontSize: '12px', fontWeight: 800 }}>{role.label}</div><div style={{ color: X.muted, fontSize: '10px', marginTop: '2px', maxWidth: '360px' }}>{role.description}</div></div></div></td>
-              <td style={cellStyle}>{scopeLabel(role)}</td><td style={cellStyle}>—</td>
+              <td style={{ padding: '9px 12px' }}><div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '4px', display: 'grid', placeItems: 'center', background: X.light, fontSize: '14px' }}>{role.emoji}</span><div><div style={{ color: X.navy, fontSize: '12px', fontWeight: 800 }}>{role.label}</div><div style={{ color: X.muted, fontSize: '10px', marginTop: '2px', maxWidth: '420px' }}>{role.description}</div></div></div></td>
+              <td style={cellStyle}>{scopeLabel(role)}</td>
               <td style={{ padding: '9px 12px' }}><span style={{ color: badge.color, background: badge.bg, borderRadius: '4px', padding: '3px 6px', fontSize: '10px', fontWeight: 800 }}>{accessLabel(role)}</span></td>
-              <td style={{ padding: '9px 12px' }}><span style={{ color: X.success, fontSize: '11px', fontWeight: 800 }}>● Active</span></td>
-              <td style={{ padding: '9px 12px' }}><button type="button" onClick={() => setSelectedRole(role)} style={{ height: '32px', padding: '0 10px', borderRadius: '4px', border: `1px solid ${X.blue}`, background: X.white, color: X.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Manage</button></td>
+              <td style={{ padding: '9px 12px' }}><span style={{ color: X.success, fontSize: '11px', fontWeight: 800 }}>● Defined</span></td>
+              <td style={{ padding: '9px 12px' }}><button type="button" onClick={() => setSelectedRole(role)} style={{ height: '32px', padding: '0 10px', borderRadius: '4px', border: `1px solid ${X.blue}`, background: X.white, color: X.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Inspect</button></td>
             </tr>;
           })}</tbody>
         </table></div>
@@ -61,12 +61,12 @@ export default function Page() {
       </section>
 
       <section id="permission-groups" style={{ marginTop: '12px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '12px' }}>
-        <h2 style={{ margin: 0, color: X.navy, fontSize: '13px', fontWeight: 800 }}>Permission groups</h2>
-        <p style={{ margin: '4px 0 8px', color: X.muted, fontSize: '11px' }}>Business capabilities are grouped for readability. Implementation identifiers are not shown in the main workspace.</p>
+        <h2 style={{ margin: 0, color: X.navy, fontSize: '13px', fontWeight: 800 }}>Capability groups</h2>
+        <p style={{ margin: '4px 0 8px', color: X.muted, fontSize: '11px' }}>Business capabilities are grouped for readability. This surface documents the canonical authorization model; it does not mutate user authority.</p>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>{['Company', 'Commercial', 'Operations', 'Fleet', 'Compliance', 'Finance', 'Platform'].map(group => <span key={group} style={{ border: `1px solid ${X.border}`, borderRadius: '4px', background: X.light, color: X.navy, padding: '4px 7px', fontSize: '10px', fontWeight: 700 }}>{group}</span>)}</div>
       </section>
 
-      {selectedRole && <div role="dialog" aria-modal="true" aria-label={`Manage ${selectedRole.label}`} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(11,47,107,.25)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setSelectedRole(null)}>
+      {selectedRole && <div role="dialog" aria-modal="true" aria-label={`Inspect ${selectedRole.label}`} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(11,47,107,.25)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setSelectedRole(null)}>
         <aside style={{ width: 'min(520px,94vw)', height: '100%', overflowY: 'auto', background: X.white, borderLeft: `1px solid ${X.border}`, boxShadow: '-14px 0 30px rgba(11,47,107,.16)' }} onClick={e => e.stopPropagation()}>
           <div style={{ position: 'sticky', top: 0, zIndex: 1, minHeight: '52px', background: X.white, borderBottom: `1px solid ${X.border}`, padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
             <div><div style={{ color: X.navy, fontSize: '16px', fontWeight: 800 }}>{selectedRole.label}</div><div style={{ color: X.muted, fontSize: '11px', marginTop: '2px' }}>{scopeLabel(selectedRole)} scope · {accessLabel(selectedRole)}</div></div>
