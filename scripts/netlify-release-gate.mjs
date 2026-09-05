@@ -89,18 +89,6 @@ if (isExpoDriverHardeningPreview) {
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_SOURCE_CONTRACT');
   run(npmCommand, ['run', 'test:unit', '--', ...expoDriverUnitTests]);
 
-  // Reconcile the mobile lock deterministically in the networked Preview build.
-  // This is temporary until the generated lock is committed to PR #503.
-  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_LOCK_RECONCILE');
-  run(npmCommand, [
-    '--prefix', 'apps/driver-mobile',
-    'install',
-    '--package-lock-only',
-    '--ignore-scripts',
-    '--no-audit',
-    '--no-fund',
-  ]);
-
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_CI_INSTALL');
   run(npmCommand, [
     '--prefix', 'apps/driver-mobile',
