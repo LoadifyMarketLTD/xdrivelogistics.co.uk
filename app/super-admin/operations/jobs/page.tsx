@@ -16,6 +16,8 @@ type Row = {
   delivery_postcode: string | null;
 };
 
+const ALL_JOBS_ALLOWED_STATUSES = new Set(['posted', 'cancelled', 'delivered']);
+
 export default function Page() {
   return (
     <SuperAdminLiveTablePage<Row>
@@ -34,16 +36,21 @@ export default function Page() {
         {
           key: 'status',
           label: 'Status',
-          render: (row) => <StatusChip value={row.status} />,
+          render: (row) => {
+            const normalized = row.status.toLowerCase();
+            return ALL_JOBS_ALLOWED_STATUSES.has(normalized)
+              ? <StatusChip value={normalized.toUpperCase()} />
+              : '—';
+          },
         },
         {
           key: 'posting',
-          label: 'Posting Company',
+          label: 'Posting company',
           render: (row) => row.posting_company_name,
         },
         {
           key: 'awarded',
-          label: 'Awarded Company',
+          label: 'Awarded company',
           render: (row) => row.awarded_company_name ?? '—',
         },
         {
