@@ -105,10 +105,10 @@ describe('GET /api/super-admin/stats contract', () => {
       { id: 'i1', status: 'sent', payment_status: 'unpaid' },
       { id: 'i2', status: 'sent', payment_status: 'partially_paid' },
       { id: 'i3', status: 'overdue', payment_status: 'overdue' },
-      { id: 'i4', status: 'disputed', payment_status: 'disputed' },
+      { id: 'i4', status: 'Disputed', payment_status: 'disputed' },
       { id: 'i5', status: 'draft', payment_status: 'unpaid' },
-      { id: 'i6', status: 'cancelled', payment_status: 'unpaid' },
-      { id: 'i7', status: 'void', payment_status: 'unpaid' },
+      { id: 'i6', status: 'void', payment_status: 'unpaid' },
+      { id: 'i7', status: 'paid', payment_status: 'unpaid' },
       { id: 'i8', status: 'paid', payment_status: 'paid' },
       { id: 'i9', status: 'sent', payment_status: 'refunded' },
     ];
