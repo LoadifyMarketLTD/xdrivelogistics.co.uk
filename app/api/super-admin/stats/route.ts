@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
+import { hasSuperAdminBearerAuthorization, verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -21,6 +21,7 @@ const countValue = (result: CountResult) => result.count as number;
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!hasSuperAdminBearerAuthorization(request)) return respond(401, { error: 'Unauthorized: bearer token required.' });
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
