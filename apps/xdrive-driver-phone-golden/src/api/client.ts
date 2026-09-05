@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 
+import { ensureNativeDeviceSession, getInstallationHeaders } from '../auth/deviceSession';
 import { supabase } from '../auth/supabase';
 
 type ApiOptions = {
@@ -53,13 +54,22 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = await resolveAuthToken(options.token);
-  const url = `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${getApiBaseUrl()}${normalizedPath}`;
+
+  let installationHeaders: Record<string, string> = {};
+  if (token && normalizedPath !== '/api/driver/mobile/device-session') {
+    await ensureNativeDeviceSession(token);
+    installationHeaders = await getInstallationHeaders();
+  }
+
   const response = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...installationHeaders,
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
