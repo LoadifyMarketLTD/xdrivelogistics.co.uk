@@ -1,0 +1,23 @@
+# EAS project archive exclusions for apps/driver-mobile.
+# Keep this file local to the Expo app root so EAS CLI does not upload the
+# workstation's installed dependencies or generated artifacts.
+
+node_modules/
+dist/
+dist-eas/
+coverage/
+test-results/
+.netlify/
+
+# Local environment / editor / debug artifacts
+.env
+.env*.local
+*.tsbuildinfo
+*.backup
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+
+# Test sources are not required to compile the signed Android binary.
+__tests__/
