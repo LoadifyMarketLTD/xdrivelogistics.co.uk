@@ -101,7 +101,9 @@ if (isExpoDriverHardeningPreview) {
 
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TYPECHECK');
   run(npmCommand, ['--prefix', 'apps/driver-mobile', 'run', 'typecheck']);
-  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TEST_BUNDLE=DIAGNOSTIC_PENDING');
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TESTS');
+  run(npmCommand, ['--prefix', 'apps/driver-mobile', 'run', 'test']);
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_ANDROID_BUNDLE=DIAGNOSTIC_PENDING');
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_NATIVE_BINARY_GATE=EXTERNAL_REQUIRED');
 }
 
