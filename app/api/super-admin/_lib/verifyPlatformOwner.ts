@@ -18,6 +18,14 @@ export const isSuperAdminDeployPreviewReadOnly = () =>
   || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
   || Boolean(process.env.URL?.includes('deploy-preview-'));
 
+/**
+ * Lightweight authentication-presence check for endpoints that must preserve
+ * the HTTP distinction between unauthenticated (401) and authenticated but
+ * unauthorized (403). Token validation and owner authorization still happen
+ * exclusively in verifyPlatformOwner below.
+ */
+export const hasSuperAdminBearerAuthorization = (request: NextRequest) => Boolean(getBearerToken(request));
+
 export async function verifyPlatformOwner(request: NextRequest): Promise<VerifiedPlatformOwner | null> {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
 
