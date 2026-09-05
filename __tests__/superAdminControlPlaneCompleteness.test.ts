@@ -10,6 +10,45 @@ const brokerRoute = source('app/api/super-admin/brokers/route.ts');
 const accessMatrix = source('app/super-admin/settings/roles-permissions/page.tsx');
 const healthPage = source('app/super-admin/health/page.tsx');
 const liveTable = source('app/super-admin/_components/SuperAdminLiveTablePage.tsx');
+const ownerGuard = source('app/api/super-admin/_lib/verifyPlatformOwner.ts');
+const commandCentre = source('app/api/super-admin/command-centre/route.ts');
+const onboardingRoute = source('app/api/super-admin/onboarding/route.ts');
+const companyGovernanceRoute = source('app/api/super-admin/companies/[id]/route.ts');
+const settingsRoute = source('app/api/super-admin/settings/route.ts');
+const financeRoute = source('app/api/super-admin/finance/route.ts');
+
+const canonicalGuardRoutePaths = [
+  'app/api/super-admin/audit/route.ts',
+  'app/api/super-admin/brokers/route.ts',
+  'app/api/super-admin/cases/route.ts',
+  'app/api/super-admin/command-centre/route.ts',
+  'app/api/super-admin/companies/[id]/route.ts',
+  'app/api/super-admin/companies/approval-readiness/route.ts',
+  'app/api/super-admin/companies/route.ts',
+  'app/api/super-admin/companies/summary/route.ts',
+  'app/api/super-admin/compliance/route.ts',
+  'app/api/super-admin/email-readiness/route.ts',
+  'app/api/super-admin/finance/route.ts',
+  'app/api/super-admin/finance/summary/route.ts',
+  'app/api/super-admin/governance/route.ts',
+  'app/api/super-admin/health/route.ts',
+  'app/api/super-admin/marketplace/[id]/route.ts',
+  'app/api/super-admin/marketplace/route.ts',
+  'app/api/super-admin/notifications/route.ts',
+  'app/api/super-admin/onboarding/route.ts',
+  'app/api/super-admin/operations/route.ts',
+  'app/api/super-admin/platform/route.ts',
+  'app/api/super-admin/settings/route.ts',
+  'app/api/super-admin/stats/route.ts',
+  'app/api/super-admin/support/route.ts',
+  'app/api/super-admin/users/route.ts',
+  'app/api/super-admin/xdrive-logistics/enquiries/[id]/route.ts',
+  'app/api/super-admin/xdrive-logistics/enquiries/route.ts',
+  'app/api/super-admin/xdrive-logistics/jobs/route.ts',
+  'app/api/super-admin/xdrive-logistics/marketplace/route.ts',
+] as const;
+
+const canonicalGuardRoutes = canonicalGuardRoutePaths.map((path) => ({ path, content: source(path) }));
 
 describe('Super Admin control-plane completeness', () => {
   it('keeps Platform Owner inside Super Admin instead of linking to the broker tenant workspace', () => {
@@ -49,8 +88,8 @@ describe('Super Admin control-plane completeness', () => {
 
   it('makes shared live tables fail closed on timeout and invalid rows contracts', () => {
     expect(liveTable).toContain('REQUEST_TIMEOUT_MS');
-    expect(liveTable).toContain("controller.abort()");
-    expect(liveTable).toContain("if (!Array.isArray(fieldValue))");
+    expect(liveTable).toContain('controller.abort()');
+    expect(liveTable).toContain('if (!Array.isArray(fieldValue))');
     expect(liveTable).toContain('invalid data contract');
   });
 
@@ -59,5 +98,60 @@ describe('Super Admin control-plane completeness', () => {
     expect(healthPage).toContain('Stripe Webhook Processing');
     expect(healthPage).toContain('setChecks([])');
     expect(healthPage).toContain('setIntegrations([])');
+  });
+
+  it('enforces active Platform Owner and Deploy Preview write lock in the canonical guard', () => {
+    expect(ownerGuard).toContain(".select('role, status')");
+    expect(ownerGuard).toContain("!== 'owner'");
+    expect(ownerGuard).toContain("!== 'active'");
+    expect(ownerGuard).toContain("const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])");
+    expect(ownerGuard).toContain('isSuperAdminDeployPreviewReadOnly() && !READ_ONLY_METHODS.has');
+  });
+
+  it('requires every remediated Super Admin API route to use the canonical owner guard', () => {
+    for (const route of canonicalGuardRoutes) {
+      expect(route.content, route.path).toContain('verifyPlatformOwner');
+      expect(route.content, route.path).not.toContain('const resolveOwner = async');
+      expect(route.content, route.path).not.toContain('getBearerToken');
+    }
+  });
+
+  it('keeps Command Centre exact-count and source-coverage semantics fail closed', () => {
+    expect(commandCentre).toContain('result.error || result.count === null ? null : result.count');
+    expect(commandCentre).toContain('Command Centre data could not be determined safely.');
+    expect(commandCentre).toContain('Command Centre exact counts could not be determined safely.');
+    expect(commandCentre).toContain('criticalCoverageUnavailable');
+    expect(commandCentre).toContain('queueCoverageUnavailable');
+    expect(commandCentre).toContain('amount, currency, due_date');
+    expect(commandCentre).not.toContain(' · £');
+  });
+
+  it('paginates onboarding globally instead of presenting a capped page as platform truth', () => {
+    expect(onboardingRoute).toContain("{ count: 'exact' }");
+    expect(onboardingRoute).toContain('.range(offset, offset + limit - 1)');
+    expect(onboardingRoute).toContain('total_active_applications');
+    expect(onboardingRoute).not.toContain('.limit(250)');
+  });
+
+  it('keeps company governance audited, reconciled and preview-read-only', () => {
+    expect(companyGovernanceRoute).toContain('verifyPlatformOwner');
+    expect(companyGovernanceRoute).toContain('Deploy Preview is read-only. Company governance was not changed.');
+    expect(companyGovernanceRoute).toContain(".rpc('set_company_status_governance'");
+    expect(companyGovernanceRoute).toContain('Company governance action returned no reconciliation data.');
+  });
+
+  it('keeps role mutation gated while allowing only canonical feature/global settings writes', () => {
+    expect(settingsRoute).toContain('mutable: false');
+    expect(settingsRoute).toContain("code: 'role_mutation_gated'");
+    expect(settingsRoute).toContain('Role mutation is intentionally disabled');
+    expect(settingsRoute).not.toContain("section: z.literal('roles')");
+  });
+
+  it('keeps Finance paginated and rejects mixed-currency aggregate inference', () => {
+    expect(financeRoute).toContain('const REPORT_PAGE_SIZE = 1000');
+    expect(financeRoute).toContain('.range(offset, offset + REPORT_PAGE_SIZE - 1)');
+    expect(financeRoute).toContain('.range(offset, offset + limit - 1)');
+    expect(financeRoute).toContain('MULTI_CURRENCY_REVENUE_REQUIRES_BREAKDOWN');
+    expect(financeRoute).toContain('MULTI_CURRENCY_SETTLEMENT_REQUIRES_BREAKDOWN');
   });
 });
