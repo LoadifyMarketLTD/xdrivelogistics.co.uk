@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
+import PlatformEntityLink from '@/app/super-admin/_components/control-plane/PlatformEntityLink';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
@@ -19,14 +20,25 @@ type Row = {
   closed_at: string | null;
 };
 
+const actionButtonStyle = {
+  minHeight: '40px',
+  padding: '0 12px',
+  borderRadius: '8px',
+  border: '1px solid #E0E3E7',
+  background: '#FFFFFF',
+  color: '#1A73E8',
+  fontFamily: 'Inter, Roboto, Arial, sans-serif',
+  fontSize: '14px',
+  fontWeight: 700,
+} as const;
+
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyTicketId, setBusyTicketId] = useState<string | null>(null);
-  // PR-0.5: modal replacing window.prompt + window.alert
-  const [pendingModal, setPendingModal] = useState<{ ticket: Row; action: 'investigating' | 'resolve' | 'close' | 'reopen' } | null>(null);
+  const [pendingResolve, setPendingResolve] = useState<Row | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
 
-  const runAction = async (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen', reason: string) => {
+  const resolveTicket = async (ticket: Row, reason: string) => {
     setBusyTicketId(ticket.id);
     const auth = await getAuthHeader();
     if (!auth) {
@@ -43,7 +55,7 @@ export default function Page() {
       body: JSON.stringify({
         section: 'tickets',
         ticketId: ticket.id,
-        action,
+        action: 'resolve',
         note: reason,
       }),
     });
@@ -57,26 +69,51 @@ export default function Page() {
     setBusyTicketId(null);
   };
 
-  const initiateAction = (ticket: Row, action: 'investigating' | 'resolve' | 'close' | 'reopen') => {
-    setPendingModal({ ticket, action });
-  };
-
   const columns = useMemo(
     () => [
       {
+        key: 'ticket_id',
+        label: 'Ticket ID',
+        render: (row: Row) => (
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <code style={{ color: '#4A4A4A', fontSize: '14px' }}>{row.id}</code>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <PlatformEntityLink entityType="ticket" entityId={row.id} compact>Open</PlatformEntityLink>
+              <button
+                type="button"
+                aria-disabled="true"
+                title="Assign is visual-only because the current backend does not expose an Assign mutation."
+                style={{ ...actionButtonStyle, cursor: 'not-allowed', opacity: 0.55 }}
+                onClick={(event) => event.preventDefault()}
+              >
+                Assign
+              </button>
+              <button
+                type="button"
+                disabled={busyTicketId === row.id}
+                onClick={() => setPendingResolve(row)}
+                style={{ ...actionButtonStyle, cursor: busyTicketId === row.id ? 'not-allowed' : 'pointer' }}
+              >
+                Resolve
+              </button>
+            </div>
+          </div>
+        ),
+      },
+      {
         key: 'company',
         label: 'Company',
-        render: (row: Row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name ?? 'Unknown'}</span>,
+        render: (row: Row) => row.company_name ?? 'Unknown',
       },
       {
-        key: 'subject',
-        label: 'Subject',
-        render: (row: Row) => <span style={{ fontSize: '0.75rem' }}>{row.subject ?? '—'}</span>,
+        key: 'type',
+        label: 'Type',
+        render: (row: Row) => row.category ?? '—',
       },
       {
-        key: 'category',
-        label: 'Category',
-        render: (row: Row) => <span style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{row.category ?? '—'}</span>,
+        key: 'severity',
+        label: 'Severity',
+        render: (row: Row) => row.priority ?? '—',
       },
       {
         key: 'status',
@@ -84,108 +121,51 @@ export default function Page() {
         render: (row: Row) => <StatusChip value={row.status} />,
       },
       {
-        key: 'priority',
-        label: 'Priority',
-        render: (row: Row) => <span style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{row.priority ?? '—'}</span>,
-      },
-      {
-        key: 'created_at',
+        key: 'created',
         label: 'Created',
-        render: (row: Row) => (
-          <span style={{ fontSize: '0.75rem' }}>
-            {row.created_at ? formatDateTime(row.created_at) : '—'}
-          </span>
-        ),
-      },
-      {
-        key: 'resolved_at',
-        label: 'Resolved',
-        render: (row: Row) => (
-          <span style={{ fontSize: '0.75rem' }}>
-            {row.resolved_at ? formatDateTime(row.resolved_at) : '—'}
-          </span>
-        ),
-      },
-      {
-        key: 'actions',
-        label: 'Actions',
-        render: (row: Row) => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '120px' }}>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'investigating')} style={{ fontSize: '0.68rem' }}>
-              Investigate
-            </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'resolve')} style={{ fontSize: '0.68rem' }}>
-              Resolve
-            </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'close')} style={{ fontSize: '0.68rem' }}>
-              Close
-            </button>
-            <button type="button" disabled={busyTicketId === row.id} onClick={() => initiateAction(row, 'reopen')} style={{ fontSize: '0.68rem' }}>
-              Reopen
-            </button>
-          </div>
-        ),
+        render: (row: Row) => row.created_at ? formatDateTime(row.created_at) : '—',
       },
     ],
-    [busyTicketId]
+    [busyTicketId],
   );
 
   return (
     <>
-      {/* PR-0.5: action modal replacing window.prompt + window.alert */}
-      {pendingModal && (
-        <ActionConfirmModal
-          open
-          title={
-            pendingModal.action === 'investigating'
-              ? '🔍 Mark as investigating'
-              : pendingModal.action === 'resolve'
-                ? '✅ Resolve ticket'
-                : pendingModal.action === 'close'
-                  ? '🔒 Close ticket'
-                  : '🔄 Reopen ticket'
-          }
-          description={
-            <>Update ticket <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.subject ?? pendingModal.ticket.id.slice(0, 8) + '…'}</strong> for <strong style={{ color: '#f1f5f9' }}>{pendingModal.ticket.company_name}</strong>.</>
-          }
-          confirmLabel={
-            pendingModal.action === 'investigating'
-              ? 'Confirm investigation'
-              : pendingModal.action === 'resolve'
-                ? 'Confirm resolution'
-                : pendingModal.action === 'close'
-                  ? 'Confirm close'
-                  : 'Confirm reopen'
-          }
-          danger={pendingModal.action === 'close'}
-          reasonRequired
-          reasonLabel="Reason"
-          reasonPlaceholder="Explain why this action is required (minimum 5 characters)…"
-          submitting={busyTicketId !== null}
-          onCancel={() => setPendingModal(null)}
-          onConfirm={(reason) => {
-            const { ticket, action } = pendingModal;
-            setPendingModal(null);
-            void runAction(ticket, action, reason);
-          }}
-        />
-      )}
-      {/* PR-0.5: inline error banner replacing window.alert */}
+      <ActionConfirmModal
+        open={pendingResolve !== null}
+        title="Resolve ticket"
+        description={<>Resolve ticket <strong>{pendingResolve?.id}</strong> for <strong>{pendingResolve?.company_name}</strong>.</>}
+        confirmLabel="Resolve"
+        reasonRequired
+        reasonLabel="Reason"
+        reasonPlaceholder="Explain why this ticket is being resolved (minimum 5 characters)…"
+        submitting={busyTicketId !== null}
+        onCancel={() => setPendingResolve(null)}
+        onConfirm={(reason) => {
+          if (!pendingResolve) return;
+          const ticket = pendingResolve;
+          setPendingResolve(null);
+          void resolveTicket(ticket, reason);
+        }}
+      />
+
       {inlineError && (
         <div
           style={{
-            position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
-            backgroundColor: '#7f1d1d', border: '1px solid #ef4444',
-            borderRadius: '8px', padding: '0.75rem 1rem',
-            color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
+            position: 'fixed', top: '24px', right: '24px', zIndex: 999,
+            backgroundColor: '#FFFFFF', border: '1px solid #EA4335',
+            borderRadius: '8px', padding: '24px',
+            boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
+            color: '#EA4335', fontSize: '14px', maxWidth: '360px',
             cursor: 'pointer',
           }}
           onClick={() => setInlineError(null)}
           role="alert"
         >
-          ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
+          {inlineError}
         </div>
       )}
+
       <SuperAdminLiveTablePage<Row>
         icon="🎫"
         title="Support Tickets"
