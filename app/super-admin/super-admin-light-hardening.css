@@ -1,8 +1,9 @@
 /*
  * XDrive Logistics LTD — Super Admin light hardening guard
  *
- * Prevents legacy dark fragments from leaking into the approved enterprise
- * light theme. This layer intentionally changes presentation only.
+ * Prevents known legacy dark fragments from leaking into the approved
+ * enterprise light theme. Selectors are intentionally narrow so semantic
+ * brand/status fills are never mistaken for legacy dark surfaces.
  */
 
 .super-admin-light-root {
@@ -16,30 +17,54 @@
   color: #4A4A4A !important;
 }
 
-/* Legacy dark containers used by older Super Admin pages. */
-.super-admin-light-root [class*="bg-[#0"],
-.super-admin-light-root [class*="bg-[#1"],
-.super-admin-light-root [class*="bg-black"],
-.super-admin-light-root [class*="bg-stone-8"],
-.super-admin-light-root [class*="bg-stone-9"] {
+/* Known legacy dark utility surfaces only. */
+.super-admin-light-root [class*="bg-slate-800"],
+.super-admin-light-root [class*="bg-slate-900"],
+.super-admin-light-root [class*="bg-slate-950"],
+.super-admin-light-root [class*="bg-gray-800"],
+.super-admin-light-root [class*="bg-gray-900"],
+.super-admin-light-root [class*="bg-gray-950"],
+.super-admin-light-root [class*="bg-zinc-800"],
+.super-admin-light-root [class*="bg-zinc-900"],
+.super-admin-light-root [class*="bg-zinc-950"],
+.super-admin-light-root [class*="bg-neutral-800"],
+.super-admin-light-root [class*="bg-neutral-900"],
+.super-admin-light-root [class*="bg-neutral-950"],
+.super-admin-light-root [class*="bg-stone-800"],
+.super-admin-light-root [class*="bg-stone-900"],
+.super-admin-light-root [class*="bg-black"] {
   background-color: #FFFFFF !important;
   color: #4A4A4A !important;
 }
 
-.super-admin-light-root [style*="background-color: #0"],
-.super-admin-light-root [style*="background-color:#0"],
-.super-admin-light-root [style*="background-color: #1"],
-.super-admin-light-root [style*="background-color:#1"],
-.super-admin-light-root [style*="background: #0"],
-.super-admin-light-root [style*="background:#0"],
-.super-admin-light-root [style*="background: #1"],
-.super-admin-light-root [style*="background:#1"] {
+/* Known old inline palette values. Do not use broad #0/#1 prefix selectors:
+ * #1A73E8 is the approved brand blue and must remain visible. */
+.super-admin-light-root [style*="background-color: #0f172a"],
+.super-admin-light-root [style*="background-color:#0f172a"],
+.super-admin-light-root [style*="background: #0f172a"],
+.super-admin-light-root [style*="background:#0f172a"],
+.super-admin-light-root [style*="background-color: #111827"],
+.super-admin-light-root [style*="background-color:#111827"],
+.super-admin-light-root [style*="background: #111827"],
+.super-admin-light-root [style*="background:#111827"],
+.super-admin-light-root [style*="background-color: #1e293b"],
+.super-admin-light-root [style*="background-color:#1e293b"],
+.super-admin-light-root [style*="background: #1e293b"],
+.super-admin-light-root [style*="background:#1e293b"],
+.super-admin-light-root [style*="background-color: #0b1220"],
+.super-admin-light-root [style*="background-color:#0b1220"],
+.super-admin-light-root [style*="background: #0b1220"],
+.super-admin-light-root [style*="background:#0b1220"],
+.super-admin-light-root [style*="background-color: #172033"],
+.super-admin-light-root [style*="background-color:#172033"],
+.super-admin-light-root [style*="background: #172033"],
+.super-admin-light-root [style*="background:#172033"] {
   background: #FFFFFF !important;
   background-color: #FFFFFF !important;
   color: #4A4A4A !important;
 }
 
-/* Legacy cards that do not use Tailwind surface classes. */
+/* Legacy cards that do not use shared surface classes. */
 .super-admin-light-root .card,
 .super-admin-light-root .panel,
 .super-admin-light-root [data-card],
@@ -70,29 +95,42 @@
   color: #4A4A4A !important;
 }
 
-/* Prevent white-on-white text inherited from old dark pages. */
-.super-admin-light-root [style*="color: white"],
-.super-admin-light-root [style*="color:#fff"],
-.super-admin-light-root [style*="color: #fff"],
-.super-admin-light-root [style*="color:#ffffff"],
-.super-admin-light-root [style*="color: #ffffff"] {
+/* Only repair explicit white text when no inline background is declared. */
+.super-admin-light-root [style*="color: white"]:not([style*="background"]),
+.super-admin-light-root [style*="color:#fff"]:not([style*="background"]),
+.super-admin-light-root [style*="color: #fff"]:not([style*="background"]),
+.super-admin-light-root [style*="color:#ffffff"]:not([style*="background"]),
+.super-admin-light-root [style*="color: #ffffff"]:not([style*="background"]) {
   color: #4A4A4A !important;
 }
 
-/* Re-assert white text only on branded or semantic filled actions. */
-.super-admin-light-root button[style*="background-color: #1A73E8"],
-.super-admin-light-root button[style*="background-color:#1A73E8"],
-.super-admin-light-root a[style*="background: #1A73E8"],
-.super-admin-light-root a[style*="background:#1A73E8"],
-.super-admin-light-root button[style*="background-color: #1D57D8"],
-.super-admin-light-root button[style*="background-color:#1D57D8"],
-.super-admin-light-root a[style*="background: #1D57D8"],
-.super-admin-light-root a[style*="background:#1D57D8"],
+/* Approved filled actions/statuses retain accessible text contrast. */
+.super-admin-light-root [style*="background: #1A73E8"],
+.super-admin-light-root [style*="background:#1A73E8"],
+.super-admin-light-root [style*="background-color: #1A73E8"],
+.super-admin-light-root [style*="background-color:#1A73E8"],
+.super-admin-light-root [style*="background: #34A853"],
+.super-admin-light-root [style*="background:#34A853"],
+.super-admin-light-root [style*="background-color: #34A853"],
+.super-admin-light-root [style*="background-color:#34A853"],
+.super-admin-light-root [style*="background: #EA4335"],
+.super-admin-light-root [style*="background:#EA4335"],
+.super-admin-light-root [style*="background-color: #EA4335"],
+.super-admin-light-root [style*="background-color:#EA4335"],
 .super-admin-light-root button[class*="bg-blue-"],
 .super-admin-light-root a[class*="bg-blue-"],
 .super-admin-light-root button[class*="bg-green-"],
-.super-admin-light-root a[class*="bg-green-"] {
+.super-admin-light-root a[class*="bg-green-"],
+.super-admin-light-root button[class*="bg-red-"],
+.super-admin-light-root a[class*="bg-red-"] {
   color: #FFFFFF !important;
+}
+
+.super-admin-light-root [style*="background: #FBBC05"],
+.super-admin-light-root [style*="background:#FBBC05"],
+.super-admin-light-root [style*="background-color: #FBBC05"],
+.super-admin-light-root [style*="background-color:#FBBC05"] {
+  color: #4A4A4A !important;
 }
 
 /* Shared borders and table surfaces. */
