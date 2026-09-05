@@ -131,7 +131,7 @@ export const runPlatformHealthChecks = async () => {
         .from('stripe_webhook_events')
         .select('processing_status')
         .order('received_at', { ascending: false })
-        .limit(100);
+        .limit(50);
       if (error) throw new Error(error.message);
       if (!Array.isArray(data)) throw new Error('Stripe webhook health probe returned an invalid snapshot.');
       const failed = data.filter((row) => ['failed', 'error'].includes(String(row.processing_status ?? '').toLowerCase())).length;
