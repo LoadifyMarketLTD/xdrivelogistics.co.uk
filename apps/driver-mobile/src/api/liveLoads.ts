@@ -145,11 +145,12 @@ export async function fetchActiveQuotedJobIds() {
   return new Set((payload.activeJobIds ?? []).map((jobId) => String(jobId)));
 }
 
-export async function submitLiveLoadQuote(jobId: string, quote: StructuredLiveLoadQuote) {
+export async function submitLiveLoadQuote(jobId: string, quote: StructuredLiveLoadQuote, token?: string | null) {
   await apiRequest<{ success?: boolean; bidId?: string; jobId?: string; idempotent?: boolean }>(
     '/api/driver/mobile/bids',
     {
       method: 'POST',
+      token,
       body: {
         jobId,
         amount: quote.totalAmount,
