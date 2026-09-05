@@ -21,7 +21,8 @@ const isGoLiveHardeningPreview =
 const isSuperAdminHomePreview =
   process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '504';
 const isSuperAdminControlPlanePreview =
-  process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '505';
+  process.env.CONTEXT === 'deploy-preview' &&
+  ['505', '506'].includes(process.env.REVIEW_ID ?? '');
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -166,9 +167,9 @@ if (isSuperAdminHomePreview) {
 }
 
 if (isSuperAdminControlPlanePreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR505_SUPER_ADMIN_CONTROL_PLANE_LINT');
+  console.log('NETLIFY_RELEASE_GATE=PR505_506_SUPER_ADMIN_CONTROL_PLANE_LINT');
   run(npmCommand, ['exec', '--', 'eslint', ...superAdminControlPlaneLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR505_SUPER_ADMIN_CONTROL_PLANE_TESTS');
+  console.log('NETLIFY_RELEASE_GATE=PR505_506_SUPER_ADMIN_CONTROL_PLANE_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...superAdminControlPlaneUnitTests]);
 }
 
