@@ -32,6 +32,28 @@ const initialRetryDelayMs = 15 * 1000;
 const retryableHttpStatuses = new Set([408, 425, 429]);
 const persistedHttpStatusPattern = /\(HTTP\s+(\d{3})\)\s*$/i;
 
+function stringPayload(payload: Record<string, unknown> | undefined, key: string) {
+  const value = payload?.[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * Status/POD/quote actions are one-per-job/per-endpoint while multi-drop stop
+ * actions must also include stop identity and requested stop state. This keeps
+ * queued retries idempotent without collapsing two different stops together.
+ */
+export function queueActionIdentity(action: Pick<QueuedAction, 'jobId' | 'endpoint' | 'payload'>) {
+  if (action.endpoint === 'stop-status') {
+    return [
+      action.jobId,
+      action.endpoint,
+      stringPayload(action.payload, 'stop_id'),
+      stringPayload(action.payload, 'status'),
+    ].join(':');
+  }
+  return `${action.jobId}:${action.endpoint}`;
+}
+
 function normalizeQueueItem(item: Partial<QueuedAction>) {
   return {
     id: String(item.id ?? ''),
@@ -64,11 +86,9 @@ export async function saveQueue(userId: string, queue: QueuedAction[]) {
 
 export async function enqueueAction(userId: string, action: Omit<QueuedAction, 'id' | 'status' | 'createdAt' | 'retryCount' | 'lastAttemptAt' | 'nextRetryAt' | 'lastError' | 'retryMode'>) {
   const queue = await getQueue(userId);
+  const identity = queueActionIdentity(action);
   const existing = queue.find(
-    (item) =>
-      item.jobId === action.jobId &&
-      item.endpoint === action.endpoint &&
-      item.status !== 'synced',
+    (item) => queueActionIdentity(item) === identity && item.status !== 'synced',
   );
   if (existing) return existing;
 
