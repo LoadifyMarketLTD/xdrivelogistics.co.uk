@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
+  const admin = supabaseAdmin;
 
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const offset = (pageParam - 1) * limitParam;
   const actionTypeFilter = searchParams.get('action_type')?.trim() ?? '';
 
-  let query = supabaseAdmin
+  let query = admin
     .from('owner_audit_log')
     .select('id, actor_user_id, target_company_id, action_type, old_status, new_status, reason, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   const rows = data ?? [];
   const companyIds = Array.from(new Set(rows.map((row) => row.target_company_id as string | null).filter((id): id is string => Boolean(id))));
   const companiesResult = companyIds.length > 0
-    ? await supabaseAdmin.from('companies').select('id, name').in('id', companyIds)
+    ? await admin.from('companies').select('id, name').in('id', companyIds)
     : { data: [], error: null };
   if (companiesResult.error) return respond(500, { error: 'Audit company identity source is unavailable.', detail: companiesResult.error.message });
 
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
   const ACTION_TYPES = ['company_approved', 'company_suspended', 'company_reinstated', 'company_rejected'] as const;
   const summaryCounts = await Promise.all(ACTION_TYPES.map(async (actionType) => {
     if (actionTypeFilter && actionTypeFilter !== actionType) return { action: actionType, count: 0, error: null as string | null };
-    const result = await supabaseAdmin
+    const result = await admin
       .from('owner_audit_log')
       .select('id', { count: 'exact', head: true })
       .eq('action_type', actionType);
