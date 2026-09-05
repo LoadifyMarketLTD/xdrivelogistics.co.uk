@@ -1,17 +1,25 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Set-Location $PSScriptRoot
+$sourceAndroidDir = $PSScriptRoot
+$repoRoot = (Resolve-Path (Join-Path $sourceAndroidDir '..')).Path
+Set-Location $sourceAndroidDir
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $evidenceDir = Join-Path $repoRoot "build\android-local-gate\$timestamp"
 $gradleLog = Join-Path $evidenceDir 'gradle.log'
 $diagnosticFile = Join-Path $evidenceDir 'diagnostic.txt'
 $environmentFile = Join-Path $evidenceDir 'environment.txt'
 $evidenceFile = Join-Path $evidenceDir 'LOCAL_BUILD_EVIDENCE.md'
+$publishedApk = Join-Path $evidenceDir 'app-debug.apk'
 
 New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
+
+$tempBase = [System.IO.Path]::GetTempPath()
+$scratchRoot = Join-Path $tempBase "xdrive-android-gate-$timestamp"
+$worktreeRoot = Join-Path $scratchRoot 'repo'
+$worktreeAndroid = Join-Path $worktreeRoot 'android-native'
+$worktreeCreated = $false
 
 function Invoke-NativeCapture {
   param(
@@ -22,8 +30,7 @@ function Invoke-NativeCapture {
   $previousPreference = $ErrorActionPreference
   try {
     # Windows PowerShell 5.1 can surface native STDERR as PowerShell error
-    # records. java -version intentionally writes to STDERR even on success,
-    # so do not let that produce a false gate failure.
+    # records. java -version intentionally writes to STDERR even on success.
     $ErrorActionPreference = 'Continue'
     $outputLines = @(& $Command 2>&1 | ForEach-Object { "$_" })
     $exitCode = $LASTEXITCODE
@@ -37,6 +44,12 @@ function Invoke-NativeCapture {
     throw "$Label failed with exit code $exitCode.`n$output"
   }
   return $output
+}
+
+function Get-SourceIdentity {
+  $branchValue = (& git -C $repoRoot branch --show-current 2>$null | Out-String).Trim()
+  $headValue = (& git -C $repoRoot rev-parse HEAD 2>$null | Out-String).Trim()
+  return @($branchValue, $headValue)
 }
 
 function Write-FailureEvidence {
@@ -55,6 +68,7 @@ function Write-FailureEvidence {
     'AssertionError',
     'Lint found',
     'Compilation error',
+    'Unable to delete directory',
     'What went wrong',
     'FAILED',
     'BUILD FAILED',
@@ -73,6 +87,10 @@ function Write-FailureEvidence {
     $diagnosticLines = @($Reason)
   }
 
+  $identity = Get-SourceIdentity
+  $branchValue = $identity[0]
+  $headValue = $identity[1]
+
   @(
     'ANDROID LOCAL GATE: FAIL',
     "Reason: $Reason",
@@ -82,16 +100,13 @@ function Write-FailureEvidence {
     $diagnosticLines
   ) | Set-Content -Path $diagnosticFile -Encoding UTF8
 
-  $branch = (& git branch --show-current 2>$null | Out-String).Trim()
-  $head = (& git rev-parse HEAD 2>$null | Out-String).Trim()
-
   @"
 # XDrive Android Local Build Evidence
 
 - Result: **FAIL**
 - Timestamp: $timestamp
-- Branch: $branch
-- HEAD: $head
+- Branch: $branchValue
+- HEAD: $headValue
 - Reason: $Reason
 - Gradle exit code: $ExitCode
 - Full Gradle log: $gradleLog
@@ -110,11 +125,28 @@ This is a local Android binary-gate failure. It is not an E2E release verdict.
   Write-Host "Evidence:   $evidenceFile" -ForegroundColor Yellow
 }
 
+function Remove-TemporaryWorktree {
+  Set-Location $sourceAndroidDir
+  if ($worktreeCreated -and (Test-Path $worktreeRoot)) {
+    $previousPreference = $ErrorActionPreference
+    try {
+      $ErrorActionPreference = 'Continue'
+      & git -C $repoRoot worktree remove --force $worktreeRoot 2>$null | Out-Null
+    } finally {
+      $ErrorActionPreference = $previousPreference
+    }
+  }
+  if (Test-Path $scratchRoot) {
+    Remove-Item -LiteralPath $scratchRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
 Write-Host 'XDrive Android one-command local gate' -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 Write-Host "Evidence:   $evidenceDir"
+Write-Host "Scratch:    $scratchRoot"
 
-if (-not (Test-Path '.\gradlew.bat')) {
+if (-not (Test-Path (Join-Path $sourceAndroidDir 'gradlew.bat'))) {
   Write-FailureEvidence -Reason 'gradlew.bat was not found beside verify-local-build.ps1.'
   exit 1
 }
@@ -130,36 +162,54 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 
 try {
-  $branch = (& git branch --show-current 2>$null | Out-String).Trim()
-  $head = (& git rev-parse HEAD 2>$null | Out-String).Trim()
-  $status = (& git status --short 2>$null | Out-String).Trim()
-  if ([string]::IsNullOrWhiteSpace($status)) { $status = '<clean>' }
+  $identity = Get-SourceIdentity
+  $branch = $identity[0]
+  $head = $identity[1]
+  $trackedStatus = (& git -C $repoRoot status --short --untracked-files=no 2>$null | Out-String).Trim()
+  if ([string]::IsNullOrWhiteSpace($trackedStatus)) { $trackedStatus = '<clean>' }
 
   $javaVersion = Invoke-NativeCapture -Label 'Java' -Command { java -version }
+
+  New-Item -ItemType Directory -Force -Path $scratchRoot | Out-Null
+  $worktreeOutput = Invoke-NativeCapture -Label 'Temporary git worktree' -Command {
+    git -C $repoRoot worktree add --detach $worktreeRoot $head
+  }
+  $worktreeCreated = $true
+
+  $sourceLocalProperties = Join-Path $sourceAndroidDir 'local.properties'
+  if (Test-Path $sourceLocalProperties) {
+    Copy-Item $sourceLocalProperties (Join-Path $worktreeAndroid 'local.properties') -Force
+  }
+
+  Set-Location $worktreeAndroid
   $gradleVersion = Invoke-NativeCapture -Label 'Gradle wrapper' -Command { .\gradlew.bat --version }
 
   @"
 XDrive Android local gate environment
 Timestamp: $timestamp
-Repository: $repoRoot
+Source repository: $repoRoot
+Temporary worktree: $worktreeRoot
 Branch: $branch
 HEAD: $head
-Git status:
-$status
+Tracked source status:
+$trackedStatus
 
 JAVA
 $javaVersion
 
 GRADLE
 $gradleVersion
+
+WORKTREE
+$worktreeOutput
 "@ | Set-Content -Path $environmentFile -Encoding UTF8
 } catch {
   Write-FailureEvidence -Reason $_.Exception.Message
+  Remove-TemporaryWorktree
   exit 1
 }
 
 $gradleArgs = @(
-  'clean',
   ':app:compileDebugKotlin',
   'testDebugUnitTest',
   'lintDebug',
@@ -170,6 +220,7 @@ $gradleArgs = @(
 )
 
 Write-Host "`n=== ANDROID BINARY GATE ===" -ForegroundColor Cyan
+Write-Host 'Running from a fresh temporary git worktree outside OneDrive.' -ForegroundColor DarkGray
 Write-Host ".\gradlew.bat $($gradleArgs -join ' ')"
 Write-Host 'The complete output is being saved automatically. No manual error hunting is required.' -ForegroundColor DarkGray
 
@@ -185,21 +236,24 @@ try {
 if ($null -eq $gradleExit) { $gradleExit = 1 }
 if ($gradleExit -ne 0) {
   Write-FailureEvidence -Reason 'Gradle compile/test/lint/APK gate failed.' -ExitCode $gradleExit
+  Remove-TemporaryWorktree
   exit $gradleExit
 }
 
-$apk = '.\app\build\outputs\apk\debug\app-debug.apk'
-if (-not (Test-Path $apk)) {
-  Write-FailureEvidence -Reason "Gradle reported success but $apk does not exist."
+$worktreeApk = Join-Path $worktreeAndroid 'app\build\outputs\apk\debug\app-debug.apk'
+if (-not (Test-Path $worktreeApk)) {
+  Write-FailureEvidence -Reason "Gradle reported success but $worktreeApk does not exist."
+  Remove-TemporaryWorktree
   exit 1
 }
 
-$apkItem = Get-Item $apk
-$hash = (Get-FileHash -Algorithm SHA256 $apk).Hash
+Copy-Item $worktreeApk $publishedApk -Force
+$apkItem = Get-Item $publishedApk
+$hash = (Get-FileHash -Algorithm SHA256 $publishedApk).Hash
 $size = $apkItem.Length
 $resolvedApk = $apkItem.FullName
 
-$lintReport = Join-Path $PSScriptRoot 'app\build\reports\lint-results-debug.txt'
+$lintReport = Join-Path $worktreeAndroid 'app\build\reports\lint-results-debug.txt'
 if (Test-Path $lintReport) {
   Copy-Item $lintReport (Join-Path $evidenceDir 'lint-results-debug.txt') -Force
 }
@@ -211,6 +265,7 @@ if (Test-Path $lintReport) {
 - Timestamp: $timestamp
 - Branch: $branch
 - HEAD: $head
+- Isolation: **fresh temporary git worktree outside OneDrive**
 - Command: `.\gradlew.bat $($gradleArgs -join ' ')`
 - CompileDebugKotlin: **PASS**
 - Debug unit tests: **PASS**
@@ -222,8 +277,10 @@ if (Test-Path $lintReport) {
 - Full Gradle log: $gradleLog
 - Environment: $environmentFile
 
-This proves the exact checkout passed the local compile, unit-test, lint and debug-APK binary gate. It does **not** prove production signing, Firebase delivery, Play acceptance, server-side E2E evidence or physical-device E2E.
+This proves the exact checkout passed the isolated local compile, unit-test, lint and debug-APK binary gate. It does **not** prove production signing, Firebase delivery, Play acceptance, server-side E2E evidence or physical-device E2E.
 "@ | Set-Content -Path $evidenceFile -Encoding UTF8
+
+Remove-TemporaryWorktree
 
 Write-Host "`nANDROID LOCAL GATE: PASS" -ForegroundColor Green
 Write-Host "HEAD:   $head"
