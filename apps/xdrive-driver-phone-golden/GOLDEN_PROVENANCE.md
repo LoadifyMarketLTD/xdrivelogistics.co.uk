@@ -34,6 +34,7 @@ The recovered UI includes the phone-matching login identity:
 5. Courier Exchange is a functional/UX benchmark only. Do not copy its logo, exact colour system, icon set, branded badges, or trade dress.
 6. Preserve XDrive identity and the phone app's established visual character while improving functionality and UX.
 7. Do not replace the installed phone application until a new candidate has passed physical-device validation.
+8. Preview APKs used for physical-device testing must install beside the phone GOLDEN. The preview profile uses the Android package suffix `.preview` and the launcher label `XDrive Driver Preview`; production builds must never use that suffix.
 
 ## Modernization gate order
 
