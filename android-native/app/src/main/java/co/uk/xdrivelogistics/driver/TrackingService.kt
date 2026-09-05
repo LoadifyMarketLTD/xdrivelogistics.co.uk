@@ -17,6 +17,7 @@ import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import co.uk.xdrivelogistics.driver.data.ApiClient
 import co.uk.xdrivelogistics.driver.data.AvailabilityPresenceApi
 import co.uk.xdrivelogistics.driver.data.DriverSession
@@ -514,7 +515,9 @@ class TrackingService : Service() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun isDeviceLocationEnabled(): Boolean =
-        runCatching { getSystemService(LocationManager::class.java).isLocationEnabled }.getOrDefault(false)
+        runCatching {
+            LocationManagerCompat.isLocationEnabled(getSystemService(LocationManager::class.java))
+        }.getOrDefault(false)
 
     private fun locationSettingsIntent(): PendingIntent = PendingIntent.getActivity(
         this,
