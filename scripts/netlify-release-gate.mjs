@@ -89,11 +89,7 @@ if (isExpoDriverHardeningPreview) {
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_SOURCE_CONTRACT');
   run(npmCommand, ['run', 'test:unit', '--', ...expoDriverUnitTests]);
 
-  // Diagnostic isolation: prove dependency resolution independently before
-  // re-enabling TypeScript/tests/bundle. This does not weaken the final gate;
-  // the remaining stages stay external-required until the failing stage is
-  // identified and fixed on the exact PR head.
-  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_INSTALL_DIAGNOSTIC');
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_INSTALL');
   run(npmCommand, [
     '--prefix', 'apps/driver-mobile',
     'install',
@@ -102,7 +98,10 @@ if (isExpoDriverHardeningPreview) {
     '--no-audit',
     '--no-fund',
   ]);
-  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TYPECHECK_TEST_BUNDLE=DIAGNOSTIC_PENDING');
+
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TYPECHECK');
+  run(npmCommand, ['--prefix', 'apps/driver-mobile', 'run', 'typecheck']);
+  console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_TEST_BUNDLE=DIAGNOSTIC_PENDING');
   console.log('NETLIFY_RELEASE_GATE=PR503_EXPO_DRIVER_NATIVE_BINARY_GATE=EXTERNAL_REQUIRED');
 }
 
