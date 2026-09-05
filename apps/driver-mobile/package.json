@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "bundle:android": "expo export --platform android --output-dir dist",
     "build:android:apk": "eas build --platform android --profile preview"
   },
   "overrides": {
