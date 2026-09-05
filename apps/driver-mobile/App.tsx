@@ -3,6 +3,7 @@ import * as Network from 'expo-network';
 import { Component, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
+import { startDriverLocationCoordinator } from './src/tracking/locationTracking';
 import { colors, spacing } from './src/ui/theme';
 import { normalizeApiBaseUrl, fallbackBaseUrl as fallbackApiBaseUrl } from './src/utils/url';
 
@@ -44,6 +45,7 @@ export default function App() {
   useEffect(() => {
     let mounted = true;
     let appLoaded = false;
+    const stopLocationCoordinator = startDriverLocationCoordinator();
     const timeoutId = setTimeout(() => {
       if (!mounted || appLoaded) return;
       setStartupError(`Startup timeout after ${Math.floor(startupTimeoutMs / 1000)}s.`);
@@ -73,6 +75,7 @@ export default function App() {
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
+      stopLocationCoordinator();
     };
   }, []);
 
