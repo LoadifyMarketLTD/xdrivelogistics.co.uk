@@ -1,12 +1,99 @@
+import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function validatedSessionId(token: string): string | null {
+  try {
+    const encoded = token.split('.')[1];
+    if (!encoded) return null;
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { session_id?: unknown };
+    return typeof payload.session_id === 'string' && UUID_RE.test(payload.session_id)
+      ? payload.session_id
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function localPreviewDeviceBypass(request: NextRequest) {
+  if (process.env.XDRIVE_LOCAL_PREVIEW_DEVICE_BYPASS !== 'true') return false;
+  const hostname = request.nextUrl.hostname.toLowerCase();
+  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
+}
+
+async function enforceActiveNativeDeviceBinding(
+  request: NextRequest,
+  token: string,
+  userId: string,
+  driverId: string,
+): Promise<NextResponse | null> {
+  // This bypass exists only for a loopback physical-Preview gate. It lets the
+  // side-by-side .preview package read real data through adb reverse without
+  // writing to or replacing the canonical GOLDEN native-device registry.
+  if (localPreviewDeviceBypass(request)) return null;
+  if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+
+  const authSessionId = validatedSessionId(token);
+  if (!authSessionId) return respond(401, { error: 'Authenticated session identity is required.' });
+
+  const [{ data: activeBinding, error: bindingError }, { data: nativeHistory, error: historyError }] = await Promise.all([
+    supabaseAdmin
+      .from('driver_mobile_device_sessions')
+      .select('installation_id, auth_session_id')
+      .eq('user_id', userId)
+      .eq('driver_id', driverId)
+      .eq('enabled', true)
+      .is('revoked_at', null)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('driver_mobile_device_sessions')
+      .select('installation_id')
+      .eq('user_id', userId)
+      .eq('driver_id', driverId)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (bindingError || historyError) {
+    return respond(500, { error: 'Mobile device session validation failed.' });
+  }
+
+  if (!activeBinding) {
+    if (nativeHistory) return respond(401, { error: 'No active native device session is authorised.' });
+    return null;
+  }
+
+  const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
+  if (!UUID_RE.test(installationId)) {
+    return respond(401, { error: 'Active native device identity is required.' });
+  }
+
+  if (
+    String(activeBinding.installation_id) !== installationId
+    || String(activeBinding.auth_session_id) !== authSessionId
+  ) {
+    return respond(401, { error: 'This mobile session has been revoked or replaced by another device.' });
+  }
+
+  void supabaseAdmin
+    .from('driver_mobile_device_sessions')
+    .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('installation_id', installationId)
+    .eq('auth_session_id', authSessionId);
+
+  return null;
+}
+
 export type DriverContext = {
   userId: string;
   driverId: string;
   companyId: string;
+  driverType: string | null;
+  canCommercialBid: boolean;
 };
 
 export type MobileJobRow = {
@@ -58,21 +145,49 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
-  const { data: driverRow, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id, app_access, status')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
+  const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
+    supabaseAdmin
+      .from('drivers')
+      .select('id, company_id, user_id, app_access, status, driver_type, can_commercial_bid')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('profiles')
+      .select('status')
+      .eq('user_id', authData.user.id)
+      .maybeSingle(),
+  ]);
 
   if (driverError) return respond(500, { error: driverError.message });
+  if (profileError) return respond(500, { error: profileError.message });
+  if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
-  if ((driverRow as { app_access?: boolean }).app_access === false) return respond(403, { error: 'Driver app access is disabled.' });
-  if (String((driverRow as { status?: string | null }).status ?? '').toLowerCase() !== 'active') return respond(403, { error: 'Driver account is not active.' });
+  if (driverRow.app_access !== true) return respond(403, { error: 'Driver app access has not been approved.' });
+  if (String(profileRow.status ?? '').trim().toLowerCase() !== 'active') {
+    return respond(403, { error: 'Driver profile is not active.' });
+  }
+  if (String(driverRow.status ?? '').trim().toLowerCase() !== 'active') {
+    return respond(403, { error: 'Driver account is not active.' });
+  }
+
+  const driverId = String(driverRow.id);
+  const deviceGate = await enforceActiveNativeDeviceBinding(
+    request,
+    token,
+    authData.user.id,
+    driverId,
+  );
+  if (deviceGate) return deviceGate;
+
+  const companyId = String(driverRow.company_id ?? '').trim();
+  if (!companyId) return respond(403, { error: 'Driver company membership is required.' });
 
   return {
     userId: authData.user.id,
-    driverId: String((driverRow as { id: string }).id),
-    companyId: String((driverRow as { company_id: string }).company_id),
+    driverId,
+    companyId,
+    driverType: typeof driverRow.driver_type === 'string' ? driverRow.driver_type : null,
+    canCommercialBid: driverRow.can_commercial_bid === true,
   };
 }
 
@@ -128,22 +243,31 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
 }
 
 export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
-  return Boolean(job.pod_generated) || safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0 || Boolean(job.delivery_signature_data);
+  return Boolean(job.pod_generated)
+    || safeArray(job.delivery_photos).length > 0
+    || safeArray(job.pod_photos).length > 0
+    || Boolean(job.delivery_signature_data);
 }
 
 export function toMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return 'Price TBC';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
-  const current = String(job.current_status || job.status || 'awarded').toLowerCase();
-  if (current === 'on_my_way') return 'on_my_way_pickup';
-  if (current === 'on_site_pickup') return 'arrived_pickup';
-  if (current === 'on_site_delivery') return 'arrived_delivery';
-  if (current === 'in_transit') return 'on_my_way_delivery';
-  if (current === 'allocated') return 'awarded';
+  const current = String(job.current_status || job.status || 'awarded').trim().toLowerCase();
+  if (['assigned', 'accepted', 'allocated'].includes(current)) return 'awarded';
+  if (['on_my_way', 'on_my_way_to_pickup'].includes(current)) return 'on_my_way_pickup';
+  if (['on_site_pickup', 'arrived_pickup'].includes(current)) return 'arrived_pickup';
+  if (['collected', 'loaded'].includes(current)) return 'loaded';
+  if (['in_transit', 'on_route_delivery', 'on_my_way_to_delivery'].includes(current)) return 'on_my_way_delivery';
+  if (['on_site_delivery', 'arrived_delivery'].includes(current)) return 'arrived_delivery';
+  if (['completed', 'invoiced', 'paid'].includes(current)) return 'delivered';
   return current;
 }
 
