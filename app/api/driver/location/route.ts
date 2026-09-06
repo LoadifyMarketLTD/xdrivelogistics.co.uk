@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../_lib/supabaseAdmin';
 import { requireActiveNativeAuthSession } from '../mobile/_deviceSessionGate';
 import { toPostgisPoint } from '../../../../lib/geoLocation';
 
@@ -21,7 +26,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  const authClient = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error: authError } = await authClient.auth.getUser(token);
   if (authError || !authData.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
