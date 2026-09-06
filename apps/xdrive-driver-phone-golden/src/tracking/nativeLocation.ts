@@ -15,6 +15,19 @@ type NativeLocationModule = {
   getCurrentPosition: () => Promise<NativeLocationPoint>;
 };
 
+type ActiveJobProjection = {
+  id?: string;
+  status?: string;
+};
+
+const TRACKABLE_MOBILE_STATES = new Set([
+  'on_my_way_pickup',
+  'arrived_pickup',
+  'loaded',
+  'on_my_way_delivery',
+  'arrived_delivery',
+]);
+
 const nativeLocation = NativeModules.XDriveLocation as NativeLocationModule | undefined;
 
 export type DriverTrackingState = 'standby' | 'starting' | 'active' | 'permission-required' | 'unavailable';
@@ -24,11 +37,13 @@ export async function publishCurrentDriverLocation(token: string) {
     throw new Error('Native driver location is unavailable in this build.');
   }
 
-  // Privacy/security gate: never request device GPS solely because an upcoming
-  // booking exists in local state. The authenticated server must still confirm
-  // at least one active driver job before location permission or position access.
-  const active = await apiRequest<{ jobs?: Array<{ id?: string }> }>('/api/driver/mobile/jobs?scope=active', { token });
-  if (!active.jobs?.length) {
+  // Server-confirmed execution must exist before XDrive asks Android for GPS.
+  // Awarded/upcoming work is intentionally excluded from tracking.
+  const active = await apiRequest<{ jobs?: ActiveJobProjection[] }>('/api/driver/mobile/jobs?scope=active', { token });
+  const executingJob = (active.jobs ?? []).find((job) =>
+    typeof job.id === 'string' && job.id.trim() && TRACKABLE_MOBILE_STATES.has(String(job.status ?? '').trim().toLowerCase()),
+  );
+  if (!executingJob?.id) {
     throw new Error('No active booking requires tracking.');
   }
 
@@ -56,6 +71,7 @@ export async function publishCurrentDriverLocation(token: string) {
     method: 'POST',
     token,
     body: {
+      job_id: executingJob.id,
       lat: point.latitude,
       lng: point.longitude,
       heading: typeof point.heading === 'number' && Number.isFinite(point.heading) ? point.heading : null,
@@ -68,7 +84,7 @@ export async function publishCurrentDriverLocation(token: string) {
 
 export function classifyTrackingError(error: unknown): DriverTrackingState {
   const message = error instanceof Error ? error.message.toLowerCase() : '';
-  if (message.includes('no active booking')) return 'standby';
+  if (message.includes('no active booking') || message.includes('tracking is allowed only')) return 'standby';
   if (message.includes('permission')) return 'permission-required';
   return 'unavailable';
 }
