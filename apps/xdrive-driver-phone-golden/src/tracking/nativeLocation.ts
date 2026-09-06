@@ -24,6 +24,14 @@ export async function publishCurrentDriverLocation(token: string) {
     throw new Error('Native driver location is unavailable in this build.');
   }
 
+  // Privacy/security gate: never request device GPS solely because an upcoming
+  // booking exists in local state. The authenticated server must still confirm
+  // at least one active driver job before location permission or position access.
+  const active = await apiRequest<{ jobs?: Array<{ id?: string }> }>('/api/driver/mobile/jobs?scope=active', { token });
+  if (!active.jobs?.length) {
+    throw new Error('No active booking requires tracking.');
+  }
+
   const permission = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION;
   const alreadyGranted = await PermissionsAndroid.check(permission);
   const granted = alreadyGranted
@@ -60,6 +68,7 @@ export async function publishCurrentDriverLocation(token: string) {
 
 export function classifyTrackingError(error: unknown): DriverTrackingState {
   const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('no active booking')) return 'standby';
   if (message.includes('permission')) return 'permission-required';
   return 'unavailable';
 }
