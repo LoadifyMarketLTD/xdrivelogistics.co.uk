@@ -1,7 +1,7 @@
 [build]
-  # TEMPORARY PR #505 diagnostic: isolate the FINAL v2 unit suite from lint.
+  # TEMPORARY PR #505 diagnostic: capture the complete FINAL v2 unit-suite failure set.
   # MUST be restored to scripts/netlify-release-gate.mjs before final validation.
-  command = "npm run test:unit -- __tests__/superAdminControlPlaneCompleteness.test.ts __tests__/superAdminMasterV2Contract.test.ts __tests__/superAdminNavbarContract.test.ts __tests__/superAdminPlatformHealth.test.ts __tests__/superAdminVisualContract.test.ts __tests__/invoiceStatusCanonical.test.ts __tests__/superAdminStatsContract.test.ts __tests__/commandCentreMetrics.test.ts"
+  command = "node ./scripts/netlify-v2-tests-only.mjs"
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
