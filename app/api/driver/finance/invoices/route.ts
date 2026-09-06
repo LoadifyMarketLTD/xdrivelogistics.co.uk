@@ -113,14 +113,35 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const invoiceSummary = buildInvoiceStatusSummary(
-    allRows.map((row) => row.status as CanonicalInvoiceStatus)
-  );
-  const payments = paymentSummary(
-    allRows.map((row) => row.payment_status as CanonicalPaymentStatus)
-  );
+  const invoiceIds = allRows.map((row) => String((row as Record<string, unknown>).id)).filter(Boolean);
+  const paidByInvoice = new Map<string, number>();
+  if (invoiceIds.length) {
+    const paymentHistory = await supabaseAdmin
+      .from('invoice_payment_history')
+      .select('invoice_id, amount')
+      .in('invoice_id', invoiceIds)
+      .limit(2000);
+    if (paymentHistory.error) return respond(500, { error: paymentHistory.error.message });
+    for (const payment of paymentHistory.data ?? []) {
+      const invoiceId = String(payment.invoice_id ?? '');
+      if (!invoiceId) continue;
+      paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + Number(payment.amount ?? 0));
+    }
+  }
+  const enrichedRows = allRows.map((row) => {
+    const paidAmount = paidByInvoice.get(String((row as Record<string, unknown>).id)) ?? 0;
+    const grossAmount = Number((row as Record<string, unknown>).amount ?? 0);
+    return { ...row, paid_amount: paidAmount, outstanding_amount: Math.max(0, grossAmount - paidAmount) };
+  });
+  const invoiceSummary = buildInvoiceStatusSummary(enrichedRows.map((row) => row.status as CanonicalInvoiceStatus));
+  const payments = paymentSummary(enrichedRows.map((row) => row.payment_status as CanonicalPaymentStatus));
+  const valueSummary = enrichedRows.reduce((acc, row) => {
+    acc.net += Number((row as Record<string, unknown>).net_amount ?? 0); acc.vat += Number((row as Record<string, unknown>).vat_amount ?? 0); acc.gross += Number((row as Record<string, unknown>).amount ?? 0);
+    acc.paid += Number(row.paid_amount ?? 0); acc.outstanding += Number(row.outstanding_amount ?? 0);
+    return acc;
+  }, { net: 0, vat: 0, gross: 0, paid: 0, outstanding: 0 });
 
-  const rows = allRows.filter((row) => {
+  const rows = enrichedRows.filter((row) => {
     if (invoiceStatusFilter && invoiceStatusFilter !== 'All') {
       const expected = toCanonicalInvoiceStatus(invoiceStatusFilter, 'Draft');
       if (row.status !== expected) return false;
@@ -136,6 +157,7 @@ export async function GET(request: NextRequest) {
     rows,
     invoiceSummary,
     paymentSummary: payments,
+    valueSummary,
     // Compatibility alias: callers that still consume `summary` receive invoice
     // lifecycle counts only, never a payment-derived lifecycle projection.
     summary: invoiceSummary,

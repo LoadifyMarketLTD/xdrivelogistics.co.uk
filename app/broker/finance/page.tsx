@@ -7,6 +7,7 @@ import {
   PageHeader,
   Panel,
 } from '../../components/workspace/WorkspaceUI';
+import { WorkspaceFinanceControl } from '../../components/workspace/WorkspaceFinanceControl';
 
 const compactCopy: React.CSSProperties = {
   margin: 0,
@@ -25,6 +26,8 @@ export default function BrokerFinancePage() {
         title="Finance"
         description="Customer revenue, carrier costs and margin control in one operational finance entry point."
       />
+
+      <WorkspaceFinanceControl role="broker" />
 
       <div style={{ display: 'grid', gap: 5 }}>
         <Panel

@@ -28,6 +28,10 @@ type InvoiceRow = {
   payment_status: PaymentStatus;
   client_name: string;
   amount: number;
+  net_amount: number;
+  vat_amount: number;
+  paid_amount: number;
+  outstanding_amount: number;
   currency: string;
 };
 
@@ -63,6 +67,8 @@ type FinanceSummary = {
   disputed: number;
   cancelled: number;
 };
+
+type ValueSummary = { net: number; vat: number; gross: number; paid: number; outstanding: number };
 
 type PaymentSummary = {
   total: number;
@@ -134,6 +140,7 @@ export default function DriverFinancePage() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [payments, setPayments] = useState<PaymentSummary | null>(null);
+  const [values, setValues] = useState<ValueSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showJobPicker, setShowJobPicker] = useState(false);
@@ -168,6 +175,7 @@ export default function DriverFinancePage() {
         rows?: InvoiceRow[];
         invoiceSummary?: FinanceSummary;
         paymentSummary?: PaymentSummary;
+        valueSummary?: ValueSummary;
         error?: string;
       } | null;
       if (!response.ok) throw new Error(payload?.error ?? 'Failed to load invoices.');
@@ -179,6 +187,7 @@ export default function DriverFinancePage() {
       })));
       setSummary(payload?.invoiceSummary ?? null);
       setPayments(payload?.paymentSummary ?? null);
+      setValues(payload?.valueSummary ?? null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load invoices.');
     } finally {
@@ -314,6 +323,10 @@ export default function DriverFinancePage() {
         <div className="driver-board-layout driver-finance-board">
           {financeRail}
           <main className="driver-board-main">
+            <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap' }}>
+              <span>Gross <strong>{money(values?.gross ?? 0)}</strong> · Net <strong>{money(values?.net ?? 0)}</strong> · VAT <strong>{money(values?.vat ?? 0)}</strong></span>
+              <span>Recorded paid <strong>{money(values?.paid ?? 0)}</strong> · Outstanding <strong>{money(values?.outstanding ?? 0)}</strong></span>
+            </div>
             <div className="driver-tab-strip" role="tablist" aria-label="Invoice states">
               {STATUS_TABS.map((tab) => (
                 <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>
@@ -386,12 +399,13 @@ export default function DriverFinancePage() {
                       <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{invoice.invoice_number}</strong><span className="driver-cell-secondary">{date(invoice.invoice_date)}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{invoice.client_name}</strong><span className="driver-cell-secondary">Job {invoice.job_ref}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Due</span><strong className="driver-cell-primary">{date(invoice.due_date)}</strong><span className="driver-cell-secondary">Invoice due date</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Total</span><strong className="driver-cell-primary">{money(invoice.amount, invoice.currency)}</strong><span className="driver-cell-secondary">Commercial invoice total</span></div>
+                      <div className="driver-load-cell"><span className="driver-cell-label">Total</span><strong className="driver-cell-primary">{money(invoice.amount, invoice.currency)}</strong><span className="driver-cell-secondary">Net {money(invoice.net_amount, invoice.currency)} · VAT {money(invoice.vat_amount, invoice.currency)}</span></div>
                     </div>
                     <div className="driver-load-row__meta">
                       <span>{invoice.job_id ? `Job #${invoice.job_id.slice(0, 8).toUpperCase()}` : invoice.job_ref}</span>
                       <span>Invoice: <StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></span>
                       <span>Payment: <StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></span>
+                      <span>Recorded paid {money(invoice.paid_amount, invoice.currency)} · Outstanding {money(invoice.outstanding_amount, invoice.currency)}</span>
                       <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>Open invoice</ActionButton></div>
                     </div>
                   </article>
