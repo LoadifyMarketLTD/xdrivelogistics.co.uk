@@ -111,6 +111,7 @@ type Payload = {
 };
 
 type FeedItem = { label: string; detail: string; icon: LucideIcon; accent: string };
+type CanonicalStatus = 'available' | 'offline' | 'posted' | 'cancelled' | 'delivered' | 'ready' | 'attention' | 'critical';
 
 const C = {
   blue: '#1A73E8',
@@ -136,40 +137,36 @@ const regionOf = (job: Job) => {
   return 'Other';
 };
 
-const jobTone = (status: string) => {
+const canonicalJobStatus = (status: string): CanonicalStatus => {
   const value = status.toLowerCase();
-  if (['delivered', 'completed', 'paid'].includes(value)) return C.green;
-  if (['cancelled', 'canceled', 'failed'].includes(value)) return C.red;
-  if (value === 'posted') return C.blue;
-  if (['draft', 'received', 'quoted', 'pending'].includes(value)) return C.yellow;
-  return C.blue;
+  if (value === 'posted') return 'posted';
+  if (['cancelled', 'canceled', 'failed'].includes(value)) return 'cancelled';
+  if (['delivered', 'completed', 'paid'].includes(value)) return 'delivered';
+  if (['draft', 'received', 'quoted', 'pending'].includes(value)) return 'attention';
+  return 'ready';
 };
 
-const driverTone = (driver: Driver) => {
-  if (!driver.online) return C.grey;
-  if (driver.status === 'busy') return C.blue;
-  return C.green;
+const canonicalStatusTone = (status: CanonicalStatus) => {
+  if (['available', 'delivered', 'ready'].includes(status)) return C.green;
+  if (status === 'offline') return C.grey;
+  if (status === 'posted') return C.blue;
+  if (status === 'attention') return C.yellow;
+  return C.red;
 };
 
-const driverStatusLabel = (driver: Driver) => {
-  if (!driver.online) return 'Offline';
-  if (driver.status === 'busy') return 'Busy';
-  if (driver.status === 'sold') return 'Sold';
-  return 'Online';
-};
+const driverTone = (driver: Driver) => driver.online ? C.green : C.grey;
+const driverStatusLabel = (driver: Driver) => driver.online ? 'AVAILABLE' : 'OFFLINE';
 
 const vehicleHealth = (vehicle: Vehicle) => {
-  if (vehicle.compliance_blocked) return { label: 'Critical', color: C.red };
-  if (!vehicle.operationally_healthy) return { label: 'Attention', color: C.yellow };
-  return { label: 'Ready', color: C.green };
+  if (vehicle.compliance_blocked) return { label: 'CRITICAL', color: C.red };
+  if (!vehicle.operationally_healthy) return { label: 'ATTENTION', color: C.yellow };
+  return { label: 'READY', color: C.green };
 };
 
 const vehicleStatusLabel = (vehicle: Vehicle) => {
-  if (vehicle.available) return 'Available';
-  const normalized = vehicle.status.toLowerCase();
-  if (normalized.includes('route') || normalized.includes('transit')) return 'On Route';
-  if (normalized.includes('service') || normalized.includes('maintenance')) return 'In Service';
-  return vehicle.status.replaceAll('_', ' ');
+  if (vehicle.available) return 'AVAILABLE';
+  const sourceStatus = vehicle.status.trim();
+  return sourceStatus ? sourceStatus.replaceAll('_', ' ').toUpperCase() : 'UNKNOWN';
 };
 
 function KpiCard({
@@ -238,14 +235,14 @@ export default function SuperAdminOperationsControlCentre() {
   }, [load]);
 
   const filteredJobs = useMemo(() => data?.jobs.filter((job) => {
-    if (statusFilter !== 'all' && job.status !== statusFilter) return false;
+    if (statusFilter !== 'all' && canonicalJobStatus(job.status) !== statusFilter) return false;
     if (regionFilter !== 'all' && regionOf(job) !== regionFilter) return false;
     if (vehicleFilter !== 'all' && (job.vehicle_registration ?? 'unassigned') !== vehicleFilter) return false;
     const query = clientFilter.trim().toLowerCase();
     return !query || job.client.toLowerCase().includes(query) || job.short_id.toLowerCase().includes(query);
   }) ?? [], [clientFilter, data, regionFilter, statusFilter, vehicleFilter]);
 
-  const statuses = Array.from(new Set((data?.jobs ?? []).map((job) => job.status))).sort();
+  const statuses = Array.from(new Set((data?.jobs ?? []).map((job) => canonicalJobStatus(job.status)))).sort();
   const vehicles = Array.from(new Set((data?.jobs ?? []).map((job) => job.vehicle_registration ?? 'unassigned'))).sort();
   const maxClientValue = data?.finance.topClients[0]?.invoicedValue || 1;
   const fleetTone = data?.kpis.fleetHealth == null ? C.grey : data.kpis.fleetHealth >= 80 ? C.green : data.kpis.fleetHealth >= 60 ? C.yellow : C.red;
@@ -341,37 +338,40 @@ export default function SuperAdminOperationsControlCentre() {
                 <div className={styles.sectionHeader}>
                   <div>
                     <h2 className={styles.sectionTitle}>Jobs Management</h2>
-                    <p className={styles.sectionText}>Job ID, Pickup → Delivery, Driver, status, ETA and Price. Track / Reassign workflow is exposed through View details / Assign driver.</p>
+                    <p className={styles.sectionText}>Job ID, Pickup → Delivery, Driver, canonical status, ETA and Price. Preview is capped at six cards; View details / Assign driver remain the exposed actions.</p>
                   </div>
                   <Link className={styles.linkButton} href="/super-admin/operations/jobs">Open Full Jobs Workspace</Link>
                 </div>
                 <div className={styles.moduleBody}>
                   <div className={styles.filters}>
-                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status.toUpperCase()}</option>)}</select>
                     <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}><option value="all">All regions</option>{['London', 'Midlands', 'North', 'Other'].map((region) => <option key={region} value={region}>{region}</option>)}</select>
                     <select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicles</option>{vehicles.map((vehicle) => <option key={vehicle} value={vehicle}>{vehicle === 'unassigned' ? 'Unassigned' : vehicle}</option>)}</select>
                     <input value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} placeholder="Client or Job ID" />
                   </div>
                   <div className={styles.jobGrid}>
-                    {filteredJobs.map((job) => (
-                      <article key={job.id} className={styles.jobCard}>
-                        <div className={styles.cardHeader}>
-                          <strong className={styles.jobTitle}>Job {job.short_id}</strong>
-                          <span className={styles.status} style={{ background: jobTone(job.status) }}>{job.status.replaceAll('_', ' ')}</span>
-                        </div>
-                        <div className={styles.jobRoute}><strong>{job.pickup}</strong><span>→</span><strong>{job.delivery}</strong></div>
-                        <div className={styles.metaGrid}>
-                          <div><span className={styles.metaLabel}>Driver</span><span className={styles.metaValue}>{job.driver_name ?? 'Unassigned'}</span></div>
-                          <div><span className={styles.metaLabel}>ETA</span><span className={styles.metaValue}>{job.eta?.eta_at ? when(job.eta.eta_at) : 'Unavailable'}</span></div>
-                          <div><span className={styles.metaLabel}>Price</span><span className={styles.metaValue}>{money(job.price, job.currency)}</span></div>
-                          <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{job.vehicle_registration ?? 'Unassigned'}</span></div>
-                        </div>
-                        <div className={styles.actions}>
-                          <PlatformEntityLink entityType="job" entityId={job.id} compact>View details</PlatformEntityLink>
-                          <button className={styles.disabledButton} type="button" disabled title="No governed assignment mutation is exposed by this cockpit.">Assign driver</button>
-                        </div>
-                      </article>
-                    ))}
+                    {filteredJobs.slice(0, 6).map((job) => {
+                      const canonicalStatus = canonicalJobStatus(job.status);
+                      return (
+                        <article key={job.id} className={styles.jobCard}>
+                          <div className={styles.cardHeader}>
+                            <strong className={styles.jobTitle}>Job {job.short_id}</strong>
+                            <span className={styles.status} style={{ background: canonicalStatusTone(canonicalStatus) }}>{canonicalStatus.toUpperCase()}</span>
+                          </div>
+                          <div className={styles.jobRoute}><strong>{job.pickup}</strong><span>→</span><strong>{job.delivery}</strong></div>
+                          <div className={styles.metaGrid}>
+                            <div><span className={styles.metaLabel}>Driver</span><span className={styles.metaValue}>{job.driver_name ?? 'Unassigned'}</span></div>
+                            <div><span className={styles.metaLabel}>ETA</span><span className={styles.metaValue}>{job.eta?.eta_at ? when(job.eta.eta_at) : 'Unavailable'}</span></div>
+                            <div><span className={styles.metaLabel}>Price</span><span className={styles.metaValue}>{money(job.price, job.currency)}</span></div>
+                            <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{job.vehicle_registration ?? 'Unassigned'}</span></div>
+                          </div>
+                          <div className={styles.actions}>
+                            <PlatformEntityLink entityType="job" entityId={job.id} compact>View details</PlatformEntityLink>
+                            <button className={styles.disabledButton} type="button" disabled title="No governed assignment mutation is exposed by this cockpit.">Assign driver</button>
+                          </div>
+                        </article>
+                      );
+                    })}
                     {filteredJobs.length === 0 && <div className={styles.unavailable}>No jobs match the selected filters.</div>}
                   </div>
                 </div>
@@ -381,11 +381,11 @@ export default function SuperAdminOperationsControlCentre() {
             {data && (
               <section className={styles.module} id="drivers-center">
                 <div className={styles.sectionHeader}>
-                  <div><h2 className={styles.sectionTitle}>Drivers Center</h2><p className={styles.sectionText}>Driver photo frame, vehicle, status, rating, last job and actions.</p></div>
+                  <div><h2 className={styles.sectionTitle}>Drivers Center</h2><p className={styles.sectionText}>Fixed 2×2 preview. Availability is visible only as AVAILABLE or OFFLINE.</p></div>
                   <Link className={styles.linkButton} href="/super-admin/users/drivers">All Drivers</Link>
                 </div>
                 <div className={styles.moduleBody}><div className={styles.driverGrid}>
-                  {data.drivers.map((driver) => {
+                  {data.drivers.slice(0, 4).map((driver) => {
                     const lastJob = data.jobs.find((job) => job.driver_id === driver.id) ?? null;
                     return <article key={driver.id} className={styles.driverCard}>
                       <div className={styles.driverHeader}>
@@ -396,7 +396,7 @@ export default function SuperAdminOperationsControlCentre() {
                       <div className={styles.metaGrid}>
                         <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{driver.vehicle?.registration ?? 'Unassigned'}</span></div>
                         <div><span className={styles.metaLabel}>Rating</span><span className={styles.metaValue}>{driver.rating == null ? 'No reviews' : `${driver.rating.toFixed(1)} / 5`}</span></div>
-                        <div><span className={styles.metaLabel}>Last Job</span><span className={styles.metaValue}>{lastJob ? `Job ${lastJob.short_id} · ${lastJob.status.replaceAll('_', ' ')}` : 'Unavailable'}</span></div>
+                        <div><span className={styles.metaLabel}>Last Job</span><span className={styles.metaValue}>{lastJob ? `Job ${lastJob.short_id} · ${canonicalJobStatus(lastJob.status).toUpperCase()}` : 'Unavailable'}</span></div>
                         <div><span className={styles.metaLabel}>Last Activity</span><span className={styles.metaValue}>{when(driver.last_activity_at)}</span></div>
                       </div>
                       <div className={styles.actions}><PlatformEntityLink entityType="driver" entityId={driver.id} compact>View profile</PlatformEntityLink><button className={styles.disabledButton} type="button" disabled>Assign job</button></div>
@@ -409,11 +409,11 @@ export default function SuperAdminOperationsControlCentre() {
             {data && (
               <section className={styles.module} id="fleet-overview">
                 <div className={styles.sectionHeader}>
-                  <div><h2 className={styles.sectionTitle}>Fleet Overview</h2><p className={styles.sectionText}>Vehicle photo frame, mileage, service due, GPS, performance and Health. Unsupported source fields remain explicitly unavailable.</p></div>
+                  <div><h2 className={styles.sectionTitle}>Fleet Overview</h2><p className={styles.sectionText}>Fixed four-card preview with truth-preserving vehicle status, Tail-lift, GPS and Health.</p></div>
                   <Link className={styles.linkButton} href="/super-admin/fleet/vehicles">Vehicle Registry</Link>
                 </div>
                 <div className={styles.moduleBody}><div className={styles.fleetGrid}>
-                  {data.fleet.map((vehicle) => {
+                  {data.fleet.slice(0, 4).map((vehicle) => {
                     const health = vehicleHealth(vehicle);
                     return (
                       <article key={vehicle.id} className={styles.vehicleCard} style={{ '--health': health.color } as React.CSSProperties}>
@@ -422,7 +422,7 @@ export default function SuperAdminOperationsControlCentre() {
                         <div className={styles.metaGrid}>
                           <div><span className={styles.metaLabel}>Mileage</span><span className={styles.metaValue}>Unavailable</span></div>
                           <div><span className={styles.metaLabel}>Service Due</span><span className={styles.metaValue}>Unavailable</span></div>
-                          <div><span className={styles.metaLabel}>GPS Status</span><span className={styles.metaValue}>{vehicle.tracked ? `Active · ${when(vehicle.last_tracked_at)}` : 'Offline'}</span></div>
+                          <div><span className={styles.metaLabel}>GPS Status</span><span className={styles.metaValue}>{vehicle.tracked ? `READY · ${when(vehicle.last_tracked_at)}` : 'OFFLINE'}</span></div>
                           <div><span className={styles.metaLabel}>Performance %</span><span className={styles.metaValue}>Unavailable</span></div>
                           <div><span className={styles.metaLabel}>Tail-lift</span><span className={styles.metaValue}>{vehicle.tail_lift ? '✓ Equipped' : 'Not equipped'}</span></div>
                           <div><span className={styles.metaLabel}>Health</span><span className={styles.healthValue} style={{ color: health.color }}>{health.label}</span></div>
