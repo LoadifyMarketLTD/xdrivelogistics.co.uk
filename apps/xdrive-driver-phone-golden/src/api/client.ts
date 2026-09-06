@@ -84,6 +84,36 @@ function normalizeKnownPayload(normalizedPath: string, payload: unknown) {
   return payload;
 }
 
+function quoteCompatibilityShape(value: unknown) {
+  if (!value || typeof value !== 'object') return value;
+  const bid = value as Record<string, unknown>;
+  const jobId = String(bid.jobId ?? bid.job_id ?? '').trim();
+  const pickup = String(bid.pickupLocation ?? 'Collection area');
+  const delivery = String(bid.deliveryLocation ?? 'Delivery area');
+  const amount = Number(bid.amount ?? 0);
+  const executionUnlocked = bid.executionUnlocked === true;
+
+  return {
+    ...bid,
+    job_id: jobId,
+    bid_price_gbp: Number.isFinite(amount) ? amount : null,
+    created_at: bid.createdAt ?? bid.created_at ?? null,
+    // DriverMobileAppV2 still consumes the recovered nested-job compatibility
+    // shape. These location values are already privacy-filtered by the server;
+    // no street address or contact information is reconstructed on-device.
+    job: jobId ? {
+      id: jobId,
+      pickup_location: pickup,
+      pickup_postcode: pickup,
+      pickup_datetime: bid.pickupDatetime ?? null,
+      delivery_location: delivery,
+      delivery_postcode: delivery,
+      assigned_driver_id: executionUnlocked ? 'server-confirmed' : null,
+      private_details_revealed: true,
+    } : null,
+  };
+}
+
 async function hydrateMobileResourcesQuotes(
   normalizedPath: string,
   payload: unknown,
@@ -120,7 +150,7 @@ async function hydrateMobileResourcesQuotes(
       ...root,
       resources: {
         ...(resources as Record<string, unknown>),
-        quotes: quotePayload.bids,
+        quotes: quotePayload.bids.map(quoteCompatibilityShape),
       },
     };
   } catch {
