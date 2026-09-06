@@ -10,6 +10,7 @@ import {
 
 const CANONICAL_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver';
 const PREVIEW_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver.preview';
+const HOSTED_PREVIEW_HOST_RE = /^deploy-preview-\d+--xdrivelogistics\.netlify\.app$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sessionIdAfterValidation(token: string): string | null {
@@ -28,10 +29,15 @@ function isLoopbackRequest(request: NextRequest) {
   return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
 }
 
-function allowLocalPreviewWithoutRegistryWrite(request: NextRequest, appPackage: string) {
-  return process.env.XDRIVE_LOCAL_PREVIEW_DEVICE_BYPASS === 'true'
-    && isLoopbackRequest(request)
-    && appPackage === PREVIEW_ANDROID_PACKAGE;
+function isHostedPreviewRequest(request: NextRequest) {
+  const hostname = request.nextUrl.hostname.toLowerCase();
+  return process.env.APP_ENV === 'staging' && HOSTED_PREVIEW_HOST_RE.test(hostname);
+}
+
+function allowPreviewWithoutRegistryWrite(request: NextRequest, appPackage: string) {
+  if (appPackage !== PREVIEW_ANDROID_PACKAGE) return false;
+  if (process.env.XDRIVE_LOCAL_PREVIEW_DEVICE_BYPASS === 'true' && isLoopbackRequest(request)) return true;
+  return process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true' && isHostedPreviewRequest(request);
 }
 
 async function authenticatedDriver(request: NextRequest) {
@@ -41,9 +47,6 @@ async function authenticatedDriver(request: NextRequest) {
   const token = getBearerToken(request);
   if (!token) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
 
-  // Validate the bearer token with the public Supabase client. The service-role
-  // client remains responsible only for privileged driver/device registry reads
-  // and writes after identity has been established.
   const authClient = supabaseValidator ?? supabaseAdmin;
   const { data: authData, error: authError } = await authClient.auth.getUser(token);
   if (authError || !authData.user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
@@ -82,14 +85,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'A valid installation_id is required.' }, { status: 400 });
   }
 
-  // Physical Preview testing may read real XDrive data through a loopback-only
-  // local backend. Authenticate the user/driver above, but never let that Preview
-  // package participate in the canonical newest-native-login registry.
-  if (allowLocalPreviewWithoutRegistryWrite(request, appPackage)) {
+  if (allowPreviewWithoutRegistryWrite(request, appPackage)) {
     return NextResponse.json({
       ok: true,
       installationId,
-      policy: 'local_preview_no_registry_write',
+      policy: isLoopbackRequest(request)
+        ? 'local_preview_no_registry_write'
+        : 'hosted_preview_no_registry_write',
     });
   }
 
@@ -146,6 +148,15 @@ export async function GET(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
 
+  const appPackage = request.headers.get('x-xdrive-app-package')?.trim() ?? '';
+  if (allowPreviewWithoutRegistryWrite(request, appPackage)) {
+    const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
+    if (!UUID_RE.test(installationId)) {
+      return NextResponse.json({ error: 'Device identity is required.' }, { status: 401 });
+    }
+    return NextResponse.json({ ok: true, installationId, policy: 'preview_no_registry_write' });
+  }
+
   const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
   if (!UUID_RE.test(installationId)) {
     return NextResponse.json({ error: 'Device identity is required.' }, { status: 401 });
@@ -179,6 +190,11 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
+
+  const appPackage = request.headers.get('x-xdrive-app-package')?.trim() ?? '';
+  if (allowPreviewWithoutRegistryWrite(request, appPackage)) {
+    return NextResponse.json({ ok: true, policy: 'preview_no_registry_write' });
+  }
 
   const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
   if (!UUID_RE.test(installationId)) {
