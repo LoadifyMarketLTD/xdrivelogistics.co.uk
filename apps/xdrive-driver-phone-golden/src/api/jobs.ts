@@ -126,16 +126,20 @@ function normalizeJob(job: DriverJob): DriverJob {
   };
 }
 
-export async function persistEvidencePhoto(uri: string, jobId: string, stage: 'pickup' | 'delivery') {
+export async function persistEvidenceFile(uri: string, jobId: string, category: 'pickup' | 'delivery' | 'document') {
   const root = FileSystem.documentDirectory;
   if (!root) return uri;
   const folder = `${root}pod-evidence/${jobId.replace(/[^a-z0-9-]/gi, '')}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
   const clean = cleanLocalUri(uri).toLowerCase();
-  const extension = clean.endsWith('.png') ? 'png' : 'jpg';
-  const destination = `${folder}${stage}-${Date.now()}.${extension}`;
+  const extension = clean.endsWith('.pdf') ? 'pdf' : clean.endsWith('.png') ? 'png' : 'jpg';
+  const destination = `${folder}${category}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
   await FileSystem.copyAsync({ from: uri, to: destination });
   return destination;
+}
+
+export async function persistEvidencePhoto(uri: string, jobId: string, stage: 'pickup' | 'delivery') {
+  return persistEvidenceFile(uri, jobId, stage);
 }
 
 export async function fetchJobs(scope: JobScope, token: string) {

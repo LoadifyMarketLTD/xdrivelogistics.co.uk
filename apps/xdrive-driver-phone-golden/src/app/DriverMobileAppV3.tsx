@@ -13,13 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Network from 'expo-network';
 import * as Notifications from 'expo-notifications';
 import SignatureCanvas from 'react-native-signature-canvas';
 
 import { apiRequest } from '../api/client';
-import { fetchJobs, persistEvidencePhoto, postJobStatus, uploadPod } from '../api/jobs';
+import { fetchJobs, persistEvidenceFile, persistEvidencePhoto, postJobStatus, uploadPod } from '../api/jobs';
 import {
   fetchDriverResources,
   formatMoney,
@@ -79,6 +80,7 @@ type JobStop = {
   sequence: number;
   type?: string;
   address: string;
+  postcode?: string;
   company?: string;
   contactPerson?: string;
   telephone?: string;
@@ -88,13 +90,47 @@ type JobStop = {
   notes?: string;
 };
 
+type WorkDocument = {
+  id?: string | null;
+  type?: string | null;
+  fileName?: string | null;
+  createdAt?: string | null;
+};
+
+type AuditEntry = {
+  id?: string | null;
+  eventType?: string | null;
+  message?: string | null;
+  createdAt?: string | null;
+  source?: string | null;
+};
 type JobDetail = DriverJob & {
   stops?: JobStop[];
   specialInstructions?: string;
-  attachments?: Array<Record<string, unknown>>;
+  postingCompanyPhone?: string;
+  customerName?: string;
+  customerReference?: string;
+  purchaseOrderNumber?: string;
+  bookingReference?: string;
+  requestedVehicle?: string;
+  allocatedVehicle?: Record<string, unknown> | null;
+  cargo?: Record<string, unknown> | null;
+  requirements?: string[];
+  documentChecklist?: string[];
+  commercial?: Record<string, unknown> | null;
+  notes?: Record<string, unknown> | null;
+  attachments?: WorkDocument[];
+  documents?: WorkDocument[];
+  auditTrail?: AuditEntry[];
   pod?: Record<string, unknown> | null;
   podCompleted?: boolean;
+  distanceMiles?: number | null;
+  etaMinutes?: number | null;
+  partial?: boolean;
 };
+
+const MAX_POD_PHOTOS = 10;
+const MAX_POD_DOCUMENTS = 10;
 
 const defaultPreferences: MarketplacePreferences = {
   savedJobIds: [],
@@ -135,6 +171,39 @@ function formatDate(value: string | null | undefined) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function textValue(value: unknown) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function uriLabel(uri: string) {
+  const clean = uri.split('?', 1)[0] ?? uri;
+  const tail = clean.slice(clean.lastIndexOf('/') + 1) || 'evidence';
+  try { return decodeURIComponent(tail); } catch { return tail; }
+}
+
+function numberText(value: unknown, suffix = '') {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${parsed}${suffix}` : '';
+}
+
+function canonicalEventStatus(value: unknown): CanonicalJobStatus | null {
+  const status = String(value ?? '').trim().toLowerCase();
+  if (['awarded', 'allocated', 'accepted', 'assigned'].includes(status)) return 'awarded';
+  if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(status)) return 'on_my_way_pickup';
+  if (['on_site_pickup', 'arrived_pickup'].includes(status)) return 'arrived_pickup';
+  if (['loaded', 'collected'].includes(status)) return 'loaded';
+  if (['in_transit', 'on_route_delivery', 'on_my_way_to_delivery', 'on_my_way_delivery'].includes(status)) return 'on_my_way_delivery';
+  if (['on_site_delivery', 'arrived_delivery'].includes(status)) return 'arrived_delivery';
+  if (['delivered', 'completed', 'invoiced', 'paid'].includes(status)) return 'delivered';
+  if (['cancelled', 'canceled'].includes(status)) return 'cancelled';
+  return null;
 }
 
 function sortTime(job: DriverJob) {
@@ -201,7 +270,8 @@ export default function DriverMobileAppV3() {
   const [podOpen, setPodOpen] = useState(false);
   const [podRecipient, setPodRecipient] = useState('');
   const [podSignature, setPodSignature] = useState('');
-  const [podPhotoUri, setPodPhotoUri] = useState('');
+  const [podPhotoUris, setPodPhotoUris] = useState<string[]>([]);
+  const [podDocumentUris, setPodDocumentUris] = useState<string[]>([]);
   const [podNotes, setPodNotes] = useState('');
   const [trackingState, setTrackingState] = useState<DriverTrackingState>('standby');
   const signatureRef = useRef<any>(null);
@@ -655,6 +725,11 @@ export default function DriverMobileAppV3() {
   }
 
   async function capturePodPhoto() {
+    if (!jobDetail) return;
+    if (podPhotoUris.length >= MAX_POD_PHOTOS) {
+      setMessage(`Maximum ${MAX_POD_PHOTOS} delivery images reached.`);
+      return;
+    }
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       setMessage('Camera access is required for delivery evidence.');
@@ -664,9 +739,62 @@ export default function DriverMobileAppV3() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]?.uri && jobDetail) {
-      setPodPhotoUri(await persistEvidencePhoto(result.assets[0].uri, jobDetail.id, 'delivery'));
+    if (!result.canceled && result.assets[0]?.uri) {
+      const stored = await persistEvidencePhoto(result.assets[0].uri, jobDetail.id, 'delivery');
+      setPodPhotoUris((current) => [...current, stored].slice(0, MAX_POD_PHOTOS));
     }
+  }
+
+
+  async function selectPodPhotos() {
+    if (!jobDetail) return;
+    const remaining = MAX_POD_PHOTOS - podPhotoUris.length;
+    if (remaining <= 0) {
+      setMessage(`Maximum ${MAX_POD_PHOTOS} delivery images reached.`);
+      return;
+    }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setMessage('Photo-library access is required to attach delivery images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    const selected = result.assets.slice(0, remaining);
+    const stored = await Promise.all(selected.map((asset) => persistEvidencePhoto(asset.uri, jobDetail.id, 'delivery')));
+    setPodPhotoUris((current) => [...current, ...stored].slice(0, MAX_POD_PHOTOS));
+  }
+
+
+  async function selectPodDocuments() {
+    if (!jobDetail) return;
+    const remaining = MAX_POD_DOCUMENTS - podDocumentUris.length;
+    if (remaining <= 0) {
+      setMessage(`Maximum ${MAX_POD_DOCUMENTS} delivery documents reached.`);
+      return;
+    }
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/jpeg', 'image/png'],
+      multiple: true,
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const selected = result.assets.slice(0, remaining);
+    const uris = await Promise.all(selected.map((asset) => persistEvidenceFile(asset.uri, jobDetail.id, 'document')));
+    setPodDocumentUris((current) => [...current, ...uris].slice(0, MAX_POD_DOCUMENTS));
+  }
+
+  function removePodPhoto(index: number) {
+    setPodPhotoUris((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function removePodDocument(index: number) {
+    setPodDocumentUris((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function submitPod() {
@@ -680,7 +808,7 @@ export default function DriverMobileAppV3() {
       setMessage('Save the recipient signature before completing the work order.');
       return;
     }
-    if (!podPhotoUri) {
+    if (podPhotoUris.length === 0) {
       setMessage('At least one delivery photo is required.');
       return;
     }
@@ -688,9 +816,9 @@ export default function DriverMobileAppV3() {
     const payload = {
       recipientName: podRecipient.trim(),
       signatureData: podSignature,
-      deliveryPhotoUris: [podPhotoUri],
+      deliveryPhotoUris: podPhotoUris,
       damagePhotoUris: [],
-      documentUris: [],
+      documentUris: podDocumentUris,
       notes: podNotes.trim() || undefined,
     };
 
@@ -708,7 +836,8 @@ export default function DriverMobileAppV3() {
       setPodOpen(false);
       setPodRecipient('');
       setPodSignature('');
-      setPodPhotoUri('');
+      setPodPhotoUris([]);
+      setPodDocumentUris([]);
       setPodNotes('');
       await Promise.all([refreshJobDetail(jobDetail.id), refreshJobs(), refreshResources()]);
       setMessage('Delivery evidence confirmed. Work order completed.');
@@ -867,15 +996,20 @@ export default function DriverMobileAppV3() {
                     podOpen={podOpen}
                     recipient={podRecipient}
                     signature={podSignature}
-                    photoUri={podPhotoUri}
+                    photoUris={podPhotoUris}
+                    documentUris={podDocumentUris}
                     notes={podNotes}
                     signatureRef={signatureRef}
                     onRecipient={setPodRecipient}
                     onSignature={setPodSignature}
-                    onPhoto={() => void capturePodPhoto()}
+                    onTakePhoto={() => void capturePodPhoto()}
+                    onChoosePhotos={() => void selectPodPhotos()}
+                    onAddDocuments={() => void selectPodDocuments()}
+                    onRemovePhoto={removePodPhoto}
+                    onRemoveDocument={removePodDocument}
                     onNotes={setPodNotes}
                     onSubmitPod={() => void submitPod()}
-                    onCall={() => jobDetail.contactPhone ? void Linking.openURL(`tel:${jobDetail.contactPhone}`) : undefined}
+                    onCall={() => { const phone = jobDetail.postingCompanyPhone || jobDetail.contactPhone; return phone ? void Linking.openURL(`tel:${phone}`) : undefined; }}
                     onMap={() => void openExternalRoute(jobDetail)}
                     busy={actionBusy}
                   />
@@ -1272,18 +1406,23 @@ function HistoryCard({ job, onPress }: { job: DriverJob; onPress: () => void }) 
   </TouchableOpacity>;
 }
 
-function WorkOrder({ job, tab, podOpen, recipient, signature, photoUri, notes, signatureRef, onRecipient, onSignature, onPhoto, onNotes, onSubmitPod, onCall, onMap, busy }: {
+function WorkOrder({ job, tab, podOpen, recipient, signature, photoUris, documentUris, notes, signatureRef, onRecipient, onSignature, onTakePhoto, onChoosePhotos, onAddDocuments, onRemovePhoto, onRemoveDocument, onNotes, onSubmitPod, onCall, onMap, busy }: {
   job: JobDetail;
   tab: JobDetailTab;
   podOpen: boolean;
   recipient: string;
   signature: string;
-  photoUri: string;
+  photoUris: string[];
+  documentUris: string[];
   notes: string;
   signatureRef: MutableRefObject<any>;
   onRecipient: (value: string) => void;
   onSignature: (value: string) => void;
-  onPhoto: () => void;
+  onTakePhoto: () => void;
+  onChoosePhotos: () => void;
+  onAddDocuments: () => void;
+  onRemovePhoto: (index: number) => void;
+  onRemoveDocument: (index: number) => void;
   onNotes: (value: string) => void;
   onSubmitPod: () => void;
   onCall: () => void;
@@ -1294,26 +1433,105 @@ function WorkOrder({ job, tab, podOpen, recipient, signature, photoUri, notes, s
   if (tab === 'route') return <WorkRoute job={job} />;
   return <View style={styles.stack}>
     <ProgressBoard job={job} />
-    {podOpen ? <PodPanel job={job} recipient={recipient} signature={signature} photoUri={photoUri} notes={notes} signatureRef={signatureRef} onRecipient={onRecipient} onSignature={onSignature} onPhoto={onPhoto} onNotes={onNotes} onSubmit={onSubmitPod} busy={busy} /> : null}
+    {podOpen ? <PodPanel job={job} recipient={recipient} signature={signature} photoUris={photoUris} documentUris={documentUris} notes={notes} signatureRef={signatureRef} onRecipient={onRecipient} onSignature={onSignature} onTakePhoto={onTakePhoto} onChoosePhotos={onChoosePhotos} onAddDocuments={onAddDocuments} onRemovePhoto={onRemovePhoto} onRemoveDocument={onRemoveDocument} onNotes={onNotes} onSubmit={onSubmitPod} busy={busy} /> : null}
   </View>;
 }
 
 function WorkOverview({ job, onCall, onMap }: { job: JobDetail; onCall: () => void; onMap: () => void }) {
+  const commercial = objectValue(job.commercial);
+  const cargo = objectValue(job.cargo);
+  const vehicle = objectValue(job.allocatedVehicle);
+  const notes = objectValue(job.notes);
+  const pod = objectValue(job.pod);
+  const agreedRate = commercial.agreedRate !== null && commercial.agreedRate !== undefined
+    ? formatMoney(commercial.agreedRate, textValue(commercial.currency) || 'GBP')
+    : job.price;
+  const paymentTerms = textValue(commercial.paymentTerms)
+    || (commercial.paymentDueDays ? `${commercial.paymentDueDays} days` : 'Not supplied');
+  const allocatedLabel = [textValue(vehicle.registration), textValue(vehicle.make), textValue(vehicle.model), textValue(vehicle.type)]
+    .filter(Boolean).join(' · ');
+  const dimensions = [numberText(cargo.lengthCm), numberText(cargo.widthCm), numberText(cargo.heightCm)].filter(Boolean).join(' × ');
+  const palletSummary = [numberText(cargo.pallets), textValue(cargo.palletType), cargo.stackable === true ? 'stackable' : cargo.stackable === false ? 'not stackable' : '']
+    .filter(Boolean).join(' · ');
+  const instructionRows = [
+    ['Execution', textValue(notes.executionInstructions)],
+    ['Collection', textValue(notes.collectionNotes)],
+    ['Delivery', textValue(notes.deliveryNotes)],
+    ['Driver note', textValue(notes.driverNotes)],
+  ].filter((entry) => entry[1]);
+
   return <View style={styles.stack}>
     <View style={styles.section}>
-      <Text style={styles.sectionKicker}>WORK ORDER</Text>
+      <Text style={styles.sectionKicker}>FULL WORK ORDER</Text>
       <Text style={styles.companyName}>{job.postingCompanyName || 'XDrive customer'}</Text>
-      <Text style={styles.referenceText}>{job.reference}</Text>
+      {job.postingCompanyMemberCode ? <Text style={styles.referenceText}>Member {job.postingCompanyMemberCode}</Text> : null}
+      <Text style={styles.referenceStrong}>{job.reference}</Text>
+      {job.customerName ? <InfoLine label="End customer" value={job.customerName} /> : null}
       <CompactRoute job={job} />
-      <InfoLine label="Vehicle" value={job.vehicleRequirement} />
-      <InfoLine label="Freight" value={job.cargoType} />
-      {job.price ? <InfoLine label="Agreed rate" value={job.price} /> : null}
-      <TouchableOpacity style={styles.primaryCompact} onPress={onMap}><Text style={styles.primaryCompactText}>Open driving route</Text></TouchableOpacity>
-      {job.contactAllowed ? <View style={styles.twoActions}><TouchableOpacity style={styles.secondaryAction} onPress={onCall}><Text style={styles.secondaryActionText}>Call contact</Text></TouchableOpacity><TouchableOpacity style={styles.secondaryAction} onPress={() => Alert.alert('XDrive Messages', 'Secure job messaging will appear here only after its production contract is enabled.')}><Text style={styles.secondaryActionText}>Messages</Text></TouchableOpacity></View> : null}
+      <TouchableOpacity style={styles.primaryCompact} onPress={onMap}><Text style={styles.primaryCompactText}>Open full driving route</Text></TouchableOpacity>
+      <View style={styles.twoActions}>
+        <TouchableOpacity style={styles.secondaryAction} onPress={onCall}><Text style={styles.secondaryActionText}>Call job contact</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryAction} onPress={() => Alert.alert('XDrive Messages', 'Secure job messaging will appear here only after its production contract is enabled.')}><Text style={styles.secondaryActionText}>Messages</Text></TouchableOpacity>
+      </View>
     </View>
-    {job.specialInstructions ? <View style={styles.section}><Text style={styles.sectionTitle}>Driver instructions</Text><Text style={styles.longText}>{job.specialInstructions}</Text></View> : null}
-    {(job.attachments ?? []).length > 0 ? <View style={styles.section}><Text style={styles.sectionTitle}>Work documents</Text>{(job.attachments ?? []).map((attachment, index) => <View key={String(attachment.id ?? index)} style={styles.documentRow}><Text style={styles.documentBadge}>FILE</Text><Text style={styles.documentText}>{String(attachment.name ?? attachment.fileName ?? attachment.file_name ?? `Document ${index + 1}`)}</Text></View>)}</View> : null}
-    {job.podCompleted ? <Banner text="Delivery evidence is stored and server-confirmed for this work order." /> : null}
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Commercial & references</Text>
+      <InfoLine label="Agreed rate" value={agreedRate || 'Not supplied'} />
+      <InfoLine label="Payment terms" value={paymentTerms} />
+      {commercial.bookedAt ? <InfoLine label="Awarded" value={formatDate(textValue(commercial.bookedAt))} /> : null}
+      {job.customerReference ? <InfoLine label="Customer ref" value={job.customerReference} /> : null}
+      {job.purchaseOrderNumber ? <InfoLine label="PO number" value={job.purchaseOrderNumber} /> : null}
+      {job.bookingReference ? <InfoLine label="Booking ref" value={job.bookingReference} /> : null}
+    </View>
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Vehicle & load</Text>
+      <InfoLine label="Requested vehicle" value={job.requestedVehicle || job.vehicleRequirement || 'Not supplied'} />
+      <InfoLine label="Allocated vehicle" value={allocatedLabel || 'Not supplied'} />
+      {vehicle.payloadKg ? <InfoLine label="Vehicle payload" value={`${vehicle.payloadKg} kg`} /> : null}
+      <InfoLine label="Cargo" value={textValue(cargo.type) || job.cargoType || 'Not supplied'} />
+      {cargo.weightKg ? <InfoLine label="Weight" value={`${cargo.weightKg} kg`} /> : null}
+      {palletSummary ? <InfoLine label="Pallets" value={palletSummary} /> : null}
+      {dimensions ? <InfoLine label="Dimensions" value={`${dimensions} cm`} /> : null}
+      {cargo.cargoValueGbp ? <InfoLine label="Cargo value" value={formatMoney(cargo.cargoValueGbp, 'GBP')} /> : null}
+      {job.distanceMiles ? <InfoLine label="Route distance" value={`${job.distanceMiles} mi${job.etaMinutes ? ` · approx. ${job.etaMinutes} min` : ''}`} /> : null}
+    </View>
+
+    {(job.requirements ?? []).length > 0 ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Requirements</Text>
+      {(job.requirements ?? []).map((item, index) => <Text key={`${item}-${index}`} style={styles.bulletText}>• {item}</Text>)}
+    </View> : null}
+
+    {instructionRows.length > 0 || job.specialInstructions ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Driver instructions</Text>
+      {instructionRows.map(([label, value]) => <View key={label} style={styles.instructionBlock}><Text style={styles.fieldLabel}>{label.toUpperCase()}</Text><Text style={styles.longText}>{value}</Text></View>)}
+      {instructionRows.length === 0 && job.specialInstructions ? <Text style={styles.longText}>{job.specialInstructions}</Text> : null}
+    </View> : null}
+
+    {(job.documentChecklist ?? []).length > 0 ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Required paperwork</Text>
+      {(job.documentChecklist ?? []).map((item, index) => <Text key={`${item}-${index}`} style={styles.bulletText}>□ {item}</Text>)}
+    </View> : null}
+
+    {(job.documents ?? job.attachments ?? []).length > 0 ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Work documents</Text>
+      {(job.documents ?? job.attachments ?? []).map((attachment, index) => <View key={String(attachment.id ?? index)} style={styles.documentRow}>
+        <Text style={styles.documentBadge}>{textValue(attachment.type) || 'FILE'}</Text>
+        <View style={styles.flexOne}><Text style={styles.documentText}>{textValue(attachment.fileName) || `Document ${index + 1}`}</Text>{attachment.createdAt ? <Text style={styles.referenceText}>{formatDate(attachment.createdAt)}</Text> : null}</View>
+      </View>)}
+    </View> : null}
+
+    {job.podCompleted ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>POD & delivery evidence</Text>
+      <InfoLine label="Receiver" value={textValue(pod.receiverName) || 'Recorded'} />
+      <InfoLine label="Signature" value={pod.signatureRecorded ? 'Recorded' : 'Not recorded'} />
+      <InfoLine label="Delivery images" value={String(Number(pod.deliveryPhotoCount ?? 0))} />
+      {pod.generatedAt ? <InfoLine label="POD generated" value={formatDate(textValue(pod.generatedAt))} /> : null}
+      <Banner text="Delivery evidence is server-confirmed for this completed work order." />
+    </View> : null}
+
+    {job.partial ? <Banner text="Some enrichment sources were unavailable. Core assignment data is shown, but this work order should not be treated as complete until refresh succeeds." /> : null}
   </View>;
 }
 
@@ -1324,19 +1542,39 @@ function WorkRoute({ job }: { job: JobDetail }) {
         { sequence: 1, type: 'collection', address: job.pickupLocation, timeWindowFrom: job.pickupTime },
         { sequence: 2, type: 'delivery', address: job.deliveryLocation, timeWindowFrom: job.deliveryTime },
       ];
-  return <View style={styles.stack}>{stops.map((stop, index) => {
-    const type = stop.type === 'collection' ? 'COLLECT' : stop.type === 'delivery' ? 'DELIVER' : `STOP ${index + 1}`;
-    return <View key={stop.id ?? `${stop.sequence}-${index}`} style={styles.stopBlock}>
-      <View style={styles.stopLabel}><Text style={styles.stopLabelText}>{type}</Text></View>
-      <View style={styles.flexOne}>
+
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>EXECUTION ROUTE</Text>
+      <Text style={styles.sectionTitle}>{stops.length} stop{stops.length === 1 ? '' : 's'} in server sequence</Text>
+      {job.distanceMiles ? <Text style={styles.referenceText}>{job.distanceMiles} mi{job.etaMinutes ? ` · approx. ${job.etaMinutes} min` : ''}</Text> : null}
+    </View>
+    {stops.map((stop, index) => {
+      const normalizedType = String(stop.type ?? '').toLowerCase();
+      const type = normalizedType === 'collection'
+        ? (index === 0 ? 'COLLECTION' : 'EXTRA COLLECTION')
+        : normalizedType === 'delivery'
+          ? (index === stops.length - 1 ? 'DELIVERY' : 'EXTRA DELIVERY')
+          : `STOP ${index + 1}`;
+      const routeUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`;
+      return <View key={stop.id ?? `${stop.sequence}-${index}`} style={styles.routeStopCard}>
+        <View style={styles.routeStopHead}>
+          <View style={styles.stopNumber}><Text style={styles.stopNumberText}>{stop.sequence || index + 1}</Text></View>
+          <View style={styles.flexOne}><Text style={styles.stopTypeTitle}>{type}</Text>{stop.company ? <Text style={styles.stopCompany}>{stop.company}</Text> : null}</View>
+          {stop.status ? <StatusTag label={String(stop.status).toUpperCase()} tone={String(stop.status).toLowerCase().includes('complete') ? 'green' : 'blue'} /> : null}
+        </View>
         <Text style={styles.stopAddress}>{stop.address}</Text>
         <Text style={styles.stopTime}>{formatDate(stop.timeWindowFrom)}{stop.timeWindowTo ? ` → ${formatDate(stop.timeWindowTo)}` : ''}</Text>
-        {stop.company ? <Text style={styles.stopMeta}>{stop.company}</Text> : null}
-        {stop.contactPerson ? <Text style={styles.stopMeta}>{stop.contactPerson}{stop.telephone ? ` · ${stop.telephone}` : ''}</Text> : null}
-        {stop.notes ? <Text style={styles.stopNote}>{stop.notes}</Text> : null}
-      </View>
-    </View>;
-  })}</View>;
+        {stop.contactPerson ? <InfoLine label="Contact" value={stop.contactPerson} /> : null}
+        {stop.telephone ? <InfoLine label="Phone" value={stop.telephone} /> : null}
+        {stop.notes ? <View style={styles.stopInstruction}><Text style={styles.fieldLabel}>SITE INSTRUCTIONS</Text><Text style={styles.stopNote}>{stop.notes}</Text></View> : null}
+        <View style={styles.twoActions}>
+          <TouchableOpacity style={[styles.secondaryAction, !stop.telephone && styles.disabledButton]} disabled={!stop.telephone} onPress={() => stop.telephone ? void Linking.openURL(`tel:${stop.telephone}`) : undefined}><Text style={styles.secondaryActionText}>Call site</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.primaryCompact} onPress={() => void Linking.openURL(routeUrl)}><Text style={styles.primaryCompactText}>Navigate</Text></TouchableOpacity>
+        </View>
+      </View>;
+    })}
+  </View>;
 }
 
 function ProgressBoard({ job }: { job: JobDetail }) {
@@ -1347,47 +1585,79 @@ function ProgressBoard({ job }: { job: JobDetail }) {
       <Text style={styles.longText}>This work order is closed and cannot accept lifecycle or POD actions.</Text>
     </View>;
   }
+
+  const timelineByStatus = new Map<CanonicalJobStatus, AuditEntry>();
+  for (const entry of job.auditTrail ?? []) {
+    const status = canonicalEventStatus(entry.eventType);
+    if (status) timelineByStatus.set(status, entry);
+  }
   const currentIndex = progressOrder.indexOf(job.status);
+
   return <View style={styles.progressBoard}>
     <Text style={styles.sectionKicker}>SERVER-CONFIRMED PROGRESS</Text>
     <Text style={styles.progressHeading}>{progressLabels[job.status]}</Text>
+    <Text style={styles.referenceText}>Every completed step remains visible with its server timestamp when available.</Text>
     <View style={styles.progressList}>{progressOrder.map((status, index) => {
-      const done = index < currentIndex;
-      const current = index === currentIndex;
+      const done = index < currentIndex || job.status === 'delivered';
+      const current = index === currentIndex && job.status !== 'delivered';
+      const audit = timelineByStatus.get(status);
       return <View key={status} style={[styles.progressRow, current && styles.progressRowCurrent]}>
         <View style={[styles.progressState, done && styles.progressStateDone, current && styles.progressStateCurrent]}><Text style={styles.progressStateText}>{done ? '✓' : current ? 'NOW' : 'NEXT'}</Text></View>
-        <Text style={[styles.progressText, current && styles.progressTextCurrent]}>{progressLabels[status]}</Text>
+        <View style={styles.flexOne}>
+          <Text style={[styles.progressText, current && styles.progressTextCurrent]}>{progressLabels[status]}</Text>
+          {audit?.createdAt ? <Text style={styles.progressTimestamp}>{formatDate(audit.createdAt)}</Text> : null}
+          {audit?.message ? <Text style={styles.progressNote}>{audit.message}</Text> : null}
+        </View>
       </View>;
     })}</View>
   </View>;
 }
 
-function PodPanel({ job, recipient, signature, photoUri, notes, signatureRef, onRecipient, onSignature, onPhoto, onNotes, onSubmit, busy }: {
+function PodPanel({ job, recipient, signature, photoUris, documentUris, notes, signatureRef, onRecipient, onSignature, onTakePhoto, onChoosePhotos, onAddDocuments, onRemovePhoto, onRemoveDocument, onNotes, onSubmit, busy }: {
   job: JobDetail;
   recipient: string;
   signature: string;
-  photoUri: string;
+  photoUris: string[];
+  documentUris: string[];
   notes: string;
   signatureRef: MutableRefObject<any>;
   onRecipient: (value: string) => void;
   onSignature: (value: string) => void;
-  onPhoto: () => void;
+  onTakePhoto: () => void;
+  onChoosePhotos: () => void;
+  onAddDocuments: () => void;
+  onRemovePhoto: (index: number) => void;
+  onRemoveDocument: (index: number) => void;
   onNotes: (value: string) => void;
   onSubmit: () => void;
   busy: boolean;
 }) {
   return <View style={styles.section}>
+    <Text style={styles.sectionKicker}>POD & DELIVERY CLOSEOUT</Text>
     <Text style={styles.sectionTitle}>Delivery evidence</Text>
     <Text style={styles.fieldLabel}>RECEIVED BY</Text>
     <TextInput style={styles.bigInput} value={recipient} onChangeText={onRecipient} placeholder="Full recipient name" placeholderTextColor="#98A2B3" />
-    <Text style={styles.fieldLabel}>SIGNATURE</Text>
+
+    <Text style={styles.fieldLabel}>RECIPIENT SIGNATURE</Text>
     <View style={styles.signatureBox}><SignatureCanvas ref={signatureRef} onOK={onSignature} onEmpty={() => undefined} descriptionText="Sign above" clearText="Clear" confirmText="Save signature" webStyle=".m-signature-pad--footer {display:flex; gap:8px;} body,html {width:100%;height:100%;}" /></View>
     <Text style={styles.savedState}>{signature ? 'Signature stored ✓' : 'Signature not stored yet'}</Text>
-    <TouchableOpacity style={styles.secondaryAction} onPress={onPhoto}><Text style={styles.secondaryActionText}>{photoUri ? 'Delivery photo stored ✓' : 'Take delivery photo'}</Text></TouchableOpacity>
+
+    <View style={styles.evidenceHeader}><Text style={styles.fieldLabel}>DELIVERY IMAGES</Text><Text style={styles.evidenceCount}>{photoUris.length}/{MAX_POD_PHOTOS}</Text></View>
+    {photoUris.map((uri, index) => <View key={`${uri}-${index}`} style={styles.evidenceRow}><View style={styles.evidenceIndex}><Text style={styles.evidenceIndexText}>{index + 1}</Text></View><Text style={styles.evidenceText} numberOfLines={1}>{uriLabel(uri)}</Text><TouchableOpacity onPress={() => onRemovePhoto(index)}><Text style={styles.removeEvidence}>Remove</Text></TouchableOpacity></View>)}
+    <View style={styles.twoActions}>
+      <TouchableOpacity style={[styles.secondaryAction, photoUris.length >= MAX_POD_PHOTOS && styles.disabledButton]} disabled={photoUris.length >= MAX_POD_PHOTOS} onPress={onTakePhoto}><Text style={styles.secondaryActionText}>Take photo</Text></TouchableOpacity>
+      <TouchableOpacity style={[styles.secondaryAction, photoUris.length >= MAX_POD_PHOTOS && styles.disabledButton]} disabled={photoUris.length >= MAX_POD_PHOTOS} onPress={onChoosePhotos}><Text style={styles.secondaryActionText}>Choose photos</Text></TouchableOpacity>
+    </View>
+    <Text style={styles.referenceText}>Add every signed sheet or delivery image required by the job, up to {MAX_POD_PHOTOS} images.</Text>
+
+    <View style={styles.evidenceHeader}><Text style={styles.fieldLabel}>SIGNED DOCUMENTS / PDF</Text><Text style={styles.evidenceCount}>{documentUris.length}/{MAX_POD_DOCUMENTS}</Text></View>
+    {documentUris.map((uri, index) => <View key={`${uri}-${index}`} style={styles.evidenceRow}><Text style={styles.documentBadge}>FILE</Text><Text style={styles.evidenceText} numberOfLines={1}>{uriLabel(uri)}</Text><TouchableOpacity onPress={() => onRemoveDocument(index)}><Text style={styles.removeEvidence}>Remove</Text></TouchableOpacity></View>)}
+    <TouchableOpacity style={[styles.secondaryAction, documentUris.length >= MAX_POD_DOCUMENTS && styles.disabledButton]} disabled={documentUris.length >= MAX_POD_DOCUMENTS} onPress={onAddDocuments}><Text style={styles.secondaryActionText}>Add signed document</Text></TouchableOpacity>
+
     <Text style={styles.fieldLabel}>DELIVERY NOTE</Text>
     <TextInput style={[styles.bigInput, styles.textarea]} multiline value={notes} onChangeText={onNotes} placeholder="Optional delivery note" placeholderTextColor="#98A2B3" />
-    <Banner text={job.podRequired ? 'Recipient name, signature and a delivery photo are required before XDrive completes this work order.' : 'Evidence is server-verified before the work order is completed.'} />
-    <TouchableOpacity style={[styles.primaryButton, busy && styles.disabledButton]} disabled={busy} onPress={onSubmit}><Text style={styles.primaryButtonText}>{busy ? 'Submitting...' : 'Confirm delivery evidence'}</Text></TouchableOpacity>
+    <Banner text={job.podRequired ? 'Recipient name, saved electronic signature and at least one delivery image are required before XDrive completes this work order.' : 'Evidence is server-verified before the work order is completed.'} />
+    <TouchableOpacity style={[styles.primaryButton, busy && styles.disabledButton]} disabled={busy} onPress={onSubmit}><Text style={styles.primaryButtonText}>{busy ? 'Submitting...' : 'Confirm POD & complete job'}</Text></TouchableOpacity>
   </View>;
 }
 
@@ -1656,6 +1926,19 @@ const styles = StyleSheet.create({
   progressStateText: { color: '#344054', fontSize: 8, fontWeight: '900' },
   progressText: { color: '#667085', fontSize: 14, fontWeight: '800' },
   progressTextCurrent: { color: colors.text, fontWeight: '900' },
+  progressTimestamp: { color: colors.muted, fontSize: 10, fontWeight: '700', marginTop: 3 },
+  progressNote: { color: colors.secondary, fontSize: 10, lineHeight: 15, marginTop: 3 },
+
+  bulletText: { color: colors.text, fontSize: 13, lineHeight: 20, fontWeight: '600' },
+  instructionBlock: { gap: 5, paddingTop: 5 },
+
+  routeStopCard: { backgroundColor: '#FFFFFF', borderRadius: 17, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, gap: 11 },
+  routeStopHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  stopNumber: { width: 34, height: 34, borderRadius: 9, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' },
+  stopNumberText: { color: colors.secondary, fontSize: 13, fontWeight: '900' },
+  stopTypeTitle: { color: colors.secondary, fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
+  stopCompany: { color: colors.text, fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 2 },
+  stopInstruction: { backgroundColor: '#EDF4FF', borderRadius: 10, padding: 10, gap: 5 },
 
   stopBlock: { backgroundColor: '#FFFFFF', borderRadius: 17, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, flexDirection: 'row', gap: 12 },
   stopLabel: { width: 72, minHeight: 34, alignSelf: 'flex-start', borderRadius: 8, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
@@ -1682,6 +1965,13 @@ const styles = StyleSheet.create({
 
   signatureBox: { height: 210, borderColor: colors.border, borderWidth: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: '#FFFFFF' },
   savedState: { color: colors.success, fontSize: 11, fontWeight: '800' },
+  evidenceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  evidenceCount: { color: colors.secondary, fontSize: 11, fontWeight: '900' },
+  evidenceRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, backgroundColor: '#F8FAFC' },
+  evidenceIndex: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' },
+  evidenceIndexText: { color: colors.secondary, fontSize: 10, fontWeight: '900' },
+  evidenceText: { color: colors.text, fontSize: 11, fontWeight: '700', flex: 1 },
+  removeEvidence: { color: colors.danger, fontSize: 10, fontWeight: '900' },
   fixedAction: { position: 'absolute', left: 0, right: 0, bottom: 78, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0A234F' },
   fixedActionButton: { minHeight: 58, backgroundColor: colors.warning, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   fixedActionText: { color: '#17202F', fontSize: 15, fontWeight: '900' },
