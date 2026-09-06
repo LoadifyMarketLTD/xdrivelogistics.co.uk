@@ -33,7 +33,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
     budget_amount: fixedPriceVisible ? row.budget_amount : null,
     private_details_revealed: privateDetailsRevealed,
-    can_update_lifecycle: privateDetailsRevealed && String(row.status ?? '').toLowerCase() !== 'delivered',
+    can_update_lifecycle: privateDetailsRevealed && !['delivered', 'cancelled', 'canceled'].includes(String(row.status ?? '').toLowerCase()),
   };
 }
 
@@ -72,10 +72,25 @@ export async function GET(request: NextRequest) {
     .select('*')
     .eq('assigned_driver_id', context.driverId)
     .eq('company_id', context.companyId)
+    .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (vehicleResult.error) return NextResponse.json({ error: vehicleResult.error.message }, { status: 500 });
+
+  const vehicle = (vehicleResult.data ?? null) as AnyRow | null;
+  const vehicleId = String(vehicle?.id ?? '').trim();
+  const vehicleDocumentsResult = vehicleId
+    ? await supabaseAdmin!
+        .from('vehicle_documents')
+        .select('*')
+        .eq('vehicle_id', vehicleId)
+        .order('created_at', { ascending: false })
+        .limit(100)
+    : { data: [], error: null };
+  if (vehicleDocumentsResult.error) {
+    return NextResponse.json({ error: vehicleDocumentsResult.error.message }, { status: 500 });
+  }
 
   const userResult = await supabaseAdmin!.auth.admin.getUserById(context.userId);
   const email = String(driver?.email ?? userResult.data.user?.email ?? '');
@@ -86,9 +101,9 @@ export async function GET(request: NextRequest) {
       phone: String(driver?.phone ?? ''),
       driver,
       company: companies.get(context.companyId) ?? null,
-      vehicle: (vehicleResult.data ?? null) as AnyRow | null,
+      vehicle,
       quotes: bids.map((bid) => ({ ...bid, job: jobsById.get(String(bid.job_id)) ?? null })),
-      documents: documentsResult.data ?? [],
+      documents: [...(documentsResult.data ?? []), ...(vehicleDocumentsResult.data ?? [])],
       invoices: invoicesResult.data ?? [],
       alerts: alertsResult.data ?? [],
     },
