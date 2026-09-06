@@ -159,6 +159,12 @@
   font-family: Inter, Roboto, Arial, sans-serif;
 }
 
+.sa-navbar button {
+  padding: 12px 18px;
+  border-radius: 8px;
+  box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+}
+
 .sa-brand {
   flex: 0 0 auto;
   display: flex;
