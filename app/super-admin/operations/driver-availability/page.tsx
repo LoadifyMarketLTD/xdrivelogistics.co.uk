@@ -13,6 +13,8 @@ type Row = {
   last_lng: number | null;
 };
 
+const DRIVER_AVAILABILITY_ALLOWED_STATUSES = new Set(['available', 'offline']);
+
 function formatCoord(lat: number | null, lng: number | null): string {
   if (lat === null || lng === null) return '—';
   return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
@@ -41,7 +43,12 @@ export default function Page() {
         {
           key: 'status',
           label: 'Availability',
-          render: (row) => <StatusChip value={row.availability_status} />,
+          render: (row) => {
+            const normalized = row.availability_status.toLowerCase();
+            return DRIVER_AVAILABILITY_ALLOWED_STATUSES.has(normalized)
+              ? <StatusChip value={normalized.toUpperCase()} />
+              : '—';
+          },
         },
         {
           key: 'location',
