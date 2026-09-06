@@ -1,6 +1,6 @@
 # XDrive Logistics — Super Admin MASTER CONTRACT FINAL
 
-Status: FINAL contract for PR #505. This document is the normative source for the eight final audit deviations. Runtime code and `__tests__/superAdminVisualContract.test.ts` must agree with this document.
+Status: FINAL contract for PR #505. This document is the normative source for the final Super Admin audit and shared-shell corrections. Runtime code and `__tests__/superAdminVisualContract.test.ts` must agree with this document.
 
 ## 1. Command Centre KPI semantics
 
@@ -45,6 +45,27 @@ Explicit compact exceptions are:
 - Standard compact action/pager buttons: `0 14px`
 
 No other compact padding value may be introduced without an explicit contract amendment.
+
+### Shared Super Admin topbar amendment
+
+The shared Super Admin topbar is a compact enterprise control surface, not an enterprise content card. Its desktop contract is:
+
+- Height: `76px` (inside the approved `72–80px` topbar range).
+- Horizontal shell padding: `24px`.
+- Primary control gap: `12px`.
+- Search and topbar controls: `40px` high.
+- Search maximum width: `480px`.
+- Account control: `170–200px` wide on desktop.
+- Radius: `8px`.
+- Background: `#FFFFFF`.
+- Bottom border: `1px solid #E0E3E7`.
+- The topbar itself MUST NOT use a decorative box shadow or backdrop blur.
+- Topbar buttons use the standard compact `0 14px` padding and one neutral border/background treatment.
+- The keyboard shortcut uses the compact badge padding `4px 10px`.
+- The account control displays `Platform Owner` only; the account email remains available inside the account dropdown and MUST NOT be permanently displayed in the topbar.
+- Yellow `#FBBC05` is reserved for warning/accent semantics. `Action Centre` MUST NOT use a permanent yellow border or yellow-filled background; only its warning icon may use yellow at rest.
+
+Responsive contraction may hide control labels or the account label when space is insufficient, but MUST preserve the same canonical colour, radius and compact-control system.
 
 ## 4. StatusChip and page allowlists
 

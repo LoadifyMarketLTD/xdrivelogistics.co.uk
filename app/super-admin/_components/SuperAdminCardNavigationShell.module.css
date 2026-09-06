@@ -10,16 +10,17 @@
   position: sticky;
   top: 0;
   z-index: 120;
+  height: 76px;
   min-height: 76px;
   display: grid;
-  grid-template-columns: 310px minmax(360px, 1fr) auto;
+  grid-template-columns: auto minmax(320px, 480px) auto;
   align-items: center;
-  gap: 20px;
-  padding: 24px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px;
   border-bottom: 1px solid #E0E3E7;
-  background: rgba(255, 255, 255, 0.985);
-  backdrop-filter: blur(14px);
-  box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+  background: #FFFFFF;
+  box-shadow: none;
 }
 
 .brand {
@@ -27,7 +28,7 @@
   background: transparent;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   padding: 0;
   cursor: pointer;
   font-family: Inter, Roboto, Arial, sans-serif;
@@ -35,13 +36,13 @@
 
 .brandLogo {
   width: auto;
-  height: 36px;
-  max-width: 176px;
+  height: 32px;
+  max-width: 156px;
   object-fit: contain;
 }
 
 .brandTitle {
-  padding-left: 18px;
+  padding-left: 12px;
   border-left: 1px solid #E0E3E7;
   color: #1A73E8;
   font-family: Inter, Roboto, Arial, sans-serif;
@@ -52,15 +53,19 @@
 
 .searchArea {
   position: relative;
+  width: 100%;
+  max-width: 480px;
   min-width: 0;
+  justify-self: center;
 }
 
 .searchWrap {
-  min-height: 44px;
+  height: 40px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 24px;
+  padding: 0 14px;
   border: 1px solid #E0E3E7;
   border-radius: 8px;
   background: #FFFFFF;
@@ -94,7 +99,7 @@
 .searchInput::placeholder { color: #6B7280; }
 
 .searchHint {
-  padding: 4px 8px;
+  padding: 4px 10px;
   border: 1px solid #E0E3E7;
   border-radius: 8px;
   background: #F5F7FA;
@@ -139,18 +144,20 @@
 .searchResult small { display: block; margin-top: 3px; color: #6B7280; font-size: 12px; }
 .searchEmpty { padding: 24px; color: #6B7280; font-size: 14px; }
 
-.topbarActions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.topbarActions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 
 .headerButton,
 .iconButton,
 .accountButton {
-  min-height: 42px;
+  height: 40px;
+  min-height: 40px;
   border: 1px solid #E0E3E7;
   border-radius: 8px;
   background: #FFFFFF;
   color: #4A4A4A;
   cursor: pointer;
   font-family: Inter, Roboto, Arial, sans-serif;
+  box-shadow: none;
 }
 
 .headerButton {
@@ -171,10 +178,12 @@
 .iconButton:hover,
 .accountButton:hover { border-color: #1A73E8; background: #F5F7FA; color: #1A73E8; }
 .headerButton:disabled { cursor: not-allowed; opacity: 0.58; }
-.actionCentreButton { border-color: #FBBC05; color: #4A4A4A; background: #FFFBEA; }
-.actionCentreButton:hover:not(:disabled) { border-color: #FBBC05; background: #FFF6D0; color: #4A4A4A; }
+.actionCentreButton { border-color: #E0E3E7; color: #4A4A4A; background: #FFFFFF; }
+.actionCentreButton svg { color: #FBBC05; }
+.actionCentreButton:hover:not(:disabled) { border-color: #1A73E8; background: #F5F7FA; color: #1A73E8; }
+.actionCentreButton:hover:not(:disabled) svg { color: #FBBC05; }
 
-.iconButton { position: relative; width: 42px; display: grid; place-items: center; color: #1A73E8; }
+.iconButton { position: relative; width: 40px; display: grid; place-items: center; color: #1A73E8; }
 
 .badge {
   position: absolute;
@@ -194,11 +203,10 @@
 }
 
 .accountWrap { position: relative; }
-.accountButton { max-width: 250px; padding: 0 12px; display: flex; align-items: center; gap: 9px; }
-.avatar { width: 32px; height: 32px; border-radius: 8px; background: #1A73E8; color: #FFFFFF; display: grid; place-items: center; }
-.accountCopy { min-width: 0; text-align: left; }
-.accountCopy strong { display: block; color: #4A4A4A; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; }
-.accountCopy small { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6B7280; font-size: 12px; }
+.accountButton { width: 190px; min-width: 170px; max-width: 200px; padding: 0 14px; display: flex; align-items: center; gap: 8px; }
+.avatar { width: 28px; height: 28px; border-radius: 8px; background: #1A73E8; color: #FFFFFF; display: grid; place-items: center; flex: 0 0 auto; }
+.accountCopy { min-width: 0; flex: 1; text-align: left; }
+.accountCopy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4A4A4A; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; }
 
 .accountMenu {
   position: absolute;
@@ -216,7 +224,7 @@
 .accountMenuHeader { padding: 24px; border-bottom: 1px solid #E0E3E7; margin-bottom: 6px; }
 .accountMenuHeader strong { display: block; font-family: Inter, Roboto, Arial, sans-serif; font-size: 20px; font-weight: 700; color: #1A73E8; }
 .accountMenuHeader span { display: block; margin-top: 3px; color: #6B7280; font-size: 14px; }
-.accountMenu button { width: 100%; min-height: 40px; border: 0; border-radius: 8px; background: #FFFFFF; padding: 0 12px; display: flex; align-items: center; gap: 8px; text-align: left; color: #4A4A4A; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+.accountMenu button { width: 100%; min-height: 40px; border: 0; border-radius: 8px; background: #FFFFFF; padding: 0 14px; display: flex; align-items: center; gap: 8px; text-align: left; color: #4A4A4A; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
 .accountMenu button:hover { background: #F5F7FA; }
 .accountMenu .signOutMenuItem { color: #EA4335; }
 
@@ -235,7 +243,7 @@
 .contextCopy > strong { display: block; margin-top: 4px; color: #1A73E8; font-family: Inter, Roboto, Arial, sans-serif; font-size: 20px; font-weight: 700; }
 .contextCopy > p { margin: 6px 0 0; color: #6B7280; font-size: 14px; }
 .contextLinks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.contextLinks button { min-height: 40px; padding: 0 12px; border: 1px solid #E0E3E7; border-radius: 8px; background: #FFFFFF; color: #1A73E8; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+.contextLinks button { min-height: 40px; padding: 0 14px; border: 1px solid #E0E3E7; border-radius: 8px; background: #FFFFFF; color: #1A73E8; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
 .contextLinks button:hover { border-color: #1A73E8; background: #F5F7FA; }
 
 .main { min-width: 0; min-height: calc(100vh - 76px); background: #F5F7FA; }
@@ -292,14 +300,13 @@
 .areaCardHead strong { display: block; color: #1A73E8; font-family: Inter, Roboto, Arial, sans-serif; font-size: 20px; font-weight: 700; }
 .areaCardHead p { margin: 6px 0 0; color: #6B7280; font-size: 14px; line-height: 1.45; }
 .areaLinks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.areaLinks button { min-height: 40px; border: 1px solid #E0E3E7; border-radius: 8px; background: #FFFFFF; color: #1A73E8; padding: 0 12px; display: flex; align-items: center; gap: 7px; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+.areaLinks button { min-height: 40px; border: 1px solid #E0E3E7; border-radius: 8px; background: #FFFFFF; color: #1A73E8; padding: 0 14px; display: flex; align-items: center; gap: 7px; font-family: Inter, Roboto, Arial, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
 .areaLinks button:hover { background: #F5F7FA; border-color: #1A73E8; }
 
 @media (max-width: 1280px) {
-  .topbar { grid-template-columns: 255px minmax(280px, 1fr) auto; }
+  .topbar { grid-template-columns: auto minmax(280px, 480px) auto; }
   .headerButton span { display: none; }
-  .headerButton { width: 42px; padding: 0; justify-content: center; }
-  .accountCopy small { display: none; }
+  .headerButton { width: 40px; padding: 0; justify-content: center; }
 }
 
 @media (max-width: 980px) {
@@ -307,14 +314,14 @@
   .brandTitle { display: none; }
   .brandLogo { height: 31px; }
   .accountCopy { display: none; }
-  .accountButton { width: 42px; padding: 0; justify-content: center; }
+  .accountButton { min-width: 40px; width: 40px; max-width: 40px; padding: 0; justify-content: center; }
   .accountButton > svg:last-child { display: none; }
   .contextBar { align-items: flex-start; flex-direction: column; }
   .contextLinks { justify-content: flex-start; }
 }
 
 @media (max-width: 680px) {
-  .topbar { grid-template-columns: minmax(0, 1fr) auto; padding: 24px; }
+  .topbar { grid-template-columns: minmax(0, 1fr) auto; padding: 0 24px; }
   .brand { display: none; }
   .topbarActions .headerButton { display: none; }
   .exploreBackdrop { inset: 76px 0 0; padding: 24px; overflow-x: auto; }

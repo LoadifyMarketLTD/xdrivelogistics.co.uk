@@ -237,7 +237,7 @@ export default function SuperAdminCardNavigationShell({
           <div className={styles.accountWrap}>
             <button type="button" className={styles.accountButton} onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}>
               <span className={styles.avatar}><CircleUserRound size={24} /></span>
-              <span className={styles.accountCopy}><strong>Platform Owner</strong><small>{user?.email ?? companyName}</small></span>
+              <span className={styles.accountCopy}><strong>Platform Owner</strong></span>
               <ChevronDown size={24} />
             </button>
             {accountOpen ? (
