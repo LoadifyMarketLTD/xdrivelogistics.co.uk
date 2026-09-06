@@ -1,5 +1,4 @@
-import { supabase } from '../auth/supabase';
-import { getApiBaseUrl } from './client';
+import { apiRequest } from './client';
 
 type ApiLoad = {
   id: string;
@@ -86,49 +85,23 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
   };
 }
 
-async function accessToken() {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token?.trim();
-  if (!token) throw new Error('Your session has expired. Please log in again.');
-  return token;
-}
-
 export async function fetchLiveLoads(options: { destinationMode?: boolean; radiusMiles?: 10 | 20 | 30 } = {}) {
-  const token = await accessToken();
   const params = new URLSearchParams();
   if (options.destinationMode) params.set('mode', 'destination');
   if (options.radiusMiles) params.set('radius', String(options.radiusMiles));
-  const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/nearby-jobs?${params.toString()}`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
-  const payload = await response.json().catch(() => ({})) as LiveLoadsResponse & { error?: string };
-  if (!response.ok) throw new Error(payload.error || `Unable to load jobs (HTTP ${response.status}).`);
+  const suffix = params.toString();
+  const payload = await apiRequest<LiveLoadsResponse>(`/api/driver/mobile/nearby-jobs${suffix ? `?${suffix}` : ''}`);
   return { jobs: (payload.jobs ?? []).map(mapLiveLoad), returnIq: payload.returnIq ?? { active: false } };
 }
 
 export async function fetchActiveQuotedJobIds() {
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error('Your session has expired. Please log in again.');
-  const { data, error } = await supabase
-    .from('job_bids')
-    .select('job_id')
-    .eq('bidder_user_id', auth.user.id)
-    .in('status', ['submitted', 'accepted', 'awarded', 'approved']);
-  if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((row: { job_id: string }) => String(row.job_id)));
+  const payload = await apiRequest<{ activeJobIds?: string[] }>('/api/driver/mobile/bids?scope=active-company');
+  return new Set((payload.activeJobIds ?? []).map(String));
 }
 
 export async function submitLiveLoadQuote(jobId: string, amount: number, message?: string) {
-  const token = await accessToken();
-  const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
+  await apiRequest('/api/driver/mobile/bids', {
     method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ jobId, amount, message: message?.trim() || null }),
+    body: { jobId, amount, message: message?.trim() || null },
   });
-  const payload = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(payload.error || `Unable to submit quote (HTTP ${response.status}).`);
 }
