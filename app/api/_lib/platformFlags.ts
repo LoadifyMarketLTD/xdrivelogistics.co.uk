@@ -41,6 +41,20 @@ const FLAG_DEFAULTS: Record<FeatureFlagKey, boolean> = {
   audit_logging: true,
 };
 
+function logFeatureFlagReadError(key: FeatureFlagKey | FeatureFlagKey[], error: unknown) {
+  const details = error && typeof error === 'object'
+    ? error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown }
+    : null;
+
+  console.error('[platformFlags] feature flag read failed', {
+    key,
+    code: typeof details?.code === 'string' ? details.code : null,
+    message: typeof details?.message === 'string' ? details.message : String(error ?? 'Unknown error'),
+    details: typeof details?.details === 'string' ? details.details : null,
+    hint: typeof details?.hint === 'string' ? details.hint : null,
+  });
+}
+
 export async function getFeatureFlag(
   supabase: SupabaseClient,
   key: FeatureFlagKey,
@@ -51,7 +65,10 @@ export async function getFeatureFlag(
     .eq('key', key)
     .maybeSingle();
 
-  if (error) return FAIL_OPEN_FLAGS.has(key);
+  if (error) {
+    logFeatureFlagReadError(key, error);
+    return FAIL_OPEN_FLAGS.has(key);
+  }
   if (!data) return FLAG_DEFAULTS[key] ?? false;
   return Boolean(data.is_enabled);
 }
@@ -67,6 +84,8 @@ export async function getFeatureFlags(
     .from('platform_feature_flags')
     .select('key, is_enabled')
     .in('key', keys);
+
+  if (error) logFeatureFlagReadError(keys, error);
 
   const dbValues = new Map<string, boolean>(
     ((data ?? []) as Array<{ key: string; is_enabled: boolean }>).map((row) => [row.key, Boolean(row.is_enabled)]),
