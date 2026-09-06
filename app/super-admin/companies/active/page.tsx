@@ -80,7 +80,7 @@ function ActiveCompaniesContent() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '820px', fontSize: '12px' }}>
               <thead>
                 <tr style={{ height: '38px', background: THEME.pageBg, borderBottom: `1px solid ${THEME.cardBorder}` }}>
-                  {['Company name', 'Reg. number', 'Email', 'Type', 'Status', 'Created'].map((h) => (
+                  {['Company Name', 'Reg. Number', 'Email', 'Type', 'Status', 'Created'].map((h) => (
                     <th key={h} style={{ padding: '0 12px', textAlign: 'left', color: THEME.heading, fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
