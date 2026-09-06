@@ -72,7 +72,10 @@ export default function App() {
       setDiagnostics(snapshot);
       setStartupMessage('Loading driver workspace...');
       try {
-        const module = await import('./src/app/DriverMobileApp');
+        const sideBySidePreview = Constants.expoConfig?.extra?.sideBySidePreview === true;
+        const module = sideBySidePreview
+          ? await import('./src/app/DriverMobileAppV2')
+          : await import('./src/app/DriverMobileApp');
         if (!mounted) return;
         appLoaded = true;
         clearTimeout(timeoutId);
