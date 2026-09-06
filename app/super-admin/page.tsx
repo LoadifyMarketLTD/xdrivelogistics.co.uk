@@ -80,21 +80,12 @@ function CommandCentre() {
     {error && <div role="alert" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px', color: X.danger, fontSize: '12px' }}>{error}</div>}
     {(data?.unavailableSources?.length || data?.queryErrors?.length) ? <div style={{ marginBottom: '12px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.white, padding: '9px 12px', color: X.charcoal, fontSize: '11px' }}>Some platform services are temporarily excluded from totals. Available data remains usable.</div> : null}
 
-<<<<<<< HEAD
+    <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />
+
     <section style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}><div><h2 style={{ margin: 0, color: X.navy, fontSize: '14px', fontWeight: 800 }}>Platform summary</h2><p style={{ margin: '2px 0 0', color: X.muted, fontSize: '11px' }}>Primary operational KPIs only.</p></div><Link href="/super-admin/analytics" style={{ color: X.blue, fontSize: '11px', fontWeight: 800, textDecoration: 'none' }}>Full analytics →</Link></div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '12px' }}>
         {(loading || !stats ? Array.from({ length: 4 }, (_, i) => [`Loading ${i}`, '—', 'Loading…', '#'] as const) : kpis).map(([label, value, note, href]) => <Link key={label} href={href} style={{ minHeight: '88px', display: 'block', textDecoration: 'none', background: X.white, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '12px' }}><div style={{ color: X.navy, fontSize: '22px', lineHeight: 1.05, fontWeight: 800 }}>{value}</div><div style={{ marginTop: '7px', color: X.charcoal, fontSize: '12px', fontWeight: 700 }}>{label}</div><div style={{ marginTop: '2px', color: X.muted, fontSize: '10px' }}>{note}</div></Link>)}
-=======
-    <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />
-
-    <section data-contract-surface="command-centre-kpis" style={{ marginBottom: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '24px', marginBottom: '24px' }}><div><h2 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Platform summary</h2><p style={{ margin: '24px 0 0', color: X.text, fontSize: '14px' }}>Primary operational KPIs only.</p></div><Link href="/super-admin/analytics" style={{ color: X.blue, fontSize: '16px', fontWeight: 500, textDecoration: 'none' }}>Full analytics →</Link></div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '24px' }}>
-        {loading ? KPI_LABELS.map((label) => <div key={label} data-card="true" data-testid="kpi-loading" style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.blue, fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>—</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.grey, fontSize: '14px' }}>Loading…</div></div>)
-          : stats ? kpis.map(([label, value, note]) => <div key={label} data-card="true" data-testid="kpi-ready" style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.blue, fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>{value}</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.grey, fontSize: '14px' }}>{note}</div></div>)
-          : KPI_LABELS.map((label) => <div key={label} data-card="true" data-testid="kpi-unavailable" style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.grey, fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>—</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.yellow, fontSize: '14px', fontWeight: 400 }}>Unavailable — not reported as zero</div></div>)}
->>>>>>> bdfec84c (Connect CX benchmark flows across role dashboards)
       </div>
     </section>
 

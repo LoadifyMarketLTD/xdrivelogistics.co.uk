@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useRouter } from 'next/navigation';
 
@@ -75,11 +75,11 @@ const ROLE_LINKS: Record<ConnectedExchangeRole, ExchangeLink[]> = {
     { key: 'finance', label: 'Finance', detail: 'Carrier invoices, payment status and exposure', href: '/admin/invoices' },
   ],
   'super-admin': [
-    { key: 'directory', label: 'Directory', detail: 'Platform-wide companies, drivers and account oversight', href: '/super-admin/directory' },
-    { key: 'capacity', label: 'Live Capacity', detail: 'Driver availability plus execution tracking', href: '/super-admin/operations/control-centre' },
+    { key: 'directory', label: 'Directory', detail: 'Platform-wide companies, drivers and account oversight', href: '/super-admin/companies' },
+    { key: 'capacity', label: 'Live Capacity', detail: 'Driver availability plus execution tracking', href: '/super-admin/operations/driver-availability' },
     { key: 'marketplace', label: 'Marketplace', detail: 'Posted, quoted and awarded exchange activity', href: '/super-admin/marketplace' },
-    { key: 'operations', label: 'Operations', detail: 'Jobs, drivers, fleet and operational exceptions', href: '/super-admin/operations/control-centre' },
-    { key: 'fleet', label: 'Fleet', detail: 'Vehicle registry and platform fleet truth', href: '/super-admin/fleet/vehicles' },
+    { key: 'operations', label: 'Operations', detail: 'Jobs, drivers, fleet and operational exceptions', href: '/super-admin/operations/jobs' },
+    { key: 'fleet', label: 'Fleet', detail: 'Vehicle registry and platform fleet truth', href: '/super-admin/operations/fleet-positions' },
     { key: 'finance', label: 'Finance', detail: 'Platform invoice and settlement oversight', href: '/super-admin/finance' },
     { key: 'compliance', label: 'Compliance', detail: 'Insurance, licences and document readiness', href: '/super-admin/compliance/insurance' },
     { key: 'audit', label: 'Audit Logs', detail: 'Platform governance and administrative history', href: '/super-admin/settings/audit-logs' },
