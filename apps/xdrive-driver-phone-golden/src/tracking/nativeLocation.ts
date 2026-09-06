@@ -24,12 +24,16 @@ export async function publishCurrentDriverLocation(token: string) {
     throw new Error('Native driver location is unavailable in this build.');
   }
 
-  const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, {
-    title: 'Allow XDrive Driver to use your location',
-    message: 'Location is shared with XDrive only while you have an active booking that requires live tracking.',
-    buttonPositive: 'Allow',
-    buttonNegative: 'Not now',
-  });
+  const permission = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION;
+  const alreadyGranted = await PermissionsAndroid.check(permission);
+  const granted = alreadyGranted
+    ? PermissionsAndroid.RESULTS.GRANTED
+    : await PermissionsAndroid.request(permission, {
+        title: 'Allow XDrive Driver to use your location',
+        message: 'Location is shared with XDrive only while you have an active booking that requires live tracking.',
+        buttonPositive: 'Allow',
+        buttonNegative: 'Not now',
+      });
 
   if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
     throw new Error('Location permission is required for active-job tracking.');
@@ -46,8 +50,8 @@ export async function publishCurrentDriverLocation(token: string) {
     body: {
       lat: point.latitude,
       lng: point.longitude,
-      heading: Number.isFinite(point.heading) ? point.heading : null,
-      speed_mph: Number.isFinite(point.speedMph) ? point.speedMph : null,
+      heading: typeof point.heading === 'number' && Number.isFinite(point.heading) ? point.heading : null,
+      speed_mph: typeof point.speedMph === 'number' && Number.isFinite(point.speedMph) ? point.speedMph : null,
     },
   });
 
