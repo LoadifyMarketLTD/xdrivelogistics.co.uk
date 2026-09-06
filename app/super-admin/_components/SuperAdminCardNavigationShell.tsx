@@ -1,56 +1,13 @@
 'use client';
 
-import Image from 'next/image';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import {
-  Activity,
-  AlertTriangle,
-  Bell,
-  Building2,
-  ChevronDown,
-  CircleUserRound,
-  CreditCard,
-  LayoutDashboard,
-  LifeBuoy,
-  LogOut,
-  Menu,
-  Route,
-  Search,
-  Settings2,
-  ShieldCheck,
-  Store,
-  Truck,
-  UsersRound,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 
-import { useAuth } from '../../components/AuthContext';
 import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
-import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
-import {
-  getActionCentreRoute,
-  getNotificationsRoute,
-  resolveActionCentreRole,
-} from '../../components/workspace/actionCentreConfig';
 import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
+import SuperAdminNavbar from './SuperAdminNavbar';
 import styles from './SuperAdminCardNavigationShell.module.css';
-
-const GROUP_ICONS: Record<string, LucideIcon> = {
-  dashboard: LayoutDashboard,
-  'xdrive-logistics': Truck,
-  marketplace: Store,
-  operations: Route,
-  fleet: UsersRound,
-  companies: Building2,
-  'users-access': UsersRound,
-  finance: CreditCard,
-  compliance: ShieldCheck,
-  support: LifeBuoy,
-  platform: Settings2,
-};
 
 const GROUP_DESCRIPTIONS: Record<string, string> = {
   dashboard: 'Overview, urgent actions, analytics and live platform health.',
@@ -74,6 +31,7 @@ function fallbackGroupId(pathname: string) {
   if (pathname.startsWith('/super-admin/inspect/ticket/') || pathname.startsWith('/super-admin/inspect/dispute/') || pathname.startsWith('/super-admin/inspect/case/')) return 'support';
   if (pathname.startsWith('/super-admin/inspect/job/') || pathname.startsWith('/super-admin/inspect/pod/')) return 'operations';
   if (pathname.startsWith('/super-admin/inspect/user/')) return 'users-access';
+  if (pathname.startsWith('/super-admin/platform')) return 'platform';
   return null;
 }
 
@@ -86,29 +44,11 @@ export default function SuperAdminCardNavigationShell({
   definition: WorkspaceDefinition;
   fixtureOverrides?: WorkspaceShellFixtureOverrides;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-  const shellRef = useRef<HTMLDivElement | null>(null);
-  const [unreadCount, setUnreadCount] = useState(fixtureOverrides?.unreadCount ?? 0);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [exploreOpen, setExploreOpen] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-  const role = 'platform_owner' as const;
-  const actionRole = resolveActionCentreRole(role);
-  const actionCentreHref = fixtureOverrides?.actionCentreHref ?? getActionCentreRoute(actionRole);
-  const notificationsHref = fixtureOverrides?.notificationsHref ?? getNotificationsRoute(actionRole);
-  const companyName = fixtureOverrides?.companyName ?? 'XDrive Logistics';
-  const actionCentreAvailable = actionCentreHref !== definition.homeHref;
 
   const navigationTargets = useMemo(
     () => definition.nav.flatMap((group) => group.items.map((item) => ({
-      id: `${group.id}-${item.id}`,
       groupId: group.id,
-      group: group.label,
       label: item.label,
       href: item.href,
     }))),
@@ -127,189 +67,17 @@ export default function SuperAdminCardNavigationShell({
     [currentTarget?.groupId, definition.nav, fallbackGroup],
   );
 
-  const searchResults = useMemo(() => {
-    const normalized = searchValue.trim().toLowerCase();
-    if (!normalized) return [];
-    return navigationTargets.filter((item) =>
-      item.label.toLowerCase().includes(normalized)
-      || item.group.toLowerCase().includes(normalized),
-    ).slice(0, 7);
-  }, [navigationTargets, searchValue]);
-
-  const navigateToTarget = (href: string) => {
-    router.push(href);
-    setSearchValue('');
-    setSearchOpen(false);
-    setAccountOpen(false);
-    setExploreOpen(false);
-    setMobileNavOpen(false);
-  };
-
-  const navigateFromSearch = () => {
-    const normalized = searchValue.trim().toLowerCase();
-    if (!normalized) return;
-    const target = navigationTargets.find((item) => item.label.toLowerCase() === normalized)
-      ?? searchResults[0];
-    if (target) navigateToTarget(target.href);
-  };
-
-  useEffect(() => {
-    if (typeof fixtureOverrides?.unreadCount === 'number') {
-      setUnreadCount(fixtureOverrides.unreadCount);
-      return;
-    }
-    if (!user?.id || !isSupabaseConfigured) return;
-    let cancelled = false;
-    const loadUnread = async () => {
-      const { count } = await supabase
-        .from('notification_events')
-        .select('id', { count: 'exact', head: true })
-        .eq('recipient_user_id', user.id)
-        .in('status', ['pending', 'failed']);
-      if (!cancelled) setUnreadCount(count ?? 0);
-    };
-    void loadUnread();
-    const timer = window.setInterval(() => void loadUnread(), 60_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [fixtureOverrides?.unreadCount, user?.id]);
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      setSearchOpen(false);
-      setAccountOpen(false);
-      setExploreOpen(false);
-      setMobileNavOpen(false);
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, []);
-
-  useEffect(() => {
-    setSearchOpen(false);
-    setAccountOpen(false);
-    setMobileNavOpen(false);
-  }, [pathname]);
-
-  const showContextBar = pathname !== definition.homeHref;
+  const showContextBar = pathname !== definition.homeHref && pathname !== '/super-admin/directory';
 
   return (
-    <div ref={shellRef} className={styles.shell}>
-      <header className={styles.topbar}>
-        <button type="button" className={styles.brand} onClick={() => navigateToTarget(definition.homeHref)} aria-label="Platform Owner home">
-          <Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={246} height={66} priority className={styles.brandLogo} />
-          <span className={styles.brandTitle}>Super Admin</span>
-        </button>
-
-        <div className={styles.searchArea}>
-          <div className={styles.searchWrap}>
-            <Search size={24} className={styles.searchIcon} />
-            <input
-              value={searchValue}
-              onChange={(event) => { setSearchValue(event.target.value); setSearchOpen(Boolean(event.target.value.trim())); setAccountOpen(false); }}
-              onFocus={() => setSearchOpen(Boolean(searchValue.trim()))}
-              onKeyDown={(event) => { if (event.key === 'Enter') navigateFromSearch(); if (event.key === 'Escape') setSearchOpen(false); }}
-              placeholder="Search Super Admin areas…"
-              aria-label="Search Super Admin areas"
-              autoComplete="off"
-              className={styles.searchInput}
-            />
-            <span className={styles.searchHint}>⌘ K</span>
-          </div>
-          {searchOpen && searchValue.trim() ? (
-            <div className={styles.searchResults} role="listbox">
-              {searchResults.length ? searchResults.map((item) => (
-                <button key={item.id} type="button" className={styles.searchResult} onClick={() => navigateToTarget(item.href)}>
-                  <span><strong>{item.label}</strong><small>{item.group}</small></span><span>→</span>
-                </button>
-              )) : (
-                <div className={styles.searchEmpty}>No matching Super Admin area</div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <div className={styles.topbarActions}>
-          <button type="button" className={`${styles.iconButton} ${styles.mobileMenuButton}`} onClick={() => setMobileNavOpen((value) => !value)} aria-label="Open Super Admin navigation" aria-expanded={mobileNavOpen}>
-            {mobileNavOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-          <button
-            type="button"
-            className={`${styles.headerButton} ${styles.actionCentreButton}`}
-            onClick={() => { if (actionCentreAvailable) navigateToTarget(actionCentreHref); }}
-            disabled={!actionCentreAvailable}
-            title={actionCentreAvailable ? 'Open Action Centre' : 'Action Centre promotion pending runtime gate'}
-          ><AlertTriangle size={24} /><span>Action Centre</span></button>
-          <button type="button" className={styles.iconButton} onClick={() => navigateToTarget(notificationsHref)} aria-label="Notifications"><Bell size={24} />{unreadCount > 0 ? <span className={styles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span> : null}</button>
-          <div className={styles.accountWrap}>
-            <button type="button" className={styles.accountButton} onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}>
-              <span className={styles.avatar}><CircleUserRound size={24} /></span>
-              <span className={styles.accountCopy}><strong>Platform Owner</strong></span>
-              <ChevronDown size={24} />
-            </button>
-            {accountOpen ? (
-              <div className={styles.accountMenu}>
-                <div className={styles.accountMenuHeader}><strong>Platform Owner</strong><span>{user?.email ?? companyName}</span></div>
-                <button type="button" onClick={() => navigateToTarget(definition.homeHref)}>Super Admin home</button>
-                <button type="button" onClick={() => { setAccountOpen(false); setExploreOpen(true); }}>Explore all areas</button>
-                <button type="button" className={styles.signOutMenuItem} onClick={() => void logout()}><LogOut size={24} /> Sign out</button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
-      <nav className={styles.primaryNav} aria-label="Super Admin primary navigation">
-        <div className={styles.primaryNavInner}>
-          {definition.nav.map((group) => {
-            const GroupIcon = GROUP_ICONS[group.id] ?? Activity;
-            const active = currentGroup?.id === group.id;
-            return (
-              <div key={group.id} className={styles.navGroup}>
-                <button
-                  type="button"
-                  className={`${styles.navGroupButton} ${active ? styles.navGroupButtonActive : ''}`}
-                  aria-haspopup="menu"
-                  aria-label={`${group.label} menu`}
-                >
-                  <GroupIcon size={18} />
-                  <span>{group.label}</span>
-                  <ChevronDown size={16} />
-                </button>
-                <div className={styles.navDropdown} role="menu" aria-label={`${group.label} options`}>
-                  <div className={styles.navDropdownHeader}>
-                    <span className={styles.navDropdownIcon}><GroupIcon size={24} /></span>
-                    <div><strong>{group.label}</strong><p>{GROUP_DESCRIPTIONS[group.id] ?? 'Platform administration tools and related workflows.'}</p></div>
-                  </div>
-                  <div className={styles.navDropdownItems}>
-                    {group.items.map((item) => {
-                      const [baseHref] = item.href.split('?');
-                      const itemActive = pathname === baseHref || (baseHref !== definition.homeHref && pathname.startsWith(`${baseHref}/`));
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="menuitem"
-                          className={`${styles.navDropdownItem} ${itemActive ? styles.navDropdownItemActive : ''}`}
-                          onClick={() => navigateToTarget(item.href)}
-                        >
-                          <span>{item.label}</span><span>→</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </nav>
+    <div className={styles.shell}>
+      <SuperAdminNavbar definition={definition} fixtureOverrides={fixtureOverrides} />
 
       {showContextBar ? (
         <section className={styles.contextBar}>
           <div className={styles.contextCopy}>
             <span>{currentGroup?.label ?? 'Platform Owner'}</span>
-            <strong>{currentTarget?.label ?? 'Control Centre'}</strong>
+            <strong>{currentTarget?.label ?? (pathname === '/super-admin/platform' ? 'Platform Overview' : 'Control Centre')}</strong>
             <p>{currentGroup ? GROUP_DESCRIPTIONS[currentGroup.id] : 'Platform-wide administration and investigation.'}</p>
           </div>
         </section>
@@ -318,53 +86,6 @@ export default function SuperAdminCardNavigationShell({
       <main className={styles.main}>
         <div className={styles.content}>{children}</div>
       </main>
-
-      {mobileNavOpen ? (
-        <div className={styles.mobileNavBackdrop} onClick={() => setMobileNavOpen(false)}>
-          <section className={styles.mobileNavPanel} onClick={(event) => event.stopPropagation()} aria-label="Super Admin navigation menu">
-            <div className={styles.mobileNavHeading}>
-              <div><span>Super Admin navigation</span><strong>All areas and sub-options</strong></div>
-              <button type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={24} /></button>
-            </div>
-            <div className={styles.mobileNavGroups}>
-              {definition.nav.map((group) => {
-                const GroupIcon = GROUP_ICONS[group.id] ?? Activity;
-                return (
-                  <section key={group.id} className={styles.mobileNavGroup}>
-                    <div className={styles.mobileNavGroupTitle}><GroupIcon size={24} /><strong>{group.label}</strong></div>
-                    <div className={styles.mobileNavItems}>
-                      {group.items.map((item) => <button type="button" key={item.id} onClick={() => navigateToTarget(item.href)}>{item.label}<span>→</span></button>)}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {exploreOpen ? (
-        <div className={styles.exploreBackdrop} onClick={() => setExploreOpen(false)}>
-          <section className={styles.explorePanel} onClick={(event) => event.stopPropagation()} aria-label="Super Admin areas">
-            <div className={styles.exploreHeading}>
-              <div><span>Super Admin directory</span><strong>Choose an area by what you want to manage</strong></div>
-              <button type="button" onClick={() => setExploreOpen(false)}>Close</button>
-            </div>
-            <div className={styles.areaGrid}>
-              {definition.nav.map((group) => {
-                const GroupIcon = GROUP_ICONS[group.id] ?? Activity;
-                const active = currentGroup?.id === group.id;
-                return (
-                  <article key={group.id} className={`${styles.areaCard} ${active ? styles.areaCardActive : ''}`}>
-                    <div className={styles.areaCardHead}><span className={styles.areaIcon}><GroupIcon size={24} /></span><div><strong>{group.label}</strong><p>{GROUP_DESCRIPTIONS[group.id] ?? 'Platform administration tools and related workflows.'}</p></div></div>
-                    <div className={styles.areaLinks}>{group.items.map((item) => <button type="button" key={item.id} onClick={() => navigateToTarget(item.href)}>{item.label}<span>→</span></button>)}</div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -82,6 +82,7 @@ const superAdminHomeUnitTests = [
 const superAdminControlPlaneLintTargets = [
   '__tests__/invoiceStatusCanonical.test.ts',
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminNavbarContract.test.ts',
   '__tests__/superAdminPlatformHealth.test.ts',
   '__tests__/superAdminVisualContract.test.ts',
   'app/api/super-admin/_lib/platformHealth.ts',
@@ -115,6 +116,7 @@ const superAdminControlPlaneLintTargets = [
   'app/api/super-admin/xdrive-logistics/jobs/route.ts',
   'app/api/super-admin/xdrive-logistics/marketplace/route.ts',
   'app/super-admin/_components/SuperAdminLiveTablePage.tsx',
+  'app/super-admin/_components/SuperAdminNavbar.tsx',
   'app/super-admin/_components/SuperAdminOperationalMap.tsx',
   'app/super-admin/_components/SuperAdminUserListPage.tsx',
   'app/super-admin/_components/SuperAdminWorkspaceShell.tsx',
@@ -126,6 +128,7 @@ const superAdminControlPlaneLintTargets = [
   'app/super-admin/companies/page.tsx',
   'app/super-admin/compliance/insurance/page.tsx',
   'app/super-admin/compliance/operator-licences/page.tsx',
+  'app/super-admin/directory/page.tsx',
   'app/super-admin/finance/fees/page.tsx',
   'app/super-admin/finance/invoices/page.tsx',
   'app/super-admin/finance/page.tsx',
@@ -140,6 +143,7 @@ const superAdminControlPlaneLintTargets = [
   'app/super-admin/marketplace/page.tsx',
   'app/super-admin/operations/control-centre/page.tsx',
   'app/super-admin/operations/driver-availability/page.tsx',
+  'app/super-admin/platform/page.tsx',
   'app/super-admin/settings/global/page.tsx',
   'app/super-admin/settings/legal-agreements/page.tsx',
   'app/super-admin/settings/roles-permissions/page.tsx',
@@ -150,6 +154,7 @@ const superAdminControlPlaneLintTargets = [
 
 const superAdminControlPlaneUnitTests = [
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminNavbarContract.test.ts',
   '__tests__/superAdminPlatformHealth.test.ts',
   '__tests__/superAdminVisualContract.test.ts',
   '__tests__/invoiceStatusCanonical.test.ts',

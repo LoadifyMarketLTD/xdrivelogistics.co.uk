@@ -1,6 +1,6 @@
 # XDrive Logistics — Super Admin MASTER CONTRACT FINAL
 
-Status: FINAL contract for PR #505. This document is the normative source for the final Super Admin audit and shared-shell corrections. Runtime code and `__tests__/superAdminVisualContract.test.ts` must agree with this document.
+Status: FINAL contract for PR #505. This document is the normative source for the final Super Admin audit, shared-shell corrections and the exact enterprise navbar. Runtime code and contract checkers must agree with this document.
 
 ## 1. Command Centre KPI semantics
 
@@ -27,65 +27,96 @@ Canonical Super Admin values are:
 - Radius: `8px`
 - Shadow: `0px 2px 6px rgba(0,0,0,0.08)`
 - Title: `Inter, 20px, 700`
-- Body/control text: `14px`
+- Body/control text: `14px` unless an explicit surface amendment below specifies otherwise.
 
 SOURCE COMPLIANCE applies to component-emitted style declarations and design tokens. A conflicting emitted value is non-compliant even when a later CSS layer overrides it at runtime.
 
 Legacy values appearing only inside compatibility-selector match expressions are not emitted design values and are not treated as a source-compliance violation.
 
-## 3. Spacing contract
+## 3. Spacing contract and exact enterprise navbar amendment
 
 `24px` is the canonical internal padding for enterprise containers, cards, panels, sections, dialogs, alerts, table header cells and table body cells.
 
 `24px` is NOT a universal padding value for compact interactive controls.
 
-Explicit compact exceptions are:
+Existing explicit compact exceptions remain:
 
 - Status chips/badges: `4px 10px`
-- Standard compact action/pager buttons: `0 14px`
+- Standard compact action/pager buttons outside the enterprise navbar: `0 14px`
 
-No other compact padding value may be introduced without an explicit contract amendment.
+The enterprise navbar is an explicit final surface amendment and uses its own exact geometry below.
 
-### Shared Super Admin topbar amendment
+### 3.1 Fundamental navbar rules
 
-The shared Super Admin topbar is a compact enterprise control surface, not an enterprise content card. Its desktop contract is:
+- Navbar MUST be `fixed` and permanently visible.
+- Navbar MUST NOT contain a hamburger control.
+- Navbar MUST NOT contain a hidden navigation menu.
+- Navbar MUST NOT transform into a hamburger.
+- Navbar MUST NOT use responsive hiding.
+- Navbar MUST NOT shrink away primary navigation controls.
+- When viewport width is insufficient, the navbar MUST preserve its controls through horizontal scrolling rather than hiding them.
+- No navbar `@media` rule is permitted in the final master navbar CSS.
 
-- Height: `76px` (inside the approved `72–80px` topbar range).
-- Horizontal shell padding: `24px`.
-- Primary control gap: `12px`.
-- Search and topbar controls: `40px` high.
-- Search maximum width: `480px`.
-- Account control: `170–200px` wide on desktop.
-- Radius: `8px`.
-- Background: `#FFFFFF`.
-- Bottom border: `1px solid #E0E3E7`.
-- The topbar itself MUST NOT use a decorative box shadow or backdrop blur.
-- Topbar buttons use the standard compact `0 14px` padding and one neutral border/background treatment.
-- The keyboard shortcut uses the compact badge padding `4px 10px`.
-- The account control displays `Platform Owner` only; the account email remains available inside the account dropdown and MUST NOT be permanently displayed in the topbar.
-- Yellow `#FBBC05` is reserved for warning/accent semantics. `Action Centre` MUST NOT use a permanent yellow border or yellow-filled background; only its warning icon may use yellow at rest.
+### 3.2 Exact navbar order
 
-Responsive contraction may hide control labels or the account label when space is insufficient, but MUST preserve the same canonical colour, radius and compact-control system.
+The visible order is exactly:
 
-### Professional primary navigation amendment
+`XDrive Logistics | Search platform… | Explore areas | Action Centre | Platform Overview | Platform Owner`
 
-The shared Super Admin shell MUST expose the complete workspace navigation through a professional two-level navigation system.
+Primary navigation routes are:
 
-Desktop navigation contains exactly the workspace groups already defined in `SUPER_ADMIN_WORKSPACE_DEFINITION`, in that source order:
+- `Explore areas` → `/super-admin/directory`
+- `Action Centre` → `/super-admin/action-centre`
+- `Platform Overview` → `/super-admin/platform`
 
-`Dashboard | Marketplace | Operations | Fleet | Companies | Finance | Compliance | Support | Platform`
+### 3.3 Brand
 
-- Every top-level group MUST reveal its submenu on mouse hover and keyboard focus.
-- Hovering or focusing a top-level group MUST NOT navigate away from the current page.
-- Each submenu MUST expose every child route defined for that group, in source order, with no silently hidden child options.
-- Selecting a submenu item performs the existing route navigation only; this amendment introduces no new mutation behaviour.
-- The currently active group and route MUST receive a visible active state using the canonical palette.
-- Desktop navigation controls use the same `40px` compact-control height, `8px` radius and canonical neutral/blue styling as the topbar.
-- Dropdown panels are enterprise panels and therefore use `24px` internal padding, canonical border/radius, white background and the canonical light shadow.
-- On widths at or below `1180px`, the desktop group row is replaced by a hamburger control in the topbar.
-- Opening the hamburger MUST expose all nine groups and every child option in a scrollable navigation panel; mobile/tablet navigation MUST NOT hide functionality that is available on desktop.
-- The existing Super Admin directory may remain as a secondary navigation surface, but it is not a substitute for the primary navbar/hamburger system.
-- Navigation changes MUST NOT alter route authorization, backend behaviour, Production data, or the established Platform submenu restriction below.
+- Label: `XDrive Logistics`
+- Font: `Inter, 20px, 700`
+- Icon: `24px`
+- Navbar internal padding: `24px`
+
+### 3.4 Search
+
+- Full-width/flexible enterprise search surface.
+- Placeholder: `Search platform…`
+- Search icon: `24px`
+- Padding: `12px 18px`
+- Radius: `8px`
+- Shadow: `0px 2px 6px rgba(0,0,0,0.08)`
+
+### 3.5 Primary buttons
+
+Visible buttons are exactly:
+
+1. `Explore areas`
+2. `Action Centre`
+3. `Platform Overview`
+
+Each uses:
+
+- Padding: `12px 18px`
+- Radius: `8px`
+- Shadow: `0px 2px 6px rgba(0,0,0,0.08)`
+- Icon: `24px`
+- Icon spacing: `8px`
+- Font: `Inter, 16px, 500`
+
+### 3.6 User dropdown
+
+The trigger is `Platform Owner`.
+
+The dropdown displays the account email and exactly these options:
+
+1. `Super Admin home`
+2. `Explore all areas`
+3. `Sign out`
+
+`Sign out` MUST invoke the existing authenticated logout behaviour; it MUST NOT invent a non-existent sign-out endpoint.
+
+Dropdown typography is `Inter, 14px, 400`.
+
+Optional right-aligned status indicators may be introduced only for truthful Platform health, Notifications or Live status state and must not replace or hide any required navbar element.
 
 ## 4. StatusChip and page allowlists
 
@@ -139,13 +170,15 @@ Visible actions are exactly:
 
 ## 7. Platform navigation and `/super-admin/users`
 
-Platform navigation is exactly:
+Platform governance destinations are exactly:
 
 1. Global Settings
 2. Legal & Agreements
 3. Access Matrix
 4. Feature Flags
 5. Audit Logs
+
+These are exposed from `Platform Overview` and the Super Admin Directory; they are not extra primary navbar buttons.
 
 `All Users` and `Platform Admins` MUST NOT appear as visible Platform navigation destinations.
 
