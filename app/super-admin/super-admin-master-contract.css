@@ -16,23 +16,6 @@
   --sa-v2-red: #EA4335;
   --sa-v2-grey: #8A9099;
   --sa-v2-white: #FFFFFF;
-
-  /* v1 compatibility aliases retained only for earlier checker/source consumers. */
-  --sa-master-radius: 8px;
-  --sa-master-shadow: 0px 2px 6px rgba(0,0,0,0.08);
-  --sa-master-padding: 24px;
-  --sa-master-control-padding: 0 14px;
-  --sa-master-chip-padding: 4px 10px;
-  --sa-master-blue: #1A73E8;
-  --sa-master-green: #34A853;
-  --sa-master-yellow: #FBBC05;
-  --sa-master-red: #EA4335;
-  --sa-master-grey: #8A9099;
-  --sa-master-border: #8A9099;
-  --sa-master-white: #FFFFFF;
-  --sa-master-bg: #FFFFFF;
-  --sa-master-text: #8A9099;
-
   background: var(--sa-v2-white) !important;
   color: var(--sa-v2-grey) !important;
 }
