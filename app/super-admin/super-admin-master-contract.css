@@ -168,6 +168,12 @@
   text-decoration: none;
 }
 .sa-brand svg { width: 24px; height: 24px; }
+.sa-brand-mark {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  object-fit: contain;
+}
 .sa-brand-title {
   color: #1A73E8;
   font-family: Inter, Roboto, Arial, sans-serif;
