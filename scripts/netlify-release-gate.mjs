@@ -82,6 +82,7 @@ const superAdminHomeUnitTests = [
 const superAdminControlPlaneLintTargets = [
   '__tests__/invoiceStatusCanonical.test.ts',
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminFinalV2ResidualContract.test.ts',
   '__tests__/superAdminMasterV2Contract.test.ts',
   '__tests__/superAdminNavbarContract.test.ts',
   '__tests__/superAdminPlatformHealth.test.ts',
@@ -156,6 +157,7 @@ const superAdminControlPlaneLintTargets = [
 
 const superAdminControlPlaneUnitTests = [
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminFinalV2ResidualContract.test.ts',
   '__tests__/superAdminMasterV2Contract.test.ts',
   '__tests__/superAdminNavbarContract.test.ts',
   '__tests__/superAdminPlatformHealth.test.ts',
