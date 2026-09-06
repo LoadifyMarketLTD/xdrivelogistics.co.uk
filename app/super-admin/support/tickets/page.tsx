@@ -18,7 +18,7 @@ type Row = {
 
 const actionButtonStyle = {
   minHeight: '40px',
-  padding: '24px',
+  padding: '0 14px',
   borderRadius: '8px',
   border: '1px solid #E0E3E7',
   background: '#FFFFFF',

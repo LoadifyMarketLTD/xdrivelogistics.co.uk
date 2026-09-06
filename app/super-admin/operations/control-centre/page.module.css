@@ -53,7 +53,7 @@
 .disabledButton,
 .secondaryButton {
   min-height: 40px;
-  padding: 24px;
+  padding: 0 14px;
   border-radius: 8px;
   box-shadow: var(--x-shadow);
   font-family: Inter, Roboto, Arial, sans-serif;
@@ -152,7 +152,7 @@
 .metaGrid { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size: 14px; }
 .metaLabel { display: block; color: var(--x-text); }
 .metaValue, .healthValue { display: block; margin-top: 24px; font-weight: 700; color: var(--x-text); }
-.status { display: inline-flex; align-items: center; border-radius: 8px; padding: 24px; color: var(--x-white); font-size: 14px; font-weight: 700; text-transform: uppercase; box-shadow: var(--x-shadow); }
+.status { display: inline-flex; align-items: center; border-radius: 8px; padding: 4px 10px; color: var(--x-white); font-size: 14px; font-weight: 700; text-transform: uppercase; box-shadow: var(--x-shadow); }
 .actions { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 24px; }
 
 .driverGrid { display: grid; grid-template-columns: repeat(2, minmax(320px, 1fr)); gap: 24px; overflow-x: auto; }

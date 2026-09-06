@@ -72,6 +72,10 @@ describe('MASTER CONTRACT FINAL — Super Admin', () => {
     expect(masterDocument).toContain('`24px` is NOT a universal padding value for compact interactive controls.');
     expect(masterDocument).toContain('Status chips/badges: `4px 10px`');
     expect(masterDocument).toContain('Standard compact action/pager buttons: `0 14px`');
+    const cockpitControls = cockpitCss.slice(cockpitCss.indexOf('.button,'), cockpitCss.indexOf('.alert'));
+    expect(cockpitControls).toContain('padding: 0 14px;');
+    expect(cockpitControls).not.toContain('padding: 24px;');
+    expect(cockpitCss).toContain('padding: 4px 10px; color: var(--x-white);');
   });
 
   it('makes Command Centre KPI cards non-navigable enterprise divs in every state', () => {
@@ -226,6 +230,9 @@ describe('MASTER CONTRACT FINAL — Super Admin', () => {
     for (const required of ['type:', 'severity:', 'status:', 'created_at:']) expect(dto).toContain(required);
     for (const label of ['Ticket ID', 'Company', 'Type', 'Severity', 'Status', 'Created']) expect(supportTickets).toContain(`label: '${label}'`);
     for (const action of ['Open', 'Assign', 'Resolve']) expect(supportTickets).toContain(action);
+    const supportActionStyle = supportTickets.slice(supportTickets.indexOf('const actionButtonStyle'), supportTickets.indexOf('export default function Page'));
+    expect(supportActionStyle).toContain("padding: '0 14px'");
+    expect(supportActionStyle).not.toContain("padding: '24px'");
     for (const hiddenAction of ['investigating', "action: 'close'", "action: 'reopen'"]) expect(supportTickets).not.toContain(hiddenAction);
     expect(supportTickets).toContain("action: 'resolve'");
     expect(supportApi).toContain("action: z.enum(['investigating', 'resolve', 'close', 'reopen'])");
