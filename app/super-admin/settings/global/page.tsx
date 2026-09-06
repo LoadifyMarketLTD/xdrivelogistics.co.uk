@@ -127,7 +127,7 @@ export default function Page() {
             <span style={{ fontSize: '20px' }}>⚙️</span>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Global Platform Settings</h1>
+                <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Global Settings</h1>
                 <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A5D00', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Settings</span>
               </div>
               <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Edit and persist platform-wide configuration defaults.</p>
