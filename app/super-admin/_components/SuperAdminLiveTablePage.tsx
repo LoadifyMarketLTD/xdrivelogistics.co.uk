@@ -169,9 +169,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
           setSummary(value && typeof value === 'object' ? value as Record<string, unknown> : null);
         }
         setNotices(readLiveTableNotices(body as Record<string, unknown>, noteField, diagnosticField));
-      } catch {
-        setError('The requested service is currently unavailable.');
-      } finally {
+      } catch { setError('The requested service is currently unavailable.'); } finally {
         setLoading(false);
       }
     };
