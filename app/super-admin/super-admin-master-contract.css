@@ -1,0 +1,91 @@
+/* XDrive Logistics LTD — MASTER CONTRACT FINAL — Super Admin
+ * Final runtime layer. It is loaded after the legacy light/hardening/visual layers.
+ * Presentation only: no data, auth, navigation or mutation semantics are changed.
+ */
+
+.super-admin-light-root {
+  --sa-master-radius: 8px;
+  --sa-master-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+  --sa-master-padding: 24px;
+  --sa-master-blue: #1A73E8;
+  --sa-master-green: #34A853;
+  --sa-master-yellow: #FBBC05;
+  --sa-master-red: #EA4335;
+  --sa-master-grey: #8A9099;
+  --sa-master-border: #E0E3E7;
+  --sa-master-white: #FFFFFF;
+  --sa-master-bg: #F5F7FA;
+  --sa-master-text: #4A4A4A;
+}
+
+/* Titles are exact everywhere inside the Super Admin content canvas. */
+.super-admin-light-root main h1,
+.super-admin-light-root main h2,
+.super-admin-light-root main h3 {
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+/* Enterprise card/container contract. */
+.super-admin-light-root main section[style*="border"],
+.super-admin-light-root main article[style*="border"],
+.super-admin-light-root main aside[style*="border"],
+.super-admin-light-root main form[style*="border"],
+.super-admin-light-root main div[style*="border"][style*="background"],
+.super-admin-light-root main [data-card],
+.super-admin-light-root main [data-panel] {
+  padding: var(--sa-master-padding) !important;
+  border-radius: var(--sa-master-radius) !important;
+  box-shadow: var(--sa-master-shadow) !important;
+}
+
+/* MASTER 1.7: real DOM output of <a>/<Link> card surfaces. */
+.super-admin-light-root main a[data-card],
+.super-admin-light-root main a[style*="min-height: 88px"][style*="border"],
+.super-admin-light-root main a[style*="min-height:88px"][style*="border"] {
+  padding: var(--sa-master-padding) !important;
+  border-radius: var(--sa-master-radius) !important;
+  box-shadow: var(--sa-master-shadow) !important;
+}
+
+/* Shared inspect/action links are enterprise controls and must not retain legacy compact padding. */
+.super-admin-light-root main .sa-button {
+  padding: var(--sa-master-padding) !important;
+  border-radius: var(--sa-master-radius) !important;
+  box-shadow: var(--sa-master-shadow) !important;
+}
+
+/* Tables remain the canonical enterprise table primitive. */
+.super-admin-light-root main table {
+  border-radius: var(--sa-master-radius) !important;
+  box-shadow: var(--sa-master-shadow) !important;
+}
+.super-admin-light-root main th,
+.super-admin-light-root main td {
+  padding: var(--sa-master-padding) !important;
+}
+
+/* Every explicit legacy radius/shadow in Super Admin is reconciled to the master values. */
+.super-admin-light-root main [style*="border-radius"] {
+  border-radius: var(--sa-master-radius) !important;
+}
+.super-admin-light-root main [style*="box-shadow"] {
+  box-shadow: var(--sa-master-shadow) !important;
+}
+
+/* The master status palette. StatusChip owns semantic selection; these tokens are the only approved colours. */
+.super-admin-light-root {
+  --status-available: var(--sa-master-green);
+  --status-offline: var(--sa-master-grey);
+  --status-posted: var(--sa-master-blue);
+  --status-cancelled: var(--sa-master-red);
+  --status-delivered: var(--sa-master-green);
+  --status-ready: var(--sa-master-green);
+  --status-attention: var(--sa-master-yellow);
+  --status-critical: var(--sa-master-red);
+}
+
+/* Directory, Jobs Management, Drivers Center and Fleet Overview are intentionally not made responsive here.
+ * Their fixed grid contracts live in their component CSS and are checked by the PR contract test. */
