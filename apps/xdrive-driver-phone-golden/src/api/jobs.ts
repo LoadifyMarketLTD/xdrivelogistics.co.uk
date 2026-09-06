@@ -108,6 +108,7 @@ async function uploadEvidenceFile({
 
 function normalizeStatus(value: unknown): CanonicalJobStatus {
   const status = String(value ?? '').trim().toLowerCase();
+  if (['cancelled', 'canceled'].includes(status)) return 'cancelled';
   if (['awarded', 'allocated', 'accepted', 'assigned'].includes(status)) return 'awarded';
   if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(status)) return 'on_my_way_pickup';
   if (['on_site_pickup', 'arrived_pickup'].includes(status)) return 'arrived_pickup';
@@ -150,8 +151,6 @@ export async function fetchJob(jobId: string, token: string) {
 export async function postJobStatus(jobId: string, endpoint: string, token: string, payload: EvidencePayload = {}) {
   const { collectionPhotoUri, ...metadata } = payload;
 
-  // The current server contract is storage-authoritative: collection evidence
-  // must be uploaded and linked before the Loaded lifecycle transition.
   if (collectionPhotoUri) {
     await uploadEvidenceFile({
       jobId,
