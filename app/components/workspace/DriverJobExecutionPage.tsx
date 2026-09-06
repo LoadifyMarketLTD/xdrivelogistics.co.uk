@@ -9,6 +9,7 @@ import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
+import WorkspaceJobReplay from './WorkspaceJobReplay';
 
 const statusLabel: Record<string, string> = {
   awarded: 'Accepted', allocated: 'Accepted', on_my_way: 'On my way to pickup',
@@ -431,6 +432,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
         <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
           <Panel title="Operational timeline" description="Pickup, loading, transit, delivery and completion events."><DataTable columns={['Status', 'Time', 'Details']} rows={timelineRows} empty={<EmptyState title="No recorded history" />} /></Panel>
+          <Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel>
           <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
           <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>
           <Panel title="POD and invoice"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Delivery photos</span><strong>{deliveryPhotos.length}</strong></div><div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div><div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? ''}</small></div></div></Panel>
