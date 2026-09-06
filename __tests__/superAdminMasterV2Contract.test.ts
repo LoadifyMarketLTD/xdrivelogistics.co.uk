@@ -7,6 +7,7 @@ const source = (path: string) => readFileSync(join(process.cwd(), path), 'utf8')
 
 const master = source('docs/super-admin/MASTER_CONTRACT_FINAL.md');
 const masterCss = source('app/super-admin/super-admin-master-contract.css');
+const iconEnforcement = source('app/super-admin/super-admin-v2-icon-enforcement.css');
 const visualCss = source('app/super-admin/super-admin-visual-contract.css');
 const directoryCss = source('app/super-admin/_components/SuperAdminCardNavigationShell.module.css');
 const commandCentre = source('app/super-admin/page.tsx');
@@ -51,6 +52,8 @@ describe('MASTER CONTRACT FINAL v2 — integrated Super Admin contract', () => {
     expect(masterCss).toContain('.super-admin-light-root svg');
     expect(masterCss).toContain('width: 24px !important;');
     expect(masterCss).toContain('height: 24px !important;');
+    expect(iconEnforcement).toContain('font-size: 24px !important;');
+    expect(iconEnforcement).toContain('line-height: 24px !important;');
     expect(masterCss).not.toContain('#F5F7FA');
     expect(masterCss).not.toContain('#4A4A4A');
     expect(masterCss).not.toContain('#E0E3E7');
@@ -96,6 +99,9 @@ describe('MASTER CONTRACT FINAL v2 — integrated Super Admin contract', () => {
     expect(cockpit).toContain('Assign driver');
     expect(cockpit).toContain('View profile');
     expect(cockpit).toContain('Assign job');
+    expect(cockpit).toContain('filteredJobs.slice(0, 6).map');
+    expect(cockpit).toContain('data.drivers.slice(0, 4).map');
+    expect(cockpit).toContain('data.fleet.slice(0, 4).map');
     expect(cockpitCss).toContain('.jobGrid { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr))');
     expect(cockpitCss).toContain('.driverGrid { display: grid; grid-template-columns: repeat(2, minmax(320px, 1fr))');
     expect(cockpitCss).toContain('.fleetGrid { display: grid; grid-template-columns: repeat(4, minmax(280px, 1fr))');
@@ -104,6 +110,17 @@ describe('MASTER CONTRACT FINAL v2 — integrated Super Admin contract', () => {
     expect(media).not.toContain('.driverGrid');
     expect(media).not.toContain('.fleetGrid');
     expect(masterCss).toContain('--sa-v2-button: 12px 18px');
+  });
+
+  it('keeps Operations visible status outputs inside the canonical palette', () => {
+    expect(cockpit).toContain("type CanonicalStatus = 'available' | 'offline' | 'posted' | 'cancelled' | 'delivered' | 'ready' | 'attention' | 'critical';");
+    expect(cockpit).toContain("const driverStatusLabel = (driver: Driver) => driver.online ? 'AVAILABLE' : 'OFFLINE';");
+    expect(cockpit).toContain('canonicalJobStatus(job.status)');
+    expect(cockpit).toContain('canonicalStatus.toUpperCase()');
+    expect(cockpit).toContain('canonicalJobStatus(lastJob.status).toUpperCase()');
+    expect(cockpit).not.toContain("return 'Busy'");
+    expect(cockpit).not.toContain("return 'Online'");
+    expect(cockpit).not.toContain("return 'Sold'");
   });
 
   it('preserves the full All Jobs table and restricted status allowlists', () => {
