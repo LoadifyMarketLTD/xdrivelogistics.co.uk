@@ -37,7 +37,7 @@ const config: ExpoConfig = {
   icon: './assets/icon.png',
   orientation: 'portrait',
   scheme: isSideBySidePreview ? 'xdrivedriver-preview' : 'xdrivedriver',
-  userInterfaceStyle: 'automatic',
+  userInterfaceStyle: isSideBySidePreview ? 'light' : 'automatic',
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: false,
