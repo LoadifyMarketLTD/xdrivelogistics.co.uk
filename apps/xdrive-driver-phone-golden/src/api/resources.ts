@@ -125,27 +125,57 @@ function money(value: unknown, currency = 'GBP') {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }
 
-function publicArea(postcode: unknown) {
-  const value = String(postcode ?? '').trim().toUpperCase();
-  if (!value) return 'Area disclosed after allocation';
-  const outwardCode = value.split(/\s+/)[0];
-  return `Approx. area · ${outwardCode}`;
+function publicOutcode(postcode: unknown) {
+  const compact = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!compact) return '';
+  const match = compact.match(/^([A-Z]{1,2}\d[A-Z\d]?)/);
+  return match?.[1] ?? compact.slice(0, 4);
+}
+
+function townFromLocation(location: unknown, postcode: unknown) {
+  const raw = String(location ?? '').trim();
+  if (!raw) return '';
+  const outcode = publicOutcode(postcode);
+  const postcodeKey = String(postcode ?? '').replace(/\s+/g, '').toUpperCase();
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  const candidates = parts.filter((part) => {
+    const normalized = part.replace(/\s+/g, '').toUpperCase();
+    if (!normalized || normalized === postcodeKey || normalized === outcode) return false;
+    if (/\d/.test(part)) return false;
+    if (/\b(ROAD|RD|STREET|ST|LANE|LN|AVENUE|AVE|DRIVE|CLOSE|COURT|WAY|UNIT|BUILDING|HOUSE|WAREHOUSE|DEPOT|INDUSTRIAL|ESTATE|LIMITED|LTD|PLC)\b/i.test(part)) return false;
+    return !/^(GB|UK|UNITED KINGDOM|ENGLAND|WALES|SCOTLAND|NORTHERN IRELAND)$/i.test(part);
+  });
+  return candidates.at(-1)?.toUpperCase() ?? '';
+}
+
+function publicMarketplaceLocation(location: unknown, city: unknown, postcode: unknown) {
+  const town = String(city ?? '').trim().toUpperCase() || townFromLocation(location, postcode);
+  const outcode = publicOutcode(postcode);
+  if (town && outcode) return `${town}, ${outcode}`;
+  if (outcode) return outcode;
+  if (town) return town;
+  return 'Area disclosed after allocation';
 }
 
 function publicAreaFromSummary(summary: unknown) {
   const value = String(summary ?? '').trim().toUpperCase();
   if (!value) return 'Area disclosed after allocation';
+  const alreadyCompact = value.match(/^([^,]+),\s*([A-Z]{1,2}\d[A-Z\d]?)$/);
+  if (alreadyCompact) return `${alreadyCompact[1].trim()}, ${alreadyCompact[2]}`;
   const fullPostcode = value.match(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/);
-  if (fullPostcode) return `Approx. area · ${fullPostcode[1]}`;
+  if (fullPostcode) {
+    const before = value.slice(0, fullPostcode.index).replace(/[\s,·-]+$/, '').trim();
+    const town = before.split(',').map((part) => part.trim()).filter(Boolean).filter((part) => !/\d/.test(part)).at(-1);
+    return town ? `${town}, ${fullPostcode[1]}` : fullPostcode[1];
+  }
   const outwardAtEnd = value.match(/\b([A-Z]{1,2}\d[A-Z\d]?)$/);
   if (outwardAtEnd) {
-    const prefix = value.slice(0, outwardAtEnd.index).replace(/[\s,·-]+$/, '').trim();
-    const safeTown = prefix && !/\d/.test(prefix) && prefix.length <= 40 ? `${prefix} · ` : 'Approx. area · ';
-    return `${safeTown}${outwardAtEnd[1]}`;
+    const before = value.slice(0, outwardAtEnd.index).replace(/[\s,·-]+$/, '').trim();
+    const town = before.split(',').map((part) => part.trim()).filter(Boolean).filter((part) => !/\d/.test(part)).at(-1);
+    return town ? `${town}, ${outwardAtEnd[1]}` : outwardAtEnd[1];
   }
-  return !/\d|,/.test(value) && value.length <= 40 ? value : 'Area disclosed after allocation';
+  return !/\d/.test(value) && value.length <= 40 ? value : 'Area disclosed after allocation';
 }
-
 export function mapResourceJob(row: AnyRow, showPublicPrice = false, revealPrivateDetails = false): DriverJob {
   return {
     id: String(row.id),
@@ -153,8 +183,8 @@ export function mapResourceJob(row: AnyRow, showPublicPrice = false, revealPriva
     postingCompanyName: row.posting_company_name || row.poster_company_name || row.booked_by_company_name || undefined,
     postingCompanyMemberCode: row.posting_company_member_code || undefined,
     status: mapJobStatus(row.current_status || row.status, row.status_history),
-    pickupLocation: revealPrivateDetails ? (row.pickup_location || row.pickup_postcode || 'Pickup not set') : publicArea(row.pickup_postcode),
-    deliveryLocation: revealPrivateDetails ? (row.delivery_location || row.delivery_postcode || 'Delivery not set') : publicArea(row.delivery_postcode),
+    pickupLocation: revealPrivateDetails ? (row.pickup_location || row.pickup_postcode || 'Pickup not set') : publicMarketplaceLocation(row.pickup_location, row.pickup_city, row.pickup_postcode),
+    deliveryLocation: revealPrivateDetails ? (row.delivery_location || row.delivery_postcode || 'Delivery not set') : publicMarketplaceLocation(row.delivery_location, row.delivery_city, row.delivery_postcode),
     pickupTime: row.pickup_datetime || row.pickup_time_slot || 'Collection time not set',
     deliveryTime: row.delivery_datetime || row.delivery_time_slot || 'Delivery time not set',
     cargoType: row.requested_cargo_label || row.cargo_type || 'Cargo not set',
@@ -502,8 +532,8 @@ export async function fetchDriverResources(): Promise<DriverProfileResource> {
     created_at: row.exchange_posted_at,
     payload: {
       job_reference: `XDL-${String(row.id).slice(0, 8).toUpperCase()}`,
-      pickup_area: publicArea(row.pickup_postcode),
-      delivery_area: publicArea(row.delivery_postcode),
+      pickup_area: publicMarketplaceLocation(null, null, row.pickup_postcode),
+      delivery_area: publicMarketplaceLocation(null, null, row.delivery_postcode),
       vehicle: row.requested_vehicle_label || row.vehicle_type || 'Vehicle not set',
     },
   }));

@@ -1365,7 +1365,7 @@ function OffersBody({ quotes, feed, busy, onRetract, onOpenJob, onEdit }: {
   if (filtered.length === 0) return <EmptyState title={`No ${feed} offers`} body="Offers move here as their commercial outcome changes." />;
 
   return <View style={styles.stack}>{filtered.map((quote) => {
-    const job = quote.job ? mapResourceJob(quote.job, false, quote.job.private_details_revealed === true) : null;
+    const job = quote.job ? mapResourceJob(quote.job, false, false) : null;
     const amount = formatMoney(quote.bid_price_gbp ?? quote.amount, quote.currency || 'GBP') || 'Rate not supplied';
     const bucket = offerBucket(quote);
     return <View key={String(quote.id)} style={styles.offerCard}>
