@@ -23,6 +23,15 @@ type BidderIdentity = {
   companyType: string | null;
   personName: string | null;
   displayName: string;
+  memberId: string | null;
+  businessPhone: string | null;
+  quoteLevel: 'driver' | 'company';
+  driverAvailability: string | null;
+  driverVehicleType: string | null;
+  driverVehicleTailLift: boolean;
+  driverVehiclePallets: number | null;
+  fleetVehicleTypes: string[];
+  specialistServices: string[];
 };
 
 const when = (value: string | null | undefined) => value
@@ -103,7 +112,7 @@ export default function BrokerQuotesPage() {
       .filter(({ job }) => !customerTerm || String(job?.client_name || '').toLowerCase().includes(customerTerm))
       .filter(({ job }) => !fromTerm || `${job?.pickup_postcode || ''} ${job?.pickup_location || ''}`.toLowerCase().includes(fromTerm))
       .filter(({ job }) => !toTerm || `${job?.delivery_postcode || ''} ${job?.delivery_location || ''}`.toLowerCase().includes(toTerm))
-      .filter(({ bid, identity }) => !carrierTerm || `${identity?.displayName || ''} ${identity?.personName || ''} ${bid.companies?.name || ''}`.toLowerCase().includes(carrierTerm))
+      .filter(({ bid, identity }) => !carrierTerm || `${identity?.displayName || ''} ${identity?.personName || ''} ${identity?.memberId || ''} ${identity?.businessPhone || ''} ${identity?.driverVehicleType || ''} ${(identity?.fleetVehicleTypes || []).join(' ')} ${(identity?.specialistServices || []).join(' ')} ${bid.companies?.name || ''}`.toLowerCase().includes(carrierTerm))
       .filter(({ bid, job }) => !referenceTerm || `${bid.id} ${job?.id || ''}`.toLowerCase().includes(referenceTerm))
       .sort((a, b) => priceOf(a.bid) - priceOf(b.bid));
   }, [carrier, customer, data.bids, data.jobs, from, identities, reference, tab, to]);
@@ -192,7 +201,7 @@ export default function BrokerQuotesPage() {
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / MEMBER</div><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierType} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / MEMBER</div><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierType} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div><div style={{ ...metaStyle, marginTop: 2 }}>{identity?.memberId ? `Member ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet types`}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={bid.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : bid.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quote #{bid.id.slice(0, 8).toUpperCase()}</span><span>Customer budget: {budget > 0 ? money(budget) : 'Not set'}</span><span>{margin !== null ? `Est. spread: ${money(margin)}` : 'Spread unavailable'}</span></div>
@@ -207,6 +216,13 @@ export default function BrokerQuotesPage() {
                           <div className="workspace-detail-item"><strong>Vehicle</strong><div>{(job.vehicle_type || 'Not specified').replaceAll('_', ' ')}</div></div>
                           <div className="workspace-detail-item"><strong>Customer</strong><div>{job.client_name || 'Customer'}</div></div>
                           <div className="workspace-detail-item"><strong>Status</strong><div>{bid.status.replaceAll('_', ' ')}</div></div>
+                          <div className="workspace-detail-item"><strong>Member ID</strong><div>{identity?.memberId || 'Not supplied'}</div></div>
+                          <div className="workspace-detail-item"><strong>Business contact</strong><div>{identity?.businessPhone || 'Not supplied'}</div></div>
+                          <div className="workspace-detail-item"><strong>Quote scope</strong><div>{identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'}</div></div>
+                          <div className="workspace-detail-item"><strong>Driver availability</strong><div>{identity?.driverAvailability?.replaceAll('_', ' ') || (identity?.quoteLevel === 'driver' ? 'Not supplied' : 'Company quote')}</div></div>
+                          <div className="workspace-detail-item"><strong>Driver vehicle</strong><div>{identity?.driverVehicleType ? `${identity.driverVehicleType.replaceAll('_', ' ')}${identity.driverVehicleTailLift ? ' · Tail lift' : ''}${identity.driverVehiclePallets != null ? ` · ${identity.driverVehiclePallets} pallets` : ''}` : 'Not linked'}</div></div>
+                          <div className="workspace-detail-item"><strong>Fleet capability</strong><div>{identity?.fleetVehicleTypes.length ? identity.fleetVehicleTypes.map((type) => type.replaceAll('_', ' ')).join(', ') : 'Not listed'}</div></div>
+                          <div className="workspace-detail-item"><strong>Specialist services</strong><div>{identity?.specialistServices.length ? identity.specialistServices.join(', ') : 'Not listed'}</div></div>
                         </div>
                         <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid var(--ws-border-soft, #e2e7ed)', background: '#fff' }}><strong>Carrier message</strong><div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{bid.message || 'No message supplied'}</div></div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
