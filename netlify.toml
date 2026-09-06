@@ -1,7 +1,7 @@
 [build]
-  # TEMPORARY PR #505 diagnostic: isolate TypeScript + Next build from checker stages.
+  # TEMPORARY PR #505 diagnostic: isolate v2 unit checker from lint.
   # MUST be restored to scripts/netlify-release-gate.mjs before final validation.
-  command = "npm run typecheck && npm run build"
+  command = "node ./scripts/netlify-v2-tests-only.mjs"
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
