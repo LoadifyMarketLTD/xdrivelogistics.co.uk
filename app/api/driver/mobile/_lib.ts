@@ -1,6 +1,11 @@
 import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../_lib/supabaseAdmin';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -142,7 +147,11 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  // JWT identity validation must use the public validator client. Privileged
+  // service-role credentials are reserved for the database operations below and
+  // must never decide whether an otherwise-valid mobile access token is accepted.
+  const authClient = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error: authError } = await authClient.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
 
   const [{ data: driverRow, error: driverError }, { data: profileRow, error: profileError }] = await Promise.all([
