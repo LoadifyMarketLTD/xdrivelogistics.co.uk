@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system';
 
 import { ensureNativeDeviceSession, getInstallationHeaders } from '../auth/deviceSession';
 import { apiRequest, getApiBaseUrl } from './client';
-import type { DriverJob, JobScope } from '../jobs/types';
+import type { CanonicalJobStatus, DriverJob, JobScope } from '../jobs/types';
 
 type EvidencePayload = Record<string, unknown> & {
   collectionPhotoUri?: string;
@@ -106,6 +106,25 @@ async function uploadEvidenceFile({
   return storagePath;
 }
 
+function normalizeStatus(value: unknown): CanonicalJobStatus {
+  const status = String(value ?? '').trim().toLowerCase();
+  if (['awarded', 'allocated', 'accepted', 'assigned'].includes(status)) return 'awarded';
+  if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(status)) return 'on_my_way_pickup';
+  if (['on_site_pickup', 'arrived_pickup'].includes(status)) return 'arrived_pickup';
+  if (['loaded', 'collected'].includes(status)) return 'loaded';
+  if (['in_transit', 'on_route_delivery', 'on_my_way_to_delivery', 'on_my_way_delivery'].includes(status)) return 'on_my_way_delivery';
+  if (['on_site_delivery', 'arrived_delivery'].includes(status)) return 'arrived_delivery';
+  if (['delivered', 'completed', 'invoiced', 'paid'].includes(status)) return 'delivered';
+  return 'awarded';
+}
+
+function normalizeJob(job: DriverJob): DriverJob {
+  return {
+    ...job,
+    status: normalizeStatus((job as DriverJob & { status?: unknown }).status),
+  };
+}
+
 export async function persistEvidencePhoto(uri: string, jobId: string, stage: 'pickup' | 'delivery') {
   const root = FileSystem.documentDirectory;
   if (!root) return uri;
@@ -119,11 +138,13 @@ export async function persistEvidencePhoto(uri: string, jobId: string, stage: 'p
 }
 
 export async function fetchJobs(scope: JobScope, token: string) {
-  return apiRequest<{ jobs: DriverJob[] }>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
+  const response = await apiRequest<{ jobs: DriverJob[] }>(`/api/driver/mobile/jobs?scope=${scope}`, { token });
+  return { ...response, jobs: (response.jobs ?? []).map(normalizeJob) };
 }
 
 export async function fetchJob(jobId: string, token: string) {
-  return apiRequest<{ job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}`, { token });
+  const response = await apiRequest<{ job: DriverJob }>(`/api/driver/mobile/jobs/${jobId}`, { token });
+  return { ...response, job: normalizeJob(response.job) };
 }
 
 export async function postJobStatus(jobId: string, endpoint: string, token: string, payload: EvidencePayload = {}) {
