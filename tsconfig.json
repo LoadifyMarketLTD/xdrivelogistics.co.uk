@@ -26,7 +26,11 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": [
+      "node",
+      "vitest/globals"
+    ]
   },
   "include": [
     "next-env.d.ts",
@@ -38,6 +42,7 @@
   "exclude": [
     "node_modules",
     "apps/driver-mobile",
-    "supabase/functions"
+    "supabase/functions",
+    "apps/xdrive-driver-phone-golden/**"
   ]
 }

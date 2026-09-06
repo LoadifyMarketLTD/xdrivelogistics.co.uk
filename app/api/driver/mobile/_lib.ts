@@ -87,8 +87,11 @@ export type DriverContext = {
   userId: string;
   driverId: string;
   companyId: string;
+  driverStatus: string;
+  appAccess: boolean;
   driverType: string | null;
   canCommercialBid: boolean;
+  companyStatus: string | null;
 };
 
 export type MobileJobRow = {
@@ -158,8 +161,10 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
   if (driverRow.app_access !== true) return respond(403, { error: 'Driver app access has not been approved.' });
-  if (String(profileRow.status ?? '').trim().toLowerCase() !== 'active') return respond(403, { error: 'Driver profile is not active.' });
-  if (String(driverRow.status ?? '').trim().toLowerCase() !== 'active') return respond(403, { error: 'Driver account is not active.' });
+  const profileStatus = String(profileRow.status ?? '').trim().toLowerCase();
+  const driverStatus = String(driverRow.status ?? '').trim().toLowerCase();
+  if (profileStatus !== 'active') return respond(403, { error: 'Driver profile is not active.' });
+  if (driverStatus !== 'active') return respond(403, { error: 'Driver account is not active.' });
 
   const driverId = String(driverRow.id);
   const deviceGate = await enforceActiveNativeDeviceBinding(request, token, authData.user.id, driverId);
@@ -168,12 +173,23 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   const companyId = String(driverRow.company_id ?? '').trim();
   if (!companyId) return respond(403, { error: 'Driver company membership is required.' });
 
+  const { data: companyRow, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('status')
+    .eq('id', companyId)
+    .maybeSingle();
+  if (companyError) return respond(500, { error: companyError.message });
+  const companyStatus = String(companyRow?.status ?? '').trim().toLowerCase() || null;
+
   return {
     userId: authData.user.id,
     driverId,
     companyId,
+    driverStatus,
+    appAccess: driverRow.app_access === true,
     driverType: typeof driverRow.driver_type === 'string' ? driverRow.driver_type : null,
     canCommercialBid: driverRow.can_commercial_bid === true,
+    companyStatus,
   };
 }
 

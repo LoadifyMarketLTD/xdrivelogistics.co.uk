@@ -40,6 +40,7 @@ import {
 import { getNextStep, statusFlow } from '../jobs/statusFlow';
 import type { CanonicalJobStatus, DriverJob } from '../jobs/types';
 import {
+  clearQueueSessionCache,
   enqueueAction,
   getQueue,
   isOnline,
@@ -110,6 +111,7 @@ const progressLabels: Record<CanonicalJobStatus, string> = {
   on_my_way_delivery: 'Delivery leg active',
   arrived_delivery: 'At delivery point',
   delivered: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 const progressOrder: CanonicalJobStatus[] = [
@@ -136,7 +138,7 @@ function formatDate(value: string | null | undefined) {
 }
 
 function sortTime(job: DriverJob) {
-  const values = [job.deliveryTime, job.pickupTime];
+  const values = [job.updatedAt, job.deliveryTime, job.pickupTime];
   for (const value of values) {
     const timestamp = new Date(value ?? '').getTime();
     if (Number.isFinite(timestamp)) return timestamp;
@@ -450,8 +452,10 @@ export default function DriverMobileAppV3() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut().catch(() => undefined);
     await clearSessionToken().catch(() => undefined);
+    await supabase.auth.signOut().catch(() => undefined);
+    clearQueueSessionCache();
+    setQueue([]);
     setToken(null);
     setResources(null);
     setLiveLoads([]);
@@ -602,7 +606,7 @@ export default function DriverMobileAppV3() {
     if (!token || !jobDetail || actionBusy) return;
     const nextStep = getNextStep(jobDetail.status);
     if (!nextStep) {
-      if (jobDetail.status === 'delivered') return;
+      if (jobDetail.status === 'delivered' || jobDetail.status === 'cancelled') return;
       setPodOpen(true);
       setDetailTab('progress');
       return;
@@ -660,7 +664,9 @@ export default function DriverMobileAppV3() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]?.uri) setPodPhotoUri(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]?.uri && jobDetail) {
+      setPodPhotoUri(await persistEvidencePhoto(result.assets[0].uri, jobDetail.id, 'delivery'));
+    }
   }
 
   async function submitPod() {
@@ -1256,10 +1262,13 @@ function HistoryCard({ job, onPress }: { job: DriverJob; onPress: () => void }) 
   return <TouchableOpacity style={styles.historyCard} onPress={onPress} activeOpacity={0.9}>
     <View style={styles.historyTop}>
       <View style={styles.flexOne}><Text style={styles.referenceStrong}>{job.reference}</Text><Text style={styles.referenceText}>{job.postingCompanyName || 'XDrive work order'}</Text></View>
-      <StatusTag label={progressLabels[job.status].toUpperCase()} tone={job.status === 'delivered' ? 'green' : 'blue'} />
+      <StatusTag
+        label={progressLabels[job.status].toUpperCase()}
+        tone={job.status === 'delivered' ? 'green' : job.status === 'cancelled' ? 'muted' : 'blue'}
+      />
     </View>
     <CompactRoute job={job} />
-    <View style={styles.historyBottom}><Text style={styles.historyDate}>{formatDate(job.deliveryTime || job.pickupTime)}</Text>{job.price ? <Text style={styles.historyRate}>{job.price}</Text> : null}</View>
+    <View style={styles.historyBottom}><Text style={styles.historyDate}>{formatDate(job.updatedAt || job.deliveryTime || job.pickupTime)}</Text>{job.price ? <Text style={styles.historyRate}>{job.price}</Text> : null}</View>
   </TouchableOpacity>;
 }
 
@@ -1331,6 +1340,13 @@ function WorkRoute({ job }: { job: JobDetail }) {
 }
 
 function ProgressBoard({ job }: { job: JobDetail }) {
+  if (job.status === 'cancelled') {
+    return <View style={styles.progressBoard}>
+      <Text style={styles.sectionKicker}>SERVER-CONFIRMED PROGRESS</Text>
+      <Text style={styles.progressHeading}>Cancelled</Text>
+      <Text style={styles.longText}>This work order is closed and cannot accept lifecycle or POD actions.</Text>
+    </View>;
+  }
   const currentIndex = progressOrder.indexOf(job.status);
   return <View style={styles.progressBoard}>
     <Text style={styles.sectionKicker}>SERVER-CONFIRMED PROGRESS</Text>
@@ -1376,7 +1392,7 @@ function PodPanel({ job, recipient, signature, photoUri, notes, signatureRef, on
 }
 
 function WorkStepAction({ job, busy, podOpen, onPress }: { job: JobDetail; busy: boolean; podOpen: boolean; onPress: () => void }) {
-  if (podOpen || job.status === 'delivered') return null;
+  if (podOpen || job.status === 'delivered' || job.status === 'cancelled') return null;
   const next = getNextStep(job.status);
   const label = next?.label || 'Record delivery evidence';
   return <View style={styles.fixedAction}><TouchableOpacity style={[styles.fixedActionButton, busy && styles.disabledButton]} disabled={busy} onPress={onPress}><Text style={styles.fixedActionText}>{busy ? 'Updating...' : label}</Text></TouchableOpacity></View>;
