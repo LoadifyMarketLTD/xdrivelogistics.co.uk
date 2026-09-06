@@ -27,7 +27,7 @@ export default function SuperAdminNavbar({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [searchValue, setSearchValue] = useState('');
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -87,7 +87,7 @@ export default function SuperAdminNavbar({
         <input
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
-          placeholder="Search platform…"
+          placeholder="Search platform..."
           aria-label="Search platform"
           autoComplete="off"
         />
@@ -129,7 +129,7 @@ export default function SuperAdminNavbar({
             </div>
             <Link role="menuitem" href="/super-admin">Super Admin home</Link>
             <Link role="menuitem" href="/super-admin/directory">Explore all areas</Link>
-            <button type="button" role="menuitem" onClick={() => void logout()}>Sign out</button>
+            <Link role="menuitem" href="/auth/sign-out">Sign out</Link>
           </div>
         ) : null}
       </div>

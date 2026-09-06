@@ -1,292 +1,71 @@
-/*
- * XDrive Logistics LTD — Super Admin FINAL visual contract.
- * Scope: every route rendered inside /super-admin.
- * UI only: data, auth, navigation and mutation semantics are unchanged.
+/* XDrive Logistics — Super Admin enterprise visual contract v2.
+ * Master layer is loaded after this file and is normative.
  */
 
 .super-admin-light-root {
-  --white: #FFFFFF;
-  --light-gray: #F5F7FA;
-  --text-gray: #4A4A4A;
-  --brand-blue: #1A73E8;
-  --status-green: #34A853;
-  --status-yellow: #FBBC05;
-  --status-red: #EA4335;
-  --status-gray: #8A9099;
-  --enterprise-border: #E0E3E7;
-  --enterprise-ink: var(--text-gray);
-  --enterprise-navy: var(--brand-blue);
-  --enterprise-muted: var(--text-gray);
   --enterprise-radius: 8px;
   --enterprise-shadow: 0px 2px 6px rgba(0,0,0,0.08);
-  --enterprise-control-height: 40px;
-  --enterprise-section-gap: 24px;
   --enterprise-padding: 24px;
+  --enterprise-button-padding: 12px 18px;
   --enterprise-control-padding: 0 14px;
   --enterprise-chip-padding: 4px 10px;
+  --enterprise-pager-padding: 0 14px;
+  --enterprise-table-action-padding: 0 12px;
+  --enterprise-blue: #1A73E8;
+  --enterprise-green: #34A853;
+  --enterprise-yellow: #FBBC05;
+  --enterprise-red: #EA4335;
+  --enterprise-grey: #8A9099;
+  --enterprise-white: #FFFFFF;
 
-  --sa-ui-navy: var(--brand-blue);
-  --sa-ui-blue: var(--brand-blue);
-  --sa-ui-orange: var(--status-yellow);
-  --sa-ui-ink: var(--text-gray);
-  --sa-ui-muted: var(--text-gray);
-  --sa-ui-border: var(--enterprise-border);
-  --sa-ui-soft: var(--light-gray);
-  --sa-ui-white: var(--white);
-  --sa-ui-danger: var(--status-red);
-  --sa-ui-success: var(--status-green);
-  --sa-ui-radius: var(--enterprise-radius);
-  --sa-ui-control-height: var(--enterprise-control-height);
-  --sa-ui-section-gap: var(--enterprise-section-gap);
+  background: var(--enterprise-white);
+  color: var(--enterprise-grey);
+  font-family: Inter, Roboto, Arial, sans-serif;
+}
 
-  background: var(--light-gray);
-  color: var(--text-gray);
-  font-family: Roboto, Inter, Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+.super-admin-light-root main {
+  background: var(--enterprise-white);
+  color: var(--enterprise-grey);
 }
 
 .super-admin-light-root main h1,
 .super-admin-light-root main h2,
 .super-admin-light-root main h3 {
-  color: var(--brand-blue) !important;
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 20px !important;
-  line-height: 1.25 !important;
-  font-weight: 700 !important;
-  letter-spacing: 0 !important;
-}
-
-.super-admin-light-root main p,
-.super-admin-light-root main li,
-.super-admin-light-root main label,
-.super-admin-light-root main td,
-.super-admin-light-root main input,
-.super-admin-light-root main select,
-.super-admin-light-root main textarea {
-  font-family: Roboto, Inter, Arial, sans-serif;
-  font-size: 14px;
-}
-
-.super-admin-light-root main [style*="border-radius"],
-.super-admin-light-root main section,
-.super-admin-light-root main article,
-.super-admin-light-root main table,
-.super-admin-light-root main [role="dialog"],
-.super-admin-light-root main [role="alert"] {
-  border-radius: 8px !important;
-}
-
-.super-admin-light-root main [style*="box-shadow"],
-.super-admin-light-root main section[style*="border"],
-.super-admin-light-root main article[style*="border"],
-.super-admin-light-root main [role="dialog"] > div,
-.super-admin-light-root main [role="dialog"] aside {
-  box-shadow: var(--enterprise-shadow) !important;
-}
-
-.super-admin-light-root main div[style*="border"],
-.super-admin-light-root main form[style*="border"],
-.super-admin-light-root main aside[style*="border"],
-.super-admin-light-root main section[style*="border"],
-.super-admin-light-root main article[style*="border"] {
-  padding: var(--enterprise-padding) !important;
-  border-radius: var(--enterprise-radius) !important;
-  box-shadow: var(--enterprise-shadow) !important;
-}
-
-.super-admin-light-root main header[style*="min-height: 52px"] > span[aria-hidden="true"],
-.super-admin-light-root main header[style*="min-height:52px"] > span[aria-hidden="true"],
-.super-admin-light-root main header[style*="min-height: 52px"] > div > div:first-child > span[style*="text-transform: uppercase"],
-.super-admin-light-root main header[style*="min-height:52px"] > div > div:first-child > span[style*="text-transform:uppercase"] {
-  display: none !important;
-}
-
-.super-admin-light-root main > div { min-width: 0; }
-.super-admin-light-root main > div[style*="min-height: 100vh"],
-.super-admin-light-root main > div > div[style*="min-height: 100vh"] {
-  background: transparent !important;
-}
-
-.super-admin-light-root main [style*="color: #f1f5f9"],
-.super-admin-light-root main [style*="color:#f1f5f9"],
-.super-admin-light-root main [style*="color: rgb(241, 245, 249)"] {
-  color: var(--text-gray) !important;
-}
-
-.super-admin-light-root main [style*="color: #94a3b8"],
-.super-admin-light-root main [style*="color:#94a3b8"],
-.super-admin-light-root main [style*="color: rgb(148, 163, 184)"] {
-  color: var(--text-gray) !important;
-}
-
-.super-admin-light-root main [style*="background-color: #1e293b"],
-.super-admin-light-root main [style*="background-color:#1e293b"],
-.super-admin-light-root main [style*="background-color: rgb(30, 41, 59)"],
-.super-admin-light-root main [style*="background-color: #0b1220"],
-.super-admin-light-root main [style*="background-color:#0b1220"],
-.super-admin-light-root main [style*="background-color: rgb(11, 18, 32)"] {
-  background-color: var(--white) !important;
-  color: var(--text-gray) !important;
-}
-
-.super-admin-light-root main [style*="border-color: #334155"],
-.super-admin-light-root main [style*="border-color:#334155"],
-.super-admin-light-root main [style*="border-color: rgb(51, 65, 85)"] {
-  border-color: var(--enterprise-border) !important;
-}
-
-.super-admin-light-root main section[style*="border"],
-.super-admin-light-root main article[style*="border"],
-.super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
-.super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
-.super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
-  border-color: var(--enterprise-border) !important;
-  border-radius: var(--enterprise-radius) !important;
-  background: var(--white) !important;
-  box-shadow: var(--enterprise-shadow) !important;
-  padding: var(--enterprise-padding) !important;
-}
-
-.super-admin-light-root main table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--white) !important;
-  color: var(--text-gray);
-  font-size: 14px !important;
-  border-radius: var(--enterprise-radius) !important;
-  box-shadow: var(--enterprise-shadow) !important;
-}
-
-.super-admin-light-root main thead { background: var(--light-gray) !important; }
-.super-admin-light-root main th {
-  padding: var(--enterprise-padding) !important;
-  color: var(--brand-blue) !important;
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  line-height: 1.25;
-  text-transform: none;
-  vertical-align: middle;
-}
-
-.super-admin-light-root main td {
-  padding: var(--enterprise-padding) !important;
-  color: var(--text-gray);
-  font-size: 14px !important;
-  line-height: 1.45;
-  vertical-align: top;
-}
-
-.super-admin-light-root main tbody tr {
-  border-bottom: 1px solid var(--enterprise-border) !important;
-}
-.super-admin-light-root main tbody tr:last-child { border-bottom: 0 !important; }
-.super-admin-light-root main tbody tr:hover { background: #FAFBFD !important; }
-
-.super-admin-light-root main button,
-.super-admin-light-root main a[role="button"] {
-  min-height: var(--enterprise-control-height);
-  border-radius: var(--enterprise-radius) !important;
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  line-height: 1.1;
-}
-
-.super-admin-light-root main table button:not([style*="background"]):not([style*="border"]) {
-  border: 1px solid var(--enterprise-border);
-  background: var(--white);
-  color: var(--brand-blue);
-  padding: var(--enterprise-control-padding);
-}
-
-.super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
-.super-admin-light-root main select,
-.super-admin-light-root main textarea {
-  border: 1px solid var(--enterprise-border) !important;
-  border-radius: var(--enterprise-radius) !important;
-  background: var(--white) !important;
-  color: var(--text-gray) !important;
-}
-.super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
-.super-admin-light-root main select { min-height: var(--enterprise-control-height); }
-.super-admin-light-root main textarea { line-height: 1.5; }
-
-.super-admin-light-root main button:focus-visible,
-.super-admin-light-root main a:focus-visible,
-.super-admin-light-root main input:focus-visible,
-.super-admin-light-root main textarea:focus-visible,
-.super-admin-light-root main select:focus-visible {
-  outline: 3px solid rgba(26,115,232,.25) !important;
-  outline-offset: 2px;
-}
-
-.super-admin-light-root main [data-status-chip],
-.super-admin-light-root main [style*="border-radius: 999"],
-.super-admin-light-root main [style*="border-radius:999"] {
-  border-radius: var(--enterprise-radius) !important;
-  min-height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--enterprise-chip-padding) !important;
-  font-family: Inter, Roboto, Arial, sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.15 !important;
-  font-weight: 700 !important;
-}
-
-.super-admin-light-root main [role="dialog"] > div,
-.super-admin-light-root main [role="dialog"] aside {
-  border-radius: var(--enterprise-radius) !important;
-  background: var(--white) !important;
-  color: var(--text-gray) !important;
-  box-shadow: var(--enterprise-shadow) !important;
-  padding: var(--enterprise-padding) !important;
-}
-
-.super-admin-light-root main [role="alert"] {
-  border-radius: var(--enterprise-radius) !important;
-  padding: var(--enterprise-padding) !important;
-  line-height: 1.5;
-  box-shadow: var(--enterprise-shadow) !important;
-}
-
-.super-admin-light-root main code {
-  color: var(--text-gray);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-}
-
-.super-admin-light-root main section > div[style*="text-align: center"],
-.super-admin-light-root main section > div[style*="text-align:center"] {
-  display: grid;
-  place-items: center;
-  padding: var(--enterprise-padding) !important;
-  color: var(--text-gray) !important;
-  background: var(--white);
-  border-radius: var(--enterprise-radius) !important;
-  font-size: 14px !important;
-}
-
-.super-admin-light-root > * { font-family: Roboto, Inter, Arial, sans-serif; }
-.super-admin-light-root nav,
-.super-admin-light-root header { color: var(--text-gray); }
-.super-admin-light-root nav a,
-.super-admin-light-root header button,
-.super-admin-light-root header a {
+  color: var(--enterprise-blue);
   font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 20px;
   font-weight: 700;
 }
 
-@media (max-width: 900px) {
-  .super-admin-light-root main h1,
-  .super-admin-light-root main h2,
-  .super-admin-light-root main h3 { font-size: 20px !important; font-weight: 700 !important; }
-  .super-admin-light-root main th,
-  .super-admin-light-root main td { padding: var(--enterprise-padding) !important; }
+.super-admin-light-root main button,
+.super-admin-light-root main a[role="button"],
+.super-admin-light-root main .sa-button {
+  min-height: 40px;
+  padding: var(--enterprise-button-padding);
+  border-radius: var(--enterprise-radius);
+  background: var(--enterprise-white);
+  box-shadow: var(--enterprise-shadow);
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
 }
+
+.super-admin-light-root main table {
+  border-radius: var(--enterprise-radius);
+  background: var(--enterprise-white);
+  box-shadow: var(--enterprise-shadow);
+}
+.super-admin-light-root main th,
+.super-admin-light-root main td { padding: var(--enterprise-padding); }
+.super-admin-light-root main table button:not([data-pager-button]),
+.super-admin-light-root main table a { padding: var(--enterprise-table-action-padding); }
+.super-admin-light-root main button[data-pager-button] { padding: var(--enterprise-pager-padding); }
+.super-admin-light-root main [data-status-chip] {
+  padding: var(--enterprise-chip-padding);
+  border-radius: var(--enterprise-radius);
+  box-shadow: var(--enterprise-shadow);
+}
+.super-admin-light-root svg { width: 24px; height: 24px; }
 
 @media (prefers-reduced-motion: reduce) {
   .super-admin-light-root *,
@@ -295,5 +74,6 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

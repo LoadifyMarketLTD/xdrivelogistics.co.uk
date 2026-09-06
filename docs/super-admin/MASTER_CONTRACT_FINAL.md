@@ -1,223 +1,302 @@
-# XDrive Logistics — Super Admin MASTER CONTRACT FINAL
+# XDrive Logistics — MASTER CONTRACT FINAL v2 — SUPER ADMIN
 
-Status: FINAL contract for PR #505. This document is the normative source for the final Super Admin audit, shared-shell corrections and the exact enterprise navbar. Runtime code and contract checkers must agree with this document.
+Status: FINAL, integrated and non-interpretable contract for PR #505 and validation checker PR #509. Every Super Admin component, page, style, status, action and geometry MUST comply exactly. No approximation, implicit exception or responsive substitution is permitted.
 
-## 1. Command Centre KPI semantics
+## 0. SUPREME RULE
 
-Command Centre KPI cards are non-interactive information surfaces.
+Every component, every page, every style, every status, every action and every geometry MUST respect the exact values in this contract.
 
-- The loaded, loading and unavailable KPI states MUST render as enterprise `<div>` cards.
-- Command Centre KPI cards MUST NOT render as `<a>` or Next.js `<Link>`.
-- Navigation remains available through separately labelled controls such as `Full analytics`.
-- Navigational enterprise cards outside the Command Centre KPI surface remain permitted.
+## 1. DESIGN SYSTEM ENTERPRISE
 
-## 2. Source-compliance design values
+### 1.1 Radius
 
-Canonical Super Admin values are:
+`8px` everywhere: cards, panels, sections, tables and dialogs.
+
+### 1.2 Shadow
+
+`0px 2px 6px rgba(0,0,0,0.08)` everywhere on enterprise surfaces.
+
+### 1.3 Spacing
+
+- Enterprise container spacing: `24px`
+- Enterprise button spacing: `12px 18px`
+- StatusChip: `4px 10px`
+- Pager buttons: `0 14px`
+- Compact table actions: `0 12px`
+
+### 1.4 Typography
+
+- Titles: `Inter, 20px, 700`
+- Buttons: `Inter, 16px, 500`
+- Dropdown: `Inter, 14px, 400`
+
+### 1.5 Icons
+
+Icons are `24px` everywhere.
+
+### 1.6 Enterprise palette
 
 - Blue: `#1A73E8`
 - Green: `#34A853`
 - Yellow: `#FBBC05`
 - Red: `#EA4335`
 - Grey: `#8A9099`
-- White: `#FFFFFF`
-- Background: `#F5F7FA`
-- Text: `#4A4A4A`
-- Border: `#E0E3E7`
-- Radius: `8px`
-- Shadow: `0px 2px 6px rgba(0,0,0,0.08)`
-- Title: `Inter, 20px, 700`
-- Body/control text: `14px` unless an explicit surface amendment below specifies otherwise.
+- Background: `#FFFFFF`
 
-SOURCE COMPLIANCE applies to component-emitted style declarations and design tokens. A conflicting emitted value is non-compliant even when a later CSS layer overrides it at runtime.
+## 2. NAVBAR ENTERPRISE
 
-Legacy values appearing only inside compatibility-selector match expressions are not emitted design values and are not treated as a source-compliance violation.
+### 2.1 Behaviour
 
-## 3. Spacing contract and exact enterprise navbar amendment
+- MUST NOT contain a hamburger.
+- MUST NOT collapse.
+- MUST NOT use responsive hiding.
+- MUST be fixed and permanently visible.
+- MUST preserve every required item at insufficient viewport width by horizontal scrolling, never by hiding or collapsing controls.
+- Navbar contract CSS MUST NOT contain an `@media` rule.
 
-`24px` is the canonical internal padding for enterprise containers, cards, panels, sections, dialogs, alerts, table header cells and table body cells.
+### 2.2 Exact visible structure and order
 
-`24px` is NOT a universal padding value for compact interactive controls.
+`XDrive Logistics | Search platform... | Explore areas | Action Centre | Platform Overview | Platform Owner`
 
-Existing explicit compact exceptions remain:
-
-- Status chips/badges: `4px 10px`
-- Standard compact action/pager buttons: `0 14px`
-
-The standard compact action/pager rule applies outside the enterprise navbar. The enterprise navbar is an explicit final surface amendment and uses its own exact geometry below.
-
-### 3.1 Fundamental navbar rules
-
-- Navbar MUST be `fixed` and permanently visible.
-- Navbar MUST NOT contain a hamburger control.
-- Navbar MUST NOT contain a hidden navigation menu.
-- Navbar MUST NOT transform into a hamburger.
-- Navbar MUST NOT use responsive hiding.
-- Navbar MUST NOT shrink away primary navigation controls.
-- When viewport width is insufficient, the navbar MUST preserve its controls through horizontal scrolling rather than hiding them.
-- No navbar `@media` rule is permitted in the final master navbar CSS.
-
-### 3.2 Exact navbar order
-
-The visible order is exactly:
-
-`XDrive Logistics | Search platform… | Explore areas | Action Centre | Platform Overview | Platform Owner`
-
-Primary navigation routes are:
+Required destinations:
 
 - `Explore areas` → `/super-admin/directory`
 - `Action Centre` → `/super-admin/action-centre`
 - `Platform Overview` → `/super-admin/platform`
 
-### 3.3 Brand
+### 2.3 Geometry
 
-- Label: `XDrive Logistics`
-- Font: `Inter, 20px, 700`
-- Icon: `24px`
-- Navbar internal padding: `24px`
-
-### 3.4 Search
-
-- Full-width/flexible enterprise search surface.
-- Placeholder: `Search platform…`
-- Search icon: `24px`
-- Padding: `12px 18px`
+- Navbar padding: `24px`
+- Enterprise buttons: `12px 18px`
+- Icon spacing: `8px`
+- Icons: `24px`
 - Radius: `8px`
 - Shadow: `0px 2px 6px rgba(0,0,0,0.08)`
 
-### 3.5 Primary buttons
+### 2.4 Brand
 
-Visible buttons are exactly:
+- `XDrive Logistics`
+- `Inter, 20px, 700`
+- icon `24px`
+
+### 2.5 Search
+
+- placeholder exactly `Search platform...`
+- flexible/full-width enterprise search
+- search icon `24px`
+- padding `12px 18px`
+- radius `8px`
+- exact enterprise shadow
+
+### 2.6 Primary navigation buttons
+
+Exactly:
 
 1. `Explore areas`
 2. `Action Centre`
 3. `Platform Overview`
 
-Each uses:
+Typography: `Inter, 16px, 500`.
 
-- Padding: `12px 18px`
-- Radius: `8px`
-- Shadow: `0px 2px 6px rgba(0,0,0,0.08)`
-- Icon: `24px`
-- Icon spacing: `8px`
-- Font: `Inter, 16px, 500`
+### 2.7 User dropdown
 
-### 3.6 User dropdown
+Trigger: `Platform Owner`.
 
-The trigger is `Platform Owner`.
-
-The dropdown displays the account email and exactly these options:
+The account email is shown and the options are exactly:
 
 1. `Super Admin home`
 2. `Explore all areas`
 3. `Sign out`
 
-`Sign out` MUST invoke the existing authenticated logout behaviour; it MUST NOT invent a non-existent sign-out endpoint.
+`Sign out` uses `/auth/sign-out`, which invokes the existing authenticated logout implementation and does not introduce a second authentication mechanism.
 
-Dropdown typography is `Inter, 14px, 400`.
+Dropdown typography: `Inter, 14px, 400`.
 
-Optional right-aligned status indicators may be introduced only for truthful Platform health, Notifications or Live status state and must not replace or hide any required navbar element.
+## 3. DIRECTORY 3 × 3 FIX
 
-## 4. StatusChip and page allowlists
+- Exactly 3 columns × 3 rows for the nine canonical Super Admin groups.
+- No responsive breakpoint may alter the Directory grid.
+- Enterprise cards use the exact radius, shadow and container spacing.
+- Icons: `24px`.
+- Titles: `Inter, 20px, 700`.
 
-The generic `StatusChip` may render truthful domain statuses beyond the eight named master status semantics, but it may use only canonical palette colours.
+## 4. COMMAND CENTRE ENTERPRISE
 
-A page with an explicit displayed-status restriction MUST pass a page-specific allowlist to `StatusChip` and MUST fail closed for values outside that allowlist.
+- KPI cards are enterprise `<div>` information surfaces, never `<Link>`.
+- Exactly four KPI summary cards.
+- Required sections: `Critical attention`, `Operational queue`, `Administrative activity`.
 
-Required restricted surfaces:
+## 5. OPERATIONS CONTROL CENTRE
 
-- All Jobs: `posted`, `cancelled`, `delivered`
-- Driver Availability: `available`, `offline`
+- Exactly six enterprise KPI surfaces.
+- Live Operational Map covers UK + Ireland.
+- Quick Actions is present.
+- Live Feed contains the five canonical event types.
 
-The master semantic colour anchors remain:
+## 6. JOBS MANAGEMENT
 
-- AVAILABLE → green
-- OFFLINE → grey
-- POSTED → blue
-- CANCELLED → red
-- DELIVERED → green
-- READY → green
-- ATTENTION → yellow
-- CRITICAL → red
+- Operations Control Centre — Jobs Management Preview uses a fixed three-column preview grid showing 3–6 cards as data permits.
+- It MUST NOT collapse to a one-column responsive layout.
+- Visible actions: `View details`, `Assign driver`.
+- Assign remains non-mutating where no governed mutation exists.
+- All Jobs — Full Workspace remains a separate enterprise table.
 
-## 5. Vehicle Registry truth-preserving status
+## 7. DRIVERS CENTER
 
-Vehicle Registry MUST preserve canonical vehicle truth.
+- Layout is fixed `2×2` or `4×1`; current canonical implementation is two columns.
+- MUST NOT collapse to one column.
+- Visible actions: `View profile`, `Assign job`.
 
-- If canonical `is_available === true`, Status MUST render exactly `WAITING FOR NEXT JOB (AVAILABLE)`.
-- If canonical `current_status` is exactly `waiting for next job (available)` case-insensitively, Status MUST render exactly `WAITING FOR NEXT JOB (AVAILABLE)`.
+## 8. FLEET OVERVIEW
+
+- Fixed `4×1` layout.
+- Tail-lift, GPS and Health indicator are present.
+- Status is truth-preserving.
+- MUST NOT collapse to one column.
+
+## 9. VEHICLE REGISTRY
+
+- If canonical `is_available === true`, render exactly `WAITING FOR NEXT JOB (AVAILABLE)`.
+- If not available, render the real canonical status without invention.
 - A non-available vehicle MUST NOT be relabelled AVAILABLE.
-- Otherwise the UI MUST display canonical `current_status`, then canonical `status` as fallback.
-- If neither source contains a value, display `UNKNOWN`.
+- If no canonical status exists, fail closed as `UNKNOWN`.
 
-## 6. Support visible scope vs backend lifecycle
+## 10. DRIVER AVAILABILITY
 
-`SUPPORT VISIBLE CONTRACT` applies to the Super Admin Support Tickets presentation layer.
+Displayed status allowlist is exactly:
 
-Visible columns are exactly:
+- `AVAILABLE`
+- `OFFLINE`
 
-`Ticket ID | Company | Type | Severity | Status | Created`
+Values outside the allowlist fail closed.
 
-Visible actions are exactly:
+## 11. ACTIVE COMPANIES
 
-`Open | Assign | Resolve`
+Exact labels include:
 
-- `Assign` remains non-mutating while no canonical audited Assign mutation exists.
-- The visible Support Tickets UI MUST NOT expose `investigating`, `close` or `reopen` controls.
-- Backend storage may retain `subject`, `category`, `priority` and other internal governance fields.
+- `Company Name`
+- `Reg. Number`
+
+## 12. FINANCE ENTERPRISE
+
+Required surfaces:
+
+- Four enterprise KPI cards
+- `Weekly Earnings`
+- `Expense Breakdown`
+- `Top Clients`
+
+Finance remains truth-preserving. If an authoritative expense ledger or canonical client-ranking dataset is unavailable, the required panel remains visible and explicitly renders `Unavailable`; monetary values, expenses, profit or rankings are not fabricated.
+
+## 13. COMPLIANCE
+
+Exact titles:
+
+- `Insurance`
+- `Operator Licences`
+
+Exact visible actions:
+
+- `Review docs`
+- `Request update`
+
+No mutation is invented for `Request update`.
+
+## 14. SUPPORT
+
+- UI DTO remains deliberately clean.
+- Backend governance may be richer than the visible UI.
+- Visible actions are exactly `Open`, `Assign`, `Resolve`.
+- `Assign` remains visual-only while no canonical audited Assign mutation exists.
+- Visible UI MUST NOT expose `investigating`, `close` or `reopen` controls.
 - Backend governance may retain audited lifecycle actions `investigating`, `resolve`, `close`, `reopen`.
-- A richer backend lifecycle is not a UI-contract violation when those extra actions are not exposed by the visible Support Tickets surface.
 
-## 7. Platform navigation and `/super-admin/users`
+## 15. PLATFORM
 
-Platform governance destinations are exactly:
+Visible Platform governance navigation is exactly five pages:
 
-1. Global Settings
-2. Legal & Agreements
-3. Access Matrix
-4. Feature Flags
-5. Audit Logs
+1. `Global Settings`
+2. `Legal & Agreements`
+3. `Access Matrix`
+4. `Feature Flags`
+5. `Audit Logs`
 
-These are exposed from `Platform Overview` and the Super Admin Directory; they are not extra primary navbar buttons.
+The settings page title is exactly `Global Settings`.
 
-`All Users` and `Platform Admins` MUST NOT appear as visible Platform navigation destinations.
+Additional physical owner-protected routes may remain only when required by an existing canonical domain; they MUST NOT be promoted into Platform navigation without an explicit contract amendment.
 
-`Removed from nav` does NOT require physical deletion of owner-protected routes required by another canonical domain.
+`/super-admin/users` remains a legacy aggregation entry and redirects to `/super-admin/settings/roles-permissions`.
 
-- `/super-admin/users` is a legacy aggregation entry point and MUST redirect to `/super-admin/settings/roles-permissions`.
-- Access Matrix MUST NOT link to `/super-admin/users`.
-- `/super-admin/users/drivers` may remain because Drivers belongs to Fleet.
-- Other owner-protected user-role routes may remain physically present for control-plane inspection, but MUST NOT be promoted into Platform navigation without a contract amendment.
+## 16. STATUS PALETTE
 
-## 8. Jobs Management preview vs All Jobs workspace
+Canonical semantic statuses:
 
-These are two separate surfaces and MUST NOT be treated as interchangeable layout requirements.
+- `available`
+- `offline`
+- `posted`
+- `cancelled`
+- `delivered`
+- `ready`
+- `attention`
+- `critical`
 
-### Operations Control Centre — Jobs Management Preview
+Restricted pages MUST pass explicit allowlists and fail closed outside them.
 
-- Embedded in Operations Control Centre.
-- MUST use the fixed 3-column enterprise card grid.
-- MUST NOT collapse the grid through a responsive breakpoint.
-- Operational preview actions remain `View details` and non-mutating `Assign driver` where no governed mutation exists.
+## 17. LEGACY VALUES
 
-### All Jobs — Full Workspace
+- Legacy value removal is progressive across historical source.
+- Every touched/finalized surface MUST emit the v2 contract values.
+- Checker coverage MUST be extended with each finalized surface.
+- Compatibility-selector literals that only match historical markup are not emitted design values.
 
-Route: `/super-admin/operations/jobs`
+## 18. FORBIDDEN RESPONSIVE COLLAPSE
 
-- MUST use the enterprise table primitive.
-- Columns are exactly:
+The following layouts MUST NOT have responsive rules that collapse their canonical grids:
 
-`Route | Status | Posting company | Awarded company | Bids | Created`
+- Directory
+- Jobs Management preview
+- Drivers Center
+- Fleet Overview
 
-- Displayed statuses are restricted to `posted`, `cancelled`, `delivered` through the page allowlist.
+## 19. CHECKER CONTRACT — PR #509 VALIDATION VEHICLE
 
-## Final gate rule
+The checker verifies at minimum:
 
-A FINAL PASS requires all four dimensions to pass on the same HEAD:
+1. no hamburger implementation;
+2. brand presence;
+3. exact search placeholder;
+4. all three primary navbar buttons and exact destinations;
+5. Platform Owner dropdown and exact options;
+6. exact navbar geometry;
+7. no navbar collapse, responsive hiding or navbar `@media`;
+8. exact DOM/source order of required navbar elements;
+9. TSX parsing as an AST and absence of forbidden hamburger identifiers;
+10. Directory fixed 3×3 and no Directory breakpoint;
+11. Command Centre KPI `<div>` semantics and required sections;
+12. Operations Control Centre KPI/map/quick-actions/five-event contract;
+13. Jobs/Drivers/Fleet fixed layout and actions;
+14. vehicle status truth preservation;
+15. Driver Availability allowlist;
+16. Active Companies labels;
+17. Finance four KPI + Weekly Earnings + Expense Breakdown + Top Clients;
+18. Compliance titles/actions;
+19. Support DTO/actions/backend distinction;
+20. Platform five-page navigation and `Global Settings` title;
+21. exact v2 spacing, typography, icon, palette, radius and shadow tokens;
+22. release-gate inclusion for PR #505, #506 and validation PR #509.
 
-1. SOURCE COMPLIANCE
-2. RUNTIME COMPLIANCE
-3. CHECKER COMPLIANCE
-4. CONTRACT CONSISTENCY
+## 20. FINAL GATE / SELF-VERIFICATION
 
-A PASS does not authorize merge. PR #505 may be merged only after the explicit command `APROB MERGE #505`.
+A `100/100` or FINAL PASS may be declared only when the same exact HEAD has all of the following evidence:
+
+1. SOURCE COMPLIANCE — PASS
+2. CHECKER COMPLIANCE — PASS
+3. CONTRACT CONSISTENCY — PASS
+4. TypeScript/build release gate — PASS
+5. Canonical Netlify `netlify/xdrivelogistics/deploy-preview` — READY/SUCCESS with exact `commit_ref`
+6. RUNTIME COMPLIANCE — authenticated, read-only browser verification of the required Super Admin routes and navbar behaviour on that exact HEAD
+7. PR/HEAD COMPLIANCE — validation evidence refers to the exact current head and not an earlier deploy
+
+GitHub Actions are excluded from validation evidence.
+
+A PASS never authorizes merge. PR #505 may be merged only after the exact explicit command `APROB MERGE #505`. PR #509 is validation-only and MUST NEVER be merged.

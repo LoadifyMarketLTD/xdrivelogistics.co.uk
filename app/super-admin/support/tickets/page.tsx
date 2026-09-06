@@ -18,14 +18,15 @@ type Row = {
 
 const actionButtonStyle = {
   minHeight: '40px',
-  padding: '0 14px',
+  padding: '0 12px',
   borderRadius: '8px',
-  border: '1px solid #E0E3E7',
+  border: '1px solid #8A9099',
   background: '#FFFFFF',
   color: '#1A73E8',
-  fontFamily: 'Inter, Roboto, Arial, sans-serif',
-  fontSize: '14px',
-  fontWeight: 700,
+  boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
+  fontFamily: 'Inter, Arial, sans-serif',
+  fontSize: '16px',
+  fontWeight: 500,
 } as const;
 
 export default function Page() {
@@ -72,7 +73,7 @@ export default function Page() {
         label: 'Ticket ID',
         render: (row: Row) => (
           <div style={{ display: 'grid', gap: '24px' }}>
-            <code style={{ color: '#4A4A4A', fontSize: '14px' }}>{row.id}</code>
+            <code style={{ color: '#8A9099', fontSize: '14px' }}>{row.id}</code>
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               <PlatformEntityLink entityType="ticket" entityId={row.id} compact>Open</PlatformEntityLink>
               <button

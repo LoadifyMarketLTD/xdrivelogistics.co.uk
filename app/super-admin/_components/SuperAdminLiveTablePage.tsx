@@ -30,16 +30,11 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
 
 const X = {
   blue: '#1A73E8',
-  navy: '#1A73E8',
   green: '#34A853',
   yellow: '#FBBC05',
   red: '#EA4335',
+  grey: '#8A9099',
   white: '#FFFFFF',
-  charcoal: '#4A4A4A',
-  light: '#F5F7FA',
-  border: '#E0E3E7',
-  muted: '#4A4A4A',
-  danger: '#EA4335',
 } as const;
 
 const ENTERPRISE_SHADOW = '0px 2px 6px rgba(0,0,0,0.08)';
@@ -69,49 +64,49 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
   summary, rows, page, hasNextPage, totalCount, onPrevPage, onNextPage,
 }: SuperAdminLiveTableViewProps<T>) {
   const stableColumns = useMemo(() => columns, [columns]);
-  return <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '24px', fontFamily: 'Roboto, Inter, Arial, sans-serif', fontSize: '14px' }}>
-    <header style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-      <span aria-hidden="true" style={{ width: '24px', height: '24px', display: 'grid', placeItems: 'center', borderRadius: '8px', background: X.blue, color: X.white, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '16px', fontWeight: 700 }}>{icon}</span>
+  return <div style={{ minHeight: '100vh', background: X.white, color: X.grey, padding: '24px', fontFamily: 'Inter, Arial, sans-serif', fontSize: '14px' }}>
+    <header style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px', padding: '24px', borderRadius: '8px', background: X.white, boxShadow: ENTERPRISE_SHADOW }}>
+      <span aria-hidden="true" style={{ width: '24px', height: '24px', display: 'grid', placeItems: 'center', borderRadius: '8px', background: X.blue, color: X.white, boxShadow: ENTERPRISE_SHADOW, fontFamily: 'Inter, Arial, sans-serif', fontSize: '16px', fontWeight: 500 }}>{icon}</span>
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '20px', lineHeight: 1.2, fontWeight: 700 }}>{title}</h1>
-          <span style={{ padding: '4px 8px', borderRadius: '8px', background: X.light, color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '14px', fontWeight: 700, textTransform: 'uppercase' }}>{sectionLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', lineHeight: 1.2, fontWeight: 700 }}>{title}</h1>
+          <span style={{ padding: '4px 10px', borderRadius: '8px', background: X.white, color: X.grey, boxShadow: ENTERPRISE_SHADOW, fontFamily: 'Inter, Arial, sans-serif', fontSize: '14px', fontWeight: 400, textTransform: 'uppercase' }}>{sectionLabel}</span>
         </div>
-        <p style={{ margin: '6px 0 0', color: X.muted, fontSize: '14px' }}>{description}</p>
+        <p style={{ margin: '24px 0 0', color: X.grey, fontSize: '14px' }}>{description}</p>
       </div>
     </header>
 
     {error && <div role="alert" style={{ marginBottom: '24px', border: `1px solid ${X.red}`, borderLeft: `4px solid ${X.red}`, borderRadius: '8px', background: X.white, padding: '24px', boxShadow: ENTERPRISE_SHADOW }}>
-      <div style={{ color: X.red, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Service temporarily unavailable</div>
-      <div style={{ color: X.muted, fontSize: '14px', marginTop: '6px' }}>{error}</div>
+      <div style={{ color: X.red, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Service temporarily unavailable</div>
+      <div style={{ color: X.grey, fontSize: '14px', marginTop: '24px' }}>{error}</div>
     </div>}
 
-    {!loading && !error && notices.map((notice, index) => <div key={`${notice.kind}-${index}`} style={{ marginBottom: '24px', border: `1px solid ${notice.kind === 'diagnostic' ? X.yellow : X.blue}`, borderLeft: `4px solid ${notice.kind === 'diagnostic' ? X.yellow : X.blue}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.charcoal, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}>{notice.message}</div>)}
+    {!loading && !error && notices.map((notice, index) => <div key={`${notice.kind}-${index}`} style={{ marginBottom: '24px', border: `1px solid ${notice.kind === 'diagnostic' ? X.yellow : X.blue}`, borderLeft: `4px solid ${notice.kind === 'diagnostic' ? X.yellow : X.blue}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.grey, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}>{notice.message}</div>)}
 
-    {summary && !loading && !error && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '16px', marginBottom: '24px' }}>
-      {Object.entries(summary).slice(0, 6).map(([key, value]) => <div key={key} style={{ minHeight: '108px', background: X.white, border: `1px solid ${X.border}`, borderRadius: '8px', padding: '24px', boxShadow: ENTERPRISE_SHADOW }}>
-        <div style={{ color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>{formatSummaryValue(key, value)}</div>
-        <div style={{ marginTop: '10px', color: X.charcoal, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '14px', fontWeight: 700 }}>{key.replace(/_/g, ' ')}</div>
+    {summary && !loading && !error && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '24px', marginBottom: '24px' }}>
+      {Object.entries(summary).slice(0, 6).map(([key, value]) => <div key={key} style={{ minHeight: '108px', background: X.white, border: `1px solid ${X.grey}`, borderRadius: '8px', padding: '24px', boxShadow: ENTERPRISE_SHADOW }}>
+        <div style={{ color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>{formatSummaryValue(key, value)}</div>
+        <div style={{ marginTop: '24px', color: X.grey, fontFamily: 'Inter, Arial, sans-serif', fontSize: '14px', fontWeight: 400 }}>{key.replace(/_/g, ' ')}</div>
       </div>)}
     </div>}
 
-    {!error && <section style={{ border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, overflow: 'hidden', boxShadow: ENTERPRISE_SHADOW }}>
-      {loading ? <div style={{ padding: '24px', textAlign: 'center', color: X.muted, fontSize: '14px' }}>Loading…</div> : rows.length === 0 ? <div style={{ padding: '24px', textAlign: 'center', color: X.muted, fontSize: '14px' }}>{emptyMessage}</div> : <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '880px', fontSize: '14px' }}>
-          <thead><tr style={{ background: X.light, borderBottom: `1px solid ${X.border}` }}>
-            {stableColumns.map(column => <th key={column.key} style={{ padding: '24px', textAlign: 'left', color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '14px', fontWeight: 700 }}>{column.label}</th>)}
+    {!error && <section style={{ border: `1px solid ${X.grey}`, borderRadius: '8px', background: X.white, overflow: 'hidden', boxShadow: ENTERPRISE_SHADOW }}>
+      {loading ? <div style={{ padding: '24px', textAlign: 'center', color: X.grey, fontSize: '14px' }}>Loading…</div> : rows.length === 0 ? <div style={{ padding: '24px', textAlign: 'center', color: X.grey, fontSize: '14px' }}>{emptyMessage}</div> : <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '880px', fontSize: '14px', background: X.white, boxShadow: ENTERPRISE_SHADOW }}>
+          <thead><tr style={{ background: X.white, borderBottom: `1px solid ${X.grey}` }}>
+            {stableColumns.map(column => <th key={column.key} style={{ padding: '24px', textAlign: 'left', color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '14px', fontWeight: 400 }}>{column.label}</th>)}
           </tr></thead>
-          <tbody>{rows.map((row, rowIndex) => <tr key={String((row as { id?: string }).id ?? rowIndex)} style={{ borderBottom: `1px solid ${X.border}` }}>
-            {stableColumns.map(column => <td key={column.key} style={{ padding: '24px', color: X.charcoal, fontSize: '14px', lineHeight: 1.45, verticalAlign: 'top' }}>{column.render(row)}</td>)}
+          <tbody>{rows.map((row, rowIndex) => <tr key={String((row as { id?: string }).id ?? rowIndex)} style={{ borderBottom: `1px solid ${X.grey}` }}>
+            {stableColumns.map(column => <td key={column.key} style={{ padding: '24px', color: X.grey, fontSize: '14px', lineHeight: 1.45, verticalAlign: 'top' }}>{column.render(row)}</td>)}
           </tr>)}</tbody>
         </table>
       </div>}
 
-      {!loading && (page > 1 || hasNextPage) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '24px', borderTop: `1px solid ${X.border}`, background: X.light }}>
-        <span style={{ color: X.muted, fontSize: '14px' }}>Page {page}{totalCount !== null ? ` · ${totalCount.toLocaleString()} total` : ''}</span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={onPrevPage} disabled={page <= 1} style={pagerButton(page <= 1)}>← Prev</button>
-          <button onClick={onNextPage} disabled={!hasNextPage} style={pagerButton(!hasNextPage)}>Next →</button>
+      {!loading && (page > 1 || hasNextPage) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '24px', borderTop: `1px solid ${X.grey}`, background: X.white }}>
+        <span style={{ color: X.grey, fontSize: '14px' }}>Page {page}{totalCount !== null ? ` · ${totalCount.toLocaleString()} total` : ''}</span>
+        <div style={{ display: 'flex', gap: '24px' }}>
+          <button data-pager-button="true" onClick={onPrevPage} disabled={page <= 1} style={pagerButton(page <= 1)}>← Prev</button>
+          <button data-pager-button="true" onClick={onNextPage} disabled={!hasNextPage} style={pagerButton(!hasNextPage)}>Next →</button>
         </div>
       </div>}
     </section>}
@@ -126,7 +121,20 @@ function formatSummaryValue(key: string, value: unknown) {
   return value.toLocaleString();
 }
 
-const pagerButton = (disabled: boolean) => ({ minHeight: '40px', padding: '0 14px', borderRadius: '8px', border: `1px solid ${X.border}`, background: disabled ? X.light : X.white, color: disabled ? X.charcoal : X.blue, opacity: disabled ? .55 : 1, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '14px', fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer' } as const);
+const pagerButton = (disabled: boolean) => ({
+  minHeight: '40px',
+  padding: '0 14px',
+  borderRadius: '8px',
+  border: `1px solid ${X.grey}`,
+  background: X.white,
+  color: disabled ? X.grey : X.blue,
+  opacity: disabled ? .55 : 1,
+  boxShadow: ENTERPRISE_SHADOW,
+  fontFamily: 'Inter, Arial, sans-serif',
+  fontSize: '16px',
+  fontWeight: 500,
+  cursor: disabled ? 'not-allowed' : 'pointer',
+} as const);
 
 export default function SuperAdminLiveTablePage<T extends Record<string, unknown>>({
   icon, title, sectionLabel, description, endpoint, rowsField = 'rows', summaryField, noteField,
@@ -161,8 +169,11 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
           setSummary(value && typeof value === 'object' ? value as Record<string, unknown> : null);
         }
         setNotices(readLiveTableNotices(body as Record<string, unknown>, noteField, diagnosticField));
-      } catch { setError('The requested service is currently unavailable.'); }
-      finally { setLoading(false); }
+      } catch {
+        setError('The requested service is currently unavailable.');
+      } finally {
+        setLoading(false);
+      }
     };
     void run();
   }, [endpoint, rowsField, summaryField, noteField, diagnosticField, page, pageSize, refreshKey]);

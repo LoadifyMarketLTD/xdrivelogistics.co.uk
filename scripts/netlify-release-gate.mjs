@@ -22,7 +22,7 @@ const isSuperAdminHomePreview =
   process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '504';
 const isSuperAdminControlPlanePreview =
   process.env.CONTEXT === 'deploy-preview' &&
-  ['505', '506'].includes(process.env.REVIEW_ID ?? '');
+  ['505', '506', '509'].includes(process.env.REVIEW_ID ?? '');
 
 const legalLintTargets = [
   '__tests__/legalAgreementState.test.ts',
@@ -82,6 +82,7 @@ const superAdminHomeUnitTests = [
 const superAdminControlPlaneLintTargets = [
   '__tests__/invoiceStatusCanonical.test.ts',
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminMasterV2Contract.test.ts',
   '__tests__/superAdminNavbarContract.test.ts',
   '__tests__/superAdminPlatformHealth.test.ts',
   '__tests__/superAdminVisualContract.test.ts',
@@ -115,6 +116,7 @@ const superAdminControlPlaneLintTargets = [
   'app/api/super-admin/xdrive-logistics/enquiries/route.ts',
   'app/api/super-admin/xdrive-logistics/jobs/route.ts',
   'app/api/super-admin/xdrive-logistics/marketplace/route.ts',
+  'app/auth/sign-out/page.tsx',
   'app/super-admin/_components/SuperAdminLiveTablePage.tsx',
   'app/super-admin/_components/SuperAdminNavbar.tsx',
   'app/super-admin/_components/SuperAdminOperationalMap.tsx',
@@ -154,6 +156,7 @@ const superAdminControlPlaneLintTargets = [
 
 const superAdminControlPlaneUnitTests = [
   '__tests__/superAdminControlPlaneCompleteness.test.ts',
+  '__tests__/superAdminMasterV2Contract.test.ts',
   '__tests__/superAdminNavbarContract.test.ts',
   '__tests__/superAdminPlatformHealth.test.ts',
   '__tests__/superAdminVisualContract.test.ts',
@@ -187,9 +190,9 @@ if (isSuperAdminHomePreview) {
 }
 
 if (isSuperAdminControlPlanePreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR505_506_SUPER_ADMIN_CONTROL_PLANE_LINT');
+  console.log('NETLIFY_RELEASE_GATE=PR505_506_509_SUPER_ADMIN_CONTROL_PLANE_LINT');
   run(npmCommand, ['exec', '--', 'eslint', ...superAdminControlPlaneLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR505_506_SUPER_ADMIN_CONTROL_PLANE_TESTS');
+  console.log('NETLIFY_RELEASE_GATE=PR505_506_509_SUPER_ADMIN_CONTROL_PLANE_TESTS');
   run(npmCommand, ['run', 'test:unit', '--', ...superAdminControlPlaneUnitTests]);
 }
 

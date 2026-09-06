@@ -1,8 +1,23 @@
-/* XDrive Logistics LTD — MASTER CONTRACT FINAL — Super Admin
- * Final runtime visual layer loaded after the earlier Super Admin layers.
+/* XDrive Logistics LTD — MASTER CONTRACT FINAL v2 — Super Admin
+ * Normative runtime layer. Loaded last for every /super-admin route.
  */
 
 .super-admin-light-root {
+  --sa-v2-radius: 8px;
+  --sa-v2-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+  --sa-v2-container: 24px;
+  --sa-v2-button: 12px 18px;
+  --sa-v2-chip: 4px 10px;
+  --sa-v2-pager: 0 14px;
+  --sa-v2-table-action: 0 12px;
+  --sa-v2-blue: #1A73E8;
+  --sa-v2-green: #34A853;
+  --sa-v2-yellow: #FBBC05;
+  --sa-v2-red: #EA4335;
+  --sa-v2-grey: #8A9099;
+  --sa-v2-white: #FFFFFF;
+
+  /* v1 compatibility aliases retained only for earlier checker/source consumers. */
   --sa-master-radius: 8px;
   --sa-master-shadow: 0px 2px 6px rgba(0,0,0,0.08);
   --sa-master-padding: 24px;
@@ -13,10 +28,18 @@
   --sa-master-yellow: #FBBC05;
   --sa-master-red: #EA4335;
   --sa-master-grey: #8A9099;
-  --sa-master-border: #E0E3E7;
+  --sa-master-border: #8A9099;
   --sa-master-white: #FFFFFF;
-  --sa-master-bg: #F5F7FA;
-  --sa-master-text: #4A4A4A;
+  --sa-master-bg: #FFFFFF;
+  --sa-master-text: #8A9099;
+
+  background: var(--sa-v2-white) !important;
+  color: var(--sa-v2-grey) !important;
+}
+
+.super-admin-light-root svg {
+  width: 24px !important;
+  height: 24px !important;
 }
 
 .super-admin-light-root main h1,
@@ -28,65 +51,94 @@
   line-height: 1.25 !important;
 }
 
+.super-admin-light-root main section,
+.super-admin-light-root main article,
+.super-admin-light-root main aside,
+.super-admin-light-root main form[style*="border"],
+.super-admin-light-root main [data-card],
+.super-admin-light-root main [data-panel],
+.super-admin-light-root main [role="dialog"],
+.super-admin-light-root main [role="alert"],
+.super-admin-light-root main table {
+  border-radius: var(--sa-v2-radius) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
+  background: var(--sa-v2-white) !important;
+}
+
 .super-admin-light-root main section[style*="border"],
 .super-admin-light-root main article[style*="border"],
 .super-admin-light-root main aside[style*="border"],
 .super-admin-light-root main form[style*="border"],
 .super-admin-light-root main div[style*="border"][style*="background"],
 .super-admin-light-root main [data-card],
-.super-admin-light-root main [data-panel] {
-  padding: var(--sa-master-padding) !important;
-  border-radius: var(--sa-master-radius) !important;
-  box-shadow: var(--sa-master-shadow) !important;
+.super-admin-light-root main [data-panel],
+.super-admin-light-root main [role="dialog"] > div,
+.super-admin-light-root main [role="dialog"] aside,
+.super-admin-light-root main [role="alert"] {
+  padding: var(--sa-v2-container) !important;
+  border-radius: var(--sa-v2-radius) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
 }
 
-.super-admin-light-root main a[data-card],
-.super-admin-light-root main a[style*="min-height: 88px"][style*="border"],
-.super-admin-light-root main a[style*="min-height:88px"][style*="border"] {
-  padding: var(--sa-master-padding) !important;
-  border-radius: var(--sa-master-radius) !important;
-  box-shadow: var(--sa-master-shadow) !important;
-}
-
-.super-admin-light-root main .sa-button {
-  min-height: 40px;
-  padding: var(--sa-master-control-padding) !important;
-  border-radius: var(--sa-master-radius) !important;
-}
-
-.super-admin-light-root main table {
-  border-radius: var(--sa-master-radius) !important;
-  box-shadow: var(--sa-master-shadow) !important;
-}
 .super-admin-light-root main th,
 .super-admin-light-root main td {
-  padding: var(--sa-master-padding) !important;
+  padding: var(--sa-v2-container) !important;
 }
 
 .super-admin-light-root main [style*="border-radius"] {
-  border-radius: var(--sa-master-radius) !important;
+  border-radius: var(--sa-v2-radius) !important;
 }
+
 .super-admin-light-root main [style*="box-shadow"] {
-  box-shadow: var(--sa-master-shadow) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
+}
+
+.super-admin-light-root main button,
+.super-admin-light-root main a[role="button"],
+.super-admin-light-root main .sa-button {
+  min-height: 40px;
+  padding: var(--sa-v2-button) !important;
+  border-radius: var(--sa-v2-radius) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+.super-admin-light-root main table button:not([data-pager-button]),
+.super-admin-light-root main table a {
+  padding: var(--sa-v2-table-action) !important;
+  border-radius: var(--sa-v2-radius) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
+  font-family: Inter, Roboto, Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+.super-admin-light-root main button[data-pager-button] {
+  padding: var(--sa-v2-pager) !important;
+  border-radius: var(--sa-v2-radius) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
 }
 
 .super-admin-light-root main [data-status-chip] {
-  padding: var(--sa-master-chip-padding) !important;
-  border-radius: var(--sa-master-radius) !important;
+  padding: var(--sa-v2-chip) !important;
+  border-radius: var(--sa-v2-radius) !important;
+  box-shadow: var(--sa-v2-shadow) !important;
 }
 
 .super-admin-light-root {
-  --status-available: var(--sa-master-green);
-  --status-offline: var(--sa-master-grey);
-  --status-posted: var(--sa-master-blue);
-  --status-cancelled: var(--sa-master-red);
-  --status-delivered: var(--sa-master-green);
-  --status-ready: var(--sa-master-green);
-  --status-attention: var(--sa-master-yellow);
-  --status-critical: var(--sa-master-red);
+  --status-available: var(--sa-v2-green);
+  --status-offline: var(--sa-v2-grey);
+  --status-posted: var(--sa-v2-blue);
+  --status-cancelled: var(--sa-v2-red);
+  --status-delivered: var(--sa-v2-green);
+  --status-ready: var(--sa-v2-green);
+  --status-attention: var(--sa-v2-yellow);
+  --status-critical: var(--sa-v2-red);
 }
 
-/* Exact enterprise navbar. It is permanently visible and horizontally scrollable when viewport width is insufficient. */
+/* NAVBAR ENTERPRISE v2 — fixed, permanent, no hidden/collapsed navigation. */
 .sa-navbar {
   position: fixed;
   top: 0;
@@ -117,10 +169,10 @@
 }
 .sa-brand svg { width: 24px; height: 24px; }
 .sa-brand-title {
+  color: #1A73E8;
   font-family: Inter, Roboto, Arial, sans-serif;
   font-size: 20px;
   font-weight: 700;
-  color: #4A4A4A;
 }
 
 .sa-search {
@@ -130,7 +182,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 18px;
-  border: 1px solid #E0E3E7;
+  border: 1px solid #8A9099;
   border-radius: 8px;
   background: #FFFFFF;
   box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
@@ -142,8 +194,8 @@
   min-width: 0;
   border: 0;
   outline: 0;
-  background: transparent;
-  color: #4A4A4A;
+  background: #FFFFFF;
+  color: #8A9099;
   font-family: Inter, Roboto, Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -165,10 +217,10 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 18px;
-  border: 1px solid #E0E3E7;
+  border: 1px solid #8A9099;
   border-radius: 8px;
   background: #FFFFFF;
-  color: #4A4A4A;
+  color: #1A73E8;
   box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
   font-family: Inter, Roboto, Arial, sans-serif;
   font-size: 16px;
@@ -180,7 +232,7 @@
 .sa-primary-button svg,
 .sa-user-button svg { width: 24px; height: 24px; }
 .sa-primary-button:hover,
-.sa-user-button:hover { border-color: #1A73E8; color: #1A73E8; }
+.sa-user-button:hover { border-color: #1A73E8; }
 .sa-primary-button[href="/super-admin/action-centre"] svg { color: #FBBC05; }
 
 .sa-user-wrap { position: relative; flex: 0 0 auto; }
@@ -191,31 +243,45 @@
   z-index: 340;
   width: 280px;
   padding: 24px;
-  border: 1px solid #E0E3E7;
+  border: 1px solid #8A9099;
   border-radius: 8px;
   background: #FFFFFF;
   box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+  color: #8A9099;
   font-family: Inter, Roboto, Arial, sans-serif;
   font-size: 14px;
   font-weight: 400;
   white-space: normal;
 }
-.sa-user-menu-header { padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid #E0E3E7; }
-.sa-user-menu-header strong { display: block; color: #4A4A4A; font-size: 14px; font-weight: 700; }
-.sa-user-menu-header span { display: block; margin-top: 4px; overflow-wrap: anywhere; color: #8A9099; font-size: 14px; font-weight: 400; }
+.sa-user-menu-header {
+  padding: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #8A9099;
+  border-radius: 8px;
+  box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+}
+.sa-user-menu-header strong,
+.sa-user-menu-header span {
+  display: block;
+  color: #8A9099;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+}
+.sa-user-menu-header span { margin-top: 8px; overflow-wrap: anywhere; }
 .sa-user-menu a,
 .sa-user-menu button {
   width: 100%;
+  min-height: 40px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  min-height: 40px;
   padding: 12px 18px;
-  border: 0;
+  border: 1px solid #8A9099;
   border-radius: 8px;
   background: #FFFFFF;
-  color: #4A4A4A;
-  box-shadow: none;
+  color: #1A73E8;
+  box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
   text-decoration: none;
   text-align: left;
   font-family: Inter, Roboto, Arial, sans-serif;
@@ -223,9 +289,8 @@
   font-weight: 400;
   cursor: pointer;
 }
+.sa-user-menu a + a,
+.sa-user-menu a + button { margin-top: 8px; }
 .sa-user-menu a:hover,
-.sa-user-menu button:hover { background: #F5F7FA; color: #1A73E8; }
-.sa-user-menu button:last-child { color: #EA4335; }
-
-/* Directory, Jobs Management preview, Drivers Center and Fleet Overview remain fixed layouts.
- * All Jobs is a separate full-workspace enterprise table and is not the cockpit preview. */
+.sa-user-menu button:hover { border-color: #1A73E8; }
+.sa-user-menu a[href="/auth/sign-out"] { color: #EA4335; }
