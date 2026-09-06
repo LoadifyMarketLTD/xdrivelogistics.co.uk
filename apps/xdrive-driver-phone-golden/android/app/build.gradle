@@ -23,7 +23,7 @@ react {
     /* Folders */
      //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
-    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
+    //   The folder where the React Native NPM package is. Default is ../../node_modules/react-native
     // reactNativeDir = file("../../node_modules/react-native")
     //   The folder where the Codegen package is. Default is ../../node_modules/@react-native/codegen
     // codegenDir = file("../../node_modules/@react-native/codegen")
@@ -55,7 +55,7 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  */
-def jscFlavor = 'io.github.react-native-community:jsc-android-intl:2026004.+'
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 def sideBySidePreview = (System.getenv('XDRIVE_SIDE_BY_SIDE_PREVIEW') ?: 'false').toBoolean()
 def driverApplicationId = sideBySidePreview ? 'co.uk.xdrivelogistics.driver.preview' : 'co.uk.xdrivelogistics.driver'
 def driverScheme = sideBySidePreview ? 'xdrivedriver-preview' : 'xdrivedriver'
