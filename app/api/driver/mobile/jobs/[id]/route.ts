@@ -24,6 +24,8 @@ type JobStopRow = {
   window_end: string | null;
   instructions: string | null;
   status: string | null;
+  arrived_at: string | null;
+  completed_at: string | null;
 };
 
 function text(value: unknown) {
@@ -49,6 +51,9 @@ function record(value: unknown): DataRow | null {
 }
 
 function parseLoadDetails(raw: unknown) {
+  const structured = record(raw);
+  if (structured) return { parsed: structured, rawText: null as string | null };
+
   const source = text(raw);
   if (!source) return { parsed: null as DataRow | null, rawText: null as string | null };
   try {
@@ -72,6 +77,8 @@ function mapStop(stop: JobStopRow) {
     timeWindowFrom: stop.window_start || undefined,
     timeWindowTo: stop.window_end || undefined,
     status: stop.status || 'pending',
+    arrivedAt: stop.arrived_at || undefined,
+    completedAt: stop.completed_at || undefined,
     notes: stop.instructions || undefined,
   };
 }
@@ -110,6 +117,7 @@ function normalizeHistory(raw: unknown) {
       message: text(entry.notes ?? entry.note ?? entry.message),
       createdAt: text(entry.timestamp ?? entry.created_at ?? entry.event_time),
       source: text(entry.source),
+      meta: record(entry.meta),
     }))
     .filter((entry) => entry.createdAt);
 }
@@ -128,24 +136,30 @@ function legacyStops(job: DataRow, mapped: ReturnType<typeof mapJob>, parsed: Da
       type: 'collection',
       address: [text(job.pickup_location), text(job.pickup_postcode)].filter(Boolean).join(', ') || mapped.pickupLocation,
       postcode: text(job.pickup_postcode) || undefined,
+      company: text(collection?.companyName) || undefined,
       contactPerson: collectionContactName || undefined,
       telephone: collectionContactPhone || undefined,
       timeWindowFrom: text(job.pickup_datetime) ?? text(job.collection_window_start) ?? mapped.pickupTime,
       timeWindowTo: text(job.collection_window_end) || undefined,
       notes: text(job.collection_notes) ?? text(collection?.instructions) ?? undefined,
       status: 'pending',
+      arrivedAt: text(job.on_site_pickup_at) || undefined,
+      completedAt: text(job.loaded_at) || undefined,
     },
     {
       sequence: 2,
       type: 'delivery',
       address: [text(job.delivery_location), text(job.delivery_postcode)].filter(Boolean).join(', ') || mapped.deliveryLocation,
       postcode: text(job.delivery_postcode) || undefined,
+      company: text(delivery?.companyName) || undefined,
       contactPerson: deliveryContactName || undefined,
       telephone: deliveryContactPhone || undefined,
       timeWindowFrom: text(job.delivery_datetime) ?? text(job.delivery_window_start) ?? mapped.deliveryTime,
       timeWindowTo: text(job.delivery_window_end) || undefined,
       notes: text(job.delivery_notes) ?? text(delivery?.instructions) ?? undefined,
       status: 'pending',
+      arrivedAt: text(job.on_site_delivery_at) || undefined,
+      completedAt: text(job.delivered_at) ?? text(job.completed_at) ?? undefined,
     },
   ];
 }
@@ -215,7 +229,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin
       .from('job_stops')
-      .select('id,sequence,stop_type,address,postcode,company_name,contact_name,contact_phone,window_start,window_end,instructions,status')
+      .select('id,sequence,stop_type,address,postcode,company_name,contact_name,contact_phone,window_start,window_end,instructions,status,arrived_at,completed_at')
       .eq('job_id', id)
       .order('sequence', { ascending: true }),
   ]);
@@ -236,6 +250,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? numberValue(acceptedBid.bid_price_gbp)
     ?? numberValue(acceptedBid.amount)
     ?? null;
+  const acceptedGross = numberValue(agreement.agreed_gross_amount);
+  const vatRate = numberValue(agreement.vat_rate);
+  const vatAmount = numberValue(agreement.vat_amount);
   const currency = text(agreement.currency) ?? text(job.currency) ?? text(acceptedBid.currency) ?? 'GBP';
   const paymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
   const paymentDueDays = numberValue(agreement.payment_due_days);
@@ -243,17 +260,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? text(agreement.agreed_at)
     ?? text(acceptedBid.updated_at)
     ?? text(acceptedBid.created_at);
+  const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required);
+  const hardCopyPod = text(job.hard_copy_pod)
+    ?? (podRequired === true
+      ? 'POD required; hard-copy requirement not separately supplied'
+      : podRequired === false
+        ? 'Not required'
+        : null);
 
   const postingCompanyName = text(company.name) ?? text(job.booked_by_company_name) ?? 'Marketplace member';
-  const postingCompanyMemberCode = text(company.company_number);
-  const postingCompanyPhone = text(company.phone);
+  const postingCompanyMemberCode = text(company.company_number) ?? text(job.booked_by_company_ref);
+  const postingCompanyPhone = text(company.phone) ?? text(job.booked_by_phone);
 
-  const customerReference = text(job.customer_reference) ?? text(references?.customerReference);
+  const customerReference = text(job.customer_reference)
+    ?? text(job.customer_ref)
+    ?? text(job.cust_ref)
+    ?? text(references?.customerReference);
   const purchaseOrderNumber = text(job.purchase_order_number) ?? text(references?.purchaseOrderNumber);
-  const bookingReference = text(job.booking_reference) ?? text(references?.bookingReference);
+  const bookingReference = text(job.booking_reference)
+    ?? text(job.your_ref)
+    ?? text(references?.bookingReference);
 
   const cargo = {
-    type: text(job.requested_cargo_label) ?? text(parsed?.requestedCargo) ?? text(job.cargo_type),
+    type: text(job.requested_cargo_label) ?? text(parsed?.cargo) ?? text(parsed?.requestedCargo) ?? text(job.cargo_type),
     weightKg: numberValue(job.weight_kg),
     pallets: numberValue(job.pallets) ?? numberValue(palletDetails?.count),
     palletType: text(job.pallet_type) ?? text(palletDetails?.type),
@@ -262,19 +291,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     widthCm: numberValue(job.width_cm) ?? numberValue(dimensions?.width),
     heightCm: numberValue(job.height_cm) ?? numberValue(dimensions?.height),
     cargoValueGbp: numberValue(job.cargo_value_gbp) ?? numberValue(parsed?.cargoValueGbp),
+    packaging: text(job.packaging),
+    itemCount: numberValue(job.no_of_items) ?? numberValue(job.items) ?? numberValue(job.boxes) ?? numberValue(job.bags),
   };
 
-  const requestedVehicle = text(job.requested_vehicle_label) ?? text(parsed?.requestedVehicle) ?? text(job.requested_vehicle_type) ?? text(job.vehicle_type);
+  const requestedVehicle = text(job.requested_vehicle_label)
+    ?? text(parsed?.vehicle)
+    ?? text(parsed?.requestedVehicle)
+    ?? text(job.requested_vehicle_type)
+    ?? text(job.vehicle_type);
   const allocatedVehicle = {
     id: vehicleId,
-    registration: vehicleId ? text(vehicle.reg_plate) ?? text(job.vehicle_ref) : null,
-    type: vehicleId ? text(vehicle.type) ?? text(job.vehicle_type) : null,
+    registration: vehicleId ? text(vehicle.reg_plate) ?? text(vehicle.registration) ?? text(vehicle.reg) ?? text(job.vehicle_ref) : null,
+    type: vehicleId ? text(vehicle.type) ?? text(vehicle.vehicle_type) ?? text(job.vehicle_type) : null,
     bodyType: vehicleId ? text(vehicle.body_type) : null,
     make: vehicleId ? text(vehicle.make) : null,
     model: vehicleId ? text(vehicle.model) : null,
-    payloadKg: vehicleId ? numberValue(vehicle.payload_kg) : null,
+    payloadKg: vehicleId ? numberValue(vehicle.payload_kg) ?? numberValue(vehicle.capacity_kg) : null,
     palletsCapacity: vehicleId ? numberValue(vehicle.pallets_capacity) : null,
     hasTailLift: vehicleId ? boolValue(vehicle.has_tail_lift) : null,
+    equipment: vehicleId && Array.isArray(vehicle.equipment) ? vehicle.equipment : [],
   };
 
   const requirements = requirementFlags(job, parsed, vehicle);
@@ -298,6 +334,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     id: text(entry.id),
     type: text(entry.doc_type) ?? text(entry.file_type) ?? 'Document',
     fileName: text(entry.file_name) ?? text(entry.name),
+    mimeType: text(entry.mime_type),
+    fileSizeBytes: numberValue(entry.file_size_bytes),
     filePath: text(entry.file_path) ?? text(entry.file_url),
     createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
@@ -305,20 +343,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const trackingTimeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: DataRow) => ({
     id: text(entry.id),
     eventType: text(entry.event_type) ?? 'update',
-    message: text(entry.message) ?? text(entry.note),
+    message: text(entry.message) ?? text(entry.notes) ?? text(entry.note),
     createdAt: text(entry.created_at) ?? text(entry.event_time),
     source: 'server',
+    meta: record(entry.meta),
   }));
   const auditTrail = trackingTimeline.length > 0 ? trackingTimeline : normalizeHistory(job.status_history);
 
   const deliveryPhotos = Array.isArray(job.delivery_photos) ? job.delivery_photos : [];
   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : [];
+  const pickupPhotos = Array.isArray(job.pickup_photos) ? job.pickup_photos : [];
   const podCompleted = hasPod(row);
   const pod = {
     completed: podCompleted,
+    required: podRequired,
+    hardCopyRequirement: hardCopyPod,
     generated: boolValue(job.pod_generated),
     generatedAt: text(job.pod_generated_at),
-    collectionPhotoRecorded: Boolean(text(job.collection_photo_url)),
+    collectionPhotoRecorded: Boolean(text(job.collection_photo_url)) || pickupPhotos.length > 0,
+    collectionPhotoCount: Math.max(Boolean(text(job.collection_photo_url)) ? 1 : 0, pickupPhotos.length),
     deliveryPhotoCount: Math.max(deliveryPhotos.length, podPhotos.length),
     receiverName: text(job.client_signature_name),
     signatureRecorded: Boolean(job.delivery_signature_data || text(job.pod_signature_url)),
@@ -342,12 +385,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       postingCompanyMemberCode: postingCompanyMemberCode || undefined,
       postingCompanyPhone: postingCompanyPhone || undefined,
       customerName: text(job.client_name) || undefined,
+      customerPhone: text(job.client_phone) || undefined,
       customerReference: customerReference || undefined,
       purchaseOrderNumber: purchaseOrderNumber || undefined,
       bookingReference: bookingReference || undefined,
       privateDetailsRevealed: true,
       fullWorkOrder: true,
+      bookedAt: bookedAt || undefined,
       stops,
+      pickup: {
+        address: text(job.pickup_location),
+        postcode: text(job.pickup_postcode),
+        dateTime: text(job.pickup_datetime) ?? text(job.collection_window_start),
+        slot: text(job.pickup_time_slot) ?? text(job.pickup_time_window),
+        windowEnd: text(job.collection_window_end),
+        contactName: text(job.collection_contact_name) ?? text(collection?.contactName),
+        contactPhone: text(job.collection_contact_phone) ?? text(collection?.contactPhone),
+        notes: text(job.collection_notes) ?? text(collection?.instructions),
+      },
+      delivery: {
+        address: text(job.delivery_location),
+        postcode: text(job.delivery_postcode),
+        dateTime: text(job.delivery_datetime) ?? text(job.delivery_window_start),
+        slot: text(job.delivery_time_slot) ?? text(job.delivery_time_window),
+        windowEnd: text(job.delivery_window_end),
+        contactName: text(job.delivery_contact_name) ?? text(delivery?.contactName),
+        contactPhone: text(job.delivery_contact_phone) ?? text(delivery?.contactPhone),
+        notes: text(job.delivery_notes) ?? text(delivery?.instructions),
+      },
       requestedVehicle: requestedVehicle || undefined,
       allocatedVehicle,
       cargo,
@@ -356,6 +421,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       commercial: {
         bookedAt,
         agreedRate: acceptedRate,
+        agreedGross: acceptedGross,
+        vatRate,
+        vatAmount,
         currency,
         paymentTerms,
         paymentDueDays,
@@ -367,6 +435,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         collectionNotes: text(job.collection_notes) ?? text(collection?.instructions),
         deliveryNotes: text(job.delivery_notes) ?? text(delivery?.instructions),
         driverNotes: text(job.driver_notes),
+        cancellationReason: text(job.cancellation_reason),
+      },
+      lifecycle: {
+        onMyWayAt: text(job.on_my_way_at),
+        onSitePickupAt: text(job.on_site_pickup_at),
+        loadedAt: text(job.loaded_at),
+        onSiteDeliveryAt: text(job.on_site_delivery_at),
+        deliveredAt: text(job.delivered_at) ?? text(job.completed_at),
+        statusUpdatedAt: text(job.status_updated_at),
       },
       specialInstructions: specialInstructions || undefined,
       attachments: documents,
@@ -374,6 +451,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       auditTrail,
       pod,
       podCompleted,
+      podRequired,
+      hardCopyPod,
       distanceMiles: numberValue(job.job_distance_miles) ?? numberValue(job.distance_miles),
       etaMinutes: numberValue(job.job_distance_minutes),
       partial,
