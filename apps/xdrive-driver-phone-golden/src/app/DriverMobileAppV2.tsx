@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Network from 'expo-network';
+import * as Notifications from 'expo-notifications';
 import SignatureCanvas from 'react-native-signature-canvas';
 
 import { apiRequest } from '../api/client';
@@ -29,7 +30,6 @@ import {
   type DriverProfileResource,
 } from '../api/resources';
 import {
-  fetchActiveQuotedJobIds,
   fetchLiveLoads,
   submitLiveLoadQuote,
   type LiveLoad,
@@ -40,7 +40,9 @@ import { loadMarketplacePreferences, saveMarketplacePreferences, type Marketplac
 import { getNextStep, statusFlow } from '../jobs/statusFlow';
 import type { CanonicalJobStatus, DriverJob } from '../jobs/types';
 import { enqueueAction, getQueue, isOnline, saveQueue, updateQueueItem, type QueuedAction } from '../offline/queue';
+import { parseDriverDeepLink, targetFromNotificationData, type DriverDeepLinkTarget } from '../push/driverDeepLinks';
 import { registerPushToken } from '../push/registerPushToken';
+import { classifyTrackingError, publishCurrentDriverLocation, type DriverTrackingState } from '../tracking/nativeLocation';
 import { colors, spacing } from '../ui/theme';
 
 type PrimaryTab = 'home' | 'alerts' | 'quotes' | 'bookings' | 'more';
@@ -179,12 +181,17 @@ export default function DriverMobileAppV2() {
   const [podSignature, setPodSignature] = useState('');
   const [podPhotoUri, setPodPhotoUri] = useState('');
   const [podNotes, setPodNotes] = useState('');
+  const [trackingState, setTrackingState] = useState<DriverTrackingState>('standby');
   const signatureRef = useRef<any>(null);
+  const initialIntentHandledRef = useRef(false);
+  const trackingBusyRef = useRef(false);
 
   const currentJobs = useMemo(() => {
     const merged = [...upcomingJobs, ...activeJobs];
     return [...new Map(merged.map((job) => [job.id, job])).values()];
   }, [activeJobs, upcomingJobs]);
+
+  const trackingJob = useMemo(() => currentJobs.find((job) => job.status !== 'delivered') ?? null, [currentJobs]);
 
   const refreshLiveLoads = useCallback(async () => {
     setLiveBusy(true);
@@ -193,16 +200,7 @@ export default function DriverMobileAppV2() {
         destinationMode: preferences.destinationPriorityEnabled,
         radiusMiles: preferences.destinationRadiusMiles,
       });
-
-      // Quote-state enrichment is deliberately independent. A failure here must
-      // never blank a successfully returned marketplace board.
-      let quotedIds = new Set<string>();
-      try {
-        quotedIds = await fetchActiveQuotedJobIds();
-      } catch {
-        quotedIds = new Set<string>();
-      }
-      setLiveLoads(result.jobs.filter((job) => !quotedIds.has(job.id)));
+      setLiveLoads(result.jobs);
     } catch (error) {
       setMessage(cleanError(error, 'Unable to load live work.'));
     } finally {
@@ -290,6 +288,7 @@ export default function DriverMobileAppV2() {
         setRoute({ kind: 'primary', tab: 'home' });
         setActiveTab('home');
         setJobDetail(null);
+        setTrackingState('standby');
       }
     });
 
@@ -349,6 +348,38 @@ export default function DriverMobileAppV2() {
     return () => { void supabase.removeChannel(channel); };
   }, [refreshLiveLoads, token]);
 
+  useEffect(() => {
+    if (!token || !trackingJob) {
+      trackingBusyRef.current = false;
+      setTrackingState('standby');
+      return;
+    }
+
+    let mounted = true;
+    setTrackingState('starting');
+
+    const publish = async () => {
+      if (trackingBusyRef.current) return;
+      trackingBusyRef.current = true;
+      try {
+        await publishCurrentDriverLocation(token);
+        if (mounted) setTrackingState('active');
+      } catch (error) {
+        if (mounted) setTrackingState(classifyTrackingError(error));
+      } finally {
+        trackingBusyRef.current = false;
+      }
+    };
+
+    void publish();
+    const interval = setInterval(() => void publish(), 30_000);
+    return () => {
+      mounted = false;
+      trackingBusyRef.current = false;
+      clearInterval(interval);
+    };
+  }, [token, trackingJob?.id, trackingJob?.status]);
+
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured) {
       setMessage('XDrive Driver authentication is not configured for this build.');
@@ -392,6 +423,7 @@ export default function DriverMobileAppV2() {
     setCompletedJobs([]);
     setJobDetail(null);
     setMessage('');
+    setTrackingState('standby');
   }
 
   const navigatePrimary = useCallback((tab: PrimaryTab) => {
@@ -409,6 +441,53 @@ export default function DriverMobileAppV2() {
     setMessage('');
     void refreshJobDetail(jobId);
   }, [refreshJobDetail]);
+
+  const openDeepLinkTarget = useCallback(async (target: DriverDeepLinkTarget) => {
+    if (target.kind === 'job') {
+      openJob(target.id);
+      return;
+    }
+
+    const load = liveLoads.find((item) => item.id === target.id);
+    setActiveTab('alerts');
+    if (load) {
+      setRoute({ kind: 'load', load });
+      setMessage('');
+      return;
+    }
+
+    setRoute({ kind: 'primary', tab: 'alerts' });
+    setMessage('Refreshing Live Loads for this alert.');
+    await refreshLiveLoads();
+  }, [liveLoads, openJob, refreshLiveLoads]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const openUrl = (url: string | null | undefined) => {
+      const target = parseDriverDeepLink(url);
+      if (target) void openDeepLinkTarget(target);
+    };
+
+    const openNotification = (response: Notifications.NotificationResponse | null | undefined) => {
+      const target = targetFromNotificationData(response?.notification.request.content.data);
+      if (target) void openDeepLinkTarget(target);
+    };
+
+    if (!initialIntentHandledRef.current) {
+      initialIntentHandledRef.current = true;
+      void Linking.getInitialURL().then(openUrl).catch(() => undefined);
+      void Notifications.getLastNotificationResponseAsync().then(openNotification).catch(() => undefined);
+    }
+
+    const linkSubscription = Linking.addEventListener('url', ({ url }) => openUrl(url));
+    const notificationSubscription = Notifications.addNotificationResponseReceivedListener(openNotification);
+
+    return () => {
+      linkSubscription.remove();
+      notificationSubscription.remove();
+    };
+  }, [openDeepLinkTarget, token]);
 
   const persistPreferences = useCallback((update: (current: MarketplacePreferences) => MarketplacePreferences) => {
     setPreferences((current) => {
@@ -439,6 +518,12 @@ export default function DriverMobileAppV2() {
   }
 
   async function submitQuote(load: LiveLoad) {
+    if (!editingQuoteId && load.canQuote === false) {
+      navigatePrimary('quotes');
+      setMessage(load.quoteWarning || 'An active quote already exists for this load. Manage it from Quotes.');
+      return;
+    }
+
     const amount = Number(quoteAmount.replace(',', '.'));
     if (!Number.isFinite(amount) || amount <= 0) {
       setMessage('Enter a valid quote amount.');
@@ -452,12 +537,13 @@ export default function DriverMobileAppV2() {
       } else {
         await submitLiveLoadQuote(load.id, amount, quoteMessage);
       }
+      const wasEditing = Boolean(editingQuoteId);
       setEditingQuoteId(null);
       setQuoteAmount('');
       setQuoteMessage('');
       await Promise.all([refreshLiveLoads(), refreshResources()]);
       navigatePrimary('quotes');
-      setMessage(editingQuoteId ? 'Quote updated.' : 'Quote submitted.');
+      setMessage(wasEditing ? 'Quote updated.' : 'Quote submitted.');
     } catch (error) {
       setMessage(cleanError(error, 'Unable to submit this quote.'));
     } finally {
@@ -469,7 +555,7 @@ export default function DriverMobileAppV2() {
     setActionBusy(true);
     try {
       await withdrawJobQuote(String(quote.id));
-      await refreshResources();
+      await Promise.all([refreshResources(), refreshLiveLoads()]);
       setMessage('Quote withdrawn.');
     } catch (error) {
       setMessage(cleanError(error, 'Unable to withdraw this quote.'));
@@ -599,6 +685,7 @@ export default function DriverMobileAppV2() {
     bookingFeed,
     detailTab,
     resources,
+    trackingState,
     onLiveFeed: setLiveFeed,
     onQuoteFeed: setQuoteFeed,
     onBookingFeed: setBookingFeed,
@@ -775,6 +862,7 @@ function renderFixedTop(input: {
   bookingFeed: BookingFeed;
   detailTab: JobDetailTab;
   resources: DriverProfileResource | null;
+  trackingState: DriverTrackingState;
   onLiveFeed: (feed: LoadFeed) => void;
   onQuoteFeed: (feed: QuoteFeed) => void;
   onBookingFeed: (feed: BookingFeed) => void;
@@ -783,7 +871,7 @@ function renderFixedTop(input: {
 }) {
   const { route } = input;
   if (route.kind === 'primary' && route.tab === 'home') {
-    return <HomeHeader resources={input.resources} />;
+    return <HomeHeader resources={input.resources} trackingState={input.trackingState} />;
   }
   if (route.kind === 'primary' && route.tab === 'alerts') {
     return <View style={styles.topChrome}><ScreenTitle title="Live Loads" /><Segmented<LoadFeed> items={[['live', 'Inbox'], ['saved', 'Saved'], ['hidden', 'Hidden']]} value={input.liveFeed} onChange={input.onLiveFeed} /></View>;
@@ -849,7 +937,15 @@ function TrustItem({ badge, label }: { badge: string; label: string }) {
   return <View style={styles.trustItem}><View style={styles.trustBadge}><Text style={styles.trustBadgeText}>{badge}</Text></View><Text style={styles.trustText}>{label}</Text></View>;
 }
 
-function HomeHeader({ resources }: { resources: DriverProfileResource | null }) {
+function trackingLabel(state: DriverTrackingState) {
+  if (state === 'active') return 'Active';
+  if (state === 'starting') return 'Starting';
+  if (state === 'permission-required') return 'Permission';
+  if (state === 'unavailable') return 'Unavailable';
+  return 'Standby';
+}
+
+function HomeHeader({ resources, trackingState }: { resources: DriverProfileResource | null; trackingState: DriverTrackingState }) {
   const name = resources?.name || resources?.driver?.display_name || 'XDrive Driver';
   const vehicle = resources?.vehicle?.type || resources?.vehicle?.vehicle_type || resources?.vehicle?.reg_plate || 'Vehicle not assigned';
   const availability = String(resources?.driver?.availability_status ?? 'available');
@@ -859,7 +955,7 @@ function HomeHeader({ resources }: { resources: DriverProfileResource | null }) 
       <Text style={styles.homeDate}>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
       <View style={styles.homeGrid}>
         <View style={styles.homeTile}><Text style={styles.homeTileLabel}>DRIVER / VEHICLE</Text><Text style={styles.homeTileValue} numberOfLines={1}>{name}</Text><Text style={styles.homeTileMeta} numberOfLines={1}>{vehicle}</Text></View>
-        <View style={styles.homeTileSmall}><Text style={styles.homeTileLabel}>TRACKING</Text><Text style={styles.trackingOn}>● Active</Text></View>
+        <View style={styles.homeTileSmall}><Text style={styles.homeTileLabel}>TRACKING</Text><Text style={trackingState === 'active' ? styles.trackingOn : styles.trackingStandby}>● {trackingLabel(trackingState)}</Text></View>
       </View>
       <View style={styles.statusRow}><View><Text style={styles.homeTileLabel}>STATUS</Text><Text style={styles.statusValue}>{availability.replace('_', ' ')}</Text></View><Text style={styles.chevron}>›</Text></View>
     </View>
@@ -933,8 +1029,9 @@ function LiveCard({ load, saved, hidden, onOpen, onQuote, onSave, onHide, onRest
     <View style={styles.loadSummaryRow}><View style={styles.flexOne}><Text style={styles.eyebrow}>LOAD</Text><Text style={styles.summaryText} numberOfLines={2}>{load.cargoType}</Text></View>{load.price ? <View><Text style={styles.eyebrow}>PRICE</Text><Text style={styles.priceText}>{load.price}</Text></View> : null}</View>
     <View style={styles.cardActions}>
       {hidden ? <SmallAction label="Restore" onPress={onRestore} /> : <><SmallAction label={saved ? 'Saved ✓' : 'Save'} onPress={onSave} /><SmallAction label="Hide" onPress={onHide} /></>}
-      {!hidden ? <TouchableOpacity style={[styles.quoteButton, load.canQuote === false && styles.disabledButton]} disabled={load.canQuote === false} onPress={onQuote}><Text style={styles.quoteButtonText}>{load.canQuote === false ? 'Not eligible' : 'Quote'}</Text></TouchableOpacity> : null}
+      {!hidden ? <TouchableOpacity style={[styles.quoteButton, load.canQuote === false && styles.disabledButton]} disabled={load.canQuote === false} onPress={onQuote}><Text style={styles.quoteButtonText}>{load.canQuote === false ? 'Quoted' : 'Quote'}</Text></TouchableOpacity> : null}
     </View>
+    {load.canQuote === false && load.quoteWarning ? <Text style={styles.inlineWarning}>{load.quoteWarning}</Text> : null}
   </TouchableOpacity>;
 }
 
@@ -949,7 +1046,8 @@ function LoadDetailBody({ load, saved, onSave, onQuote }: { load: LiveLoad; save
       {load.destinationPriority && load.distanceFromCurrentDeliveryMiles != null ? <InfoRow label="From current delivery" value={`${load.distanceFromCurrentDeliveryMiles.toFixed(1)} miles`} /> : null}
     </Section>
     <Banner text="Exact street addresses and private contacts remain protected until allocation." />
-    <View style={styles.cardActions}><SmallAction label={saved ? 'Saved ✓' : 'Save load'} onPress={onSave} /><TouchableOpacity style={styles.primaryInlineButton} onPress={onQuote}><Text style={styles.primaryInlineText}>Quote this load</Text></TouchableOpacity></View>
+    {load.canQuote === false && load.quoteWarning ? <Banner text={load.quoteWarning} /> : null}
+    <View style={styles.cardActions}><SmallAction label={saved ? 'Saved ✓' : 'Save load'} onPress={onSave} /><TouchableOpacity style={[styles.primaryInlineButton, load.canQuote === false && styles.disabledButton]} disabled={load.canQuote === false} onPress={onQuote}><Text style={styles.primaryInlineText}>{load.canQuote === false ? 'Quote already submitted' : 'Quote this load'}</Text></TouchableOpacity></View>
   </View>;
 }
 
@@ -963,15 +1061,17 @@ function QuoteFormBody({ load, amount, message, busy, editing, onAmount, onMessa
   onMessage: (value: string) => void;
   onSubmit: () => void;
 }) {
+  const blocked = !editing && load.canQuote === false;
   return <View style={styles.stack}>
     <Section><RouteCard pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} /><InfoRow label="Vehicle" value={load.vehicleRequirement} /><InfoRow label="Freight" value={load.cargoType} /></Section>
+    {blocked ? <Banner text={load.quoteWarning || 'An active quote already exists for this load. Manage it from Quotes.'} /> : null}
     <Section title={editing ? 'Edit quote' : 'My quote (ex. VAT)'}>
       <Text style={styles.fieldLabel}>AMOUNT · GBP</Text>
-      <TextInput style={styles.bigInput} keyboardType="decimal-pad" placeholder="£0.00" placeholderTextColor="#98A2B3" value={amount} onChangeText={onAmount} />
+      <TextInput style={styles.bigInput} keyboardType="decimal-pad" placeholder="£0.00" placeholderTextColor="#98A2B3" value={amount} onChangeText={onAmount} editable={!blocked} />
       <Text style={styles.fieldLabel}>COLLECTION / OFFER NOTES</Text>
-      <TextInput style={[styles.bigInput, styles.textarea]} multiline placeholder="Optional notes" placeholderTextColor="#98A2B3" value={message} onChangeText={onMessage} />
+      <TextInput style={[styles.bigInput, styles.textarea]} multiline placeholder="Optional notes" placeholderTextColor="#98A2B3" value={message} onChangeText={onMessage} editable={!blocked} />
     </Section>
-    <TouchableOpacity style={[styles.primaryButton, busy && styles.disabledButton]} disabled={busy} onPress={onSubmit}><Text style={styles.primaryButtonText}>{busy ? 'Submitting...' : editing ? 'Save quote' : 'Submit quote'}</Text></TouchableOpacity>
+    <TouchableOpacity style={[styles.primaryButton, (busy || blocked) && styles.disabledButton]} disabled={busy || blocked} onPress={onSubmit}><Text style={styles.primaryButtonText}>{blocked ? 'Quote already submitted' : busy ? 'Submitting...' : editing ? 'Save quote' : 'Submit quote'}</Text></TouchableOpacity>
   </View>;
 }
 
@@ -1231,6 +1331,7 @@ const styles = StyleSheet.create({
   homeTileValue: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', marginTop: 4 },
   homeTileMeta: { color: '#D5E1F5', fontSize: 12, fontWeight: '700', marginTop: 3 },
   trackingOn: { color: '#86EFAC', fontSize: 14, fontWeight: '900', marginTop: 9 },
+  trackingStandby: { color: '#D5E1F5', fontSize: 13, fontWeight: '800', marginTop: 9 },
   statusRow: { backgroundColor: '#173B73', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statusValue: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginTop: 2, textTransform: 'capitalize' },
   chevron: { color: colors.warning, fontSize: 32, fontWeight: '300' },
@@ -1278,6 +1379,7 @@ const styles = StyleSheet.create({
   smallActionText: { color: '#475467', fontSize: 12, fontWeight: '800' },
   quoteButton: { marginLeft: 'auto', minHeight: 46, minWidth: 120, paddingHorizontal: 20, backgroundColor: colors.primary, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   quoteButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  inlineWarning: { color: colors.secondary, backgroundColor: colors.panelSoft, borderRadius: 10, padding: 9, fontSize: 12, lineHeight: 17, fontWeight: '700' },
   primaryInlineButton: { flexGrow: 1, minHeight: 46, paddingHorizontal: 18, backgroundColor: colors.primary, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   primaryInlineText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   primaryButton: { minHeight: 56, backgroundColor: colors.primary, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
@@ -1363,7 +1465,7 @@ const styles = StyleSheet.create({
   networkPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#0E3FA9', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
   networkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFBF24' },
   networkText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
-  loginCard: { marginHorizontal: 18, marginTop: -22, backgroundColor: '#FFFFFF', borderRadius: 26, padding: 22, gap: 12, borderColor: colors.borderSubtle, borderWidth: 1 },
+  loginCard: { marginHorizontal: 18, marginTop: 16, backgroundColor: '#FFFFFF', borderRadius: 26, padding: 22, gap: 12, borderColor: colors.borderSubtle, borderWidth: 1 },
   loginTitle: { color: colors.secondary, fontSize: 28, fontWeight: '900', textAlign: 'center' },
   loginSubtitle: { color: colors.muted, fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
   loginInput: { minHeight: 56, borderColor: colors.border, borderWidth: 1, borderRadius: 15, paddingHorizontal: 14, color: colors.text, fontSize: 16, fontWeight: '600' },
