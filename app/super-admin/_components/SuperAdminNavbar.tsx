@@ -20,6 +20,23 @@ type NavButtonProps = {
   href: string;
 };
 
+type LogoIconProps = {
+  size: number;
+};
+
+function LogoIcon({ size }: LogoIconProps) {
+  return (
+    <Image
+      src="/icons/icon-192x192.png"
+      alt=""
+      width={size}
+      height={size}
+      className="sa-brand-mark"
+      priority
+    />
+  );
+}
+
 function NavButton({ icon, label, href }: NavButtonProps) {
   return (
     <Link className="sa-primary-button" href={href}>
@@ -117,14 +134,7 @@ export default function SuperAdminNavbar() {
   return (
     <nav className="sa-navbar" aria-label="Super Admin enterprise navigation">
       <div className="sa-brand">
-        <Image
-          src="/icon-192.png"
-          alt=""
-          width={24}
-          height={24}
-          className="sa-brand-mark"
-          priority
-        />
+        <LogoIcon size={24} />
         <span className="sa-brand-title">XDrive Logistics</span>
       </div>
 
