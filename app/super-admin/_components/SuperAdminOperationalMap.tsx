@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 export type OperationalDriverPin = {
   id: string;
   name: string;
-  status: 'online' | 'busy' | 'offline';
+  status: 'online' | 'busy' | 'offline' | 'sold';
   vehicle: { registration: string; label: string } | null;
   location: { lat: number | null; lng: number | null; heading: number | null; speed_mph: number | null; recorded_at: string | null } | null;
 };
