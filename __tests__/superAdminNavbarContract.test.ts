@@ -30,7 +30,7 @@ describe('MASTER CONTRACT FINAL v2 — navbar checker', () => {
 
   it('requires the exact brand, canonical logo-pack mark, search, three primary buttons and user dropdown', () => {
     expect(navbarSource).toContain('<LogoIcon size={24} />');
-    expect(navbarSource).toContain('src="/icons/icon-192x192.png"');
+    expect(navbarSource).toContain('src="/icon-192.png"');
     expect(navbarSource).toContain('XDrive Logistics');
     expect(navbarSource).toContain('Search platform...');
     expect(navbarSource).toContain('Explore areas');
