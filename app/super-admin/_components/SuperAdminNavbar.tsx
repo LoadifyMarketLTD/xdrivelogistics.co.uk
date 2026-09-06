@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -11,7 +12,6 @@ import {
   Grid3X3 as ExploreIcon,
   LayoutDashboard as OverviewIcon,
   Search,
-  Truck as LogoIcon,
 } from 'lucide-react';
 
 type NavButtonProps = {
@@ -117,7 +117,14 @@ export default function SuperAdminNavbar() {
   return (
     <nav className="sa-navbar" aria-label="Super Admin enterprise navigation">
       <div className="sa-brand">
-        <LogoIcon size={24} />
+        <Image
+          src="/icon-192.png"
+          alt=""
+          width={24}
+          height={24}
+          className="sa-brand-mark"
+          priority
+        />
         <span className="sa-brand-title">XDrive Logistics</span>
       </div>
 
