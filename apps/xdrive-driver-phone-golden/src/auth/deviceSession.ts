@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 
 const installationKey = 'xdrive.driver.installationId.v1';
-const appPackage = 'co.uk.xdrivelogistics.driver';
+const canonicalAppPackage = 'co.uk.xdrivelogistics.driver';
 const fallbackBaseUrl = 'https://www.xdrivelogistics.co.uk';
 let registeredToken: string | null = null;
 let registrationPromise: Promise<string> | null = null;
@@ -19,6 +19,12 @@ function apiBaseUrl() {
   } catch {
     return fallbackBaseUrl;
   }
+}
+
+function runtimeAppPackage() {
+  const android = Constants.expoConfig?.android as { package?: string } | undefined;
+  const configured = android?.package?.trim();
+  return configured || canonicalAppPackage;
 }
 
 function fallbackUuidV4() {
@@ -69,7 +75,7 @@ export async function ensureNativeDeviceSession(token: string) {
       },
       body: JSON.stringify({
         installation_id: installationId,
-        app_package: appPackage,
+        app_package: runtimeAppPackage(),
         device_label: deviceLabel || null,
       }),
     });
