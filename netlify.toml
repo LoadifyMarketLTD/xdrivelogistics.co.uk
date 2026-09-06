@@ -1,11 +1,18 @@
 [build]
-  # TEMPORARY PR #505 diagnostic: publish complete FINAL v2 unit-suite failures as static JSON.
-  # MUST be restored to scripts/netlify-release-gate.mjs before final validation.
-  command = "node ./scripts/netlify-v2-tests-only.mjs"
-  publish = "public"
+  # Netlify is the primary no-GitHub-hosted-runner release/build gate.
+  # It validates Supabase migration filenames/encodings and the deployable
+  # production Next.js build before a deploy is allowed to succeed.
+  command = "node ./scripts/netlify-release-gate.mjs"
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
   NODE_VERSION = "20"
   NEXT_PUBLIC_SITE_URL = "https://www.xdrivelogistics.co.uk"
-  EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co"
+  EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co.uk"
+  # NEXT_PUBLIC_SUPABASE_ANON_KEY must be set as a secret environment variable
+  # in the Netlify UI: Site → Site configuration → Environment variables.
+  # Do NOT commit the key value here. Without it the build validation script
+  # will warn and Supabase features will be unavailable at runtime.
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
