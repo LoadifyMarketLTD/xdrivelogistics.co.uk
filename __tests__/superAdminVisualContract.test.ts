@@ -66,7 +66,7 @@ describe('MASTER CONTRACT FINAL — Super Admin', () => {
 
   it('enforces the exact Operations Control Centre enterprise surfaces', () => {
     for (const label of ['Active Jobs', 'Drivers Online', 'Fleet Health', 'Late Deliveries', 'Revenue Today', 'Urgent Requests']) {
-      expect(cockpit).toContain(`label=\"${label}\"`);
+      expect(cockpit).toContain(`label="${label}"`);
     }
     for (const label of ['Jobs Management', 'Drivers Center', 'Fleet Overview', 'Finance Dashboard', 'Manage Roles', 'View Logs']) {
       expect(cockpit).toContain(`>${label}<`);
@@ -78,8 +78,8 @@ describe('MASTER CONTRACT FINAL — Super Admin', () => {
     expect(cockpit).toContain('Assign driver');
     expect(cockpit).toContain('View profile');
     expect(cockpit).toContain('Assign job');
-    expect(cockpit).toContain("No driver photo on record");
-    expect(cockpit).toContain("No vehicle photo on record");
+    expect(cockpit).toContain('No driver photo on record');
+    expect(cockpit).toContain('No vehicle photo on record');
     expect(cockpit).toContain("Today's Revenue");
     expect(cockpit).toContain('Pending Invoices');
     expect(cockpit).toContain('Weekly Earnings');
@@ -101,7 +101,7 @@ describe('MASTER CONTRACT FINAL — Super Admin', () => {
     expect(operationalMap).toContain("{ label: 'Midlands'");
     expect(operationalMap).toContain("{ label: 'North'");
     expect(operationalMap).toContain("{ label: 'UK'");
-    expect(operationalMap).toContain('padding: \'24px\'');
+    expect(operationalMap).toContain("padding: '24px'");
     expect(operationalMap).toContain("borderRadius: '8px'");
   });
 
@@ -138,16 +138,16 @@ describe('MASTER CONTRACT FINAL — Super Admin', () => {
       expect(finance).toContain(label);
     }
     expect(finance).toContain("gridTemplateColumns: 'repeat(4, minmax(0, 1fr))'");
-    expect(finance).toContain("boxShadow: T.shadow");
+    expect(finance).toContain('boxShadow: T.shadow');
   });
 
   it('uses the exact Compliance titles and actions without inventing a request-update mutation', () => {
-    expect(insurance).toContain('title=\"Insurance\"');
-    expect(licences).toContain('title=\"Operator Licences\"');
+    expect(insurance).toContain('title="Insurance"');
+    expect(licences).toContain('title="Operator Licences"');
     for (const file of [insurance, licences]) {
       expect(file).toContain('>Review docs</Link>');
       expect(file).toContain('>Request update</button>');
-      expect(file).toContain('aria-disabled=\"true\"');
+      expect(file).toContain('aria-disabled="true"');
     }
   });
 
