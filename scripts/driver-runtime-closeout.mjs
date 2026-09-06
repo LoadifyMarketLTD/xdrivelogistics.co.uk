@@ -5,7 +5,9 @@ const repo = process.cwd();
 const target = path.join(repo, 'apps', 'xdrive-driver-phone-golden', 'src', 'app', 'DriverMobileAppV3.tsx');
 if (!fs.existsSync(target)) throw new Error(`DriverMobileAppV3.tsx not found at ${target}`);
 
-let source = fs.readFileSync(target, 'utf8');
+const rawSource = fs.readFileSync(target, 'utf8');
+const lineEnding = rawSource.includes('\r\n') ? '\r\n' : '\n';
+let source = rawSource.replace(/\r\n/g, '\n');
 
 function replaceOnce(label, before, after) {
   if (source.includes(after)) return;
@@ -76,5 +78,6 @@ replaceOnce(
   `function WorkStepAction({ job, busy, podOpen, onPress }: { job: JobDetail; busy: boolean; podOpen: boolean; onPress: () => void }) {\n  if (podOpen || job.status === 'delivered' || job.status === 'cancelled') return null;`,
 );
 
-fs.writeFileSync(target, source, 'utf8');
+const output = lineEnding === '\r\n' ? source.replace(/\n/g, '\r\n') : source;
+fs.writeFileSync(target, output, 'utf8');
 console.log('Driver V3 runtime closeout patch applied successfully.');
