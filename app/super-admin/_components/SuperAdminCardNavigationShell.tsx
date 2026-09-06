@@ -11,11 +11,11 @@ import {
   Building2,
   ChevronDown,
   CircleUserRound,
-  Command,
   CreditCard,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
+  Menu,
   Route,
   Search,
   Settings2,
@@ -23,6 +23,7 @@ import {
   Store,
   Truck,
   UsersRound,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -94,6 +95,7 @@ export default function SuperAdminCardNavigationShell({
   const [searchValue, setSearchValue] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [exploreOpen, setExploreOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const role = 'platform_owner' as const;
   const actionRole = resolveActionCentreRole(role);
@@ -140,6 +142,7 @@ export default function SuperAdminCardNavigationShell({
     setSearchOpen(false);
     setAccountOpen(false);
     setExploreOpen(false);
+    setMobileNavOpen(false);
   };
 
   const navigateFromSearch = () => {
@@ -176,6 +179,7 @@ export default function SuperAdminCardNavigationShell({
       setSearchOpen(false);
       setAccountOpen(false);
       setExploreOpen(false);
+      setMobileNavOpen(false);
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
@@ -184,6 +188,7 @@ export default function SuperAdminCardNavigationShell({
   useEffect(() => {
     setSearchOpen(false);
     setAccountOpen(false);
+    setMobileNavOpen(false);
   }, [pathname]);
 
   const showContextBar = pathname !== definition.homeHref;
@@ -225,7 +230,9 @@ export default function SuperAdminCardNavigationShell({
         </div>
 
         <div className={styles.topbarActions}>
-          <button type="button" className={styles.headerButton} onClick={() => setExploreOpen((value) => !value)} aria-expanded={exploreOpen}><Command size={24} /><span>Explore areas</span></button>
+          <button type="button" className={`${styles.iconButton} ${styles.mobileMenuButton}`} onClick={() => setMobileNavOpen((value) => !value)} aria-label="Open Super Admin navigation" aria-expanded={mobileNavOpen}>
+            {mobileNavOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
           <button
             type="button"
             className={`${styles.headerButton} ${styles.actionCentreButton}`}
@@ -244,13 +251,59 @@ export default function SuperAdminCardNavigationShell({
               <div className={styles.accountMenu}>
                 <div className={styles.accountMenuHeader}><strong>Platform Owner</strong><span>{user?.email ?? companyName}</span></div>
                 <button type="button" onClick={() => navigateToTarget(definition.homeHref)}>Super Admin home</button>
-                <button type="button" onClick={() => setExploreOpen(true)}>Explore all areas</button>
+                <button type="button" onClick={() => { setAccountOpen(false); setExploreOpen(true); }}>Explore all areas</button>
                 <button type="button" className={styles.signOutMenuItem} onClick={() => void logout()}><LogOut size={24} /> Sign out</button>
               </div>
             ) : null}
           </div>
         </div>
       </header>
+
+      <nav className={styles.primaryNav} aria-label="Super Admin primary navigation">
+        <div className={styles.primaryNavInner}>
+          {definition.nav.map((group) => {
+            const GroupIcon = GROUP_ICONS[group.id] ?? Activity;
+            const active = currentGroup?.id === group.id;
+            return (
+              <div key={group.id} className={styles.navGroup}>
+                <button
+                  type="button"
+                  className={`${styles.navGroupButton} ${active ? styles.navGroupButtonActive : ''}`}
+                  aria-haspopup="menu"
+                  aria-label={`${group.label} menu`}
+                >
+                  <GroupIcon size={18} />
+                  <span>{group.label}</span>
+                  <ChevronDown size={16} />
+                </button>
+                <div className={styles.navDropdown} role="menu" aria-label={`${group.label} options`}>
+                  <div className={styles.navDropdownHeader}>
+                    <span className={styles.navDropdownIcon}><GroupIcon size={24} /></span>
+                    <div><strong>{group.label}</strong><p>{GROUP_DESCRIPTIONS[group.id] ?? 'Platform administration tools and related workflows.'}</p></div>
+                  </div>
+                  <div className={styles.navDropdownItems}>
+                    {group.items.map((item) => {
+                      const [baseHref] = item.href.split('?');
+                      const itemActive = pathname === baseHref || (baseHref !== definition.homeHref && pathname.startsWith(`${baseHref}/`));
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          role="menuitem"
+                          className={`${styles.navDropdownItem} ${itemActive ? styles.navDropdownItemActive : ''}`}
+                          onClick={() => navigateToTarget(item.href)}
+                        >
+                          <span>{item.label}</span><span>→</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </nav>
 
       {showContextBar ? (
         <section className={styles.contextBar}>
@@ -259,18 +312,36 @@ export default function SuperAdminCardNavigationShell({
             <strong>{currentTarget?.label ?? 'Control Centre'}</strong>
             <p>{currentGroup ? GROUP_DESCRIPTIONS[currentGroup.id] : 'Platform-wide administration and investigation.'}</p>
           </div>
-          {currentGroup ? (
-            <div className={styles.contextLinks}>
-              {currentGroup.items.slice(0, 6).map((item) => <button key={item.id} type="button" onClick={() => navigateToTarget(item.href)}>{item.label}</button>)}
-              {currentGroup.items.length > 6 ? <button type="button" onClick={() => setExploreOpen(true)}>+{currentGroup.items.length - 6} more</button> : null}
-            </div>
-          ) : null}
         </section>
       ) : null}
 
       <main className={styles.main}>
         <div className={styles.content}>{children}</div>
       </main>
+
+      {mobileNavOpen ? (
+        <div className={styles.mobileNavBackdrop} onClick={() => setMobileNavOpen(false)}>
+          <section className={styles.mobileNavPanel} onClick={(event) => event.stopPropagation()} aria-label="Super Admin navigation menu">
+            <div className={styles.mobileNavHeading}>
+              <div><span>Super Admin navigation</span><strong>All areas and sub-options</strong></div>
+              <button type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={24} /></button>
+            </div>
+            <div className={styles.mobileNavGroups}>
+              {definition.nav.map((group) => {
+                const GroupIcon = GROUP_ICONS[group.id] ?? Activity;
+                return (
+                  <section key={group.id} className={styles.mobileNavGroup}>
+                    <div className={styles.mobileNavGroupTitle}><GroupIcon size={24} /><strong>{group.label}</strong></div>
+                    <div className={styles.mobileNavItems}>
+                      {group.items.map((item) => <button type="button" key={item.id} onClick={() => navigateToTarget(item.href)}>{item.label}<span>→</span></button>)}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {exploreOpen ? (
         <div className={styles.exploreBackdrop} onClick={() => setExploreOpen(false)}>

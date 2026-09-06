@@ -67,6 +67,26 @@ The shared Super Admin topbar is a compact enterprise control surface, not an en
 
 Responsive contraction may hide control labels or the account label when space is insufficient, but MUST preserve the same canonical colour, radius and compact-control system.
 
+### Professional primary navigation amendment
+
+The shared Super Admin shell MUST expose the complete workspace navigation through a professional two-level navigation system.
+
+Desktop navigation contains exactly the workspace groups already defined in `SUPER_ADMIN_WORKSPACE_DEFINITION`, in that source order:
+
+`Dashboard | Marketplace | Operations | Fleet | Companies | Finance | Compliance | Support | Platform`
+
+- Every top-level group MUST reveal its submenu on mouse hover and keyboard focus.
+- Hovering or focusing a top-level group MUST NOT navigate away from the current page.
+- Each submenu MUST expose every child route defined for that group, in source order, with no silently hidden child options.
+- Selecting a submenu item performs the existing route navigation only; this amendment introduces no new mutation behaviour.
+- The currently active group and route MUST receive a visible active state using the canonical palette.
+- Desktop navigation controls use the same `40px` compact-control height, `8px` radius and canonical neutral/blue styling as the topbar.
+- Dropdown panels are enterprise panels and therefore use `24px` internal padding, canonical border/radius, white background and the canonical light shadow.
+- On widths at or below `1180px`, the desktop group row is replaced by a hamburger control in the topbar.
+- Opening the hamburger MUST expose all nine groups and every child option in a scrollable navigation panel; mobile/tablet navigation MUST NOT hide functionality that is available on desktop.
+- The existing Super Admin directory may remain as a secondary navigation surface, but it is not a substitute for the primary navbar/hamburger system.
+- Navigation changes MUST NOT alter route authorization, backend behaviour, Production data, or the established Platform submenu restriction below.
+
 ## 4. StatusChip and page allowlists
 
 The generic `StatusChip` may render truthful domain statuses beyond the eight named master status semantics, but it may use only canonical palette colours.
