@@ -30,7 +30,7 @@ const actions: Record<string, ActionConfig> = {
     timestampField: 'on_my_way_at',
     eventType: 'driver_en_route',
     label: 'On my way to pickup',
-    allowedLifecycle: ['awarded', 'allocated'],
+    allowedLifecycle: ['awarded', 'allocated', 'accepted', 'assigned'],
   },
   'arrived-pickup': {
     currentStatus: 'on_site_pickup',
@@ -38,7 +38,7 @@ const actions: Record<string, ActionConfig> = {
     timestampField: 'on_site_pickup_at',
     eventType: 'arrived_pickup',
     label: 'Arrived at pickup',
-    allowedLifecycle: ['awarded', 'allocated'],
+    allowedLifecycle: ['awarded', 'allocated', 'accepted', 'assigned'],
   },
   loaded: {
     currentStatus: 'loaded',
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!isDriverContext(driver)) return driver;
 
   const { id, action } = await params;
-  if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId);
+  if (action === 'pod') return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
 
   const config = actions[action];
   if (!config) return respond(404, { error: 'Unsupported driver action.' });
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(409, { error: `Job cannot perform ${action} from ${lifecycle || 'unknown'} status.` });
   }
   if (config.requiresPod && job.pod_required !== false && !hasPod(job)) {
-    return respond(409, { error: 'POD is required before marking this job delivered.' });
+    return respond(409, { error: 'Verified recipient, signature and delivery photo are required before marking this job delivered.' });
   }
 
   const now = new Date().toISOString();
@@ -134,7 +134,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
 
-async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string) {
+function storagePaths(value: unknown, prefix: string) {
+  return safeArray(value)
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.startsWith(prefix) && item.length <= 500);
+}
+
+async function savePod(request: NextRequest, jobId: string, userId: string, driverId: string, companyId: string) {
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -153,23 +160,45 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobRow;
+  const lifecycle = String(job.status ?? '').trim().toLowerCase();
+  const currentStatus = String(job.current_status ?? '').trim().toLowerCase();
+  if (lifecycle !== 'in_transit' || !['on_site_delivery', 'arrived_delivery'].includes(currentStatus)) {
+    return respond(409, { error: 'POD can be captured only after delivery arrival is confirmed.' });
+  }
+
   const now = new Date().toISOString();
-  const photos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
-  const podPhotos = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const photoUris = safeArray(body.photoUris).filter((item): item is string => typeof item === 'string' && item.length > 0);
-  const documentUris = safeArray(body.documentUris).filter((item): item is string => typeof item === 'string' && item.length > 0);
-  const signatureData = typeof body.signatureData === 'string' && body.signatureData.trim()
-    ? { type: 'driver_mobile_signature', value: body.signatureData.trim(), captured_at: now, captured_by: userId }
-    : job.delivery_signature_data ?? null;
+  const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
+  const signatureValue = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
+  const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
+  if (!recipientName || recipientName.length > 200) return respond(400, { error: 'Recipient name is required.' });
+  if (!signatureValue || signatureValue.length > 1_500_000) return respond(400, { error: 'Recipient signature is required.' });
+  if (notes.length > 2_000) return respond(400, { error: 'POD notes are too long.' });
+
+  const photoPrefix = `${companyId}/${jobId}/photos/`;
+  const damagePrefix = `${companyId}/${jobId}/damage/`;
+  const documentPrefix = `${companyId}/${jobId}/documents/`;
+  const photoUris = storagePaths(body.photoUris, photoPrefix);
+  const damageUris = storagePaths(body.damagePhotoUris, damagePrefix);
+  const documentUris = storagePaths(body.documentUris, documentPrefix);
+  if (photoUris.length === 0) return respond(400, { error: 'At least one uploaded delivery photo is required.' });
+
+  const photos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  const podPhotos = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  const signatureData = {
+    type: 'driver_mobile_signature',
+    value: signatureValue,
+    captured_at: now,
+    captured_by: userId,
+  };
 
   const { data: updated, error: updateError } = await supabaseAdmin!
     .from('jobs')
     .update({
-      delivery_photos: [...photos, ...photoUris],
-      pod_photos: [...podPhotos, ...documentUris],
+      delivery_photos: [...new Set([...photos, ...photoUris, ...damageUris])],
+      pod_photos: [...new Set([...podPhotos, ...documentUris])],
       delivery_signature_data: signatureData,
-      client_signature_name: typeof body.recipientName === 'string' && body.recipientName.trim() ? body.recipientName.trim() : null,
-      delivery_notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
+      client_signature_name: recipientName,
+      delivery_notes: notes || null,
       pod_generated: true,
       pod_generated_at: now,
       updated_at: now,
@@ -180,7 +209,7 @@ async function savePod(request: NextRequest, jobId: string, userId: string, driv
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
-  await insertTrackingEvent(jobId, userId, 'delivered', 'POD metadata uploaded');
+  await insertTrackingEvent(jobId, userId, 'pod_uploaded', 'Verified POD evidence uploaded');
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }
