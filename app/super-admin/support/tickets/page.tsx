@@ -10,19 +10,15 @@ import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmM
 type Row = {
   id: string;
   company_name: string;
-  subject: string | null;
-  description: string | null;
-  category: string | null;
+  type: string | null;
+  severity: string | null;
   status: string;
-  priority: string | null;
   created_at: string | null;
-  resolved_at: string | null;
-  closed_at: string | null;
 };
 
 const actionButtonStyle = {
   minHeight: '40px',
-  padding: '0 12px',
+  padding: '24px',
   borderRadius: '8px',
   border: '1px solid #E0E3E7',
   background: '#FFFFFF',
@@ -75,9 +71,9 @@ export default function Page() {
         key: 'ticket_id',
         label: 'Ticket ID',
         render: (row: Row) => (
-          <div style={{ display: 'grid', gap: '8px' }}>
+          <div style={{ display: 'grid', gap: '24px' }}>
             <code style={{ color: '#4A4A4A', fontSize: '14px' }}>{row.id}</code>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               <PlatformEntityLink entityType="ticket" entityId={row.id} compact>Open</PlatformEntityLink>
               <button
                 type="button"
@@ -108,12 +104,12 @@ export default function Page() {
       {
         key: 'type',
         label: 'Type',
-        render: (row: Row) => row.category ?? '—',
+        render: (row: Row) => row.type ?? '—',
       },
       {
         key: 'severity',
         label: 'Severity',
-        render: (row: Row) => row.priority ?? '—',
+        render: (row: Row) => row.severity ?? '—',
       },
       {
         key: 'status',
