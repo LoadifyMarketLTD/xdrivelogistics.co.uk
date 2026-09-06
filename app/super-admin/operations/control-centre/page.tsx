@@ -304,6 +304,7 @@ export default function SuperAdminOperationsControlCentre() {
                     <Link className={styles.linkButton} href="/super-admin/operations/fleet-positions">Fleet Positions</Link>
                   </div>
                   <SuperAdminOperationalMap drivers={data.map.drivers} jobs={data.map.jobs} routes={data.map.routes} />
+                  {data.map.drivers.length === 0 && <p className={styles.quickNote}>No drivers currently have a valid live GPS position. AVAILABLE drivers appear from active availability presence; executing drivers appear from job tracking.</p>}
                   {data.map.jobs.length === 0 && <p className={styles.quickNote}>No active job currently has canonical map coordinates, so no job pin or route is fabricated.</p>}
                 </div>
 

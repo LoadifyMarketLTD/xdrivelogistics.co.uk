@@ -7,7 +7,7 @@ export type OperationalDriverPin = {
   name: string;
   status: 'online' | 'busy' | 'offline' | 'sold';
   vehicle: { registration: string; label: string } | null;
-  location: { lat: number | null; lng: number | null; heading: number | null; speed_mph: number | null; recorded_at: string | null } | null;
+  location: { lat: number | null; lng: number | null; heading: number | null; speed_mph: number | null; recorded_at: string | null; source?: string | null } | null;
 };
 
 export type OperationalJobPin = {
@@ -101,9 +101,11 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       for (const pin of validDrivers) {
         const moving = (pin.location?.speed_mph ?? 0) > 3;
         const state = pin.status === 'offline' ? 'OFFLINE' : 'AVAILABLE';
+        const sourceLabel = pin.location?.source === 'availability_presence' ? 'Availability presence' : 'Execution tracking';
         const lines = [
           `${state}${pin.location?.speed_mph != null ? ` · ${Math.round(pin.location.speed_mph)} mph` : ''}`,
           pin.vehicle ? `${pin.vehicle.registration} · ${pin.vehicle.label}` : 'No assigned vehicle',
+          sourceLabel,
           pin.location?.recorded_at ? `Last fix: ${new Date(pin.location.recorded_at).toLocaleString('en-GB')}` : 'Last fix unavailable',
         ];
         L.marker([Number(pin.location!.lat), Number(pin.location!.lng)], { icon: markerIcon(driverOperationalColor(pin), moving ? 'V' : 'V') })

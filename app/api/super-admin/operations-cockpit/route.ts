@@ -30,6 +30,18 @@ const iso = (value: unknown) => {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 };
 const coordinate = (...values: unknown[]) => values.map(num).find((value) => value !== null) ?? null;
+const geographyPoint = (value: unknown) => {
+  let candidate = value;
+  if (typeof candidate === 'string') {
+    try { candidate = JSON.parse(candidate); } catch { return null; }
+  }
+  if (!candidate || typeof candidate !== 'object') return null;
+  const coordinates = (candidate as { coordinates?: unknown }).coordinates;
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+  const lng = num(coordinates[0]);
+  const lat = num(coordinates[1]);
+  return lat !== null && lng !== null ? { lat, lng } : null;
+};
 
 const startOfUtcDay = (date: Date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 const startOfUtcWeek = (date: Date) => {
@@ -50,9 +62,10 @@ export async function GET(request: NextRequest) {
   const locationCutoff = new Date(nowMs - MAP_LOCATION_MAX_AGE_MS).toISOString();
   const financeCutoff = new Date(nowMs - 35 * 24 * 60 * 60_000).toISOString();
 
-  const [driversResult, locationsResult, vehiclesResult, vehicleDocsResult, jobsResult, paymentsResult, invoicesResult, urgentCasesResult, urgentSupportResult] = await Promise.all([
+  const [driversResult, locationsResult, availabilityPresenceResult, vehiclesResult, vehicleDocsResult, jobsResult, paymentsResult, invoicesResult, urgentCasesResult, urgentSupportResult] = await Promise.all([
     supabaseAdmin.from('drivers').select('id, user_id, company_id, display_name, full_name, name, availability_status, last_app_login, is_active').order('display_name', { ascending: true }),
-    supabaseAdmin.from('driver_locations').select('id, driver_id, vehicle_id, job_id, lat, lng, heading, speed_mph, recorded_at, source').gte('recorded_at', locationCutoff).order('recorded_at', { ascending: false }).limit(MAX_LOCATION_ROWS),
+    supabaseAdmin.from('driver_locations').select('id, driver_id, vehicle_id, job_id, location, lat, lng, heading, speed_mph, recorded_at, source').gte('recorded_at', locationCutoff).order('recorded_at', { ascending: false }).limit(MAX_LOCATION_ROWS),
+    supabaseAdmin.from('driver_availability_presence').select('driver_id, exact_lat, exact_lng, visibility, available_until, recorded_at, updated_at').gt('available_until', now.toISOString()).order('recorded_at', { ascending: false }).limit(MAX_LOCATION_ROWS),
     supabaseAdmin.from('vehicles').select('id, company_id, assigned_driver_id, registration, reg_plate, reg, make, model, vehicle_type, type, status, current_status, is_available, is_tracked, last_tracked_at, has_tail_lift, equipment, pallets_capacity, payload_kg, capacity_kg, loading_capacity_m3, international_work_approved').order('created_at', { ascending: false }).limit(500),
     supabaseAdmin.from('vehicle_documents').select('vehicle_id, status, expiry_date'),
     supabaseAdmin.from('jobs').select('id, company_id, client_name, status, pickup_location, pickup_postcode, pickup_city, delivery_location, delivery_postcode, delivery_city, pickup_datetime, delivery_datetime, deadline_at, assigned_driver_id, vehicle_id, price, agreed_rate_gbp, budget_amount, currency, pickup_lat, pickup_lng, delivery_lat, delivery_lng, pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude, created_at').order('created_at', { ascending: false }).limit(MAX_JOB_ROWS),
@@ -62,7 +75,7 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('support_tickets').select('id', { count: 'exact', head: true }).eq('priority', 'critical').in('status', ['open', 'investigating']),
   ]);
 
-  const required = [driversResult, locationsResult, vehiclesResult, vehicleDocsResult, jobsResult, paymentsResult, invoicesResult];
+  const required = [driversResult, locationsResult, availabilityPresenceResult, vehiclesResult, vehicleDocsResult, jobsResult, paymentsResult, invoicesResult];
   const failed = required.find((result) => result.error);
   if (failed?.error) return respond(500, { error: `Operations cockpit source unavailable: ${failed.error.message}` });
   if (urgentCasesResult.error || urgentSupportResult.error || typeof urgentCasesResult.count !== 'number' || typeof urgentSupportResult.count !== 'number') {
@@ -71,6 +84,7 @@ export async function GET(request: NextRequest) {
 
   const drivers = driversResult.data ?? [];
   const locations = locationsResult.data ?? [];
+  const availabilityPresence = availabilityPresenceResult.data ?? [];
   const vehicles = vehiclesResult.data ?? [];
   const jobs = jobsResult.data ?? [];
   const invoices = invoicesResult.data ?? [];
@@ -99,6 +113,11 @@ export async function GET(request: NextRequest) {
     const driverId = String(row.driver_id ?? '');
     if (driverId && !latestLocationByDriver.has(driverId)) latestLocationByDriver.set(driverId, row);
   }
+  const availabilityByDriver = new Map<string, (typeof availabilityPresence)[number]>();
+  for (const row of availabilityPresence) {
+    const driverId = String(row.driver_id ?? '');
+    if (driverId && !availabilityByDriver.has(driverId)) availabilityByDriver.set(driverId, row);
+  }
   const vehicleByDriver = new Map<string, (typeof vehicles)[number]>();
   for (const vehicle of vehicles) {
     const driverId = text(vehicle.assigned_driver_id);
@@ -117,10 +136,19 @@ export async function GET(request: NextRequest) {
   const driverCards = drivers.map((driver) => {
     const driverId = String(driver.id);
     const latest = latestLocationByDriver.get(driverId) ?? null;
-    const recordedAt = iso(latest?.recorded_at);
-    const ageMs = recordedAt ? nowMs - Date.parse(recordedAt) : Number.POSITIVE_INFINITY;
+    const presence = availabilityByDriver.get(driverId) ?? null;
+    const legacyPoint = geographyPoint(latest?.location);
+    const executionLat = coordinate(latest?.lat, legacyPoint?.lat);
+    const executionLng = coordinate(latest?.lng, legacyPoint?.lng);
+    const executionRecordedAt = iso(latest?.recorded_at);
+    const executionAgeMs = executionRecordedAt ? nowMs - Date.parse(executionRecordedAt) : Number.POSITIVE_INFINITY;
+    const presenceRecordedAt = iso(presence?.recorded_at) ?? iso(presence?.updated_at);
+    const presenceUntil = iso(presence?.available_until);
+    const presenceActive = Boolean(presenceUntil && Date.parse(presenceUntil) > nowMs && num(presence?.exact_lat) !== null && num(presence?.exact_lng) !== null);
+    const executionFresh = executionLat !== null && executionLng !== null && executionAgeMs <= ONLINE_LOCATION_MAX_AGE_MS;
+    const useAvailabilityPresence = presenceActive && (!executionRecordedAt || (presenceRecordedAt && Date.parse(presenceRecordedAt) >= Date.parse(executionRecordedAt)));
     const baseAvailability = text(driver.availability_status) ?? 'offline';
-    const online = Boolean(driver.is_active !== false && ageMs <= ONLINE_LOCATION_MAX_AGE_MS && baseAvailability !== 'offline');
+    const online = Boolean(driver.is_active !== false && baseAvailability !== 'offline' && (executionFresh || presenceActive));
     const status = online ? (baseAvailability === 'busy' ? 'busy' : 'online') : 'offline';
     const assignedVehicle = vehicleByDriver.get(driverId) ?? null;
     const userId = text(driver.user_id);
@@ -134,7 +162,7 @@ export async function GET(request: NextRequest) {
       status,
       availability_status: baseAvailability,
       online,
-      last_activity_at: recordedAt ?? iso(driver.last_app_login),
+      last_activity_at: (useAvailabilityPresence ? presenceRecordedAt : executionRecordedAt) ?? executionRecordedAt ?? presenceRecordedAt ?? iso(driver.last_app_login),
       rating,
       review_count: ratings.length,
       vehicle: assignedVehicle ? {
@@ -142,9 +170,15 @@ export async function GET(request: NextRequest) {
         registration: text(assignedVehicle.registration) ?? text(assignedVehicle.reg_plate) ?? text(assignedVehicle.reg) ?? '—',
         label: [text(assignedVehicle.make), text(assignedVehicle.model)].filter(Boolean).join(' ') || text(assignedVehicle.vehicle_type) || text(assignedVehicle.type) || 'Vehicle',
       } : null,
-      location: latest && num(latest.lat) !== null && num(latest.lng) !== null ? {
-        lat: num(latest.lat), lng: num(latest.lng), heading: num(latest.heading), speed_mph: num(latest.speed_mph), recorded_at: recordedAt, source: text(latest.source),
-        vehicle_id: text(latest.vehicle_id), job_id: text(latest.job_id),
+      location: useAvailabilityPresence ? {
+        lat: num(presence?.exact_lat), lng: num(presence?.exact_lng), heading: null, speed_mph: null, recorded_at: presenceRecordedAt, source: 'availability_presence',
+        vehicle_id: assignedVehicle ? String(assignedVehicle.id) : null, job_id: null,
+      } : executionLat !== null && executionLng !== null ? {
+        lat: executionLat, lng: executionLng, heading: num(latest?.heading), speed_mph: num(latest?.speed_mph), recorded_at: executionRecordedAt, source: text(latest?.source) ?? 'driver_locations',
+        vehicle_id: text(latest?.vehicle_id), job_id: text(latest?.job_id),
+      } : presenceActive ? {
+        lat: num(presence?.exact_lat), lng: num(presence?.exact_lng), heading: null, speed_mph: null, recorded_at: presenceRecordedAt, source: 'availability_presence',
+        vehicle_id: assignedVehicle ? String(assignedVehicle.id) : null, job_id: null,
       } : null,
     };
   });
@@ -267,7 +301,7 @@ export async function GET(request: NextRequest) {
   return respond(200, {
     refreshedAt: now.toISOString(),
     definitions: {
-      driversOnline: 'Active driver with available/busy presence and a location sample no older than 30 minutes.',
+      driversOnline: 'Active driver with AVAILABLE presence from driver_availability_presence or fresh execution tracking no older than 30 minutes.',
       fleetHealth: 'Operational readiness: active vehicle with no rejected/expired vehicle-compliance document. This is not a mechanical telemetry score.',
       lateDeliveries: 'Open job whose cached traffic ETA is late or whose planned delivery/deadline has passed.',
       revenue: 'Recorded invoice payment-history settlements. UTC calendar boundaries are used in this read-only cockpit.',
@@ -286,6 +320,7 @@ export async function GET(request: NextRequest) {
       drivers: driverCards.filter((driver) => driver.location && driver.location.lat !== null && driver.location.lng !== null),
       jobs: executingJobs.filter((job) => job.map.pickup_lat !== null || job.map.delivery_lat !== null),
       routes: executingJobs.filter((job) => job.map.pickup_lat !== null && job.map.pickup_lng !== null && job.map.delivery_lat !== null && job.map.delivery_lng !== null),
+      driverLocationSources: ['driver_availability_presence', 'driver_locations'],
       trafficEtaSource: 'job_tracking_eta_snapshots',
       providerCallsTriggered: false,
     },
