@@ -1,10 +1,13 @@
 [build]
-  # TEMPORARY PR #505 diagnostic harness. MUST be removed before final validation.
-  command = "node ./scripts/netlify-v2-diagnostic-wrapper.mjs"
-  publish = "public"
+  # TEMPORARY PR #505 diagnostic: isolate TypeScript + Next build from checker stages.
+  # MUST be restored to scripts/netlify-release-gate.mjs before final validation.
+  command = "npm run typecheck && npm run build"
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
   NODE_VERSION = "20"
   NEXT_PUBLIC_SITE_URL = "https://www.xdrivelogistics.co.uk"
   EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
