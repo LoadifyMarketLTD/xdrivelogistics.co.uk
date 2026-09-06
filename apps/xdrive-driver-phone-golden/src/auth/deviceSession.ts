@@ -6,6 +6,7 @@ const installationKey = 'xdrive.driver.installationId.v1';
 const canonicalAppPackage = 'co.uk.xdrivelogistics.driver';
 const previewAppPackage = 'co.uk.xdrivelogistics.driver.preview';
 const fallbackBaseUrl = 'https://www.xdrivelogistics.co.uk';
+const hostedPreviewHost = /^deploy-preview-\d+--xdrivelogistics\.netlify\.app$/;
 let registeredToken: string | null = null;
 let registrationPromise: Promise<string> | null = null;
 
@@ -28,11 +29,14 @@ function runtimeAppPackage() {
   return configured || canonicalAppPackage;
 }
 
-function localPreviewWithoutRegistry() {
+function previewWithoutRegistry() {
   if (runtimeAppPackage() !== previewAppPackage) return false;
   try {
     const hostname = new URL(apiBaseUrl()).hostname.toLowerCase();
-    return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
+    return hostname === '127.0.0.1'
+      || hostname === 'localhost'
+      || hostname === '::1'
+      || hostedPreviewHost.test(hostname);
   } catch {
     return false;
   }
@@ -62,7 +66,10 @@ export async function getInstallationId() {
 }
 
 export async function getInstallationHeaders() {
-  return { 'x-xdrive-installation-id': await getInstallationId() };
+  return {
+    'x-xdrive-installation-id': await getInstallationId(),
+    'x-xdrive-app-package': runtimeAppPackage(),
+  };
 }
 
 export async function ensureNativeDeviceSession(token: string) {
@@ -111,7 +118,7 @@ export async function ensureNativeDeviceSession(token: string) {
 export async function revokeNativeDeviceSession(token: string) {
   const normalizedToken = token.trim();
   try {
-    if (!normalizedToken || localPreviewWithoutRegistry()) return;
+    if (!normalizedToken || previewWithoutRegistry()) return;
     const installationHeaders = await getInstallationHeaders();
     await fetch(`${apiBaseUrl()}/api/driver/mobile/device-session`, {
       method: 'DELETE',
