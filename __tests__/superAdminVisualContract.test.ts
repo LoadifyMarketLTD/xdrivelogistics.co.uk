@@ -80,7 +80,7 @@ describe('MASTER CONTRACT FINAL v2 — Super Admin visual/source compliance', ()
         expect(file, `${name} still emits ${forbidden}`).not.toContain(forbidden);
       }
     }
-    expect(masterDocument).toContain('Legacy value removal is progressive across historical source');
+    expect(masterDocument).toContain('Eliminare treptată');
   });
 
   it('makes Command Centre KPI cards non-navigable enterprise divs in every state', () => {
