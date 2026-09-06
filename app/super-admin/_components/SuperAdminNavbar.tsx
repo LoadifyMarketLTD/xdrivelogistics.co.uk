@@ -27,7 +27,7 @@ type LogoIconProps = {
 function LogoIcon({ size }: LogoIconProps) {
   return (
     <Image
-      src="/icons/icon-192x192.png"
+      src="/icon-192.png"
       alt=""
       width={size}
       height={size}
