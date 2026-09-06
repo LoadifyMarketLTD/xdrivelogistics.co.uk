@@ -895,6 +895,7 @@ export default function DriverMobileAppV3() {
               loading={resourcesBusy || jobsBusy}
               onLoads={() => navigatePrimary('loads')}
               onHistory={() => navigatePrimary('history')}
+              onOffers={() => navigatePrimary('offers')}
               onAvailability={() => setRoute({ kind: 'utility', page: 'availability' })}
               onOpenJob={openJob}
             />
@@ -1144,26 +1145,35 @@ function OverviewHeader({ resources, trackingState }: {
   const name = resources?.name || resources?.driver?.display_name || 'XDrive Driver';
   const vehicle = resources?.vehicle?.reg_plate || resources?.vehicle?.type || resources?.vehicle?.vehicle_type || 'Vehicle not assigned';
   const availability = String(resources?.driver?.availability_status ?? 'available').replace('_', ' ');
+  const shiftLabel = availability === 'available' ? 'Ready for work' : availability === 'busy' ? 'Busy' : 'Off duty';
   return (
     <View style={styles.overviewHeader}>
-      <View style={styles.brandLine}>
-        <Text style={styles.xdriveMark}>X<Text style={styles.xdriveWhite}>DRIVE</Text></Text>
-        <Text style={styles.controlMark}>DRIVER CONTROL</Text>
+      <View style={styles.commandBrandRow}>
+        <View style={styles.commandBrandLockup}>
+          <Text style={styles.commandBrand}>XDRIVE</Text>
+          <Text style={styles.commandSlash}>/</Text>
+          <Text style={styles.commandMode}>ROAD OPS</Text>
+        </View>
+        <View style={styles.commandPulse}><View style={styles.commandPulseDot} /><Text style={styles.commandPulseText}>DRIVER</Text></View>
       </View>
-      <View>
-        <Text style={styles.driverName}>{name}</Text>
-        <Text style={styles.driverVehicle}>{vehicle}</Text>
+      <View style={styles.commandIdentityRow}>
+        <View style={styles.flexOne}>
+          <Text style={styles.commandEyebrow}>SIGNED-IN DRIVER</Text>
+          <Text style={styles.driverName}>{name}</Text>
+          <Text style={styles.driverVehicle}>{vehicle}</Text>
+        </View>
+        <View style={styles.commandMonogram}><Text style={styles.commandMonogramText}>{initials(name)}</Text></View>
       </View>
-      <View style={styles.stateRail}>
-        <View style={styles.stateCell}><Text style={styles.stateLabel}>WORK STATE</Text><Text style={styles.stateValue}>{availability}</Text></View>
-        <View style={styles.stateDivider} />
-        <View style={styles.stateCell}><Text style={styles.stateLabel}>LOCATION LINK</Text><Text style={trackingState === 'active' ? styles.stateValueLive : styles.stateValue}>{trackingLabel(trackingState)}</Text></View>
+      <View style={styles.commandStatusStrip}>
+        <View style={styles.commandStatusItem}><Text style={styles.commandStatusLabel}>SHIFT</Text><Text style={styles.commandStatusValue}>{shiftLabel}</Text></View>
+        <View style={styles.commandStatusRule} />
+        <View style={styles.commandStatusItem}><Text style={styles.commandStatusLabel}>GPS LINK</Text><Text style={trackingState === 'active' ? styles.commandStatusValueLive : styles.commandStatusValue}>{trackingLabel(trackingState)}</Text></View>
       </View>
     </View>
   );
 }
 
-function OverviewBody({ resources, liveCount, currentJobs, activeOffers, loading, onLoads, onHistory, onAvailability, onOpenJob }: {
+function OverviewBody({ resources, liveCount, currentJobs, activeOffers, loading, onLoads, onHistory, onOffers, onAvailability, onOpenJob }: {
   resources: DriverProfileResource | null;
   liveCount: number;
   currentJobs: DriverJob[];
@@ -1171,44 +1181,53 @@ function OverviewBody({ resources, liveCount, currentJobs, activeOffers, loading
   loading: boolean;
   onLoads: () => void;
   onHistory: () => void;
+  onOffers: () => void;
   onAvailability: () => void;
   onOpenJob: (id: string) => void;
 }) {
+  const activeJob = currentJobs[0];
   return <View style={styles.stack}>
-    <TouchableOpacity style={styles.findWorkCard} onPress={onLoads} activeOpacity={0.9}>
-      <View style={styles.findWorkCopy}>
-        <Text style={styles.findWorkKicker}>LOAD BOARD</Text>
-        <Text style={styles.findWorkTitle}>Find available work</Text>
-        <Text style={styles.findWorkBody}>Browse eligible loads and send an offer from one place.</Text>
+    <View style={styles.dispatchPanel}>
+      <View style={styles.dispatchHeader}>
+        <View><Text style={styles.sectionKicker}>DISPATCH NOW</Text><Text style={styles.dispatchTitle}>Operational desk</Text></View>
+        <Text style={styles.dispatchCount}>{currentJobs.length}</Text>
       </View>
-      <View style={styles.findWorkArrow}><Text style={styles.findWorkArrowText}>→</Text></View>
+      {activeJob ? (
+        <TouchableOpacity style={styles.activeRunCard} onPress={() => onOpenJob(activeJob.id)} activeOpacity={0.9}>
+          <View style={styles.activeRunTop}>
+            <View style={styles.flexOne}><Text style={styles.activeRunLabel}>ACTIVE WORK ORDER</Text><Text style={styles.activeRunReference}>{activeJob.reference}</Text></View>
+            <StatusTag label={progressLabels[activeJob.status].toUpperCase()} tone={activeJob.status === 'delivered' ? 'green' : 'blue'} />
+          </View>
+          <CompactRoute job={activeJob} />
+          <View style={styles.activeRunFooter}><Text style={styles.activeRunHint}>Open route, instructions, progress and POD</Text><Text style={styles.activeRunArrow}>→</Text></View>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.dispatchEmpty}><Text style={styles.dispatchEmptyTitle}>No work order in progress</Text><Text style={styles.dispatchEmptyBody}>When a job is allocated, the full operational record will appear here.</Text></View>
+      )}
+    </View>
+
+    <TouchableOpacity style={styles.marketAccessCard} onPress={onLoads} activeOpacity={0.9}>
+      <View style={styles.marketAccessIcon}><Text style={styles.marketAccessIconText}>↗</Text></View>
+      <View style={styles.flexOne}><Text style={styles.marketAccessKicker}>MARKET ACCESS</Text><Text style={styles.marketAccessTitle}>Open Live Load Board</Text><Text style={styles.marketAccessBody}>Eligible work, route summary and commercial offer controls.</Text></View>
+      <View style={styles.marketAccessCount}><Text style={styles.marketAccessCountValue}>{liveCount}</Text><Text style={styles.marketAccessCountLabel}>LIVE</Text></View>
     </TouchableOpacity>
 
-    <View style={styles.snapshotCard}>
-      <SnapshotMetric value={String(liveCount)} label="Available loads" />
-      <View style={styles.snapshotDivider} />
-      <SnapshotMetric value={String(currentJobs.length)} label="Active work" />
-      <View style={styles.snapshotDivider} />
-      <SnapshotMetric value={String(activeOffers)} label="Open offers" />
+    <View style={styles.commandLedger}>
+      <TouchableOpacity style={styles.ledgerCell} onPress={onOffers}>
+        <Text style={styles.ledgerLabel}>OPEN OFFERS</Text><Text style={styles.ledgerValue}>{activeOffers}</Text><Text style={styles.ledgerHint}>Commercial decisions pending</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.ledgerCell} onPress={onHistory}>
+        <Text style={styles.ledgerLabel}>WORK LOG</Text><Text style={styles.ledgerValue}>{currentJobs.length}</Text><Text style={styles.ledgerHint}>Open complete History</Text>
+      </TouchableOpacity>
     </View>
 
-    {loading ? <LoadingCard text="Updating XDrive workspace..." /> : null}
+    <TouchableOpacity style={styles.shiftControl} onPress={onAvailability}>
+      <View><Text style={styles.shiftControlLabel}>DRIVER AVAILABILITY</Text><Text style={styles.shiftControlTitle}>Change work state</Text></View><Text style={styles.shiftControlArrow}>→</Text>
+    </TouchableOpacity>
 
-    {currentJobs[0]
-      ? <View style={styles.section}><Text style={styles.sectionKicker}>CURRENT WORK</Text><HistoryCard job={currentJobs[0]} onPress={() => onOpenJob(currentJobs[0].id)} /></View>
-      : <EmptyState title="No active work order" body="Allocated work will appear here when XDrive assigns it to you." />}
-
-    <View style={styles.twoActions}>
-      <TouchableOpacity style={styles.secondaryAction} onPress={onAvailability}><Text style={styles.secondaryActionText}>Change work state</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.secondaryAction} onPress={onHistory}><Text style={styles.secondaryActionText}>Open History</Text></TouchableOpacity>
-    </View>
-
-    {resources?.company?.name ? <Text style={styles.accountHint}>Operating account: {String(resources.company.name)}</Text> : null}
+    {loading ? <LoadingCard text="Updating XDrive operational data..." /> : null}
+    {resources?.company?.name ? <Text style={styles.accountHint}>Operating account · {String(resources.company.name)}</Text> : null}
   </View>;
-}
-
-function SnapshotMetric({ value, label }: { value: string; label: string }) {
-  return <View style={styles.snapshotMetric}><Text style={styles.snapshotValue}>{value}</Text><Text style={styles.snapshotLabel}>{label}</Text></View>;
 }
 
 function LoadBoard({ loads, feed, preferences, loading, error, onRefresh, onOpen, onOffer, onStar, onDismiss, onRestore }: {
@@ -1832,32 +1851,63 @@ const styles = StyleSheet.create({
   tabText: { color: '#BFD1EF', fontSize: 13, fontWeight: '800' },
   tabTextActive: { color: colors.secondary, fontWeight: '900' },
 
-  overviewHeader: { backgroundColor: colors.secondary, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20, gap: 16, borderBottomLeftRadius: 30 },
-  brandLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  xdriveMark: { color: colors.warning, fontSize: 25, fontWeight: '900', letterSpacing: 0.5 },
-  xdriveWhite: { color: '#FFFFFF' },
-  controlMark: { color: '#A9BFE0', fontSize: 9, fontWeight: '900', letterSpacing: 1.8 },
-  driverName: { color: '#FFFFFF', fontSize: 27, fontWeight: '900' },
-  driverVehicle: { color: '#BCD0EE', fontSize: 14, fontWeight: '700', marginTop: 3 },
-  stateRail: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#102A52', borderRadius: 16, padding: 14 },
-  stateCell: { flex: 1 },
-  stateDivider: { width: 1, backgroundColor: '#355A91', marginHorizontal: 12 },
-  stateLabel: { color: '#91A9CC', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  stateValue: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 5, textTransform: 'capitalize' },
-  stateValueLive: { color: '#8FE7B0', fontSize: 14, fontWeight: '900', marginTop: 5 },
+  overviewHeader: { backgroundColor: colors.secondary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, gap: 15, borderBottomWidth: 3, borderBottomColor: colors.warning },
+  commandBrandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  commandBrandLockup: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  commandBrand: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', letterSpacing: 0.8 },
+  commandSlash: { color: colors.warning, fontSize: 21, fontWeight: '900' },
+  commandMode: { color: '#AFC3E3', fontSize: 9, fontWeight: '900', letterSpacing: 1.6 },
+  commandPulse: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#102A52', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  commandPulseDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.warning },
+  commandPulseText: { color: '#DCE8FA', fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  commandIdentityRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  commandEyebrow: { color: '#87A5D0', fontSize: 8, fontWeight: '900', letterSpacing: 1.3, marginBottom: 3 },
+  driverName: { color: '#FFFFFF', fontSize: 26, fontWeight: '900' },
+  driverVehicle: { color: '#BCD0EE', fontSize: 13, fontWeight: '700', marginTop: 2 },
+  commandMonogram: { width: 52, height: 52, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  commandMonogramText: { color: colors.secondary, fontSize: 15, fontWeight: '900' },
+  commandStatusStrip: { flexDirection: 'row', alignItems: 'center', borderTopColor: '#31517E', borderTopWidth: 1, paddingTop: 12 },
+  commandStatusItem: { flex: 1 },
+  commandStatusRule: { width: 1, height: 30, backgroundColor: '#31517E', marginHorizontal: 14 },
+  commandStatusLabel: { color: '#7F9BC4', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  commandStatusValue: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', marginTop: 4 },
+  commandStatusValueLive: { color: '#8FE7B0', fontSize: 13, fontWeight: '900', marginTop: 4 },
 
-  findWorkCard: { minHeight: 138, backgroundColor: '#0E3FA9', borderRadius: 22, padding: 20, flexDirection: 'row', alignItems: 'center' },
-  findWorkCopy: { flex: 1, paddingRight: 12 },
-  findWorkKicker: { color: '#BFD4FF', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
-  findWorkTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', marginTop: 5 },
-  findWorkBody: { color: '#E5EEFF', fontSize: 13, lineHeight: 19, fontWeight: '600', marginTop: 6 },
-  findWorkArrow: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  findWorkArrowText: { color: '#0E3FA9', fontSize: 28, fontWeight: '700' },
-  snapshotCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, paddingVertical: 15 },
-  snapshotMetric: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
-  snapshotDivider: { width: 1, backgroundColor: colors.borderSubtle },
-  snapshotValue: { color: colors.secondary, fontSize: 25, fontWeight: '900' },
-  snapshotLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 },
+  dispatchPanel: { backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, padding: 16, gap: 12 },
+  dispatchHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dispatchTitle: { color: colors.text, fontSize: 21, fontWeight: '900', marginTop: 3 },
+  dispatchCount: { minWidth: 42, height: 42, borderRadius: 12, backgroundColor: '#EEF4FF', color: colors.primary, fontSize: 20, fontWeight: '900', textAlign: 'center', textAlignVertical: 'center' },
+  activeRunCard: { borderRadius: 15, backgroundColor: '#0B2F6B', padding: 14, gap: 11 },
+  activeRunTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  activeRunLabel: { color: '#9FB8DE', fontSize: 8, fontWeight: '900', letterSpacing: 1.1, marginBottom: 3 },
+  activeRunReference: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
+  activeRunFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopColor: '#31517E', borderTopWidth: 1, paddingTop: 9 },
+  activeRunHint: { color: '#C6D7F0', fontSize: 10, lineHeight: 15, fontWeight: '700', flex: 1, paddingRight: 10 },
+  activeRunArrow: { color: colors.warning, fontSize: 21, fontWeight: '900' },
+  dispatchEmpty: { backgroundColor: '#F8FAFC', borderRadius: 13, padding: 14, borderLeftWidth: 4, borderLeftColor: colors.warning },
+  dispatchEmptyTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  dispatchEmptyBody: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 4 },
+
+  marketAccessCard: { minHeight: 102, backgroundColor: '#0E3FA9', borderRadius: 18, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  marketAccessIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  marketAccessIconText: { color: '#0E3FA9', fontSize: 24, fontWeight: '900' },
+  marketAccessKicker: { color: '#BFD4FF', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  marketAccessTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: 3 },
+  marketAccessBody: { color: '#E5EEFF', fontSize: 10, lineHeight: 15, fontWeight: '600', marginTop: 3 },
+  marketAccessCount: { minWidth: 52, minHeight: 58, borderRadius: 13, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  marketAccessCountValue: { color: colors.secondary, fontSize: 22, fontWeight: '900' },
+  marketAccessCountLabel: { color: colors.primary, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+
+  commandLedger: { flexDirection: 'row', gap: 10 },
+  ledgerCell: { flex: 1, minHeight: 112, backgroundColor: '#FFFFFF', borderRadius: 16, borderColor: colors.borderSubtle, borderWidth: 1, padding: 14, justifyContent: 'space-between' },
+  ledgerLabel: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  ledgerValue: { color: colors.secondary, fontSize: 30, fontWeight: '900' },
+  ledgerHint: { color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: '600' },
+
+  shiftControl: { minHeight: 66, backgroundColor: '#FFF7E6', borderRadius: 16, borderColor: '#F9D690', borderWidth: 1, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  shiftControlLabel: { color: '#8A5A00', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  shiftControlTitle: { color: colors.text, fontSize: 14, fontWeight: '900', marginTop: 2 },
+  shiftControlArrow: { color: '#B26A00', fontSize: 22, fontWeight: '900' },
   accountHint: { color: colors.muted, fontSize: 11, textAlign: 'center' },
 
   section: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
