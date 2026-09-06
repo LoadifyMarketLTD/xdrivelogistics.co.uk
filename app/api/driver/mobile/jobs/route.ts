@@ -22,7 +22,7 @@ const scopes: Record<string, string[]> = {
     'on_site_delivery',
   ],
   upcoming: ['awarded', 'allocated', 'accepted', 'assigned'],
-  completed: ['delivered', 'completed', 'invoiced', 'paid'],
+  completed: ['delivered', 'completed', 'invoiced', 'paid', 'cancelled', 'canceled'],
 };
 
 export async function GET(request: NextRequest) {
@@ -47,9 +47,6 @@ export async function GET(request: NextRequest) {
     .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
     .limit(limit);
 
-  // Active/upcoming execution treats current_status as authoritative when present.
-  // Full History is deliberately broader: legacy lifecycle status OR current_status
-  // can prove completion, so old completed work is not lost because one field is stale.
   query = completedHistory
     ? query.or(`current_status.in.(${statuses}),status.in.(${statuses})`)
     : query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
