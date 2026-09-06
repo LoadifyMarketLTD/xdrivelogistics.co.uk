@@ -1,7 +1,7 @@
 [build]
-  # TEMPORARY PR #505 diagnostic: isolate navbar v2 unit test.
+  # TEMPORARY PR #505 diagnostic: isolate visual v2 unit test.
   # MUST be restored to scripts/netlify-release-gate.mjs before final validation.
-  command = "npm run test:unit -- __tests__/superAdminNavbarContract.test.ts"
+  command = "npm run test:unit -- __tests__/superAdminVisualContract.test.ts"
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
