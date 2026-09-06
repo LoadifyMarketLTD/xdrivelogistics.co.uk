@@ -23,13 +23,13 @@ react {
     /* Folders */
      //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
-    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
+    //   The folder where the React Native NPM package is. Default is ../../node_modules/react-native
     // reactNativeDir = file("../../node_modules/react-native")
     //   The folder where the Codegen package is. Default is ../../node_modules/@react-native/codegen
     // codegenDir = file("../../node_modules/@react-native/codegen")
 
     /* Variants */
-    //   The list of variants to that are debuggable. For those we're going to
+    //   The list of variants that are debuggable. For those we're going to
     //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
     // debuggableVariants = ["liteDebug", "prodDebug"]
@@ -83,6 +83,7 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 def sideBySidePreview = (System.getenv('XDRIVE_SIDE_BY_SIDE_PREVIEW') ?: 'false').toBoolean()
 def driverApplicationId = sideBySidePreview ? 'co.uk.xdrivelogistics.driver.preview' : 'co.uk.xdrivelogistics.driver'
 def driverScheme = sideBySidePreview ? 'xdrivedriver-preview' : 'xdrivedriver'
+def driverCleartextTraffic = sideBySidePreview ? 'true' : 'false'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -97,7 +98,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
-        manifestPlaceholders = [xdriveDriverScheme: driverScheme]
+        manifestPlaceholders = [
+            xdriveDriverScheme: driverScheme,
+            xdriveUsesCleartextTraffic: driverCleartextTraffic,
+        ]
     }
     signingConfigs {
         debug {
@@ -174,7 +178,6 @@ dependencies {
     if (isWebpEnabled) {
         implementation("com.facebook.fresco:webpsupport:${expoLibs.versions.fresco.get()}")
         if (isWebpAnimatedEnabled) {
-            // Animated webp support
             implementation("com.facebook.fresco:animated-webp:${expoLibs.versions.fresco.get()}")
         }
     }
