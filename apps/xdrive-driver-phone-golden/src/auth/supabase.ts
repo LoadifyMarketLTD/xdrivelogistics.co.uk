@@ -1,8 +1,9 @@
 import 'react-native-url-polyfill/auto';
 
 import Constants from 'expo-constants';
-import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
+
+import { getChunkedSecureItem, removeChunkedSecureItem, setChunkedSecureItem } from './chunkedSecureStore';
 
 function normalizeSupabaseUrl(value: unknown) {
   let normalized = typeof value === 'string' ? value.trim() : '';
@@ -28,21 +29,14 @@ function normalizeAnonKey(value: unknown) {
 }
 
 const secureAuthStorage = {
-  getItem: async (key: string) => SecureStore.getItemAsync(key),
-  setItem: async (key: string, value: string) => {
-    await SecureStore.setItemAsync(key, value, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
-  },
-  removeItem: async (key: string) => {
-    await SecureStore.deleteItemAsync(key);
-  },
+  getItem: getChunkedSecureItem,
+  setItem: setChunkedSecureItem,
+  removeItem: removeChunkedSecureItem,
 };
 
 // Metro/EAS statically inlines EXPO_PUBLIC_* variables at bundle time.
 // Validate both Expo extra values and the directly inlined env values so a
-// malformed build-time URL (for example a duplicated https:// prefix) cannot
-// silently produce a generic "Network request failed" during sign-in.
+// malformed build-time URL cannot silently produce a generic network failure.
 const extra = Constants.expoConfig?.extra ?? {};
 const supabaseUrl = normalizeSupabaseUrl(
   typeof extra.supabaseUrl === 'string' ? extra.supabaseUrl : process.env.EXPO_PUBLIC_SUPABASE_URL,
