@@ -9,7 +9,7 @@ import {
   respond,
 } from '../../_lib';
 
-type AnyRow = Record<string, any>;
+type DataRow = Record<string, unknown>;
 
 type JobStopRow = {
   id: string;
@@ -42,20 +42,20 @@ function boolValue(value: unknown) {
   return typeof value === 'boolean' ? value : null;
 }
 
-function record(value: unknown): Record<string, any> | null {
+function record(value: unknown): DataRow | null {
   return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, any>
+    ? value as DataRow
     : null;
 }
 
 function parseLoadDetails(raw: unknown) {
   const source = text(raw);
-  if (!source) return { parsed: null as Record<string, any> | null, rawText: null as string | null };
+  if (!source) return { parsed: null as DataRow | null, rawText: null as string | null };
   try {
     const parsed = JSON.parse(source) as unknown;
     return { parsed: record(parsed), rawText: null as string | null };
   } catch {
-    return { parsed: null as Record<string, any> | null, rawText: source };
+    return { parsed: null as DataRow | null, rawText: source };
   }
 }
 
@@ -76,7 +76,7 @@ function mapStop(stop: JobStopRow) {
   };
 }
 
-function requirementFlags(job: AnyRow, parsed: Record<string, any> | null, vehicle: AnyRow) {
+function requirementFlags(job: DataRow, parsed: DataRow | null, vehicle: DataRow) {
   const rows: string[] = [];
   const collection = record(parsed?.collection);
   const delivery = record(parsed?.delivery);
@@ -114,7 +114,7 @@ function normalizeHistory(raw: unknown) {
     .filter((entry) => entry.createdAt);
 }
 
-function legacyStops(job: AnyRow, mapped: ReturnType<typeof mapJob>, parsed: Record<string, any> | null) {
+function legacyStops(job: DataRow, mapped: ReturnType<typeof mapJob>, parsed: DataRow | null) {
   const collection = record(parsed?.collection);
   const delivery = record(parsed?.delivery);
   const collectionContactName = text(job.collection_contact_name) ?? text(collection?.contactName);
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (error) return respond(500, { error: error.message });
   if (!data) return respond(404, { error: 'Job not found.' });
 
-  const job = data as AnyRow;
+  const job = data as DataRow;
   const row = data as unknown as MobileJobRow;
   const mapped = mapJob(row);
   const { parsed, rawText } = parseLoadDetails(job.load_details);
@@ -220,10 +220,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .order('sequence', { ascending: true }),
   ]);
 
-  const company = (companyResult.data ?? {}) as AnyRow;
-  const acceptedBid = (bidResult.data ?? {}) as AnyRow;
-  const agreement = (agreementResult.data ?? {}) as AnyRow;
-  const vehicle = (vehicleResult.data ?? {}) as AnyRow;
+  const company = (companyResult.data ?? {}) as DataRow;
+  const acceptedBid = (bidResult.data ?? {}) as DataRow;
+  const agreement = (agreementResult.data ?? {}) as DataRow;
+  const vehicle = (vehicleResult.data ?? {}) as DataRow;
 
   const persistentStops = stopsResult.error
     ? []
@@ -294,7 +294,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     text(job.access_restrictions),
   ].filter((value, index, values) => Boolean(value) && values.indexOf(value) === index).join('\n\n');
 
-  const documents = documentsResult.error ? [] : (documentsResult.data ?? []).map((entry: AnyRow) => ({
+  const documents = documentsResult.error ? [] : (documentsResult.data ?? []).map((entry: DataRow) => ({
     id: text(entry.id),
     type: text(entry.doc_type) ?? text(entry.file_type) ?? 'Document',
     fileName: text(entry.file_name) ?? text(entry.name),
@@ -302,7 +302,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
 
-  const trackingTimeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: AnyRow) => ({
+  const trackingTimeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: DataRow) => ({
     id: text(entry.id),
     eventType: text(entry.event_type) ?? 'update',
     message: text(entry.message) ?? text(entry.note),
