@@ -1,119 +1,126 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { hasSuperAdminBearerAuthorization, verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-const PENDING_COMPANY_STATUSES = new Set(['pending', 'pending_approval']);
-const OPEN_JOB_STATUSES = new Set(['draft', 'posted', 'quoted', 'awarded', 'allocated', 'collected', 'in_transit']);
+const OPEN_JOB_STATUSES = [
+  'draft', 'received', 'posted', 'quoted', 'awarded', 'allocated', 'accepted', 'assigned',
+  'open', 'OPEN', 'in_progress', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
+];
+const OUTSTANDING_PAYMENT_STATUSES = ['unpaid', 'partially_paid', 'overdue', 'disputed'];
+const NON_COLLECTIBLE_INVOICE_STATUSES = ['paid', 'void'];
+const COMPLIANCE_REVIEW_STATUSES = ['pending', 'rejected'];
 const MISSING_INTERNAL_ACCOUNT_COLUMN_CODES = new Set(['42703', 'PGRST204']);
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
+type QueryError = { code?: string; message: string } | null;
+type CountResult = { count: number | null; error: QueryError };
+
+const countValue = (result: CountResult) => result.count as number;
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!hasSuperAdminBearerAuthorization(request)) return respond(401, { error: 'Unauthorized: bearer token required.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
-  const token = getBearerToken(request);
-  if (!token) {
-    return respond(401, { error: 'Unauthorized.' });
-  }
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) {
-    return respond(401, { error: 'Unauthorized: invalid or expired token.' });
-  }
-
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') {
-    return respond(403, { error: 'Forbidden: owner role required.' });
-  }
-
-  const [companiesResult, driversResult, internalProfilesResult, jobsResult, invoicesResult, driverDocumentsResult, vehicleDocumentsResult] = await Promise.all([
-    supabaseAdmin.from('companies').select('status', { count: 'exact' }),
-    supabaseAdmin.from('drivers').select('user_id', { count: 'exact' }),
+  const [
+    companiesTotalResult,
+    companiesActiveResult,
+    companiesSuspendedResult,
+    companiesPendingResult,
+    driversTotalResult,
+    internalProfilesResult,
+    jobsTotalResult,
+    jobsOpenResult,
+    jobsDeliveredResult,
+    invoicesTotalResult,
+    outstandingInvoicesResult,
+    nonCollectibleOutstandingInvoicesResult,
+    driverComplianceResult,
+    vehicleComplianceResult,
+  ] = await Promise.all([
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'suspended'),
+    supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending_approval'),
+    supabaseAdmin.from('drivers').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('profiles').select('user_id').eq('is_internal_account', true),
-    supabaseAdmin.from('jobs').select('status', { count: 'exact' }),
-    supabaseAdmin.from('invoices').select('payment_status', { count: 'exact' }),
-    supabaseAdmin.from('driver_documents').select('status'),
-    supabaseAdmin.from('vehicle_documents').select('status'),
+    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).in('status', OPEN_JOB_STATUSES),
+    supabaseAdmin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'delivered'),
+    supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).in('payment_status', OUTSTANDING_PAYMENT_STATUSES),
+    supabaseAdmin.from('invoices').select('id', { count: 'exact', head: true }).in('payment_status', OUTSTANDING_PAYMENT_STATUSES).in('status', NON_COLLECTIBLE_INVOICE_STATUSES),
+    supabaseAdmin.from('driver_documents').select('id', { count: 'exact', head: true }).in('status', COMPLIANCE_REVIEW_STATUSES),
+    supabaseAdmin.from('vehicle_documents').select('id', { count: 'exact', head: true }).in('status', COMPLIANCE_REVIEW_STATUSES),
   ]);
 
-  if (companiesResult.error) {
-    return respond(500, { error: companiesResult.error.message });
-  }
-  if (driversResult.error) {
-    return respond(500, { error: driversResult.error.message });
-  }
-  if (
-    internalProfilesResult.error &&
-    !MISSING_INTERNAL_ACCOUNT_COLUMN_CODES.has(String(internalProfilesResult.error.code ?? ''))
-  ) {
-    return respond(500, { error: internalProfilesResult.error.message });
-  }
-  if (jobsResult.error) {
-    return respond(500, { error: jobsResult.error.message });
-  }
-  if (invoicesResult.error) {
-    return respond(500, { error: invoicesResult.error.message });
-  }
-  if (driverDocumentsResult.error) {
-    return respond(500, { error: driverDocumentsResult.error.message });
-  }
-  if (vehicleDocumentsResult.error) {
-    return respond(500, { error: vehicleDocumentsResult.error.message });
-  }
-
-  const internalUserIds = new Set(
-    (internalProfilesResult.data ?? [])
-      .map((row) => String(row.user_id ?? '').trim())
-      .filter(Boolean)
-  );
-  const driverRows = driversResult.data ?? [];
-  const externalDriverCount = driverRows.filter((row) => {
-    const userId = String(row.user_id ?? '').trim();
-    return !userId || !internalUserIds.has(userId);
-  }).length;
-
-  const companyStatuses = (companiesResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
-  const companiesActive = companyStatuses.filter((status) => status === 'active').length;
-  const companiesSuspended = companyStatuses.filter((status) => status === 'suspended').length;
-  const companiesPending = companyStatuses.filter((status) => PENDING_COMPANY_STATUSES.has(status)).length;
-
-  const jobStatuses = (jobsResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase());
-  const jobsOpen = jobStatuses.filter((status) => OPEN_JOB_STATUSES.has(status)).length;
-  const jobsDelivered = jobStatuses.filter((status) => status === 'delivered').length;
-
-  const paymentStatuses = (invoicesResult.data ?? []).map((row) => String(row.payment_status ?? '').trim().toLowerCase());
-  const paidInvoicesCount = paymentStatuses.filter((status) => status === 'paid').length;
-  const invoicesCount = invoicesResult.count ?? paymentStatuses.length;
-  const documentStatuses = [
-    ...(driverDocumentsResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase()),
-    ...(vehicleDocumentsResult.data ?? []).map((row) => String(row.status ?? '').trim().toLowerCase()),
+  const requiredResults: Array<[string, CountResult]> = [
+    ['companies_total', companiesTotalResult],
+    ['companies_active', companiesActiveResult],
+    ['companies_suspended', companiesSuspendedResult],
+    ['companies_pending', companiesPendingResult],
+    ['drivers_total', driversTotalResult],
+    ['jobs_total', jobsTotalResult],
+    ['jobs_open', jobsOpenResult],
+    ['jobs_delivered', jobsDeliveredResult],
+    ['invoices_total', invoicesTotalResult],
+    ['invoices_outstanding', outstandingInvoicesResult],
+    ['invoices_non_collectible', nonCollectibleOutstandingInvoicesResult],
+    ['driver_compliance', driverComplianceResult],
+    ['vehicle_compliance', vehicleComplianceResult],
   ];
-  const compliancePending = documentStatuses.filter((status) => status === 'pending' || status === 'rejected').length;
+
+  const failed = requiredResults.find(([, result]) => result.error || typeof result.count !== 'number');
+  if (failed) {
+    return respond(500, {
+      error: `${failed[0]}: ${failed[1].error?.message ?? 'exact count unavailable'}`,
+      code: 'super_admin_stats_incomplete_snapshot',
+    });
+  }
+
+  const internalProfilesError = internalProfilesResult.error as QueryError;
+  if (internalProfilesError && !MISSING_INTERNAL_ACCOUNT_COLUMN_CODES.has(String(internalProfilesError.code ?? ''))) {
+    return respond(500, { error: `internal_profiles: ${internalProfilesError.message}` });
+  }
+
+  let driversTotal = countValue(driversTotalResult);
+  if (!internalProfilesError) {
+    const internalUserIds = Array.from(new Set(
+      (internalProfilesResult.data ?? []).map((row) => String(row.user_id ?? '').trim()).filter(Boolean),
+    ));
+    if (internalUserIds.length > 0) {
+      const internalDriversResult = await supabaseAdmin
+        .from('drivers')
+        .select('id', { count: 'exact', head: true })
+        .in('user_id', internalUserIds);
+      if (internalDriversResult.error || typeof internalDriversResult.count !== 'number') {
+        return respond(500, {
+          error: `internal_drivers: ${internalDriversResult.error?.message ?? 'exact count unavailable'}`,
+          code: 'super_admin_stats_internal_driver_count_unavailable',
+        });
+      }
+      driversTotal = Math.max(0, driversTotal - internalDriversResult.count);
+    }
+  }
+
+  const outstandingInvoices = countValue(outstandingInvoicesResult);
+  const nonCollectibleOutstandingInvoices = countValue(nonCollectibleOutstandingInvoicesResult);
 
   return respond(200, {
-    companiesTotal: companiesResult.count ?? companyStatuses.length,
-    companiesActive,
-    companiesSuspended,
-    companiesPending,
-    driversTotal: internalProfilesResult.error ? (driversResult.count ?? driverRows.length) : externalDriverCount,
-    jobsTotal: jobsResult.count ?? jobStatuses.length,
-    jobsOpen,
-    jobsDelivered,
-    invoicesTotal: invoicesCount,
-    invoicesUnpaid: Math.max(0, invoicesCount - paidInvoicesCount),
-    compliancePending,
+    refreshedAt: new Date().toISOString(),
+    companiesTotal: countValue(companiesTotalResult),
+    companiesActive: countValue(companiesActiveResult),
+    companiesSuspended: countValue(companiesSuspendedResult),
+    companiesPending: countValue(companiesPendingResult),
+    driversTotal,
+    jobsTotal: countValue(jobsTotalResult),
+    jobsOpen: countValue(jobsOpenResult),
+    jobsDelivered: countValue(jobsDeliveredResult),
+    invoicesTotal: countValue(invoicesTotalResult),
+    invoicesUnpaid: Math.max(0, outstandingInvoices - nonCollectibleOutstandingInvoices),
+    compliancePending: countValue(driverComplianceResult) + countValue(vehicleComplianceResult),
   });
 }

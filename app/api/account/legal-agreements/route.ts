@@ -17,12 +17,13 @@ import {
 } from '../../../../lib/legal/legalAgreementState';
 import type { RegistrationLegalRole } from '../../../../lib/legal/registrationAgreements';
 
-const reacceptanceSchema = z.object({
+const acceptanceSchema = z.object({
   requirementFingerprint: z.string().regex(/^[0-9a-f]{64}$/),
   agreementsAccepted: z.literal(true),
   authorityConfirmed: z.literal(true),
   roleDeclarationConfirmed: z.literal(true),
   privacyAcknowledged: z.literal(true),
+  initialEvidenceRemediationConfirmed: z.boolean().optional(),
 });
 
 const LEGAL_ROLE_BY_ACCOUNT_TYPE: Partial<Record<string, RegistrationLegalRole>> = {
@@ -175,6 +176,7 @@ const loadLegalContext = async (userId: string) => {
   return {
     registrationRole,
     companyId: onboarding?.company_id ?? null,
+    onboardingApplicationId: onboarding?.id ?? null,
     history,
   } as const;
 };
@@ -247,10 +249,10 @@ export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
   if ('response' in auth) return auth.response;
 
-  let payload: z.infer<typeof reacceptanceSchema>;
+  let payload: z.infer<typeof acceptanceSchema>;
   try {
-    const parsed = reacceptanceSchema.safeParse(await request.json());
-    if (!parsed.success) return json(400, { error: 'Invalid legal re-acceptance payload.' });
+    const parsed = acceptanceSchema.safeParse(await request.json());
+    if (!parsed.success) return json(400, { error: 'Invalid legal acceptance payload.' });
     payload = parsed.data;
   } catch {
     return json(400, { error: 'Invalid JSON body.' });
@@ -258,16 +260,6 @@ export async function POST(request: NextRequest) {
 
   const context = await loadLegalContext(auth.user.id);
   if ('response' in context) return context.response;
-
-  // Re-acceptance is never a substitute for the initial registration acceptance.
-  // Accounts missing their initial immutable evidence must use the registration /
-  // remediation flow rather than fabricating a material-reacceptance event.
-  if (context.history.length === 0) {
-    return json(409, {
-      error: 'Initial legal acceptance evidence is missing for this account.',
-      code: 'initial_legal_acceptance_missing',
-    });
-  }
 
   const state = resolveHistoryState(context.registrationRole, context.history);
   const { requirement } = state;
@@ -281,20 +273,33 @@ export async function POST(request: NextRequest) {
 
   if (!state.requiresReacceptance) {
     return json(409, {
-      error: 'No material legal re-acceptance is currently required.',
+      error: 'No legal acceptance action is currently required.',
       code: 'legal_reacceptance_not_required',
+    });
+  }
+
+  const isInitialRemediation = context.history.length === 0;
+
+  // A legacy account with no immutable evidence may accept the current package now,
+  // but this event must never be represented as a historical registration event.
+  // The extra acknowledgement makes that boundary explicit and auditable.
+  if (isInitialRemediation && payload.initialEvidenceRemediationConfirmed !== true) {
+    return json(400, {
+      error: 'Initial legal evidence remediation must be explicitly acknowledged.',
+      code: 'initial_legal_remediation_confirmation_required',
     });
   }
 
   const acceptedAt = new Date().toISOString();
   const evidence = buildCurrentLegalEvidence(context.registrationRole, acceptedAt);
+  const acceptanceSource = isInitialRemediation ? 'initial_remediation' : 'material_reacceptance';
 
   const { data: inserted, error } = await supabaseAdmin!
     .from('registration_legal_acceptances')
     .insert({
       user_id: auth.user.id,
       company_id: context.companyId,
-      onboarding_application_id: null,
+      onboarding_application_id: isInitialRemediation ? context.onboardingApplicationId : null,
       registration_role: evidence.registrationRole,
       legal_version: evidence.legalVersion,
       agreements: evidence.agreements,
@@ -304,7 +309,7 @@ export async function POST(request: NextRequest) {
       privacy_statement: evidence.privacyStatement,
       privacy_version: evidence.privacyVersion,
       accepted_at: evidence.acceptedAt,
-      source: 'material_reacceptance',
+      source: acceptanceSource,
       user_agent: request.headers.get('user-agent'),
       evidence_hash: evidence.evidenceHash,
     })
@@ -320,28 +325,45 @@ export async function POST(request: NextRequest) {
       });
     }
     if (error.code === '23514') {
-      return json(503, {
-        error: 'Material legal re-acceptance storage is not enabled in this environment.',
-        code: 'legal_reacceptance_schema_missing',
-        migrationRequired: '20260904215518_registration_legal_material_reacceptance.sql',
-      });
+      return json(503, isInitialRemediation
+        ? {
+            error: 'Initial legal remediation storage is not enabled in this environment.',
+            code: 'legal_initial_remediation_schema_missing',
+            migrationRequired: '20260905183500_registration_legal_initial_remediation.sql',
+          }
+        : {
+            error: 'Material legal re-acceptance storage is not enabled in this environment.',
+            code: 'legal_reacceptance_schema_missing',
+            migrationRequired: '20260904215518_registration_legal_material_reacceptance.sql',
+          });
     }
     if (error.code === '23505') {
-      return json(409, {
-        error: 'This contractual requirement has already been accepted.',
-        code: 'legal_reacceptance_already_recorded',
-        reloadRequired: true,
-      });
+      return json(409, isInitialRemediation
+        ? {
+            error: 'Initial legal remediation has already been recorded for this contractual requirement.',
+            code: 'initial_legal_remediation_already_recorded',
+            reloadRequired: true,
+          }
+        : {
+            error: 'This contractual requirement has already been accepted.',
+            code: 'legal_reacceptance_already_recorded',
+            reloadRequired: true,
+          });
     }
     return json(500, {
-      error: 'Legal re-acceptance could not be persisted.',
-      code: 'legal_reacceptance_persistence_failed',
+      error: isInitialRemediation
+        ? 'Initial legal remediation could not be persisted.'
+        : 'Legal re-acceptance could not be persisted.',
+      code: isInitialRemediation
+        ? 'initial_legal_remediation_persistence_failed'
+        : 'legal_reacceptance_persistence_failed',
     });
   }
 
   const insertedRow = inserted as LegalAcceptanceRow;
   return json(201, {
     accepted: true,
+    acceptanceMode: acceptanceSource,
     acceptance: {
       id: insertedRow.id,
       registrationRole: insertedRow.registration_role,

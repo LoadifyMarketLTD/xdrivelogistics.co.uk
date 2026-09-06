@@ -1,30 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
-const respond = (status: number, payload: Record<string, unknown>) =>
-  NextResponse.json(payload, { status });
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
+const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
 type FlagDefinition = {
   key: string;
@@ -34,103 +13,25 @@ type FlagDefinition = {
   enabled: boolean;
 };
 
-// Canonical list — must stay in sync with the seed in
-// supabase/migrations/20260725170000_platform_feature_flags.sql.
 const FLAG_DEFINITIONS: FlagDefinition[] = [
-  {
-    key: 'exchange_marketplace',
-    label: 'Exchange Marketplace',
-    description: 'Allows companies to post jobs to the public exchange for bidding.',
-    category: 'Marketplace',
-    enabled: true,
-  },
-  {
-    key: 'bid_acceptance_workflow',
-    label: 'Bid Acceptance Workflow',
-    description: 'Companies can accept/reject inbound bids on exchange jobs.',
-    category: 'Operations',
-    enabled: true,
-  },
-  {
-    key: 'pod_capture',
-    label: 'Proof of Delivery Capture',
-    description: 'Drivers can capture POD photos and signature on delivery.',
-    category: 'Operations',
-    enabled: true,
-  },
-  {
-    key: 'invoice_generation',
-    label: 'Invoice Generation',
-    description: 'Automatic invoice creation on job delivery confirmation.',
-    category: 'Finance',
-    enabled: true,
-  },
-  {
-    key: 'dispute_filing',
-    label: 'Invoice Dispute Filing',
-    description: 'Companies can raise disputes against issued invoices.',
-    category: 'Finance',
-    enabled: true,
-  },
-  {
-    key: 'stripe_billing_future_phase',
-    label: 'Stripe Billing (Future Phase)',
-    description: 'Stripe checkout/connect automation — explicitly out of MVP scope.',
-    category: 'Finance',
-    enabled: false,
-  },
-  {
-    key: 'notifications',
-    label: 'Notification System',
-    description: 'In-app and email notifications for job events.',
-    category: 'Platform',
-    enabled: true,
-  },
-  {
-    key: 'document_review',
-    label: 'Document Review Queue',
-    description: 'Admin can review and approve uploaded compliance documents.',
-    category: 'Compliance',
-    enabled: true,
-  },
-  {
-    key: 'broker_carrier_network',
-    label: 'Broker Carrier Network',
-    description: 'Brokers can invite and manage a private carrier network.',
-    category: 'Marketplace',
-    enabled: true,
-  },
-  {
-    key: 'driver_mobile_app',
-    label: 'Driver Mobile App',
-    description: 'Native Android/iOS app for driver job management.',
-    category: 'Operations',
-    enabled: true,
-  },
-  {
-    key: 'company_suspension',
-    label: 'Company Suspension Controls',
-    description: 'Super admin can suspend and reinstate companies.',
-    category: 'Governance',
-    enabled: true,
-  },
-  {
-    key: 'audit_logging',
-    label: 'Audit Logging',
-    description: 'All governance actions are written to the owner audit log.',
-    category: 'Platform',
-    enabled: true,
-  },
+  { key: 'exchange_marketplace', label: 'Exchange Marketplace', description: 'Allows companies to post jobs to the public exchange for bidding.', category: 'Marketplace', enabled: true },
+  { key: 'bid_acceptance_workflow', label: 'Bid Acceptance Workflow', description: 'Companies can accept/reject inbound bids on exchange jobs.', category: 'Operations', enabled: true },
+  { key: 'pod_capture', label: 'Proof of Delivery Capture', description: 'Drivers can capture POD photos and signature on delivery.', category: 'Operations', enabled: true },
+  { key: 'invoice_generation', label: 'Invoice Generation', description: 'Automatic invoice creation on job delivery confirmation.', category: 'Finance', enabled: true },
+  { key: 'dispute_filing', label: 'Invoice Dispute Filing', description: 'Companies can raise disputes against issued invoices.', category: 'Finance', enabled: true },
+  { key: 'stripe_billing_future_phase', label: 'Stripe Billing (Future Phase)', description: 'Stripe checkout/connect automation — explicitly out of MVP scope.', category: 'Finance', enabled: false },
+  { key: 'notifications', label: 'Notification System', description: 'In-app and email notifications for job events.', category: 'Platform', enabled: true },
+  { key: 'document_review', label: 'Document Review Queue', description: 'Admin can review and approve uploaded compliance documents.', category: 'Compliance', enabled: true },
+  { key: 'broker_carrier_network', label: 'Broker Carrier Network', description: 'Brokers can invite and manage a private carrier network.', category: 'Marketplace', enabled: true },
+  { key: 'driver_mobile_app', label: 'Driver Mobile App', description: 'Native Android/iOS app for driver job management.', category: 'Operations', enabled: true },
+  { key: 'company_suspension', label: 'Company Suspension Controls', description: 'Super admin can suspend and reinstate companies.', category: 'Governance', enabled: true },
+  { key: 'audit_logging', label: 'Audit Logging', description: 'All governance actions are written to the owner audit log.', category: 'Platform', enabled: true },
 ];
 
 type GlobalSettingDefinition = {
   key: string;
   label: string;
-  category:
-    | 'Platform Identity'
-    | 'Marketplace Rules'
-    | 'Compliance'
-    | 'Onboarding';
+  category: 'Platform Identity' | 'Marketplace Rules' | 'Compliance' | 'Onboarding';
   value: string;
   type: 'text' | 'number' | 'boolean';
 };
@@ -161,59 +62,43 @@ const featureFlagUpdateSchema = z.object({
 
 const globalSettingsUpdateSchema = z.object({
   section: z.literal('global'),
-  settings: z
-    .array(z.object({ key: z.string().min(1), value: z.string().max(5000) }))
-    .min(1),
+  settings: z.array(z.object({ key: z.string().min(1), value: z.string().max(5000) })).min(1),
 });
 
 const parseBooleanValue = (value: string) => {
-  const normalised = value.trim().toLowerCase();
-  if (normalised === 'true') return 'true';
-  if (normalised === 'false') return 'false';
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return 'true';
+  if (normalized === 'false') return 'false';
   return null;
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const section = request.nextUrl.searchParams.get('section')?.trim();
-  if (!section) {
-    return respond(400, { error: 'section is required (feature-flags or global).' });
-  }
+  if (!section) return respond(400, { error: 'section is required (feature-flags, global, or roles).' });
 
   if (section === 'feature-flags') {
-    const { data, error } = await supabaseAdmin
-      .from('platform_feature_flags')
-      .select('key, is_enabled');
+    const { data, error } = await supabaseAdmin.from('platform_feature_flags').select('key, is_enabled');
     if (error) return respond(500, { error: error.message });
-
     const enabledByKey = new Map((data ?? []).map((row) => [row.key, Boolean(row.is_enabled)]));
+    const flags = FLAG_DEFINITIONS.map((flag) => ({
+      ...flag,
+      enabled: enabledByKey.has(flag.key) ? Boolean(enabledByKey.get(flag.key)) : flag.enabled,
+      source: enabledByKey.has(flag.key) ? 'stored' : 'canonical_default',
+    }));
     return respond(200, {
       section,
-      flags: FLAG_DEFINITIONS.map((flag) => ({
-        ...flag,
-        enabled: enabledByKey.has(flag.key) ? enabledByKey.get(flag.key) : flag.enabled,
-      })),
-      summary: {
-        total: FLAG_DEFINITIONS.length,
-        enabled: FLAG_DEFINITIONS.filter((flag) =>
-          enabledByKey.has(flag.key) ? Boolean(enabledByKey.get(flag.key)) : flag.enabled
-        ).length,
-      },
+      flags,
+      summary: { total: flags.length, enabled: flags.filter((flag) => flag.enabled).length },
     });
   }
 
   if (section === 'global') {
-    const { data, error } = await supabaseAdmin
-      .from('platform_settings')
-      .select('key, value, value_type');
+    const { data, error } = await supabaseAdmin.from('platform_settings').select('key, value, value_type');
     if (error) return respond(500, { error: error.message });
-
     const valueByKey = new Map((data ?? []).map((row) => [row.key, { value: row.value, value_type: row.value_type }]));
     return respond(200, {
       section,
@@ -223,6 +108,7 @@ export async function GET(request: NextRequest) {
           ...setting,
           value: stored?.value ?? setting.value,
           type: stored?.value_type ?? setting.type,
+          source: stored ? 'stored' : 'canonical_default',
         };
       }),
     });
@@ -235,60 +121,41 @@ export async function GET(request: NextRequest) {
       .eq('key', 'role_permissions_v1')
       .maybeSingle();
     if (error) return respond(500, { error: error.message });
-
+    let storedRoles: unknown = null;
     if (data?.value) {
-      try {
-        const stored = JSON.parse(data.value) as unknown;
-        if (Array.isArray(stored)) {
-          return respond(200, { section, roles: stored });
-        }
-      } catch {
-        // Fall through to defaults
-      }
+      try { storedRoles = JSON.parse(data.value) as unknown; } catch { storedRoles = null; }
     }
-
-    return respond(200, { section, roles: null });
+    return respond(200, {
+      section,
+      roles: Array.isArray(storedRoles) ? storedRoles : null,
+      mutable: false,
+      note: 'Role mutation is intentionally disabled. The current Super Admin Access Matrix is read-only until last-owner protection, re-authentication and audited mutation boundaries are implemented.',
+    });
   }
 
   return respond(400, { error: 'Invalid section. Use feature-flags, global, or roles.' });
 }
 
-const rolesUpdateSchema = z.object({
-  section: z.literal('roles'),
-  roles: z.array(z.object({
-    role: z.string().min(1),
-    label: z.string().min(1),
-    description: z.string().max(1000),
-    scopes: z.array(z.string().min(1)).min(1),
-    color: z.string().min(1),
-  })).min(1).max(20),
-});
-
 export async function PATCH(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required. Deploy Preview is read-only.' });
 
   let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(400, { error: 'Invalid JSON body.' });
+  try { body = await request.json(); } catch { return respond(400, { error: 'Invalid JSON body.' }); }
+
+  if (body && typeof body === 'object' && (body as { section?: unknown }).section === 'roles') {
+    return respond(409, {
+      error: 'Role mutation is intentionally disabled until last-owner protection, re-authentication and audited mutation boundaries are implemented.',
+      code: 'role_mutation_gated',
+    });
   }
 
   const parsedFlags = featureFlagUpdateSchema.safeParse(body);
   if (parsedFlags.success) {
     const definitionByKey = new Map(FLAG_DEFINITIONS.map((flag) => [flag.key, flag]));
-    const invalidKeys = parsedFlags.data.flags
-      .map((flag) => flag.key)
-      .filter((key) => !definitionByKey.has(key));
-
-    if (invalidKeys.length > 0) {
-      return respond(400, { error: `Unknown feature flag keys: ${invalidKeys.join(', ')}` });
-    }
+    const invalidKeys = parsedFlags.data.flags.map((flag) => flag.key).filter((key) => !definitionByKey.has(key));
+    if (invalidKeys.length) return respond(400, { error: `Unknown feature flag keys: ${invalidKeys.join(', ')}` });
 
     const upsertRows = parsedFlags.data.flags.map((flag) => {
       const definition = definitionByKey.get(flag.key)!;
@@ -301,91 +168,40 @@ export async function PATCH(request: NextRequest) {
         updated_by: owner.id,
       };
     });
-
-    const { error } = await supabaseAdmin
-      .from('platform_feature_flags')
-      .upsert(upsertRows, { onConflict: 'key' });
-
+    const { error } = await supabaseAdmin.from('platform_feature_flags').upsert(upsertRows, { onConflict: 'key' });
     if (error) return respond(500, { error: error.message });
     return respond(200, { success: true, updated: upsertRows.length });
   }
 
   const parsedSettings = globalSettingsUpdateSchema.safeParse(body);
   if (parsedSettings.success) {
-    const definitionByKey = new Map(
-      GLOBAL_SETTING_DEFINITIONS.map((setting) => [setting.key, setting])
-    );
-    const invalidKeys = parsedSettings.data.settings
-      .map((setting) => setting.key)
-      .filter((key) => !definitionByKey.has(key));
-    if (invalidKeys.length > 0) {
-      return respond(400, { error: `Unknown global setting keys: ${invalidKeys.join(', ')}` });
-    }
+    const definitionByKey = new Map(GLOBAL_SETTING_DEFINITIONS.map((setting) => [setting.key, setting]));
+    const invalidKeys = parsedSettings.data.settings.map((setting) => setting.key).filter((key) => !definitionByKey.has(key));
+    if (invalidKeys.length) return respond(400, { error: `Unknown global setting keys: ${invalidKeys.join(', ')}` });
 
     for (const setting of parsedSettings.data.settings) {
       const definition = definitionByKey.get(setting.key)!;
       const rawValue = setting.value.trim();
-      if (definition.type === 'number' && !Number.isFinite(Number(rawValue))) {
-        return respond(400, { error: `Setting '${setting.key}' must be a valid number.` });
-      }
-      if (definition.type === 'boolean' && parseBooleanValue(rawValue) === null) {
-        return respond(400, { error: `Setting '${setting.key}' must be true or false.` });
-      }
+      if (definition.type === 'number' && !Number.isFinite(Number(rawValue))) return respond(400, { error: `Setting '${setting.key}' must be a valid number.` });
+      if (definition.type === 'boolean' && parseBooleanValue(rawValue) === null) return respond(400, { error: `Setting '${setting.key}' must be true or false.` });
     }
 
     const upsertRows = parsedSettings.data.settings.map((setting) => {
       const definition = definitionByKey.get(setting.key)!;
       const rawValue = setting.value.trim();
-
-      if (definition.type === 'boolean') {
-        const parsedBoolean = parseBooleanValue(rawValue) as 'true' | 'false';
-        return {
-          key: definition.key,
-          label: definition.label,
-          value: parsedBoolean,
-          value_type: definition.type,
-          category: definition.category,
-          updated_by: owner.id,
-        };
-      }
-
       return {
         key: definition.key,
         label: definition.label,
-        value: rawValue,
+        value: definition.type === 'boolean' ? parseBooleanValue(rawValue)! : rawValue,
         value_type: definition.type,
         category: definition.category,
         updated_by: owner.id,
       };
     });
-
-    const { error } = await supabaseAdmin
-      .from('platform_settings')
-      .upsert(upsertRows, { onConflict: 'key' });
-
+    const { error } = await supabaseAdmin.from('platform_settings').upsert(upsertRows, { onConflict: 'key' });
     if (error) return respond(500, { error: error.message });
     return respond(200, { success: true, updated: upsertRows.length });
   }
 
-  const parsedRoles = rolesUpdateSchema.safeParse(body);
-  if (parsedRoles.success) {
-    const { error } = await supabaseAdmin
-      .from('platform_settings')
-      .upsert({
-        key: 'role_permissions_v1',
-        label: 'Role Permissions Matrix',
-        value: JSON.stringify(parsedRoles.data.roles),
-        value_type: 'text',
-        category: 'Platform Identity',
-        updated_by: owner.id,
-      }, { onConflict: 'key' });
-
-    if (error) return respond(500, { error: error.message });
-    return respond(200, { success: true, roles: parsedRoles.data.roles.length });
-  }
-
-  return respond(400, {
-    error:
-      'Validation failed. Use section=feature-flags with flags[], section=global with settings[], or section=roles with roles[].',
-  });
+  return respond(400, { error: 'Validation failed. Use section=feature-flags with flags[] or section=global with settings[].' });
 }

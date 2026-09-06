@@ -1,69 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 type CompanyRow = { id: string; name: string };
-type DisputeRow = {
-  id: string;
-  invoice_id: string | null;
-  company_id: string | null;
-  reason: string;
-  details: string | null;
-  status: string;
-  resolution_note: string | null;
-  created_at: string;
-  resolved_at: string | null;
-};
-type ReviewRow = {
-  id: string;
-  company_id: string | null;
-  reviewer_id: string | null;
-  rating: number | null;
-  comment: string | null;
-  created_at: string;
-};
-type SupportTicketRow = {
-  id: string;
-  company_id: string | null;
-  raised_by_user_id: string | null;
-  subject: string;
-  description: string | null;
-  category: string;
-  priority: string;
-  status: string;
-  assigned_to_user_id: string | null;
-  resolution_note: string | null;
-  resolved_at: string | null;
-  closed_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-type SupportTicketMutationRow = {
-  ticket_id: string;
-  status: string;
-  resolution_note: string;
-  resolved_at: string | null;
-  closed_at: string | null;
-  updated_at: string;
-};
+type DisputeRow = { id: string; invoice_id: string | null; company_id: string | null; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string; resolved_at: string | null };
+type ReviewRow = { id: string; company_id: string | null; reviewer_id: string | null; rating: number | null; comment: string | null; created_at: string };
+type SupportTicketDbRow = { id: string; company_id: string | null; category: string; priority: string; status: string; created_at: string };
+type SupportTicketDto = { id: string; company_name: string; type: string; severity: string; status: string; created_at: string };
+type SupportTicketMutationRow = { ticket_id: string; status: string; resolution_note: string; updated_at: string };
 
 const createTicketSchema = z.object({
   company_id: z.string().uuid().optional(),
@@ -80,143 +27,107 @@ const updateTicketSchema = z.object({
   note: z.preprocess((value) => typeof value === 'string' ? value : '', z.string().trim().min(5, 'A reason of at least 5 characters is required.').max(5000)),
 });
 
-const companyNameMap = async (ids: string[]): Promise<Map<string, string>> => {
-  if (!supabaseAdmin || ids.length === 0) return new Map();
-  const { data } = await supabaseAdmin.from('companies').select('id, name').in('id', ids);
-  return new Map((data as CompanyRow[] ?? []).map((c) => [c.id, c.name]));
+const parsePage = (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
+  return { page, limit, offset: (page - 1) * limit };
+};
+
+const pagination = (page: number, limit: number, total: number) => ({
+  page, limit, total, totalPages: Math.ceil(total / limit), hasNextPage: page * limit < total, hasPrevPage: page > 1,
+});
+
+const companyNameMap = async (ids: string[]) => {
+  const map = new Map<string, string>();
+  if (!supabaseAdmin || ids.length === 0) return { map, error: null as string | null };
+  const { data, error } = await supabaseAdmin.from('companies').select('id, name').in('id', Array.from(new Set(ids)));
+  if (error) return { map, error: error.message };
+  for (const company of (data ?? []) as CompanyRow[]) map.set(company.id, company.name);
+  return { map, error: null as string | null };
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { searchParams } = new URL(request.url);
   const section = (searchParams.get('section') ?? '').toLowerCase();
-  const limit = Math.min(Number(searchParams.get('limit') ?? 200) || 200, 500);
+  const { page, limit, offset } = parsePage(request);
 
-  // ── Disputes ─────────────────────────────────────────────────────────────────
   if (section === 'disputes') {
-    const { data, error } = await supabaseAdmin
+    const { data, error, count } = await supabaseAdmin
       .from('invoice_disputes')
-      .select('id, invoice_id, company_id, reason, details, status, resolution_note, created_at, resolved_at')
+      .select('id, invoice_id, company_id, reason, details, status, resolution_note, created_at, resolved_at', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
     if (error) return respond(500, { error: error.message });
-
+    if (typeof count !== 'number') return respond(500, { error: 'Dispute source returned an incomplete exact count.' });
     const rows = (data as DisputeRow[] | null) ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
-
+    const companyResult = await companyNameMap(rows.map((row) => row.company_id as string).filter(Boolean));
+    if (companyResult.error) return respond(500, { error: companyResult.error });
     return respond(200, {
       section,
-      rows: rows.map((r) => ({
-        ...r,
-        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-      })),
-      summary: {
-        total: rows.length,
-        open: rows.filter((r) => r.status === 'open').length,
-        investigating: rows.filter((r) => r.status === 'investigating').length,
-        resolved: rows.filter((r) => r.status === 'resolved').length,
-        closed: rows.filter((r) => r.status === 'closed').length,
-      },
+      rows: rows.map((row) => ({ ...row, company_name: companyResult.map.get(row.company_id as string) ?? 'Unknown company' })),
+      summary: { total_records: count, page_records: rows.length },
+      pagination: pagination(page, limit, count),
     });
   }
 
-  // ── Complaints (reviews) ─────────────────────────────────────────────────────
   if (section === 'complaints') {
-    const { data, error } = await supabaseAdmin
+    const { data, error, count } = await supabaseAdmin
       .from('reviews')
-      .select('id, company_id, reviewer_id, rating, comment, created_at')
+      .select('id, company_id, reviewer_id, rating, comment, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(limit);
-
+      .range(offset, offset + limit - 1);
     if (error) {
-      // reviews table may not exist yet; return graceful empty response
-      return respond(200, {
-        section,
-        rows: [],
-        summary: { total: 0, low_rated: 0, average_rating: null },
-        note: 'No complaints data available. Reviews table may not be populated yet.',
-      });
+      if (error.code === '42P01' || error.code === 'PGRST205') {
+        return respond(503, { error: 'Complaints/reviews storage is not available in this environment.', code: 'complaints_source_unavailable' });
+      }
+      return respond(500, { error: error.message });
     }
-
+    if (typeof count !== 'number') return respond(500, { error: 'Complaints source returned an incomplete exact count.' });
     const rows = (data as ReviewRow[] | null) ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
-
-    const ratings = rows.map((r) => Number(r.rating)).filter((n) => !isNaN(n));
-    const avgRating = ratings.length > 0
-      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
-      : null;
-
+    const companyResult = await companyNameMap(rows.map((row) => row.company_id as string).filter(Boolean));
+    if (companyResult.error) return respond(500, { error: companyResult.error });
     return respond(200, {
       section,
-      rows: rows.map((r) => ({
-        ...r,
-        company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-      })),
-      summary: {
-        total: rows.length,
-        low_rated: rows.filter((r) => Number(r.rating) <= 2).length,
-        average_rating: avgRating,
-      },
+      rows: rows.map((row) => ({ ...row, company_name: companyResult.map.get(row.company_id as string) ?? 'Unknown company' })),
+      summary: { total_records: count, page_records: rows.length },
+      pagination: pagination(page, limit, count),
     });
   }
 
-  // ── Tickets ───────────────────────────────────────────────────────────────────
   if (section === 'tickets') {
-    const { data, error } = await supabaseAdmin
+    const { data, error, count } = await supabaseAdmin
       .from('support_tickets')
-      .select('id, company_id, raised_by_user_id, subject, description, category, priority, status, assigned_to_user_id, resolution_note, resolved_at, closed_at, created_at, updated_at')
+      .select('id, company_id, category, priority, status, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(limit);
-
+      .range(offset, offset + limit - 1);
     if (error) {
-      return respond(200, {
-        section,
-        rows: [],
-        summary: { total: 0, open: 0, investigating: 0, resolved: 0, closed: 0 },
-        note: 'No support tickets available yet.',
-      });
+      if (error.code === '42P01' || error.code === 'PGRST205') {
+        return respond(503, { error: 'Support ticket storage is not available in this environment.', code: 'support_ticket_source_unavailable' });
+      }
+      return respond(500, { error: error.message });
     }
-
-    const rows = (data as SupportTicketRow[] | null) ?? [];
-    const nameById = await companyNameMap(
-      Array.from(new Set(rows.map((r) => r.company_id as string).filter(Boolean))),
-    );
-
-    const ticketRows = rows.map((r) => ({
-      id: r.id,
-      company_name: nameById.get(r.company_id as string) ?? 'Unknown',
-      subject: r.subject,
-      description: r.description,
-      category: r.category,
-      priority: r.priority,
-      status: r.status,
-      resolution_note: r.resolution_note,
-      created_at: r.created_at,
-      resolved_at: r.resolved_at,
-      closed_at: r.closed_at,
-      updated_at: r.updated_at,
+    if (typeof count !== 'number') return respond(500, { error: 'Support ticket source returned an incomplete exact count.' });
+    const rows = (data as SupportTicketDbRow[] | null) ?? [];
+    const companyResult = await companyNameMap(rows.map((row) => row.company_id as string).filter(Boolean));
+    if (companyResult.error) return respond(500, { error: companyResult.error });
+    const ticketRows: SupportTicketDto[] = rows.map((row) => ({
+      id: row.id,
+      company_name: companyResult.map.get(row.company_id as string) ?? 'Unknown company',
+      type: row.category,
+      severity: row.priority,
+      status: row.status,
+      created_at: row.created_at,
     }));
-
     return respond(200, {
       section,
       rows: ticketRows,
-      summary: {
-        total: ticketRows.length,
-        open: ticketRows.filter((row) => row.status === 'open').length,
-        investigating: ticketRows.filter((row) => row.status === 'investigating').length,
-        resolved: ticketRows.filter((row) => row.status === 'resolved').length,
-        closed: ticketRows.filter((row) => row.status === 'closed').length,
-      },
+      summary: { total_records: count, page_records: ticketRows.length },
+      pagination: pagination(page, limit, count),
     });
   }
 
@@ -224,99 +135,55 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required. Deploy Preview is read-only.' });
 
   let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(400, { error: 'Invalid JSON body.' });
-  }
-
+  try { body = await request.json(); } catch { return respond(400, { error: 'Invalid JSON body.' }); }
   const parsed = updateTicketSchema.safeParse(body);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    return respond(400, {
-      error: firstIssue?.message ?? 'Validation failed.',
-      details: parsed.error.flatten(),
-    });
+    return respond(400, { error: firstIssue?.message ?? 'Validation failed.', details: parsed.error.flatten() });
   }
 
   const { ticketId, action, note } = parsed.data;
-  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc(
-    'owner_update_support_ticket_with_audit',
-    {
-      p_actor_user_id: owner.id,
-      p_ticket_id: ticketId,
-      p_action: action,
-      p_note: note,
-    },
-  );
-
+  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc('owner_update_support_ticket_with_audit', {
+    p_actor_user_id: owner.id,
+    p_ticket_id: ticketId,
+    p_action: action,
+    p_note: note,
+  });
   if (mutationError) {
-    if (mutationError.code === 'P0002') {
-      return respond(404, { error: mutationError.message });
-    }
-    if (mutationError.code === '42501') {
-      return respond(403, { error: mutationError.message });
-    }
-    if (
-      mutationError.code === '23514'
-      || mutationError.code === '23502'
-      || mutationError.code === '22P02'
-    ) {
-      return respond(400, { error: mutationError.message });
-    }
+    if (mutationError.code === 'P0002') return respond(404, { error: mutationError.message });
+    if (mutationError.code === '42501') return respond(403, { error: mutationError.message });
+    if (mutationError.code === '23514' || mutationError.code === '23502' || mutationError.code === '22P02') return respond(400, { error: mutationError.message });
     return respond(500, { error: mutationError.message });
   }
 
-  const updatedTicket = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as
-    | SupportTicketMutationRow
-    | null;
-
-  if (!updatedTicket) {
-    return respond(500, { error: 'Support ticket update returned no data.' });
-  }
-
+  const updatedTicket = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as SupportTicketMutationRow | null;
+  if (!updatedTicket) return respond(500, { error: 'Support ticket update returned no data.' });
   return respond(200, {
     ticket: {
       id: updatedTicket.ticket_id,
       status: updatedTicket.status,
       resolution_note: updatedTicket.resolution_note,
-      resolved_at: updatedTicket.resolved_at,
-      closed_at: updatedTicket.closed_at,
       updated_at: updatedTicket.updated_at,
     },
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
-
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required. Deploy Preview is read-only.' });
 
   let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(400, { error: 'Invalid JSON body.' });
-  }
-
+  try { body = await request.json(); } catch { return respond(400, { error: 'Invalid JSON body.' }); }
   const parsed = createTicketSchema.safeParse(body);
-  if (!parsed.success) {
-    return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
-  }
+  if (!parsed.success) return respond(400, { error: 'Validation failed.', details: parsed.error.flatten() });
 
   const { company_id, subject, description, category, priority } = parsed.data;
-
   const { data: ticket, error } = await supabaseAdmin
     .from('support_tickets')
     .insert({
@@ -328,10 +195,17 @@ export async function POST(request: NextRequest) {
       priority,
       status: 'open',
     })
-    .select('id, company_id, subject, category, priority, status, created_at')
+    .select('id, company_id, category, priority, status, created_at')
     .single();
-
   if (error) return respond(500, { error: error.message });
-
-  return respond(201, { ticket });
+  return respond(201, {
+    ticket: {
+      id: ticket.id,
+      company_id: ticket.company_id,
+      type: ticket.category,
+      severity: ticket.priority,
+      status: ticket.status,
+      created_at: ticket.created_at,
+    },
+  });
 }

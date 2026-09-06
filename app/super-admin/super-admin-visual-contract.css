@@ -1,0 +1,79 @@
+/* XDrive Logistics — Super Admin enterprise visual contract v2.
+ * Master layer is loaded after this file and is normative.
+ */
+
+.super-admin-light-root {
+  --enterprise-radius: 8px;
+  --enterprise-shadow: 0px 2px 6px rgba(0,0,0,0.08);
+  --enterprise-padding: 24px;
+  --enterprise-button-padding: 12px 18px;
+  --enterprise-control-padding: 0 14px;
+  --enterprise-chip-padding: 4px 10px;
+  --enterprise-pager-padding: 0 14px;
+  --enterprise-table-action-padding: 0 12px;
+  --enterprise-blue: #1A73E8;
+  --enterprise-green: #34A853;
+  --enterprise-yellow: #FBBC05;
+  --enterprise-red: #EA4335;
+  --enterprise-grey: #8A9099;
+  --enterprise-white: #FFFFFF;
+
+  background: var(--enterprise-white);
+  color: var(--enterprise-grey);
+  font-family: Inter, Roboto, Arial, sans-serif;
+}
+
+.super-admin-light-root main {
+  background: var(--enterprise-white);
+  color: var(--enterprise-grey);
+}
+
+.super-admin-light-root main h1,
+.super-admin-light-root main h2,
+.super-admin-light-root main h3 {
+  color: var(--enterprise-blue);
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.super-admin-light-root main button,
+.super-admin-light-root main a[role="button"],
+.super-admin-light-root main .sa-button {
+  min-height: 40px;
+  padding: var(--enterprise-button-padding);
+  border-radius: var(--enterprise-radius);
+  background: var(--enterprise-white);
+  box-shadow: var(--enterprise-shadow);
+  font-family: Inter, Roboto, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.super-admin-light-root main table {
+  border-radius: var(--enterprise-radius);
+  background: var(--enterprise-white);
+  box-shadow: var(--enterprise-shadow);
+}
+.super-admin-light-root main th,
+.super-admin-light-root main td { padding: var(--enterprise-padding); }
+.super-admin-light-root main table button:not([data-pager-button]),
+.super-admin-light-root main table a { padding: var(--enterprise-table-action-padding); }
+.super-admin-light-root main button[data-pager-button] { padding: var(--enterprise-pager-padding); }
+.super-admin-light-root main [data-status-chip] {
+  padding: var(--enterprise-chip-padding);
+  border-radius: var(--enterprise-radius);
+  box-shadow: var(--enterprise-shadow);
+}
+.super-admin-light-root svg { width: 24px; height: 24px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .super-admin-light-root *,
+  .super-admin-light-root *::before,
+  .super-admin-light-root *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

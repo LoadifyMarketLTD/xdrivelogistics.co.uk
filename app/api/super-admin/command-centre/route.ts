@@ -12,16 +12,13 @@
  *    `actionQueue.derived === true` signals this contract to consumers.
  *  - `refreshedAt`: timestamp of this snapshot. No push/polling is provided.
  *
- * Owner role required.
+ * Active Platform Owner required.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { resolveEnvironment } from '../_lib/envDetection';
+import { runPlatformHealthChecks } from '../_lib/platformHealth';
+import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -44,22 +41,6 @@ type ActionQueueItem = {
   href: string;
 };
 
-const resolveOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 const ageMinutes = (isoDate: string): number => {
   const ms = Date.now() - new Date(isoDate).getTime();
   return Math.max(0, Math.floor(ms / 60000));
@@ -75,15 +56,16 @@ const isTableMissing = (err: { code?: string; message?: string } | null | undefi
   Boolean(err?.code && TABLE_MISSING_CODES.has(err.code));
 
 const exactCount = (result: { count: number | null; error: { message: string } | null }) =>
-  result.error ? null : (result.count ?? 0);
+  result.error || result.count === null ? null : result.count;
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const owner = await resolveOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+  if (!(await verifyPlatformOwner(request))) {
+    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
+  }
 
   const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
@@ -96,7 +78,6 @@ export async function GET(request: NextRequest) {
   const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const todayDate = now.toISOString().slice(0, 10);
 
-  // Parallel bounded preview queries plus exact database-side count queries.
   const [
     companiesPendingPreviewResult,
     companiesPendingCountResult,
@@ -124,26 +105,20 @@ export async function GET(request: NextRequest) {
     gdprRequestsCountResult,
     gdprRequestsP0CountResult,
   ] = await Promise.all([
-    // Companies awaiting approval (canonical enum value: pending_approval)
     supabaseAdmin
       .from('companies')
       .select('id, name, created_at')
       .eq('status', 'pending_approval')
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('companies')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending_approval'),
-
-    // Companies suspended (canonical enum value: suspended)
     supabaseAdmin
       .from('companies')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'suspended'),
-
-    // Active jobs with status not changed in >2h (at risk)
     supabaseAdmin
       .from('jobs')
       .select('id, status, pickup_location, delivery_location, updated_at, created_at')
@@ -151,20 +126,16 @@ export async function GET(request: NextRequest) {
       .lt('updated_at', twoHoursAgo)
       .order('updated_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .in('status', ['allocated', 'collected', 'in_transit'])
       .lt('updated_at', twoHoursAgo),
-
     supabaseAdmin
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .in('status', ['allocated', 'collected', 'in_transit'])
       .lt('updated_at', fourHoursAgo),
-
-    // Jobs awarded/posted but without driver for >1h
     supabaseAdmin
       .from('jobs')
       .select('id, status, pickup_location, delivery_location, created_at')
@@ -173,15 +144,12 @@ export async function GET(request: NextRequest) {
       .lt('updated_at', oneHourAgo)
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .in('status', ['awarded', 'allocated'])
       .is('assigned_driver_id', null)
       .lt('updated_at', oneHourAgo),
-
-    // Documents expiring in ≤7 days (active companies/drivers)
     supabaseAdmin
       .from('driver_documents')
       .select('id, driver_id, doc_type, expiry_date')
@@ -190,22 +158,18 @@ export async function GET(request: NextRequest) {
       .lte('expiry_date', sevenDaysAhead)
       .order('expiry_date', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('driver_documents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .gte('expiry_date', now.toISOString())
       .lte('expiry_date', sevenDaysAhead),
-
     supabaseAdmin
       .from('driver_documents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .gte('expiry_date', now.toISOString())
       .lte('expiry_date', twoDaysAhead),
-
-    // Documents that have passed their expiry date (all driver documents, not scoped to jobs)
     supabaseAdmin
       .from('driver_documents')
       .select('id, driver_id, doc_type, expiry_date')
@@ -213,42 +177,34 @@ export async function GET(request: NextRequest) {
       .lt('expiry_date', now.toISOString())
       .order('expiry_date', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('driver_documents')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .lt('expiry_date', now.toISOString()),
-
-    // Open fraud cases
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id, subject_company_id, status, created_at')
       .in('status', ['open', 'investigating'])
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id', { count: 'exact', head: true })
       .in('status', ['open', 'investigating']),
-
     supabaseAdmin
       .from('fraud_review_cases')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'investigating'),
-
-    // Overdue collectible invoices. Void rows are audit history, not receivables.
     supabaseAdmin
       .from('invoices')
-      .select('id, invoice_number, amount, due_date, created_at')
+      .select('id, invoice_number, amount, currency, due_date, created_at')
       .eq('payment_status', 'unpaid')
       .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', todayDate)
       .order('due_date', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('invoices')
       .select('id', { count: 'exact', head: true })
@@ -256,7 +212,6 @@ export async function GET(request: NextRequest) {
       .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', todayDate),
-
     supabaseAdmin
       .from('invoices')
       .select('id', { count: 'exact', head: true })
@@ -264,8 +219,6 @@ export async function GET(request: NextRequest) {
       .not('status', 'eq', 'void')
       .not('due_date', 'is', null)
       .lt('due_date', thirtyDaysAgoDate),
-
-    // Critical support tickets (priority=critical, open or investigating)
     supabaseAdmin
       .from('support_tickets')
       .select('id, subject, status, priority, created_at')
@@ -273,21 +226,16 @@ export async function GET(request: NextRequest) {
       .eq('priority', 'critical')
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
       .in('status', ['open', 'investigating'])
       .eq('priority', 'critical'),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'investigating')
       .eq('priority', 'critical'),
-
-    // GDPR/compliance requests approaching deadline (SAR: 30 days from receipt)
-    // Alert when >20 days old (10 or fewer days remaining)
     supabaseAdmin
       .from('support_tickets')
       .select('id, subject, created_at')
@@ -296,14 +244,12 @@ export async function GET(request: NextRequest) {
       .lt('created_at', twentyDaysAgo)
       .order('created_at', { ascending: true })
       .limit(PREVIEW_LIMIT),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
       .eq('category', 'compliance')
       .in('status', ['open', 'investigating'])
       .lt('created_at', twentyDaysAgo),
-
     supabaseAdmin
       .from('support_tickets')
       .select('id', { count: 'exact', head: true })
@@ -312,10 +258,6 @@ export async function GET(request: NextRequest) {
       .lt('created_at', twentyFiveDaysAgo),
   ]);
 
-  // Propagate errors — any failed query produces an explicit partial_data warning.
-  // We do not silently present missing data as zero/healthy.
-  // Sources backed by tables that may not yet exist in the live schema are tracked
-  // separately so the UI can distinguish "unavailable" from "zero".
   const queryErrors: string[] = [];
   const collectQueryError = (
     source: string,
@@ -332,8 +274,6 @@ export async function GET(request: NextRequest) {
   collectQueryError('docs_expiring', docsExpiringSoonPreviewResult.error, docsExpiringSoonCountResult.error, docsExpiringSoonP1CountResult.error);
   collectQueryError('docs_expired', docsExpiredPreviewResult.error, docsExpiredCountResult.error);
 
-  // For optional/future-schema tables, distinguish "table missing" (unavailable)
-  // from other errors (partial data warning).
   const fraudUnavailable = [
     fraudCasesPreviewResult.error,
     fraudCasesCountResult.error,
@@ -367,10 +307,15 @@ export async function GET(request: NextRequest) {
   ].some((error) => isTableMissing(error));
   collectQueryError('gdpr_requests', gdprRequestsPreviewResult.error, gdprRequestsCountResult.error, gdprRequestsP0CountResult.error);
 
-  // Build Critical Action Queue
+  if (queryErrors.length > 0) {
+    return respond(503, {
+      error: 'Command Centre data could not be determined safely.',
+      queryErrors,
+    });
+  }
+
   const queue: ActionQueueItem[] = [];
 
-  // Companies pending approval
   for (const company of (companiesPendingPreviewResult.data ?? []) as Array<{ id: string; name: string; created_at: string }>) {
     const age = ageMinutes(company.created_at);
     queue.push({
@@ -388,7 +333,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Jobs at risk (no status change for >2h in active states)
   for (const job of (jobsAtRiskPreviewResult.data ?? []) as Array<{ id: string; status: string; pickup_location: string | null; delivery_location: string | null; updated_at: string }>) {
     const age = ageMinutes(job.updated_at);
     queue.push({
@@ -406,7 +350,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Jobs without driver
   for (const job of (jobsWithoutDriverPreviewResult.data ?? []) as Array<{ id: string; status: string; pickup_location: string | null; delivery_location: string | null; created_at: string }>) {
     const age = ageMinutes(job.created_at);
     queue.push({
@@ -424,7 +367,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Documents expiring soon
   for (const doc of (docsExpiringSoonPreviewResult.data ?? []) as Array<{ id: string; driver_id: string; doc_type: string; expiry_date: string }>) {
     const daysLeft = Math.ceil((new Date(doc.expiry_date).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
     queue.push({
@@ -442,7 +384,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Expired documents
   for (const doc of (docsExpiredPreviewResult.data ?? []) as Array<{ id: string; driver_id: string; doc_type: string; expiry_date: string }>) {
     queue.push({
       id: `doc-expired-${doc.id}`,
@@ -459,7 +400,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Fraud cases (only when the table exists in the live schema)
   if (!fraudUnavailable) {
     for (const fraudCase of (fraudCasesPreviewResult.data ?? []) as Array<{ id: string; subject_company_id: string | null; status: string; created_at: string }>) {
       const age = ageMinutes(fraudCase.created_at);
@@ -479,16 +419,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Overdue invoices (only when the table exists in the live schema)
   if (!invoicesUnavailable) {
-    for (const invoice of (invoicesOverduePreviewResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; due_date: string; created_at: string }>) {
+    for (const invoice of (invoicesOverduePreviewResult.data ?? []) as Array<{ id: string; invoice_number: string; amount: number; currency: string | null; due_date: string; created_at: string }>) {
       const age = ageMinutes(invoice.due_date);
+      const currency = String(invoice.currency ?? '').trim().toUpperCase() || 'UNKNOWN';
       queue.push({
         id: `invoice-overdue-${invoice.id}`,
         type: 'invoice_overdue',
         severity: age > 30 * 24 * 60 ? 'P1' : 'P2',
         title: 'Invoice overdue',
-        description: `${invoice.invoice_number} · £${(invoice.amount ?? 0).toFixed(2)} · overdue ${Math.floor(age / (24 * 60))} days`,
+        description: `${invoice.invoice_number} · ${currency} ${(invoice.amount ?? 0).toFixed(2)} · overdue ${Math.floor(age / (24 * 60))} days`,
         entityType: 'invoice',
         entityId: invoice.id,
         entityName: invoice.invoice_number,
@@ -499,7 +439,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Critical support tickets (only when the table exists in the live schema)
   if (!supportCriticalUnavailable) {
     for (const ticket of (supportTicketsCriticalPreviewResult.data ?? []) as Array<{ id: string; subject: string; status: string; priority: string; created_at: string }>) {
       const age = ageMinutes(ticket.created_at);
@@ -519,7 +458,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Compliance/GDPR requests approaching 30-day SAR deadline (only when the table exists)
   if (!gdprUnavailable) {
     for (const req of (gdprRequestsPreviewResult.data ?? []) as Array<{ id: string; subject: string; created_at: string }>) {
       const age = ageMinutes(req.created_at);
@@ -541,7 +479,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Sort queue: P0 first, then P1, then P2, within same severity by age desc
   queue.sort((a, b) => {
     const severityDiff = (SEVERITY_ORDER[a.severity] ?? 3) - (SEVERITY_ORDER[b.severity] ?? 3);
     if (severityDiff !== 0) return severityDiff;
@@ -564,6 +501,23 @@ export async function GET(request: NextRequest) {
   const gdprRequestsCount = gdprUnavailable ? 0 : (exactCount(gdprRequestsCountResult) ?? 0);
   const gdprRequestsP0Count = gdprUnavailable ? 0 : (exactCount(gdprRequestsP0CountResult) ?? 0);
   const blockedAccountsCount = exactCount(companiesSuspendedCountResult);
+
+  const coreCountUnavailable = [
+    companiesPendingCount,
+    jobsAtRiskCount,
+    jobsAtRiskP0Count,
+    jobsWithoutDriverCount,
+    docsExpiringSoonCount,
+    docsExpiringSoonP1Count,
+    docsExpiredCount,
+    blockedAccountsCount,
+  ].some((count) => count === null);
+
+  if (coreCountUnavailable) {
+    return respond(503, {
+      error: 'Command Centre exact counts could not be determined safely.',
+    });
+  }
 
   const staleJobP1Count =
     jobsAtRiskCount !== null && jobsAtRiskP0Count !== null ? Math.max(0, jobsAtRiskCount - jobsAtRiskP0Count) : 0;
@@ -597,35 +551,60 @@ export async function GET(request: NextRequest) {
       ? jobsAtRiskCount + jobsWithoutDriverCount
       : null;
 
-  // Financial exposure: exact invoice count is available, but exact overdue
-  // amount is not exposed through the current safe query surface without a new
-  // aggregate RPC/migration, so report an honest unknown amount.
   const invoicesQueryFailed = Boolean(
     !invoicesUnavailable &&
     (invoicesOverduePreviewResult.error || invoicesOverdueCountResult.error || invoicesOverdueP1CountResult.error),
   );
-  // degradedServices: health-check integration is planned for PR-4.1 and is not yet implemented.
-  // Report as null/unknown rather than falsely reporting zero degraded services.
-  const degradedServicesCount: number | null = null;
 
-  // Collect which optional sources are unavailable so the UI can show an honest state.
+  let degradedServicesCount: number | null = null;
+  let degradedServicesSeverity: 'warning' | 'caution' | 'ok' | 'unknown' = 'unknown';
+  let degradedServicesNote = 'Platform health snapshot unavailable — not reported as zero.';
+  try {
+    const healthSnapshot = await runPlatformHealthChecks();
+    const { summary } = healthSnapshot;
+    if (summary.determined && summary.unhealthyCount !== null) {
+      degradedServicesCount = summary.unhealthyCount;
+      degradedServicesSeverity = summary.errorCount > 0
+        ? 'warning'
+        : summary.degradedCount > 0
+          ? 'caution'
+          : 'ok';
+      degradedServicesNote = degradedServicesCount === 0
+        ? `All ${summary.totalChecks} canonical health checks are healthy.`
+        : `${degradedServicesCount} of ${summary.totalChecks} canonical health checks require attention (${summary.errorCount} error, ${summary.degradedCount} degraded).`;
+    }
+  } catch {
+    degradedServicesCount = null;
+    degradedServicesSeverity = 'unknown';
+    degradedServicesNote = 'Platform health snapshot unavailable — not reported as zero.';
+  }
+
   const unavailableSources: string[] = [];
   if (fraudUnavailable) unavailableSources.push('fraud_review_cases');
   if (invoicesUnavailable) unavailableSources.push('invoices');
   if (supportCriticalUnavailable) unavailableSources.push('support_tickets');
   if (gdprUnavailable) unavailableSources.push('support_tickets_gdpr');
 
+  const criticalCoverageUnavailable = fraudUnavailable || supportCriticalUnavailable || gdprUnavailable;
+  const queueCoverageUnavailable = criticalCoverageUnavailable || invoicesUnavailable;
+
   return respond(200, {
     environment: resolveEnvironment(),
     refreshedAt: now.toISOString(),
-    ...(queryErrors.length > 0 ? { partialData: true, queryErrors } : {}),
     ...(unavailableSources.length > 0 ? { unavailableSources } : {}),
     attentionIndicators: {
-      p0p1Incidents: {
-        count: criticalActionsCount,
-        label: 'Critical actions (P0/P1)',
-        severity: criticalActionsCount > 0 ? 'critical' : 'ok',
-      },
+      p0p1Incidents: criticalCoverageUnavailable
+        ? {
+            count: null,
+            label: 'Critical actions (P0/P1)',
+            severity: 'unknown' as const,
+            note: 'One or more critical-action sources are unavailable.',
+          }
+        : {
+            count: criticalActionsCount,
+            label: 'Critical actions (P0/P1)',
+            severity: criticalActionsCount > 0 ? 'critical' as const : 'ok' as const,
+          },
       jobsAtRisk: exactJobsAtRiskCount === null
         ? { count: null, label: 'Jobs at risk', severity: 'unknown' as const, note: 'Jobs-at-risk totals unavailable.' }
         : {
@@ -653,17 +632,20 @@ export async function GET(request: NextRequest) {
       degradedServices: {
         count: degradedServicesCount,
         label: 'Degraded services',
-        severity: 'unknown' as const,
-        note: 'Health-check integration pending (PR-4.1)',
+        severity: degradedServicesSeverity,
+        note: degradedServicesNote,
       },
     },
     actionQueue: {
       derived: true,
-      queueNote: 'Computed on-demand from current source tables. Not a persistent incident/case registry — items are re-derived on every request.',
-      total: totalQueueCount,
-      p0: p0Count,
-      p1: p1Count,
-      p2: p2Count,
+      partial: queueCoverageUnavailable,
+      queueNote: queueCoverageUnavailable
+        ? 'Computed from available source tables only; at least one source is unavailable, so queue totals are unknown.'
+        : 'Computed on-demand from current source tables. Not a persistent incident/case registry — items are re-derived on every request.',
+      total: queueCoverageUnavailable ? null : totalQueueCount,
+      p0: criticalCoverageUnavailable ? null : p0Count,
+      p1: queueCoverageUnavailable ? null : p1Count,
+      p2: invoicesUnavailable ? null : p2Count,
       items: queue.slice(0, PREVIEW_LIMIT),
     },
   });

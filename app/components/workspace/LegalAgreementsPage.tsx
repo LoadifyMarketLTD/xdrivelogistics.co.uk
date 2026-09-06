@@ -95,12 +95,14 @@ export default function LegalAgreementsPage({
   const [authorityConfirmed, setAuthorityConfirmed] = useState(false);
   const [roleDeclarationConfirmed, setRoleDeclarationConfirmed] = useState(false);
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
+  const [initialEvidenceRemediationConfirmed, setInitialEvidenceRemediationConfirmed] = useState(false);
 
   const resetConfirmations = () => {
     setAgreementsAccepted(false);
     setAuthorityConfirmed(false);
     setRoleDeclarationConfirmed(false);
     setPrivacyAcknowledged(false);
+    setInitialEvidenceRemediationConfirmed(false);
   };
 
   const getAccessToken = async () => {
@@ -143,17 +145,19 @@ export default function LegalAgreementsPage({
     return map;
   }, [model]);
 
-  const canReaccept = Boolean(
+  const isInitialRemediation = Boolean(model?.requiresReacceptance && model.history.length === 0);
+
+  const canAccept = Boolean(
     model?.requiresReacceptance &&
-      model.history.length > 0 &&
       agreementsAccepted &&
       authorityConfirmed &&
       roleDeclarationConfirmed &&
-      privacyAcknowledged,
+      privacyAcknowledged &&
+      (!isInitialRemediation || initialEvidenceRemediationConfirmed),
   );
 
-  const submitReacceptance = async () => {
-    if (!model || !canReaccept) return;
+  const submitAcceptance = async () => {
+    if (!model || !canAccept) return;
     setSubmitting(true);
     setError('');
     setMessage('');
@@ -171,19 +175,28 @@ export default function LegalAgreementsPage({
           authorityConfirmed: true,
           roleDeclarationConfirmed: true,
           privacyAcknowledged: true,
+          initialEvidenceRemediationConfirmed: isInitialRemediation ? true : undefined,
         }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string; acceptanceMode?: string };
       if (!response.ok) {
-        if (payload.code === 'legal_requirement_stale' || payload.code === 'legal_reacceptance_already_recorded') {
+        if (
+          payload.code === 'legal_requirement_stale' ||
+          payload.code === 'legal_reacceptance_already_recorded' ||
+          payload.code === 'initial_legal_remediation_already_recorded'
+        ) {
           await load();
         }
-        throw new Error(payload.error || 'Legal re-acceptance could not be recorded.');
+        throw new Error(payload.error || 'Legal acceptance could not be recorded.');
       }
-      setMessage('Your current XDrive contractual package has been accepted and a new immutable evidence record has been created.');
+      setMessage(
+        payload.acceptanceMode === 'initial_remediation'
+          ? 'Your current XDrive contractual package has been accepted now and recorded as an immutable initial-remediation event. No historical registration acceptance has been recreated or backdated.'
+          : 'Your current XDrive contractual package has been accepted and a new immutable evidence record has been created.',
+      );
       await load();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Legal re-acceptance could not be recorded.');
+      setError(submitError instanceof Error ? submitError.message : 'Legal acceptance could not be recorded.');
     } finally {
       setSubmitting(false);
     }
@@ -237,9 +250,9 @@ export default function LegalAgreementsPage({
 
           {model.requiresReacceptance && (
             <Panel
-              title={model.history.length === 0 ? 'Initial legal evidence requires remediation' : 'Re-acceptance required'}
-              description={model.history.length === 0
-                ? 'This account has no immutable initial acceptance record. Re-acceptance cannot be used as a substitute for the original registration evidence.'
+              title={isInitialRemediation ? 'Initial legal evidence requires remediation' : 'Re-acceptance required'}
+              description={isInitialRemediation
+                ? 'No immutable initial acceptance record exists for this legacy account. You may explicitly accept the current contractual package now. XDrive records the event at the current time and does not recreate or backdate the original registration acceptance.'
                 : 'A material contractual change requires a new explicit acceptance. Your earlier evidence remains unchanged in history.'}
             >
               <div style={{ display: 'grid', gap: 8 }}>
@@ -249,31 +262,43 @@ export default function LegalAgreementsPage({
                   </div>
                 )}
 
-                {model.history.length > 0 && (
-                  <>
-                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
-                      <input type="checkbox" checked={agreementsAccepted} onChange={(event) => setAgreementsAccepted(event.target.checked)} />
-                      <span>{model.currentRequirement.acceptanceStatement}</span>
-                    </label>
-                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
-                      <input type="checkbox" checked={authorityConfirmed} onChange={(event) => setAuthorityConfirmed(event.target.checked)} />
-                      <span>{model.currentRequirement.authorityStatement}</span>
-                    </label>
-                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
-                      <input type="checkbox" checked={roleDeclarationConfirmed} onChange={(event) => setRoleDeclarationConfirmed(event.target.checked)} />
-                      <span>{model.currentRequirement.roleStatement}</span>
-                    </label>
-                    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
-                      <input type="checkbox" checked={privacyAcknowledged} onChange={(event) => setPrivacyAcknowledged(event.target.checked)} />
-                      <span>{model.currentRequirement.privacyStatement} Privacy acknowledgement remains separate from contractual acceptance.</span>
-                    </label>
-                    <div>
-                      <ActionButton tone="primary" disabled={!canReaccept || submitting} onClick={() => void submitReacceptance()}>
-                        {submitting ? 'Recording acceptance…' : 'Accept current agreements'}
-                      </ActionButton>
-                    </div>
-                  </>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                  <input type="checkbox" checked={agreementsAccepted} onChange={(event) => setAgreementsAccepted(event.target.checked)} />
+                  <span>{model.currentRequirement.acceptanceStatement}</span>
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                  <input type="checkbox" checked={authorityConfirmed} onChange={(event) => setAuthorityConfirmed(event.target.checked)} />
+                  <span>{model.currentRequirement.authorityStatement}</span>
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                  <input type="checkbox" checked={roleDeclarationConfirmed} onChange={(event) => setRoleDeclarationConfirmed(event.target.checked)} />
+                  <span>{model.currentRequirement.roleStatement}</span>
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                  <input type="checkbox" checked={privacyAcknowledged} onChange={(event) => setPrivacyAcknowledged(event.target.checked)} />
+                  <span>{model.currentRequirement.privacyStatement} Privacy acknowledgement remains separate from contractual acceptance.</span>
+                </label>
+
+                {isInitialRemediation && (
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                    <input
+                      type="checkbox"
+                      checked={initialEvidenceRemediationConfirmed}
+                      onChange={(event) => setInitialEvidenceRemediationConfirmed(event.target.checked)}
+                    />
+                    <span>I understand that this acceptance is recorded now and does not recreate or backdate my original registration acceptance.</span>
+                  </label>
                 )}
+
+                <div>
+                  <ActionButton tone="primary" disabled={!canAccept || submitting} onClick={() => void submitAcceptance()}>
+                    {submitting
+                      ? 'Recording acceptance…'
+                      : isInitialRemediation
+                        ? 'Record current acceptance'
+                        : 'Accept current agreements'}
+                  </ActionButton>
+                </div>
               </div>
             </Panel>
           )}
@@ -283,7 +308,11 @@ export default function LegalAgreementsPage({
             description="Immutable evidence records are shown newest first. Earlier rows are never rewritten when terms change."
           >
             {model.history.length === 0 ? (
-              <EmptyState compact title="No legal acceptance evidence recorded" description="The account must complete the approved initial acceptance/remediation flow before material re-acceptance can be used." />
+              <EmptyState
+                compact
+                title="No legal acceptance evidence recorded"
+                description="No historical acceptance evidence is available. Complete the explicit current-date remediation above to establish a forward-looking immutable evidence record."
+              />
             ) : (
               <div style={{ display: 'grid', gap: 7 }}>
                 {model.history.map((record) => (
