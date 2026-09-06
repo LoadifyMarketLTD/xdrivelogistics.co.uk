@@ -86,9 +86,6 @@ const jobSelect = [
   'updated_at',
 ].join(',');
 
-// Quote/marketplace reads must never download street addresses or contacts for
-// a driver who has not been allocated the job. This is intentionally a separate
-// projection rather than a UI-only mask.
 const publicJobSelect = [
   'id',
   'company_id',
@@ -177,22 +174,20 @@ export function mapResourceJob(row: AnyRow, showPublicPrice = false, revealPriva
 function mapJobStatus(value: unknown, rawHistory?: unknown): DriverJob['status'] {
   const history = Array.isArray(rawHistory) ? rawHistory : [];
   const events = new Set(history.map((entry) => String(entry?.status ?? '')));
-  if (events.has('delivered')) return 'delivered';
-  if (events.has('arrived_delivery')) return 'arrived_delivery';
-  if (events.has('in_transit')) return 'on_my_way_delivery';
-  if (events.has('collected')) return 'loaded';
-  if (events.has('arrived_pickup')) return 'arrived_pickup';
-  if (events.has('driver_en_route')) return 'on_my_way_pickup';
+  if (events.has('delivered') || events.has('completed')) return 'delivered';
+  if (events.has('arrived_delivery') || events.has('on_site_delivery')) return 'arrived_delivery';
+  if (events.has('in_transit') || events.has('on_my_way_to_delivery')) return 'on_my_way_delivery';
+  if (events.has('collected') || events.has('loaded')) return 'loaded';
+  if (events.has('arrived_pickup') || events.has('on_site_pickup')) return 'arrived_pickup';
+  if (events.has('driver_en_route') || events.has('on_my_way_to_pickup')) return 'on_my_way_pickup';
   const status = String(value || 'awarded').toLowerCase();
-  if (status === 'posted') return 'awarded';
-  if (status === 'allocated') return 'awarded';
-  if (status === 'on_my_way') return 'on_my_way_pickup';
-  if (status === 'on_site_pickup') return 'arrived_pickup';
-  if (status === 'in_transit') return 'on_my_way_delivery';
-  if (status === 'on_site_delivery') return 'arrived_delivery';
-  if (['awarded', 'on_my_way_pickup', 'arrived_pickup', 'loaded', 'on_my_way_delivery', 'arrived_delivery', 'delivered'].includes(status)) {
-    return status as DriverJob['status'];
-  }
+  if (['posted', 'awarded', 'allocated', 'accepted', 'assigned'].includes(status)) return 'awarded';
+  if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(status)) return 'on_my_way_pickup';
+  if (['on_site_pickup', 'arrived_pickup'].includes(status)) return 'arrived_pickup';
+  if (['loaded', 'collected'].includes(status)) return 'loaded';
+  if (['in_transit', 'on_route_delivery', 'on_my_way_to_delivery', 'on_my_way_delivery'].includes(status)) return 'on_my_way_delivery';
+  if (['on_site_delivery', 'arrived_delivery'].includes(status)) return 'arrived_delivery';
+  if (['delivered', 'completed', 'invoiced', 'paid'].includes(status)) return 'delivered';
   return 'awarded';
 }
 
@@ -348,31 +343,17 @@ export async function fetchDestinationMarketplaceJobs(radius: 10 | 20 | 30 = 10)
 }
 
 export async function updateJobQuote({ bidId, amount, message }: { bidId: string; amount: number; message?: string }) {
-  const user = await authUser();
-  const { data, error } = await supabase
-    .from('job_bids')
-    .update({ amount, bid_price_gbp: amount, message: message?.trim() || null })
-    .eq('id', bidId)
-    .eq('bidder_user_id', user.id)
-    .eq('status', 'submitted')
-    .select('id')
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error('This quote can no longer be edited. Refresh Quotes to see its current status.');
+  await apiRequest('/api/driver/mobile/bids', {
+    method: 'PATCH',
+    body: { bidId, amount, message: message?.trim() || '' },
+  });
 }
 
 export async function withdrawJobQuote(bidId: string) {
-  const user = await authUser();
-  const { data, error } = await supabase
-    .from('job_bids')
-    .update({ status: 'withdrawn' })
-    .eq('id', bidId)
-    .eq('bidder_user_id', user.id)
-    .eq('status', 'submitted')
-    .select('id')
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error('Withdrawal is unavailable because this quote is no longer active.');
+  await apiRequest('/api/driver/mobile/bids', {
+    method: 'DELETE',
+    body: { bidId },
+  });
 }
 
 export async function updateDriverAvailability(availabilityStatus: 'available' | 'busy' | 'offline') {
@@ -459,6 +440,22 @@ export async function uploadDriverDocument(input: { docType: string; fileName: s
 export async function fetchDriverResources(): Promise<DriverProfileResource> {
   try {
     const response = await apiRequest<{ resources: DriverProfileResource }>('/api/driver/mobile/resources');
+    try {
+      const user = await authUser();
+      const { data } = await supabase
+        .from('drivers')
+        .select('availability_status')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data?.availability_status) {
+        response.resources.driver = {
+          ...(response.resources.driver ?? {}),
+          availability_status: data.availability_status,
+        };
+      }
+    } catch {
+      // Availability enrichment is non-authoritative presentation only.
+    }
     return response.resources;
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes('HTTP 404')) throw error;
