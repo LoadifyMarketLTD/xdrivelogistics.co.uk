@@ -1,7 +1,12 @@
 import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../../_lib/supabaseAdmin';
 
 const CANONICAL_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver';
 const PREVIEW_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver.preview';
@@ -36,7 +41,11 @@ async function authenticatedDriver(request: NextRequest) {
   const token = getBearerToken(request);
   if (!token) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  // Validate the bearer token with the public Supabase client. The service-role
+  // client remains responsible only for privileged driver/device registry reads
+  // and writes after identity has been established.
+  const authClient = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error: authError } = await authClient.auth.getUser(token);
   if (authError || !authData.user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   const sessionId = sessionIdAfterValidation(token);
   if (!sessionId) return { error: NextResponse.json({ error: 'Authenticated session identity is required.' }, { status: 401 }) };
