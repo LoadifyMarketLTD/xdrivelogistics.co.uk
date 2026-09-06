@@ -12,6 +12,9 @@ type SafeError = {
   hint: string | null;
 };
 
+const HOSTED_PREVIEW_HOST = 'deploy-preview-510--xdrivelogistics.netlify.app';
+const HOSTED_PREVIEW_PROBE = '9e7c1c1f4d7a4f2e8b7c0a6d1e3f5b9a';
+
 function safeError(error: unknown): SafeError | null {
   if (!error) return null;
   const value = error && typeof error === 'object'
@@ -31,14 +34,25 @@ function localDiagnosticAllowed(request: NextRequest) {
   return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
 }
 
+function hostedPreviewDiagnosticAllowed(request: NextRequest) {
+  const hostname = request.nextUrl.hostname.toLowerCase();
+  const probe = request.nextUrl.searchParams.get('probe') ?? '';
+  return hostname === HOSTED_PREVIEW_HOST && probe === HOSTED_PREVIEW_PROBE;
+}
+
 export async function GET(request: NextRequest) {
-  if (!localDiagnosticAllowed(request)) {
+  if (!localDiagnosticAllowed(request) && !hostedPreviewDiagnosticAllowed(request)) {
     return NextResponse.json({ error: 'Not found.' }, { status: 404 });
   }
 
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     process.env.SUPABASE_URL?.trim() ||
+    '';
+
+  const serviceRole =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_KEY?.trim() ||
     '';
 
   let urlRef: string | null = null;
@@ -51,12 +65,21 @@ export async function GET(request: NextRequest) {
   const base = {
     adminConfigured: isSupabaseAdminConfigured && Boolean(supabaseAdmin),
     urlRef,
-    serviceRolePresent: Boolean(
-      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-      process.env.SUPABASE_SERVICE_KEY?.trim(),
-    ),
+    serviceRolePresent: Boolean(serviceRole),
+    serviceRoleShape: serviceRole
+      ? {
+          length: serviceRole.length,
+          maskedLike: /^\*+[^*]*$/.test(serviceRole) || serviceRole.includes('********'),
+          type: serviceRole.startsWith('eyJ')
+            ? 'legacy-jwt'
+            : serviceRole.startsWith('sb_secret_')
+              ? 'modern-secret'
+              : 'other',
+        }
+      : null,
     validatorKeyPresent: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
     appEnv: process.env.APP_ENV ?? null,
+    netlifyContext: process.env.CONTEXT ?? null,
   };
 
   if (!supabaseAdmin) {
