@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -90,7 +90,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const invoices = payload?.invoices ?? [];
+  const invoices = useMemo(() => payload?.invoices ?? [], [payload?.invoices]);
   const visibleInvoices = useMemo(() => {
     if (view === 'all' || view === 'counterparties' || view === 'ready') return invoices;
     if (view === 'awaiting') return invoices.filter((invoice) => invoice.lifecycle === 'awaiting_payment' || invoice.lifecycle === 'draft');
