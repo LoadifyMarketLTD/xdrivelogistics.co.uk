@@ -26,6 +26,20 @@ function memberType(value: unknown) {
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function vehicleServices(typeValue: unknown, hasTailLift: unknown) {
+  const type = String(typeValue ?? '').trim().toLowerCase();
+  const services = new Set<string>();
+  if (type.includes('hiab')) services.add('Hiab');
+  if (type.includes('moffett')) services.add('Moffett');
+  if (type.includes('adr')) services.add('ADR');
+  if (type.includes('refrigerated')) services.add('Refrigerated');
+  if (type.includes('temperature')) services.add('Temperature controlled');
+  if (type.includes('curtainside') || type.includes('curtainsider')) services.add('Curtainside');
+  if (type.includes('flatbed')) services.add('Flatbed');
+  if (hasTailLift === true || type.includes('tail_lift') || type.includes('tail lift')) services.add('Tail lift');
+  return [...services];
+}
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return operationalError({
@@ -91,8 +105,7 @@ export async function GET(request: NextRequest) {
       .limit(DRIVER_LIMIT),
     supabaseAdmin
       .from('vehicles')
-      .select('id, assigned_driver_id, type')
-      .not('assigned_driver_id', 'is', null)
+      .select('id, company_id, assigned_driver_id, type, has_tail_lift, pallets_capacity')
       .limit(VEHICLE_LIMIT),
   ]);
 
@@ -116,14 +129,44 @@ export async function GET(request: NextRequest) {
     city: company.city ?? null,
     postcode: company.postcode ?? null,
     country: company.country ?? null,
+    vehicleTypes: [] as string[],
+    specialistServices: [] as string[],
+    maxPallets: null as number | null,
   }));
   const companyById = new Map(companies.map((company) => [company.companyId, company]));
-  const vehicleByDriver = new Map<string, { id: string; type: string | null }>();
+  const vehicleByDriver = new Map<string, { id: string; type: string | null; hasTailLift: boolean; palletsCapacity: number | null; specialistServices: string[] }>();
+  const companyVehicleTypes = new Map<string, Set<string>>();
+  const companyServices = new Map<string, Set<string>>();
+  const companyMaxPallets = new Map<string, number>();
   if (!vehiclesResult.error) {
     for (const vehicle of vehiclesResult.data ?? []) {
+      const services = vehicleServices(vehicle.type, vehicle.has_tail_lift);
+      const capacity = typeof vehicle.pallets_capacity === 'number' && Number.isFinite(vehicle.pallets_capacity)
+        ? vehicle.pallets_capacity
+        : null;
       if (vehicle.assigned_driver_id && !vehicleByDriver.has(vehicle.assigned_driver_id)) {
-        vehicleByDriver.set(vehicle.assigned_driver_id, { id: vehicle.id, type: vehicle.type ?? null });
+        vehicleByDriver.set(vehicle.assigned_driver_id, {
+          id: vehicle.id,
+          type: vehicle.type ?? null,
+          hasTailLift: vehicle.has_tail_lift === true,
+          palletsCapacity: capacity,
+          specialistServices: services,
+        });
       }
+      if (vehicle.company_id) {
+        const types = companyVehicleTypes.get(vehicle.company_id) ?? new Set<string>();
+        if (vehicle.type) types.add(String(vehicle.type));
+        companyVehicleTypes.set(vehicle.company_id, types);
+        const serviceSet = companyServices.get(vehicle.company_id) ?? new Set<string>();
+        services.forEach((service) => serviceSet.add(service));
+        companyServices.set(vehicle.company_id, serviceSet);
+        if (capacity != null) companyMaxPallets.set(vehicle.company_id, Math.max(companyMaxPallets.get(vehicle.company_id) ?? 0, capacity));
+      }
+    }
+    for (const company of companies) {
+      company.vehicleTypes = [...(companyVehicleTypes.get(company.companyId) ?? new Set<string>())].sort();
+      company.specialistServices = [...(companyServices.get(company.companyId) ?? new Set<string>())].sort();
+      company.maxPallets = companyMaxPallets.get(company.companyId) ?? null;
     }
   }
 
@@ -145,6 +188,9 @@ export async function GET(request: NextRequest) {
         country: company?.country ?? null,
         availability: driver.availability_status ?? null,
         vehicleType: vehicle?.type ?? null,
+        hasTailLift: vehicle?.hasTailLift ?? false,
+        palletsCapacity: vehicle?.palletsCapacity ?? null,
+        specialistServices: vehicle?.specialistServices ?? [],
       };
     })
     .filter(Boolean);
@@ -170,6 +216,6 @@ export async function GET(request: NextRequest) {
       limits: { companies: COMPANY_LIMIT, drivers: DRIVER_LIMIT, vehicles: VEHICLE_LIMIT },
     },
     generatedAt: new Date().toISOString(),
-    privacy: 'Business-facing member identity only. No home address, personal email, private phone, exact live location or compliance document URL is exposed.',
+    privacy: 'Business-facing member identity and declared fleet capability only. No home address, personal email, private phone, exact live location or compliance document URL is exposed.',
   });
 }
