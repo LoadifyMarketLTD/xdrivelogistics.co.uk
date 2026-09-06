@@ -8,7 +8,7 @@
 [build.environment]
   NODE_VERSION = "20"
   NEXT_PUBLIC_SITE_URL = "https://www.xdrivelogistics.co.uk"
-  EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co.uk"
+  EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co"
   # NEXT_PUBLIC_SUPABASE_ANON_KEY must be set as a secret environment variable
   # in the Netlify UI: Site → Site configuration → Environment variables.
   # Do NOT commit the key value here. Without it the build validation script
