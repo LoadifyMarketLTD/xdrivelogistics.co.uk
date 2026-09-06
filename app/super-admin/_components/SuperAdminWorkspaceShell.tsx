@@ -75,8 +75,6 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'roles', label: 'Access Matrix', href: '/super-admin/settings/roles-permissions', icon: '⚙' },
       { id: 'flags', label: 'Feature Flags', href: '/super-admin/settings/feature-flags', icon: '⚑' },
       { id: 'audit', label: 'Audit Logs', href: '/super-admin/settings/audit-logs', icon: '▤' },
-      { id: 'users', label: 'All Users', href: '/super-admin/users', icon: '◎' },
-      { id: 'admins', label: 'Platform Admins', href: '/super-admin/users/platform-admins', icon: '◉' },
     ] },
   ],
 };
