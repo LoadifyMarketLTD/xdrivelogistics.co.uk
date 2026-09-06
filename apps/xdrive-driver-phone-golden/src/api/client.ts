@@ -52,6 +52,38 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
   }
 }
 
+function normalizeMobileStatus(value: unknown) {
+  const status = String(value ?? '').trim().toLowerCase();
+  if (['awarded', 'allocated', 'accepted', 'assigned'].includes(status)) return 'awarded';
+  if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(status)) return 'on_my_way_pickup';
+  if (['on_site_pickup', 'arrived_pickup'].includes(status)) return 'arrived_pickup';
+  if (['loaded', 'collected'].includes(status)) return 'loaded';
+  if (['in_transit', 'on_route_delivery', 'on_my_way_to_delivery', 'on_my_way_delivery'].includes(status)) return 'on_my_way_delivery';
+  if (['on_site_delivery', 'arrived_delivery'].includes(status)) return 'arrived_delivery';
+  if (['delivered', 'completed', 'invoiced', 'paid'].includes(status)) return 'delivered';
+  return status || 'awarded';
+}
+
+function normalizeMobileJob(value: unknown) {
+  if (!value || typeof value !== 'object') return value;
+  const job = value as Record<string, unknown>;
+  return { ...job, status: normalizeMobileStatus(job.status) };
+}
+
+function normalizeKnownPayload(normalizedPath: string, payload: unknown) {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (!normalizedPath.startsWith('/api/driver/mobile/jobs')) return payload;
+
+  const root = payload as Record<string, unknown>;
+  if (Array.isArray(root.jobs)) {
+    return { ...root, jobs: root.jobs.map(normalizeMobileJob) };
+  }
+  if (root.job && typeof root.job === 'object') {
+    return { ...root, job: normalizeMobileJob(root.job) };
+  }
+  return payload;
+}
+
 async function hydrateMobileResourcesQuotes(
   normalizedPath: string,
   payload: unknown,
@@ -123,9 +155,10 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     throw new Error(message);
   }
 
+  const lifecycleNormalized = normalizeKnownPayload(normalizedPath, payload);
   const normalizedPayload = await hydrateMobileResourcesQuotes(
     normalizedPath,
-    payload,
+    lifecycleNormalized,
     token,
     installationHeaders,
   );
