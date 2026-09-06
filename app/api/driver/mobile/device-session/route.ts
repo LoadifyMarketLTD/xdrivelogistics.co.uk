@@ -29,9 +29,25 @@ function isLoopbackRequest(request: NextRequest) {
   return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
 }
 
+function normalizeHost(value: string | null | undefined) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw) return '';
+  try {
+    return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch {
+    return raw.split(':')[0] ?? '';
+  }
+}
+
 function isHostedPreviewRequest(request: NextRequest) {
-  const hostname = request.nextUrl.hostname.toLowerCase();
-  return process.env.APP_ENV === 'staging' && HOSTED_PREVIEW_HOST_RE.test(hostname);
+  if (process.env.APP_ENV !== 'staging') return false;
+  const hostnames = [
+    request.nextUrl.hostname,
+    request.headers.get('x-forwarded-host'),
+    request.headers.get('host'),
+    process.env.DEPLOY_PRIME_URL,
+  ].map(normalizeHost).filter(Boolean);
+  return hostnames.some((hostname) => HOSTED_PREVIEW_HOST_RE.test(hostname));
 }
 
 function allowPreviewWithoutRegistryWrite(request: NextRequest, appPackage: string) {
