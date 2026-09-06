@@ -3,29 +3,54 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabase
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
 
 const scopes: Record<string, string[]> = {
-  active: ['awarded', 'allocated', 'collected', 'in_transit'],
-  upcoming: ['awarded', 'allocated'],
-  completed: ['delivered', 'invoiced', 'paid'],
+  active: [
+    'awarded',
+    'allocated',
+    'accepted',
+    'assigned',
+    'on_my_way',
+    'on_my_way_pickup',
+    'on_my_way_to_pickup',
+    'arrived_pickup',
+    'on_site_pickup',
+    'loaded',
+    'collected',
+    'in_transit',
+    'on_my_way_delivery',
+    'on_my_way_to_delivery',
+    'arrived_delivery',
+    'on_site_delivery',
+  ],
+  upcoming: ['awarded', 'allocated', 'accepted', 'assigned'],
+  completed: ['delivered', 'completed', 'invoiced', 'paid'],
 };
 
 export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
 
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') || 'active';
-  const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 250);
+  const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 100) || 100, 1), 250);
+  const statusList = scopes[scope] ?? scopes.active;
+  const statuses = statusList.join(',');
+  const completedHistory = scope === 'completed';
 
   let query = supabaseAdmin
     .from('jobs')
     .select(jobSelect)
     .eq('assigned_driver_id', driver.driverId)
-    .order(scope === 'completed' ? 'updated_at' : 'pickup_datetime', { ascending: scope !== 'completed' })
+    .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
     .limit(limit);
 
-  const statusList = scopes[scope] ?? scopes.active;
-  query = query.in('status', statusList);
+  // Lifecycle state can live in current_status while legacy rows still use status.
+  // Keep both sources compatible. History is intentionally full: no 7/14/365-day
+  // cutoff is applied because XDrive V3 exposes one complete operational log.
+  query = query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
