@@ -42,9 +42,9 @@ Legacy values appearing only inside compatibility-selector match expressions are
 Existing explicit compact exceptions remain:
 
 - Status chips/badges: `4px 10px`
-- Standard compact action/pager buttons outside the enterprise navbar: `0 14px`
+- Standard compact action/pager buttons: `0 14px`
 
-The enterprise navbar is an explicit final surface amendment and uses its own exact geometry below.
+The standard compact action/pager rule applies outside the enterprise navbar. The enterprise navbar is an explicit final surface amendment and uses its own exact geometry below.
 
 ### 3.1 Fundamental navbar rules
 
