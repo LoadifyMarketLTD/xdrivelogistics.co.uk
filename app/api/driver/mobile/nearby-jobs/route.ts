@@ -87,8 +87,9 @@ const nearbySelect = [
   'special_requirements',
   'access_restrictions',
   'job_distance_miles',
+  'job_distance_minutes',
   'exchange_posted_at',
-  'companies(name,company_number)',
+  'companies:companies!jobs_company_id_fkey(name,company_number)',
 ].join(',');
 
 function numberOrNull(value: unknown) {
@@ -103,7 +104,7 @@ function companyInfo(companies: NearbyJobRow['companies']) {
 
 function publicArea(postcode: unknown) {
   const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area Â· ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
