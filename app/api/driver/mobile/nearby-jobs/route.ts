@@ -13,12 +13,14 @@ type NearbyJobRow = {
   assigned_driver_id: string | null;
   direct_invite_company_id: string | null;
   pickup_location: string | null;
+  pickup_city?: string | null;
   pickup_postcode: string | null;
   pickup_lat: number | null;
   pickup_lng: number | null;
   pickup_datetime: string | null;
   pickup_time_slot: string | null;
   delivery_location: string | null;
+  delivery_city?: string | null;
   delivery_postcode: string | null;
   delivery_lat: number | null;
   delivery_lng: number | null;
@@ -58,12 +60,14 @@ const nearbySelect = [
   'assigned_driver_id',
   'direct_invite_company_id',
   'pickup_location',
+  'pickup_city',
   'pickup_postcode',
   'pickup_lat',
   'pickup_lng',
   'pickup_datetime',
   'pickup_time_slot',
   'delivery_location',
+  'delivery_city',
   'delivery_postcode',
   'delivery_lat',
   'delivery_lng',
@@ -102,12 +106,89 @@ function companyInfo(companies: NearbyJobRow['companies']) {
   return companies ?? null;
 }
 
-function publicArea(postcode: unknown) {
-  const value = String(postcode ?? '').trim().toUpperCase();
-  return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+function publicOutcode(postcode: unknown) {
+  const compact = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!compact) return null;
+  const match = compact.match(/^([A-Z]{1,2}\d[A-Z\d]?)/);
+  return match?.[1] ?? compact.slice(0, 4);
 }
 
-function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
+function locationCandidate(location: unknown, postcode: unknown) {
+  const raw = String(location ?? '').trim();
+  if (!raw) return null;
+  const postcodeKeyValue = postcodeKey(postcode);
+  const outcode = publicOutcode(postcode);
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  return parts.find((part) => {
+    const normalized = part.replace(/\s+/g, '').toUpperCase();
+    if (!normalized || normalized === postcodeKeyValue || normalized === outcode) return false;
+    if (/\d/.test(part)) return false;
+    if (/\b(ROAD|RD|STREET|ST|LANE|LN|AVENUE|AVE|DRIVE|CLOSE|COURT|WAY|UNIT|BUILDING|HOUSE|WAREHOUSE|DEPOT|INDUSTRIAL|ESTATE|LIMITED|LTD|PLC)\b/i.test(part)) return false;
+    if (/^(GB|UK|UNITED KINGDOM|ENGLAND|WALES|SCOTLAND|NORTHERN IRELAND)$/i.test(part)) return false;
+    return true;
+  }) ?? null;
+}
+
+function normalizeDistrict(value: unknown) {
+  const district = String(value ?? '').trim();
+  if (/^Blackburn with Darwen$/i.test(district)) return 'Blackburn';
+  return district || null;
+}
+
+function publicMarketplaceLocation(location: unknown, city: unknown, postcode: unknown, district: unknown, fallback: string) {
+  const locality = String(city ?? '').trim() || locationCandidate(location, postcode) || normalizeDistrict(district);
+  const outcode = publicOutcode(postcode);
+  if (locality && outcode) return `${locality.toUpperCase()}, ${outcode}`;
+  if (outcode) return outcode;
+  if (locality) return locality.toUpperCase();
+  return fallback;
+}
+
+async function postcodeDistricts(postcodes: unknown[]) {
+  const unique = [...new Set(postcodes.map(postcodeKey).filter(Boolean))];
+  const result = new Map<string, string>();
+  if (unique.length === 0) return result;
+
+  const fullPostcodes = unique.filter((value) => /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(value));
+  if (fullPostcodes.length > 0) {
+    try {
+      const response = await fetch('https://api.postcodes.io/postcodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postcodes: fullPostcodes }),
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (response.ok) {
+        const payload = await response.json() as { result?: Array<{ query?: string; result?: { admin_district?: string | null } | null }> };
+        for (const item of payload.result ?? []) {
+          const key = postcodeKey(item.query);
+          const district = String(item.result?.admin_district ?? '').trim();
+          if (key && district) result.set(key, district);
+        }
+      }
+    } catch {
+      // Public locality enrichment is best-effort.
+    }
+  }
+
+  const outcodes = unique.filter((value) => /^[A-Z]{1,2}\d[A-Z\d]?$/.test(value) && !result.has(value));
+  await Promise.all(outcodes.map(async (outcode) => {
+    try {
+      const response = await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(outcode)}`, { signal: AbortSignal.timeout(5_000) });
+      if (!response.ok) return;
+      const payload = await response.json() as { result?: { admin_district?: string[] | string | null } | null };
+      const raw = payload.result?.admin_district;
+      const district = Array.isArray(raw) ? raw[0] : raw;
+      if (district) result.set(outcode, String(district));
+    } catch {
+      // Keep the outward code when enrichment is unavailable.
+    }
+  }));
+
+  return result;
+}
+
+function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, districts: Map<string, string> = new Map()) {
   const priceVisible = row.is_fixed_price === true && row.budget_amount != null;
   const company = companyInfo(row.companies);
   return {
@@ -116,7 +197,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     poster: { name: company?.name ?? null, memberCode: company?.company_number ?? null },
     posterCompanyName: company?.name ?? null,
     pickup: {
-      addressSummary: publicArea(row.pickup_postcode),
+      addressSummary: publicMarketplaceLocation(row.pickup_location, row.pickup_city, row.pickup_postcode, districts.get(postcodeKey(row.pickup_postcode)), 'Collection area'),
       postcode: row.pickup_postcode || '',
       latitude: null,
       longitude: null,
@@ -124,7 +205,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
       collectionTo: null,
     },
     delivery: {
-      addressSummary: publicArea(row.delivery_postcode),
+      addressSummary: publicMarketplaceLocation(row.delivery_location, row.delivery_city, row.delivery_postcode, districts.get(postcodeKey(row.delivery_postcode)), 'Delivery area'),
       postcode: row.delivery_postcode || '',
       latitude: null,
       longitude: null,
@@ -238,8 +319,9 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
 
   const rows = (data ?? []) as unknown as NearbyJobRow[];
+  const districts = await postcodeDistricts(rows.flatMap((row) => [row.pickup_postcode, row.delivery_postcode]));
   if (!destinationMode) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)) });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, {}, districts)) });
   }
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
@@ -252,10 +334,10 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
   if (currentJobError) return respond(500, { error: currentJobError.message });
   if (!currentJob) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, {}, districts)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
   }
   if (!['in_transit', 'delivered'].includes(String(currentJob.status))) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, {}, districts)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
   }
 
   const geocoded = await postcodeCoordinates([currentJob.delivery_postcode, ...rows.map((row) => row.pickup_postcode)]);
@@ -264,11 +346,11 @@ export async function GET(request: NextRequest) {
     ?? null;
   if (!destination) {
     return respond(200, {
-      jobs: rows.map((row) => mapNearbyJob(row)),
+      jobs: rows.map((row) => mapNearbyJob(row, {}, districts)),
       returnIq: {
         active: false,
         currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
-        destinationArea: publicArea(currentJob.delivery_postcode),
+        destinationArea: publicMarketplaceLocation(null, null, currentJob.delivery_postcode, districts.get(postcodeKey(currentJob.delivery_postcode)), 'Delivery area'),
         reason: 'The delivery postcode could not be located yet.',
       },
     });
@@ -327,14 +409,14 @@ export async function GET(request: NextRequest) {
   });
 
   const prioritizedJobs = sortSmartDestinationCandidates(candidates)
-    .map((item) => mapNearbyJob(item.row, item.extras));
+    .map((item) => mapNearbyJob(item.row, item.extras, districts));
 
   return respond(200, {
     jobs: prioritizedJobs,
     returnIq: {
       active: true,
       currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
-      destinationArea: publicArea(currentJob.delivery_postcode),
+      destinationArea: publicMarketplaceLocation(null, null, currentJob.delivery_postcode, districts.get(postcodeKey(currentJob.delivery_postcode)), 'Delivery area'),
       availableAfter,
       radiusMiles,
     },
