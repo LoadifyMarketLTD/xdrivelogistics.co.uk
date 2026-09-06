@@ -35,9 +35,9 @@ replaceOnce(
 );
 
 replaceOnce(
-  'logout queue isolation',
-  `    await clearSessionToken().catch(() => undefined);\n    setToken(null);\n    setResources(null);`,
-  `    await clearSessionToken().catch(() => undefined);\n    clearQueueSessionCache();\n    setQueue([]);\n    setToken(null);\n    setResources(null);`,
+  'logout revoke-before-auth-signout',
+  `  async function signOut() {\n    await supabase.auth.signOut().catch(() => undefined);\n    await clearSessionToken().catch(() => undefined);\n    setToken(null);\n    setResources(null);`,
+  `  async function signOut() {\n    await clearSessionToken().catch(() => undefined);\n    await supabase.auth.signOut().catch(() => undefined);\n    clearQueueSessionCache();\n    setQueue([]);\n    setToken(null);\n    setResources(null);`,
 );
 
 replaceOnce(
