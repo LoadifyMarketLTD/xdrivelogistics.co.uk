@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const installationKey = 'xdrive.driver.installationId.v1';
 const canonicalAppPackage = 'co.uk.xdrivelogistics.driver';
+const previewAppPackage = 'co.uk.xdrivelogistics.driver.preview';
 const fallbackBaseUrl = 'https://www.xdrivelogistics.co.uk';
 let registeredToken: string | null = null;
 let registrationPromise: Promise<string> | null = null;
@@ -25,6 +26,16 @@ function runtimeAppPackage() {
   const android = Constants.expoConfig?.android as { package?: string } | undefined;
   const configured = android?.package?.trim();
   return configured || canonicalAppPackage;
+}
+
+function localPreviewWithoutRegistry() {
+  if (runtimeAppPackage() !== previewAppPackage) return false;
+  try {
+    const hostname = new URL(apiBaseUrl()).hostname.toLowerCase();
+    return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
+  } catch {
+    return false;
+  }
 }
 
 function fallbackUuidV4() {
@@ -94,6 +105,24 @@ export async function ensureNativeDeviceSession(token: string) {
     return await registrationPromise;
   } finally {
     registrationPromise = null;
+  }
+}
+
+export async function revokeNativeDeviceSession(token: string) {
+  const normalizedToken = token.trim();
+  try {
+    if (!normalizedToken || localPreviewWithoutRegistry()) return;
+    const installationHeaders = await getInstallationHeaders();
+    await fetch(`${apiBaseUrl()}/api/driver/mobile/device-session`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${normalizedToken}`,
+        ...installationHeaders,
+      },
+    }).catch(() => undefined);
+  } finally {
+    clearRegisteredDeviceSessionCache();
   }
 }
 
