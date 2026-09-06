@@ -8,8 +8,9 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 type CompanyRow = { id: string; name: string };
 type DisputeRow = { id: string; invoice_id: string | null; company_id: string | null; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string; resolved_at: string | null };
 type ReviewRow = { id: string; company_id: string | null; reviewer_id: string | null; rating: number | null; comment: string | null; created_at: string };
-type SupportTicketRow = { id: string; company_id: string | null; raised_by_user_id: string | null; subject: string; description: string | null; category: string; priority: string; status: string; assigned_to_user_id: string | null; resolution_note: string | null; resolved_at: string | null; closed_at: string | null; created_at: string; updated_at: string };
-type SupportTicketMutationRow = { ticket_id: string; status: string; resolution_note: string; resolved_at: string | null; closed_at: string | null; updated_at: string };
+type SupportTicketDbRow = { id: string; company_id: string | null; category: string; priority: string; status: string; created_at: string };
+type SupportTicketDto = { id: string; company_name: string; type: string; severity: string; status: string; created_at: string };
+type SupportTicketMutationRow = { ticket_id: string; status: string; resolution_note: string; updated_at: string };
 
 const createTicketSchema = z.object({
   company_id: z.string().uuid().optional(),
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest) {
   if (section === 'tickets') {
     const { data, error, count } = await supabaseAdmin
       .from('support_tickets')
-      .select('id, company_id, raised_by_user_id, subject, description, category, priority, status, assigned_to_user_id, resolution_note, resolved_at, closed_at, created_at, updated_at', { count: 'exact' })
+      .select('id, company_id, category, priority, status, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
     if (error) {
@@ -111,26 +112,21 @@ export async function GET(request: NextRequest) {
       return respond(500, { error: error.message });
     }
     if (typeof count !== 'number') return respond(500, { error: 'Support ticket source returned an incomplete exact count.' });
-    const rows = (data as SupportTicketRow[] | null) ?? [];
+    const rows = (data as SupportTicketDbRow[] | null) ?? [];
     const companyResult = await companyNameMap(rows.map((row) => row.company_id as string).filter(Boolean));
     if (companyResult.error) return respond(500, { error: companyResult.error });
+    const ticketRows: SupportTicketDto[] = rows.map((row) => ({
+      id: row.id,
+      company_name: companyResult.map.get(row.company_id as string) ?? 'Unknown company',
+      type: row.category,
+      severity: row.priority,
+      status: row.status,
+      created_at: row.created_at,
+    }));
     return respond(200, {
       section,
-      rows: rows.map((row) => ({
-        id: row.id,
-        company_name: companyResult.map.get(row.company_id as string) ?? 'Unknown company',
-        subject: row.subject,
-        description: row.description,
-        category: row.category,
-        priority: row.priority,
-        status: row.status,
-        resolution_note: row.resolution_note,
-        created_at: row.created_at,
-        resolved_at: row.resolved_at,
-        closed_at: row.closed_at,
-        updated_at: row.updated_at,
-      })),
-      summary: { total_records: count, page_records: rows.length },
+      rows: ticketRows,
+      summary: { total_records: count, page_records: ticketRows.length },
       pagination: pagination(page, limit, count),
     });
   }
@@ -172,8 +168,6 @@ export async function PATCH(request: NextRequest) {
       id: updatedTicket.ticket_id,
       status: updatedTicket.status,
       resolution_note: updatedTicket.resolution_note,
-      resolved_at: updatedTicket.resolved_at,
-      closed_at: updatedTicket.closed_at,
       updated_at: updatedTicket.updated_at,
     },
   });
@@ -201,8 +195,17 @@ export async function POST(request: NextRequest) {
       priority,
       status: 'open',
     })
-    .select('id, company_id, subject, category, priority, status, created_at')
+    .select('id, company_id, category, priority, status, created_at')
     .single();
   if (error) return respond(500, { error: error.message });
-  return respond(201, { ticket });
+  return respond(201, {
+    ticket: {
+      id: ticket.id,
+      company_id: ticket.company_id,
+      type: ticket.category,
+      severity: ticket.priority,
+      status: ticket.status,
+      created_at: ticket.created_at,
+    },
+  });
 }
