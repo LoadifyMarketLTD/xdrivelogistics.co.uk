@@ -38,7 +38,6 @@ function fallbackGroupId(pathname: string) {
 export default function SuperAdminCardNavigationShell({
   children,
   definition,
-  fixtureOverrides,
 }: {
   children: ReactNode;
   definition: WorkspaceDefinition;
@@ -71,7 +70,7 @@ export default function SuperAdminCardNavigationShell({
 
   return (
     <div className={styles.shell}>
-      <SuperAdminNavbar definition={definition} fixtureOverrides={fixtureOverrides} />
+      <SuperAdminNavbar />
 
       {showContextBar ? (
         <section className={styles.contextBar}>
