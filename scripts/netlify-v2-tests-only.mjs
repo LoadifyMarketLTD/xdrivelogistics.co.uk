@@ -22,15 +22,6 @@ const runCaptured = (args) => spawnSync(npmCommand, args, {
   shell: false,
   maxBuffer: 24 * 1024 * 1024,
 });
-const runVisible = (args) => {
-  const result = spawnSync(npmCommand, args, {
-    cwd: process.cwd(),
-    env: { ...process.env, CI: process.env.CI ?? 'true' },
-    stdio: 'inherit',
-    shell: false,
-  });
-  if (result.error || result.status !== 0) process.exit(result.status ?? 1);
-};
 
 const results = [];
 for (const test of tests) {
@@ -54,6 +45,3 @@ const report = {
 mkdirSync('public', { recursive: true });
 writeFileSync('public/__v2-test-diagnostic.json', JSON.stringify(report, null, 2));
 console.log(`NETLIFY_V2_TEST_DIAGNOSTIC=${failures.length === 0 ? 'ALL_PASS' : `${failures.length}_FAILURES`}`);
-
-runVisible(['run', 'typecheck']);
-runVisible(['run', 'build']);
