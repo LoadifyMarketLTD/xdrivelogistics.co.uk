@@ -5,7 +5,7 @@ import { supabase } from '../auth/supabase';
 
 type ApiOptions = {
   token?: string | null;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
 };
 
@@ -52,6 +52,50 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
   }
 }
 
+async function hydrateMobileResourcesQuotes(
+  normalizedPath: string,
+  payload: unknown,
+  token: string | null,
+  installationHeaders: Record<string, string>,
+) {
+  if (normalizedPath !== '/api/driver/mobile/resources' || !token || !payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  const root = payload as Record<string, unknown>;
+  const resources = root.resources;
+  if (!resources || typeof resources !== 'object') return payload;
+
+  // The canonical resources endpoint intentionally focuses on profile/context and
+  // currently returns an empty quotes compatibility array. Quote history has its
+  // own device-bound API contract, so hydrate it independently instead of letting
+  // a peripheral resources response make the Quotes screen look empty.
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...installationHeaders,
+      },
+    });
+    if (!response.ok) return payload;
+    const quotePayload = await response.json().catch(() => ({})) as { bids?: unknown };
+    if (!Array.isArray(quotePayload.bids)) return payload;
+
+    return {
+      ...root,
+      resources: {
+        ...(resources as Record<string, unknown>),
+        quotes: quotePayload.bids,
+      },
+    };
+  } catch {
+    return payload;
+  }
+}
+
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = await resolveAuthToken(options.token);
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
@@ -78,5 +122,12 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     const message = typeof payload?.error === 'string' ? payload.error : `Request failed with HTTP ${response.status}`;
     throw new Error(message);
   }
-  return payload as T;
+
+  const normalizedPayload = await hydrateMobileResourcesQuotes(
+    normalizedPath,
+    payload,
+    token,
+    installationHeaders,
+  );
+  return normalizedPayload as T;
 }
