@@ -32,12 +32,28 @@ function localPreviewDeviceBypass(request: NextRequest) {
   return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
 }
 
+function normalizeHost(value: string | null | undefined) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw) return '';
+  try {
+    return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch {
+    return raw.split(':')[0] ?? '';
+  }
+}
+
 function hostedPreviewDeviceBypass(request: NextRequest) {
   if (process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS !== 'true') return false;
   if (process.env.APP_ENV !== 'staging') return false;
-  const hostname = request.nextUrl.hostname.toLowerCase();
   const appPackage = request.headers.get('x-xdrive-app-package')?.trim() ?? '';
-  return appPackage === PREVIEW_ANDROID_PACKAGE && HOSTED_PREVIEW_HOST_RE.test(hostname);
+  if (appPackage !== PREVIEW_ANDROID_PACKAGE) return false;
+  const hostnames = [
+    request.nextUrl.hostname,
+    request.headers.get('x-forwarded-host'),
+    request.headers.get('host'),
+    process.env.DEPLOY_PRIME_URL,
+  ].map(normalizeHost).filter(Boolean);
+  return hostnames.some((hostname) => HOSTED_PREVIEW_HOST_RE.test(hostname));
 }
 
 async function enforceActiveNativeDeviceBinding(
