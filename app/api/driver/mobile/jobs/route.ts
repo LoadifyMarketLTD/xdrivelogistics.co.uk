@@ -47,10 +47,12 @@ export async function GET(request: NextRequest) {
     .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
     .limit(limit);
 
-  // Lifecycle state can live in current_status while legacy rows still use status.
-  // Keep both sources compatible. History is intentionally full: no 7/14/365-day
-  // cutoff is applied because XDrive V3 exposes one complete operational log.
-  query = query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
+  // Active/upcoming execution treats current_status as authoritative when present.
+  // Full History is deliberately broader: legacy lifecycle status OR current_status
+  // can prove completion, so old completed work is not lost because one field is stale.
+  query = completedHistory
+    ? query.or(`current_status.in.(${statuses}),status.in.(${statuses})`)
+    : query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
