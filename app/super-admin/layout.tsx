@@ -4,6 +4,7 @@ import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
 import './super-admin-light.css';
 import './super-admin-light-hardening.css';
 import './super-admin-visual-contract.css';
+import './super-admin-master-contract.css';
 
 // The protected Super Admin document receives a per-request CSP nonce from
 // middleware. Next.js can only apply that nonce to framework/page scripts when
