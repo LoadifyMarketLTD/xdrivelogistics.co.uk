@@ -8,11 +8,11 @@ export type StatusStep = {
 };
 
 export const statusFlow: StatusStep[] = [
-  { status: 'on_my_way_pickup', label: 'On my way to pickup', endpoint: 'on-my-way-pickup', requiresConfirmation: false },
-  { status: 'arrived_pickup', label: 'Arrived at pickup', endpoint: 'arrived-pickup', requiresConfirmation: true },
-  { status: 'loaded', label: 'Loaded / collected', endpoint: 'loaded', requiresConfirmation: true },
-  { status: 'on_my_way_delivery', label: 'On my way to delivery', endpoint: 'on-my-way-delivery', requiresConfirmation: false },
-  { status: 'arrived_delivery', label: 'Arrived at delivery', endpoint: 'arrived-delivery', requiresConfirmation: true },
+  { status: 'on_my_way_pickup', label: 'Head to collection', endpoint: 'on-my-way-pickup', requiresConfirmation: false },
+  { status: 'arrived_pickup', label: 'Confirm collection arrival', endpoint: 'arrived-pickup', requiresConfirmation: true },
+  { status: 'loaded', label: 'Confirm cargo loaded', endpoint: 'loaded', requiresConfirmation: true },
+  { status: 'on_my_way_delivery', label: 'Start delivery leg', endpoint: 'on-my-way-delivery', requiresConfirmation: false },
+  { status: 'arrived_delivery', label: 'Confirm delivery arrival', endpoint: 'arrived-delivery', requiresConfirmation: true },
 ];
 
 export function getNextStep(status: CanonicalJobStatus) {
