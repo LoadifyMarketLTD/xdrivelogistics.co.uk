@@ -110,6 +110,8 @@ type Payload = {
   };
 };
 
+type FeedItem = { label: string; detail: string; icon: LucideIcon; accent: string };
+
 const C = {
   blue: '#1A73E8',
   green: '#34A853',
@@ -149,10 +151,25 @@ const driverTone = (driver: Driver) => {
   return C.green;
 };
 
+const driverStatusLabel = (driver: Driver) => {
+  if (!driver.online) return 'Offline';
+  if (driver.status === 'busy') return 'Busy';
+  if (driver.status === 'sold') return 'Sold';
+  return 'Online';
+};
+
 const vehicleHealth = (vehicle: Vehicle) => {
   if (vehicle.compliance_blocked) return { label: 'Critical', color: C.red };
   if (!vehicle.operationally_healthy) return { label: 'Attention', color: C.yellow };
   return { label: 'Ready', color: C.green };
+};
+
+const vehicleStatusLabel = (vehicle: Vehicle) => {
+  if (vehicle.available) return 'Available';
+  const normalized = vehicle.status.toLowerCase();
+  if (normalized.includes('route') || normalized.includes('transit')) return 'On Route';
+  if (normalized.includes('service') || normalized.includes('maintenance')) return 'In Service';
+  return vehicle.status.replaceAll('_', ' ');
 };
 
 function KpiCard({
@@ -237,6 +254,21 @@ export default function SuperAdminOperationsControlCentre() {
   const urgentTone = (data?.kpis.urgentRequests ?? 0) === 0 ? C.green : (data?.kpis.urgentRequests ?? 0) <= 2 ? C.yellow : C.red;
   const revenueTone = data?.kpis.mixedCurrency ? C.yellow : C.green;
 
+  const liveFeed = useMemo<FeedItem[]>(() => {
+    if (!data) return [];
+    const accepted = data.jobs.find((job) => job.status.toLowerCase() === 'accepted');
+    const pickupComplete = data.jobs.find((job) => ['loaded', 'collected', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'].includes(job.status.toLowerCase()));
+    const late = data.jobs.find((job) => (job.eta?.late_by_minutes ?? 0) > 0);
+    const idle = data.drivers.find((driver) => driver.online && (driver.location?.speed_mph ?? 0) <= 3 && driver.vehicle);
+    return [
+      { label: 'Driver Accepted Job', detail: accepted ? `Job ${accepted.short_id} · ${accepted.driver_name ?? 'Assigned driver'}` : 'No verified event in canonical sources.', icon: UserRound, accent: C.green },
+      { label: 'Pickup Completed', detail: pickupComplete ? `Job ${pickupComplete.short_id} · ${pickupComplete.pickup}` : 'No verified event in canonical sources.', icon: ClipboardList, accent: C.green },
+      { label: 'Delivery Late', detail: late ? `Job ${late.short_id} · ${late.eta?.late_by_minutes ?? 0} min late` : 'No verified late-delivery event.', icon: ClockAlert, accent: C.red },
+      { label: 'Vehicle Idle', detail: idle?.vehicle ? `${idle.vehicle.registration} · ${idle.name}` : 'No verified idle vehicle.', icon: Truck, accent: C.yellow },
+      { label: 'Customer Changed Address', detail: 'No verified address-change event exists in the current canonical feed source.', icon: Activity, accent: C.blue },
+    ];
+  }, [data]);
+
   return (
     <ProtectedRoute allowedRoles={['owner']}>
       <main className={styles.page}>
@@ -267,10 +299,10 @@ export default function SuperAdminOperationsControlCentre() {
             {data && (
               <section className={styles.overviewGrid}>
                 <div className={styles.card}>
-                  <div className={styles.sectionHeader} style={{ padding: 0, borderBottom: 0, marginBottom: 12 }}>
+                  <div className={styles.sectionHeader} style={{ marginBottom: 24 }}>
                     <div>
                       <h2 className={styles.sectionTitle}>Live Operational Map</h2>
-                      <p className={styles.sectionText}>Moving vehicles green · idle yellow · offline red · active jobs blue. ETA uses cached traffic data; this page makes no routing-provider call.</p>
+                      <p className={styles.sectionText}>UK + Ireland operational map. Moving vehicles green · idle yellow · offline red · active jobs blue.</p>
                     </div>
                     <Link className={styles.linkButton} href="/super-admin/operations/fleet-positions">Fleet Positions</Link>
                   </div>
@@ -289,17 +321,16 @@ export default function SuperAdminOperationsControlCentre() {
                       <Link className={styles.quickLink} href="/super-admin/settings/roles-permissions"><ShieldCheck size={24} /><span>Manage Roles</span><b>→</b></Link>
                       <Link className={styles.quickLink} href="/super-admin/settings/audit-logs"><ScrollText size={24} /><span>View Logs</span><b>→</b></Link>
                     </div>
-                    <p className={styles.quickNote}>Create, assign, reassign, cancel, backup and restore remain disabled here unless a governed Platform Owner mutation route exists.</p>
                   </aside>
 
                   <aside className={styles.asideCard}>
                     <h2 className={styles.sectionTitle}>Live Feed</h2>
-                    {data.jobs.slice(0, 6).map((job) => (
-                      <div key={job.id} className={styles.feedItem}>
-                        <strong>Job {job.short_id} · {job.status.replaceAll('_', ' ')}</strong>
-                        <span>{job.pickup} → {job.delivery}</span>
-                      </div>
-                    ))}
+                    <div className={styles.feedList}>
+                      {liveFeed.map((item) => {
+                        const Icon = item.icon;
+                        return <div key={item.label} className={styles.feedItem}><span className={styles.feedIcon} style={{ color: item.accent }}><Icon size={24} /></span><div><strong>{item.label}</strong><span>{item.detail}</span></div></div>;
+                      })}
+                    </div>
                   </aside>
                 </div>
               </section>
@@ -310,7 +341,7 @@ export default function SuperAdminOperationsControlCentre() {
                 <div className={styles.sectionHeader}>
                   <div>
                     <h2 className={styles.sectionTitle}>Jobs Management</h2>
-                    <p className={styles.sectionText}>Pickup, dropoff, vehicle, driver, status, ETA and price with advanced filters.</p>
+                    <p className={styles.sectionText}>Job ID, Pickup → Delivery, Driver, status, ETA and Price. Track / Reassign workflow is exposed through View details / Assign driver.</p>
                   </div>
                   <Link className={styles.linkButton} href="/super-admin/operations/jobs">Open Full Jobs Workspace</Link>
                 </div>
@@ -328,18 +359,16 @@ export default function SuperAdminOperationsControlCentre() {
                           <strong className={styles.jobTitle}>Job {job.short_id}</strong>
                           <span className={styles.status} style={{ background: jobTone(job.status) }}>{job.status.replaceAll('_', ' ')}</span>
                         </div>
-                        <div className={styles.jobRoute}><strong>{job.pickup}</strong><span>↓</span><strong>{job.delivery}</strong></div>
+                        <div className={styles.jobRoute}><strong>{job.pickup}</strong><span>→</span><strong>{job.delivery}</strong></div>
                         <div className={styles.metaGrid}>
-                          <div><span className={styles.metaLabel}>Client</span><span className={styles.metaValue}>{job.client}</span></div>
-                          <div><span className={styles.metaLabel}>Region</span><span className={styles.metaValue}>{regionOf(job)}</span></div>
                           <div><span className={styles.metaLabel}>Driver</span><span className={styles.metaValue}>{job.driver_name ?? 'Unassigned'}</span></div>
-                          <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{job.vehicle_registration ?? 'Unassigned'}</span></div>
                           <div><span className={styles.metaLabel}>ETA</span><span className={styles.metaValue}>{job.eta?.eta_at ? when(job.eta.eta_at) : 'Unavailable'}</span></div>
                           <div><span className={styles.metaLabel}>Price</span><span className={styles.metaValue}>{money(job.price, job.currency)}</span></div>
+                          <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{job.vehicle_registration ?? 'Unassigned'}</span></div>
                         </div>
                         <div className={styles.actions}>
-                          <PlatformEntityLink entityType="job" entityId={job.id} compact>Track / View</PlatformEntityLink>
-                          <button className={styles.disabledButton} type="button" disabled>Assign Driver</button>
+                          <PlatformEntityLink entityType="job" entityId={job.id} compact>View details</PlatformEntityLink>
+                          <button className={styles.disabledButton} type="button" disabled title="No governed assignment mutation is exposed by this cockpit.">Assign driver</button>
                         </div>
                       </article>
                     ))}
@@ -352,26 +381,27 @@ export default function SuperAdminOperationsControlCentre() {
             {data && (
               <section className={styles.module} id="drivers-center">
                 <div className={styles.sectionHeader}>
-                  <div><h2 className={styles.sectionTitle}>Drivers Center</h2><p className={styles.sectionText}>Availability, route state, rating, assigned vehicle and last activity.</p></div>
+                  <div><h2 className={styles.sectionTitle}>Drivers Center</h2><p className={styles.sectionText}>Driver photo frame, vehicle, status, rating, last job and actions.</p></div>
                   <Link className={styles.linkButton} href="/super-admin/users/drivers">All Drivers</Link>
                 </div>
                 <div className={styles.moduleBody}><div className={styles.driverGrid}>
-                  {data.drivers.map((driver) => (
-                    <article key={driver.id} className={styles.driverCard}>
+                  {data.drivers.map((driver) => {
+                    const lastJob = data.jobs.find((job) => job.driver_id === driver.id) ?? null;
+                    return <article key={driver.id} className={styles.driverCard}>
                       <div className={styles.driverHeader}>
-                        <div className={styles.avatar} aria-label={`${driver.name} avatar`}><UserRound size={28} /><span>{driver.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span></div>
-                        <span className={styles.status} style={{ background: driverTone(driver) }}>{driver.online ? (driver.status === 'busy' ? 'On Route' : 'Available') : 'Off Duty'}</span>
+                        <div className={styles.driverPhoto} aria-label={`${driver.name} driver photo`}><UserRound size={24} /><span>No driver photo on record</span></div>
+                        <span className={styles.status} style={{ background: driverTone(driver) }}>{driverStatusLabel(driver)}</span>
                       </div>
                       <h3 className={styles.driverName}>{driver.name}</h3>
                       <div className={styles.metaGrid}>
-                        <div><span className={styles.metaLabel}>Vehicle Assigned</span><span className={styles.metaValue}>{driver.vehicle?.registration ?? 'Unassigned'}</span></div>
+                        <div><span className={styles.metaLabel}>Vehicle</span><span className={styles.metaValue}>{driver.vehicle?.registration ?? 'Unassigned'}</span></div>
                         <div><span className={styles.metaLabel}>Rating</span><span className={styles.metaValue}>{driver.rating == null ? 'No reviews' : `${driver.rating.toFixed(1)} / 5`}</span></div>
-                        <div><span className={styles.metaLabel}>Last Delivery</span><span className={styles.metaValue}>Unavailable</span></div>
+                        <div><span className={styles.metaLabel}>Last Job</span><span className={styles.metaValue}>{lastJob ? `Job ${lastJob.short_id} · ${lastJob.status.replaceAll('_', ' ')}` : 'Unavailable'}</span></div>
                         <div><span className={styles.metaLabel}>Last Activity</span><span className={styles.metaValue}>{when(driver.last_activity_at)}</span></div>
                       </div>
-                      <div className={styles.actions}><PlatformEntityLink entityType="driver" entityId={driver.id} compact>View Profile</PlatformEntityLink><button className={styles.disabledButton} type="button" disabled>Assign Job</button></div>
-                    </article>
-                  ))}
+                      <div className={styles.actions}><PlatformEntityLink entityType="driver" entityId={driver.id} compact>View profile</PlatformEntityLink><button className={styles.disabledButton} type="button" disabled>Assign job</button></div>
+                    </article>;
+                  })}
                 </div></div>
               </section>
             )}
@@ -379,7 +409,7 @@ export default function SuperAdminOperationsControlCentre() {
             {data && (
               <section className={styles.module} id="fleet-overview">
                 <div className={styles.sectionHeader}>
-                  <div><h2 className={styles.sectionTitle}>Fleet Overview</h2><p className={styles.sectionText}>Vehicle type, capacity, tail-lift, GPS and operational health. Mileage and service due remain unavailable until canonical source fields exist.</p></div>
+                  <div><h2 className={styles.sectionTitle}>Fleet Overview</h2><p className={styles.sectionText}>Vehicle photo frame, mileage, service due, GPS, performance and Health. Unsupported source fields remain explicitly unavailable.</p></div>
                   <Link className={styles.linkButton} href="/super-admin/fleet/vehicles">Vehicle Registry</Link>
                 </div>
                 <div className={styles.moduleBody}><div className={styles.fleetGrid}>
@@ -387,15 +417,15 @@ export default function SuperAdminOperationsControlCentre() {
                     const health = vehicleHealth(vehicle);
                     return (
                       <article key={vehicle.id} className={styles.vehicleCard} style={{ '--health': health.color } as React.CSSProperties}>
-                        <div className={styles.vehicleVisual}><Truck size={46} strokeWidth={1.7} /><span>{vehicle.available ? 'Available' : vehicle.status.replaceAll('_', ' ')}</span></div>
-                        <div className={styles.cardHeader}><div><strong className={styles.vehicleTitle}>{vehicle.registration}</strong><div>{vehicle.label}</div></div><div className={styles.healthRing}>{health.label === 'Ready' ? 'OK' : '!'}</div></div>
+                        <div className={styles.vehicleVisual}><Truck size={24} strokeWidth={1.7} /><span>No vehicle photo on record</span><strong>{vehicleStatusLabel(vehicle)}</strong></div>
+                        <div className={styles.cardHeader}><div><strong className={styles.vehicleTitle}>{vehicle.registration}</strong><div>{vehicle.label}</div></div><div className={styles.healthRing}>{health.label}</div></div>
                         <div className={styles.metaGrid}>
-                          <div><span className={styles.metaLabel}>Capacity</span><span className={styles.metaValue}>{vehicle.payload_kg == null ? '—' : `${vehicle.payload_kg} kg`}</span></div>
-                          <div><span className={styles.metaLabel}>Tail-lift</span><span className={styles.metaValue}>{vehicle.tail_lift ? 'Yes' : 'No'}</span></div>
-                          <div><span className={styles.metaLabel}>GPS</span><span className={styles.metaValue}>{vehicle.tracked ? 'Active' : 'Signal unavailable'}</span></div>
-                          <div><span className={styles.metaLabel}>Health</span><span className={styles.healthValue} style={{ color: health.color }}>{health.label}</span></div>
                           <div><span className={styles.metaLabel}>Mileage</span><span className={styles.metaValue}>Unavailable</span></div>
                           <div><span className={styles.metaLabel}>Service Due</span><span className={styles.metaValue}>Unavailable</span></div>
+                          <div><span className={styles.metaLabel}>GPS Status</span><span className={styles.metaValue}>{vehicle.tracked ? `Active · ${when(vehicle.last_tracked_at)}` : 'Offline'}</span></div>
+                          <div><span className={styles.metaLabel}>Performance %</span><span className={styles.metaValue}>Unavailable</span></div>
+                          <div><span className={styles.metaLabel}>Tail-lift</span><span className={styles.metaValue}>{vehicle.tail_lift ? '✓ Equipped' : 'Not equipped'}</span></div>
+                          <div><span className={styles.metaLabel}>Health</span><span className={styles.healthValue} style={{ color: health.color }}>{health.label}</span></div>
                         </div>
                         <div className={styles.actions}><PlatformEntityLink entityType="vehicle" entityId={vehicle.id} compact>Inspect Vehicle</PlatformEntityLink></div>
                       </article>
@@ -408,23 +438,22 @@ export default function SuperAdminOperationsControlCentre() {
             {data && (
               <section className={styles.module} id="finance-dashboard">
                 <div className={styles.sectionHeader}>
-                  <div><h2 className={styles.sectionTitle}>Finance Dashboard</h2><p className={styles.sectionText}>Revenue and invoice exposure from recorded ledgers. Expenses and profit are not inferred without an authoritative cost ledger.</p></div>
+                  <div><h2 className={styles.sectionTitle}>Finance Dashboard</h2><p className={styles.sectionText}>Today's Revenue, Pending Invoices and Weekly Earnings from recorded ledgers. Expenses and profit are never inferred.</p></div>
                   <div className={styles.actions}><Link className={styles.linkButton} href="/super-admin/finance">View Transactions</Link><Link className={styles.linkButton} href="/super-admin/analytics">Generate Report</Link><button className={styles.disabledButton} type="button" disabled>Export CSV</button></div>
                 </div>
                 <div className={styles.moduleBody}>
                   <div className={styles.financeGrid}>
-                    <div className={`${styles.metricCard} ${styles.metricRevenue}`}><span className={styles.metaLabel}>Revenue</span><div className={styles.metricValue}>{money(data.finance.revenueToday, data.finance.currency)}</div></div>
+                    <div className={`${styles.metricCard} ${styles.metricRevenue}`}><span className={styles.metaLabel}>Today's Revenue</span><div className={styles.metricValue}>{money(data.finance.revenueToday, data.finance.currency)}</div></div>
                     <div className={`${styles.metricCard} ${styles.metricExpenses}`}><span className={styles.metaLabel}>Expenses</span><div className={styles.metricValue}>Unavailable</div></div>
                     <div className={`${styles.metricCard} ${styles.metricProfit}`}><span className={styles.metaLabel}>Profit</span><div className={styles.metricValue}>Unavailable</div></div>
-                    <div className={`${styles.metricCard} ${styles.metricOutstanding}`}><span className={styles.metaLabel}>Outstanding Invoices</span><div className={styles.metricValue}>{data.finance.outstandingInvoices}</div></div>
+                    <div className={`${styles.metricCard} ${styles.metricOutstanding}`}><span className={styles.metaLabel}>Pending Invoices</span><div className={styles.metricValue}>{data.finance.outstandingInvoices}</div></div>
                   </div>
                   <div className={styles.chartGrid}>
                     <div className={`${styles.chart} ${styles.enterpriseChart}`}>
-                      <div className={styles.chartHeading}><Activity size={24} /><h3>Revenue & Profit Trend</h3></div>
-                      <div className={styles.chartCanvas} aria-label="Revenue and profit trend unavailable">
-                        <span className={styles.chartUnavailable}>Profit series unavailable — no canonical cost ledger.</span>
+                      <div className={styles.chartHeading}><Activity size={24} /><h3>Weekly Earnings</h3></div>
+                      <div className={styles.chartCanvas} aria-label="Weekly earnings chart">
+                        <div style={{ width: '100%' }}><div className={styles.barTrack}><div className={styles.barFill} style={{ width: `${data.finance.revenueMonth && data.finance.revenueWeek != null ? Math.min(100, Math.max(4, (data.finance.revenueWeek / Math.max(data.finance.revenueMonth, 1)) * 100)) : 4}%` }} /></div><div className={styles.chartFacts}><span>Today: {money(data.finance.revenueToday, data.finance.currency)}</span><span>Week: {money(data.finance.revenueWeek, data.finance.currency)}</span><span>Month: {money(data.finance.revenueMonth, data.finance.currency)}</span></div></div>
                       </div>
-                      <div className={styles.chartFacts}><span>Today: {money(data.finance.revenueToday, data.finance.currency)}</span><span>Week: {money(data.finance.revenueWeek, data.finance.currency)}</span><span>Month: {money(data.finance.revenueMonth, data.finance.currency)}</span></div>
                     </div>
                     <div className={`${styles.chart} ${styles.enterpriseChart}`}>
                       <div className={styles.chartHeading}><WalletCards size={24} /><h3>Expense Breakdown</h3></div>
