@@ -32,24 +32,28 @@ const runVisible = (args) => {
   if (result.error || result.status !== 0) process.exit(result.status ?? 1);
 };
 
-let report = { head: process.env.COMMIT_REF ?? null, test: null, status: 0, stdout: '', stderr: '' };
+const results = [];
 for (const test of tests) {
   const result = runCaptured(['run', 'test:unit', '--', test]);
-  if (result.error || result.status !== 0) {
-    report = {
-      head: process.env.COMMIT_REF ?? null,
-      test,
-      status: result.status ?? -1,
-      stdout: tail(result.stdout),
-      stderr: tail(result.stderr ?? result.error?.message),
-    };
-    break;
-  }
+  results.push({
+    test,
+    status: result.status ?? (result.error ? -1 : 0),
+    stdout: result.status === 0 && !result.error ? '' : tail(result.stdout),
+    stderr: result.status === 0 && !result.error ? '' : tail(result.stderr ?? result.error?.message),
+  });
 }
+
+const failures = results.filter((result) => result.status !== 0);
+const report = {
+  head: process.env.COMMIT_REF ?? null,
+  allPass: failures.length === 0,
+  failures,
+  results: results.map(({ test, status }) => ({ test, status })),
+};
 
 mkdirSync('public', { recursive: true });
 writeFileSync('public/__v2-test-diagnostic.json', JSON.stringify(report, null, 2));
-console.log(`NETLIFY_V2_TEST_DIAGNOSTIC=${report.test ?? 'ALL_PASS'}:${report.status}`);
+console.log(`NETLIFY_V2_TEST_DIAGNOSTIC=${failures.length === 0 ? 'ALL_PASS' : `${failures.length}_FAILURES`}`);
 
 runVisible(['run', 'typecheck']);
 runVisible(['run', 'build']);
