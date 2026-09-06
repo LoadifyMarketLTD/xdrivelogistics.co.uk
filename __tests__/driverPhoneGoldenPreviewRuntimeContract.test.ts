@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
@@ -58,13 +59,16 @@ describe('Driver phone GOLDEN side-by-side Preview runtime contract', () => {
     expect(v3).toContain('<BottomDock active={activeTab}');
   });
 
-  it('publishes only server-confirmed active-booking location through the device-bound API contract', () => {
+  it('publishes only server-confirmed executing-job location through the device-bound API contract', () => {
     expect(v3).toContain('publishCurrentDriverLocation(token)');
     expect(v3).toContain('setInterval(() => void publish(), 30_000)');
-    expect(tracking).toContain("apiRequest<{ jobs?: Array<{ id?: string }> }>('/api/driver/mobile/jobs?scope=active', { token })");
+    expect(tracking).toContain('type ActiveJobProjection = {');
+    expect(tracking).toContain("const active = await apiRequest<{ jobs?: ActiveJobProjection[] }>('/api/driver/mobile/jobs?scope=active', { token });");
+    expect(tracking).toContain('TRACKABLE_MOBILE_STATES.has');
     expect(tracking).toContain('No active booking requires tracking.');
     expect(tracking).toContain('NativeModules.XDriveLocation');
     expect(tracking).toContain("apiRequest('/api/driver/location'");
+    expect(tracking).toContain('job_id: executingJob.id');
     expect(mainApplication).toContain('packages.add(XDriveLocationPackage())');
   });
 
