@@ -36,9 +36,6 @@ async function enforceActiveNativeDeviceBinding(
   userId: string,
   driverId: string,
 ): Promise<NextResponse | null> {
-  // This bypass exists only for a loopback physical-Preview gate. It lets the
-  // side-by-side .preview package read real data through adb reverse without
-  // writing to or replacing the canonical GOLDEN native-device registry.
   if (localPreviewDeviceBypass(request)) return null;
   if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
@@ -63,9 +60,7 @@ async function enforceActiveNativeDeviceBinding(
       .maybeSingle(),
   ]);
 
-  if (bindingError || historyError) {
-    return respond(500, { error: 'Mobile device session validation failed.' });
-  }
+  if (bindingError || historyError) return respond(500, { error: 'Mobile device session validation failed.' });
 
   if (!activeBinding) {
     if (nativeHistory) return respond(401, { error: 'No active native device session is authorised.' });
@@ -73,14 +68,9 @@ async function enforceActiveNativeDeviceBinding(
   }
 
   const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
-  if (!UUID_RE.test(installationId)) {
-    return respond(401, { error: 'Active native device identity is required.' });
-  }
+  if (!UUID_RE.test(installationId)) return respond(401, { error: 'Active native device identity is required.' });
 
-  if (
-    String(activeBinding.installation_id) !== installationId
-    || String(activeBinding.auth_session_id) !== authSessionId
-  ) {
+  if (String(activeBinding.installation_id) !== installationId || String(activeBinding.auth_session_id) !== authSessionId) {
     return respond(401, { error: 'This mobile session has been revoked or replaced by another device.' });
   }
 
@@ -126,6 +116,7 @@ export type MobileJobRow = {
   delivery_contact_phone: string | null;
   client_name: string | null;
   client_phone: string | null;
+  client_signature_name: string | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
@@ -140,16 +131,11 @@ export type MobileJobRow = {
 };
 
 export async function requireDriver(request: NextRequest): Promise<DriverContext | NextResponse> {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
 
-  // JWT identity validation must use the public validator client. Privileged
-  // service-role credentials are reserved for the database operations below and
-  // must never decide whether an otherwise-valid mobile access token is accepted.
   const authClient = supabaseValidator ?? supabaseAdmin;
   const { data: authData, error: authError } = await authClient.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
@@ -172,20 +158,11 @@ export async function requireDriver(request: NextRequest): Promise<DriverContext
   if (!profileRow) return respond(403, { error: 'Driver profile not found.' });
   if (!driverRow) return respond(403, { error: 'Driver record not found.' });
   if (driverRow.app_access !== true) return respond(403, { error: 'Driver app access has not been approved.' });
-  if (String(profileRow.status ?? '').trim().toLowerCase() !== 'active') {
-    return respond(403, { error: 'Driver profile is not active.' });
-  }
-  if (String(driverRow.status ?? '').trim().toLowerCase() !== 'active') {
-    return respond(403, { error: 'Driver account is not active.' });
-  }
+  if (String(profileRow.status ?? '').trim().toLowerCase() !== 'active') return respond(403, { error: 'Driver profile is not active.' });
+  if (String(driverRow.status ?? '').trim().toLowerCase() !== 'active') return respond(403, { error: 'Driver account is not active.' });
 
   const driverId = String(driverRow.id);
-  const deviceGate = await enforceActiveNativeDeviceBinding(
-    request,
-    token,
-    authData.user.id,
-    driverId,
-  );
+  const deviceGate = await enforceActiveNativeDeviceBinding(request, token, authData.user.id, driverId);
   if (deviceGate) return deviceGate;
 
   const companyId = String(driverRow.company_id ?? '').trim();
@@ -229,6 +206,7 @@ export const jobSelect = [
   'delivery_contact_phone',
   'client_name',
   'client_phone',
+  'client_signature_name',
   'load_details',
   'special_requirements',
   'access_restrictions',
@@ -251,32 +229,29 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
   return [entry];
 }
 
-export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
+export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'delivery_signature_data' | 'client_signature_name' | 'pod_generated'>) {
   return Boolean(job.pod_generated)
-    || safeArray(job.delivery_photos).length > 0
-    || safeArray(job.pod_photos).length > 0
-    || Boolean(job.delivery_signature_data);
+    && safeArray(job.delivery_photos).length > 0
+    && Boolean(job.delivery_signature_data)
+    && Boolean(String(job.client_signature_name ?? '').trim());
 }
 
 export function toMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return 'Price TBC';
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(amount);
 }
 
 export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'>) {
   const current = String(job.current_status || job.status || 'awarded').trim().toLowerCase();
+  if (['cancelled', 'canceled'].includes(current)) return 'cancelled';
   if (['assigned', 'accepted', 'allocated'].includes(current)) return 'awarded';
   if (['on_my_way', 'on_my_way_to_pickup'].includes(current)) return 'on_my_way_pickup';
   if (['on_site_pickup', 'arrived_pickup'].includes(current)) return 'arrived_pickup';
   if (['collected', 'loaded'].includes(current)) return 'loaded';
   if (['in_transit', 'on_route_delivery', 'on_my_way_to_delivery'].includes(current)) return 'on_my_way_delivery';
   if (['on_site_delivery', 'arrived_delivery'].includes(current)) return 'arrived_delivery';
-  if (['completed', 'invoiced', 'paid'].includes(current)) return 'delivered';
+  if (['delivered', 'completed', 'invoiced', 'paid'].includes(current)) return 'delivered';
   return current;
 }
 
