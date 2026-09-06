@@ -1,0 +1,1741 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import {
+  Alert,
+  ImageBackground,
+  Linking,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as Network from 'expo-network';
+import * as Notifications from 'expo-notifications';
+import SignatureCanvas from 'react-native-signature-canvas';
+
+import { apiRequest } from '../api/client';
+import { fetchJobs, persistEvidencePhoto, postJobStatus, uploadPod } from '../api/jobs';
+import {
+  fetchDriverResources,
+  formatMoney,
+  mapResourceJob,
+  updateDriverAvailability,
+  updateJobQuote,
+  withdrawJobQuote,
+  type DriverProfileResource,
+} from '../api/resources';
+import { fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
+import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
+import { isSupabaseConfigured, supabase } from '../auth/supabase';
+import {
+  loadMarketplacePreferences,
+  saveMarketplacePreferences,
+  type MarketplacePreferences,
+} from '../jobs/marketplacePreferences';
+import { getNextStep, statusFlow } from '../jobs/statusFlow';
+import type { CanonicalJobStatus, DriverJob } from '../jobs/types';
+import {
+  enqueueAction,
+  getQueue,
+  isOnline,
+  saveQueue,
+  updateQueueItem,
+  type QueuedAction,
+} from '../offline/queue';
+import {
+  parseDriverDeepLink,
+  targetFromNotificationData,
+  type DriverDeepLinkTarget,
+} from '../push/driverDeepLinks';
+import { registerPushToken } from '../push/registerPushToken';
+import {
+  classifyTrackingError,
+  publishCurrentDriverLocation,
+  type DriverTrackingState,
+} from '../tracking/nativeLocation';
+import { colors, spacing } from '../ui/theme';
+
+type PrimaryTab = 'overview' | 'loads' | 'offers' | 'history' | 'account';
+type LoadFeed = 'available' | 'starred' | 'dismissed';
+type OfferFeed = 'active' | 'won' | 'archived';
+type JobDetailTab = 'overview' | 'route' | 'progress';
+type UtilityPage = 'profile' | 'vehicle' | 'documents' | 'earnings' | 'availability' | 'offline' | 'support';
+
+type AppRoute =
+  | { kind: 'primary'; tab: PrimaryTab }
+  | { kind: 'load'; load: LiveLoad }
+  | { kind: 'offer'; load: LiveLoad }
+  | { kind: 'job'; jobId: string }
+  | { kind: 'utility'; page: UtilityPage };
+
+type JobStop = {
+  id?: string;
+  sequence: number;
+  type?: string;
+  address: string;
+  company?: string;
+  contactPerson?: string;
+  telephone?: string;
+  timeWindowFrom?: string;
+  timeWindowTo?: string;
+  status?: string;
+  notes?: string;
+};
+
+type JobDetail = DriverJob & {
+  stops?: JobStop[];
+  specialInstructions?: string;
+  attachments?: Array<Record<string, unknown>>;
+  pod?: Record<string, unknown> | null;
+  podCompleted?: boolean;
+};
+
+const defaultPreferences: MarketplacePreferences = {
+  savedJobIds: [],
+  hiddenJobIds: [],
+  destinationPriorityEnabled: true,
+  destinationRadiusMiles: 10,
+};
+
+const progressLabels: Record<CanonicalJobStatus, string> = {
+  awarded: 'Assigned',
+  on_my_way_pickup: 'Heading to collection',
+  arrived_pickup: 'At collection point',
+  loaded: 'Cargo loaded',
+  on_my_way_delivery: 'Delivery leg active',
+  arrived_delivery: 'At delivery point',
+  delivered: 'Completed',
+};
+
+const progressOrder: CanonicalJobStatus[] = [
+  'awarded',
+  ...statusFlow.map((step) => step.status),
+  'delivered',
+];
+
+function cleanError(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'Time not supplied';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function sortTime(job: DriverJob) {
+  const values = [job.deliveryTime, job.pickupTime];
+  for (const value of values) {
+    const timestamp = new Date(value ?? '').getTime();
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return 0;
+}
+
+function quoteStatus(quote: Record<string, any>) {
+  return String(quote.status ?? '').toLowerCase();
+}
+
+function offerBucket(quote: Record<string, any>): OfferFeed {
+  const status = quoteStatus(quote);
+  if (['accepted', 'awarded', 'approved'].includes(status)) return 'won';
+  if (['rejected', 'unsuccessful', 'declined', 'withdrawn', 'expired', 'cancelled'].includes(status)) return 'archived';
+  return 'active';
+}
+
+async function validateDriverRole(userId: string) {
+  try {
+    const { data, error } = await supabase.from('profiles').select('role').eq('user_id', userId).maybeSingle();
+    return !error && data?.role === 'driver';
+  } catch {
+    return false;
+  }
+}
+
+async function fetchJobDetail(jobId: string) {
+  const payload = await apiRequest<{ job: JobDetail }>(`/api/driver/mobile/jobs/${jobId}`);
+  return payload.job;
+}
+
+export default function DriverMobileAppV3() {
+  const [token, setToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [route, setRoute] = useState<AppRoute>({ kind: 'primary', tab: 'overview' });
+  const [activeTab, setActiveTab] = useState<PrimaryTab>('overview');
+  const [loadFeed, setLoadFeed] = useState<LoadFeed>('available');
+  const [offerFeed, setOfferFeed] = useState<OfferFeed>('active');
+  const [detailTab, setDetailTab] = useState<JobDetailTab>('overview');
+  const [message, setMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [loadBusy, setLoadBusy] = useState(false);
+  const [resourcesBusy, setResourcesBusy] = useState(false);
+  const [jobsBusy, setJobsBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [liveLoads, setLiveLoads] = useState<LiveLoad[]>([]);
+  const [resources, setResources] = useState<DriverProfileResource | null>(null);
+  const [activeJobs, setActiveJobs] = useState<DriverJob[]>([]);
+  const [upcomingJobs, setUpcomingJobs] = useState<DriverJob[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<DriverJob[]>([]);
+  const [jobDetail, setJobDetail] = useState<JobDetail | null>(null);
+  const [jobDetailBusy, setJobDetailBusy] = useState(false);
+  const [preferences, setPreferences] = useState<MarketplacePreferences>(defaultPreferences);
+  const [queue, setQueue] = useState<QueuedAction[]>([]);
+  const [offerAmount, setOfferAmount] = useState('');
+  const [offerMessage, setOfferMessage] = useState('');
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [podOpen, setPodOpen] = useState(false);
+  const [podRecipient, setPodRecipient] = useState('');
+  const [podSignature, setPodSignature] = useState('');
+  const [podPhotoUri, setPodPhotoUri] = useState('');
+  const [podNotes, setPodNotes] = useState('');
+  const [trackingState, setTrackingState] = useState<DriverTrackingState>('standby');
+  const signatureRef = useRef<any>(null);
+  const initialIntentHandledRef = useRef(false);
+  const trackingBusyRef = useRef(false);
+
+  const currentJobs = useMemo(() => {
+    const merged = [...upcomingJobs, ...activeJobs];
+    return [...new Map(merged.map((job) => [job.id, job])).values()];
+  }, [activeJobs, upcomingJobs]);
+
+  const fullHistory = useMemo(() => {
+    const merged = [...currentJobs, ...completedJobs];
+    const unique = [...new Map(merged.map((job) => [job.id, job])).values()];
+    return unique.sort((left, right) => sortTime(right) - sortTime(left));
+  }, [completedJobs, currentJobs]);
+
+  const trackingJob = useMemo(
+    () => currentJobs.find((job) => job.status !== 'delivered') ?? null,
+    [currentJobs],
+  );
+
+  const refreshLiveLoads = useCallback(async () => {
+    setLoadBusy(true);
+    setLoadError('');
+    try {
+      const result = await fetchLiveLoads({
+        destinationMode: preferences.destinationPriorityEnabled,
+        radiusMiles: preferences.destinationRadiusMiles,
+      });
+      setLiveLoads(result.jobs);
+    } catch (error) {
+      const text = cleanError(error, 'Load Board could not be refreshed.');
+      setLoadError(text);
+      setMessage(text);
+    } finally {
+      setLoadBusy(false);
+    }
+  }, [preferences.destinationPriorityEnabled, preferences.destinationRadiusMiles]);
+
+  const refreshResources = useCallback(async () => {
+    setResourcesBusy(true);
+    try {
+      const next = await fetchDriverResources();
+      setResources(next);
+      if (next.email) setUserEmail(next.email);
+    } catch (error) {
+      setMessage(cleanError(error, 'Driver account data is temporarily unavailable.'));
+    } finally {
+      setResourcesBusy(false);
+    }
+  }, []);
+
+  const refreshJobs = useCallback(async () => {
+    if (!token) return;
+    setJobsBusy(true);
+    const results = await Promise.allSettled([
+      fetchJobs('active', token),
+      fetchJobs('upcoming', token),
+      fetchJobs('completed', token),
+    ]);
+    const [active, upcoming, completed] = results;
+    if (active.status === 'fulfilled') {
+      setActiveJobs(active.value.jobs.map((job) => ({ ...job, privateDetailsRevealed: true, canUpdateLifecycle: true })));
+    }
+    if (upcoming.status === 'fulfilled') {
+      setUpcomingJobs(upcoming.value.jobs.map((job) => ({ ...job, privateDetailsRevealed: true, canUpdateLifecycle: true })));
+    }
+    if (completed.status === 'fulfilled') {
+      setCompletedJobs(completed.value.jobs.map((job) => ({ ...job, privateDetailsRevealed: true, canUpdateLifecycle: false })));
+    }
+    const rejected = results.find((result) => result.status === 'rejected');
+    if (rejected?.status === 'rejected') {
+      setMessage(cleanError(rejected.reason, 'Some work records could not be refreshed.'));
+    }
+    setJobsBusy(false);
+  }, [token]);
+
+  const refreshJobDetail = useCallback(async (jobId: string) => {
+    setJobDetailBusy(true);
+    try {
+      setJobDetail(await fetchJobDetail(jobId));
+    } catch (error) {
+      setMessage(cleanError(error, 'This work order could not be loaded.'));
+    } finally {
+      setJobDetailBusy(false);
+    }
+  }, []);
+
+  const bootstrap = useCallback(async (sessionToken: string, email: string) => {
+    setMessage('');
+    const stored = await loadMarketplacePreferences(email).catch(() => defaultPreferences);
+    setPreferences(stored);
+    void registerPushToken(sessionToken);
+    void refreshResources();
+    void refreshJobs();
+  }, [refreshJobs, refreshResources]);
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      const session = data.session;
+      if (!session?.access_token || !session.user?.id || !(await validateDriverRole(session.user.id))) {
+        if (session) await supabase.auth.signOut().catch(() => undefined);
+        await clearSessionToken().catch(() => undefined);
+        return;
+      }
+      const email = session.user.email ?? '';
+      setToken(session.access_token);
+      setUserEmail(email);
+      setRoute({ kind: 'primary', tab: 'overview' });
+      setActiveTab('overview');
+      await saveSessionToken(session.access_token).catch(() => undefined);
+      await bootstrap(session.access_token, email);
+    })().catch((error) => setMessage(cleanError(error, 'Unable to restore the driver session.')));
+
+    void getQueue().then(setQueue).catch(() => setQueue([]));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const next = session?.access_token?.trim() || null;
+      setToken(next);
+      setUserEmail(session?.user?.email ?? '');
+      if (!next) {
+        setRoute({ kind: 'primary', tab: 'overview' });
+        setActiveTab('overview');
+        setJobDetail(null);
+        setTrackingState('standby');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [bootstrap]);
+
+  useEffect(() => {
+    if (!token) return;
+    void refreshLiveLoads();
+  }, [refreshLiveLoads, token]);
+
+  const flushOfflineQueue = useCallback(async () => {
+    if (!token || !(await isOnline())) return;
+    const pending = (await getQueue()).filter((item) => item.status === 'pending' || item.status === 'failed');
+    let next = await getQueue();
+    for (const item of pending) {
+      try {
+        if (item.endpoint === 'pod') {
+          await uploadPod(item.jobId, token, item.payload ?? {});
+          await postJobStatus(item.jobId, 'delivered', token);
+        } else {
+          await postJobStatus(item.jobId, item.endpoint, token, item.payload ?? {});
+        }
+        next = await updateQueueItem(item.id, { status: 'synced', lastError: undefined });
+      } catch (error) {
+        next = await updateQueueItem(item.id, { status: 'failed', lastError: cleanError(error, 'Sync failed.') });
+      }
+    }
+    const remaining = next.filter((item) => item.status !== 'synced');
+    await saveQueue(remaining);
+    setQueue(remaining);
+    await refreshJobs();
+    if (route.kind === 'job') await refreshJobDetail(route.jobId);
+  }, [refreshJobDetail, refreshJobs, route, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const subscription = Network.addNetworkStateListener((state) => {
+      if (state.isConnected && state.isInternetReachable !== false) void flushOfflineQueue();
+    });
+    const interval = setInterval(() => void flushOfflineQueue(), 45_000);
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, [flushOfflineQueue, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const channel = supabase
+      .channel('xdrive-driver-v3-load-board')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => void refreshLiveLoads())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [refreshLiveLoads, token]);
+
+  useEffect(() => {
+    if (!token || !trackingJob) {
+      trackingBusyRef.current = false;
+      setTrackingState('standby');
+      return;
+    }
+
+    let mounted = true;
+    setTrackingState('starting');
+    const publish = async () => {
+      if (trackingBusyRef.current) return;
+      trackingBusyRef.current = true;
+      try {
+        await publishCurrentDriverLocation(token);
+        if (mounted) setTrackingState('active');
+      } catch (error) {
+        if (mounted) setTrackingState(classifyTrackingError(error));
+      } finally {
+        trackingBusyRef.current = false;
+      }
+    };
+
+    void publish();
+    const interval = setInterval(() => void publish(), 30_000);
+    return () => {
+      mounted = false;
+      trackingBusyRef.current = false;
+      clearInterval(interval);
+    };
+  }, [token, trackingJob?.id, trackingJob?.status]);
+
+  async function signIn(email: string, password: string) {
+    if (!isSupabaseConfigured) {
+      setMessage('XDrive Driver authentication is not configured for this build.');
+      return;
+    }
+    setAuthBusy(true);
+    setMessage('');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
+      const session = data.session;
+      if (!session?.access_token || !session.user?.id || !(await validateDriverRole(session.user.id))) {
+        await supabase.auth.signOut().catch(() => undefined);
+        throw new Error('Access denied: this account is not an active XDrive driver account.');
+      }
+      const normalizedEmail = session.user.email ?? email.trim();
+      setToken(session.access_token);
+      setUserEmail(normalizedEmail);
+      setRoute({ kind: 'primary', tab: 'overview' });
+      setActiveTab('overview');
+      await saveSessionToken(session.access_token).catch(() => undefined);
+      void bootstrap(session.access_token, normalizedEmail);
+      void refreshLiveLoads();
+    } catch (error) {
+      setMessage(cleanError(error, 'Unable to sign in.'));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut().catch(() => undefined);
+    await clearSessionToken().catch(() => undefined);
+    setToken(null);
+    setResources(null);
+    setLiveLoads([]);
+    setActiveJobs([]);
+    setUpcomingJobs([]);
+    setCompletedJobs([]);
+    setJobDetail(null);
+    setMessage('');
+    setLoadError('');
+    setTrackingState('standby');
+  }
+
+  const navigatePrimary = useCallback((tab: PrimaryTab) => {
+    setActiveTab(tab);
+    setRoute({ kind: 'primary', tab });
+    setJobDetail(null);
+    setPodOpen(false);
+    setMessage('');
+  }, []);
+
+  const openJob = useCallback((jobId: string) => {
+    setRoute({ kind: 'job', jobId });
+    setDetailTab('overview');
+    setPodOpen(false);
+    setMessage('');
+    void refreshJobDetail(jobId);
+  }, [refreshJobDetail]);
+
+  const openDeepLinkTarget = useCallback(async (target: DriverDeepLinkTarget) => {
+    if (target.kind === 'job') {
+      openJob(target.id);
+      return;
+    }
+    const load = liveLoads.find((item) => item.id === target.id);
+    setActiveTab('loads');
+    if (load) {
+      setRoute({ kind: 'load', load });
+      return;
+    }
+    setRoute({ kind: 'primary', tab: 'loads' });
+    setMessage('Refreshing the Load Board for this notification.');
+    await refreshLiveLoads();
+  }, [liveLoads, openJob, refreshLiveLoads]);
+
+  useEffect(() => {
+    if (!token) return;
+    const openUrl = (url: string | null | undefined) => {
+      const target = parseDriverDeepLink(url);
+      if (target) void openDeepLinkTarget(target);
+    };
+    const openNotification = (response: Notifications.NotificationResponse | null | undefined) => {
+      const target = targetFromNotificationData(response?.notification.request.content.data);
+      if (target) void openDeepLinkTarget(target);
+    };
+
+    if (!initialIntentHandledRef.current) {
+      initialIntentHandledRef.current = true;
+      void Linking.getInitialURL().then(openUrl).catch(() => undefined);
+      void Notifications.getLastNotificationResponseAsync().then(openNotification).catch(() => undefined);
+    }
+
+    const linkSubscription = Linking.addEventListener('url', ({ url }) => openUrl(url));
+    const notificationSubscription = Notifications.addNotificationResponseReceivedListener(openNotification);
+    return () => {
+      linkSubscription.remove();
+      notificationSubscription.remove();
+    };
+  }, [openDeepLinkTarget, token]);
+
+  const persistPreferences = useCallback((update: (current: MarketplacePreferences) => MarketplacePreferences) => {
+    setPreferences((current) => {
+      const next = update(current);
+      void saveMarketplacePreferences(userEmail, next).catch(() => setMessage('Load Board preference could not be saved.'));
+      return next;
+    });
+  }, [userEmail]);
+
+  function toggleStar(jobId: string) {
+    persistPreferences((current) => ({
+      ...current,
+      savedJobIds: current.savedJobIds.includes(jobId)
+        ? current.savedJobIds.filter((id) => id !== jobId)
+        : [...current.savedJobIds, jobId],
+    }));
+  }
+
+  function dismissLoad(jobId: string) {
+    persistPreferences((current) => ({
+      ...current,
+      hiddenJobIds: current.hiddenJobIds.includes(jobId) ? current.hiddenJobIds : [...current.hiddenJobIds, jobId],
+    }));
+  }
+
+  function restoreLoad(jobId: string) {
+    persistPreferences((current) => ({
+      ...current,
+      hiddenJobIds: current.hiddenJobIds.filter((id) => id !== jobId),
+    }));
+  }
+
+  async function submitOffer(load: LiveLoad) {
+    if (!editingOfferId && load.canQuote === false) {
+      navigatePrimary('offers');
+      setMessage(load.quoteWarning || 'An active offer already exists for this load.');
+      return;
+    }
+    const amount = Number(offerAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setMessage('Enter a valid offer amount.');
+      return;
+    }
+    setActionBusy(true);
+    setMessage('');
+    try {
+      if (editingOfferId) {
+        await updateJobQuote({ bidId: editingOfferId, amount, message: offerMessage });
+      } else {
+        await submitLiveLoadQuote(load.id, amount, offerMessage);
+      }
+      const wasEditing = Boolean(editingOfferId);
+      setEditingOfferId(null);
+      setOfferAmount('');
+      setOfferMessage('');
+      await Promise.all([refreshLiveLoads(), refreshResources()]);
+      navigatePrimary('offers');
+      setMessage(wasEditing ? 'Offer updated.' : 'Offer sent.');
+    } catch (error) {
+      setMessage(cleanError(error, 'This offer could not be sent.'));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function retractOffer(quote: Record<string, any>) {
+    setActionBusy(true);
+    try {
+      await withdrawJobQuote(String(quote.id));
+      await Promise.all([refreshResources(), refreshLiveLoads()]);
+      setMessage('Offer retracted.');
+    } catch (error) {
+      setMessage(cleanError(error, 'The offer could not be retracted.'));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function lifecycleAction() {
+    if (!token || !jobDetail || actionBusy) return;
+    const nextStep = getNextStep(jobDetail.status);
+    if (!nextStep) {
+      if (jobDetail.status === 'delivered') return;
+      setPodOpen(true);
+      setDetailTab('progress');
+      return;
+    }
+
+    const apply = async () => {
+      setActionBusy(true);
+      setMessage('');
+      let payload: Record<string, unknown> = {};
+      try {
+        if (nextStep.status === 'loaded') {
+          const permission = await ImagePicker.requestCameraPermissionsAsync();
+          if (!permission.granted) throw new Error('Camera access is required to record collection evidence.');
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.78,
+          });
+          if (result.canceled || !result.assets[0]?.uri) return;
+          payload = { collectionPhotoUri: await persistEvidencePhoto(result.assets[0].uri, jobDetail.id, 'pickup') };
+        }
+
+        if (!(await isOnline())) {
+          const queued = await enqueueAction({ jobId: jobDetail.id, endpoint: nextStep.endpoint, payload });
+          setQueue((current) => [queued, ...current]);
+          setMessage(`${nextStep.label} saved for sync. XDrive will change the server status only after confirmation.`);
+          return;
+        }
+
+        await postJobStatus(jobDetail.id, nextStep.endpoint, token, payload);
+        await Promise.all([refreshJobDetail(jobDetail.id), refreshJobs()]);
+      } catch (error) {
+        setMessage(cleanError(error, 'The work status could not be updated.'));
+      } finally {
+        setActionBusy(false);
+      }
+    };
+
+    if (nextStep.requiresConfirmation) {
+      Alert.alert('Confirm work step', nextStep.label, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: () => void apply() },
+      ]);
+    } else {
+      await apply();
+    }
+  }
+
+  async function capturePodPhoto() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setMessage('Camera access is required for delivery evidence.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]?.uri) setPodPhotoUri(result.assets[0].uri);
+  }
+
+  async function submitPod() {
+    if (!token || !jobDetail || actionBusy) return;
+    if (!podRecipient.trim()) {
+      setMessage('Recipient name is required.');
+      return;
+    }
+    if (!podSignature) {
+      signatureRef.current?.readSignature?.();
+      setMessage('Save the recipient signature before completing the work order.');
+      return;
+    }
+    if (!podPhotoUri) {
+      setMessage('At least one delivery photo is required.');
+      return;
+    }
+
+    const payload = {
+      recipientName: podRecipient.trim(),
+      signatureData: podSignature,
+      deliveryPhotoUris: [podPhotoUri],
+      damagePhotoUris: [],
+      documentUris: [],
+      notes: podNotes.trim() || undefined,
+    };
+
+    setActionBusy(true);
+    setMessage('');
+    try {
+      if (!(await isOnline())) {
+        const queued = await enqueueAction({ jobId: jobDetail.id, endpoint: 'pod', payload });
+        setQueue((current) => [queued, ...current]);
+        setMessage('Delivery evidence saved for sync. The work order remains open until server confirmation.');
+        return;
+      }
+      await uploadPod(jobDetail.id, token, payload);
+      await postJobStatus(jobDetail.id, 'delivered', token);
+      setPodOpen(false);
+      setPodRecipient('');
+      setPodSignature('');
+      setPodPhotoUri('');
+      setPodNotes('');
+      await Promise.all([refreshJobDetail(jobDetail.id), refreshJobs(), refreshResources()]);
+      setMessage('Delivery evidence confirmed. Work order completed.');
+    } catch (error) {
+      setMessage(cleanError(error, 'Delivery evidence could not be submitted.'));
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  if (!token) {
+    return <LoginScreen onSignIn={signIn} busy={authBusy} message={message} />;
+  }
+
+  const fixedTop = renderFixedTop({
+    route,
+    activeTab,
+    loadFeed,
+    offerFeed,
+    detailTab,
+    resources,
+    trackingState,
+    onLoadFeed: setLoadFeed,
+    onOfferFeed: setOfferFeed,
+    onDetailTab: setDetailTab,
+    onBack: () => navigatePrimary(activeTab),
+  });
+
+  const fixedAction = route.kind === 'job' && jobDetail && detailTab === 'progress'
+    ? <WorkStepAction job={jobDetail} busy={actionBusy} podOpen={podOpen} onPress={() => void lifecycleAction()} />
+    : null;
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.secondary} />
+      <View style={styles.shell}>
+        {fixedTop}
+        <ScrollView
+          style={styles.bodyViewport}
+          contentContainerStyle={[styles.bodyContent, fixedAction ? styles.bodyWithAction : null]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={route.kind === 'primary' && route.tab === 'loads'
+            ? <RefreshControl refreshing={loadBusy} onRefresh={() => void refreshLiveLoads()} colors={[colors.primary]} tintColor={colors.primary} />
+            : undefined}
+        >
+          {message ? <Banner text={message} onDismiss={() => setMessage('')} /> : null}
+
+          {route.kind === 'primary' && route.tab === 'overview' ? (
+            <OverviewBody
+              resources={resources}
+              liveCount={liveLoads.length}
+              currentJobs={currentJobs}
+              activeOffers={(resources?.quotes ?? []).filter((quote) => offerBucket(quote) === 'active').length}
+              loading={resourcesBusy || jobsBusy}
+              onLoads={() => navigatePrimary('loads')}
+              onHistory={() => navigatePrimary('history')}
+              onAvailability={() => setRoute({ kind: 'utility', page: 'availability' })}
+              onOpenJob={openJob}
+            />
+          ) : null}
+
+          {route.kind === 'primary' && route.tab === 'loads' ? (
+            <LoadBoard
+              loads={liveLoads}
+              feed={loadFeed}
+              preferences={preferences}
+              loading={loadBusy}
+              error={loadError}
+              onRefresh={() => void refreshLiveLoads()}
+              onOpen={(load) => setRoute({ kind: 'load', load })}
+              onOffer={(load) => {
+                setEditingOfferId(null);
+                setOfferAmount('');
+                setOfferMessage('');
+                setRoute({ kind: 'offer', load });
+              }}
+              onStar={toggleStar}
+              onDismiss={dismissLoad}
+              onRestore={restoreLoad}
+            />
+          ) : null}
+
+          {route.kind === 'primary' && route.tab === 'offers' ? (
+            <OffersBody
+              quotes={resources?.quotes ?? []}
+              feed={offerFeed}
+              busy={resourcesBusy || actionBusy}
+              onRetract={(quote) => Alert.alert('Retract offer?', 'This removes your current offer from the load.', [
+                { text: 'Keep offer', style: 'cancel' },
+                { text: 'Retract', style: 'destructive', onPress: () => void retractOffer(quote) },
+              ])}
+              onOpenJob={(quote) => quote.job?.id ? openJob(String(quote.job.id)) : setMessage('The linked work order is not available.')}
+              onEdit={(quote) => {
+                if (!quote.job?.id) return;
+                const load = liveLoads.find((item) => item.id === String(quote.job.id));
+                if (!load) {
+                  setMessage('This offer is visible, but the load is no longer open for editing.');
+                  return;
+                }
+                setEditingOfferId(String(quote.id));
+                setOfferAmount(String(quote.bid_price_gbp ?? quote.amount ?? ''));
+                setOfferMessage(String(quote.message ?? ''));
+                setRoute({ kind: 'offer', load });
+              }}
+            />
+          ) : null}
+
+          {route.kind === 'primary' && route.tab === 'history' ? (
+            <HistoryBody jobs={fullHistory} loading={jobsBusy} onOpen={openJob} />
+          ) : null}
+
+          {route.kind === 'primary' && route.tab === 'account' ? (
+            <AccountBody
+              resources={resources}
+              queueCount={queue.length}
+              onOpen={(page) => setRoute({ kind: 'utility', page })}
+              onSignOut={() => void signOut()}
+            />
+          ) : null}
+
+          {route.kind === 'load' ? (
+            <LoadDetail
+              load={route.load}
+              starred={preferences.savedJobIds.includes(route.load.id)}
+              onStar={() => toggleStar(route.load.id)}
+              onOffer={() => {
+                setEditingOfferId(null);
+                setOfferAmount('');
+                setOfferMessage('');
+                setRoute({ kind: 'offer', load: route.load });
+              }}
+            />
+          ) : null}
+
+          {route.kind === 'offer' ? (
+            <OfferForm
+              load={route.load}
+              amount={offerAmount}
+              note={offerMessage}
+              busy={actionBusy}
+              editing={Boolean(editingOfferId)}
+              onAmount={setOfferAmount}
+              onNote={setOfferMessage}
+              onSubmit={() => void submitOffer(route.load)}
+            />
+          ) : null}
+
+          {route.kind === 'job' ? (
+            jobDetailBusy && !jobDetail
+              ? <LoadingCard text="Loading work order..." />
+              : jobDetail
+                ? <WorkOrder
+                    job={jobDetail}
+                    tab={detailTab}
+                    podOpen={podOpen}
+                    recipient={podRecipient}
+                    signature={podSignature}
+                    photoUri={podPhotoUri}
+                    notes={podNotes}
+                    signatureRef={signatureRef}
+                    onRecipient={setPodRecipient}
+                    onSignature={setPodSignature}
+                    onPhoto={() => void capturePodPhoto()}
+                    onNotes={setPodNotes}
+                    onSubmitPod={() => void submitPod()}
+                    onCall={() => jobDetail.contactPhone ? void Linking.openURL(`tel:${jobDetail.contactPhone}`) : undefined}
+                    onMap={() => void openExternalRoute(jobDetail)}
+                    busy={actionBusy}
+                  />
+                : <EmptyState title="Work order unavailable" body="Refresh History and try again." />
+          ) : null}
+
+          {route.kind === 'utility' ? (
+            <UtilityBody
+              page={route.page}
+              resources={resources}
+              queue={queue}
+              busy={actionBusy}
+              onAvailability={async (status) => {
+                setActionBusy(true);
+                try {
+                  await updateDriverAvailability(status);
+                  await refreshResources();
+                  setMessage(`Work state changed to ${status}.`);
+                } catch (error) {
+                  setMessage(cleanError(error, 'Work state could not be changed.'));
+                } finally {
+                  setActionBusy(false);
+                }
+              }}
+              onFlush={() => void flushOfflineQueue()}
+            />
+          ) : null}
+        </ScrollView>
+        {fixedAction}
+        <BottomDock active={activeTab} loadCount={liveLoads.length} onChange={navigatePrimary} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function renderFixedTop(input: {
+  route: AppRoute;
+  activeTab: PrimaryTab;
+  loadFeed: LoadFeed;
+  offerFeed: OfferFeed;
+  detailTab: JobDetailTab;
+  resources: DriverProfileResource | null;
+  trackingState: DriverTrackingState;
+  onLoadFeed: (feed: LoadFeed) => void;
+  onOfferFeed: (feed: OfferFeed) => void;
+  onDetailTab: (tab: JobDetailTab) => void;
+  onBack: () => void;
+}) {
+  const { route } = input;
+  if (route.kind === 'primary' && route.tab === 'overview') {
+    return <OverviewHeader resources={input.resources} trackingState={input.trackingState} />;
+  }
+  if (route.kind === 'primary' && route.tab === 'loads') {
+    return <View style={styles.topChrome}><ScreenTitle title="Load Board" kicker="AVAILABLE WORK" /><Tabs<LoadFeed> items={[['available', 'Available'], ['starred', 'Starred'], ['dismissed', 'Dismissed']]} value={input.loadFeed} onChange={input.onLoadFeed} /></View>;
+  }
+  if (route.kind === 'primary' && route.tab === 'offers') {
+    return <View style={styles.topChrome}><ScreenTitle title="Offers" kicker="MY COMMERCIAL OFFERS" /><Tabs<OfferFeed> items={[['active', 'Active'], ['won', 'Won'], ['archived', 'Archived']]} value={input.offerFeed} onChange={input.onOfferFeed} /></View>;
+  }
+  if (route.kind === 'primary' && route.tab === 'history') {
+    return <View style={styles.topChrome}><ScreenTitle title="History" kicker="COMPLETE WORK LOG" /></View>;
+  }
+  if (route.kind === 'primary' && route.tab === 'account') {
+    return <View style={styles.topChrome}><ScreenTitle title="Account" kicker="DRIVER SETTINGS" /></View>;
+  }
+  if (route.kind === 'job') {
+    return <View style={styles.topChrome}><BackTitle title="Work Order" onBack={input.onBack} /><Tabs<JobDetailTab> items={[['overview', 'Overview'], ['route', 'Route'], ['progress', 'Progress']]} value={input.detailTab} onChange={input.onDetailTab} /></View>;
+  }
+  const title = route.kind === 'load'
+    ? route.load.reference
+    : route.kind === 'offer'
+      ? 'Make Offer'
+      : route.kind === 'utility'
+        ? utilityTitle(route.page)
+        : 'XDrive Driver';
+  return <View style={styles.topChrome}><BackTitle title={title} onBack={input.onBack} /></View>;
+}
+
+function LoginScreen({ onSignIn, busy, message }: {
+  onSignIn: (email: string, password: string) => void;
+  busy: boolean;
+  message: string;
+}) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  return (
+    <SafeAreaView style={styles.loginSafe}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B2F6B" />
+      <ScrollView contentContainerStyle={styles.loginPage} keyboardShouldPersistTaps="handled">
+        <ImageBackground source={require('../../assets/login-hero-v2.png')} style={styles.loginHero} imageStyle={styles.loginHeroImage}>
+          <View style={styles.loginShade} />
+          <View style={styles.brandPill}><Text style={styles.brandX}>X</Text><Text style={styles.brandDrive}>DRIVE</Text><View style={styles.brandDivider} /><Text style={styles.brandMeta}>DRIVER</Text></View>
+          <View style={styles.loginCopy}>
+            <Text style={styles.loginEyebrow}>BUILT FOR THE ROAD</Text>
+            <Text style={styles.loginHeroTitle}>Move with confidence.</Text>
+            <Text style={styles.loginHeroBody}>Live work, clear proof and every operational step in one XDrive workspace.</Text>
+            <View style={styles.networkPill}><View style={styles.networkDot} /><Text style={styles.networkText}>XDrive verified driver access</Text></View>
+          </View>
+        </ImageBackground>
+        <View style={styles.loginCard}>
+          <Text style={styles.loginTitle}>Welcome back</Text>
+          <Text style={styles.loginSubtitle}>Sign in to your XDrive driver account</Text>
+          {message ? <Banner text={message} /> : null}
+          <Text style={styles.fieldLabel}>EMAIL</Text>
+          <TextInput style={styles.loginInput} autoCapitalize="none" keyboardType="email-address" placeholder="driver@email.com" placeholderTextColor="#8290A7" value={email} onChangeText={setEmail} />
+          <Text style={styles.fieldLabel}>PASSWORD</Text>
+          <View style={styles.passwordRow}>
+            <TextInput style={styles.passwordInput} secureTextEntry={!show} placeholder="Enter your password" placeholderTextColor="#8290A7" value={password} onChangeText={setPassword} />
+            <TouchableOpacity style={styles.showButton} onPress={() => setShow((value) => !value)}><Text style={styles.showText}>{show ? 'HIDE' : 'SHOW'}</Text></TouchableOpacity>
+          </View>
+          <TouchableOpacity style={[styles.primaryButton, (!email || !password || busy) && styles.disabledButton]} disabled={!email || !password || busy} onPress={() => onSignIn(email, password)}>
+            <Text style={styles.primaryButtonText}>{busy ? 'Signing in...' : 'Open driver workspace'}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function trackingLabel(state: DriverTrackingState) {
+  if (state === 'active') return 'Location live';
+  if (state === 'starting') return 'Starting link';
+  if (state === 'permission-required') return 'Permission needed';
+  if (state === 'unavailable') return 'Location unavailable';
+  return 'Standby';
+}
+
+function OverviewHeader({ resources, trackingState }: {
+  resources: DriverProfileResource | null;
+  trackingState: DriverTrackingState;
+}) {
+  const name = resources?.name || resources?.driver?.display_name || 'XDrive Driver';
+  const vehicle = resources?.vehicle?.reg_plate || resources?.vehicle?.type || resources?.vehicle?.vehicle_type || 'Vehicle not assigned';
+  const availability = String(resources?.driver?.availability_status ?? 'available').replace('_', ' ');
+  return (
+    <View style={styles.overviewHeader}>
+      <View style={styles.brandLine}>
+        <Text style={styles.xdriveMark}>X<Text style={styles.xdriveWhite}>DRIVE</Text></Text>
+        <Text style={styles.controlMark}>DRIVER CONTROL</Text>
+      </View>
+      <View>
+        <Text style={styles.driverName}>{name}</Text>
+        <Text style={styles.driverVehicle}>{vehicle}</Text>
+      </View>
+      <View style={styles.stateRail}>
+        <View style={styles.stateCell}><Text style={styles.stateLabel}>WORK STATE</Text><Text style={styles.stateValue}>{availability}</Text></View>
+        <View style={styles.stateDivider} />
+        <View style={styles.stateCell}><Text style={styles.stateLabel}>LOCATION LINK</Text><Text style={trackingState === 'active' ? styles.stateValueLive : styles.stateValue}>{trackingLabel(trackingState)}</Text></View>
+      </View>
+    </View>
+  );
+}
+
+function OverviewBody({ resources, liveCount, currentJobs, activeOffers, loading, onLoads, onHistory, onAvailability, onOpenJob }: {
+  resources: DriverProfileResource | null;
+  liveCount: number;
+  currentJobs: DriverJob[];
+  activeOffers: number;
+  loading: boolean;
+  onLoads: () => void;
+  onHistory: () => void;
+  onAvailability: () => void;
+  onOpenJob: (id: string) => void;
+}) {
+  return <View style={styles.stack}>
+    <TouchableOpacity style={styles.findWorkCard} onPress={onLoads} activeOpacity={0.9}>
+      <View style={styles.findWorkCopy}>
+        <Text style={styles.findWorkKicker}>LOAD BOARD</Text>
+        <Text style={styles.findWorkTitle}>Find available work</Text>
+        <Text style={styles.findWorkBody}>Browse eligible loads and send an offer from one place.</Text>
+      </View>
+      <View style={styles.findWorkArrow}><Text style={styles.findWorkArrowText}>→</Text></View>
+    </TouchableOpacity>
+
+    <View style={styles.snapshotCard}>
+      <SnapshotMetric value={String(liveCount)} label="Available loads" />
+      <View style={styles.snapshotDivider} />
+      <SnapshotMetric value={String(currentJobs.length)} label="Active work" />
+      <View style={styles.snapshotDivider} />
+      <SnapshotMetric value={String(activeOffers)} label="Open offers" />
+    </View>
+
+    {loading ? <LoadingCard text="Updating XDrive workspace..." /> : null}
+
+    {currentJobs[0]
+      ? <View style={styles.section}><Text style={styles.sectionKicker}>CURRENT WORK</Text><HistoryCard job={currentJobs[0]} onPress={() => onOpenJob(currentJobs[0].id)} /></View>
+      : <EmptyState title="No active work order" body="Allocated work will appear here when XDrive assigns it to you." />}
+
+    <View style={styles.twoActions}>
+      <TouchableOpacity style={styles.secondaryAction} onPress={onAvailability}><Text style={styles.secondaryActionText}>Change work state</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.secondaryAction} onPress={onHistory}><Text style={styles.secondaryActionText}>Open History</Text></TouchableOpacity>
+    </View>
+
+    {resources?.company?.name ? <Text style={styles.accountHint}>Operating account: {String(resources.company.name)}</Text> : null}
+  </View>;
+}
+
+function SnapshotMetric({ value, label }: { value: string; label: string }) {
+  return <View style={styles.snapshotMetric}><Text style={styles.snapshotValue}>{value}</Text><Text style={styles.snapshotLabel}>{label}</Text></View>;
+}
+
+function LoadBoard({ loads, feed, preferences, loading, error, onRefresh, onOpen, onOffer, onStar, onDismiss, onRestore }: {
+  loads: LiveLoad[];
+  feed: LoadFeed;
+  preferences: MarketplacePreferences;
+  loading: boolean;
+  error: string;
+  onRefresh: () => void;
+  onOpen: (load: LiveLoad) => void;
+  onOffer: (load: LiveLoad) => void;
+  onStar: (id: string) => void;
+  onDismiss: (id: string) => void;
+  onRestore: (id: string) => void;
+}) {
+  const visible = loads.filter((load) => !preferences.hiddenJobIds.includes(load.id));
+  const displayed = feed === 'starred'
+    ? visible.filter((load) => preferences.savedJobIds.includes(load.id))
+    : feed === 'dismissed'
+      ? loads.filter((load) => preferences.hiddenJobIds.includes(load.id))
+      : visible;
+
+  if (loading && loads.length === 0) return <LoadingCard text="Refreshing Load Board..." />;
+  if (displayed.length === 0) {
+    return <View style={styles.stack}>
+      {error ? <Banner text={error} /> : null}
+      <EmptyState
+        title={feed === 'available' ? 'No available loads' : feed === 'starred' ? 'Nothing starred' : 'No dismissed loads'}
+        body={feed === 'available' ? 'Pull down or use refresh to check the XDrive marketplace again.' : 'Use Load Board actions to organise work.'}
+      />
+      {feed === 'available' ? <TouchableOpacity style={styles.secondaryAction} onPress={onRefresh}><Text style={styles.secondaryActionText}>Refresh Load Board</Text></TouchableOpacity> : null}
+    </View>;
+  }
+
+  return <View style={styles.stack}>{displayed.map((load) => (
+    <LoadCard
+      key={load.id}
+      load={load}
+      starred={preferences.savedJobIds.includes(load.id)}
+      dismissed={feed === 'dismissed'}
+      onOpen={() => onOpen(load)}
+      onOffer={() => onOffer(load)}
+      onStar={() => onStar(load.id)}
+      onDismiss={() => onDismiss(load.id)}
+      onRestore={() => onRestore(load.id)}
+    />
+  ))}</View>;
+}
+
+function LoadCard({ load, starred, dismissed, onOpen, onOffer, onStar, onDismiss, onRestore }: {
+  load: LiveLoad;
+  starred: boolean;
+  dismissed: boolean;
+  onOpen: () => void;
+  onOffer: () => void;
+  onStar: () => void;
+  onDismiss: () => void;
+  onRestore: () => void;
+}) {
+  return <View style={styles.loadCard}>
+    <TouchableOpacity onPress={onOpen} activeOpacity={0.85}>
+      <View style={styles.loadHeader}>
+        <View style={styles.flexOne}>
+          <Text style={styles.companyName}>{load.postingCompanyName || 'Verified XDrive member'}</Text>
+          <Text style={styles.referenceText}>{load.reference} · {load.vehicleRequirement}</Text>
+        </View>
+        <StatusTag label={load.canQuote === false ? 'OFFER SENT' : 'OPEN'} tone={load.canQuote === false ? 'muted' : 'blue'} />
+      </View>
+      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
+      <View style={styles.loadFacts}>
+        <Fact label="FREIGHT" value={load.cargoType} />
+        {load.price ? <Fact label="PUBLISHED RATE" value={load.price} align="right" /> : null}
+      </View>
+      {load.destinationPriority ? <Text style={styles.returnIq}>Return IQ match{load.distanceFromCurrentDeliveryMiles != null ? ` · ${load.distanceFromCurrentDeliveryMiles.toFixed(1)} mi from delivery` : ''}</Text> : null}
+      {load.canQuote === false && load.quoteWarning ? <Text style={styles.inlineWarning}>{load.quoteWarning}</Text> : null}
+    </TouchableOpacity>
+    <View style={styles.actionRow}>
+      {dismissed
+        ? <TouchableOpacity style={styles.textAction} onPress={onRestore}><Text style={styles.textActionText}>Restore</Text></TouchableOpacity>
+        : <>
+            <TouchableOpacity style={styles.textAction} onPress={onStar}><Text style={styles.textActionText}>{starred ? 'Starred ★' : 'Star'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.textAction} onPress={onDismiss}><Text style={styles.textActionText}>Dismiss</Text></TouchableOpacity>
+          </>}
+      {!dismissed ? <TouchableOpacity style={[styles.offerButton, load.canQuote === false && styles.disabledButton]} disabled={load.canQuote === false} onPress={onOffer}><Text style={styles.offerButtonText}>{load.canQuote === false ? 'Offer sent' : 'Make offer'}</Text></TouchableOpacity> : null}
+    </View>
+  </View>;
+}
+
+function LoadDetail({ load, starred, onStar, onOffer }: {
+  load: LiveLoad;
+  starred: boolean;
+  onStar: () => void;
+  onOffer: () => void;
+}) {
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>LOAD OWNER</Text>
+      <Text style={styles.companyName}>{load.postingCompanyName || 'Verified XDrive member'}</Text>
+      <Text style={styles.referenceText}>{load.postingCompanyMemberCode || load.reference}</Text>
+      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
+      <InfoLine label="Vehicle" value={load.vehicleRequirement} />
+      <InfoLine label="Freight" value={load.cargoType} />
+      {load.price ? <InfoLine label="Published rate" value={load.price} /> : null}
+    </View>
+    <Banner text="Street-level addresses and private contacts remain protected until allocation." />
+    {load.canQuote === false && load.quoteWarning ? <Banner text={load.quoteWarning} /> : null}
+    <View style={styles.twoActions}>
+      <TouchableOpacity style={styles.secondaryAction} onPress={onStar}><Text style={styles.secondaryActionText}>{starred ? 'Starred ★' : 'Star this load'}</Text></TouchableOpacity>
+      <TouchableOpacity style={[styles.primaryCompact, load.canQuote === false && styles.disabledButton]} disabled={load.canQuote === false} onPress={onOffer}><Text style={styles.primaryCompactText}>{load.canQuote === false ? 'Offer already sent' : 'Make offer'}</Text></TouchableOpacity>
+    </View>
+  </View>;
+}
+
+function OfferForm({ load, amount, note, busy, editing, onAmount, onNote, onSubmit }: {
+  load: LiveLoad;
+  amount: string;
+  note: string;
+  busy: boolean;
+  editing: boolean;
+  onAmount: (value: string) => void;
+  onNote: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  const blocked = !editing && load.canQuote === false;
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>ROUTE</Text>
+      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
+      <InfoLine label="Vehicle" value={load.vehicleRequirement} />
+      <InfoLine label="Freight" value={load.cargoType} />
+    </View>
+    {blocked ? <Banner text={load.quoteWarning || 'An active offer already exists for this load.'} /> : null}
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{editing ? 'Edit commercial offer' : 'Commercial offer'}</Text>
+      <Text style={styles.fieldLabel}>RATE BEFORE VAT · GBP</Text>
+      <TextInput style={styles.bigInput} keyboardType="decimal-pad" placeholder="£0.00" placeholderTextColor="#98A2B3" value={amount} onChangeText={onAmount} editable={!blocked} />
+      <Text style={styles.fieldLabel}>DRIVER NOTE</Text>
+      <TextInput style={[styles.bigInput, styles.textarea]} multiline placeholder="Optional collection or availability note" placeholderTextColor="#98A2B3" value={note} onChangeText={onNote} editable={!blocked} />
+    </View>
+    <TouchableOpacity style={[styles.primaryButton, (busy || blocked) && styles.disabledButton]} disabled={busy || blocked} onPress={onSubmit}><Text style={styles.primaryButtonText}>{blocked ? 'Offer already sent' : busy ? 'Sending...' : editing ? 'Save changes' : 'Send offer'}</Text></TouchableOpacity>
+  </View>;
+}
+
+function OffersBody({ quotes, feed, busy, onRetract, onOpenJob, onEdit }: {
+  quotes: Array<Record<string, any>>;
+  feed: OfferFeed;
+  busy: boolean;
+  onRetract: (quote: Record<string, any>) => void;
+  onOpenJob: (quote: Record<string, any>) => void;
+  onEdit: (quote: Record<string, any>) => void;
+}) {
+  const filtered = quotes.filter((quote) => offerBucket(quote) === feed);
+  if (busy && quotes.length === 0) return <LoadingCard text="Loading offers..." />;
+  if (filtered.length === 0) return <EmptyState title={`No ${feed} offers`} body="Offers move here as their commercial outcome changes." />;
+
+  return <View style={styles.stack}>{filtered.map((quote) => {
+    const job = quote.job ? mapResourceJob(quote.job, false, quote.job.private_details_revealed === true) : null;
+    const amount = formatMoney(quote.bid_price_gbp ?? quote.amount, quote.currency || 'GBP') || 'Rate not supplied';
+    const bucket = offerBucket(quote);
+    return <View key={String(quote.id)} style={styles.offerCard}>
+      <View style={styles.loadHeader}>
+        <View style={styles.flexOne}><Text style={styles.companyName}>{job?.postingCompanyName || 'XDrive marketplace'}</Text><Text style={styles.referenceText}>{job?.reference || String(quote.job_id ?? '')}</Text></View>
+        <StatusTag label={bucket === 'active' ? 'ACTIVE' : bucket === 'won' ? 'WON' : 'ARCHIVED'} tone={bucket === 'won' ? 'green' : bucket === 'active' ? 'blue' : 'muted'} />
+      </View>
+      {job ? <CompactRoute job={job} /> : null}
+      <View style={styles.ratePanel}><Text style={styles.sectionKicker}>YOUR RATE</Text><Text style={styles.rateValue}>{amount}</Text></View>
+      <View style={styles.actionRow}>
+        {bucket === 'active' ? <><TouchableOpacity style={styles.textAction} onPress={() => onEdit(quote)}><Text style={styles.textActionText}>Edit</Text></TouchableOpacity><TouchableOpacity style={styles.textAction} onPress={() => onRetract(quote)}><Text style={styles.textActionText}>Retract</Text></TouchableOpacity></> : null}
+        {bucket === 'won' ? <TouchableOpacity style={styles.primaryCompact} onPress={() => onOpenJob(quote)}><Text style={styles.primaryCompactText}>Open work order</Text></TouchableOpacity> : null}
+      </View>
+    </View>;
+  })}</View>;
+}
+
+function HistoryBody({ jobs, loading, onOpen }: { jobs: DriverJob[]; loading: boolean; onOpen: (id: string) => void }) {
+  if (loading && jobs.length === 0) return <LoadingCard text="Loading complete work log..." />;
+  if (jobs.length === 0) return <EmptyState title="History is empty" body="Your full XDrive work record will build here without date-range buckets." />;
+  return <View style={styles.stack}>
+    <View style={styles.historyIntro}><Text style={styles.historyCount}>{jobs.length}</Text><View><Text style={styles.historyIntroTitle}>Work records</Text><Text style={styles.historyIntroBody}>All current and completed driver work in one chronological log.</Text></View></View>
+    {jobs.map((job) => <HistoryCard key={job.id} job={job} onPress={() => onOpen(job.id)} />)}
+  </View>;
+}
+
+function HistoryCard({ job, onPress }: { job: DriverJob; onPress: () => void }) {
+  return <TouchableOpacity style={styles.historyCard} onPress={onPress} activeOpacity={0.9}>
+    <View style={styles.historyTop}>
+      <View style={styles.flexOne}><Text style={styles.referenceStrong}>{job.reference}</Text><Text style={styles.referenceText}>{job.postingCompanyName || 'XDrive work order'}</Text></View>
+      <StatusTag label={progressLabels[job.status].toUpperCase()} tone={job.status === 'delivered' ? 'green' : 'blue'} />
+    </View>
+    <CompactRoute job={job} />
+    <View style={styles.historyBottom}><Text style={styles.historyDate}>{formatDate(job.deliveryTime || job.pickupTime)}</Text>{job.price ? <Text style={styles.historyRate}>{job.price}</Text> : null}</View>
+  </TouchableOpacity>;
+}
+
+function WorkOrder({ job, tab, podOpen, recipient, signature, photoUri, notes, signatureRef, onRecipient, onSignature, onPhoto, onNotes, onSubmitPod, onCall, onMap, busy }: {
+  job: JobDetail;
+  tab: JobDetailTab;
+  podOpen: boolean;
+  recipient: string;
+  signature: string;
+  photoUri: string;
+  notes: string;
+  signatureRef: MutableRefObject<any>;
+  onRecipient: (value: string) => void;
+  onSignature: (value: string) => void;
+  onPhoto: () => void;
+  onNotes: (value: string) => void;
+  onSubmitPod: () => void;
+  onCall: () => void;
+  onMap: () => void;
+  busy: boolean;
+}) {
+  if (tab === 'overview') return <WorkOverview job={job} onCall={onCall} onMap={onMap} />;
+  if (tab === 'route') return <WorkRoute job={job} />;
+  return <View style={styles.stack}>
+    <ProgressBoard job={job} />
+    {podOpen ? <PodPanel job={job} recipient={recipient} signature={signature} photoUri={photoUri} notes={notes} signatureRef={signatureRef} onRecipient={onRecipient} onSignature={onSignature} onPhoto={onPhoto} onNotes={onNotes} onSubmit={onSubmitPod} busy={busy} /> : null}
+  </View>;
+}
+
+function WorkOverview({ job, onCall, onMap }: { job: JobDetail; onCall: () => void; onMap: () => void }) {
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>WORK ORDER</Text>
+      <Text style={styles.companyName}>{job.postingCompanyName || 'XDrive customer'}</Text>
+      <Text style={styles.referenceText}>{job.reference}</Text>
+      <CompactRoute job={job} />
+      <InfoLine label="Vehicle" value={job.vehicleRequirement} />
+      <InfoLine label="Freight" value={job.cargoType} />
+      {job.price ? <InfoLine label="Agreed rate" value={job.price} /> : null}
+      <TouchableOpacity style={styles.primaryCompact} onPress={onMap}><Text style={styles.primaryCompactText}>Open driving route</Text></TouchableOpacity>
+      {job.contactAllowed ? <View style={styles.twoActions}><TouchableOpacity style={styles.secondaryAction} onPress={onCall}><Text style={styles.secondaryActionText}>Call contact</Text></TouchableOpacity><TouchableOpacity style={styles.secondaryAction} onPress={() => Alert.alert('XDrive Messages', 'Secure job messaging will appear here only after its production contract is enabled.')}><Text style={styles.secondaryActionText}>Messages</Text></TouchableOpacity></View> : null}
+    </View>
+    {job.specialInstructions ? <View style={styles.section}><Text style={styles.sectionTitle}>Driver instructions</Text><Text style={styles.longText}>{job.specialInstructions}</Text></View> : null}
+    {(job.attachments ?? []).length > 0 ? <View style={styles.section}><Text style={styles.sectionTitle}>Work documents</Text>{(job.attachments ?? []).map((attachment, index) => <View key={String(attachment.id ?? index)} style={styles.documentRow}><Text style={styles.documentBadge}>FILE</Text><Text style={styles.documentText}>{String(attachment.name ?? attachment.fileName ?? attachment.file_name ?? `Document ${index + 1}`)}</Text></View>)}</View> : null}
+    {job.podCompleted ? <Banner text="Delivery evidence is stored and server-confirmed for this work order." /> : null}
+  </View>;
+}
+
+function WorkRoute({ job }: { job: JobDetail }) {
+  const stops: JobStop[] = job.stops && job.stops.length > 0
+    ? job.stops
+    : [
+        { sequence: 1, type: 'collection', address: job.pickupLocation, timeWindowFrom: job.pickupTime },
+        { sequence: 2, type: 'delivery', address: job.deliveryLocation, timeWindowFrom: job.deliveryTime },
+      ];
+  return <View style={styles.stack}>{stops.map((stop, index) => {
+    const type = stop.type === 'collection' ? 'COLLECT' : stop.type === 'delivery' ? 'DELIVER' : `STOP ${index + 1}`;
+    return <View key={stop.id ?? `${stop.sequence}-${index}`} style={styles.stopBlock}>
+      <View style={styles.stopLabel}><Text style={styles.stopLabelText}>{type}</Text></View>
+      <View style={styles.flexOne}>
+        <Text style={styles.stopAddress}>{stop.address}</Text>
+        <Text style={styles.stopTime}>{formatDate(stop.timeWindowFrom)}{stop.timeWindowTo ? ` → ${formatDate(stop.timeWindowTo)}` : ''}</Text>
+        {stop.company ? <Text style={styles.stopMeta}>{stop.company}</Text> : null}
+        {stop.contactPerson ? <Text style={styles.stopMeta}>{stop.contactPerson}{stop.telephone ? ` · ${stop.telephone}` : ''}</Text> : null}
+        {stop.notes ? <Text style={styles.stopNote}>{stop.notes}</Text> : null}
+      </View>
+    </View>;
+  })}</View>;
+}
+
+function ProgressBoard({ job }: { job: JobDetail }) {
+  const currentIndex = progressOrder.indexOf(job.status);
+  return <View style={styles.progressBoard}>
+    <Text style={styles.sectionKicker}>SERVER-CONFIRMED PROGRESS</Text>
+    <Text style={styles.progressHeading}>{progressLabels[job.status]}</Text>
+    <View style={styles.progressList}>{progressOrder.map((status, index) => {
+      const done = index < currentIndex;
+      const current = index === currentIndex;
+      return <View key={status} style={[styles.progressRow, current && styles.progressRowCurrent]}>
+        <View style={[styles.progressState, done && styles.progressStateDone, current && styles.progressStateCurrent]}><Text style={styles.progressStateText}>{done ? '✓' : current ? 'NOW' : 'NEXT'}</Text></View>
+        <Text style={[styles.progressText, current && styles.progressTextCurrent]}>{progressLabels[status]}</Text>
+      </View>;
+    })}</View>
+  </View>;
+}
+
+function PodPanel({ job, recipient, signature, photoUri, notes, signatureRef, onRecipient, onSignature, onPhoto, onNotes, onSubmit, busy }: {
+  job: JobDetail;
+  recipient: string;
+  signature: string;
+  photoUri: string;
+  notes: string;
+  signatureRef: MutableRefObject<any>;
+  onRecipient: (value: string) => void;
+  onSignature: (value: string) => void;
+  onPhoto: () => void;
+  onNotes: (value: string) => void;
+  onSubmit: () => void;
+  busy: boolean;
+}) {
+  return <View style={styles.section}>
+    <Text style={styles.sectionTitle}>Delivery evidence</Text>
+    <Text style={styles.fieldLabel}>RECEIVED BY</Text>
+    <TextInput style={styles.bigInput} value={recipient} onChangeText={onRecipient} placeholder="Full recipient name" placeholderTextColor="#98A2B3" />
+    <Text style={styles.fieldLabel}>SIGNATURE</Text>
+    <View style={styles.signatureBox}><SignatureCanvas ref={signatureRef} onOK={onSignature} onEmpty={() => undefined} descriptionText="Sign above" clearText="Clear" confirmText="Save signature" webStyle=".m-signature-pad--footer {display:flex; gap:8px;} body,html {width:100%;height:100%;}" /></View>
+    <Text style={styles.savedState}>{signature ? 'Signature stored ✓' : 'Signature not stored yet'}</Text>
+    <TouchableOpacity style={styles.secondaryAction} onPress={onPhoto}><Text style={styles.secondaryActionText}>{photoUri ? 'Delivery photo stored ✓' : 'Take delivery photo'}</Text></TouchableOpacity>
+    <Text style={styles.fieldLabel}>DELIVERY NOTE</Text>
+    <TextInput style={[styles.bigInput, styles.textarea]} multiline value={notes} onChangeText={onNotes} placeholder="Optional delivery note" placeholderTextColor="#98A2B3" />
+    <Banner text={job.podRequired ? 'Recipient name, signature and a delivery photo are required before XDrive completes this work order.' : 'Evidence is server-verified before the work order is completed.'} />
+    <TouchableOpacity style={[styles.primaryButton, busy && styles.disabledButton]} disabled={busy} onPress={onSubmit}><Text style={styles.primaryButtonText}>{busy ? 'Submitting...' : 'Confirm delivery evidence'}</Text></TouchableOpacity>
+  </View>;
+}
+
+function WorkStepAction({ job, busy, podOpen, onPress }: { job: JobDetail; busy: boolean; podOpen: boolean; onPress: () => void }) {
+  if (podOpen || job.status === 'delivered') return null;
+  const next = getNextStep(job.status);
+  const label = next?.label || 'Record delivery evidence';
+  return <View style={styles.fixedAction}><TouchableOpacity style={[styles.fixedActionButton, busy && styles.disabledButton]} disabled={busy} onPress={onPress}><Text style={styles.fixedActionText}>{busy ? 'Updating...' : label}</Text></TouchableOpacity></View>;
+}
+
+function AccountBody({ resources, queueCount, onOpen, onSignOut }: {
+  resources: DriverProfileResource | null;
+  queueCount: number;
+  onOpen: (page: UtilityPage) => void;
+  onSignOut: () => void;
+}) {
+  return <View style={styles.stack}>
+    <View style={styles.accountIdentity}>
+      <View style={styles.accountAvatar}><Text style={styles.accountAvatarText}>{initials(resources?.name || 'XDrive Driver')}</Text></View>
+      <View style={styles.flexOne}><Text style={styles.accountName}>{resources?.name || 'XDrive Driver'}</Text><Text style={styles.accountEmail}>{resources?.email || 'Driver account'}</Text></View>
+    </View>
+
+    <AccountSection title="DRIVER">
+      <AccountRow title="Profile" subtitle="Contact and company details" onPress={() => onOpen('profile')} />
+      <AccountRow title="Vehicle" subtitle={resources?.vehicle?.reg_plate || 'Assigned vehicle'} onPress={() => onOpen('vehicle')} />
+      <AccountRow title="Documents" subtitle={`${resources?.documents?.length ?? 0} records`} onPress={() => onOpen('documents')} />
+    </AccountSection>
+
+    <AccountSection title="OPERATIONS">
+      <AccountRow title="Work state" subtitle={String(resources?.driver?.availability_status ?? 'available')} onPress={() => onOpen('availability')} />
+      <AccountRow title="Earnings" subtitle={`${resources?.invoices?.length ?? 0} invoices`} onPress={() => onOpen('earnings')} />
+      <AccountRow title="Sync queue" subtitle={`${queueCount} pending`} onPress={() => onOpen('offline')} />
+      <AccountRow title="Support" subtitle="XDrive operational support" onPress={() => onOpen('support')} />
+    </AccountSection>
+
+    <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}><Text style={styles.signOutText}>Sign out of XDrive Driver</Text></TouchableOpacity>
+  </View>;
+}
+
+function UtilityBody({ page, resources, queue, busy, onAvailability, onFlush }: {
+  page: UtilityPage;
+  resources: DriverProfileResource | null;
+  queue: QueuedAction[];
+  busy: boolean;
+  onAvailability: (status: 'available' | 'busy' | 'offline') => Promise<void>;
+  onFlush: () => void;
+}) {
+  if (page === 'profile') return <View style={styles.section}><Text style={styles.sectionTitle}>Driver profile</Text><InfoLine label="Name" value={resources?.name || 'Not supplied'} /><InfoLine label="Email" value={resources?.email || 'Not supplied'} /><InfoLine label="Phone" value={resources?.phone || 'Not supplied'} /><InfoLine label="Company" value={resources?.company?.name || 'Not supplied'} /></View>;
+  if (page === 'vehicle') return <View style={styles.section}><Text style={styles.sectionTitle}>Assigned vehicle</Text><InfoLine label="Registration" value={resources?.vehicle?.reg_plate || 'Not supplied'} /><InfoLine label="Type" value={resources?.vehicle?.type || resources?.vehicle?.vehicle_type || 'Not supplied'} /><InfoLine label="Make / model" value={[resources?.vehicle?.make, resources?.vehicle?.model].filter(Boolean).join(' ') || 'Not supplied'} /><InfoLine label="Payload" value={resources?.vehicle?.payload_kg ? `${resources.vehicle.payload_kg} kg` : 'Not supplied'} /></View>;
+  if (page === 'documents') return <View style={styles.section}><Text style={styles.sectionTitle}>Driver documents</Text>{(resources?.documents ?? []).length === 0 ? <EmptyState title="No documents" body="Driver and vehicle records will appear here." /> : (resources?.documents ?? []).map((doc, index) => <View key={String(doc.id ?? index)} style={styles.documentRow}><Text style={styles.documentBadge}>FILE</Text><View style={styles.flexOne}><Text style={styles.documentText}>{String(doc.doc_type ?? 'Document')}</Text><Text style={styles.referenceText}>{String(doc.status ?? '')}{doc.expiry_date ? ` · expires ${formatDate(doc.expiry_date)}` : ''}</Text></View></View>)}</View>;
+  if (page === 'earnings') return <View style={styles.section}><Text style={styles.sectionTitle}>Invoices and earnings</Text>{(resources?.invoices ?? []).length === 0 ? <EmptyState title="No invoices" body="Completed XDrive invoices will appear here." /> : (resources?.invoices ?? []).map((invoice, index) => <View key={String(invoice.id ?? index)} style={styles.invoiceRow}><View><Text style={styles.documentText}>{String(invoice.invoice_number ?? `Invoice ${index + 1}`)}</Text><Text style={styles.referenceText}>{String(invoice.client_name ?? '')}</Text></View><Text style={styles.historyRate}>{formatMoney(invoice.amount, invoice.currency || 'GBP')}</Text></View>)}</View>;
+  if (page === 'availability') return <View style={styles.section}><Text style={styles.sectionTitle}>Work state</Text><Text style={styles.longText}>Choose how XDrive should treat your availability for suitable work and operational alerts.</Text>{(['available', 'busy', 'offline'] as const).map((status) => <TouchableOpacity key={status} style={[styles.secondaryAction, busy && styles.disabledButton]} disabled={busy} onPress={() => void onAvailability(status)}><Text style={styles.secondaryActionText}>{status === 'available' ? 'Ready for work' : status === 'busy' ? 'Busy / unavailable for new work' : 'Off duty'}</Text></TouchableOpacity>)}</View>;
+  if (page === 'offline') return <View style={styles.section}><Text style={styles.sectionTitle}>Sync queue</Text>{queue.length === 0 ? <EmptyState title="Everything is synced" body="No driver actions are waiting for server confirmation." /> : queue.map((item) => <View key={item.id} style={styles.queueRow}><Text style={styles.documentText}>{item.endpoint}</Text><Text style={styles.referenceText}>{item.jobId} · {item.status}</Text>{item.lastError ? <Text style={styles.errorText}>{item.lastError}</Text> : null}</View>)}<TouchableOpacity style={styles.primaryButton} onPress={onFlush}><Text style={styles.primaryButtonText}>Retry pending sync</Text></TouchableOpacity></View>;
+  return <View style={styles.section}><Text style={styles.sectionTitle}>XDrive support</Text><Text style={styles.longText}>For urgent operational issues, use the verified XDrive support channel. Preview does not invent an unverified messaging endpoint.</Text><TouchableOpacity style={styles.secondaryAction} onPress={() => void Linking.openURL('mailto:xdrivelogisticsltd@gmail.com')}><Text style={styles.secondaryActionText}>Email XDrive support</Text></TouchableOpacity></View>;
+}
+
+function ScreenTitle({ title, kicker }: { title: string; kicker: string }) {
+  return <View style={styles.screenTitleRow}><Text style={styles.screenKicker}>{kicker}</Text><Text style={styles.screenTitle}>{title}</Text></View>;
+}
+
+function BackTitle({ title, onBack }: { title: string; onBack: () => void }) {
+  return <View style={styles.backTitleRow}><TouchableOpacity style={styles.backButton} onPress={onBack}><Text style={styles.backText}>←</Text></TouchableOpacity><Text style={styles.backTitle}>{title}</Text><View style={styles.backSpacer} /></View>;
+}
+
+function Tabs<T extends string>({ items, value, onChange }: { items: Array<[T, string]>; value: T; onChange: (value: T) => void }) {
+  return <View style={styles.tabs}>{items.map(([key, label]) => <TouchableOpacity key={key} style={[styles.tab, value === key && styles.tabActive]} onPress={() => onChange(key)}><Text style={[styles.tabText, value === key && styles.tabTextActive]}>{label}</Text></TouchableOpacity>)}</View>;
+}
+
+function BottomDock({ active, loadCount, onChange }: { active: PrimaryTab; loadCount: number; onChange: (tab: PrimaryTab) => void }) {
+  const items: Array<[PrimaryTab, string, string]> = [
+    ['overview', 'Overview', 'XD'],
+    ['loads', 'Loads', '↗'],
+    ['offers', 'Offers', '£'],
+    ['history', 'History', '≡'],
+    ['account', 'Account', 'ID'],
+  ];
+  return <View style={styles.bottomDock}>{items.map(([key, label, glyph]) => <TouchableOpacity key={key} style={styles.dockItem} onPress={() => onChange(key)}><View style={[styles.dockGlyph, active === key && styles.dockGlyphActive]}><Text style={[styles.dockGlyphText, active === key && styles.dockGlyphTextActive]}>{glyph}</Text>{key === 'loads' && loadCount > 0 ? <View style={styles.dockBadge}><Text style={styles.dockBadgeText}>{Math.min(99, loadCount)}</Text></View> : null}</View><Text style={[styles.dockLabel, active === key && styles.dockLabelActive]}>{label}</Text></TouchableOpacity>)}</View>;
+}
+
+function RouteBand({ pickup, pickupTime, delivery, deliveryTime }: { pickup: string; pickupTime: string; delivery: string; deliveryTime: string }) {
+  return <View style={styles.routeBand}>
+    <View style={styles.routeBlock}><Text style={styles.routeKind}>COLLECT</Text><Text style={styles.routePlace} numberOfLines={2}>{pickup}</Text><Text style={styles.routeWhen}>{formatDate(pickupTime)}</Text></View>
+    <View style={styles.routeArrow}><Text style={styles.routeArrowText}>→</Text></View>
+    <View style={styles.routeBlock}><Text style={styles.routeKind}>DELIVER</Text><Text style={styles.routePlace} numberOfLines={2}>{delivery}</Text><Text style={styles.routeWhen}>{formatDate(deliveryTime)}</Text></View>
+  </View>;
+}
+
+function CompactRoute({ job }: { job: DriverJob }) {
+  return <View style={styles.compactRoute}><View style={styles.compactLeg}><Text style={styles.compactKind}>COLLECT</Text><Text style={styles.compactPlace} numberOfLines={1}>{job.pickupLocation}</Text></View><Text style={styles.compactArrow}>→</Text><View style={styles.compactLeg}><Text style={styles.compactKind}>DELIVER</Text><Text style={styles.compactPlace} numberOfLines={1}>{job.deliveryLocation}</Text></View></View>;
+}
+
+function Fact({ label, value, align = 'left' }: { label: string; value: string; align?: 'left' | 'right' }) {
+  return <View style={[styles.fact, align === 'right' && styles.factRight]}><Text style={styles.factLabel}>{label}</Text><Text style={styles.factValue} numberOfLines={2}>{value}</Text></View>;
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return <View style={styles.infoLine}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View>;
+}
+
+function StatusTag({ label, tone }: { label: string; tone: 'blue' | 'green' | 'muted' }) {
+  return <View style={[styles.statusTag, tone === 'green' ? styles.statusTagGreen : tone === 'muted' ? styles.statusTagMuted : styles.statusTagBlue]}><Text style={styles.statusTagText}>{label}</Text></View>;
+}
+
+function AccountSection({ title, children }: { title: string; children: ReactNode }) {
+  return <View style={styles.accountSection}><Text style={styles.accountSectionTitle}>{title}</Text><View style={styles.accountRows}>{children}</View></View>;
+}
+
+function AccountRow({ title, subtitle, onPress }: { title: string; subtitle: string; onPress: () => void }) {
+  return <TouchableOpacity style={styles.accountRow} onPress={onPress}><View style={styles.flexOne}><Text style={styles.accountRowTitle}>{title}</Text><Text style={styles.accountRowSubtitle} numberOfLines={1}>{subtitle}</Text></View><Text style={styles.accountChevron}>→</Text></TouchableOpacity>;
+}
+
+function Banner({ text, onDismiss }: { text: string; onDismiss?: () => void }) {
+  return <TouchableOpacity activeOpacity={onDismiss ? 0.8 : 1} onPress={onDismiss} style={styles.banner}><Text style={styles.bannerText}>{text}</Text>{onDismiss ? <Text style={styles.bannerClose}>×</Text> : null}</TouchableOpacity>;
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return <View style={styles.emptyState}><Text style={styles.emptyMonogram}>XD</Text><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyBody}>{body}</Text></View>;
+}
+
+function LoadingCard({ text }: { text: string }) {
+  return <View style={styles.loadingCard}><Text style={styles.loadingText}>{text}</Text></View>;
+}
+
+function initials(value: string) {
+  return value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'XD';
+}
+
+function utilityTitle(page: UtilityPage) {
+  return page === 'profile'
+    ? 'Driver Profile'
+    : page === 'vehicle'
+      ? 'Vehicle'
+      : page === 'documents'
+        ? 'Documents'
+        : page === 'earnings'
+          ? 'Earnings'
+          : page === 'availability'
+            ? 'Work State'
+            : page === 'offline'
+              ? 'Sync Queue'
+              : 'Support';
+}
+
+async function openExternalRoute(job: DriverJob) {
+  const origin = encodeURIComponent(job.pickupLocation);
+  const destination = encodeURIComponent(job.deliveryLocation);
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+  if (await Linking.canOpenURL(url)) await Linking.openURL(url);
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.secondary },
+  shell: { flex: 1, backgroundColor: colors.bg },
+  bodyViewport: { flex: 1, backgroundColor: colors.bg },
+  bodyContent: { padding: spacing.md, paddingBottom: 28, gap: spacing.md },
+  bodyWithAction: { paddingBottom: 120 },
+  topChrome: { backgroundColor: colors.secondary, paddingHorizontal: spacing.md, paddingTop: 12, paddingBottom: 14, gap: 12 },
+  stack: { gap: spacing.md },
+  flexOne: { flex: 1, minWidth: 0 },
+
+  screenTitleRow: { minHeight: 56, justifyContent: 'center' },
+  screenKicker: { color: '#9FB8DE', fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
+  screenTitle: { color: '#FFFFFF', fontSize: 28, fontWeight: '900', marginTop: 2 },
+  backTitleRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  backButton: { width: 46, height: 46, justifyContent: 'center' },
+  backText: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
+  backTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
+  backSpacer: { width: 46 },
+  tabs: { flexDirection: 'row', gap: 8 },
+  tab: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#355A91', alignItems: 'center', justifyContent: 'center' },
+  tabActive: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
+  tabText: { color: '#BFD1EF', fontSize: 13, fontWeight: '800' },
+  tabTextActive: { color: colors.secondary, fontWeight: '900' },
+
+  overviewHeader: { backgroundColor: colors.secondary, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20, gap: 16, borderBottomLeftRadius: 30 },
+  brandLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  xdriveMark: { color: colors.warning, fontSize: 25, fontWeight: '900', letterSpacing: 0.5 },
+  xdriveWhite: { color: '#FFFFFF' },
+  controlMark: { color: '#A9BFE0', fontSize: 9, fontWeight: '900', letterSpacing: 1.8 },
+  driverName: { color: '#FFFFFF', fontSize: 27, fontWeight: '900' },
+  driverVehicle: { color: '#BCD0EE', fontSize: 14, fontWeight: '700', marginTop: 3 },
+  stateRail: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#102A52', borderRadius: 16, padding: 14 },
+  stateCell: { flex: 1 },
+  stateDivider: { width: 1, backgroundColor: '#355A91', marginHorizontal: 12 },
+  stateLabel: { color: '#91A9CC', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  stateValue: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 5, textTransform: 'capitalize' },
+  stateValueLive: { color: '#8FE7B0', fontSize: 14, fontWeight: '900', marginTop: 5 },
+
+  findWorkCard: { minHeight: 138, backgroundColor: '#0E3FA9', borderRadius: 22, padding: 20, flexDirection: 'row', alignItems: 'center' },
+  findWorkCopy: { flex: 1, paddingRight: 12 },
+  findWorkKicker: { color: '#BFD4FF', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
+  findWorkTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', marginTop: 5 },
+  findWorkBody: { color: '#E5EEFF', fontSize: 13, lineHeight: 19, fontWeight: '600', marginTop: 6 },
+  findWorkArrow: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  findWorkArrowText: { color: '#0E3FA9', fontSize: 28, fontWeight: '700' },
+  snapshotCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, paddingVertical: 15 },
+  snapshotMetric: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  snapshotDivider: { width: 1, backgroundColor: colors.borderSubtle },
+  snapshotValue: { color: colors.secondary, fontSize: 25, fontWeight: '900' },
+  snapshotLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 },
+  accountHint: { color: colors.muted, fontSize: 11, textAlign: 'center' },
+
+  section: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
+  sectionKicker: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
+  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: '900' },
+  companyName: { color: colors.text, fontSize: 17, lineHeight: 22, fontWeight: '900' },
+  referenceText: { color: colors.muted, fontSize: 12, lineHeight: 17, fontWeight: '600', marginTop: 2 },
+  referenceStrong: { color: colors.secondary, fontSize: 16, fontWeight: '900' },
+  longText: { color: colors.text, fontSize: 14, lineHeight: 21, fontWeight: '600' },
+
+  loadCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 13, shadowColor: '#101828', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  loadHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  routeBand: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 13 },
+  routeBlock: { flex: 1, backgroundColor: '#F5F8FC', borderRadius: 14, padding: 12, minHeight: 112 },
+  routeKind: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  routePlace: { color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '900', marginTop: 6 },
+  routeWhen: { color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: '600', marginTop: 7 },
+  routeArrow: { width: 28, alignItems: 'center', justifyContent: 'center' },
+  routeArrowText: { color: colors.warning, fontSize: 24, fontWeight: '900' },
+  loadFacts: { flexDirection: 'row', gap: 12, marginTop: 13 },
+  fact: { flex: 1 },
+  factRight: { alignItems: 'flex-end' },
+  factLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  factValue: { color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '800', marginTop: 3 },
+  returnIq: { color: colors.secondary, backgroundColor: '#EDF4FF', borderRadius: 10, padding: 9, fontSize: 11, lineHeight: 16, fontWeight: '800', marginTop: 12 },
+  inlineWarning: { color: '#7A4A00', backgroundColor: '#FFF5DB', borderRadius: 10, padding: 9, fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 10 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  textAction: { minHeight: 42, paddingHorizontal: 12, borderRadius: 11, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
+  textActionText: { color: '#475467', fontSize: 12, fontWeight: '800' },
+  offerButton: { marginLeft: 'auto', minHeight: 44, minWidth: 118, paddingHorizontal: 17, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  offerButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  offerCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
+  ratePanel: { backgroundColor: '#F5F8FC', borderRadius: 13, padding: 12 },
+  rateValue: { color: colors.secondary, fontSize: 24, fontWeight: '900', marginTop: 3 },
+
+  compactRoute: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F8FAFC', borderRadius: 13, padding: 11 },
+  compactLeg: { flex: 1, minWidth: 0 },
+  compactKind: { color: colors.primary, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  compactPlace: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  compactArrow: { color: colors.warning, fontSize: 19, fontWeight: '900' },
+
+  historyIntro: { backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  historyCount: { color: colors.primary, fontSize: 36, fontWeight: '900' },
+  historyIntroTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
+  historyIntroBody: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 2, maxWidth: 250 },
+  historyCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, gap: 11 },
+  historyTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  historyBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  historyDate: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+  historyRate: { color: colors.secondary, fontSize: 15, fontWeight: '900' },
+
+  statusTag: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  statusTagBlue: { backgroundColor: '#E7F0FF' },
+  statusTagGreen: { backgroundColor: '#DCFCE7' },
+  statusTagMuted: { backgroundColor: '#EAECF0' },
+  statusTagText: { color: '#344054', fontSize: 8, fontWeight: '900', letterSpacing: 0.6 },
+
+  progressBoard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
+  progressHeading: { color: colors.text, fontSize: 22, fontWeight: '900' },
+  progressList: { gap: 8 },
+  progressRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 9, borderRadius: 12, backgroundColor: '#F8FAFC' },
+  progressRowCurrent: { backgroundColor: '#FFF4D8', borderColor: '#FFD878', borderWidth: 1 },
+  progressState: { width: 48, minHeight: 30, borderRadius: 8, backgroundColor: '#E4E7EC', alignItems: 'center', justifyContent: 'center' },
+  progressStateDone: { backgroundColor: '#D1FADF' },
+  progressStateCurrent: { backgroundColor: colors.warning },
+  progressStateText: { color: '#344054', fontSize: 8, fontWeight: '900' },
+  progressText: { color: '#667085', fontSize: 14, fontWeight: '800' },
+  progressTextCurrent: { color: colors.text, fontWeight: '900' },
+
+  stopBlock: { backgroundColor: '#FFFFFF', borderRadius: 17, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, flexDirection: 'row', gap: 12 },
+  stopLabel: { width: 72, minHeight: 34, alignSelf: 'flex-start', borderRadius: 8, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  stopLabelText: { color: colors.secondary, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+  stopAddress: { color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '900' },
+  stopTime: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 4 },
+  stopMeta: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5 },
+  stopNote: { color: colors.secondary, backgroundColor: '#EDF4FF', borderRadius: 9, padding: 8, fontSize: 11, lineHeight: 16, marginTop: 7 },
+
+  infoLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, borderTopColor: colors.borderSubtle, borderTopWidth: 1, paddingTop: 10 },
+  infoLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  infoValue: { color: colors.text, fontSize: 12, fontWeight: '900', flex: 1, textAlign: 'right' },
+  fieldLabel: { color: colors.secondary, fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginTop: 3 },
+  bigInput: { minHeight: 54, borderColor: colors.border, borderWidth: 1, borderRadius: 14, backgroundColor: '#FFFFFF', color: colors.text, paddingHorizontal: 14, fontSize: 16, fontWeight: '600' },
+  textarea: { minHeight: 100, paddingTop: 14, textAlignVertical: 'top' },
+  primaryButton: { minHeight: 56, backgroundColor: colors.primary, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  primaryCompact: { minHeight: 46, flexGrow: 1, paddingHorizontal: 15, backgroundColor: colors.primary, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  primaryCompactText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  twoActions: { flexDirection: 'row', gap: 10 },
+  secondaryAction: { flex: 1, minHeight: 48, borderColor: colors.primary, borderWidth: 1.3, borderRadius: 13, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: '#FFFFFF' },
+  secondaryActionText: { color: colors.primary, fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  disabledButton: { opacity: 0.45 },
+
+  signatureBox: { height: 210, borderColor: colors.border, borderWidth: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: '#FFFFFF' },
+  savedState: { color: colors.success, fontSize: 11, fontWeight: '800' },
+  fixedAction: { position: 'absolute', left: 0, right: 0, bottom: 78, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0A234F' },
+  fixedActionButton: { minHeight: 58, backgroundColor: colors.warning, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  fixedActionText: { color: '#17202F', fontSize: 15, fontWeight: '900' },
+
+  accountIdentity: { backgroundColor: colors.secondary, borderRadius: 18, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  accountAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  accountAvatarText: { color: colors.secondary, fontSize: 15, fontWeight: '900' },
+  accountName: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
+  accountEmail: { color: '#BFD1EF', fontSize: 11, marginTop: 3 },
+  accountSection: { gap: 7 },
+  accountSectionTitle: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginLeft: 4 },
+  accountRows: { backgroundColor: '#FFFFFF', borderRadius: 16, borderColor: colors.borderSubtle, borderWidth: 1, overflow: 'hidden' },
+  accountRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 15, borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
+  accountRowTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  accountRowSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  accountChevron: { color: colors.primary, fontSize: 18, fontWeight: '900' },
+  signOutButton: { minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: '#FCA5A5', backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center' },
+  signOutText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
+
+  documentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 11, padding: 10, backgroundColor: '#F8FAFC' },
+  documentBadge: { width: 40, color: colors.primary, fontSize: 9, fontWeight: '900' },
+  documentText: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 14, borderBottomColor: colors.borderSubtle, borderBottomWidth: 1, paddingVertical: 10 },
+  queueRow: { borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 11, padding: 10 },
+  errorText: { color: colors.danger, fontSize: 11, marginTop: 4 },
+
+  banner: { minHeight: 46, backgroundColor: '#EAF2FF', borderColor: '#B9D3FF', borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', gap: 9, alignItems: 'center' },
+  bannerText: { color: colors.secondary, fontSize: 12, lineHeight: 18, fontWeight: '700', flex: 1 },
+  bannerClose: { color: colors.secondary, fontSize: 21, fontWeight: '700' },
+  emptyState: { minHeight: 230, backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 26 },
+  emptyMonogram: { color: colors.primary, backgroundColor: '#EEF4FF', width: 70, height: 70, borderRadius: 18, textAlign: 'center', textAlignVertical: 'center', fontSize: 22, fontWeight: '900' },
+  emptyTitle: { color: colors.text, fontSize: 19, fontWeight: '900', marginTop: 15, textAlign: 'center' },
+  emptyBody: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 6 },
+  loadingCard: { minHeight: 86, borderRadius: 16, backgroundColor: '#FFFFFF', borderColor: colors.borderSubtle, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  loadingText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+
+  bottomDock: { minHeight: 78, flexDirection: 'row', backgroundColor: '#FFFFFF', borderTopColor: colors.borderSubtle, borderTopWidth: 1, paddingTop: 7, paddingBottom: 7 },
+  dockItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  dockGlyph: { minWidth: 34, height: 29, borderRadius: 9, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
+  dockGlyphActive: { backgroundColor: '#E7F0FF' },
+  dockGlyphText: { color: '#667085', fontSize: 11, fontWeight: '900' },
+  dockGlyphTextActive: { color: colors.primary },
+  dockLabel: { color: '#667085', fontSize: 10, fontWeight: '700' },
+  dockLabelActive: { color: colors.primary, fontWeight: '900' },
+  dockBadge: { position: 'absolute', right: -7, top: -6, minWidth: 19, height: 19, borderRadius: 10, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  dockBadgeText: { color: '#17202F', fontSize: 9, fontWeight: '900' },
+
+  loginSafe: { flex: 1, backgroundColor: '#0B2F6B' },
+  loginPage: { flexGrow: 1, backgroundColor: '#F4F6F8', paddingBottom: 20 },
+  loginHero: { minHeight: 390, paddingHorizontal: 22, paddingTop: 24, paddingBottom: 35, justifyContent: 'space-between' },
+  loginHeroImage: { borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  loginShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,26,55,0.35)', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  brandPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 11 },
+  brandX: { color: colors.warning, fontSize: 23, fontWeight: '900' },
+  brandDrive: { color: '#0E3FA9', fontSize: 23, fontWeight: '900' },
+  brandDivider: { width: 1, height: 27, backgroundColor: '#CBD5E1', marginHorizontal: 5 },
+  brandMeta: { color: '#0B2F6B', fontSize: 14, fontWeight: '900', letterSpacing: 2 },
+  loginCopy: { gap: 9 },
+  loginEyebrow: { color: '#FFBF24', fontSize: 13, fontWeight: '900', letterSpacing: 3 },
+  loginHeroTitle: { color: '#FFFFFF', fontSize: 38, lineHeight: 42, fontWeight: '900', maxWidth: 300 },
+  loginHeroBody: { color: '#FFFFFF', fontSize: 18, lineHeight: 25, fontWeight: '700', maxWidth: 330 },
+  networkPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#0E3FA9', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
+  networkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFBF24' },
+  networkText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  loginCard: { marginHorizontal: 18, marginTop: 16, backgroundColor: '#FFFFFF', borderRadius: 26, padding: 22, gap: 12, borderColor: colors.borderSubtle, borderWidth: 1 },
+  loginTitle: { color: colors.secondary, fontSize: 28, fontWeight: '900', textAlign: 'center' },
+  loginSubtitle: { color: colors.muted, fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
+  loginInput: { minHeight: 56, borderColor: colors.border, borderWidth: 1, borderRadius: 15, paddingHorizontal: 14, color: colors.text, fontSize: 16, fontWeight: '600' },
+  passwordRow: { minHeight: 56, borderColor: colors.border, borderWidth: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center' },
+  passwordInput: { flex: 1, minHeight: 54, paddingHorizontal: 14, color: colors.text, fontSize: 16, fontWeight: '600' },
+  showButton: { paddingHorizontal: 14, height: 54, alignItems: 'center', justifyContent: 'center' },
+  showText: { color: colors.primary, fontSize: 12, fontWeight: '900' },
+});
