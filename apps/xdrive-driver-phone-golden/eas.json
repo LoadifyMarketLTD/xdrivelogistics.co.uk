@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 16.13.3",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "XDRIVE_SIDE_BY_SIDE_PREVIEW": "true"
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "sdk-53"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "environment": "production",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle",
+        "image": "sdk-53"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {}
+    }
+  }
+}

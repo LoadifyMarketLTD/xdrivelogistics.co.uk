@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "XDrive Driver",
+    "slug": "xdrive-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "newArchEnabled": false,
+    "icon": "./assets/xdrive-native-logo.jpeg",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "co.uk.xdrivelogistics.driver",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/xdrive-native-logo.jpeg"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "owner": "xdrive-logistics-ltd",
+    "extra": {
+      "eas": {
+        "projectId": "c19b0bdf-567a-488e-b78f-d36b84f25c99"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/c19b0bdf-567a-488e-b78f-d36b84f25c99"
+    },
+    "plugins": [
+      "expo-splash-screen"
+    ]
+  }
+}

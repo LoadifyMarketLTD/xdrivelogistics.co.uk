@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+.env
+.env.*
+!.env.example
+android/.gradle/
+android/app/build/
+android/local.properties
+*.jks
+*.keystore
+credentials.json
+expo-live.log
+phone-*.png
+xdrive_*.png
+work/
+dist/
+*.log

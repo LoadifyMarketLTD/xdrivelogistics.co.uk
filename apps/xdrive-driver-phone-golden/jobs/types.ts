@@ -1,0 +1,30 @@
+export type CanonicalJobStatus =
+  | 'awarded'
+  | 'on_my_way_pickup'
+  | 'arrived_pickup'
+  | 'loaded'
+  | 'on_my_way_delivery'
+  | 'arrived_delivery'
+  | 'delivered';
+
+export type JobScope = 'active' | 'upcoming' | 'completed';
+
+export type DriverJob = {
+  id: string;
+  reference: string;
+  status: CanonicalJobStatus;
+  pickupLocation: string;
+  deliveryLocation: string;
+  pickupTime: string;
+  deliveryTime: string;
+  cargoType: string;
+  vehicleRequirement: string;
+  price: string;
+  priority: 'normal' | 'high';
+  podRequired: boolean;
+  contactAllowed: boolean;
+  contactName?: string;
+  contactPhone?: string;
+};
+
+export type QueuedActionStatus = 'pending' | 'synced' | 'failed';
