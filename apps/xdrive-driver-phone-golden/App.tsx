@@ -74,7 +74,7 @@ export default function App() {
       try {
         const sideBySidePreview = Constants.expoConfig?.extra?.sideBySidePreview === true;
         const module = sideBySidePreview
-          ? await import('./src/app/DriverMobileAppV2')
+          ? await import('./src/app/DriverMobileAppV3')
           : await import('./src/app/DriverMobileApp');
         if (!mounted) return;
         appLoaded = true;
