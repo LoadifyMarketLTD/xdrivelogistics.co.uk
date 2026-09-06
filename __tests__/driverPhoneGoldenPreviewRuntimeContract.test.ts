@@ -27,9 +27,11 @@ describe('Driver phone GOLDEN side-by-side Preview runtime contract', () => {
     expect(v2).toContain('<BottomNav active={activeTab}');
   });
 
-  it('publishes active-booking location through the verified device-bound API contract', () => {
+  it('publishes only server-confirmed active-booking location through the device-bound API contract', () => {
     expect(v2).toContain('publishCurrentDriverLocation(token)');
     expect(v2).toContain('setInterval(() => void publish(), 30_000)');
+    expect(tracking).toContain("apiRequest<{ jobs?: Array<{ id?: string }> }>('/api/driver/mobile/jobs?scope=active', { token })");
+    expect(tracking).toContain('No active booking requires tracking.');
     expect(tracking).toContain("NativeModules.XDriveLocation");
     expect(tracking).toContain("apiRequest('/api/driver/location'");
     expect(mainApplication).toContain('packages.add(XDriveLocationPackage())');
