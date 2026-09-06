@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -148,6 +148,8 @@ const dimensionError = (value: string) => {
 export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' }) {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const directCarrierId = searchParams.get('directCarrier');
   const idempotencyKeyRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -155,6 +157,8 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
+  const [directCarrier, setDirectCarrier] = useState<{ id: string; name: string; memberId: string | null } | null>(null);
+  const [directCarrierError, setDirectCarrierError] = useState('');
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
     clientName: '', clientEmail: '', clientPhone: '',
@@ -196,6 +200,32 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     void resolvePostingIdentity();
     return () => { cancelled = true; };
   }, [user?.companyId, user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveDirectCarrier = async () => {
+      setDirectCarrier(null);
+      setDirectCarrierError('');
+      if (!directCarrierId || !isSupabaseConfigured) return;
+      const { data, error: carrierError } = await supabase
+        .from('companies')
+        .select('id, name, company_number, status')
+        .eq('id', directCarrierId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (carrierError || !data || String(data.status ?? '').toLowerCase() !== 'active') {
+        setDirectCarrierError('The selected carrier is not currently available for Direct Booking. Return to Directory and choose another active member.');
+        return;
+      }
+      setDirectCarrier({
+        id: String(data.id),
+        name: String(data.name ?? 'Carrier'),
+        memberId: typeof data.company_number === 'string' ? data.company_number : null,
+      });
+    };
+    void resolveDirectCarrier();
+    return () => { cancelled = true; };
+  }, [directCarrierId]);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
   const setVehicle = (value: string) => setForm((current) => ({
@@ -286,6 +316,10 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
       setError('Your session is not ready. Sign in again.');
       return;
     }
+    if (publish && directCarrierId && !directCarrier) {
+      setError(directCarrierError || 'The Direct Booking carrier could not be verified. Return to Directory and choose the member again.');
+      return;
+    }
 
     const pickupPostcode = normalizePostcode(form.pickupPostcode);
     const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
@@ -311,6 +345,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           companyId,
           mode,
           publish,
+          directInviteCompanyId: publish ? directCarrier?.id ?? null : null,
           clientName: form.clientName || null,
           clientEmail: form.clientEmail || '',
           clientPhone: form.clientPhone || null,
@@ -372,7 +407,13 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
 
       const reference = xdriveReference(payload.job.id);
       setShowValidation(false);
-      setSuccess(publish ? `Load ${reference} published to the carrier marketplace.` : `Draft load ${reference} saved.`);
+      setSuccess(
+        publish
+          ? directCarrier
+            ? `Load ${reference} sent directly to ${directCarrier.name}.`
+            : `Load ${reference} published to the carrier marketplace.`
+          : `Draft load ${reference} saved.`,
+      );
       const destination = mode === 'broker'
         ? `/broker/loads?created=${payload.job.id}`
         : `/customer/loads?created=${payload.job.id}`;
@@ -397,6 +438,25 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           <label style={labelStyle}>XDrive load reference<div style={readOnlyStyle}>Generated automatically after save / publish</div></label>
         </div>
       </Panel>
+
+      {directCarrierId && (
+        <Panel
+          title="Direct Booking"
+          description="This load will be visible only to the selected carrier before award. It will not be broadcast to the public XDrive Exchange."
+        >
+          {directCarrierError ? (
+            <AlertBanner tone="danger">{directCarrierError}</AlertBanner>
+          ) : directCarrier ? (
+            <div style={gridStyle}>
+              <label style={labelStyle}>Selected carrier<div style={readOnlyStyle}>{directCarrier.name}</div></label>
+              <label style={labelStyle}>Company number<div style={readOnlyStyle}>{directCarrier.memberId ?? 'Not supplied'}</div></label>
+              <label style={labelStyle}>Visibility<div style={readOnlyStyle}>Direct invite only</div></label>
+            </div>
+          ) : (
+            <div style={{ color: '#64748b', fontSize: '11px' }}>Verifying selected carrier…</div>
+          )}
+        </Panel>
+      )}
 
       {mode === 'broker' && (
         <Panel title="Customer" description="The customer whose transport request is being managed by the broker.">
@@ -601,7 +661,9 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
         <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>{saving ? 'Saving…' : 'Save Draft'}</ActionButton>
-        <ActionButton tone="warning" disabled={saving} onClick={() => void save(true)}>{saving ? 'Publishing…' : 'Publish Load'}</ActionButton>
+        <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
+          {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : 'Publish Load'}
+        </ActionButton>
       </div>
     </div>
   );

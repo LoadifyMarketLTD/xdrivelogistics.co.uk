@@ -42,8 +42,12 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
 
   it('keeps the Driver radar privacy-safe by locating public outcodes rather than accepting private job coordinates', () => {
     expect(radar).toContain('pickupPostcode');
+    expect(radar).toContain('deliveryPostcode');
+    expect(radar).toContain('L.polyline');
+    expect(radar).toContain('driver-radar-direction-icon');
+    expect(radar).toContain('Dashed arrow = pickup → delivery direction using public outcodes');
     expect(radar).toContain('api.postcodes.io/outcodes');
-    expect(radar).toContain('public postcode/outcode centroids only');
+    expect(radar).toContain('public pickup and delivery postcode/outcode centroids only');
     expect(radar).not.toContain('pickup_lat');
     expect(radar).not.toContain('pickup_lng');
     expect(radar).not.toContain('delivery_lat');

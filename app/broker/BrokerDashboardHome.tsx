@@ -35,6 +35,7 @@ import {
   OperationalWorkspaceGrid,
 } from '../components/workspace/OperationalConvergence';
 import { DashboardHomeHeader } from '../components/workspace/DashboardHomePrimitives';
+import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 
 const exceptionStatuses = new Set([
   'cancelled',
@@ -199,6 +200,8 @@ export default function BrokerDashboardHome() {
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+
+      <ConnectedExchangePanel role="broker" title="Connected commercial exchange" />
 
       <div style={{ display: 'grid', gridTemplateColumns: '315px minmax(0, 1fr)', gap: '12px', alignItems: 'start' }} className="xdrive-broker-control-grid">
         <aside style={{ display: 'grid', gap: '12px', minWidth: 0 }} aria-label="Broker action centre">

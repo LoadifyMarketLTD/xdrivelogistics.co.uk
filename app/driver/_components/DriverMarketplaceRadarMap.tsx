@@ -8,6 +8,7 @@ type RadarLoad = {
   pickupLabel: string;
   pickupPostcode: string | null;
   deliveryLabel: string;
+  deliveryPostcode: string | null;
   vehicleLabel: string;
   posterName: string;
   pickupAt: string | null;
@@ -16,7 +17,7 @@ type RadarLoad = {
 
 type Coordinates = { lat: number; lng: number };
 
-type LocatedLoad = RadarLoad & { coordinates: Coordinates };
+type LocatedLoad = RadarLoad & { coordinates: Coordinates; deliveryCoordinates: Coordinates | null };
 
 type RadarCluster = {
   key: string;
@@ -24,7 +25,7 @@ type RadarCluster = {
   loads: LocatedLoad[];
 };
 
-const normalizeOutcode = (value: string | null) => String(value ?? '').trim().toUpperCase().replace(/\s+/g, '');
+const normalizeOutcode = (value: string | null) => String(value ?? '').trim().toUpperCase().replace(/\s+/g, '').match(/^[A-Z]{1,2}\d[A-Z\d]?/)?.[0] ?? '';
 
 const validCoordinates = (lat: unknown, lng: unknown): Coordinates | null => {
   const parsedLat = Number(lat);
@@ -50,6 +51,9 @@ const markerTone = (loads: LocatedLoad[]) => {
   return { stroke: '#5B21B6', fill: '#7C3AED' };
 };
 
+const midpoint = (from: Coordinates, to: Coordinates): Coordinates => ({ lat: (from.lat + to.lat) / 2, lng: (from.lng + to.lng) / 2 });
+const routeBearing = (from: Coordinates, to: Coordinates) => Math.atan2(to.lng - from.lng, to.lat - from.lat) * (180 / Math.PI);
+
 export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import('leaflet').Map | null>(null);
@@ -58,7 +62,7 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
   const [providerWarning, setProviderWarning] = useState('');
 
   const outcodes = useMemo(
-    () => [...new Set(loads.map((load) => normalizeOutcode(load.pickupPostcode)).filter(Boolean))],
+    () => [...new Set(loads.flatMap((load) => [normalizeOutcode(load.pickupPostcode), normalizeOutcode(load.deliveryPostcode)]).filter(Boolean))],
     [loads],
   );
 
@@ -71,7 +75,7 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
       setLocating(true);
       const resolved: Record<string, Coordinates> = {};
       let failures = 0;
-      await Promise.all(unresolved.slice(0, 60).map(async (outcode) => {
+      await Promise.all(unresolved.slice(0, 120).map(async (outcode) => {
         try {
           const response = await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(outcode)}`);
           if (!response.ok) { failures += 1; return; }
@@ -97,7 +101,8 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
 
   const locatedLoads = useMemo<LocatedLoad[]>(() => loads.flatMap((load) => {
     const coordinates = coordinateByOutcode[normalizeOutcode(load.pickupPostcode)];
-    return coordinates ? [{ ...load, coordinates }] : [];
+    const deliveryCoordinates = coordinateByOutcode[normalizeOutcode(load.deliveryPostcode)] ?? null;
+    return coordinates ? [{ ...load, coordinates, deliveryCoordinates }] : [];
   }), [coordinateByOutcode, loads]);
 
   const clusters = useMemo<RadarCluster[]>(() => {
@@ -129,6 +134,30 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
         maxZoom: 19,
       }).addTo(map);
 
+      for (const load of locatedLoads) {
+        if (!load.deliveryCoordinates) continue;
+        const from = load.coordinates;
+        const to = load.deliveryCoordinates;
+        const route = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], {
+          color: '#64748b',
+          weight: 2,
+          opacity: 0.55,
+          dashArray: '6 5',
+        }).addTo(map);
+        route.bindTooltip(`${load.pickupLabel} → ${load.deliveryLabel}`);
+        const centre = midpoint(from, to);
+        const bearing = routeBearing(from, to);
+        L.marker([centre.lat, centre.lng], {
+          interactive: false,
+          icon: L.divIcon({
+            className: 'driver-radar-direction-icon',
+            html: `<span style="transform:rotate(${bearing.toFixed(1)}deg)">➤</span>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          }),
+        }).addTo(map);
+      }
+
       for (const cluster of clusters) {
         const tone = markerTone(cluster.loads);
         const radius = cluster.loads.length === 1 ? 8 : Math.min(18, 9 + Math.log2(cluster.loads.length + 1) * 3);
@@ -150,8 +179,12 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
         marker.bindPopup(`<div style="min-width:260px;font-family:Arial,sans-serif;font-size:12px"><strong>${cluster.loads.length} load${cluster.loads.length === 1 ? '' : 's'} in this area</strong>${items}${extra}</div>`, { maxHeight: 320 });
       }
 
-      if (clusters.length > 1) {
-        map.fitBounds(L.latLngBounds(clusters.map((cluster) => [cluster.coordinates.lat, cluster.coordinates.lng])), { padding: [28, 28], maxZoom: 11 });
+      const boundsCoordinates = locatedLoads.flatMap((load) => [
+        [load.coordinates.lat, load.coordinates.lng] as [number, number],
+        ...(load.deliveryCoordinates ? [[load.deliveryCoordinates.lat, load.deliveryCoordinates.lng] as [number, number]] : []),
+      ]);
+      if (boundsCoordinates.length > 1) {
+        map.fitBounds(L.latLngBounds(boundsCoordinates), { padding: [28, 28], maxZoom: 11 });
       }
     };
 
@@ -161,7 +194,7 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [clusters]);
+  }, [clusters, locatedLoads]);
 
   if (locating && clusters.length === 0) {
     return <div className="driver-radar-empty" role="status">Locating public pickup areas for Freight Radar…</div>;
@@ -177,10 +210,11 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
         <span><i data-tone="fresh" /> Posted within ~10 minutes</span>
         <span><i data-tone="older" /> Older load</span>
         <span>Numbered marker = multiple loads in the same public pickup area</span>
+        <span>Dashed arrow = pickup → delivery direction using public outcodes</span>
       </div>
       {providerWarning && <div className="driver-radar-warning" role="status">{providerWarning}</div>}
       <div ref={containerRef} className="driver-radar-map" aria-label="Interactive Freight Radar Map" />
-      <div className="driver-radar-privacy">Pre-award map positions use public postcode/outcode centroids only. Exact collection coordinates remain protected until authorised award/allocation.</div>
+      <div className="driver-radar-privacy">Pre-award map routes use public pickup and delivery postcode/outcode centroids only. Exact collection/delivery coordinates remain protected until authorised award/allocation.</div>
     </div>
   );
 }

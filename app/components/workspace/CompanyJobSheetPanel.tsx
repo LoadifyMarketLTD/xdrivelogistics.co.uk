@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
+import WorkspaceJobReplay from './WorkspaceJobReplay';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 
 type JobSheet = {
@@ -73,11 +74,11 @@ type JobSheet = {
   unavailable: { bodyType: string; bookingFooter: string; extras: string };
 };
 
-type Tab = 'order' | 'notes' | 'history' | 'documents' | 'pod' | 'invoice';
+type Tab = 'order' | 'notes' | 'history' | 'replay' | 'documents' | 'pod' | 'invoice';
 type SheetMode = 'broker' | 'customer' | 'carrier';
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History' },
-  { id: 'documents', label: 'Documents' }, { id: 'pod', label: 'POD' }, { id: 'invoice', label: 'Invoice' },
+  { id: 'replay', label: 'Replay' }, { id: 'documents', label: 'Documents' }, { id: 'pod', label: 'POD' }, { id: 'invoice', label: 'Invoice' },
 ];
 
 const when = (value: string | null) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not supplied';
@@ -311,6 +312,8 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
       {tab === 'notes' && (visibleNotes.length ? <div style={{ display: 'grid', gap: 6 }}>{visibleNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}</div> : <EmptyState compact title="No notes recorded" />)}
 
       {tab === 'history' && (sheet.timeline.length ? <div style={{ display: 'grid' }}>{[...sheet.timeline].reverse().map((event, index) => <div key={event.id ?? `${event.eventType}-${index}`} className="workspace-record-meta"><span><strong>{human(event.eventType)}</strong></span><span>{when(event.createdAt)}</span><span>{event.message ?? event.userName ?? 'Operational update'}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
+
+      {tab === 'replay' && <WorkspaceJobReplay jobId={jobId} />}
 
       {tab === 'documents' && (sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{human(document.type)}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" />)}
 

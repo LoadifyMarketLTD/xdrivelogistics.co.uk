@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
@@ -15,6 +16,9 @@ type DirectoryCompany = {
   city: string | null;
   postcode: string | null;
   country: string | null;
+  vehicleTypes: string[];
+  specialistServices: string[];
+  maxPallets: number | null;
 };
 
 type DirectoryDriver = {
@@ -30,6 +34,9 @@ type DirectoryDriver = {
   country: string | null;
   availability: string | null;
   vehicleType: string | null;
+  hasTailLift: boolean;
+  palletsCapacity: number | null;
+  specialistServices: string[];
 };
 
 type DirectoryTruncation = {
@@ -57,6 +64,8 @@ export function MemberDirectoryPage({
   title?: string;
   eyebrow?: string;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [companies, setCompanies] = useState<DirectoryCompany[]>([]);
   const [drivers, setDrivers] = useState<DirectoryDriver[]>([]);
   const [tab, setTab] = useState<'companies' | 'drivers'>('companies');
@@ -65,6 +74,9 @@ export function MemberDirectoryPage({
   const [memberType, setMemberType] = useState('');
   const [vehicle, setVehicle] = useState('');
   const [availability, setAvailability] = useState('');
+  const [country, setCountry] = useState('');
+  const [specialistService, setSpecialistService] = useState('');
+  const [tailLiftOnly, setTailLiftOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [partial, setPartial] = useState(false);
@@ -99,33 +111,74 @@ export function MemberDirectoryPage({
 
   useEffect(() => { void load(); }, [load]);
 
+  const countries = useMemo(() => Array.from(new Set(
+    companies.concat(drivers.map((driver) => ({ country: driver.country } as DirectoryCompany)))
+      .map((record) => record.country)
+      .filter((value): value is string => Boolean(value?.trim())),
+  )).sort(), [companies, drivers]);
+
+  const specialistServices = useMemo(() => Array.from(new Set([
+    ...companies.flatMap((company) => company.specialistServices ?? []),
+    ...drivers.flatMap((driver) => driver.specialistServices ?? []),
+  ])).sort(), [companies, drivers]);
+
+  const directBookingRoute = pathname.startsWith('/broker')
+    ? '/broker/post-load'
+    : pathname.startsWith('/customer')
+      ? '/customer/post-load'
+      : null;
+  const canBookCompany = (company: DirectoryCompany | null | undefined) => Boolean(
+    directBookingRoute
+    && company
+    && ['carrier / fleet', 'owner driver'].includes(normalise(company.memberType)),
+  );
+  const openDirectBooking = (companyId: string) => {
+    if (!directBookingRoute) return;
+    router.push(`${directBookingRoute}?directCarrier=${encodeURIComponent(companyId)}`);
+  };
+
   const visibleCompanies = useMemo(() => {
     const memberNeedle = normalise(member);
     const locationNeedle = normalise(location);
     const typeNeedle = normalise(memberType);
+    const vehicleNeedle = normalise(vehicle);
+    const countryNeedle = normalise(country);
+    const serviceNeedle = normalise(specialistService);
     return companies.filter((company) => {
       const memberText = normalise(`${company.name} ${company.memberId ?? ''}`);
       const locationText = normalise(`${company.city ?? ''} ${company.postcode ?? ''} ${company.country ?? ''}`);
+      const vehicleText = normalise((company.vehicleTypes ?? []).join(' '));
+      const serviceText = normalise((company.specialistServices ?? []).join(' '));
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
-        && (!typeNeedle || normalise(company.memberType).includes(typeNeedle));
+        && (!typeNeedle || normalise(company.memberType).includes(typeNeedle))
+        && (!countryNeedle || normalise(company.country) === countryNeedle)
+        && (!vehicleNeedle || vehicleText.includes(vehicleNeedle))
+        && (!serviceNeedle || serviceText.includes(serviceNeedle))
+        && (!tailLiftOnly || serviceText.includes('tail lift'));
     });
-  }, [companies, location, member, memberType]);
+  }, [companies, country, location, member, memberType, specialistService, tailLiftOnly, vehicle]);
 
   const visibleDrivers = useMemo(() => {
     const memberNeedle = normalise(member);
     const locationNeedle = normalise(location);
     const vehicleNeedle = normalise(vehicle);
     const availabilityNeedle = normalise(availability);
+    const countryNeedle = normalise(country);
+    const serviceNeedle = normalise(specialistService);
     return drivers.filter((driver) => {
       const memberText = normalise(`${driver.displayName} ${driver.companyName} ${driver.memberId ?? ''}`);
       const locationText = normalise(`${driver.city ?? ''} ${driver.postcode ?? ''} ${driver.country ?? ''}`);
+      const serviceText = normalise((driver.specialistServices ?? []).join(' '));
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
+        && (!countryNeedle || normalise(driver.country) === countryNeedle)
         && (!vehicleNeedle || normalise(driver.vehicleType).includes(vehicleNeedle))
-        && (!availabilityNeedle || normalise(driver.availability) === availabilityNeedle);
+        && (!availabilityNeedle || normalise(driver.availability) === availabilityNeedle)
+        && (!serviceNeedle || serviceText.includes(serviceNeedle))
+        && (!tailLiftOnly || driver.hasTailLift === true);
     });
-  }, [availability, drivers, location, member, vehicle]);
+  }, [availability, country, drivers, location, member, specialistService, tailLiftOnly, vehicle]);
 
   const clear = () => {
     setMember('');
@@ -133,6 +186,9 @@ export function MemberDirectoryPage({
     setMemberType('');
     setVehicle('');
     setAvailability('');
+    setCountry('');
+    setSpecialistService('');
+    setTailLiftOnly(false);
   };
 
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment);
@@ -155,14 +211,12 @@ export function MemberDirectoryPage({
           <div className="workspace-filter-rail__body">
             <label>MEMBER / COMPANY NUMBER<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or company number" /></label>
             <label>LOCATION<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town / postcode / country" /></label>
-            {tab === 'companies' ? (
-              <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label>
-            ) : (
-              <>
-                <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
-                <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label>
-              </>
-            )}
+            <label>COUNTRY<select value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+            {tab === 'companies' ? <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label> : null}
+            <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
+            <label>SPECIALIST SERVICE<select value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> TAIL LIFT CAPABILITY</label>
+            {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
             <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
             {privacy && <span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>{privacy}</span>}
           </div>
@@ -184,8 +238,8 @@ export function MemberDirectoryPage({
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Company no. ${company.memberId}` : 'Company number not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">Business phone {company.businessPhone ?? 'not supplied'}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}
@@ -198,8 +252,8 @@ export function MemberDirectoryPage({
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Company no. ${driver.memberId}` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">No live coordinates exposed</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
                   </div>
                 </article>
               ))}

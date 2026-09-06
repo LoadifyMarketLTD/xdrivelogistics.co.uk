@@ -10,9 +10,10 @@ describe('CX-close Driver top navigation', () => {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(shell).toContain('DRIVER_MORE_NAV');
-    for (const label of ['Jobs', 'Availability', "Who's Nearby?", 'Messages', 'Vehicle', 'Documents', 'Invoices', 'Notifications', 'Account']) {
+    for (const label of ['Jobs', 'Availability', 'Messages', 'Vehicle', 'Documents', 'Invoices', 'Notifications', 'Account']) {
       expect(shell).toContain(`label: '${label}'`);
     }
+    expect(shell).toContain(`label: "Who's Nearby?"`);
     expect(shell).toContain('More <span');
   });
 

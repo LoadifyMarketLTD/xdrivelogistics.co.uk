@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
+import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 import { supabase } from '../../lib/supabaseClient';
 
 type Severity = 'critical' | 'warning' | 'caution' | 'ok' | 'unknown';
@@ -78,6 +79,8 @@ function CommandCentre() {
 
     {error && <div role="alert" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px', color: X.danger, fontSize: '12px' }}>{error}</div>}
     {(data?.unavailableSources?.length || data?.queryErrors?.length) ? <div style={{ marginBottom: '12px', border: `1px solid ${X.border}`, borderLeft: `4px solid ${X.orange}`, borderRadius: '4px', background: X.white, padding: '9px 12px', color: X.charcoal, fontSize: '11px' }}>Some platform services are temporarily excluded from totals. Available data remains usable.</div> : null}
+
+    <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />
 
     <section style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}><div><h2 style={{ margin: 0, color: X.navy, fontSize: '14px', fontWeight: 800 }}>Platform summary</h2><p style={{ margin: '2px 0 0', color: X.muted, fontSize: '11px' }}>Primary operational KPIs only.</p></div><Link href="/super-admin/analytics" style={{ color: X.blue, fontSize: '11px', fontWeight: 800, textDecoration: 'none' }}>Full analytics →</Link></div>

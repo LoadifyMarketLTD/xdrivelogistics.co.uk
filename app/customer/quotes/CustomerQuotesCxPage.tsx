@@ -23,6 +23,15 @@ type BidderIdentity = {
   personName: string | null;
   companyType: string | null;
   displayName: string;
+  memberId: string | null;
+  businessPhone: string | null;
+  quoteLevel: 'driver' | 'company';
+  driverAvailability: string | null;
+  driverVehicleType: string | null;
+  driverVehicleTailLift: boolean;
+  driverVehiclePallets: number | null;
+  fleetVehicleTypes: string[];
+  specialistServices: string[];
 };
 
 type QuoteParticipant = {
@@ -76,6 +85,13 @@ function AwardConfirmation({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid #e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
             {[
               ['Carrier', candidate.displayName],
+              ['Member ID', candidate.identity?.memberId ?? 'Not supplied'],
+              ['Business contact', candidate.identity?.businessPhone ?? 'Not supplied'],
+              ['Quote scope', candidate.identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'],
+              ['Availability', candidate.identity?.driverAvailability?.replaceAll('_', ' ') ?? (candidate.identity?.quoteLevel === 'driver' ? 'Not supplied' : 'Company quote')],
+              ['Driver vehicle', candidate.identity?.driverVehicleType ? `${candidate.identity.driverVehicleType.replaceAll('_', ' ')}${candidate.identity.driverVehicleTailLift ? ' · Tail lift' : ''}${candidate.identity.driverVehiclePallets != null ? ` · ${candidate.identity.driverVehiclePallets} pallets` : ''}` : 'Not linked'],
+              ['Fleet capability', candidate.identity?.fleetVehicleTypes.length ? candidate.identity.fleetVehicleTypes.map((type) => type.replaceAll('_', ' ')).join(', ') : 'Not listed'],
+              ['Specialist services', candidate.identity?.specialistServices.length ? candidate.identity.specialistServices.join(', ') : 'Not listed'],
               ['Agreed quote', money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')],
               ['Route', routeLabel(candidate.job)],
               ['Pickup', when(candidate.job.pickup_datetime)],
@@ -220,7 +236,7 @@ export default function CustomerQuotesCxPage() {
         .filter((bid) => {
           if (!carrierNeedle) return true;
           const identity = identities.get(bid.id);
-          return `${identity?.displayName ?? ''} ${identity?.companyName ?? ''} ${identity?.personName ?? ''} ${identity?.companyId ?? ''} ${identity?.driverId ?? ''} ${bid.companies?.name ?? ''} ${bid.company_id ?? ''}`.toLowerCase().includes(carrierNeedle);
+          return `${identity?.displayName ?? ''} ${identity?.companyName ?? ''} ${identity?.personName ?? ''} ${identity?.memberId ?? ''} ${identity?.businessPhone ?? ''} ${identity?.driverVehicleType ?? ''} ${identity?.fleetVehicleTypes.join(' ') ?? ''} ${identity?.specialistServices.join(' ') ?? ''} ${identity?.companyId ?? ''} ${identity?.driverId ?? ''} ${bid.companies?.name ?? ''} ${bid.company_id ?? ''}`.toLowerCase().includes(carrierNeedle);
         })
         .sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)),
     })).filter((group) => group.quotes.length > 0)
@@ -302,7 +318,7 @@ export default function CustomerQuotesCxPage() {
             const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
             const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted';
             return [
-              <strong key="carrier"><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong>,
+              <span key="carrier" style={{ display: 'grid', gap: 2 }}><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong><small style={{ color: '#64748b' }}>{identity?.memberId ? `ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet type${identity?.fleetVehicleTypes.length === 1 ? '' : 's'}`}</small></span>,
               <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>,
               index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
               bid.message ?? 'No message',
