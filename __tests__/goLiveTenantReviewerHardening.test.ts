@@ -8,6 +8,8 @@ const BROKER_RPC_MIGRATION =
   'supabase/migrations/20260904233000_restrict_hosted_legacy_broker_governance_rpcs.sql';
 const REVIEWER_RLS_MIGRATION =
   'supabase/migrations/20260904233500_harden_onboarding_reviewer_rls_scope.sql';
+const COMPANY_SELECT_RLS_MIGRATION =
+  'supabase/migrations/20260905012000_reconcile_companies_select_rls.sql';
 
 describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
   it('keeps hosted legacy broker approval RPCs service-only when they exist', () => {
@@ -59,5 +61,30 @@ describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
     expect(migration).not.toContain('DELETE FROM public.onboarding_applications');
     expect(migration).not.toContain('DELETE FROM public.company_documents');
     expect(migration).not.toContain('DELETE FROM public.driver_identity_documents');
+  });
+
+  it('reconciles company SELECT access to creator, active member, or active platform owner only', () => {
+    const migration = readRepoFile(COMPANY_SELECT_RLS_MIGRATION);
+    const executableSql = migration.replace(/--.*$/gm, '');
+
+    expect(migration).toContain(
+      'DROP POLICY IF EXISTS companies_select_member_or_creator ON public.companies;',
+    );
+    expect(migration).toContain(
+      'DROP POLICY IF EXISTS companies_select_owner_all ON public.companies;',
+    );
+    expect(migration).toContain(
+      'DROP POLICY IF EXISTS companies_select_owner_or_member_safe ON public.companies;',
+    );
+    expect(migration).toContain('CREATE POLICY companies_select_authorized');
+    expect(migration).toContain('TO authenticated');
+    expect(migration).toContain('companies.created_by = (SELECT auth.uid())');
+    expect(migration).toContain('public.is_company_member(companies.id)');
+    expect(migration).toContain('FROM public.profiles p');
+    expect(migration).toContain('p.user_id = (SELECT auth.uid())');
+    expect(migration).toContain("p.role = 'owner'");
+    expect(migration).toContain("COALESCE(p.status::text, '') = 'active'");
+    expect(executableSql).not.toContain('public.is_owner(');
+    expect(executableSql).not.toContain('company_id = id');
   });
 });
