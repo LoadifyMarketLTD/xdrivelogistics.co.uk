@@ -5,7 +5,8 @@ export type CanonicalJobStatus =
   | 'loaded'
   | 'on_my_way_delivery'
   | 'arrived_delivery'
-  | 'delivered';
+  | 'delivered'
+  | 'cancelled';
 
 export type JobScope = 'active' | 'upcoming' | 'completed';
 
@@ -43,6 +44,7 @@ export type DriverJob = {
   distanceFromCurrentDeliveryMiles?: number;
   internationalEligibilityRequired?: boolean;
   destinationPriority?: boolean;
+  updatedAt?: string | null;
 };
 
 export type QueuedActionStatus = 'pending' | 'synced' | 'failed';
