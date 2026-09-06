@@ -28,6 +28,9 @@ const COLORS = {
   red: '#EA4335',
   white: '#FFFFFF',
   text: '#4A4A4A',
+  border: '#E0E3E7',
+  background: '#F5F7FA',
+  shadow: '0px 2px 6px rgba(0,0,0,0.08)',
 } as const;
 
 function driverOperationalColor(pin: OperationalDriverPin) {
@@ -60,7 +63,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         if (Number.isFinite(job.map.delivery_lat) && Number.isFinite(job.map.delivery_lng)) points.push([Number(job.map.delivery_lat), Number(job.map.delivery_lng)]);
       }
 
-      const map = L.map(nodeRef.current, { center: [52.6, -1.5], zoom: 6, scrollWheelZoom: true });
+      const map = L.map(nodeRef.current, { center: [53.3, -4.2], zoom: 5, scrollWheelZoom: true });
       mapRef.current = map;
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
@@ -69,9 +72,9 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
 
       const markerIcon = (color: string, label: string) => L.divIcon({
         className: '',
-        html: `<div style="width:30px;height:30px;border-radius:50%;background:${color};border:3px solid ${COLORS.white};box-shadow:0 2px 8px rgba(0,0,0,.18);display:grid;place-items:center;color:${COLORS.white};font:800 11px/1 Inter,Roboto,sans-serif">${label}</div>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
+        html: `<div style="width:24px;height:24px;border-radius:8px;background:${color};border:2px solid ${COLORS.white};box-shadow:${COLORS.shadow};display:grid;place-items:center;color:${COLORS.white};font:700 11px/1 Inter,Roboto,sans-serif">${label}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
 
       const popup = (title: string, lines: string[]) => {
@@ -81,12 +84,14 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         const heading = document.createElement('strong');
         heading.textContent = title;
         heading.style.color = COLORS.blue;
+        heading.style.fontSize = '20px';
+        heading.style.fontWeight = '700';
         root.appendChild(heading);
         for (const line of lines) {
           const item = document.createElement('div');
           item.textContent = line;
-          item.style.fontSize = '13px';
-          item.style.marginTop = '5px';
+          item.style.fontSize = '14px';
+          item.style.marginTop = '24px';
           item.style.color = COLORS.text;
           root.appendChild(item);
         }
@@ -122,8 +127,9 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         L.polyline([a, b], { color: COLORS.blue, weight: 3, opacity: 0.8, dashArray: '8 6' }).addTo(map);
       }
 
-      if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [34, 34], maxZoom: 11 });
+      if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 11 });
       else if (points.length === 1) map.setView(points[0], 10);
+      else map.fitBounds(L.latLngBounds([[49.8, -10.8], [59.1, 2.2]]), { padding: [24, 24] });
 
       const regions = [
         { label: 'London', lat: 51.5074, lng: -0.1278, zoom: 9 },
@@ -135,23 +141,25 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       control.onAdd = () => {
         const wrap = L.DomUtil.create('div');
         wrap.style.display = 'flex';
-        wrap.style.gap = '4px';
+        wrap.style.gap = '24px';
         wrap.style.background = COLORS.white;
-        wrap.style.padding = '5px';
-        wrap.style.border = '1px solid #E0E3E7';
+        wrap.style.padding = '24px';
+        wrap.style.border = `1px solid ${COLORS.border}`;
         wrap.style.borderRadius = '8px';
+        wrap.style.boxShadow = COLORS.shadow;
         L.DomEvent.disableClickPropagation(wrap);
         for (const region of regions) {
           const button = document.createElement('button');
           button.type = 'button';
           button.textContent = region.label;
-          button.style.border = '1px solid #E0E3E7';
+          button.style.border = `1px solid ${COLORS.border}`;
           button.style.background = COLORS.white;
           button.style.color = COLORS.blue;
-          button.style.borderRadius = '6px';
-          button.style.padding = '6px 8px';
+          button.style.borderRadius = '8px';
+          button.style.padding = '24px';
+          button.style.boxShadow = COLORS.shadow;
           button.style.fontFamily = 'Inter, Roboto, sans-serif';
-          button.style.fontSize = '12px';
+          button.style.fontSize = '14px';
           button.style.fontWeight = '700';
           button.onclick = () => map.setView([region.lat, region.lng], region.zoom);
           wrap.appendChild(button);
@@ -169,5 +177,5 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
     };
   }, [drivers, jobs, routes]);
 
-  return <div ref={nodeRef} aria-label="Live operational map" style={{ width: '100%', minHeight: 420, border: '1px solid #E0E3E7', borderRadius: 10, overflow: 'hidden', background: '#F5F7FA' }} />;
+  return <div style={{ padding: '24px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', boxShadow: COLORS.shadow, background: COLORS.white }}><div ref={nodeRef} aria-label="Live operational map UK and Ireland" style={{ width: '100%', minHeight: 420, border: `1px solid ${COLORS.border}`, borderRadius: '8px', overflow: 'hidden', background: COLORS.background, boxShadow: COLORS.shadow }} /></div>;
 }
