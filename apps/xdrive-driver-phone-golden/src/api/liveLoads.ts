@@ -85,18 +85,45 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
   };
 }
 
+async function loadActiveQuotedJobIds() {
+  const payload = await apiRequest<{ activeJobIds?: string[] }>('/api/driver/mobile/bids?scope=active-company');
+  return new Set((payload.activeJobIds ?? []).map(String));
+}
+
 export async function fetchLiveLoads(options: { destinationMode?: boolean; radiusMiles?: 10 | 20 | 30 } = {}) {
   const params = new URLSearchParams();
   if (options.destinationMode) params.set('mode', 'destination');
   if (options.radiusMiles) params.set('radius', String(options.radiusMiles));
   const suffix = params.toString();
+
   const payload = await apiRequest<LiveLoadsResponse>(`/api/driver/mobile/nearby-jobs${suffix ? `?${suffix}` : ''}`);
-  return { jobs: (payload.jobs ?? []).map(mapLiveLoad), returnIq: payload.returnIq ?? { active: false } };
+
+  // Quote-state enrichment must never make a valid marketplace response disappear.
+  // Keep already-quoted loads on the board so Quotes can still edit/open the related
+  // load, but prevent a second quote from being submitted for the same company/job.
+  let quotedJobIds = new Set<string>();
+  try {
+    quotedJobIds = await loadActiveQuotedJobIds();
+  } catch {
+    quotedJobIds = new Set<string>();
+  }
+
+  const jobs = (payload.jobs ?? []).map(mapLiveLoad).map((job) => quotedJobIds.has(job.id)
+    ? {
+        ...job,
+        canQuote: false,
+        quoteWarning: 'An active quote already exists for this load. Manage it from Quotes.',
+      }
+    : job);
+
+  return { jobs, returnIq: payload.returnIq ?? { active: false } };
 }
 
 export async function fetchActiveQuotedJobIds() {
-  const payload = await apiRequest<{ activeJobIds?: string[] }>('/api/driver/mobile/bids?scope=active-company');
-  return new Set((payload.activeJobIds ?? []).map(String));
+  // Compatibility shim for recovered screens that historically removed quoted
+  // loads from the marketplace. V2 keeps them visible and marks them non-quotable
+  // inside fetchLiveLoads so quote edit/navigation retains the source load.
+  return new Set<string>();
 }
 
 export async function submitLiveLoadQuote(jobId: string, amount: number, message?: string) {
