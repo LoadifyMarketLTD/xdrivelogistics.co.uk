@@ -66,6 +66,7 @@ export default function FinanceOverviewPage() {
   ];
 
   const sections = [
+    { href: '/super-admin/finance/control', title: 'Trade Control', text: 'Buyer/supplier flow, recorded settlements, partial payments and overdue exposure.', meta: 'AR / AP evidence', color: T.blue },
     { href: '/super-admin/finance/invoices', title: 'Invoices', text: 'All invoices, status, due dates, paid and outstanding exposure.', meta: `${snapshot?.invoices.total ?? 0} records`, color: T.blue },
     { href: '/super-admin/finance/payments', title: 'Payments', text: 'Settlement history, partial payments and payment references.', meta: money(snapshot?.payments.totalAmount), color: T.green },
     { href: '/super-admin/finance/revenue', title: 'Revenue', text: 'Paid revenue, monthly reporting and payment completion rate.', meta: money(snapshot?.revenue.totalRevenue), color: T.accent },
