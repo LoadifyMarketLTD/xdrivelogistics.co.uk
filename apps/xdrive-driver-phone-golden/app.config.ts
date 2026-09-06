@@ -2,6 +2,7 @@ import type { ExpoConfig } from 'expo/config';
 
 const CANONICAL_SUPABASE_URL = 'https://jqxlauexhkonixtjvljw.supabase.co';
 const CANONICAL_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_yxmGBfB7tzCgBXi_6T-uJQ_JNNYmBVO';
+const isSideBySidePreview = process.env.XDRIVE_SIDE_BY_SIDE_PREVIEW === 'true';
 
 function normalizeSupabaseUrl(value: string | undefined) {
   let normalized = value?.trim() ?? '';
@@ -29,21 +30,25 @@ const configuredSupabaseUrl = normalizeSupabaseUrl(process.env.EXPO_PUBLIC_SUPAB
 const configuredPublishableKey = normalizePublishableKey(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
 const config: ExpoConfig = {
-  name: 'XDrive Driver',
+  name: isSideBySidePreview ? 'XDrive Driver Preview' : 'XDrive Driver',
   slug: 'xdrive-driver',
   owner: 'xdrive-logistics-ltd',
   version: '1.0.0',
   icon: './assets/icon.png',
   orientation: 'portrait',
-  scheme: 'xdrivedriver',
+  scheme: isSideBySidePreview ? 'xdrivedriver-preview' : 'xdrivedriver',
   userInterfaceStyle: 'automatic',
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'co.uk.xdrivelogistics.driver',
+    bundleIdentifier: isSideBySidePreview
+      ? 'co.uk.xdrivelogistics.driver.preview'
+      : 'co.uk.xdrivelogistics.driver',
   },
   android: {
-    package: 'co.uk.xdrivelogistics.driver',
+    package: isSideBySidePreview
+      ? 'co.uk.xdrivelogistics.driver.preview'
+      : 'co.uk.xdrivelogistics.driver',
     versionCode: 1,
     icon: './assets/icon.png',
     adaptiveIcon: {
@@ -82,6 +87,7 @@ const config: ExpoConfig = {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
     supabaseUrl: configuredSupabaseUrl || CANONICAL_SUPABASE_URL,
     supabaseAnonKey: configuredPublishableKey || CANONICAL_SUPABASE_PUBLISHABLE_KEY,
+    sideBySidePreview: isSideBySidePreview,
     eas: {
       projectId: 'c19b0bdf-567a-488e-b78f-d36b84f25c99',
     },
