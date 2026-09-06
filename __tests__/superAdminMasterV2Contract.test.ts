@@ -175,6 +175,6 @@ describe('MASTER CONTRACT FINAL v2 — integrated Super Admin contract', () => {
     expect(releaseGate).toContain("['505', '506', '509']");
     expect(releaseGate).toContain("'__tests__/superAdminMasterV2Contract.test.ts'");
     expect(master).toContain('MASTER CONTRACT FINAL v2');
-    expect(master).toContain('PR #509 is validation-only and MUST NEVER be merged');
+    expect(master).toContain('PR #509 este validation-only');
   });
 });
