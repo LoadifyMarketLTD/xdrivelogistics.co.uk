@@ -2,7 +2,7 @@
   # Netlify is the primary no-GitHub-hosted-runner release/build gate.
   # It validates Supabase migration filenames/encodings and the deployable
   # production Next.js build before a deploy is allowed to succeed.
-  command = "node ./scripts/netlify-release-gate.mjs"
+  command = "node ./scripts/netlify-v2-diagnostic-wrapper.mjs"
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
