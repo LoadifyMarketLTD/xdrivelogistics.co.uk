@@ -1,138 +1,143 @@
 'use client';
 
 import Link from 'next/link';
-import type { FormEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  AlertTriangle,
+  AlertTriangle as ActionIcon,
   ChevronDown,
   CircleUserRound,
-  Grid3X3,
-  LayoutDashboard,
+  Grid3X3 as ExploreIcon,
+  LayoutDashboard as OverviewIcon,
   Search,
-  Truck,
+  Truck as LogoIcon,
 } from 'lucide-react';
 
-import { useAuth } from '../../components/AuthContext';
-import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/WorkspaceShell';
-import type { WorkspaceDefinition } from '../../../lib/workspaceRole';
+type NavButtonProps = {
+  icon: ReactNode;
+  label: string;
+  href: string;
+};
 
-export default function SuperAdminNavbar({
-  definition,
-  fixtureOverrides,
-}: {
-  definition: WorkspaceDefinition;
-  fixtureOverrides?: WorkspaceShellFixtureOverrides;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { user } = useAuth();
-  const [searchValue, setSearchValue] = useState('');
-  const [accountOpen, setAccountOpen] = useState(false);
-
-  const navigationTargets = useMemo(
-    () => definition.nav.flatMap((group) => group.items.map((item) => ({
-      label: item.label,
-      group: group.label,
-      href: item.href,
-    }))),
-    [definition.nav],
+function NavButton({ icon, label, href }: NavButtonProps) {
+  return (
+    <Link className="sa-primary-button" href={href}>
+      {icon}
+      <span>{label}</span>
+    </Link>
   );
+}
 
-  const email = user?.email
-    ?? (fixtureOverrides?.companyName?.includes('@') ? fixtureOverrides.companyName : null)
-    ?? 'xdrivelogisticsltd@gmail.com';
+function SearchBar({ placeholder, iconSize }: { placeholder: string; iconSize: number }) {
+  const router = useRouter();
+  const [value, setValue] = useState('');
 
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const query = searchValue.trim();
+    const query = value.trim();
     if (!query) return;
-
-    const normalized = query.toLowerCase();
-    const target = navigationTargets.find((item) => item.label.toLowerCase() === normalized)
-      ?? navigationTargets.find((item) => item.label.toLowerCase().includes(normalized))
-      ?? navigationTargets.find((item) => item.group.toLowerCase().includes(normalized));
-
-    if (target) {
-      router.push(target.href);
-      setSearchValue('');
-      return;
-    }
-
     router.push(`/super-admin/search?q=${encodeURIComponent(query)}`);
+    setValue('');
   };
 
+  return (
+    <form className="sa-search" role="search" onSubmit={submit}>
+      <Search size={iconSize} aria-hidden="true" />
+      <input
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        aria-label="Search platform"
+        autoComplete="off"
+      />
+    </form>
+  );
+}
+
+type UserDropdownOption = {
+  label: string;
+  href: string;
+};
+
+function UserDropdown({
+  user,
+  email,
+  options,
+}: {
+  user: string;
+  email: string;
+  options: UserDropdownOption[];
+}) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
   useEffect(() => {
-    setAccountOpen(false);
+    setOpen(false);
   }, [pathname]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setAccountOpen(false);
+      if (event.key === 'Escape') setOpen(false);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
   return (
-    <nav className="sa-navbar" aria-label="Super Admin enterprise navigation">
-      <Link className="sa-brand" href="/super-admin" aria-label="XDrive Logistics Super Admin home">
-        <Truck size={24} aria-hidden="true" />
-        <span className="sa-brand-title">XDrive Logistics</span>
-      </Link>
+    <div className="sa-user-wrap">
+      <button
+        type="button"
+        className="sa-user-button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        <CircleUserRound size={24} aria-hidden="true" />
+        <span>{user}</span>
+        <ChevronDown size={24} aria-hidden="true" />
+      </button>
 
-      <form className="sa-search" role="search" onSubmit={submitSearch}>
-        <Search size={24} aria-hidden="true" />
-        <input
-          value={searchValue}
-          onChange={(event) => setSearchValue(event.target.value)}
-          placeholder="Search platform..."
-          aria-label="Search platform"
-          autoComplete="off"
-        />
-      </form>
+      {open ? (
+        <div className="sa-user-menu" aria-label={user}>
+          <div className="sa-user-menu-header">
+            <strong>{user}</strong>
+            <span>{email}</span>
+          </div>
+          {options.map((option) => (
+            <Link key={option.href} href={option.href}>{option.label}</Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default function SuperAdminNavbar() {
+  return (
+    <nav className="sa-navbar" aria-label="Super Admin enterprise navigation">
+      <div className="sa-brand">
+        <LogoIcon size={24} />
+        <span className="sa-brand-title">XDrive Logistics</span>
+      </div>
+
+      <SearchBar placeholder="Search platform..." iconSize={24} />
 
       <div className="sa-primary-actions" aria-label="Primary Super Admin navigation">
-        <Link className="sa-primary-button" href="/super-admin/directory">
-          <Grid3X3 size={24} aria-hidden="true" />
-          <span>Explore areas</span>
-        </Link>
-        <Link className="sa-primary-button" href="/super-admin/action-centre">
-          <AlertTriangle size={24} aria-hidden="true" />
-          <span>Action Centre</span>
-        </Link>
-        <Link className="sa-primary-button" href="/super-admin/platform">
-          <LayoutDashboard size={24} aria-hidden="true" />
-          <span>Platform Overview</span>
-        </Link>
+        <NavButton icon={<ExploreIcon size={24} />} label="Explore areas" href="/super-admin/directory" />
+        <NavButton icon={<ActionIcon size={24} />} label="Action Centre" href="/super-admin/action-centre" />
+        <NavButton icon={<OverviewIcon size={24} />} label="Platform Overview" href="/super-admin/platform" />
       </div>
 
-      <div className="sa-user-wrap">
-        <button
-          type="button"
-          className="sa-user-button"
-          onClick={() => setAccountOpen((open) => !open)}
-          aria-expanded={accountOpen}
-          aria-haspopup="menu"
-        >
-          <CircleUserRound size={24} aria-hidden="true" />
-          <span>Platform Owner</span>
-          <ChevronDown size={24} aria-hidden="true" />
-        </button>
-
-        {accountOpen ? (
-          <div className="sa-user-menu" role="menu" aria-label="Platform Owner">
-            <div className="sa-user-menu-header">
-              <strong>Platform Owner</strong>
-              <span>{email}</span>
-            </div>
-            <Link role="menuitem" href="/super-admin">Super Admin home</Link>
-            <Link role="menuitem" href="/super-admin/directory">Explore all areas</Link>
-            <Link role="menuitem" href="/auth/sign-out">Sign out</Link>
-          </div>
-        ) : null}
-      </div>
+      <UserDropdown
+        user="Platform Owner"
+        email="xdrivelogisticsltd@gmail.com"
+        options={[
+          { label: 'Super Admin home', href: '/super-admin' },
+          { label: 'Explore all areas', href: '/super-admin/directory' },
+          { label: 'Sign out', href: '/auth/sign-out' },
+        ]}
+      />
     </nav>
   );
 }
