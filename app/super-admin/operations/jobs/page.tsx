@@ -36,12 +36,7 @@ export default function Page() {
         {
           key: 'status',
           label: 'Status',
-          render: (row) => {
-            const normalized = row.status.toLowerCase();
-            return ALL_JOBS_ALLOWED_STATUSES.has(normalized)
-              ? <StatusChip value={normalized.toUpperCase()} />
-              : '—';
-          },
+          render: (row) => <StatusChip value={row.status} allowedValues={ALL_JOBS_ALLOWED_STATUSES} />,
         },
         {
           key: 'posting',

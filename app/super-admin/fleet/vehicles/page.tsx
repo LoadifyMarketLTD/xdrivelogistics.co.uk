@@ -3,6 +3,7 @@
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import PlatformEntityLink from '@/app/super-admin/_components/control-plane/PlatformEntityLink';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
+import { vehicleStatus } from '@/app/super-admin/fleet/vehicleStatus';
 
 type Row = {
   id: string;
@@ -32,14 +33,6 @@ function GpsIcon() {
   return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>;
 }
 
-const vehicleStatus = (row: Row) => {
-  const current = (row.current_status ?? '').trim();
-  if (current.toLowerCase() === 'waiting for next job (available)' || row.is_available === true) {
-    return 'WAITING FOR NEXT JOB (AVAILABLE)';
-  }
-  return (current || row.status || 'unknown').toUpperCase();
-};
-
 const vehicleHealth = (row: Row) => {
   const status = (row.status ?? '').toLowerCase();
   if (status === 'inactive' || status === 'suspended') return 'CRITICAL';
@@ -57,13 +50,13 @@ export default function Page() {
     pageSize={50}
     emptyMessage="No vehicles found."
     columns={[
-      { key: 'vehicle', label: 'Vehicle', render: (row) => <div><strong>{row.registration_label}</strong><div style={{fontSize:11,color:'#64748B',marginTop:2}}>{row.vehicle_label}</div></div> },
+      { key: 'vehicle', label: 'Vehicle', render: (row) => <div><strong>{row.registration_label}</strong><div style={{fontSize:14,color:'#4A4A4A',marginTop:24}}>{row.vehicle_label}</div></div> },
       { key: 'company', label: 'Company', render: (row) => row.company_id ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink> : '—' },
       { key: 'driver', label: 'Driver', render: (row) => row.assigned_driver_id ? <PlatformEntityLink entityType="driver" entityId={row.assigned_driver_id} compact>{row.assigned_driver_name}</PlatformEntityLink> : '—' },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={vehicleStatus(row)} /> },
       { key: 'capacity', label: 'Capacity', render: (row) => <span>{row.pallets_capacity != null ? `${row.pallets_capacity} pallets · ` : ''}{row.payload_kg ?? row.capacity_kg ?? '—'}{row.payload_kg != null || row.capacity_kg != null ? ' kg' : ''}</span> },
-      { key: 'equipment', label: 'Equipment', render: (row) => <div style={{display:'flex',alignItems:'center',gap:8}}>{row.has_tail_lift ? <><TailLiftIcon /><span>Tail-lift</span></> : <span>No tail-lift</span>}{row.international_work_approved ? <span>· International</span> : null}</div> },
-      { key: 'tracking', label: 'Tracking', render: (row) => <div style={{display:'flex',alignItems:'center',gap:8}}><GpsIcon /><span>{row.is_tracked ? `GPS active · ${formatDateTime(row.last_tracked_at)}` : 'GPS offline'}</span></div> },
+      { key: 'equipment', label: 'Equipment', render: (row) => <div style={{display:'flex',alignItems:'center',gap:24}}>{row.has_tail_lift ? <><TailLiftIcon /><span>Tail-lift</span></> : <span>No tail-lift</span>}{row.international_work_approved ? <span>· International</span> : null}</div> },
+      { key: 'tracking', label: 'Tracking', render: (row) => <div style={{display:'flex',alignItems:'center',gap:24}}><GpsIcon /><span>{row.is_tracked ? `GPS active · ${formatDateTime(row.last_tracked_at)}` : 'GPS offline'}</span></div> },
       { key: 'health', label: 'Health', render: (row) => <StatusChip value={vehicleHealth(row)} /> },
       { key: 'inspect', label: 'Inspect', render: (row) => <PlatformEntityLink entityType="vehicle" entityId={row.id} compact>Open</PlatformEntityLink> },
     ]}

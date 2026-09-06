@@ -22,6 +22,8 @@
   --enterprise-control-height: 40px;
   --enterprise-section-gap: 24px;
   --enterprise-padding: 24px;
+  --enterprise-control-padding: 0 14px;
+  --enterprise-chip-padding: 4px 10px;
 
   --sa-ui-navy: var(--brand-blue);
   --sa-ui-blue: var(--brand-blue);
@@ -44,7 +46,6 @@
   line-height: 1.5;
 }
 
-/* FINAL title rule: every Super Admin title is Inter 20px bold. */
 .super-admin-light-root main h1,
 .super-admin-light-root main h2,
 .super-admin-light-root main h3 {
@@ -67,7 +68,6 @@
   font-size: 14px;
 }
 
-/* No legacy geometry is allowed to override the FINAL contract. */
 .super-admin-light-root main [style*="border-radius"],
 .super-admin-light-root main section,
 .super-admin-light-root main article,
@@ -85,20 +85,16 @@
   box-shadow: var(--enterprise-shadow) !important;
 }
 
-/* FINAL container rule: every bordered Super Admin container uses 24px internal padding,
- * 8px radius and the one approved shadow. This catches legacy inline cards without
- * altering their data, actions, navigation or API behaviour. */
 .super-admin-light-root main div[style*="border"],
 .super-admin-light-root main form[style*="border"],
 .super-admin-light-root main aside[style*="border"],
 .super-admin-light-root main section[style*="border"],
 .super-admin-light-root main article[style*="border"] {
-  padding: 24px !important;
-  border-radius: 8px !important;
+  padding: var(--enterprise-padding) !important;
+  border-radius: var(--enterprise-radius) !important;
   box-shadow: var(--enterprise-shadow) !important;
 }
 
-/* Legacy page-header decorations are redundant with the shared shell. */
 .super-admin-light-root main header[style*="min-height: 52px"] > span[aria-hidden="true"],
 .super-admin-light-root main header[style*="min-height:52px"] > span[aria-hidden="true"],
 .super-admin-light-root main header[style*="min-height: 52px"] > div > div:first-child > span[style*="text-transform: uppercase"],
@@ -112,7 +108,6 @@
   background: transparent !important;
 }
 
-/* Normalize remaining known dark-theme fragments. */
 .super-admin-light-root main [style*="color: #f1f5f9"],
 .super-admin-light-root main [style*="color:#f1f5f9"],
 .super-admin-light-root main [style*="color: rgb(241, 245, 249)"] {
@@ -141,33 +136,31 @@
   border-color: var(--enterprise-border) !important;
 }
 
-/* Cards, panels, sections and KPI containers: exact 8px / 24px / canonical shadow. */
 .super-admin-light-root main section[style*="border"],
 .super-admin-light-root main article[style*="border"],
 .super-admin-light-root main div[style*="min-height: 88px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 80px"][style*="border"],
 .super-admin-light-root main div[style*="min-height: 72px"][style*="border"] {
   border-color: var(--enterprise-border) !important;
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   background: var(--white) !important;
   box-shadow: var(--enterprise-shadow) !important;
-  padding: 24px !important;
+  padding: var(--enterprise-padding) !important;
 }
 
-/* Tables: exact enterprise geometry. */
 .super-admin-light-root main table {
   width: 100%;
   border-collapse: collapse;
   background: var(--white) !important;
   color: var(--text-gray);
   font-size: 14px !important;
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   box-shadow: var(--enterprise-shadow) !important;
 }
 
 .super-admin-light-root main thead { background: var(--light-gray) !important; }
 .super-admin-light-root main th {
-  padding: 24px !important;
+  padding: var(--enterprise-padding) !important;
   color: var(--brand-blue) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 14px !important;
@@ -178,7 +171,7 @@
 }
 
 .super-admin-light-root main td {
-  padding: 24px !important;
+  padding: var(--enterprise-padding) !important;
   color: var(--text-gray);
   font-size: 14px !important;
   line-height: 1.45;
@@ -191,11 +184,10 @@
 .super-admin-light-root main tbody tr:last-child { border-bottom: 0 !important; }
 .super-admin-light-root main tbody tr:hover { background: #FAFBFD !important; }
 
-/* Controls keep their semantics; geometry is fixed. */
 .super-admin-light-root main button,
 .super-admin-light-root main a[role="button"] {
   min-height: var(--enterprise-control-height);
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 14px !important;
   font-weight: 700 !important;
@@ -206,19 +198,19 @@
   border: 1px solid var(--enterprise-border);
   background: var(--white);
   color: var(--brand-blue);
-  padding: 0 12px;
+  padding: var(--enterprise-control-padding);
 }
 
 .super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
 .super-admin-light-root main select,
 .super-admin-light-root main textarea {
   border: 1px solid var(--enterprise-border) !important;
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   background: var(--white) !important;
   color: var(--text-gray) !important;
 }
 .super-admin-light-root main input:not([type="checkbox"]):not([type="radio"]),
-.super-admin-light-root main select { min-height: 40px; }
+.super-admin-light-root main select { min-height: var(--enterprise-control-height); }
 .super-admin-light-root main textarea { line-height: 1.5; }
 
 .super-admin-light-root main button:focus-visible,
@@ -230,34 +222,33 @@
   outline-offset: 2px;
 }
 
-/* Status chips: no pill exception; the FINAL radius is 8px. */
+.super-admin-light-root main [data-status-chip],
 .super-admin-light-root main [style*="border-radius: 999"],
 .super-admin-light-root main [style*="border-radius:999"] {
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   min-height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px !important;
+  padding: var(--enterprise-chip-padding) !important;
   font-family: Inter, Roboto, Arial, sans-serif !important;
   font-size: 14px !important;
   line-height: 1.15 !important;
   font-weight: 700 !important;
 }
 
-/* Dialogs, alerts and empty states: exact contract. */
 .super-admin-light-root main [role="dialog"] > div,
 .super-admin-light-root main [role="dialog"] aside {
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   background: var(--white) !important;
   color: var(--text-gray) !important;
   box-shadow: var(--enterprise-shadow) !important;
-  padding: 24px !important;
+  padding: var(--enterprise-padding) !important;
 }
 
 .super-admin-light-root main [role="alert"] {
-  border-radius: 8px !important;
-  padding: 24px !important;
+  border-radius: var(--enterprise-radius) !important;
+  padding: var(--enterprise-padding) !important;
   line-height: 1.5;
   box-shadow: var(--enterprise-shadow) !important;
 }
@@ -272,10 +263,10 @@
 .super-admin-light-root main section > div[style*="text-align:center"] {
   display: grid;
   place-items: center;
-  padding: 24px !important;
+  padding: var(--enterprise-padding) !important;
   color: var(--text-gray) !important;
   background: var(--white);
-  border-radius: 8px !important;
+  border-radius: var(--enterprise-radius) !important;
   font-size: 14px !important;
 }
 
@@ -289,13 +280,12 @@
   font-weight: 700;
 }
 
-/* No responsive title-size exceptions are permitted by the FINAL contract. */
 @media (max-width: 900px) {
   .super-admin-light-root main h1,
   .super-admin-light-root main h2,
   .super-admin-light-root main h3 { font-size: 20px !important; font-weight: 700 !important; }
   .super-admin-light-root main th,
-  .super-admin-light-root main td { padding: 24px !important; }
+  .super-admin-light-root main td { padding: var(--enterprise-padding) !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

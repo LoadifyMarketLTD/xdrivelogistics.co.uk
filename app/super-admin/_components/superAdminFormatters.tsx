@@ -60,12 +60,28 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   offline: { bg: GREY, text: WHITE },
 };
 
-export function StatusChip({ value }: { value: string | null | undefined }) {
+type StatusAllowlist = ReadonlySet<string> | readonly string[];
+
+function normalizeAllowlist(values: StatusAllowlist): Set<string> {
+  return new Set(Array.from(values, (value) => value.toLowerCase()));
+}
+
+export function StatusChip({
+  value,
+  allowedValues,
+}: {
+  value: string | null | undefined;
+  allowedValues?: StatusAllowlist;
+}) {
   const rawValue = (value ?? 'unknown').toString();
   const normalized = rawValue.toLowerCase();
+  if (allowedValues && !normalizeAllowlist(allowedValues).has(normalized)) {
+    return <span aria-label="Status unavailable">—</span>;
+  }
   const palette = STATUS_COLORS[normalized] ?? { bg: GREY, text: WHITE };
   return (
     <span
+      data-status-chip="true"
       style={{
         display: 'inline-flex',
         alignItems: 'center',

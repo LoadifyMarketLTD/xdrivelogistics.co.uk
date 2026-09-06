@@ -43,12 +43,7 @@ export default function Page() {
         {
           key: 'status',
           label: 'Availability',
-          render: (row) => {
-            const normalized = row.availability_status.toLowerCase();
-            return DRIVER_AVAILABILITY_ALLOWED_STATUSES.has(normalized)
-              ? <StatusChip value={normalized.toUpperCase()} />
-              : '—';
-          },
+          render: (row) => <StatusChip value={row.availability_status} allowedValues={DRIVER_AVAILABILITY_ALLOWED_STATUSES} />,
         },
         {
           key: 'location',
