@@ -1,30 +1,88 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RefreshCw, Store } from 'lucide-react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { StatusChip, formatDateTime, routeSummary } from '@/app/super-admin/_components/superAdminFormatters';
 import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
+import {
+  SuperAdminDataGrid,
+  SuperAdminEmptyState,
+  SuperAdminMetricCard,
+  SuperAdminMetricGrid,
+  SuperAdminNotice,
+  SuperAdminPage,
+  SuperAdminPageHeader,
+  SuperAdminPager,
+  SuperAdminSectionCard,
+  SuperAdminStatusBadge,
+  SuperAdminUnavailableState,
+  type EnterpriseTone,
+  type SuperAdminDataColumn,
+} from '@/app/super-admin/_components/SuperAdminEnterprisePrimitives';
 
 const PAGE_SIZE = 50;
 
 type MarketplaceJobRow = {
-  id: string; status: string; exchange_visibility: string; exchange_posted_at: string | null;
-  posting_company_name: string; awarded_company_name: string | null; bids_count: number; created_at: string;
-  pickup_location: string | null; pickup_postcode: string | null; delivery_location: string | null;
-  delivery_postcode: string | null; pickup_datetime: string | null; delivery_datetime: string | null;
-};
-type MarketplaceAuditRow = { id: string; action_type: string; old_status: string; new_status: string; reason: string; created_at: string; target_company_id: string };
-type MarketplaceSummary = { totalJobs: number; exchangeVisible: number; posted: number; allocated: number; inTransit: number; disputed: number; cancelled: number; delivered: number };
-type MarketplacePagination = { page: number; limit: number; total: number; totalPages: number; hasNextPage: boolean; hasPrevPage: boolean };
-type MarketplaceAction = 'publish_to_exchange' | 'hide_from_exchange' | 'force_dispute' | 'force_cancel';
-type MarketplaceResponse = {
-  jobs: MarketplaceJobRow[]; summary: MarketplaceSummary; pagination: MarketplacePagination;
-  governanceHistoryAvailable?: boolean; governanceHistoryError?: string | null; governanceHistoryRecent?: MarketplaceAuditRow[];
-  fetchedAt?: string; pollingSuggestedMs?: number;
+  id: string;
+  status: string;
+  exchange_visibility: string;
+  exchange_posted_at: string | null;
+  posting_company_name: string;
+  awarded_company_name: string | null;
+  bids_count: number;
+  created_at: string;
+  pickup_location: string | null;
+  pickup_postcode: string | null;
+  delivery_location: string | null;
+  delivery_postcode: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
 };
 
-const THEME = { pageBg: '#0f172a', cardBg: '#1e293b', cardBorder: '#334155', text: '#f1f5f9', muted: '#94a3b8', accent: '#f59e0b', green: '#22c55e', red: '#ef4444' } as const;
+type MarketplaceAuditRow = {
+  id: string;
+  action_type: string;
+  old_status: string;
+  new_status: string;
+  reason: string;
+  created_at: string;
+  target_company_id: string;
+};
+
+type MarketplaceSummary = {
+  totalJobs: number;
+  exchangeVisible: number;
+  posted: number;
+  allocated: number;
+  inTransit: number;
+  disputed: number;
+  cancelled: number;
+  delivered: number;
+};
+
+type MarketplacePagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};
+
+type MarketplaceAction = 'publish_to_exchange' | 'hide_from_exchange' | 'force_dispute' | 'force_cancel';
+
+type MarketplaceResponse = {
+  jobs: MarketplaceJobRow[];
+  summary: MarketplaceSummary;
+  pagination: MarketplacePagination;
+  governanceHistoryAvailable?: boolean;
+  governanceHistoryError?: string | null;
+  governanceHistoryRecent?: MarketplaceAuditRow[];
+  fetchedAt?: string;
+  pollingSuggestedMs?: number;
+};
 
 function getActionsForRow(row: MarketplaceJobRow): MarketplaceAction[] {
   const normalizedStatus = row.status.toLowerCase();
@@ -35,13 +93,41 @@ function getActionsForRow(row: MarketplaceJobRow): MarketplaceAction[] {
   return actions;
 }
 
+function actionLabel(action: MarketplaceAction) {
+  return action.replaceAll('_', ' ');
+}
+
+function actionStyle(danger: boolean) {
+  const color = danger ? '#D92D20' : '#168553';
+  return {
+    minHeight: 30,
+    padding: '0 9px',
+    borderRadius: 7,
+    border: `1px solid ${color}`,
+    background: '#FFFFFF',
+    color,
+    font: 'inherit',
+    fontSize: 10,
+    fontWeight: 800,
+    cursor: 'pointer',
+  } as const;
+}
+
+function metricTone(label: string): EnterpriseTone {
+  if (label === 'Disputed' || label === 'Cancelled') return 'danger';
+  if (label === 'Delivered') return 'success';
+  if (label === 'On Exchange' || label === 'In Transit') return 'info';
+  return 'neutral';
+}
+
 const isResponse = (value: unknown): value is MarketplaceResponse => {
   if (!value || typeof value !== 'object') return false;
   const row = value as Record<string, unknown>;
   const pagination = row.pagination as Record<string, unknown> | undefined;
   return Array.isArray(row.jobs)
     && Boolean(row.summary && typeof row.summary === 'object')
-    && Boolean(pagination && typeof pagination.page === 'number' && typeof pagination.total === 'number' && typeof pagination.hasNextPage === 'boolean' && typeof pagination.hasPrevPage === 'boolean');
+    && Boolean(pagination && typeof pagination.page === 'number' && typeof pagination.total === 'number'
+      && typeof pagination.hasNextPage === 'boolean' && typeof pagination.hasPrevPage === 'boolean');
 };
 
 export default function Page() {
@@ -73,13 +159,23 @@ export default function Page() {
     setError(null);
     try {
       const auth = await getAuthHeader();
-      if (!auth) { setError('No active Platform Owner session.'); return; }
-      const res = await fetch(`/api/super-admin/marketplace?page=${page}&limit=${PAGE_SIZE}&auditLimit=80`, {
-        headers: { Authorization: auth }, cache: 'no-store',
+      if (!auth) {
+        setError('No active Platform Owner session.');
+        return;
+      }
+      const response = await fetch(`/api/super-admin/marketplace?page=${page}&limit=${PAGE_SIZE}&auditLimit=80`, {
+        headers: { Authorization: auth },
+        cache: 'no-store',
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) { setError((body as { error?: string }).error ?? `Marketplace service unavailable (${res.status}).`); return; }
-      if (!isResponse(body)) { setError('Marketplace service returned an incomplete response. No totals were inferred.'); return; }
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError((body as { error?: string }).error ?? `Marketplace service unavailable (${response.status}).`);
+        return;
+      }
+      if (!isResponse(body)) {
+        setError('Marketplace service returned an incomplete response. No totals were inferred.');
+        return;
+      }
       setJobs(body.jobs);
       setSummary(body.summary);
       setAuditRows(body.governanceHistoryRecent ?? []);
@@ -89,8 +185,8 @@ export default function Page() {
       setPollingMs(Math.max(5000, body.pollingSuggestedMs ?? 15000));
       setHasNextPage(body.pagination.hasNextPage);
       setTotal(body.pagination.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Marketplace service is unavailable.');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Marketplace service is unavailable.');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -114,21 +210,31 @@ export default function Page() {
   ] : [], [summary]);
 
   const handleAction = async (job: MarketplaceJobRow, action: MarketplaceAction, reason = '') => {
-    setActing({ jobId: job.id, action }); setMessage(null);
+    setActing({ jobId: job.id, action });
+    setMessage(null);
     try {
       const auth = await getAuthHeader();
-      if (!auth) { setMessage('No active Platform Owner session.'); return; }
-      const res = await fetch(`/api/super-admin/marketplace/${job.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: auth },
+      if (!auth) {
+        setMessage('No active Platform Owner session.');
+        return;
+      }
+      const response = await fetch(`/api/super-admin/marketplace/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: auth },
         body: JSON.stringify({ action, reason: reason || undefined }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) { setMessage((body as { error?: string }).error ?? `HTTP ${res.status}`); return; }
-      setMessage(`Action '${action}' applied on job ${job.id}.`);
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage((body as { error?: string }).error ?? `HTTP ${response.status}`);
+        return;
+      }
+      setMessage(`Action '${actionLabel(action)}' applied on job ${job.id}.`);
       await fetchMarketplace(true);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Action failed.');
-    } finally { setActing(null); }
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Action failed.');
+    } finally {
+      setActing(null);
+    }
   };
 
   const initiateAction = (job: MarketplaceJobRow, action: MarketplaceAction) => {
@@ -136,87 +242,127 @@ export default function Page() {
     else void handleAction(job, action);
   };
 
+  const columns: SuperAdminDataColumn<MarketplaceJobRow>[] = [
+    {
+      key: 'route',
+      label: 'Route',
+      render: (row) => <><strong>{routeSummary(row.pickup_location, row.pickup_postcode, row.delivery_location, row.delivery_postcode)}</strong><div>Pickup: {formatDateTime(row.pickup_datetime)} ? Delivery: {formatDateTime(row.delivery_datetime)}</div></>,
+    },
+    { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
+    { key: 'visibility', label: 'Visibility', render: (row) => <><strong>{row.exchange_visibility}</strong><div>Posted: {formatDateTime(row.exchange_posted_at)}</div></> },
+    { key: 'posting', label: 'Posting company', render: (row) => row.posting_company_name },
+    { key: 'awarded', label: 'Awarded company', render: (row) => row.awarded_company_name ?? '?' },
+    { key: 'bids', label: 'Bids', render: (row) => row.bids_count.toLocaleString() },
+    { key: 'created', label: 'Created', render: (row) => formatDateTime(row.created_at) },
+    {
+      key: 'actions',
+      label: 'Owner interventions',
+      render: (row) => {
+        const actions = getActionsForRow(row);
+        if (actions.length === 0) return 'No action';
+        return <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{actions.map((action) => {
+          const busy = acting?.jobId === row.id && acting.action === action;
+          const danger = action === 'force_dispute' || action === 'force_cancel' || action === 'hide_from_exchange';
+          return <button key={action} type="button" onClick={() => initiateAction(row, action)} disabled={Boolean(acting)} style={{ ...actionStyle(danger), opacity: busy ? 0.55 : 1 }}>{busy ? '?' : actionLabel(action)}</button>;
+        })}</div>;
+      },
+    },
+  ];
+
+  const auditColumns: SuperAdminDataColumn<MarketplaceAuditRow>[] = [
+    { key: 'action', label: 'Action', render: (row) => <strong>{row.action_type.replaceAll('_', ' ')}</strong> },
+    { key: 'transition', label: 'Transition', render: (row) => `${row.old_status} ? ${row.new_status}` },
+    { key: 'reason', label: 'Reason', render: (row) => row.reason },
+    { key: 'created', label: 'Created', render: (row) => formatDateTime(row.created_at) },
+  ];
+
   return (
     <ProtectedRoute allowedRoles={['owner']}>
       <ActionConfirmModal
         open={pendingModal !== null}
-        title={pendingModal?.action === 'force_dispute' ? '⚠️ Force dispute' : '🚫 Force cancel'}
+        title={pendingModal?.action === 'force_dispute' ? 'Force dispute' : 'Force cancel'}
         description={pendingModal?.action === 'force_dispute'
-          ? <>This will <strong style={{ color: '#f97316' }}>force a dispute</strong> on job <strong style={{ color: '#f1f5f9' }}>{pendingModal.job.id.slice(0, 8)}…</strong>. Both parties will be notified and platform escalation will begin.</>
-          : <>This will <strong style={{ color: '#ef4444' }}>force cancel</strong> job <strong style={{ color: '#f1f5f9' }}>{pendingModal?.job.id.slice(0, 8)}…</strong>.</>}
+          ? <>This will force a dispute on job <strong>{pendingModal.job.id.slice(0, 8)}?</strong>. Both parties will be notified and platform escalation will begin.</>
+          : <>This will force-cancel job <strong>{pendingModal?.job.id.slice(0, 8)}?</strong>.</>}
         confirmLabel={pendingModal?.action === 'force_dispute' ? 'Confirm force dispute' : 'Confirm force cancel'}
-        danger reasonRequired reasonPlaceholder="Describe the reason for this platform intervention…" submitting={acting !== null}
+        danger
+        reasonRequired
+        reasonPlaceholder="Describe the reason for this platform intervention?"
+        submitting={acting !== null}
         onCancel={() => setPendingModal(null)}
-        onConfirm={(reason) => { if (!pendingModal) return; const { job, action } = pendingModal; setPendingModal(null); void handleAction(job, action, reason); }}
+        onConfirm={(reason) => {
+          if (!pendingModal) return;
+          const { job, action } = pendingModal;
+          setPendingModal(null);
+          void handleAction(job, action, reason);
+        }}
       />
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '1.5rem' }}>🌍</span>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: THEME.text, margin: 0 }}>Marketplace Governance Feed</h1>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: THEME.accent, backgroundColor: 'rgba(245,158,11,0.12)', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>Marketplace</span>
-            </div>
-            <p style={{ color: THEME.muted, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>Live cross-company marketplace feed with exact global totals, paginated jobs and governance audit evidence.</p>
-          </div>
-        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.7rem', marginBottom: '1rem' }}>
-          {(loading ? Array.from({ length: 8 }, (_, index) => ({ label: `Loading ${index + 1}`, value: '—' })) : quickStats).map((item) => (
-            <div key={item.label} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '10px', padding: '0.75rem' }}>
-              <div style={{ color: THEME.text, fontSize: '1.1rem', fontWeight: 700 }}>{item.value}</div>
-              <div style={{ color: THEME.muted, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
-            </div>
-          ))}
-        </div>
+      <SuperAdminPage>
+        <SuperAdminPageHeader
+          eyebrow="Marketplace ? Platform Control"
+          title="Live Marketplace"
+          description="Cross-company marketplace governance with canonical job totals, current exchange visibility and audited owner interventions."
+          icon={<Store size={20} aria-hidden="true" />}
+          meta={<span>Page {page} ? {total.toLocaleString()} total ? Last update {fetchedAt ? formatDateTime(fetchedAt) : '?'} ? Auto-refresh {Math.round(pollingMs / 1000)}s</span>}
+          actions={<button type="button" onClick={() => void fetchMarketplace()} disabled={loading}><RefreshCw size={15} aria-hidden="true" />{loading ? 'Refreshing?' : 'Refresh'}</button>}
+        />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
-          <button onClick={() => void fetchMarketplace()} disabled={loading} style={{ borderRadius: '7px', border: `1px solid ${THEME.cardBorder}`, backgroundColor: '#0b1220', color: THEME.text, padding: '0.45rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}>Refresh feed</button>
-          <span style={{ color: THEME.muted, fontSize: '0.75rem' }}>Page {page} · {total.toLocaleString()} total · Last update: {fetchedAt ? formatDateTime(fetchedAt) : '—'} · Auto-refresh: {Math.round(pollingMs / 1000)}s</span>
-        </div>
+        {message ? <SuperAdminNotice tone="info">{message}</SuperAdminNotice> : null}
+        {error ? <SuperAdminUnavailableState title="Marketplace unavailable" description={error} /> : null}
 
-        {message && <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: `1px solid ${THEME.accent}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.accent, fontSize: '0.82rem', marginBottom: '1rem' }}>{message}</div>}
-        {error && <div role="alert" style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: `1px solid ${THEME.red}`, borderRadius: '8px', padding: '0.65rem 0.9rem', color: THEME.red, fontSize: '0.82rem', marginBottom: '1rem' }}>⚠️ {error}</div>}
+        {!error ? (
+          <>
+            <SuperAdminMetricGrid>
+              {(loading
+                ? Array.from({ length: 8 }, (_, index) => ({ label: `Loading ${index + 1}`, value: '?' as const }))
+                : quickStats
+              ).map((item) => (
+                <SuperAdminMetricCard key={item.label} label={item.label} value={item.value} tone={loading ? 'neutral' : metricTone(item.label)} />
+              ))}
+            </SuperAdminMetricGrid>
 
-        {!error && <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem' }}>
-          {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>Loading…</div> : jobs.length === 0 ? <div style={{ padding: '2rem', textAlign: 'center', color: THEME.muted, fontSize: '0.88rem' }}>No marketplace jobs found.</div> : <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1140px', fontSize: '0.82rem' }}>
-              <thead><tr style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>{['Route', 'Status', 'Visibility', 'Posting company', 'Awarded company', 'Bids', 'Created', 'Owner interventions'].map((heading) => <th key={heading} style={{ padding: '0.75rem 0.9rem', textAlign: 'left', color: THEME.muted, fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{heading}</th>)}</tr></thead>
-              <tbody>{jobs.map((row) => {
-                const actions = getActionsForRow(row);
-                return <tr key={row.id} style={{ borderBottom: `1px solid ${THEME.cardBorder}` }}>
-                  <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}><div style={{ fontWeight: 700 }}>{routeSummary(row.pickup_location, row.pickup_postcode, row.delivery_location, row.delivery_postcode)}</div><div style={{ fontSize: '0.72rem', color: THEME.muted, marginTop: '0.2rem' }}>Pickup: {formatDateTime(row.pickup_datetime)} · Delivery: {formatDateTime(row.delivery_datetime)}</div></td>
-                  <td style={{ padding: '0.75rem 0.9rem' }}><StatusChip value={row.status} /></td>
-                  <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}><div style={{ fontWeight: 700 }}>{row.exchange_visibility}</div><div style={{ color: THEME.muted, fontSize: '0.72rem' }}>Posted: {formatDateTime(row.exchange_posted_at)}</div></td>
-                  <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{row.posting_company_name}</td>
-                  <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{row.awarded_company_name ?? '—'}</td>
-                  <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{row.bids_count}</td>
-                  <td style={{ padding: '0.75rem 0.9rem', color: THEME.text }}>{formatDateTime(row.created_at)}</td>
-                  <td style={{ padding: '0.75rem 0.9rem' }}><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                    {actions.length === 0 && <span style={{ color: THEME.muted, fontSize: '0.74rem' }}>No action</span>}
-                    {actions.map((action) => {
-                      const isBusy = acting?.jobId === row.id && acting.action === action;
-                      const danger = action === 'force_dispute' || action === 'force_cancel' || action === 'hide_from_exchange';
-                      return <button key={action} onClick={() => initiateAction(row, action)} disabled={Boolean(acting)} style={{ padding: '0.28rem 0.6rem', borderRadius: '6px', border: `1px solid ${danger ? THEME.red : THEME.green}`, backgroundColor: 'transparent', color: danger ? THEME.red : THEME.green, fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', opacity: isBusy ? 0.6 : 1 }}>{isBusy ? '…' : action}</button>;
-                    })}
-                  </div></td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </div>}
-          {!loading && (page > 1 || hasNextPage) && <div style={{ minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '4px 12px', borderTop: `1px solid ${THEME.cardBorder}` }}>
-            <span style={{ color: THEME.muted, fontSize: '0.75rem' }}>Page {page} · {total.toLocaleString()} total jobs</span>
-            <div style={{ display: 'flex', gap: '6px' }}><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1 || loading}>← Prev</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasNextPage || loading}>Next →</button></div>
-          </div>}
-        </div>}
+            <SuperAdminSectionCard
+              title="Marketplace jobs"
+              description="Canonical cross-company exchange ledger. Owner interventions remain explicit and audited."
+              actions={<SuperAdminStatusBadge label={`${total.toLocaleString()} total`} tone="info" />}
+              flush
+            >
+              {loading ? (
+                <div style={{ padding: 18 }}>Loading verified marketplace jobs?</div>
+              ) : jobs.length === 0 ? (
+                <SuperAdminEmptyState title="No marketplace jobs found" />
+              ) : (
+                <SuperAdminDataGrid columns={columns} rows={jobs} rowKey={(row) => row.id} minWidth={1180} />
+              )}
+              {!loading && (page > 1 || hasNextPage) ? (
+                <SuperAdminPager
+                  page={page}
+                  totalCount={total}
+                  canPrev={page > 1}
+                  canNext={hasNextPage}
+                  onPrev={() => setPage((current) => Math.max(1, current - 1))}
+                  onNext={() => setPage((current) => current + 1)}
+                />
+              ) : null}
+            </SuperAdminSectionCard>
 
-        <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '12px', padding: '0.9rem' }}>
-          <h2 style={{ margin: '0 0 0.6rem', color: THEME.text, fontSize: '0.92rem' }}>Marketplace Governance Audit Log</h2>
-          {!governanceHistoryAvailable ? <p style={{ margin: 0, color: THEME.red, fontSize: '0.8rem' }}>Audit unavailable{governanceHistoryError ? `: ${governanceHistoryError}` : ''}.</p> : auditRows.length === 0 ? <p style={{ margin: 0, color: THEME.muted, fontSize: '0.8rem' }}>No marketplace governance events recorded.</p> : <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            {auditRows.slice(0, 20).map((event) => <div key={event.id} style={{ fontSize: '0.78rem', color: THEME.text }}><span style={{ color: THEME.accent, fontWeight: 700 }}>{event.action_type}</span><span style={{ color: THEME.muted }}> · {formatDateTime(event.created_at)} · {event.old_status} → {event.new_status}</span><div style={{ color: THEME.muted, marginTop: '0.1rem' }}>{event.reason}</div></div>)}
-          </div>}
-        </div>
-      </div>
+            <SuperAdminSectionCard
+              title="Marketplace governance audit"
+              description="Recent evidence for Platform Owner interventions. Audit unavailability is never represented as an empty healthy history."
+              flush
+            >
+              {!governanceHistoryAvailable ? (
+                <SuperAdminUnavailableState title="Governance audit unavailable" description={governanceHistoryError ?? 'Audit source unavailable.'} />
+              ) : auditRows.length === 0 ? (
+                <SuperAdminEmptyState title="No marketplace governance events recorded" />
+              ) : (
+                <SuperAdminDataGrid columns={auditColumns} rows={auditRows.slice(0, 20)} rowKey={(row) => row.id} minWidth={820} />
+              )}
+            </SuperAdminSectionCard>
+          </>
+        ) : null}
+      </SuperAdminPage>
     </ProtectedRoute>
   );
 }

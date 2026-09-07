@@ -114,11 +114,11 @@ type FeedItem = { label: string; detail: string; icon: LucideIcon; accent: strin
 type CanonicalStatus = 'available' | 'offline' | 'posted' | 'cancelled' | 'delivered' | 'ready' | 'attention' | 'critical';
 
 const C = {
-  blue: '#1A73E8',
-  green: '#34A853',
-  yellow: '#FBBC05',
-  red: '#EA4335',
-  grey: '#8A9099',
+  blue: '#1D57D8',
+  green: '#168553',
+  yellow: '#F5A300',
+  red: '#D92D20',
+  grey: '#667085',
 } as const;
 
 const money = (value: number | null, currency: string | null) =>

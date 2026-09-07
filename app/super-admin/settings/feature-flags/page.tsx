@@ -75,12 +75,12 @@ export default function Page() {
       {!error && !loading && flags.length === 0 ? <SuperAdminEmptyState title="No feature flags are available." /> : null}
       {!error && !loading ? <SuperAdminSectionCard title="Governed feature registry" description="Enable or disable only flags returned by the canonical settings service.">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10 }}>
-          {flags.map((flag) => <article key={flag.key} style={{ border: '1px solid #D9E1EA', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
+          {flags.map((flag) => <article key={flag.key} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
-              <div><strong>{flag.label}</strong><code style={{ display: 'block', marginTop: 3, color: '#64748B', fontSize: 11 }}>{flag.key}</code></div>
+              <div><strong>{flag.label}</strong><code style={{ display: 'block', marginTop: 3, color: '#667085', fontSize: 11 }}>{flag.key}</code></div>
               <SuperAdminStatusBadge label={flag.enabled ? 'Enabled' : 'Disabled'} tone={flag.enabled ? 'success' : 'neutral'} />
             </div>
-            <p style={{ color: '#475569', fontSize: 12, lineHeight: 1.5 }}>{flag.description}</p>
+            <p style={{ color: '#667085', fontSize: 12, lineHeight: 1.5 }}>{flag.description}</p>
             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid #EEF2F6', paddingTop: 10 }}>
               <span><SuperAdminStatusBadge label={flag.category} tone="info" /></span>
               <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 12 }}><input type="checkbox" checked={flag.enabled} onChange={(event) => setEnabled(flag.key, event.target.checked)} /> {flag.enabled ? 'On' : 'Off'}</span>

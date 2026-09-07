@@ -123,18 +123,18 @@ export default function Page() {
 
       <SuperAdminSectionCard title="Live Service Health" description="Each status reflects a verified endpoint or governance check from this refresh cycle.">
         {loading && checks.length === 0 ? <SuperAdminEmptyState title="Running platform checks…" /> : checks.length === 0 ? <SuperAdminEmptyState title="No health checks returned." /> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 10 }}>
-          {checks.map((check) => <article key={check.service} style={{ border: '1px solid #D9E1EA', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
+          {checks.map((check) => <article key={check.service} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}><strong>{check.service}</strong><SuperAdminStatusBadge label={labelFor(check.status)} tone={toneFor(check.status)} /></div>
-            <div style={{ marginTop: 8, color: '#64748B', fontSize: 12 }}>{check.latencyMs !== undefined ? `${check.latencyMs}ms · ` : ''}{check.detail ?? 'No detail returned.'}</div>
+            <div style={{ marginTop: 8, color: '#667085', fontSize: 12 }}>{check.latencyMs !== undefined ? `${check.latencyMs}ms · ` : ''}{check.detail ?? 'No detail returned.'}</div>
           </article>)}
         </div>}
       </SuperAdminSectionCard>
 
       <SuperAdminSectionCard title="Integration Readiness" description="Configuration readiness only; credentials and secrets are never exposed.">
         {integrations.length === 0 ? <SuperAdminNotice tone="warning">No integration readiness records were returned.</SuperAdminNotice> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 10 }}>
-          {integrations.map((integration) => <article key={integration.service} style={{ border: '1px solid #D9E1EA', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
+          {integrations.map((integration) => <article key={integration.service} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><strong>{integration.service}</strong><SuperAdminStatusBadge label={integration.configured ? 'Configured' : 'Action needed'} tone={integration.configured ? 'success' : 'warning'} /></div>
-            <div style={{ marginTop: 8, color: '#64748B', fontSize: 12 }}>{integration.detail}</div>
+            <div style={{ marginTop: 8, color: '#667085', fontSize: 12 }}>{integration.detail}</div>
           </article>)}
         </div>}
       </SuperAdminSectionCard>

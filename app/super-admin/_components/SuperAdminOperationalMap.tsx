@@ -22,11 +22,11 @@ export type OperationalJobPin = {
 };
 
 const COLORS = {
-  blue: '#1A73E8',
-  green: '#34A853',
-  yellow: '#FBBC05',
-  red: '#EA4335',
-  grey: '#8A9099',
+  blue: '#1D57D8',
+  green: '#168553',
+  yellow: '#F5A300',
+  red: '#D92D20',
+  grey: '#667085',
   white: '#FFFFFF',
   shadow: '0px 2px 6px rgba(0,0,0,0.08)',
 } as const;
@@ -70,7 +70,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
 
       const markerIcon = (color: string, label: string) => L.divIcon({
         className: '',
-        html: `<div style="width:24px;height:24px;border-radius:8px;background:${color};border:2px solid ${COLORS.white};box-shadow:${COLORS.shadow};display:grid;place-items:center;color:${COLORS.white};font:500 14px/1 Inter,Roboto,sans-serif">${label}</div>`,
+        html: `<div style="width:24px;height:24px;border-radius:8px;background:${color};border:2px solid ${COLORS.white};box-shadow:${COLORS.shadow};display:grid;place-items:center;color:${COLORS.white};font:700 12px/1 Inter,Arial,sans-serif">${label}</div>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
@@ -78,20 +78,20 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       const popup = (title: string, lines: string[]) => {
         const root = document.createElement('div');
         root.style.minWidth = '180px';
-        root.style.fontFamily = 'Inter, Roboto, Arial, sans-serif';
+        root.style.fontFamily = 'Inter, Arial, sans-serif';
         root.style.color = COLORS.grey;
         root.style.background = COLORS.white;
         const heading = document.createElement('strong');
         heading.textContent = title;
         heading.style.color = COLORS.blue;
-        heading.style.fontSize = '20px';
-        heading.style.fontWeight = '700';
+        heading.style.fontSize = '14px';
+        heading.style.fontWeight = '800';
         root.appendChild(heading);
         for (const line of lines) {
           const item = document.createElement('div');
           item.textContent = line;
-          item.style.fontSize = '14px';
-          item.style.marginTop = '24px';
+          item.style.fontSize = '12px';
+          item.style.marginTop = '6px';
           item.style.color = COLORS.grey;
           root.appendChild(item);
         }
@@ -143,9 +143,9 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       control.onAdd = () => {
         const wrap = L.DomUtil.create('div');
         wrap.style.display = 'flex';
-        wrap.style.gap = '24px';
+        wrap.style.gap = '6px';
         wrap.style.background = COLORS.white;
-        wrap.style.padding = '24px';
+        wrap.style.padding = '8px';
         wrap.style.border = `1px solid ${COLORS.grey}`;
         wrap.style.borderRadius = '8px';
         wrap.style.boxShadow = COLORS.shadow;
@@ -158,11 +158,11 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
           button.style.background = COLORS.white;
           button.style.color = COLORS.blue;
           button.style.borderRadius = '8px';
-          button.style.padding = '12px 18px';
+          button.style.padding = '6px 9px';
           button.style.boxShadow = COLORS.shadow;
-          button.style.fontFamily = 'Inter, Roboto, Arial, sans-serif';
-          button.style.fontSize = '16px';
-          button.style.fontWeight = '500';
+          button.style.fontFamily = 'Inter, Arial, sans-serif';
+          button.style.fontSize = '11px';
+          button.style.fontWeight = '700';
           button.onclick = () => map.setView([region.lat, region.lng], region.zoom);
           wrap.appendChild(button);
         }
@@ -180,7 +180,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
   }, [drivers, jobs, routes]);
 
   return (
-    <div style={{ padding: '24px', border: `1px solid ${COLORS.grey}`, borderRadius: '8px', boxShadow: COLORS.shadow, background: COLORS.white }}>
+    <div style={{ padding: '12px', border: `1px solid ${COLORS.grey}`, borderRadius: '8px', boxShadow: COLORS.shadow, background: COLORS.white }}>
       <div ref={nodeRef} aria-label="Live operational map UK and Ireland" style={{ width: '100%', minHeight: 420, border: `1px solid ${COLORS.grey}`, borderRadius: '8px', overflow: 'hidden', background: COLORS.white, boxShadow: COLORS.shadow }} />
     </div>
   );

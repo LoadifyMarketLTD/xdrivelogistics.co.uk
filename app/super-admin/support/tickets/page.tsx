@@ -21,9 +21,9 @@ const actionButtonStyle = {
   minHeight: '40px',
   padding: '0 12px',
   borderRadius: '8px',
-  border: '1px solid #8A9099',
+  border: '1px solid #667085',
   background: '#FFFFFF',
-  color: '#1A73E8',
+  color: '#1D57D8',
   boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
   fontFamily: 'Inter, Arial, sans-serif',
   fontSize: '16px',
@@ -74,7 +74,7 @@ export default function Page() {
         label: 'Ticket ID',
         render: (row: Row) => (
           <div style={{ display: 'grid', gap: '24px' }}>
-            <code style={{ color: '#8A9099', fontSize: '14px' }}>{row.id}</code>
+            <code style={{ color: '#667085', fontSize: '14px' }}>{row.id}</code>
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               <PlatformEntityLink entityType="ticket" entityId={row.id} compact>Open</PlatformEntityLink>
               <button
@@ -153,10 +153,10 @@ export default function Page() {
         <div
           style={{
             position: 'fixed', top: '24px', right: '24px', zIndex: 999,
-            backgroundColor: '#FFFFFF', border: '1px solid #EA4335',
+            backgroundColor: '#FFFFFF', border: '1px solid #D92D20',
             borderRadius: '8px', padding: '24px',
             boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
-            color: '#EA4335', fontSize: '14px', maxWidth: '360px',
+            color: '#D92D20', fontSize: '14px', maxWidth: '360px',
             cursor: 'pointer',
           }}
           onClick={() => setInlineError(null)}

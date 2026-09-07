@@ -17,10 +17,10 @@ const C = {
   white: '#FFFFFF',
   charcoal: '#1A1F2B',
   light: '#F4F6F8',
-  border: '#D9E1EA',
-  muted: '#64748B',
+  border: '#E5E7EB',
+  muted: '#667085',
   orange: '#F5A300',
-  danger: '#DC2626',
+  danger: '#D92D20',
   success: '#168553',
 } as const;
 
@@ -80,7 +80,7 @@ const toneColor = {
   default: C.charcoal,
   muted: C.muted,
   success: C.success,
-  warning: '#A15A00',
+  warning: '#9A6700',
   danger: C.danger,
 } as const;
 
@@ -234,7 +234,7 @@ function ReadOnlyInspector() {
               </summary>
               <div style={{ borderTop: `1px solid ${C.border}`, padding: 10 }}>
                 {section.unavailable ? (
-                  <div style={{ color: '#A15A00', fontSize: 9.5 }}>Unavailable{section.unavailableReason ? ` — ${section.unavailableReason}` : ''}</div>
+                  <div style={{ color: '#9A6700', fontSize: 9.5 }}>Unavailable{section.unavailableReason ? ` — ${section.unavailableReason}` : ''}</div>
                 ) : section.fields?.length ? (
                   <div style={{ display: 'grid', gap: 6 }}>
                     {section.fields.map((entry) => (

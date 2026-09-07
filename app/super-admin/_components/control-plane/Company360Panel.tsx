@@ -35,7 +35,7 @@ type Company360Payload = {
   error?: string;
 };
 
-const C = { navy: '#082a61', blue: '#1d57d8', orange: '#f59e0b', green: '#168553', red: '#d92d20', purple: '#7c3aed', text: '#172033', muted: '#66778e', border: '#dfe6ef', bg: '#f7f9fc', white: '#fff' } as const;
+const C = { navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', green: '#168553', red: '#D92D20', purple: '#1D57D8', text: '#1A1F2B', muted: '#667085', border: '#E5E7EB', bg: '#F4F6F8', white: '#FFFFFF' } as const;
 
 const display = (value: unknown, fallback = '—') => {
   if (value === null || value === undefined || value === '') return fallback;
@@ -134,7 +134,7 @@ function Domain({ title, description, href, children, defaultOpen = false, warni
         </span>
       </summary>
       <div style={{ borderTop: `1px solid ${C.border}`, padding: 12 }}>
-        {warning ? <div style={{ marginBottom: 10, borderLeft: `3px solid ${C.orange}`, background: '#fffaf0', padding: '7px 9px', color: '#806b43', fontSize: 9.3 }}>{warning}</div> : null}
+        {warning ? <div style={{ marginBottom: 10, borderLeft: `3px solid ${C.orange}`, background: '#FFFFFFaf0', padding: '7px 9px', color: '#806b43', fontSize: 9.3 }}>{warning}</div> : null}
         {children}
       </div>
     </details>
@@ -202,7 +202,7 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
   return (
     <section style={{ marginBottom: 16, border: `1px solid ${legacyOrphaned ? '#f2b8b5' : C.border}`, borderRadius: 16, background: C.bg, padding: 13 }}>
       {legacyOrphaned ? (
-        <div style={{ marginBottom: 12, border: `1px solid #f2b8b5`, borderLeft: `5px solid ${C.red}`, borderRadius: 12, background: '#fff7f7', padding: 12 }}>
+        <div style={{ marginBottom: 12, border: `1px solid #f2b8b5`, borderLeft: `5px solid ${C.red}`, borderRadius: 12, background: '#FFFFFF7f7', padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 7 }}>
@@ -260,19 +260,19 @@ export default function Company360Panel({ companyId }: { companyId: string }) {
 
         <Domain title="2. Onboarding, verification & Request completion" description="Latest onboarding state, completion, risk assessment, missing requirements and every linked onboarding application." href="/super-admin/companies/verification" warning={payload.onboarding?.note}>
           {legacyOrphaned ? (
-            <div style={{ borderLeft: `4px solid ${C.red}`, borderRadius: 9, background: '#fff7f7', padding: 10, color: '#7a3a36', fontSize: 9.6, lineHeight: 1.5 }}><strong>Completion workflow is suppressed for this legacy/orphaned record.</strong> Open the canonical active company first. A stale company record must not receive onboarding or document-remediation actions.</div>
+            <div style={{ borderLeft: `4px solid ${C.red}`, borderRadius: 9, background: '#FFFFFF7f7', padding: 10, color: '#7a3a36', fontSize: 9.6, lineHeight: 1.5 }}><strong>Completion workflow is suppressed for this legacy/orphaned record.</strong> Open the canonical active company first. A stale company record must not receive onboarding or document-remediation actions.</div>
           ) : hasOnboarding ? (
             <Fields rows={[
               ['Status', payload.onboarding?.latest?.status], ['Current step', payload.onboarding?.latest?.current_step], ['Completion', `${onboardingCompletion}%`], ['Account type', payload.onboarding?.latest?.account_type], ['Workspace mode', payload.onboarding?.latest?.workspace_mode], ['Owner-driver workspace', payload.onboarding?.latest?.owner_driver_workspace], ['Risk status', payload.onboarding?.latest?.risk_status], ['Risk reason', payload.onboarding?.latest?.risk_reason], ['Review notes', payload.onboarding?.latest?.review_notes], ['Submitted', shortDate(payload.onboarding?.latest?.submitted_at)], ['Reviewed', shortDate(payload.onboarding?.latest?.reviewed_at)], ['Last activity', shortDate(payload.onboarding?.latest?.last_activity_at)],
             ]} />
           ) : (
-            <div style={{ borderLeft: `4px solid ${C.orange}`, borderRadius: 9, background: '#fffaf0', padding: 10, color: '#806b43', fontSize: 9.6, lineHeight: 1.5 }}><strong>No canonical onboarding application is linked to this company.</strong> This is shown as a provenance gap, not automatically treated as an incomplete onboarding flow. Review the company history before requesting completion.</div>
+            <div style={{ borderLeft: `4px solid ${C.orange}`, borderRadius: 9, background: '#FFFFFFaf0', padding: 10, color: '#806b43', fontSize: 9.6, lineHeight: 1.5 }}><strong>No canonical onboarding application is linked to this company.</strong> This is shown as a provenance gap, not automatically treated as an incomplete onboarding flow. Review the company history before requesting completion.</div>
           )}
           {!legacyOrphaned ? (
-            <div style={{ marginTop: 10, border: `1px solid ${completionNeeded ? '#efc36f' : '#b7dec9'}`, borderRadius: 11, background: completionNeeded ? '#fffaf0' : '#f4fbf7', padding: 10 }}>
+            <div style={{ marginTop: 10, border: `1px solid ${completionNeeded ? '#efc36f' : '#b7dec9'}`, borderRadius: 11, background: completionNeeded ? '#FFFFFFaf0' : '#f4fbf7', padding: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div>
-                  <strong style={{ color: completionNeeded ? '#8a5800' : C.green, fontSize: 10.5 }}>{completionNeeded ? 'Request completion preflight' : hasOnboarding ? 'Onboarding/document preflight clear' : 'Completion request not automatically available'}</strong>
+                  <strong style={{ color: completionNeeded ? '#9A6700' : C.green, fontSize: 10.5 }}>{completionNeeded ? 'Request completion preflight' : hasOnboarding ? 'Onboarding/document preflight clear' : 'Completion request not automatically available'}</strong>
                   <div style={{ marginTop: 3, color: C.muted, fontSize: 9.2 }}>{!hasOnboarding ? 'A missing onboarding record is an investigation/provenance issue; it is not enough by itself to send a completion request.' : 'The live read model identifies incomplete onboarding plus missing, pending, rejected, expired or risky documents before a request is sent.'}</div>
                 </div>
                 {completionNeeded ? <StatePill tone="warning">Visual send action only — no mutation yet</StatePill> : !hasOnboarding ? <StatePill tone="warning">Investigate provenance</StatePill> : <StatePill tone="success">No request needed</StatePill>}

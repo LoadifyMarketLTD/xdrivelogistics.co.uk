@@ -38,7 +38,7 @@ export default function Page() {
           render: (row) => (
             <span style={{ fontSize: '0.75rem' }}>
               {row.entity_name ?? '—'}
-              <span style={{ marginLeft: '0.3rem', fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase' }}>({row.entity_type})</span>
+              <span style={{ marginLeft: '0.3rem', fontSize: '0.65rem', color: '#667085', textTransform: 'uppercase' }}>({row.entity_type})</span>
             </span>
           ),
         },
@@ -56,7 +56,7 @@ export default function Page() {
           key: 'expiry_date',
           label: 'Expiry',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#ef4444' : '#94a3b8' }}>
+            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
               {row.expiry_date ? formatDateTime(row.expiry_date) : '—'}
             </span>
           ),

@@ -11,8 +11,8 @@ import styles from './actionCentre.module.css';
 
 const ENTITY_TYPES = new Set<PlatformEntityType>(['job','company','user','driver','vehicle','invoice','pod','ticket','dispute','notification','health_check','case']);
 const entityType = (value: string): PlatformEntityType => ENTITY_TYPES.has(value as PlatformEntityType) ? value as PlatformEntityType : 'case';
-const severityColor: Record<'P0'|'P1'|'P2'|'P3', string> = { P0:'#DC2626', P1:'#B45309', P2:'#1D57D8', P3:'#64748B' };
-const statusColor: Record<PlatformCaseStatus, string> = { open:'#DC2626', acknowledged:'#B45309', investigating:'#1D57D8', waiting:'#B45309', resolved:'#15803D', closed:'#64748B' };
+const severityColor: Record<'P0'|'P1'|'P2'|'P3', string> = { P0:'#D92D20', P1:'#9A6700', P2:'#1D57D8', P3:'#667085' };
+const statusColor: Record<PlatformCaseStatus, string> = { open:'#D92D20', acknowledged:'#9A6700', investigating:'#1D57D8', waiting:'#9A6700', resolved:'#168553', closed:'#667085' };
 const when = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}); };
 
 type ApiCaseRow = {

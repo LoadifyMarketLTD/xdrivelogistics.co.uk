@@ -5,8 +5,8 @@ import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const THEME = {
-  pageBg: '#F4F6F8', cardBg: '#FFFFFF', cardBorder: '#D9E1EA', text: '#1A1F2B',
-  heading: '#0B2F6B', blue: '#1D57D8', muted: '#64748B', accent: '#F5A300', green: '#16A34A', red: '#DC2626',
+  pageBg: '#F4F6F8', cardBg: '#FFFFFF', cardBorder: '#E5E7EB', text: '#1A1F2B',
+  heading: '#0B2F6B', blue: '#1D57D8', muted: '#667085', accent: '#F5A300', green: '#168553', red: '#D92D20',
 } as const;
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -86,13 +86,13 @@ export default function Page() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Financial Reporting</h1>
-                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A5D00', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Finance</span>
+                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A6700', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Finance</span>
               </div>
               <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Verified issued-invoice, paid-value and settlement reporting. Multiple currencies are never silently combined.</p>
               {payload && <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '10px' }}>Verified {new Date(payload.refreshedAt).toLocaleString('en-GB')} · {payload.currency}</p>}
             </div>
           </div>
-          <button type="button" onClick={() => void load()} disabled={loading} style={{ height: '32px', padding: '0 10px', border: `1px solid ${THEME.blue}`, borderRadius: '4px', background: THEME.blue, color: '#fff', fontWeight: 800, fontSize: '11px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? .65 : 1 }}>{loading ? 'Loading…' : 'Refresh'}</button>
+          <button type="button" onClick={() => void load()} disabled={loading} style={{ height: '32px', padding: '0 10px', border: `1px solid ${THEME.blue}`, borderRadius: '4px', background: THEME.blue, color: '#FFFFFF', fontWeight: 800, fontSize: '11px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? .65 : 1 }}>{loading ? 'Loading…' : 'Refresh'}</button>
         </header>
 
         {error && <div role="alert" style={{ backgroundColor: '#FEF2F2', border: `1px solid ${THEME.red}`, borderLeft: `4px solid ${THEME.red}`, borderRadius: '4px', padding: '8px 10px', color: THEME.red, fontSize: '12px', marginBottom: '12px' }}>{error}</div>}

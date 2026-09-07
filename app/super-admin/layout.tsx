@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
-import './super-admin-light.css';
 import './super-admin-visual-contract.css';
 
 // The protected Super Admin document receives a per-request CSP nonce from
@@ -18,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="super-admin-light-root">
+    <div className="super-admin-enterprise-root" data-super-admin-visual="enterprise-v3">
       <SuperAdminWorkspaceShell>{children}</SuperAdminWorkspaceShell>
     </div>
   );

@@ -10,7 +10,7 @@ import {
   type RetryFeedback,
 } from './_lib/notificationsPage';
 
-const X = { navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626' } as const;
+const X = { navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8', border: '#E5E7EB', muted: '#667085', danger: '#D92D20' } as const;
 const controlStyle = { height: '32px', background: X.white, color: X.charcoal, border: `1px solid ${X.border}`, borderRadius: '4px', padding: '0 8px', fontSize: '12px', outlineColor: X.blue } as const;
 
 export default function Page() {

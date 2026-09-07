@@ -117,19 +117,19 @@ export default function Page() {
   };
   const applySearch = (event:FormEvent) => { event.preventDefault(); setPage(1); setSearch(searchInput.trim()); };
   const columns: SuperAdminDataColumn<Company>[] = [
-    { key:'company', label:'Company', render:(row)=><div><strong>{row.name}</strong><div style={{fontSize:11,color:'#64748B'}}>Reg: {row.company_number ?? '—'}</div></div> },
+    { key:'company', label:'Company', render:(row)=><div><strong>{row.name}</strong><div style={{fontSize:11,color:'#667085'}}>Reg: {row.company_number ?? '—'}</div></div> },
     { key:'status', label:'Status', render:(row)=><StatusChip value={row.status}/> },
     { key:'type', label:'Type', render:(row)=>row.company_type ?? 'standard' },
     { key:'email', label:'Email', render:(row)=>row.email ?? '—' },
     { key:'created', label:'Created', render:(row)=>formatDateTime(row.created_at) },
     { key:'actions', label:'Governance', render:(row)=>{
       const actions = actionsFor(row.status);
-      return <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{actions.length===0 ? <span style={{color:'#64748B'}}>No action</span> : actions.map((action)=><button key={action} type="button" disabled={Boolean(acting)} onClick={()=>initiateAction(row,action)} style={{minHeight:30,padding:'0 9px'}}>{acting?.companyId===row.id&&acting.action===action?'…':action}</button>)}</div>;
+      return <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{actions.length===0 ? <span style={{color:'#667085'}}>No action</span> : actions.map((action)=><button key={action} type="button" disabled={Boolean(acting)} onClick={()=>initiateAction(row,action)} style={{minHeight:30,padding:'0 9px'}}>{acting?.companyId===row.id&&acting.action===action?'…':action}</button>)}</div>;
     }},
     { key:'history', label:'Audit history', render:(row)=>{
       const entries = historyByCompany[row.id] ?? [];
-      if (!historyAvailable) return <span style={{color:'#64748B'}}>Unavailable</span>;
-      if (entries.length===0) return <span style={{color:'#64748B'}}>No entries</span>;
+      if (!historyAvailable) return <span style={{color:'#667085'}}>Unavailable</span>;
+      if (entries.length===0) return <span style={{color:'#667085'}}>No entries</span>;
       return <div>{entries.slice(0,3).map((entry)=><div key={entry.id} style={{fontSize:11}}><strong>{entry.action_type}</strong> · {formatDateTime(entry.created_at)}</div>)}</div>;
     }},
     { key:'inspect', label:'Inspect', render:(row)=><PlatformEntityLink entityType="company" entityId={row.id} compact>Inspect</PlatformEntityLink> },
