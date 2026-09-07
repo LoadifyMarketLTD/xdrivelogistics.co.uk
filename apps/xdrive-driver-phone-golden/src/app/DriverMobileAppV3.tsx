@@ -1594,7 +1594,8 @@ function WorkOverview({ job, onCall, onOpenRoute }: { job: JobDetail; onCall: ()
     || (commercial.paymentDueDays ? `${commercial.paymentDueDays} days` : 'Not supplied');
   const allocatedLabel = [textValue(vehicle.registration), textValue(vehicle.make), textValue(vehicle.model), textValue(vehicle.type)]
     .filter(Boolean).join(' · ');
-  const dimensions = [numberText(cargo.lengthCm), numberText(cargo.widthCm), numberText(cargo.heightCm)].filter(Boolean).join(' × ');
+  const dimensionValues = [cargo.lengthCm, cargo.widthCm, cargo.heightCm].map((value) => Number(value));
+  const dimensions = dimensionValues.every((value) => Number.isFinite(value) && value > 0) ? dimensionValues.join(' × ') : '';
   const palletSummary = [numberText(cargo.pallets), textValue(cargo.palletType), cargo.stackable === true ? 'stackable' : cargo.stackable === false ? 'not stackable' : '']
     .filter(Boolean).join(' · ');
   const instructionRows = [
@@ -1717,6 +1718,21 @@ function fullDrivingRouteUrl(stops: JobStop[], currentPosition: { latitude: numb
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
+function embeddedDrivingRouteUrl(stops: JobStop[], currentPosition: { latitude: number; longitude: number } | null) {
+  const destinations = stops.map(stopDestination).filter(Boolean);
+  if (destinations.length === 0) return '';
+  const origin = currentPosition ? `${currentPosition.latitude},${currentPosition.longitude}` : destinations[0];
+  const remaining = currentPosition ? destinations : destinations.slice(1);
+  if (!origin || remaining.length === 0) return '';
+  const params = new URLSearchParams({
+    output: 'embed',
+    saddr: origin,
+    daddr: remaining.join(' to:'),
+    dirflg: 'd',
+  });
+  return `https://www.google.com/maps?${params.toString()}`;
+}
+
 function navigationUrl(stop: JobStop) {
   const destination = stopDestination(stop);
   const params = new URLSearchParams({ api: '1', destination, travelmode: 'driving', dir_action: 'navigate' });
@@ -1747,6 +1763,7 @@ function WorkRoute({ job }: { job: JobDetail }) {
   }, [job.id]);
 
   const routeUrl = fullDrivingRouteUrl(stops, currentPosition);
+  const embeddedRouteUrl = embeddedDrivingRouteUrl(stops, currentPosition);
   const nextNavigationUrl = nextStop ? navigationUrl(nextStop) : '';
 
   return <View style={styles.stack}>
@@ -1761,7 +1778,7 @@ function WorkRoute({ job }: { job: JobDetail }) {
 
     <View style={styles.routeMapShell}>
       <View style={styles.routeMapHeader}><Text style={styles.sectionKicker}>ROUTE MAP</Text><Text style={styles.referenceText}>{currentPosition ? 'Current location ? all stops' : 'All booked stops'}</Text></View>
-      {routeUrl ? <WebView source={{ uri: routeUrl }} style={styles.routeMap} nestedScrollEnabled setSupportMultipleWindows={false} javaScriptEnabled domStorageEnabled /> : <EmptyState title="Map unavailable" body="The ordered stop list remains available below." />}
+      {embeddedRouteUrl ? <WebView source={{ uri: embeddedRouteUrl }} style={styles.routeMap} nestedScrollEnabled setSupportMultipleWindows={false} javaScriptEnabled domStorageEnabled /> : <EmptyState title="Map unavailable" body="The ordered stop list remains available below." />}
       <Text style={styles.routeMapHint}>Stop numbers below follow the exact server sequence. If the map cannot load, navigation to each stop remains available.</Text>
     </View>
 
